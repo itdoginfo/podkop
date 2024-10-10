@@ -1,0 +1,14 @@
+{
+  "admin/services/podkop": {
+    "title": "Podkop",
+    "order": 42,
+    "action": {
+      "type": "view",
+      "path": "podkop/podkop"
+    },
+    "depends": {
+			"acl": [ "luci-app-podkop" ],
+			"uci": { "podkop": true }
+		}
+  }
+}

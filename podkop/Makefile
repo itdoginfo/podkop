@@ -1,0 +1,71 @@
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=podkop
+PKG_VERSION:=1.0.3
+PKG_RELEASE:=1
+
+PKG_MAINTAINER:=ITDog <podkop@itdog.info>
+PKG_LICENSE:=GPL-2.0-or-later
+
+include $(INCLUDE_DIR)/package.mk
+
+define Package/podkop
+	SECTION:=net
+	CATEGORY:=Network
+	DEPENDS:=+curl +jq +kmod-nft-tproxy
+	TITLE:=Domain routing app
+	URL:=https://itdog.info
+	PKGARCH:=all
+endef
+
+define Package/podkop/description
+	Domain routing. Use of VLESS, Shadowsocks technologies
+endef
+
+define Build/Configure
+endef
+
+define Build/Compile
+endef
+
+define Package/podkop/postinst
+#!/bin/sh
+
+if ! uci show ucitrack | grep -q 'podkop'; then
+    uci add ucitrack podkop
+    uci set ucitrack.@podkop[-1].init=podkop
+    uci commit ucitrack
+
+	/etc/init.d/ucitrack restart
+fi
+
+exit 0
+endef
+
+define Package/podkop/prerm
+#!/bin/sh
+
+grep -q "105 podkop" /etc/iproute2/rt_tables && sed -i "/105 podkop/d" /etc/iproute2/rt_tables
+
+exit 0
+endef
+
+define Package/podkop/conffiles
+/etc/config/podkop
+endef
+
+define Package/podkop/install
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./files/etc/init.d/podkop $(1)/etc/init.d/podkop
+
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_CONF) ./files/etc/config/podkop $(1)/etc/config/podkop
+
+	$(INSTALL_DIR) $(1)/etc/podkop
+	$(INSTALL_DATA) ./files/etc/podkop/* $(1)/etc/podkop/
+
+	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface
+	$(INSTALL_DATA) ./files/etc/hotplug.d/iface/50-podkop $(1)/etc/hotplug.d/iface/50-podkop
+endef
+
+$(eval $(call BuildPackage,podkop))

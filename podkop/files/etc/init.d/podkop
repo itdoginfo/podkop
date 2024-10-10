@@ -1,0 +1,476 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+script=$(readlink "$initscript")
+NAME="$(basename ${script:-$initscript})"
+config_load "$NAME"
+
+EXTRA_COMMANDS="list_update add_route_interface"
+EXTRA_HELP="        list_update  Updating domain and subnet lists
+        add_route_interface  Adding route for interface"
+
+cron_job="0 4 * * * /etc/init.d/podkop list_update"
+
+start() {
+    log "Start podkop"
+
+    dnsmasqfull
+    routing_table_create
+    add_mark
+
+    config_get mode "main" "mode"
+    case "$mode" in
+    "vpn")
+        log "VPN mode"
+        log "You are using VPN mode, make sure you have installed all the necessary packages, configured, created the zone and forwarding."
+        config_get interface "main" "interface" "0"
+        if [ -n "$interface" ]; then
+            add_route_interface "$interface"
+        else
+            log "Interface undefined"
+        fi
+        ;;
+    "proxy")
+        log "Proxy mode"
+        config_get proxy_string main "proxy_string"
+        if ! command -v sing-box >/dev/null 2>&1; then
+            log "Sing-box isn't installed. Proxy mode works with sing-box"
+            exit 1
+        fi
+
+        if [[ "$proxy_string" =~ ^ss:// ]]; then
+            sing_box_config_shadowsocks "$proxy_string"
+        elif [[ "$proxy_string" =~ ^vless:// ]]; then
+            sing_box_config_vless "$proxy_string"
+        else
+            log "Unsupported proxy type: $proxy_string"
+            exit 1
+        fi
+
+        sing_box_config_check
+        sing_box_uci
+        /etc/init.d/sing-box restart
+        /etc/init.d/sing-box enable
+        add_route_tproxy
+        ;;
+    *)
+        log "Requires *vpn* or *proxy* value"
+        exit 1
+        ;;
+    esac
+
+    list_update
+
+    if [ "$domain_list_enabled" -eq 1 ] || [ "$subnets_list_enabled" -eq 1 ]; then
+        add_cron_job
+    fi
+
+    config_get_bool all_traffic_from_ip_enabled "main" "all_traffic_from_ip_enabled" "0"
+    if [ "$all_traffic_from_ip_enabled" -eq 1 ]; then
+        log "Adding an IP to redirect all traffic"
+        config_list_foreach main all_traffic_ip list_all_traffic_from_ip
+    fi
+}
+
+stop() {
+    log "Stopping the podkop"
+    rm -f /tmp/dnsmasq.d/podkop*
+    remove_cron_job
+
+    if nft list table inet PodkopTable >/dev/null 2>&1; then
+        nft delete table inet PodkopTable
+    fi
+
+    if ip rule list | grep -q "podkop"; then
+        ip rule del fwmark 0x105 table podkop priority 105
+    fi
+
+    ip route flush table podkop
+
+    if [ "$mode" = "proxy" ]; then
+        /etc/init.d/sing-box stop
+        /etc/init.d/sing-box disable
+    fi
+}
+
+restart() {
+    stop
+    start
+}
+
+reload() {
+    stop
+    start
+}
+
+log() {
+    local message="$1"
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local CYAN="\033[0;36m"
+    local GREEN="\033[0;32m"
+    local RESET="\033[0m"
+
+    echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
+}
+
+add_cron_job() {
+    if ! crontab -l | grep -q "podkop"; then
+        #echo "$cron_job" >>/etc/crontabs/root
+        crontab -l | {
+            cat
+            echo "$cron_job"
+        } | crontab -
+        log "The cron job has been created"
+    fi
+}
+
+remove_cron_job() {
+    sed -i "\|podkop|d" /etc/crontabs/root
+    log "The cron job removed"
+}
+
+list_update() {
+    config_get_bool domain_list_enabled "main" "domain_list_enabled" "0"
+    if [ "$domain_list_enabled" -eq 1 ]; then
+        log "Adding a common domains list"
+        add_set "podkop_domains"
+        config_get domain_list main "domain_list"
+        lists_domains_download "$domain_list"
+        dnsmasq_config_check podkop-domains.lst
+    fi
+
+    config_get_bool custom_domains_list_enabled "main" "custom_domains_list_enabled" "0"
+    if [ "$custom_domains_list_enabled" -eq 1 ]; then
+        log "Adding a custom domains list"
+        add_set "podkop_domains"
+        rm -f /tmp/dnsmasq.d/podkop-custom-domains.lst
+        config_list_foreach main custom_domains "list_custom_domains_create"
+        dnsmasq_config_check podkop-custom-domains.lst
+    fi
+
+    config_get_bool delist_domains_enabled "main" "delist_domains_enabled" "0"
+    if [ "$delist_domains_enabled" -eq 1 ] && [ "$domain_list_enabled" -eq 1 ]; then
+        log "Exclude domains from the common list"
+        config_list_foreach main delist_domains "list_delist_domains"
+        dnsmasq_config_check podkop-domains.lst
+    fi
+
+    if [ "$domain_list_enabled" -eq 1 ] || [ "$custom_domains_list_enabled" -eq 1 ]; then
+        /etc/init.d/dnsmasq restart
+    fi
+
+    config_get_bool subnets_list_enabled "main" "subnets_list_enabled" "0"
+    if [ "$subnets_list_enabled" -eq 1 ]; then
+        log "Adding a subnets from list"
+        mkdir -p /tmp/podkop
+        add_set "podkop_subnets"
+        config_list_foreach main subnets "list_subnets_download"
+    fi
+
+    config_get_bool custom_subnets_list_enabled "main" "custom_subnets_list_enabled" "0"
+    if [ "$subnets_list_enabled" -eq 1 ]; then
+        log "Adding a custom subnets list"
+        add_set "podkop_subnets"
+        config_list_foreach main custom_subnets "list_custom_subnets_create"
+    fi
+}
+
+dnsmasqfull() {
+    if /usr/sbin/dnsmasq -v | grep -q "no-nftset"; then
+        log "Dnsmasq-full is not installed. Future: link only"
+        log "Use script or:"
+        log "cd /tmp/ && /bin/opkg download dnsmasq-full && /bin/opkg remove dnsmasq && /bin/opkg install dnsmasq-full --cache /tmp/ && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp"
+        exit 1
+    fi
+}
+
+routing_table_create() {
+    grep -q "105 podkop" /etc/iproute2/rt_tables || echo '105 podkop' >>/etc/iproute2/rt_tables
+}
+
+add_set() {
+    local set_name="$1"
+    nft add table inet PodkopTable
+    log "Create set $set_name"
+    nft add chain inet PodkopTable mangle_podkop { type filter hook prerouting priority mangle \; policy accept \;}
+    nft add set inet PodkopTable "$set_name" { type ipv4_addr\; flags interval\; auto-merge\; }
+    config_get mode "main" "mode"
+    case "$mode" in
+    "vpn")
+        if nft list table inet PodkopTable | grep -q "chain prerouting"; then
+            nft delete chain inet PodkopTable prerouting
+        fi
+
+        if ! nft list chain inet PodkopTable mangle_podkop | grep -q "ip daddr @"$set_name" meta mark set"; then
+            nft add rule inet PodkopTable mangle_podkop ip daddr @"$set_name" meta mark set 0x105
+        fi
+        ;;
+
+    "proxy")
+        nft add chain inet PodkopTable prerouting { type filter hook prerouting priority mangle \; }
+        if nft list table inet PodkopTable | grep -q "ip daddr @"$set_name" meta l4proto"; then
+            log "Nft rule tproxy exists"
+        else
+            log "Added nft rule tproxy"
+            nft add rule inet PodkopTable prerouting iifname "br-lan" ip daddr @"$set_name" meta l4proto tcp meta mark set 0x105 tproxy ip to :1602 counter
+            nft add rule inet PodkopTable prerouting iifname "br-lan" ip daddr @"$set_name" meta l4proto udp meta mark set 0x105 tproxy ip to :1602 counter
+        fi
+        ;;
+
+    *)
+        log "Requires *vpn* or *proxy* value"
+        exit 1
+        ;;
+    esac
+}
+
+add_route_interface() {
+    local interface="$1"
+    local retry_count=0
+    local max_retries=20
+
+    if ! ip link show "$interface" >/dev/null 2>&1; then
+        log "Interface "$interface" does not exist, not possible to create a route"
+        exit 1
+    fi
+
+    if ip route show table podkop | grep -q "^default dev"; then
+        log "Route for "$interface" exists"
+        return 0
+    fi
+
+    log "Added route for "$interface""
+    while [ $retry_count -lt $max_retries ]; do
+        if ip route add table podkop default dev "$interface" 2>&1 | grep -q "Network is down"; then
+            log "Error: Network is down. Let's try again in 3 seconds"
+            sleep 3
+            retry_count=$((retry_count + 1))
+        else
+            log "Route for "$interface" added"
+            return 0
+        fi
+    done
+
+    log "The maximum number of attempts has been exceeded. Failed to add a route."
+    exit 1
+}
+
+add_route_tproxy() {
+    if ! ip route list table podkop | grep -q "local default dev lo scope host"; then
+        log "Added route for tproxy"
+        ip route add local 0.0.0.0/0 dev lo table podkop
+    else
+        log "Route for tproxy exists"
+    fi
+}
+
+add_mark() {
+    if ! ip rule list | grep -q "from all fwmark 0x105 lookup podkop"; then
+        log "Create marking rule"
+        ip -4 rule add fwmark 0x105 table podkop priority 105
+    else
+        log "Marking rule exist"
+    fi
+}
+
+lists_domains_download() {
+    local URL="$1"
+
+    RU_INSIDE_DOMAINS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Russia/inside-dnsmasq-nfset.lst
+    RU_OUTSIDE_DOMAINS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Russia/outside-dnsmasq-nfset.lst
+    UA_DOMAINS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Ukraine/inside-dnsmasq-nfset.lst
+
+    case "$URL" in
+    "ru_inside")
+        URL=$RU_INSIDE_DOMAINS
+        ;;
+    "ru_outside")
+        URL=$RU_OUTSIDE_DOMAINS
+        ;;
+    "ua")
+        URL=$UA_DOMAINS
+        ;;
+    *)
+        log "Unidentified list of domains"
+        exit 1
+        ;;
+    esac
+
+    count=0
+    while true; do
+        if curl -m 3 github.com; then
+            curl -f $URL --output /tmp/dnsmasq.d/podkop-domains.lst
+            sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
+            return 0
+        else
+            log "GitHub is not available. Check the internet availability [$count sec]"
+            count=$((count + 1))
+        fi
+
+        if [ $count -lt 30 ]; then
+            sleep_interval=1
+        elif [ $count -ge 30 ] && [ $count -lt 60 ]; then
+            sleep_interval=5
+        elif [ $count -ge 60 ] && [ $count -lt 90 ]; then
+            sleep_interval=10
+        else
+            sleep_interval=30
+        fi
+
+        sleep $sleep_interval
+    done
+}
+
+list_subnets_download() {
+    TWITTER_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Twitter.lst
+    META_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Meta.lst
+    local URL="$1"
+
+    case "$URL" in
+    "twitter")
+        URL=$TWITTER_SUBNETS
+        ;;
+    "meta")
+        URL=$META_SUBNETS
+        ;;
+    *)
+        log "Unidentified list of subnets"
+        exit 1
+        ;;
+    esac
+
+    local filename=$(basename "$URL")
+    curl -f "$URL" --output "/tmp/podkop/$filename"
+    while IFS= read -r subnet; do
+        nft add element inet PodkopTable podkop_subnets { $subnet }
+    done <"/tmp/podkop/$filename"
+}
+
+list_custom_domains_create() {
+    local domain="$1"
+    echo "nftset=/$domain/4#inet#PodkopTable#podkop_domains" >>/tmp/dnsmasq.d/podkop-custom-domains.lst
+    log "$domain added to the list"
+}
+
+list_custom_subnets_create() {
+    local subnet="$1"
+    nft add element inet PodkopTable podkop_subnets { $subnet }
+}
+
+list_all_traffic_from_ip() {
+    local ip="$1"
+    if ! nft list chain inet PodkopTable mangle_podkop | grep -q "ip saddr $ip"; then
+        nft add rule inet PodkopTable mangle_podkop ip saddr $ip meta mark set 0x105
+    fi
+}
+
+list_delist_domains() {
+    local domain="$1"
+    sed -i "/$domain/d" /tmp/dnsmasq.d/podkop-domains.lst
+    nft flush set inet PodkopTable podkop_domains
+    log "Strings containing '$domain' have been excluded from the list"
+}
+
+dnsmasq_config_check() {
+    local config="$1"
+    if ! /usr/sbin/dnsmasq --conf-file=/tmp/dnsmasq.d/$config --test 2>&1 | grep -q "syntax check OK"; then
+        log "Dnsmasq config $config contains errors. Break"
+        exit 1
+    fi
+}
+
+sing_box_uci() {
+    local config="/etc/config/sing-box"
+    if grep -q "option enabled '0'" "$config" ||
+        grep -q "option user 'sing-box'" "$config"; then
+        sed -i \
+            -e "s/option enabled '0'/option enabled '1'/" \
+            -e "s/option user 'sing-box'/option user 'root'/" $config
+        log "Change sing-box UCI config"
+    else
+        log "Sing-box UCI config OK"
+    fi
+}
+
+sing_box_config_shadowsocks() {
+    local STRING="$1"
+
+    local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 --decode)
+    local method=$(echo "$encrypted_part" | cut -d':' -f1)
+    local password=$(echo "$encrypted_part" | cut -d':' -f2-)
+
+    local server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
+    local port=$(echo "$STRING" | cut -d':' -f3 | cut -d'#' -f1)
+    label=$(echo "$STRING" | cut -d'#' -f2)
+
+    template_config="/etc/podkop/sing-box-shadowsocks-template.json"
+
+    jq --arg server "$server" \
+        --arg port "$port" \
+        --arg method "$method" \
+        --arg password "$password" \
+        '.outbounds[] |= 
+        if .type == "shadowsocks" then 
+            .server = $server |
+            .server_port = ($port | tonumber) |
+            .method = $method |
+            .password = $password
+        else
+            .
+        end' "$template_config" >/etc/sing-box/config.json
+}
+
+sing_box_config_vless() {
+    local STRING="$1"
+
+    get_param() {
+        echo "$STRING" | sed -n "s/.*[?&]$1=\([^&?#]*\).*/\1/p"
+    }
+
+    uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
+    server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
+    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'/' -f1)
+    type=$(get_param "type")
+    flow=$(get_param "flow")
+    sni=$(get_param "sni")
+    fp=$(get_param "fp")
+    security=$(get_param "security")
+    pbk=$(get_param "pbk")
+    sid=$(get_param "sid")
+    label=$(echo "$STRING" | cut -d'#' -f2)
+
+    template_config="/etc/podkop/sing-box-vless-template.json"
+
+    jq --arg server "$server" \
+        --arg port "$port" \
+        --arg uuid "$uuid" \
+        --arg type "$type" \
+        --arg flow "$flow" \
+        --arg sni "$sni" \
+        --arg fp "$fp" \
+        --arg security "$security" \
+        --arg pbk "$pbk" \
+        --arg sid "$sid" \
+        '.outbounds[] |= 
+        if .type == "vless" then 
+            .server = $server |
+            .server_port = ($port | tonumber) |
+            .uuid = $uuid |
+            if $flow == "" then del(.flow) else .flow = $flow end |
+            .tls.server_name = $sni |
+            .tls.utls.fingerprint = $fp |
+            .tls.reality.public_key = $pbk |
+            .tls.reality.short_id = $sid
+        else
+            .
+        end' "$template_config" >/etc/sing-box/config.json
+    #! Добавить label в luci
+}
+
+sing_box_config_check() {
+    if ! sing-box -c /etc/sing-box/config.json check >/dev/null 2>&1; then
+        log "Sing-box configuration is invalid"
+        exit 1
+    fi
+}
