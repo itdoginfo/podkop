@@ -16,7 +16,7 @@ jobs:
           - mips_24kc
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.2.1
         with:
           fetch-depth: 0
 
@@ -26,7 +26,7 @@ jobs:
           ARCH: ${{ matrix.arch }}
 
       - name: Store packages
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: ${{ matrix.arch}}-packages
           path: bin/packages/${{ matrix.arch }}/packages/*.ipk
