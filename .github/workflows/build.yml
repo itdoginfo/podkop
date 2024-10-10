@@ -24,6 +24,7 @@ jobs:
         uses: openwrt/gh-action-sdk@main
         env:
           ARCH: ${{ matrix.arch }}
+          PACKAGES: podkop luci-app-podkop
 
       - name: Store packages
         uses: actions/upload-artifact@v4.4.3
