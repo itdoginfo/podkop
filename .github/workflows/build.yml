@@ -22,7 +22,7 @@ jobs:
 
       - name: Bild SDK test
         run: |
-          docker run -v ${{ GITHUB.WORKSPACE }}:/builder/package/feeds/ci openwrt/sdk-image:${{ matrix.arch }} sh -c "make package/podkop/{ clean, compile } V=s && ls bin/packages/x86_64/ci"
+          docker run -v ${{ GITHUB.WORKSPACE }}:/builder/package/feeds/ci openwrt/sdk-image:${{ matrix.arch }}-v23.05.5 sh -c "make package/podkop/{ clean, compile } V=s && ls bin/packages/x86_64/ci"
 
       # - name: Store packages
       #   uses: actions/upload-artifact@v4.4.3
