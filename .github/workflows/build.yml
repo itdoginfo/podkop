@@ -17,16 +17,16 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          tags: test-sdk/app:latest
+          tags: podkop:0.1
 
       - name: Create Docker container
-        run: docker create --name test test-sdk/app:latest
+        run: docker create --name podkop podkop:0.1
 
       - name: Copy file from Docker container
-        run: docker cp test:/builder/bin/packages/x86_64/utilites ./bin/
+        run: docker cp podkop:/builder/bin/packages/x86_64/utilites ./bin/
 
       - name: Remove Docker container
-        run: docker rm test
+        run: docker rm podkop
 
       # - name: Upload copied file as artifact
       #   uses: actions/upload-artifact@v4.4.3
