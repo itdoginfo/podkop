@@ -28,8 +28,14 @@ jobs:
       - name: Remove Docker container
         run: docker rm test
 
-      - name: Upload copied file as artifact
-        uses: actions/upload-artifact@v4.4.3
+      # - name: Upload copied file as artifact
+      #   uses: actions/upload-artifact@v4.4.3
+      #   with:
+      #     name: packages
+      #     path: ./bin/*.ipk
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        #if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: packages
-          path: ./bin/*.ipk
+          files: ./bin/*.ipk
