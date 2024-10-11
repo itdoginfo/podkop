@@ -7,29 +7,29 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.arch }} build
+    name: test build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch:
-          - x86_64
-          # - mips_24kc
 
     steps:
       - uses: actions/checkout@v4.2.1
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
         with:
-          fetch-depth: 0
+          context: .
+          tags: test-sdk/app:latest
 
-      - name: Bild SDK test
-        run: |
-          docker run -v ${{ GITHUB.WORKSPACE }}:/builder/package/feeds/ci openwrt/sdk:${{ matrix.arch }}-v23.05.5 sh -c "
-          ./scripts/feeds update -a
-          make package/podkop/{ clean, compile } V=s
-          ls bin/packages/x86_64/ci
-          "
+      - name: Create Docker container
+        run: docker create --name test test-sdk/app:latest
 
-      # - name: Store packages
-      #   uses: actions/upload-artifact@v4.4.3
-      #   with:
-      #     name: ${{ matrix.arch}}-packages
-      #     path: bin/packages/${{ matrix.arch }}/packages/*.ipk
+      - name: Copy file from Docker container
+        run: docker cp test:/builder/bin/packages/x86_64/utilites ./bin/
+
+      - name: Remove Docker container
+        run: docker rm test
+
+      - name: Upload copied file as artifact
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: packages
+          path: ./bin/*.ipk
