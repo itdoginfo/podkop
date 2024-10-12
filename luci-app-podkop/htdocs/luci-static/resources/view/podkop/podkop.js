@@ -71,6 +71,7 @@ return view.extend({
         o.placeholder = 'Subnet list';
         o.value('twitter', 'Twitter(x.com)');
         o.value('meta', 'Meta');
+        o.value('discord', 'Discord(voice)');
         o.depends('subnets_list_enabled', '1');
         o.rmempty = false;
 

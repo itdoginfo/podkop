@@ -325,6 +325,7 @@ lists_domains_download() {
 list_subnets_download() {
     TWITTER_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Twitter.lst
     META_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Meta.lst
+    DISCORD_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/refs/heads/main/Subnets/IPv4/Discord.lst
     local URL="$1"
 
     case "$URL" in
@@ -334,6 +335,9 @@ list_subnets_download() {
     "meta")
         URL=$META_SUBNETS
         ;;
+    "discord")
+        URL=$DISCORD_SUBNETS
+        ;;        
     *)
         log "Unidentified list of subnets"
         exit 1
