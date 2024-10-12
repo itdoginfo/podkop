@@ -23,7 +23,9 @@ jobs:
         run: docker create --name podkop podkop:ci
 
       - name: Copy file from Docker container
-        run: docker cp podkop:/builder/bin/packages/x86_64/utilites ./bin/
+        run: |
+          docker cp podkop:/builder/bin/packages/x86_64/utilites ./bin/
+          docker cp podkop:/builder/bin/packages/x86_64/luci ./bin/
 
       - name: Remove Docker container
         run: docker rm podkop
@@ -31,7 +33,4 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2.0.8
         with:
-          files: |
-            ./bin/packages/x86_64/utilites/*.ipk
-            ./bin/packages/x86_64/luci/*.ipk
-
+          files: ./bin/*.ipk
