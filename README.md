@@ -23,7 +23,14 @@ ip route del default scope link table vpn
 ```
 
 ## Автоматическая
--
+```
+sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
+```
+
+# Удаление
+```
+opkg remove luci-app-podkop podkop
+```
 
 # Использование
 Конфиг: /etc/config/podkop
@@ -61,7 +68,7 @@ opkg update && opkg install sing-box
 1. ucitrack не рестартится автоматически после установки пакета 
 
 # ToDo
-- [ ] Скрипт для автоматической установки.
+- [x] Скрипт для автоматической установки.
 - [x] Подсети дискорда.
 - [ ] Удаление getdomains через скрипт. Кроме туннеля и sing-box.
 - [ ] Дополнительная вкладка для ещё одного туннеля. Домены, подсети.
