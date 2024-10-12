@@ -15,4 +15,6 @@ echo "Installed..."
 opkg install $DOWNLOAD_DIR/podkop*.ipk
 opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
 
+/etc/init.d/ucitrack restart
+
 echo "Install sing-box for proxy, or install and configure WG/OpenVPN/AWG/etc for VPN mode"
