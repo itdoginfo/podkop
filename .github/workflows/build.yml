@@ -24,8 +24,8 @@ jobs:
 
       - name: Copy file from Docker container
         run: |
-          docker cp podkop:/builder/bin/packages/x86_64/utilites ./bin/
-          docker cp podkop:/builder/bin/packages/x86_64/luci ./bin/
+          docker cp podkop:/builder/bin/packages/x86_64/utilites/. ./bin/
+          docker cp podkop:/builder/bin/packages/x86_64/luci/. ./bin/
 
       - name: Remove Docker container
         run: docker rm podkop
