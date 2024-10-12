@@ -32,6 +32,6 @@ jobs:
         uses: softprops/action-gh-release@v2.0.8
         with:
           files: |
-          ./bin/packages/x86_64/utilites/*.ipk
-          ./bin/packages/x86_64/luci/*.ipk
+            ./bin/packages/x86_64/utilites/*.ipk
+            ./bin/packages/x86_64/luci/*.ipk
 
