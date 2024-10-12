@@ -1,28 +1,26 @@
-name: Test Build
+name: Build packages
 
 on:
   push:
-    branches:
-      - main
     tags:
       - v*
 
 jobs:
   build:
-    name: test build
+    name: Build podkop and luci-app-podkop
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4.2.1
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v6.9.0
         with:
           context: .
-          tags: podkop:0.1
+          tags: podkop:ci
 
       - name: Create Docker container
-        run: docker create --name podkop podkop:0.1
+        run: docker create --name podkop podkop:ci
 
       - name: Copy file from Docker container
         run: docker cp podkop:/builder/bin/packages/x86_64/utilites ./bin/
@@ -30,13 +28,7 @@ jobs:
       - name: Remove Docker container
         run: docker rm podkop
 
-      # - name: Upload copied file as artifact
-      #   uses: actions/upload-artifact@v4.4.3
-      #   with:
-      #     name: packages
-      #     path: ./bin/*.ipk
-
       - name: Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.0.8
         with:
           files: ./bin/*.ipk

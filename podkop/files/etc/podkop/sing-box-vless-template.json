@@ -1,39 +1,39 @@
 {
-    "log": {
-      "level": "warn"
-    },
-    "inbounds": [
-        {
-        "type": "tproxy",
-        "listen": "::",
-        "listen_port": 1602,
-        "sniff": false
-        }
-    ],
-    "outbounds": [
-      {
-        "type": "vless",
-        "server": "$HOST",
-        "server_port": "$PORT",
-        "uuid": "$UUID",
-        "flow": "xtls-rprx-vision",
-        "tls": {
+  "log": {
+    "level": "warn"
+  },
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "listen": "::",
+      "listen_port": 1602,
+      "sniff": false
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "server": "$HOST",
+      "server_port": "$PORT",
+      "uuid": "$UUID",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "$FAKE_SERVER",
+        "utls": {
           "enabled": true,
-          "insecure": false,
-          "server_name": "$FAKE_SERVER",
-          "utls": {
-            "enabled": true,
-            "fingerprint": "chrome"
-          },
-          "reality": {
-            "enabled": true,
-            "public_key": "$PUBLIC_KEY",
-            "short_id": "$SHORT_ID"
-          }
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "$PUBLIC_KEY",
+          "short_id": "$SHORT_ID"
         }
       }
-    ],
-    "route": {
-      "auto_detect_interface": true
     }
+  ],
+  "route": {
+    "auto_detect_interface": true
+  }
 }
