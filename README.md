@@ -16,7 +16,8 @@ ip route del default scope link table vpn
 Будет точно работать только на OpenWrt 23.05.
 
 ## Вручную
-Скачать пакеты podkop_*.ipk и luci-app-podkop_*.ipk. `opkg install` сначала первый, потом второй.
+Сделать `opkg update`, чтоб установились зависимости.
+Скачать пакеты `podkop_*.ipk` и `luci-app-podkop_*.ipk` из релиза. `opkg install` сначала первый, потом второй.
 
 ```
 /etc/init.d/ucitrack restart

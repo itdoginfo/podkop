@@ -11,6 +11,9 @@ wget -qO- "$REPO" | grep -o 'https://[^"]*\.ipk' | while read -r url; do
     wget -q -O "$DOWNLOAD_DIR/$filename" "$url"
 done
 
+echo "opkg update"
+opkg update
+
 echo "Installed..."
 opkg install $DOWNLOAD_DIR/podkop*.ipk
 opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
