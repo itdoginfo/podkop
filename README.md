@@ -6,6 +6,8 @@
 rm /etc/hotplug.d/iface/30-vpnroute
 sed -i '/getdomains start/d' /etc/crontabs/root
 rm /tmp/dnsmasq.d/domains.lst
+service getdomains disable
+rm /etc/init.d/getdomains
 ip route del default scope link table vpn
 ```
 
@@ -68,7 +70,7 @@ opkg update && opkg install sing-box
 **Custom subnets enable** - Добавить подсети или IP-адреса. Для подсетей задать маску.
 
 # Известные баги
-1. ucitrack не рестартится автоматически после установки пакета 
+-
 
 # ToDo
 - [x] Скрипт для автоматической установки.
@@ -78,6 +80,12 @@ opkg update && opkg install sing-box
 - [ ] Wiki
 - [ ] IPv6
 - [ ] Исключение для IP, не ходить в туннель\прокси совсем 0x0
+- [ ] Придумать автонастройку DNS через stubby итд. Как лучше это реализовать.
+- [ ] Кнопка обновления списка доменов и подсетей
+- [ ] Unit тесты (BATS)
+- [ ] Интеграционые тесты бекенда (OpenWrt rootfs + BATS)
+- [ ] Интеграционые тесты luci (OpenWrt rootfs + Testcafe?)
+- [ ] Добавить label от конфига vless\ss\etc в luci. Хз как
 
 # Разработка
 Есть два варианта:
