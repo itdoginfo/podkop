@@ -434,8 +434,11 @@ sing_box_config_vless() {
 
     uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
     server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
-    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'/' -f1)
-    type=$(get_param "type")
+    #port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'/' -f1)
+    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1)
+    if [[ "$port" == */* ]]; then
+        port=$(echo "$port" | cut -d'/' -f1)
+    fi    type=$(get_param "type")
     flow=$(get_param "flow")
     sni=$(get_param "sni")
     fp=$(get_param "fp")
