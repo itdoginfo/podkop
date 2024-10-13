@@ -46,7 +46,7 @@ return view.extend({
         o.default = '0';
         o.rmempty = false;
 
-        o = s.option(form.ListValue, 'domain_list', _('Domain list'), _('A select list'));
+        o = s.option(form.ListValue, 'domain_list', _('Domain list'), _('Select a list'));
         o.placeholder = 'placeholder';
         o.value('ru_inside', 'Russia inside');
         o.value('ru_outside', 'Russia outside');
