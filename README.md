@@ -15,6 +15,8 @@ ip route del default scope link table vpn
 Пакет работает на всех архитектурах.
 Будет точно работать только на OpenWrt 23.05.
 
+Нужен dnsmasq-full. В автоматическом режиме ставится сам. Вручную надо поставить [самостоятельно](https://github.com/itdoginfo/podkop/blob/952dd6215a2a83d65937cf9e33534c42809091ed/install.sh#L20).
+
 ## Вручную
 Сделать `opkg update`, чтоб установились зависимости.
 Скачать пакеты `podkop_*.ipk` и `luci-app-podkop_*.ipk` из релиза. `opkg install` сначала первый, потом второй.
