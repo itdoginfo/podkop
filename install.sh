@@ -14,6 +14,16 @@ done
 echo "opkg update"
 opkg update
 
+if opkg list-installed | grep -q dnsmasq-full; then
+    echo "dnsmasq-full already installed"
+else
+    echo "Installed dnsmasq-full"
+    cd /tmp/ && opkg download dnsmasq-full
+    opkg remove dnsmasq && opkg install dnsmasq-full --cache /tmp/
+
+    [ -f /etc/config/dhcp-opkg ] && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp
+fi
+
 echo "Installed..."
 opkg install $DOWNLOAD_DIR/podkop*.ipk
 opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
