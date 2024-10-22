@@ -1,4 +1,4 @@
-config podkop main
+config main 'main'
 	option mode 'proxy'
 	option interface 'wg0'
 	option proxy_string 'vless://60e7a3b2-5edb-4c0e-aa96-16702e4e0501@test.test:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=www.microsoft.com&fp=chrome&security=reality&pbk=O-IOLOcpVuzn9Eo3htHi0lxJ4YmeToNb6BhqUC7f7TQ&sid=4283c431d5a2263d#VLESS-podkop'
@@ -14,3 +14,15 @@ config podkop main
 	list all_traffic_ip '192.168.56.226'
 	option delist_domains_enabled '0'
 	list delist_domains 'zerossl.com'
+
+config second 'second'
+	option second_enable '0'
+	option mode 'proxy'
+	option interface 'wg1'
+	option proxy_string ''
+	option domain_list_enabled '0'
+	list domains 'youtube'
+	option custom_domains_list_enabled '0'
+	list custom_domains 'ifconfig.io'
+	option custom_subnets_list_enabled '0'
+	list custom_subnets '-'

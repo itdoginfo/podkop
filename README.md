@@ -70,22 +70,29 @@ opkg update && opkg install sing-box
 **Custom subnets enable** - Добавить подсети или IP-адреса. Для подсетей задать маску.
 
 # Известные баги
--
+1. Не работает proxy при режимах main vpn, second proxy
+2. Не всегда отрабатывает ucitrack (применение настроек из luci)
 
 # ToDo
 - [x] Скрипт для автоматической установки.
 - [x] Подсети дискорда.
 - [ ] Удаление getdomains через скрипт. Кроме туннеля и sing-box.
-- [ ] Дополнительная вкладка для ещё одного туннеля. Домены, подсети.
+- [х] Дополнительная вкладка для ещё одного туннеля. Домены, подсети.
 - [ ] Wiki
 - [ ] IPv6
+- [ ] Весь трафик для устойства пускать в туннель\прокси
 - [ ] Исключение для IP, не ходить в туннель\прокси совсем 0x0
 - [ ] Придумать автонастройку DNS через stubby итд. Как лучше это реализовать.
 - [ ] Кнопка обновления списка доменов и подсетей
 - [ ] Unit тесты (BATS)
 - [ ] Интеграционые тесты бекенда (OpenWrt rootfs + BATS)
-- [ ] Интеграционые тесты luci (OpenWrt rootfs + Testcafe?)
 - [ ] Добавить label от конфига vless\ss\etc в luci. Хз как
+- [ ] Удаление подсетей CF из domain sets раз в N часов
+- [ ] Врубать галочкой yacd в sing-box
+- [ ] Свои списки. Вопрос форматирования
+- [ ] В скрипт автоустановки добавить установку AWG по примеру getdomains
+- [ ] Галочка, которая режет доступ к doh серверам
+- [ ] Рефактор dnsmasq restart
 
 # Разработка
 Есть два варианта:
@@ -105,16 +112,25 @@ mv openwrt-sdk-23.05.5-x86-64_gcc-12.3.0_musl.Linux-x86_64 SDK
 
 Создаём директорию для пакета
 ```
-mkdir package/utilites && mkdir package/luci
+mkdir package/utilites
 ```
 
 Симлинк из репозитория
 ```
 ln -s ~/podkop/podkop package/utilites/podkop
-ln -s ~/podkop/luci-app-podkop package/luci/luci-app-podkop
+ln -s ~/podkop/luci-app-podkop package/luci-app-podkop
 ```
 
-Сборка пакета
+В первый раз для сборки luci-app необходимо обновить пакеты
+```
+./scripts/feeds update -a
+```
+
+Для make можно добавить флаг -j N, где N - количество ядер для сборки. Первый раз пройдёт быстрее.
+
+При первом make выводится менюшка, можно просто save, exit и всё. Первый раз долго грузит зависимости.
+
+Сборка пакета. Сами пакеты собираются быстро.
 ```
 make package/podkop/{clean,compile} V=s
 ```
@@ -124,7 +140,20 @@ make package/podkop/{clean,compile} V=s
 make package/luci-app-podkop/{clean,compile} V=s
 ```
 
-При первом make выводится менюшка, можно просто сохранить и всё. Первый раз долго грузит зависимости.
+.ipk лежат в `bin/packages/x86_64/base/`
+
+## Ошибки
+```
+Makefile:17: /SDK/feeds/luci/luci.mk: No such file or directory
+make[2]: *** No rule to make target '/SDK/feeds/luci/luci.mk'.  Stop.
+time: package/luci/luci-app-podkop/clean#0.00#0.00#0.00
+    ERROR: package/luci/luci-app-podkop failed to build.
+make[1]: *** [package/Makefile:129: package/luci/luci-app-podkop/clean] Error 1
+make[1]: Leaving directory '/SDK'
+make: *** [/SDK/include/toplevel.mk:226: package/luci-app-podkop/clean] Error 2
+```
+
+Не загружены пакеты для luci
 
 ## make зависимости
 https://openwrt.org/docs/guide-developer/toolchain/install-buildsystem
