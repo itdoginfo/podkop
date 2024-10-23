@@ -363,7 +363,6 @@ add_set() {
         else
             log "Added nft rule tproxy"
             if [ "$connect" = "main" ]; then
-                echo "nft main tproxy"
                 nft add rule inet PodkopTable prerouting iifname "br-lan" ip daddr @"$set_name" meta l4proto tcp meta mark set 0x105 tproxy ip to :1602 counter
                 nft add rule inet PodkopTable prerouting iifname "br-lan" ip daddr @"$set_name" meta l4proto udp meta mark set 0x105 tproxy ip to :1602 counter
             elif [ "$connect" = "second" ]; then
@@ -582,10 +581,12 @@ list_all_traffic_from_ip() {
 list_delist_domains() {
     local domain="$1"
 
-    if [ -f " /tmp/dnsmasq.d/podkop-domains.lst" ]; then
+    if [ -f "/tmp/dnsmasq.d/podkop-domains.lst" ]; then
         sed -i "/$domain/d" /tmp/dnsmasq.d/podkop-domains.lst
         nft flush set inet PodkopTable podkop_domains
         log "Strings containing '$domain' have been excluded from the list"
+    else
+        log "Config /tmp/dnsmasq.d/podkop-domains.lst not exists"
     fi
 }
 
