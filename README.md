@@ -13,6 +13,13 @@ ip route del default scope link table vpn
 
 Может потребоваться удалить правила фаервола касающиеся vpn_subnet, internal итд.
 
+# Удаление GetDomains скриптом
+```
+sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/domain-routing-openwrt/refs/heads/master/getdomains-uninstall.sh)
+```
+
+Оставляет туннели, зоны, forwarding. А также stubby и dnscrypt. Они не помешают. Конфиг sing-box будет перезаписан в podkop.
+
 # Установка
 Пакет работает на всех архитектурах.
 Будет точно работать только на OpenWrt 23.05.
@@ -76,8 +83,8 @@ opkg update && opkg install sing-box
 # ToDo
 - [x] Скрипт для автоматической установки.
 - [x] Подсети дискорда.
-- [ ] Удаление getdomains через скрипт. Кроме туннеля и sing-box.
-- [х] Дополнительная вкладка для ещё одного туннеля. Домены, подсети.
+- [x] Удаление getdomains через скрипт. Кроме туннеля и sing-box.
+- [x] Дополнительная вкладка для ещё одного туннеля. Домены, подсети.
 - [ ] Зависимость от dnsmasq-full
 - [ ] Wiki
 - [ ] IPv6
