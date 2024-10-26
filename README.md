@@ -1,17 +1,6 @@
 Это альфа версия, может не работать. Обсуждение https://t.me/itdogchat - топик Podkop dev
 
-# Выпил getdomains
-По минимуму
-```
-rm /etc/hotplug.d/iface/30-vpnroute
-sed -i '/getdomains start/d' /etc/crontabs/root
-rm /tmp/dnsmasq.d/domains.lst
-service getdomains disable
-rm /etc/init.d/getdomains
-ip route del default scope link table vpn
-```
-
-Может потребоваться удалить правила фаервола касающиеся vpn_subnet, internal итд.
+Если у вас установлен Getdomains, то его следует удалить.
 
 # Удаление GetDomains скриптом
 ```
@@ -85,6 +74,7 @@ opkg update && opkg install sing-box
 - [x] Подсети дискорда.
 - [x] Удаление getdomains через скрипт. Кроме туннеля и sing-box.
 - [x] Дополнительная вкладка для ещё одного туннеля. Домены, подсети.
+- [ ] Улучшение скрипта автоматической установки. Спрашивать про туннели.
 - [ ] Зависимость от dnsmasq-full
 - [ ] Wiki
 - [ ] IPv6
