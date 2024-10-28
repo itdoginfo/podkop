@@ -46,6 +46,10 @@ start() {
                 exit 1
             fi
             add_route_tproxy podkop2
+            sing_box_config_check
+            sing_box_uci
+            /etc/init.d/sing-box restart
+            /etc/init.d/sing-box enable
         fi
 
         if [ "$second_enable" -eq "1" ] && [ "$mode" = "vpn" ]; then
@@ -338,36 +342,37 @@ add_set() {
 
     nft add table inet PodkopTable
     log "Create set $set_name"
-    nft add chain inet PodkopTable mangle_podkop { type filter hook prerouting priority mangle \; policy accept \;}
+    nft add chain inet PodkopTable mangle { type filter hook prerouting priority mangle \; policy accept \;}
     nft add set inet PodkopTable "$set_name" { type ipv4_addr\; flags interval\; auto-merge\; }
     config_get mode "$connect" "mode"
     case "$mode" in
     "vpn")
-        # if nft list table inet PodkopTable | grep -q "chain prerouting"; then
-        #     nft delete chain inet PodkopTable prerouting
-        # fi
-
-        if ! nft list chain inet PodkopTable mangle_podkop | grep -q "ip daddr @"$set_name" meta mark set"; then
+        if ! nft list chain inet PodkopTable mangle | grep -q "ip daddr @"$set_name" meta mark set"; then
             if [ "$connect" = "main" ]; then
-                nft add rule inet PodkopTable mangle_podkop ip daddr @"$set_name" meta mark set 0x105 counter
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta mark set 0x105 counter
             elif [ "$connect" = "second" ]; then
-                nft add rule inet PodkopTable mangle_podkop ip daddr @"$set_name" meta mark set 0x106 counter
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta mark set 0x106 counter
             fi
         fi
         ;;
 
     "proxy")
-        nft add chain inet PodkopTable prerouting { type filter hook prerouting priority mangle \; }
+        #nft add chain inet PodkopTable mangle { type filter hook prerouting priority mangle \; }
+        #nft add chain inet PodkopTable proxy { type filter hook prerouting priority mangle \; }
         if nft list table inet PodkopTable | grep -q "ip daddr @"$set_name" meta l4proto"; then
             log "Nft rule tproxy exists"
         else
             log "Added nft rule tproxy"
             if [ "$connect" = "main" ]; then
-                nft add rule inet PodkopTable prerouting iifname "br-lan" ip daddr @"$set_name" meta l4proto tcp meta mark set 0x105 tproxy ip to :1602 counter
-                nft add rule inet PodkopTable prerouting iifname "br-lan" ip daddr @"$set_name" meta l4proto udp meta mark set 0x105 tproxy ip to :1602 counter
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto tcp meta mark set 0x105 counter
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto udp meta mark set 0x105 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" meta mark 0x105 meta l4proto tcp tproxy ip to :1602 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" meta mark 0x105 meta l4proto udp tproxy ip to :1602 counter
             elif [ "$connect" = "second" ]; then
-                nft add rule inet PodkopTable prerouting iifname "br-lan" ip daddr @"$set_name" meta l4proto tcp meta mark set 0x106 tproxy ip to :1603 counter
-                nft add rule inet PodkopTable prerouting iifname "br-lan" ip daddr @"$set_name" meta l4proto udp meta mark set 0x106 tproxy ip to :1603 counter
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto tcp meta mark set 0x106 counter
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto udp meta mark set 0x106 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" meta mark 0x106 meta l4proto tcp tproxy ip to :1603 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" meta mark 0x106 meta l4proto udp tproxy ip to :1603 counter
             fi
         fi
         ;;
@@ -573,8 +578,8 @@ list_custom_subnets_create() {
 
 list_all_traffic_from_ip() {
     local ip="$1"
-    if ! nft list chain inet PodkopTable mangle_podkop | grep -q "ip saddr $ip"; then
-        nft add rule inet PodkopTable mangle_podkop ip saddr $ip meta mark set 0x105
+    if ! nft list chain inet PodkopTable mangle | grep -q "ip saddr $ip"; then
+        nft add rule inet PodkopTable mangle ip saddr $ip meta mark set 0x105
     fi
 }
 
