@@ -792,7 +792,6 @@ sing_box_config_vless() {
                 .tls.utls.fingerprint = $fp |
                 .tls.reality.public_key = $pbk |
                 .tls.reality.short_id = $sid
-                .tls.alpn = $alpn |
             elif $security == "tls" then
                 .tls.alpn = $alpn |
                 .tls.server_name = $sni |
@@ -890,7 +889,6 @@ sing_box_config_outbound_vless() {
                 .tls.utls.fingerprint = $fp |
                 .tls.reality.public_key = $pbk |
                 .tls.reality.short_id = $sid |
-                .tls.alpn = $alpn |
                 .tag = $tag
             elif $security == "tls" then
                 .tls.alpn = $alpn |
