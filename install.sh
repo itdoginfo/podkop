@@ -48,8 +48,7 @@ while true; do
         ;;
 
     3)
-        echo "As long as it's not automated"
-        printf "\e[1;32mUse script from here https://github.com/Slava-Shchipunov/awg-openwrt\e[0m\n"
+        sh <(wget -O - https://raw.githubusercontent.com/Slava-Shchipunov/awg-openwrt/refs/heads/master/amneziawg-install.sh)
         break
         ;;
 
