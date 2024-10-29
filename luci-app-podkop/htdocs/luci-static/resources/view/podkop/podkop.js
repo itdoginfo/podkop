@@ -90,6 +90,15 @@ return view.extend({
         o.depends('custom_domains_list_enabled', '1');
         o.rmempty = false;
 
+        o = s.taboption('main', form.Flag, 'custom_download_domains_list_enabled', _('URL domains enable'));
+        o.default = '0';
+        o.rmempty = false;
+
+        o = s.taboption('main', form.DynamicList, 'custom_download_domains', _('Your URL domains'));
+        o.placeholder = 'URL';
+        o.depends('custom_download_domains_list_enabled', '1');
+        o.rmempty = false;
+
         o = s.taboption('main', form.Flag, 'custom_subnets_list_enabled', _('Custom subnets enable'));
         o.default = '0';
         o.rmempty = false;
@@ -99,6 +108,44 @@ return view.extend({
         o.depends('custom_subnets_list_enabled', '1');
         o.rmempty = false;
 
+        o = s.taboption('main', form.Flag, 'custom_download_subnets_list_enabled', _('URL subnets enable'));
+        o.default = '0';
+        o.rmempty = false;
+
+        o = s.taboption('main', form.DynamicList, 'custom_download_subnets', _('Your URL subnet'));
+        o.placeholder = 'URL';
+        o.depends('custom_download_subnets_list_enabled', '1');
+        o.rmempty = false;
+
+        o = s.taboption('main', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'));
+        o.default = '0';
+        o.rmempty = false;
+
+        o = s.taboption('main', form.DynamicList, 'all_traffic_ip', _('Local IPs'));
+        o.placeholder = 'IP';
+        o.depends('all_traffic_from_ip_enabled', '1');
+        o.rmempty = false;
+
+        o = s.taboption('main', form.Flag, 'exclude_from_ip_enabled', _('IP for full exclude'));
+        o.default = '0';
+        o.rmempty = false;
+
+        o = s.taboption('main', form.DynamicList, 'exclude_traffic_ip', _('Local IPs'));
+        o.placeholder = 'IP';
+        o.depends('exclude_from_ip_enabled', '1');
+        o.rmempty = false;
+
+        o = s.taboption('main', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090:/ui'));
+        o.default = '0';
+        o.depends('mode', 'proxy');
+        o.rmempty = false;
+
+        o = s.taboption('main', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
+        o.default = '0';
+        o.depends('mode', 'proxy');
+        o.rmempty = false;  
+
+        // Second section
         s = m.section(form.TypedSection, 'second');
         s.anonymous = true;
 
