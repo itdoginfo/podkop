@@ -66,7 +66,7 @@ while true; do
         ;;
 
     6)
-        echo "Skip"
+        echo "Skip. Use this if you're installing an upgrade."
         break
         ;;
 

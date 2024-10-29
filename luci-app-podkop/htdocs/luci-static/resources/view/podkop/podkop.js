@@ -135,7 +135,7 @@ return view.extend({
         o.depends('exclude_from_ip_enabled', '1');
         o.rmempty = false;
 
-        o = s.taboption('main', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090:/ui'));
+        o = s.taboption('main', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
         o.default = '0';
         o.depends('mode', 'proxy');
         o.rmempty = false;
