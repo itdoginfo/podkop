@@ -143,6 +143,11 @@ return view.extend({
         o = s.taboption('main', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
         o.default = '0';
         o.depends('mode', 'proxy');
+        o.rmempty = false;
+    
+        o = s.taboption('main', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
+        o.default = '0';
+        o.depends('mode', 'proxy');
         o.rmempty = false;  
 
         // Second section

@@ -4,7 +4,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-podkop
-PKG_VERSION:=0.1.8
+PKG_VERSION:=0.1.9
 PKG_RELEASE:=1
 
 LUCI_TITLE:=LuCI podkop app
