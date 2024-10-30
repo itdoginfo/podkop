@@ -81,3 +81,6 @@ opkg install $DOWNLOAD_DIR/podkop*.ipk
 opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
 
 rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk
+
+printf "\033[32;1mRestart network\033[0m\n"
+service network restart

@@ -105,8 +105,6 @@ wg_awg_setup() {
         uci set firewall.@forwarding[-1].family='ipv4'
         uci commit firewall
     fi
-
-    service network restart
 }
 
 wg_awg_setup "$1"
