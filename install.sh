@@ -49,6 +49,7 @@ while true; do
 
     3)
         sh <(wget -O - https://raw.githubusercontent.com/Slava-Shchipunov/podkop/refs/heads/feat/add-amneziawg-auto-install/utils/amneziawg-install.sh)
+        sh <(wget -O - https://raw.githubusercontent.com/Slava-Shchipunov/podkop/refs/heads/feat/add-amneziawg-auto-install/utils/wg_awg_setup.sh) AmneziaWG
         break
         ;;
 
