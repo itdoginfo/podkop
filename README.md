@@ -9,7 +9,7 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/domain-routing-openwr
 
 Оставляет туннели, зоны, forwarding. А также stubby и dnscrypt. Они не помешают. Конфиг sing-box будет перезаписан в podkop.
 
-# Установка
+# Установка Podkop
 Пакет работает на всех архитектурах.
 Будет точно работать только на OpenWrt 23.05.
 
