@@ -108,3 +108,5 @@ wg_awg_setup() {
 
     service network restart
 }
+
+wg_awg_setup "$1"
