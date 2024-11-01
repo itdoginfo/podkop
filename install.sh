@@ -1,6 +1,7 @@
 #!/bin/sh
 
 REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
+BASE_RAW_URL="https://raw.githubusercontent.com/itdoginfo/domain-routing-openwrt/refs/heads/main"
 
 DOWNLOAD_DIR="/tmp/podkop"
 mkdir -p "$DOWNLOAD_DIR"
@@ -43,13 +44,30 @@ while true; do
 
     2)
         opkg install wireguard-tools luci-proto-wireguard luci-app-wireguard
-        printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-wireguard-na-openwrt/\e[0m\n"
+
+        printf "\033[32;1mDo you want to configure the wireguard interface? (y/n): \033[0m\n"
+        read IS_SHOULD_CONFIGURE_WG_INTERFACE
+
+        if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
+            sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh) Wireguard
+        else
+        printf "\e[1;32mUse these instructions to manual configure https://itdog.info/nastrojka-klienta-wireguard-na-openwrt/\e[0m\n"
+        fi
+
         break
         ;;
 
     3)
-        echo "As long as it's not automated"
-        printf "\e[1;32mUse script from here https://github.com/Slava-Shchipunov/awg-openwrt\e[0m\n"
+        sh <(wget -O - "$BASE_RAW_URL/utils/amneziawg-install.sh)
+        
+        
+        printf "\033[32;1mThere are no instructions for manual configure yet. Do you want to configure the amneziawg interface? (y/n): \033[0m\n"
+        read IS_SHOULD_CONFIGURE_WG_INTERFACE
+
+        if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
+            sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh) AmneziaWG
+        fi
+
         break
         ;;
 
@@ -81,3 +99,6 @@ opkg install $DOWNLOAD_DIR/podkop*.ipk
 opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
 
 rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk
+
+printf "\033[32;1mRestart network\033[0m\n"
+service network restart
