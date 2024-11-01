@@ -6,7 +6,6 @@ wg_awg_setup() {
         CONFIG_NAME="wireguard_wg0"
         PROTO="wireguard"
         ZONE_NAME="wg"
-        CONFIG_TYPE="wg"
     fi
 
     if [ "$PROTOCOL_NAME" = 'AmneziaWG' ]; then
@@ -55,7 +54,7 @@ wg_awg_setup() {
             read -r -p "Enter H4 value (from [Interface]):"$'\n' AWG_H4
         elif [ "$CONFIG_TYPE" = '2' ]; then
             #Default values to wg automatic obfuscation
-            AWG_JC=3
+            AWG_JC=4
             AWG_JMIN=40
             AWG_JMAX=70
             AWG_S1=0
