@@ -6,6 +6,7 @@ wg_awg_setup() {
         CONFIG_NAME="wireguard_wg0"
         PROTO="wireguard"
         ZONE_NAME="wg"
+        CONFIG_TYPE="wg"
     fi
 
     if [ "$PROTOCOL_NAME" = 'AmneziaWG' ]; then
@@ -13,6 +14,11 @@ wg_awg_setup() {
         CONFIG_NAME="amneziawg_awg0"
         PROTO="amneziawg"
         ZONE_NAME="awg"
+        
+        echo "Do you want to use AmneziaWG config or basic Wireguard config + automatic obfuscation?"
+        echo "1) AmneziaWG"
+        echo "2) Wireguard + automatic obfuscation"
+        read CONFIG_TYPE
     fi
 
     read -r -p "Enter the private key (from [Interface]):"$'\n' WG_PRIVATE_KEY_INT
@@ -37,15 +43,28 @@ wg_awg_setup() {
     fi
 
     if [ "$PROTOCOL_NAME" = 'AmneziaWG' ]; then
-        read -r -p "Enter Jc value (from [Interface]):"$'\n' AWG_JC
-        read -r -p "Enter Jmin value (from [Interface]):"$'\n' AWG_JMIN
-        read -r -p "Enter Jmax value (from [Interface]):"$'\n' AWG_JMAX
-        read -r -p "Enter S1 value (from [Interface]):"$'\n' AWG_S1
-        read -r -p "Enter S2 value (from [Interface]):"$'\n' AWG_S2
-        read -r -p "Enter H1 value (from [Interface]):"$'\n' AWG_H1
-        read -r -p "Enter H2 value (from [Interface]):"$'\n' AWG_H2
-        read -r -p "Enter H3 value (from [Interface]):"$'\n' AWG_H3
-        read -r -p "Enter H4 value (from [Interface]):"$'\n' AWG_H4
+        if [ "$CONFIG_TYPE" = '1' ]; then
+            read -r -p "Enter Jc value (from [Interface]):"$'\n' AWG_JC
+            read -r -p "Enter Jmin value (from [Interface]):"$'\n' AWG_JMIN
+            read -r -p "Enter Jmax value (from [Interface]):"$'\n' AWG_JMAX
+            read -r -p "Enter S1 value (from [Interface]):"$'\n' AWG_S1
+            read -r -p "Enter S2 value (from [Interface]):"$'\n' AWG_S2
+            read -r -p "Enter H1 value (from [Interface]):"$'\n' AWG_H1
+            read -r -p "Enter H2 value (from [Interface]):"$'\n' AWG_H2
+            read -r -p "Enter H3 value (from [Interface]):"$'\n' AWG_H3
+            read -r -p "Enter H4 value (from [Interface]):"$'\n' AWG_H4
+        else if [ "$CONFIG_TYPE" = '2' ]; then
+            #Default values to wg automatic obfuscation
+            AWG_JC=3
+            AWG_JMIN=40
+            AWG_JMAX=70
+            AWG_S1=0
+            AWG_S2=0
+            AWG_H1=1
+            AWG_H2=2
+            AWG_H3=3
+            AWG_H4=4
+        fi
     fi
     
     uci set network.${INTERFACE_NAME}=interface
