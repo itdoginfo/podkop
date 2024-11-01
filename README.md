@@ -110,15 +110,15 @@ Wiki
 - [ ] Галочка, которая режет доступ к doh серверам
 
 Рефактор
+- [ ] Handle для sing-box
+- [ ] Handle для dnsmasq
 - [ ] Формирование json для sing-box на уровне jq, а не шаблонов
 - [ ] Unit тесты (BATS)
 - [ ] Интеграционые тесты бекенда (OpenWrt rootfs + BATS)
 - [ ] RU перевод
-- [ ] Handle для sing-box
-- [ ] Handle для dnsmasq
 
 Хз как сделать
-- [ ] Добавить label от конфига vless\ss\etc в luci. Хз как
+- [ ] Добавить label от конфига vless\ss\etc в luci.
 
 # Разработка
 Есть два варианта:
