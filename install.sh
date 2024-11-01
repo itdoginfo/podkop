@@ -43,13 +43,30 @@ while true; do
 
     2)
         opkg install wireguard-tools luci-proto-wireguard luci-app-wireguard
-        printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-wireguard-na-openwrt/\e[0m\n"
+
+        printf "\033[32;1mDo you want to configure the wireguard interface? (y/n): \033[0m\n"
+        read IS_SHOULD_CONFIGURE_WG_INTERFACE
+
+        if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
+            sh <(wget -O - https://raw.githubusercontent.com/Slava-Shchipunov/podkop/refs/heads/feat/add-amneziawg-auto-install/utils/wg-awg-setup.sh) Wireguard
+        else
+        printf "\e[1;32mUse these instructions to manual configure https://itdog.info/nastrojka-klienta-wireguard-na-openwrt/\e[0m\n"
+        fi
+
         break
         ;;
 
     3)
         sh <(wget -O - https://raw.githubusercontent.com/Slava-Shchipunov/podkop/refs/heads/feat/add-amneziawg-auto-install/utils/amneziawg-install.sh)
-        sh <(wget -O - https://raw.githubusercontent.com/Slava-Shchipunov/podkop/refs/heads/feat/add-amneziawg-auto-install/utils/wg-awg-setup.sh) AmneziaWG
+        
+        
+        printf "\033[32;1mThere are no instructions for manual configure yet. Do you want to configure the amneziawg interface? (y/n): \033[0m\n"
+        read IS_SHOULD_CONFIGURE_WG_INTERFACE
+
+        if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
+            sh <(wget -O - https://raw.githubusercontent.com/Slava-Shchipunov/podkop/refs/heads/feat/add-amneziawg-auto-install/utils/wg-awg-setup.sh) AmneziaWG
+        fi
+
         break
         ;;
 
