@@ -49,7 +49,7 @@ while true; do
         read IS_SHOULD_CONFIGURE_WG_INTERFACE
 
         if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
-            sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh) Wireguard
+            sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh") Wireguard
         else
         printf "\e[1;32mUse these instructions to manual configure https://itdog.info/nastrojka-klienta-wireguard-na-openwrt/\e[0m\n"
         fi
@@ -58,14 +58,14 @@ while true; do
         ;;
 
     3)
-        sh <(wget -O - "$BASE_RAW_URL/utils/amneziawg-install.sh)
+        sh <(wget -O - "$BASE_RAW_URL/utils/amneziawg-install.sh")
         
         
         printf "\033[32;1mThere are no instructions for manual configure yet. Do you want to configure the amneziawg interface? (y/n): \033[0m\n"
         read IS_SHOULD_CONFIGURE_WG_INTERFACE
 
         if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
-            sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh) AmneziaWG
+            sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh") AmneziaWG
         fi
 
         break
