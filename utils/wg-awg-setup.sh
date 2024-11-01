@@ -53,7 +53,7 @@ wg_awg_setup() {
             read -r -p "Enter H2 value (from [Interface]):"$'\n' AWG_H2
             read -r -p "Enter H3 value (from [Interface]):"$'\n' AWG_H3
             read -r -p "Enter H4 value (from [Interface]):"$'\n' AWG_H4
-        else if [ "$CONFIG_TYPE" = '2' ]; then
+        elif [ "$CONFIG_TYPE" = '2' ]; then
             #Default values to wg automatic obfuscation
             AWG_JC=3
             AWG_JMIN=40
