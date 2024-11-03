@@ -25,74 +25,78 @@ else
     [ -f /etc/config/dhcp-opkg ] && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp
 fi
 
-echo "What type of VPN or proxy will be used?"
-echo "1) VLESS, Shadowsocks (A sing-box will be installed)"
-echo "2) Wireguard"
-echo "3) AmneziaWG"
-echo "4) OpenVPN"
-echo "5) OpenConnect"
-echo "6) Skip this step"
+add_tunnel() {
+    echo "What type of VPN or proxy will be used?"
+    echo "1) VLESS, Shadowsocks (A sing-box will be installed)"
+    echo "2) Wireguard"
+    echo "3) AmneziaWG"
+    echo "4) OpenVPN"
+    echo "5) OpenConnect"
+    echo "6) Skip this step"
 
-while true; do
-    read -r -p '' TUNNEL
-    case $TUNNEL in
+    while true; do
+        read -r -p '' TUNNEL
+        case $TUNNEL in
 
-    1)
-        opkg install sing-box
-        break
-        ;;
+        1)
+            opkg install sing-box
+            break
+            ;;
 
-    2)
-        opkg install wireguard-tools luci-proto-wireguard luci-app-wireguard
+        2)
+            opkg install wireguard-tools luci-proto-wireguard luci-app-wireguard
 
-        printf "\033[32;1mDo you want to configure the wireguard interface? (y/n): \033[0m\n"
-        read IS_SHOULD_CONFIGURE_WG_INTERFACE
+            printf "\033[32;1mDo you want to configure the wireguard interface? (y/n): \033[0m\n"
+            read IS_SHOULD_CONFIGURE_WG_INTERFACE
 
-        if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
-            sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh") Wireguard
-        else
-        printf "\e[1;32mUse these instructions to manual configure https://itdog.info/nastrojka-klienta-wireguard-na-openwrt/\e[0m\n"
-        fi
+            if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
+                sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh") Wireguard
+            else
+            printf "\e[1;32mUse these instructions to manual configure https://itdog.info/nastrojka-klienta-wireguard-na-openwrt/\e[0m\n"
+            fi
 
-        break
-        ;;
+            break
+            ;;
 
-    3)
-        sh <(wget -O - "$BASE_RAW_URL/utils/amneziawg-install.sh")
-        
-        
-        printf "\033[32;1mThere are no instructions for manual configure yet. Do you want to configure the amneziawg interface? (y/n): \033[0m\n"
-        read IS_SHOULD_CONFIGURE_WG_INTERFACE
+        3)
+            sh <(wget -O - "$BASE_RAW_URL/utils/amneziawg-install.sh")
+            
+            
+            printf "\033[32;1mThere are no instructions for manual configure yet. Do you want to configure the amneziawg interface? (y/n): \033[0m\n"
+            read IS_SHOULD_CONFIGURE_WG_INTERFACE
 
-        if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
-            sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh") AmneziaWG
-        fi
+            if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
+                sh <(wget -O - "$BASE_RAW_URL/utils/wg-awg-setup.sh") AmneziaWG
+            fi
 
-        break
-        ;;
+            break
+            ;;
 
-    4)
-        opkg install opkg install openvpn-openssl luci-app-openvpn
-        printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openvpn-na-openwrt/\e[0m\n"
-        break
-        ;;
+        4)
+            opkg install opkg install openvpn-openssl luci-app-openvpn
+            printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openvpn-na-openwrt/\e[0m\n"
+            break
+            ;;
 
-    5)
-        opkg install opkg install openconnect luci-proto-openconnect
-        printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openconnect-na-openwrt/\e[0m\n"
-        break
-        ;;
+        5)
+            opkg install opkg install openconnect luci-proto-openconnect
+            printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openconnect-na-openwrt/\e[0m\n"
+            break
+            ;;
 
-    6)
-        echo "Skip. Use this if you're installing an upgrade."
-        break
-        ;;
+        6)
+            echo "Skip. Use this if you're installing an upgrade."
+            break
+            ;;
 
-    *)
-        echo "Choose from the following options"
-        ;;
-    esac
-done
+        *)
+            echo "Choose from the following options"
+            ;;
+        esac
+    done
+}
+
+add_tunnel
 
 echo "Installed podkop..."
 opkg install $DOWNLOAD_DIR/podkop*.ipk
