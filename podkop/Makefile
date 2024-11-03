@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=podkop
-PKG_VERSION:=0.1.9
+PKG_VERSION:=0.2.0
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=ITDog <podkop@itdog.info>
@@ -26,20 +26,6 @@ define Build/Configure
 endef
 
 define Build/Compile
-endef
-
-define Package/podkop/postinst
-#!/bin/sh
-
-if ! uci show ucitrack | grep -q 'podkop'; then
-    uci add ucitrack podkop
-    uci set ucitrack.@podkop[-1].init=podkop
-    uci commit ucitrack
-
-	/etc/init.d/ucitrack restart
-fi
-
-exit 0
 endef
 
 define Package/podkop/prerm

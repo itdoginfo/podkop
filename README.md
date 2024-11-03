@@ -9,7 +9,7 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/domain-routing-openwr
 
 Оставляет туннели, зоны, forwarding. А также stubby и dnscrypt. Они не помешают. Конфиг sing-box будет перезаписан в podkop.
 
-# Установка
+# Установка Podkop
 Пакет работает на всех архитектурах.
 Будет точно работать только на OpenWrt 23.05.
 
@@ -85,8 +85,9 @@ opkg update && opkg install sing-box
 - [x] Открытый прокси порт на роутере для браузеров
 
 Приоритет 1
-- [ ] Переделать на PROCD и выкинуть ucitrack
-- [ ] Нужен дебаг. Restart ucitrack в отдельный скрипт postinst, не отрабатывает.
+- [x] Переделать на PROCD и выкинуть ucitrack.
+- [x] Нужен дебаг. Restart ucitrack в отдельный скрипт postinst, не отрабатывает.
+- [ ] Скрипт установки: проверка установлен ли уже podkop. Если да, то просто предлагать обновится без установки тунелей и прокси.
 
 Приоритет 2
 - [ ] Кнопка обновления списка доменов и подсетей
@@ -109,15 +110,15 @@ Wiki
 - [ ] Галочка, которая режет доступ к doh серверам
 
 Рефактор
+- [ ] Handle для sing-box
+- [ ] Handle для dnsmasq
 - [ ] Формирование json для sing-box на уровне jq, а не шаблонов
 - [ ] Unit тесты (BATS)
 - [ ] Интеграционые тесты бекенда (OpenWrt rootfs + BATS)
 - [ ] RU перевод
-- [ ] Handle для sing-box
-- [ ] Handle для dnsmasq
 
 Хз как сделать
-- [ ] Добавить label от конфига vless\ss\etc в luci. Хз как
+- [ ] Добавить label от конфига vless\ss\etc в luci.
 
 # Разработка
 Есть два варианта:
