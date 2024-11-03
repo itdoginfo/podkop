@@ -240,7 +240,7 @@ wg_awg_setup() {
 }
 
 add_tunnel() {
-    echo "What type of VPN or proxy will be used?"
+    echo "What type of VPN or proxy will be used? We also can automatically configure Wireguard and Amnezia WireGuard."
     echo "1) VLESS, Shadowsocks (A sing-box will be installed)"
     echo "2) Wireguard"
     echo "3) AmneziaWG"
