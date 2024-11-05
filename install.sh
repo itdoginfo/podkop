@@ -24,6 +24,12 @@ else
     [ -f /etc/config/dhcp-opkg ] && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp
 fi
 
+IS_SHOULD_RESTART_NETWORK=false
+
+handler_network_restart() {
+    IS_SHOULD_RESTART_NETWORK=true
+}
+
 install_awg_packages() {
     # Получение pkgarch с наибольшим приоритетом
     PKGARCH=$(opkg print-architecture | awk 'BEGIN {max=0} {if ($3 > max) {max = $3; arch = $2}} END {print arch}')
@@ -237,6 +243,8 @@ wg_awg_setup() {
         uci set firewall.@forwarding[-1].family='ipv4'
         uci commit firewall
     fi
+
+    handler_network_restart
 }
 
 add_tunnel() {
@@ -317,5 +325,7 @@ opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
 
 rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk
 
-printf "\033[32;1mRestart network\033[0m\n"
-service network restart
+if [ "$IS_SHOULD_RESTART_NETWORK" ]; then
+    printf "\033[32;1mRestart network\033[0m\n"
+    /etc/init.d/network restart
+fi
