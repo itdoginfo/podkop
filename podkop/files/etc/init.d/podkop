@@ -444,8 +444,19 @@ add_set() {
 add_route_interface() {
     local interface="$1"
     local table="$2"
-    local retry_count=0
+    local retry_count_interface=0
+    local retry_count_route=0
     local max_retries=20
+
+    while ! ip link show "$interface" >/dev/null 2>&1; do
+        if (( attempt == max_retries )); then
+            log "Interface "$interface" undetected after $retry_count_interface attempts. Exit"
+            exit 1
+        fi
+        log "Attempt $retry_count_interface: Interface "$interface" not found, retrying in 3 seconds..."
+        retry_count_interface=$(( retry_count_interface + 1 ))
+        sleep 3
+    done
 
     if ! ip link show "$interface" >/dev/null 2>&1; then
         log "Interface "$interface" does not exist, not possible to create a route"
@@ -458,11 +469,11 @@ add_route_interface() {
     fi
 
     log "Added route for "$interface""
-    while [ $retry_count -lt $max_retries ]; do
+    while [ $retry_count_route -lt $max_retries ]; do
         if ip route add table $table default dev "$interface" 2>&1 | grep -q "Network is down"; then
-            log "Error: Network is down. Let's try again in 3 seconds"
+            log "Attempt $retry_count_route: Interface "$interface" is down, retrying in 3 seconds..."
             sleep 3
-            retry_count=$((retry_count + 1))
+            retry_count_route=$((retry_count_route + 1))
         else
             log "Route for "$interface" added"
             return 0
