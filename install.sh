@@ -2,9 +2,11 @@
 
 REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
 
+IS_SHOULD_RESTART_NETWORK=false
 DOWNLOAD_DIR="/tmp/podkop"
 mkdir -p "$DOWNLOAD_DIR"
 
+main() {
 wget -qO- "$REPO" | grep -o 'https://[^"]*\.ipk' | while read -r url; do
     filename=$(basename "$url")
     echo "Download $filename..."
@@ -24,7 +26,111 @@ else
     [ -f /etc/config/dhcp-opkg ] && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp
 fi
 
-IS_SHOULD_RESTART_NETWORK=false
+if [ -f "/etc/init.d/podkop" ]; then
+    printf "\033[32;1mPodkop is already installed. Just upgrade it? (y/n)\033[0m\n"
+    printf "\033[32;1my - Only upgrade podkop\033[0m\n"
+    printf "\033[32;1mn - Upgrade and install proxy or tunnels\033[0m\n"
+
+    while true; do
+        read -r -p '' UPDATE
+        case $UPDATE in
+
+        y)
+            echo "Upgraded podkop..."
+            break
+            ;;
+
+        n)
+            add_tunnel
+            break
+            ;;
+    esac
+    done
+else
+    echo "Installed podkop..."
+    add_tunnel
+fi
+
+opkg install $DOWNLOAD_DIR/podkop*.ipk
+opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
+
+rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk
+
+if [ "$IS_SHOULD_RESTART_NETWORK" ]; then
+    printf "\033[32;1mRestart network\033[0m\n"
+    /etc/init.d/network restart
+fi
+}
+
+add_tunnel() {
+    echo "What type of VPN or proxy will be used? We also can automatically configure Wireguard and Amnezia WireGuard."
+    echo "1) VLESS, Shadowsocks (A sing-box will be installed)"
+    echo "2) Wireguard"
+    echo "3) AmneziaWG"
+    echo "4) OpenVPN"
+    echo "5) OpenConnect"
+    echo "6) Skip this step"
+
+    while true; do
+        read -r -p '' TUNNEL
+        case $TUNNEL in
+
+        1)
+            opkg install sing-box
+            break
+            ;;
+
+        2)
+            opkg install wireguard-tools luci-proto-wireguard luci-app-wireguard
+
+            printf "\033[32;1mDo you want to configure the wireguard interface? (y/n): \033[0m\n"
+            read IS_SHOULD_CONFIGURE_WG_INTERFACE
+
+            if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
+                wg_awg_setup Wireguard
+            else
+            printf "\e[1;32mUse these instructions to manual configure https://itdog.info/nastrojka-klienta-wireguard-na-openwrt/\e[0m\n"
+            fi
+
+            break
+            ;;
+
+        3)
+            install_awg_packages
+
+            printf "\033[32;1mThere are no instructions for manual configure yet. Do you want to configure the amneziawg interface? (y/n): \033[0m\n"
+            read IS_SHOULD_CONFIGURE_WG_INTERFACE
+
+            if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
+                wg_awg_setup AmneziaWG
+            fi
+
+            break
+            ;;
+
+        4)
+            opkg install opkg install openvpn-openssl luci-app-openvpn
+            printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openvpn-na-openwrt/\e[0m\n"
+            break
+            ;;
+
+        5)
+            opkg install opkg install openconnect luci-proto-openconnect
+            printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openconnect-na-openwrt/\e[0m\n"
+            break
+            ;;
+
+        6)
+            echo "Skip. Use this if you're installing an upgrade."
+            break
+            ;;
+
+        *)
+            echo "Choose from the following options"
+            ;;
+        esac
+    done
+}
 
 handler_network_restart() {
     IS_SHOULD_RESTART_NETWORK=true
@@ -247,85 +353,4 @@ wg_awg_setup() {
     handler_network_restart
 }
 
-add_tunnel() {
-    echo "What type of VPN or proxy will be used? We also can automatically configure Wireguard and Amnezia WireGuard."
-    echo "1) VLESS, Shadowsocks (A sing-box will be installed)"
-    echo "2) Wireguard"
-    echo "3) AmneziaWG"
-    echo "4) OpenVPN"
-    echo "5) OpenConnect"
-    echo "6) Skip this step"
-
-    while true; do
-        read -r -p '' TUNNEL
-        case $TUNNEL in
-
-        1)
-            opkg install sing-box
-            break
-            ;;
-
-        2)
-            opkg install wireguard-tools luci-proto-wireguard luci-app-wireguard
-
-            printf "\033[32;1mDo you want to configure the wireguard interface? (y/n): \033[0m\n"
-            read IS_SHOULD_CONFIGURE_WG_INTERFACE
-
-            if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
-                wg_awg_setup Wireguard
-            else
-            printf "\e[1;32mUse these instructions to manual configure https://itdog.info/nastrojka-klienta-wireguard-na-openwrt/\e[0m\n"
-            fi
-
-            break
-            ;;
-
-        3)
-            install_awg_packages
-
-            printf "\033[32;1mThere are no instructions for manual configure yet. Do you want to configure the amneziawg interface? (y/n): \033[0m\n"
-            read IS_SHOULD_CONFIGURE_WG_INTERFACE
-
-            if [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "y" ] || [ "$IS_SHOULD_CONFIGURE_WG_INTERFACE" = "Y" ]; then
-                wg_awg_setup AmneziaWG
-            fi
-
-            break
-            ;;
-
-        4)
-            opkg install opkg install openvpn-openssl luci-app-openvpn
-            printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openvpn-na-openwrt/\e[0m\n"
-            break
-            ;;
-
-        5)
-            opkg install opkg install openconnect luci-proto-openconnect
-            printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openconnect-na-openwrt/\e[0m\n"
-            break
-            ;;
-
-        6)
-            echo "Skip. Use this if you're installing an upgrade."
-            break
-            ;;
-
-        *)
-            echo "Choose from the following options"
-            ;;
-        esac
-    done
-}
-
-add_tunnel
-
-echo "Installed podkop..."
-opkg install $DOWNLOAD_DIR/podkop*.ipk
-opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
-
-rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk
-
-if [ "$IS_SHOULD_RESTART_NETWORK" ]; then
-    printf "\033[32;1mRestart network\033[0m\n"
-    /etc/init.d/network restart
-fi
+main
