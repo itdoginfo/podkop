@@ -20,6 +20,10 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/domain-routing-openwr
 sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
 ```
 
+Скрипт также предложит выбрать, какой туннель будет использоваться. Для выбранного туннеля будут установлены нужные пакеты, а для Wireguard и AmneziaWG также будет предложена автоматическая настройка - прямо в консоли скрипт запросит данные конфига. Для AmneziaWG можно также выбрать вариант с использованием конфига обычного Wireguard и автоматической обфускацией до AmneziaWG.
+
+Для AmneziaWG скрипт проверяет наличие пакетов под вашу платформу в [стороннем репозитории](https://github.com/Slava-Shchipunov/awg-openwrt/releases), так как в официальном репозитории OpenWRT они отсутствуют, и автоматически их устанавливает.
+
 ## Вручную
 Сделать `opkg update`, чтоб установились зависимости.
 Скачать пакеты `podkop_*.ipk` и `luci-app-podkop_*.ipk` из релиза. `opkg install` сначала первый, потом второй.
@@ -94,8 +98,8 @@ opkg update && opkg install sing-box
 - [ ] IPv6
 - [ ] Придумать автонастройку DNS через stubby итд. Как лучше это реализовать.
 - [ ] Удаление подсетей CF из domain sets раз в N часов
-- [ ] Автонастройка wireguard по примеру getdomains
-- [ ] Автонастройка awg по примеру getdomains
+- [x] Автонастройка wireguard по примеру getdomains
+- [x] Автонастройка awg по примеру getdomains
 
 Wiki
 - [ ] Тема
