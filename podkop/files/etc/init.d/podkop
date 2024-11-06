@@ -18,7 +18,6 @@ start_service() {
     log "Start podkop"
 
     dnsmasqfull
-    ucitrack
     routing_table_create
     add_mark
 
@@ -255,6 +254,7 @@ log() {
     local RESET="\033[0m"
 
     echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
+    logger -t "podkop" "$timestamp $message"
 }
 
 add_cron_job() {
@@ -374,14 +374,6 @@ dnsmasqfull() {
     fi
 }
 
-ucitrack() {
-    if grep -q "podkop" /etc/config/ucitrack; then
-        log "ucitrack config ok"
-    else
-        log "ucitrack config not found"
-    fi
-}
-
 routing_table_create() {
     grep -q "105 podkop" /etc/iproute2/rt_tables || echo '105 podkop' >>/etc/iproute2/rt_tables
     config_get_bool second_enable "second" "second_enable" "0"
@@ -444,19 +436,18 @@ add_set() {
 add_route_interface() {
     local interface="$1"
     local table="$2"
-    local retry_count_interface=0
     local retry_count_route=0
-    local max_retries=20
+    local max_retries=10
 
-    while ! ip link show "$interface" >/dev/null 2>&1; do
-        if (( attempt == max_retries )); then
-            log "Interface "$interface" undetected after $retry_count_interface attempts. Exit"
+    if ! ip link show "$interface" >/dev/null 2>&1; then
+    log "Interface "$interface" undetected, wait 10 sec..."
+    sleep 10
+
+        if ! ip link show "$interface" >/dev/null 2>&1; then
+            log "Interface "$interface" undetected. exit"
             exit 1
         fi
-        log "Attempt $retry_count_interface: Interface "$interface" not found, retrying in 3 seconds..."
-        retry_count_interface=$(( retry_count_interface + 1 ))
-        sleep 3
-    done
+    fi
 
     if ! ip link show "$interface" >/dev/null 2>&1; then
         log "Interface "$interface" does not exist, not possible to create a route"

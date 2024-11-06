@@ -1,3 +1,28 @@
 #!/bin/sh
 
-/etc/init.d/podkop add_route_interface
+. /lib/functions.sh
+config_load "/etc/config/podkop"
+. /etc/init.d/podkop
+
+config_get "interface" "main" "interface" "0"
+config_get "mode" "main" "mode" "0"
+if [ "$mode" = "vpn" ] && [ -n "$interface" ]; then
+    add_route_interface "$interface" "podkop"
+fi
+
+if [ "$mode" = "proxy" ]; then
+    echo "Add route for main tproxy"
+    add_route_tproxy podkop
+fi
+
+config_get second_enable "second" "second_enable" "0"
+config_get interface "second" "interface" "0"
+config_get "mode" "second" "mode" "0"
+if [ "$second_enable" -eq "1" ] && [ "$mode" = "vpn" ] && [ -n "$interface" ]; then
+    add_route_interface "$interface" "podkop2"
+fi
+
+if [ "$second_enable" -eq "1" ] && [ "$mode" = "proxy" ]; then
+    echo "Add route for second tproxy"
+    add_route_tproxy podkop2
+fi
