@@ -7,7 +7,7 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="list_update add_route_interface version"
+EXTRA_COMMANDS="list_update add_route_interface"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         add_route_interface  Adding route for interface
         sing_box_config_vless For test vless string"
@@ -43,7 +43,7 @@ start_service() {
                 sing_box_config_vless "$proxy_string" "1603"
             else
                 log "Unsupported proxy type: $proxy_string"
-                exit 1
+                return
             fi
             add_route_tproxy podkop2
             sing_box_config_check
@@ -66,7 +66,7 @@ start_service() {
         log "Proxy mode"
         if ! command -v sing-box >/dev/null 2>&1; then
             log "Sing-box isn't installed. Proxy mode works with sing-box"
-            exit 1
+            return
         fi
 
         # Main - proxy, Second - proxy
@@ -84,7 +84,7 @@ start_service() {
                 sing_box_config_outbound_vless "$proxy_string" "$outbound_main" main
             else
                 log "Unsupported proxy type: $proxy_string"
-                exit 1
+                return
             fi
 
             config_get proxy_string second "proxy_string"
@@ -94,7 +94,7 @@ start_service() {
                 sing_box_config_outbound_vless "$proxy_string" "$outbound_second" second
             else
                 log "Unsupported proxy type: $proxy_string"
-                exit 1
+                return
             fi
 
             jq --argjson outbounds "$(jq -s '{"outbounds": (.[0].outbounds + .[1].outbounds)}' "$outbound_main" "$outbound_second")" \
@@ -117,7 +117,7 @@ start_service() {
                 sing_box_config_vless "$proxy_string" "1602"
             else
                 log "Unsupported proxy type: $proxy_string"
-                exit 1
+                return
             fi
             add_route_tproxy podkop
         fi
@@ -143,7 +143,7 @@ start_service() {
         ;;
     *)
         log "Requires *vpn* or *proxy* value"
-        exit 1
+        return
         ;;
     esac
 
@@ -243,6 +243,7 @@ reload_service() {
 }
 
 service_triggers() {
+    log "service_triggers start"
     procd_add_config_trigger "config.change" "$NAME" "$initscript" reload 'on_config_change'
 }
 
@@ -370,7 +371,7 @@ dnsmasqfull() {
         log "Dnsmasq-full is not installed. Future: link only"
         log "Use script or:"
         log "cd /tmp/ && /bin/opkg download dnsmasq-full && /bin/opkg remove dnsmasq && /bin/opkg install dnsmasq-full --cache /tmp/ && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp"
-        exit 1
+        return
     fi
 }
 
@@ -428,7 +429,7 @@ add_set() {
 
     *)
         log "Requires *vpn* or *proxy* value"
-        exit 1
+        return
         ;;
     esac
 }
@@ -445,13 +446,13 @@ add_route_interface() {
 
         if ! ip link show "$interface" >/dev/null 2>&1; then
             log "Interface "$interface" undetected. exit"
-            exit 1
+            return
         fi
     fi
 
     if ! ip link show "$interface" >/dev/null 2>&1; then
         log "Interface "$interface" does not exist, not possible to create a route"
-        exit 1
+        return
     fi
 
     if ip route show table $table | grep -q "^default dev"; then
@@ -472,7 +473,7 @@ add_route_interface() {
     done
 
     log "The maximum number of attempts has been exceeded. Failed to add a route."
-    exit 1
+    return
 }
 
 add_route_tproxy() {
@@ -523,7 +524,7 @@ lists_domains_download() {
         ;;
     *)
         log "Unidentified list of domains"
-        exit 1
+        return
         ;;
     esac
 
@@ -563,7 +564,7 @@ lists_services_download() {
         ;;
     *)
         log "Unidentified list of domains"
-        exit 1
+        return
         ;;
     esac
 
@@ -717,7 +718,7 @@ dnsmasq_config_check() {
     local config="$1"
     if ! /usr/sbin/dnsmasq --conf-file=/tmp/dnsmasq.d/$config --test 2>&1 | grep -q "syntax check OK"; then
         log "Dnsmasq config $config contains errors. Break"
-        exit 1
+        return
     fi
 }
 
@@ -942,6 +943,6 @@ sing_box_config_outbound_vless() {
 sing_box_config_check() {
     if ! sing-box -c /etc/sing-box/config.json check >/dev/null 2>&1; then
         log "Sing-box configuration is invalid"
-        exit 1
+        return
     fi
 }

@@ -1,0 +1,10 @@
+#!/bin/sh
+
+rm -f /var/luci-indexcache*
+rm -f /tmp/luci-indexcache*
+
+[ -x /etc/init.d/rpcd ] && /etc/init.d/rpcd reload
+
+logger -t "podkop" "$timestamp uci-defaults script executed"
+
+exit 0

@@ -1,5 +1,5 @@
 config main 'main'
-	option mode 'proxy'
+	option mode ''
 	option interface ''
 	option proxy_string ''
 	option domain_list_enabled '1'
