@@ -89,6 +89,22 @@ return view.extend({
         o.placeholder = 'Domains list';
         o.depends('custom_domains_list_enabled', '1');
         o.rmempty = false;
+        o.validate = function(section_id, value) {
+            // Чтобы валидация не ругалась на пустое поле
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            // Регулярное выражение для проверки доменов и субдоменов (без порта, протокола, пути)
+            // Домен должен соответствовать правилам именования доменов. Только для латиницы
+            const domainRegex = /^(?!:\/\/)([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,}$/;
+
+            if (!domainRegex.test(value)) {
+                return `Invalid domain format: ${value}. Enter only valid domain, without protocol, port or path`;
+            }
+
+            return true;
+        };
 
         o = s.taboption('main', form.Flag, 'custom_download_domains_list_enabled', _('URL domains enable'));
         o.default = '0';
