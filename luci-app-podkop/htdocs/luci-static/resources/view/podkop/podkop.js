@@ -78,7 +78,7 @@ return view.extend({
         o.placeholder = 'Domains list';
         o.depends('custom_domains_list_enabled', '1');
         o.rmempty = false;
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;
             }
@@ -99,7 +99,7 @@ return view.extend({
         o.placeholder = 'URL';
         o.depends('custom_download_domains_list_enabled', '1');
         o.rmempty = false;
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;
             }
@@ -123,7 +123,7 @@ return view.extend({
         o.placeholder = 'Subnets list';
         o.depends('custom_subnets_list_enabled', '1');
         o.rmempty = false;
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;
             }
@@ -160,7 +160,7 @@ return view.extend({
         o.placeholder = 'URL';
         o.depends('custom_download_subnets_list_enabled', '1');
         o.rmempty = false;
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;
             }
@@ -195,7 +195,7 @@ return view.extend({
         o.placeholder = 'IP';
         o.depends('all_traffic_from_ip_enabled', '1');
         o.rmempty = false;
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;
             }
@@ -225,7 +225,7 @@ return view.extend({
         o.placeholder = 'IP';
         o.depends('exclude_from_ip_enabled', '1');
         o.rmempty = false;
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;
             }
@@ -260,6 +260,17 @@ return view.extend({
         o = s.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
         o.default = '0';
         o.depends('mode', 'proxy');
+        o.rmempty = false;
+
+        o = s.taboption('additional', form.ListValue, 'update_interval', _('List Update Frequency'), _('Select how often the lists will be updated'));
+        o.value('0 */1 * * *', _('Every hour'));
+        o.value('0 */2 * * *', _('Every 2 hours'));
+        o.value('0 */4 * * *', _('Every 4 hours'));
+        o.value('0 */6 * * *', _('Every 6 hours'));
+        o.value('0 */12 * * *', _('Every 12 hours'));
+        o.value('0 4 * * *', _('Once a day at 04:00'));
+        o.value('0 4 * * 0', _('Once a week on Sunday at 04:00'));
+        o.default = '0 4 * * *';
         o.rmempty = false;
 
         o = s.tab('second_settings', _('Alternative Route'));
@@ -317,7 +328,7 @@ return view.extend({
         o.placeholder = 'Domains list';
         o.depends('second_custom_domains_list_enabled', '1');
         o.rmempty = false;
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;
             }
@@ -339,7 +350,7 @@ return view.extend({
         o.placeholder = 'Subnets list';
         o.depends('second_custom_subnets_list_enabled', '1');
         o.rmempty = false;
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;
             }
