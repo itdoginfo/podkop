@@ -1,0 +1,150 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Podkop configuration"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Basic Settings"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Connection Type"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Select between VPN and Proxy connection methods for traffic routing"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Proxy Configuration URL"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Enter connection string starting with vless:// or ss:// for proxy configuration"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Network Interface"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Select network interface for VPN connection"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "List Update Frequency"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Select how often the lists will be updated"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Every hour"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Every 2 hours"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Every 4 hours"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Every 6 hours"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Every 12 hours"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Once a day at 04:00"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Once a week on Sunday at 04:00"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Once a week on Monday at 04:00"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Predefined Domain Lists"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Enable routing based on predefined domain lists for specific regions"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Domain List"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Select a predefined domain list"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Predefined Service Networks"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Enable routing for popular services like Twitter, Meta, and Discord"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "User Settings"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Alternative Route"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Alternative Route Enable"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Enable secondary routing configuration"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Invalid domain format. Enter domain without protocol (example: sub.example.com)"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "URL must use http:// or https:// protocol"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Invalid URL format. URL must start with http:// or https://"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Invalid subnet format. Use format: X.X.X.X/Y (like 192.168.1.0/24)"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Yacd enable"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Mixed enable"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Browser port: 2080"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Exclude NTP"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "For issues with open connections sing-box"
+msgstr ""

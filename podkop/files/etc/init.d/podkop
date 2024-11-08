@@ -12,7 +12,8 @@ EXTRA_HELP="        list_update     Updating domain and subnet lists
         add_route_interface  Adding route for interface
         sing_box_config_vless For test vless string"
 
-cron_job="0 4 * * * /etc/init.d/podkop list_update"
+config_get update_interval "main" "update_interval" "0 4 * * *"
+cron_job="${update_interval} /etc/init.d/podkop list_update"
 
 start_service() {
     log "Start podkop"
@@ -245,6 +246,12 @@ reload_service() {
 service_triggers() {
     log "service_triggers start"
     procd_add_config_trigger "config.change" "$NAME" "$initscript" reload 'on_config_change'
+    
+    config_get update_interval "main" "update_interval"
+    if [ -n "$update_interval" ]; then
+        remove_cron_job
+        add_cron_job
+    fi
 }
 
 log() {
@@ -259,18 +266,16 @@ log() {
 }
 
 add_cron_job() {
-    if ! crontab -l | grep -q "podkop"; then
-        #echo "$cron_job" >>/etc/crontabs/root
-        crontab -l | {
-            cat
-            echo "$cron_job"
-        } | crontab -
-        log "The cron job has been created"
-    fi
+    remove_cron_job
+    crontab -l | {
+        cat
+        echo "$cron_job"
+    } | crontab -
+    log "The cron job has been created: $cron_job"
 }
 
 remove_cron_job() {
-    sed -i "\|podkop|d" /etc/crontabs/root
+    (crontab -l | grep -v "/etc/init.d/podkop list_update") | crontab -
     log "The cron job removed"
 }
 
