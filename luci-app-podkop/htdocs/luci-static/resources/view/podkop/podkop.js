@@ -20,8 +20,9 @@ return view.extend({
         o.value('vpn', ('VPN'));
         o.value('proxy', ('Proxy'));
 
-        o = s.taboption('main', form.Value, 'proxy_string', _('Proxy String'), _('String vless:// or ss://'));
+        o = s.taboption('main', form.TextValue, 'proxy_string', _('Proxy String'), _('String vless:// or ss://'));
         o.depends('mode', 'proxy');
+        o .rows = 5;
 
         // Get all interface
         o = s.taboption('main', form.ListValue, 'interface', _('Interface'), _('Specify the interface'));
