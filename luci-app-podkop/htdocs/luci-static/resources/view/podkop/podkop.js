@@ -44,7 +44,7 @@ return view.extend({
             console.error('Error fetching devices:', error);
         }
 
-        o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Predefined Domain Lists'), _('Enable routing based on predefined domain lists for specific regions\n<a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>'));
+        o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Predefined Domain Lists'), _('Enable routing based on predefined domain lists for specific regions'));
         o.default = '0';
         o.rmempty = false;
 
