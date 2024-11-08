@@ -10,27 +10,24 @@ return view.extend({
 
         m = new form.Map('podkop', _('Podkop configuration'));
 
-
         s = m.section(form.TypedSection, 'main');
         s.anonymous = true;
 
-        o = s.tab('main', _('Main'));
+        o = s.tab('basic', _('Basic Settings'));
 
-        o = s.taboption('main', form.ListValue, 'mode', _('Mode'), _('Select VPN or Proxy'));
+        o = s.taboption('basic', form.ListValue, 'mode', _('Mode'), _('Select VPN or Proxy'));
         o.value('vpn', ('VPN'));
         o.value('proxy', ('Proxy'));
 
-        o = s.taboption('main', form.TextValue, 'proxy_string', _('Proxy String'), _('String vless:// or ss://'));
+        o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy String'), _('String vless:// or ss://'));
         o.depends('mode', 'proxy');
-        o .rows = 5;
+        o.rows = 5;
 
-        // Get all interface
-        o = s.taboption('main', form.ListValue, 'interface', _('Interface'), _('Specify the interface'));
+        o = s.taboption('basic', form.ListValue, 'interface', _('Interface'), _('Specify the interface'));
         o.depends('mode', 'vpn');
 
         try {
             const devices = await network.getDevices();
-
             const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0'];
 
             devices.forEach(function (device) {
@@ -41,19 +38,17 @@ return view.extend({
                     if (!isExcluded) {
                         o.value(deviceName, deviceName);
                     }
-                } else {
-                    console.warn('Device name is undefined or empty');
                 }
             });
         } catch (error) {
             console.error('Error fetching devices:', error);
         }
 
-        o = s.taboption('main', form.Flag, 'domain_list_enabled', _('Domain list enable'), _('<a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>'));
+        o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Domain list enable'), _('<a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>'));
         o.default = '0';
         o.rmempty = false;
 
-        o = s.taboption('main', form.ListValue, 'domain_list', _('Domain list'), _('Select a list'));
+        o = s.taboption('basic', form.ListValue, 'domain_list', _('Domain list'), _('Select a list'));
         o.placeholder = 'placeholder';
         o.value('ru_inside', 'Russia inside');
         o.value('ru_outside', 'Russia outside');
@@ -61,20 +56,11 @@ return view.extend({
         o.depends('domain_list_enabled', '1');
         o.rmempty = false;
 
-        o = s.taboption('main', form.Flag, 'delist_domains_enabled', _('Delist domains from main list enable'));
+        o = s.taboption('basic', form.Flag, 'subnets_list_enabled', _('Subnets list enable'));
         o.default = '0';
         o.rmempty = false;
 
-        o = s.taboption('main', form.DynamicList, 'delist_domains', _('Delist domains'), _('Domains to be excluded'));
-        o.placeholder = 'Delist domains';
-        o.depends('delist_domains_enabled', '1');
-        o.rmempty = false;
-
-        o = s.taboption('main', form.Flag, 'subnets_list_enabled', _('Subnets list enable'));
-        o.default = '0';
-        o.rmempty = false;
-
-        o = s.taboption('main', form.DynamicList, 'subnets', _('Subnets specify option'));
+        o = s.taboption('basic', form.DynamicList, 'subnets', _('Subnets specify option'));
         o.placeholder = 'Subnet list';
         o.value('twitter', 'Twitter(x.com)');
         o.value('meta', 'Meta');
@@ -82,116 +68,219 @@ return view.extend({
         o.depends('subnets_list_enabled', '1');
         o.rmempty = false;
 
-        o = s.taboption('main', form.Flag, 'custom_domains_list_enabled', _('Custom domains enable'));
+        o = s.tab('custom', _('Custom Settings'));
+
+        o = s.taboption('custom', form.Flag, 'custom_domains_list_enabled', _('Custom domains enable'));
         o.default = '0';
         o.rmempty = false;
 
-        o = s.taboption('main', form.DynamicList, 'custom_domains', _('Your domains'));
+        o = s.taboption('custom', form.DynamicList, 'custom_domains', _('Your domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
         o.placeholder = 'Domains list';
         o.depends('custom_domains_list_enabled', '1');
         o.rmempty = false;
         o.validate = function(section_id, value) {
-            // Чтобы валидация не ругалась на пустое поле
             if (!value || value.length === 0) {
                 return true;
             }
 
-            // Регулярное выражение для проверки доменов и субдоменов (без порта, протокола, пути)
-            // Домен должен соответствовать правилам именования доменов. Только для латиницы
-            const domainRegex = /^(?!:\/\/)([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,}$/;
+            const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
 
             if (!domainRegex.test(value)) {
-                return `Invalid domain format: ${value}. Enter only valid domain, without protocol, port or path`;
+                return _('Invalid domain format. Enter domain without protocol (example: sub.example.com)');
+            }
+            return true;
+        };
+
+        o = s.taboption('custom', form.Flag, 'custom_download_domains_list_enabled', _('URL domains enable'));
+        o.default = '0';
+        o.rmempty = false;
+
+        o = s.taboption('custom', form.DynamicList, 'custom_download_domains', _('Your URL domains'), _('Enter full URLs starting with http:// or https://'));
+        o.placeholder = 'URL';
+        o.depends('custom_download_domains_list_enabled', '1');
+        o.rmempty = false;
+        o.validate = function(section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            try {
+                const url = new URL(value);
+                if (!['http:', 'https:'].includes(url.protocol)) {
+                    return _('URL must use http:// or https:// protocol');
+                }
+                return true;
+            } catch (e) {
+                return _('Invalid URL format. URL must start with http:// or https://');
+            }
+        };
+
+
+        o = s.taboption('custom', form.Flag, 'custom_subnets_list_enabled', _('Custom subnets enable'));
+        o.default = '0';
+        o.rmempty = false;
+
+        o = s.taboption('custom', form.DynamicList, 'custom_subnets', _('Your subnet'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
+        o.placeholder = 'Subnets list';
+        o.depends('custom_subnets_list_enabled', '1');
+        o.rmempty = false;
+        o.validate = function(section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+
+            if (!subnetRegex.test(value)) {
+                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 192.168.1.0/24)');
+            }
+
+            const [ip, cidr] = value.split('/');
+            const ipParts = ip.split('.');
+            const cidrNum = parseInt(cidr);
+
+            for (const part of ipParts) {
+                const num = parseInt(part);
+                if (num < 0 || num > 255) {
+                    return _('IP address parts must be between 0 and 255');
+                }
+            }
+
+            if (cidrNum < 0 || cidrNum > 32) {
+                return _('CIDR must be between 0 and 32');
             }
 
             return true;
         };
 
-        o = s.taboption('main', form.Flag, 'custom_download_domains_list_enabled', _('URL domains enable'));
+        o = s.taboption('custom', form.Flag, 'custom_download_subnets_list_enabled', _('URL subnets enable'));
         o.default = '0';
         o.rmempty = false;
 
-        o = s.taboption('main', form.DynamicList, 'custom_download_domains', _('Your URL domains'));
-        o.placeholder = 'URL';
-        o.depends('custom_download_domains_list_enabled', '1');
-        o.rmempty = false;
-
-        o = s.taboption('main', form.Flag, 'custom_subnets_list_enabled', _('Custom subnets enable'));
-        o.default = '0';
-        o.rmempty = false;
-
-        o = s.taboption('main', form.DynamicList, 'custom_subnets', _('Your subnet'));
-        o.placeholder = 'Subnets list';
-        o.depends('custom_subnets_list_enabled', '1');
-        o.rmempty = false;
-
-        o = s.taboption('main', form.Flag, 'custom_download_subnets_list_enabled', _('URL subnets enable'));
-        o.default = '0';
-        o.rmempty = false;
-
-        o = s.taboption('main', form.DynamicList, 'custom_download_subnets', _('Your URL subnet'));
+        o = s.taboption('custom', form.DynamicList, 'custom_download_subnets', _('Your URL subnet'), _('Enter full URLs starting with http:// or https://'));
         o.placeholder = 'URL';
         o.depends('custom_download_subnets_list_enabled', '1');
         o.rmempty = false;
+        o.validate = function(section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
 
-        o = s.taboption('main', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'));
+            try {
+                const url = new URL(value);
+                if (!['http:', 'https:'].includes(url.protocol)) {
+                    return _('URL must use http:// or https:// protocol');
+                }
+                return true;
+            } catch (e) {
+                return _('Invalid URL format. URL must start with http:// or https://');
+            }
+        };
+        o = s.tab('additional', _('Additional Settings'));
+
+        o = s.taboption('additional', form.Flag, 'delist_domains_enabled', _('Delist domains from main list enable'));
         o.default = '0';
         o.rmempty = false;
 
-        o = s.taboption('main', form.DynamicList, 'all_traffic_ip', _('Local IPs'));
+        o = s.taboption('additional', form.DynamicList, 'delist_domains', _('Delist domains'), _('Domains to be excluded'));
+        o.placeholder = 'Delist domains';
+        o.depends('delist_domains_enabled', '1');
+        o.rmempty = false;
+
+        o = s.taboption('additional', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'));
+        o.default = '0';
+        o.rmempty = false;
+
+        o = s.taboption('additional', form.DynamicList, 'all_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
         o.placeholder = 'IP';
         o.depends('all_traffic_from_ip_enabled', '1');
         o.rmempty = false;
+        o.validate = function(section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
 
-        o = s.taboption('main', form.Flag, 'exclude_from_ip_enabled', _('IP for full exclude'));
+            const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+
+            if (!ipRegex.test(value)) {
+                return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
+            }
+
+            const ipParts = value.split('.');
+            for (const part of ipParts) {
+                const num = parseInt(part);
+                if (num < 0 || num > 255) {
+                    return _('IP address parts must be between 0 and 255');
+                }
+            }
+
+            return true;
+        };
+
+        o = s.taboption('additional', form.Flag, 'exclude_from_ip_enabled', _('IP for full exclude'));
         o.default = '0';
         o.rmempty = false;
 
-        o = s.taboption('main', form.DynamicList, 'exclude_traffic_ip', _('Local IPs'));
+        o = s.taboption('additional', form.DynamicList, 'exclude_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
         o.placeholder = 'IP';
         o.depends('exclude_from_ip_enabled', '1');
         o.rmempty = false;
+        o.validate = function(section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
 
-        o = s.taboption('main', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
+            const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+
+            if (!ipRegex.test(value)) {
+                return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
+            }
+
+            const ipParts = value.split('.');
+            for (const part of ipParts) {
+                const num = parseInt(part);
+                if (num < 0 || num > 255) {
+                    return _('IP address parts must be between 0 and 255');
+                }
+            }
+
+            return true;
+        };
+
+        o = s.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
         o.default = '0';
         o.depends('mode', 'proxy');
         o.rmempty = false;
 
-        o = s.taboption('main', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
+        o = s.taboption('additional', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
         o.default = '0';
         o.depends('mode', 'proxy');
         o.rmempty = false;
-    
-        o = s.taboption('main', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
+
+        o = s.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
         o.default = '0';
         o.depends('mode', 'proxy');
-        o.rmempty = false;  
+        o.rmempty = false;
 
-        // Second section
-        s = m.section(form.TypedSection, 'second');
-        s.anonymous = true;
+        o = s.tab('second_settings', _('Second Settings'));
 
-        o = s.tab('second', _('Second'));
-
-        o = s.taboption('second', form.Flag, 'second_enable', _('Second enable'));
+        o = s.taboption('second_settings', form.Flag, 'second_enable', _('Second enable'));
         o.default = '0';
         o.rmempty = false;
 
-        o = s.taboption('second', form.ListValue, 'mode', _('Mode'), _('Select VPN or Proxy'));
+        o = s.taboption('second_settings', form.ListValue, 'second_mode', _('Mode'), _('Select VPN or Proxy'));
         o.value('vpn', ('VPN'));
         o.value('proxy', ('Proxy'));
         o.depends('second_enable', '1');
 
-        o = s.taboption('second', form.Value, 'proxy_string', _('Proxy String'), _('String vless:// or ss://'));
-        o.depends('mode', 'proxy');
+        o = s.taboption('second_settings', form.Value, 'second_proxy_string', _('Proxy String'), _('String vless:// or ss://'));
+        o.depends('second_mode', 'proxy');
 
-        // Get all interface
-        o = s.taboption('second', form.ListValue, 'interface', _('Interface'), _('Specify the interface'));
-        o.depends('mode', 'vpn');
+        o = s.taboption('second_settings', form.ListValue, 'second_interface', _('Interface'), _('Specify the interface'));
+        o.depends('second_mode', 'vpn');
 
         try {
             const devices = await network.getDevices();
-
             const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0'];
 
             devices.forEach(function (device) {
@@ -202,44 +291,82 @@ return view.extend({
                     if (!isExcluded) {
                         o.value(deviceName, deviceName);
                     }
-                } else {
-                    console.warn('Device name is undefined or empty');
                 }
             });
         } catch (error) {
             console.error('Error fetching devices:', error);
         }
 
-        o = s.taboption('second', form.Flag, 'domain_service_enabled', _('Domain service enable'));
+        o = s.taboption('second_settings', form.Flag, 'domain_service_enabled', _('Domain service enable'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
 
-        o = s.taboption('second', form.ListValue, 'service_list', _('Service list'), _('Select a list'));
+        o = s.taboption('second_settings', form.ListValue, 'service_list', _('Service list'), _('Select a list'));
         o.placeholder = 'placeholder';
         o.value('youtube', 'Youtube');
         o.depends('domain_service_enabled', '1');
         o.rmempty = false;
 
-        o = s.taboption('second', form.Flag, 'custom_domains_list_enabled', _('Custom domains enable'));
+        o = s.taboption('second_settings', form.Flag, 'second_custom_domains_list_enabled', _('Custom domains enable'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
 
-        o = s.taboption('second', form.DynamicList, 'custom_domains', _('Your domains'));
+        o = s.taboption('second_settings', form.DynamicList, 'second_custom_domains', _('Your domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
         o.placeholder = 'Domains list';
-        o.depends('custom_domains_list_enabled', '1');
+        o.depends('second_custom_domains_list_enabled', '1');
         o.rmempty = false;
+        o.validate = function(section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
 
-        o = s.taboption('second', form.Flag, 'custom_subnets_list_enabled', _('Custom subnets enable'));
+            const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+
+            if (!domainRegex.test(value)) {
+                return _('Invalid domain format. Enter domain without protocol (example: sub.example.com)');
+            }
+            return true;
+        };
+
+        o = s.taboption('second_settings', form.Flag, 'second_custom_subnets_list_enabled', _('Custom subnets enable'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
 
-        o = s.taboption('second', form.DynamicList, 'custom_subnets', _('Your subnet'));
+        o = s.taboption('second_settings', form.DynamicList, 'second_custom_subnets', _('Your subnet'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
         o.placeholder = 'Subnets list';
-        o.depends('custom_subnets_list_enabled', '1');
+        o.depends('second_custom_subnets_list_enabled', '1');
         o.rmempty = false;
+        o.validate = function(section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+
+            if (!subnetRegex.test(value)) {
+                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 192.168.1.0/24)');
+            }
+
+            const [ip, cidr] = value.split('/');
+            const ipParts = ip.split('.');
+            const cidrNum = parseInt(cidr);
+
+            for (const part of ipParts) {
+                const num = parseInt(part);
+                if (num < 0 || num > 255) {
+                    return _('IP address parts must be between 0 and 255');
+                }
+            }
+
+            if (cidrNum < 0 || cidrNum > 32) {
+                return _('CIDR must be between 0 and 32');
+            }
+
+            return true;
+        };
 
         return m.render();
     }
