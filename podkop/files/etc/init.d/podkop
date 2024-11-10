@@ -544,7 +544,8 @@ lists_domains_download() {
                 sed -i 's/fw4#vpn_domains/PodkopTable#podkop2_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
             else
                 sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
-            fi            return 0
+            fi
+            return 0
         else
             log "GitHub is not available. Check the internet availability [$count sec]"
             count=$((count + 1))
