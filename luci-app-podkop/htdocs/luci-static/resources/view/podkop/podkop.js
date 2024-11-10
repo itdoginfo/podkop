@@ -311,7 +311,7 @@ return view.extend({
         o.depends('second_enable', '1');
         o.ucisection = 'second';  // Changed to 'second'
 
-        o = s.taboption('second_settings', form.Value, 'second_proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
+        o = s.taboption('second_settings', form.TextValue, 'second_proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
         o.depends('second_mode', 'proxy');
         o.ucisection = 'second';  // Changed to 'second'
 

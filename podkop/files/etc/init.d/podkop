@@ -315,13 +315,12 @@ list_update() {
         /etc/init.d/dnsmasq restart
     fi
 
-    config_get_bool custom_domains_list_enabled "second" "custom_domains_list_enabled" "0"
-    if [ "$custom_domains_list_enabled" -eq 1 ]; then
+    config_get_bool second_custom_domains_list_enabled "second" "second_custom_domains_list_enabled" "0"
+    if [ "$second_custom_domains_list_enabled" -eq 1 ]; then
         log "Adding a custom domains list. Second podkop"
         add_set "podkop2_domains" "second"
         rm -f /tmp/dnsmasq.d/podkop2-custom-domains.lst
-        config_list_foreach second custom_domains "list_delist_domains"
-        config_list_foreach second custom_domains "list_custom_domains_create" "podkop2"
+        config_list_foreach second second_custom_domains "list_custom_domains_create" "podkop2"
         dnsmasq_config_check podkop2-custom-domains.lst
     fi
 
@@ -331,11 +330,11 @@ list_update() {
         add_set "podkop2_domains" "second"
         config_get service_list second "service_list"
         lists_services_download "$service_list"
-        config_list_foreach second custom_domains "list_delist_domains"
+        config_list_foreach second second_custom_domains "list_delist_domains"
         dnsmasq_config_check podkop2-domains.lst
     fi
 
-    if [ "$custom_domains_list_enabled" -eq 1 ] || [ "$domain_service_enabled" -eq 1 ]; then
+    if [ "$second_custom_domains_list_enabled" -eq 1 ] || [ "$domain_service_enabled" -eq 1 ]; then
         /etc/init.d/dnsmasq restart
     fi
 
@@ -362,11 +361,11 @@ list_update() {
         config_list_foreach main custom_subnets "list_custom_subnets_create" "podkop"
     fi
 
-    config_get_bool custom_subnets_list_enabled "second" "custom_subnets_list_enabled" "0"
-    if [ "$custom_subnets_list_enabled" -eq 1 ]; then
+    config_get_bool second_custom_subnets_list_enabled "second" "second_custom_subnets_list_enabled" "0"
+    if [ "$second_custom_subnets_list_enabled" -eq 1 ]; then
         log "Adding a custom subnets list. Second"
         add_set "podkop2_subnets" "second"
-        config_list_foreach second custom_subnets "list_custom_subnets_create" "podkop2"
+        config_list_foreach second second_custom_subnets "list_custom_subnets_create" "podkop2"
     fi
 }
 
@@ -852,7 +851,6 @@ sing_box_config_vless() {
         end)' "$template_config" >/etc/sing-box/config.json
 }
 
-# make one function for full and outbound only
 sing_box_config_outbound_shadowsocks() {
     local STRING="$1"
     local outbound="$2"
