@@ -18,7 +18,7 @@ jobs:
 
       - name: Create Docker container
         run: docker create --name podkop podkop:ci
-        
+
       - name: Copy file from Docker container
         run: |
           docker cp podkop:/builder/bin/packages/x86_64/utilites/. ./bin/

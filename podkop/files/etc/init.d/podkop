@@ -249,7 +249,6 @@ service_triggers() {
     
     config_get update_interval "main" "update_interval"
     if [ -n "$update_interval" ]; then
-        remove_cron_job
         add_cron_job
     fi
 }
