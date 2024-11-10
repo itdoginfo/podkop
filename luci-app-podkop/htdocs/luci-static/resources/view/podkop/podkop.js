@@ -13,6 +13,7 @@ return view.extend({
         s = m.section(form.TypedSection, 'main');
         s.anonymous = true;
 
+        // Basic Settings tab
         o = s.tab('basic', _('Basic Settings'));
 
         o = s.taboption('basic', form.ListValue, 'mode', _('Connection Type'), _('Select between VPN and Proxy connection methods for traffic routing'));
@@ -44,7 +45,7 @@ return view.extend({
             console.error('Error fetching devices:', error);
         }
 
-        o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Predefined Domain Lists'), _('Enable routing based on predefined domain lists for specific regions'));
+        o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Predefined Domain Lists'), _('<a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>'));
         o.default = '0';
         o.rmempty = false;
 
@@ -68,6 +69,7 @@ return view.extend({
         o.depends('subnets_list_enabled', '1');
         o.rmempty = false;
 
+        // User Settings tab
         o = s.tab('custom', _('User Settings'));
 
         o = s.taboption('custom', form.Flag, 'custom_domains_list_enabled', _('User Domain List'), _('Enable and manage your custom list of domains for selective routing'));
@@ -176,6 +178,7 @@ return view.extend({
             }
         };
 
+        // Additional Settings tab
         o = s.tab('additional', _('Additional Settings'));
 
         o = s.taboption('additional', form.Flag, 'delist_domains_enabled', _('Domain Exclusions'), _('Exclude specific domains from routing rules'));
@@ -273,13 +276,14 @@ return view.extend({
         o.default = '0 4 * * *';
         o.rmempty = false;
 
-        o = s.tab('second_settings', _('Alternative Route'));
+        // Secondary Route tab
+        o = s.tab('second_settings', _('Secondary Route'));
 
-        o = s.taboption('second_settings', form.Flag, 'second_enable', _('Alternative Route Enable'), _('Enable secondary routing configuration'));
+        o = s.taboption('second_settings', form.Flag, 'second_enable', _('Secondary Route Enable'), _('Enable secondary routing configuration'));
         o.default = '0';
         o.rmempty = false;
 
-        o = s.taboption('second_settings', form.ListValue, 'second_mode', _('Connection Type'), _('Select between VPN and Proxy for alternative route'));
+        o = s.taboption('second_settings', form.ListValue, 'second_mode', _('Connection Type'), _('Select between VPN and Proxy for secondary route'));
         o.value('vpn', ('VPN'));
         o.value('proxy', ('Proxy'));
         o.depends('second_enable', '1');
@@ -308,23 +312,23 @@ return view.extend({
             console.error('Error fetching devices:', error);
         }
 
-        o = s.taboption('second_settings', form.Flag, 'domain_service_enabled', _('Service List Enable'), _('Enable predefined service lists for alternative routing'));
+        o = s.taboption('second_settings', form.Flag, 'domain_service_enabled', _('Service Domain List Enable'), _('Enable predefined service domain lists for secondary routing'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
 
-        o = s.taboption('second_settings', form.ListValue, 'service_list', _('Service List'), _('Select predefined services for alternative routing'));
+        o = s.taboption('second_settings', form.ListValue, 'service_list', _('Service List'), _('Select predefined services for secondary routing'));
         o.placeholder = 'placeholder';
         o.value('youtube', 'Youtube');
         o.depends('domain_service_enabled', '1');
         o.rmempty = false;
 
-        o = s.taboption('second_settings', form.Flag, 'second_custom_domains_list_enabled', _('Alternative Domain List'), _('Configure custom domains for alternative routing path'));
+        o = s.taboption('second_settings', form.Flag, 'second_custom_domains_list_enabled', _('Secondary Domain List'), _('Configure custom domains for secondary routing path'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
 
-        o = s.taboption('second_settings', form.DynamicList, 'second_custom_domains', _('Alternative Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
+        o = s.taboption('second_settings', form.DynamicList, 'second_custom_domains', _('Secondary Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
         o.placeholder = 'Domains list';
         o.depends('second_custom_domains_list_enabled', '1');
         o.rmempty = false;
@@ -341,12 +345,12 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('second_settings', form.Flag, 'second_custom_subnets_list_enabled', _('Alternative Subnet List'), _('Configure custom subnets for alternative routing path'));
+        o = s.taboption('second_settings', form.Flag, 'second_custom_subnets_list_enabled', _('Secondary Subnet List'), _('Configure custom subnets for secondary routing path'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
 
-        o = s.taboption('second_settings', form.DynamicList, 'second_custom_subnets', _('Alternative Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
+        o = s.taboption('second_settings', form.DynamicList, 'second_custom_subnets', _('Secondary Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
         o.placeholder = 'Subnets list';
         o.depends('second_custom_subnets_list_enabled', '1');
         o.rmempty = false;

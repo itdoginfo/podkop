@@ -28,9 +28,6 @@ msgstr "Выберите сетевой интерфейс для VPN подкл
 msgid "Predefined Domain Lists"
 msgstr "Предустановленные списки доменов"
 
-msgid "Enable routing based on predefined domain lists for specific regions"
-msgstr "Включить маршрутизацию на основе предустановленных списков доменов для определенных регионов"
-
 msgid "Domain List"
 msgstr "Список доменов"
 
@@ -175,44 +172,44 @@ msgstr "Исключить NTP"
 msgid "For issues with open connections sing-box"
 msgstr "Для проблем с открытыми соединениями sing-box"
 
-msgid "Alternative Route"
-msgstr "Альтернативный маршрут"
+msgid "Secondary Route"
+msgstr "Вторичный маршрут"
 
-msgid "Alternative Route Enable"
-msgstr "Включить альтернативный маршрут"
+msgid "Secondary Route Enable"
+msgstr "Включить вторичный маршрут"
 
 msgid "Enable secondary routing configuration"
 msgstr "Включить вторичную конфигурацию маршрутизации"
 
-msgid "Service List Enable"
-msgstr "Включить список сервисов"
+msgid "Service Domain List Enable"
+msgstr "Включить список доменов сервисов"
 
-msgid "Enable predefined service lists for alternative routing"
-msgstr "Включить предустановленные списки сервисов для альтернативной маршрутизации"
+msgid "Enable predefined service domain lists for secondary routing"
+msgstr "Включить предустановленные списки доменов сервисов для вторичной маршрутизации"
 
 msgid "Service List"
 msgstr "Список сервисов"
 
-msgid "Select predefined services for alternative routing"
-msgstr "Выберите предустановленные сервисы для альтернативной маршрутизации"
+msgid "Select predefined services for secondary routing"
+msgstr "Выберите предустановленные сервисы для вторичной маршрутизации"
 
-msgid "Alternative Domain List"
-msgstr "Альтернативный список доменов"
+msgid "Secondary Domain List"
+msgstr "Вторичный список доменов"
 
-msgid "Configure custom domains for alternative routing path"
-msgstr "Настройте пользовательские домены для альтернативного маршрута"
+msgid "Configure custom domains for secondary routing path"
+msgstr "Настройте пользовательские домены для вторичного маршрута"
 
-msgid "Alternative Domains"
-msgstr "Альтернативные домены"
+msgid "Secondary Domains"
+msgstr "Вторичные домены"
 
-msgid "Alternative Subnet List"
-msgstr "Альтернативный список подсетей"
+msgid "Secondary Subnet List"
+msgstr "Вторичный список подсетей"
 
-msgid "Configure custom subnets for alternative routing path"
-msgstr "Настройте пользовательские подсети для альтернативного маршрута"
+msgid "Configure custom subnets for secondary routing path"
+msgstr "Настройте пользовательские подсети для вторичного маршрута"
 
-msgid "Alternative Subnets"
-msgstr "Альтернативные подсети"
+msgid "Secondary Subnets"
+msgstr "Вторичные подсети"
 
 msgid "Invalid domain format. Enter domain without protocol (example: sub.example.com)"
 msgstr "Неверный формат домена. Введите домен без протокола (пример: sub.example.com)"

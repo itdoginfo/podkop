@@ -34,6 +34,102 @@ msgid "Select network interface for VPN connection"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Predefined Domain Lists"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Domain List"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Select a predefined domain list"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Predefined Service Networks"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Enable routing for popular services like Twitter, Meta, and Discord"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Service Networks"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Select predefined service networks for routing"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "User Settings"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Secondary Route"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Secondary Route Enable"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Enable secondary routing configuration"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Service Domain List Enable"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Enable predefined service domain lists for secondary routing"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Service List"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Select predefined services for secondary routing"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Secondary Domain List"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Configure custom domains for secondary routing path"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Secondary Domains"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Secondary Subnet List"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Configure custom subnets for secondary routing path"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Secondary Subnets"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Additional Settings"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Domain Exclusions"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Excluded Domains"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
 msgid "List Update Frequency"
 msgstr ""
 
@@ -74,43 +170,23 @@ msgid "Once a week on Monday at 04:00"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Predefined Domain Lists"
+msgid "Yacd enable"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Enable routing based on predefined domain lists for specific regions"
+msgid "Mixed enable"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Domain List"
+msgid "Browser port: 2080"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Select a predefined domain list"
+msgid "Exclude NTP"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Predefined Service Networks"
-msgstr ""
-
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Enable routing for popular services like Twitter, Meta, and Discord"
-msgstr ""
-
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "User Settings"
-msgstr ""
-
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Alternative Route"
-msgstr ""
-
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Alternative Route Enable"
-msgstr ""
-
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Enable secondary routing configuration"
+msgid "For issues with open connections sing-box"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
@@ -130,21 +206,13 @@ msgid "Invalid subnet format. Use format: X.X.X.X/Y (like 192.168.1.0/24)"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Yacd enable"
+msgid "IP address parts must be between 0 and 255"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Mixed enable"
+msgid "CIDR must be between 0 and 32"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Browser port: 2080"
-msgstr ""
-
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Exclude NTP"
-msgstr ""
-
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "For issues with open connections sing-box"
+msgid "Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)"
 msgstr ""

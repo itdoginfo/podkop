@@ -5,7 +5,7 @@ PKG_VERSION:=0.2.3
 PKG_RELEASE:=1
 
 LUCI_TITLE:=LuCI podkop app
-LUCI_DEPENDS:=+podkop
+LUCI_DEPENDS:=+luci-base +podkop
 LUCI_PKGARCH:=all
 LUCI_LANG.ru:=Русский (Russian)
 LUCI_LANG.en:=English
