@@ -17,4 +17,14 @@ LUCI_LANGUAGES:=en ru
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
+define Package/luci-i18n-$(PKG_NAME)-$(1)
+  SECTION:=luci
+  CATEGORY:=LuCI
+  TITLE:=$(PKG_NAME) - $(1) translation
+  HIDDEN:=1
+  DEFAULT:=LUCI_LANG_$(1)||ALL
+  VERSION:=$(PKG_VERSION_TRANS)
+  DEPENDS:=$(PKG_NAME)
+endef
+
 # call BuildPackage - OpenWrt buildroot signature
