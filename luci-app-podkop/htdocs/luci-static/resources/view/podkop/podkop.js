@@ -349,13 +349,13 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'second';
 
-        o = s.taboption('alternative_config', form.Flag, 'second_custom_domains_list_enabled', _('Domain List'), _('Configure custom domains for routing'));
+        o = s.taboption('alternative_config', form.Flag, 'second_custom_domains_list_enabled', _('User Domain List'), _('Enable and manage your custom list of domains for selective routing'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
         o.ucisection = 'second';
 
-        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_domains', _('Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
+        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_domains', _('User Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
         o.placeholder = 'Domains list';
         o.depends('second_custom_domains_list_enabled', '1');
         o.rmempty = false;
@@ -373,13 +373,13 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('alternative_config', form.Flag, 'second_custom_subnets_list_enabled', _('Subnet List'), _('Configure custom subnets for routing'));
+        o = s.taboption('alternative_config', form.Flag, 'second_custom_subnets_list_enabled', _('User Subnet List'), _('Enable and manage your custom list of IP subnets for selective routing'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
         o.ucisection = 'second';
 
-        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_subnets', _('Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
+        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
         o.placeholder = 'Subnets list';
         o.depends('second_custom_subnets_list_enabled', '1');
         o.rmempty = false;
