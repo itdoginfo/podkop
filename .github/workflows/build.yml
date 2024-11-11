@@ -26,8 +26,11 @@ jobs:
 
       - name: Filter IPK files
         run: |
+          # Извлекаем версию из тега, убирая префикс 'v'
+          VERSION=${GITHUB_REF#refs/tags/v}
+
           mkdir -p ./filtered-bin
-          cp ./bin/luci-i18n-podkop-ru_*.ipk ./filtered-bin/
+          cp ./bin/luci-i18n-podkop-ru_*.ipk "./filtered-bin/luci-i18n-podkop-ru_${VERSION}.ipk"
           cp ./bin/podkop_*.ipk ./filtered-bin/
           cp ./bin/luci-app-podkop_*.ipk ./filtered-bin/
 
