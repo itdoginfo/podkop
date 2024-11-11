@@ -265,7 +265,6 @@ return view.extend({
             return true;
         };
 
-        // Additional Settings Tab
         o = s.tab('additional', _('Additional Settings'));
 
         o = s.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
@@ -298,25 +297,24 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
-        // Secondary Settings Tab
-        o = s.tab('second_settings', _('Secondary Settings'));
+        o = s.tab('alternative_config', _('Alternative Config'));
 
-        o = s.taboption('second_settings', form.Flag, 'second_enable', _('Secondary Route Enable'), _('Enable secondary routing configuration'));
+        o = s.taboption('alternative_config', form.Flag, 'second_enable', _('Alternative VPN/Proxy Enable'), _('Enable routing configuration'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'second';
 
-        o = s.taboption('second_settings', form.ListValue, 'second_mode', _('Connection Type'), _('Select between VPN and Proxy for secondary route'));
+        o = s.taboption('alternative_config', form.ListValue, 'second_mode', _('Connection Type'), _('Select between VPN and Proxy connection methods for traffic routing'));
         o.value('vpn', ('VPN'));
         o.value('proxy', ('Proxy'));
         o.depends('second_enable', '1');
         o.ucisection = 'second';
 
-        o = s.taboption('second_settings', form.TextValue, 'second_proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
+        o = s.taboption('alternative_config', form.TextValue, 'second_proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
         o.depends('second_mode', 'proxy');
         o.ucisection = 'second';
 
-        o = s.taboption('second_settings', form.ListValue, 'second_interface', _('Network Interface'), _('Select network interface for VPN connection'));
+        o = s.taboption('alternative_config', form.ListValue, 'second_interface', _('Network Interface'), _('Select network interface for VPN connection'));
         o.depends('second_mode', 'vpn');
         o.ucisection = 'second';
 
@@ -338,26 +336,26 @@ return view.extend({
             console.error('Error fetching devices:', error);
         }
 
-        o = s.taboption('second_settings', form.Flag, 'domain_service_enabled', _('Service Domain List Enable'), _('Enable predefined service domain lists for secondary routing'));
+        o = s.taboption('alternative_config', form.Flag, 'domain_service_enabled', _('Service Domain List Enable'), _('Enable predefined service domain lists for routing'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
         o.ucisection = 'second';
 
-        o = s.taboption('second_settings', form.ListValue, 'service_list', _('Service List'), _('Select predefined services for secondary routing'));
+        o = s.taboption('alternative_config', form.ListValue, 'service_list', _('Service List'), _('Select predefined services for routing'));
         o.placeholder = 'placeholder';
         o.value('youtube', 'Youtube');
         o.depends('domain_service_enabled', '1');
         o.rmempty = false;
         o.ucisection = 'second';
 
-        o = s.taboption('second_settings', form.Flag, 'second_custom_domains_list_enabled', _('Secondary Domain List'), _('Configure custom domains for secondary routing path'));
+        o = s.taboption('alternative_config', form.Flag, 'second_custom_domains_list_enabled', _('Domain List'), _('Configure custom domains for routing'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
         o.ucisection = 'second';
 
-        o = s.taboption('second_settings', form.DynamicList, 'second_custom_domains', _('Secondary Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
+        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_domains', _('Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
         o.placeholder = 'Domains list';
         o.depends('second_custom_domains_list_enabled', '1');
         o.rmempty = false;
@@ -375,13 +373,13 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('second_settings', form.Flag, 'second_custom_subnets_list_enabled', _('Secondary Subnet List'), _('Configure custom subnets for secondary routing path'));
+        o = s.taboption('alternative_config', form.Flag, 'second_custom_subnets_list_enabled', _('Subnet List'), _('Configure custom subnets for routing'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
         o.ucisection = 'second';
 
-        o = s.taboption('second_settings', form.DynamicList, 'second_custom_subnets', _('Secondary Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
+        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_subnets', _('Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
         o.placeholder = 'Subnets list';
         o.depends('second_custom_subnets_list_enabled', '1');
         o.rmempty = false;
