@@ -13,6 +13,7 @@ return view.extend({
         s = m.section(form.TypedSection, 'main');
         s.anonymous = true;
 
+        // Basic Settings Tab
         o = s.tab('basic', _('Basic Settings'));
 
         o = s.taboption('basic', form.ListValue, 'mode', _('Connection Type'), _('Select between VPN and Proxy connection methods for traffic routing'));
@@ -75,14 +76,12 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.tab('custom', _('User Settings'));
-
-        o = s.taboption('custom', form.Flag, 'custom_domains_list_enabled', _('User Domain List'), _('Enable and manage your custom list of domains for selective routing'));
+        o = s.taboption('basic', form.Flag, 'custom_domains_list_enabled', _('User Domain List'), _('Enable and manage your custom list of domains for selective routing'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('custom', form.DynamicList, 'custom_domains', _('User Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
+        o = s.taboption('basic', form.DynamicList, 'custom_domains', _('User Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
         o.placeholder = 'Domains list';
         o.depends('custom_domains_list_enabled', '1');
         o.rmempty = false;
@@ -100,12 +99,12 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('custom', form.Flag, 'custom_download_domains_list_enabled', _('Remote Domain Lists'), _('Download and use domain lists from remote URLs'));
+        o = s.taboption('basic', form.Flag, 'custom_download_domains_list_enabled', _('Remote Domain Lists'), _('Download and use domain lists from remote URLs'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('custom', form.DynamicList, 'custom_download_domains', _('Remote Domain URLs'), _('Enter full URLs starting with http:// or https://'));
+        o = s.taboption('basic', form.DynamicList, 'custom_download_domains', _('Remote Domain URLs'), _('Enter full URLs starting with http:// or https://'));
         o.placeholder = 'URL';
         o.depends('custom_download_domains_list_enabled', '1');
         o.rmempty = false;
@@ -126,12 +125,12 @@ return view.extend({
             }
         };
 
-        o = s.taboption('custom', form.Flag, 'custom_subnets_list_enabled', _('User Subnet List'), _('Enable and manage your custom list of IP subnets for selective routing'));
+        o = s.taboption('basic', form.Flag, 'custom_subnets_list_enabled', _('User Subnet List'), _('Enable and manage your custom list of IP subnets for selective routing'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('custom', form.DynamicList, 'custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
+        o = s.taboption('basic', form.DynamicList, 'custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
         o.placeholder = 'Subnets list';
         o.depends('custom_subnets_list_enabled', '1');
         o.rmempty = false;
@@ -165,12 +164,12 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('custom', form.Flag, 'custom_download_subnets_list_enabled', _('Remote Subnet Lists'), _('Download and use subnet lists from remote URLs'));
+        o = s.taboption('basic', form.Flag, 'custom_download_subnets_list_enabled', _('Remote Subnet Lists'), _('Download and use subnet lists from remote URLs'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('custom', form.DynamicList, 'custom_download_subnets', _('Remote Subnet URLs'), _('Enter full URLs starting with http:// or https://'));
+        o = s.taboption('basic', form.DynamicList, 'custom_download_subnets', _('Remote Subnet URLs'), _('Enter full URLs starting with http:// or https://'));
         o.placeholder = 'URL';
         o.depends('custom_download_subnets_list_enabled', '1');
         o.rmempty = false;
@@ -191,25 +190,23 @@ return view.extend({
             }
         };
 
-        o = s.tab('additional', _('Additional Settings'));
-
-        o = s.taboption('additional', form.Flag, 'delist_domains_enabled', _('Domain Exclusions'), _('Exclude specific domains from routing rules'));
+        o = s.taboption('basic', form.Flag, 'delist_domains_enabled', _('Domain Exclusions'), _('Exclude specific domains from routing rules'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('additional', form.DynamicList, 'delist_domains', _('Excluded Domains'), _('Domains to be excluded from routing'));
+        o = s.taboption('basic', form.DynamicList, 'delist_domains', _('Excluded Domains'), _('Domains to be excluded from routing'));
         o.placeholder = 'Delist domains';
         o.depends('delist_domains_enabled', '1');
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('additional', form.Flag, 'all_traffic_from_ip_enabled', _('Force Proxy IPs'), _('Specify local IP addresses whose traffic will always use the configured route'));
+        o = s.taboption('basic', form.Flag, 'all_traffic_from_ip_enabled', _('Force Proxy IPs'), _('Specify local IP addresses whose traffic will always use the configured route'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('additional', form.DynamicList, 'all_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
+        o = s.taboption('basic', form.DynamicList, 'all_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
         o.placeholder = 'IP';
         o.depends('all_traffic_from_ip_enabled', '1');
         o.rmempty = false;
@@ -236,12 +233,12 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('additional', form.Flag, 'exclude_from_ip_enabled', _('Bypass Proxy IPs'), _('Specify local IP addresses that will never use the configured route'));
+        o = s.taboption('basic', form.Flag, 'exclude_from_ip_enabled', _('Bypass Proxy IPs'), _('Specify local IP addresses that will never use the configured route'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('additional', form.DynamicList, 'exclude_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
+        o = s.taboption('basic', form.DynamicList, 'exclude_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
         o.placeholder = 'IP';
         o.depends('exclude_from_ip_enabled', '1');
         o.rmempty = false;
@@ -267,6 +264,9 @@ return view.extend({
 
             return true;
         };
+
+        // Additional Settings Tab
+        o = s.tab('additional', _('Additional Settings'));
 
         o = s.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
         o.default = '0';
@@ -298,26 +298,27 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.tab('second_settings', _('Secondary Route'));
+        // Secondary Settings Tab
+        o = s.tab('second_settings', _('Secondary Settings'));
 
         o = s.taboption('second_settings', form.Flag, 'second_enable', _('Secondary Route Enable'), _('Enable secondary routing configuration'));
         o.default = '0';
         o.rmempty = false;
-        o.ucisection = 'second';  // This is correct
+        o.ucisection = 'second';
 
         o = s.taboption('second_settings', form.ListValue, 'second_mode', _('Connection Type'), _('Select between VPN and Proxy for secondary route'));
         o.value('vpn', ('VPN'));
         o.value('proxy', ('Proxy'));
         o.depends('second_enable', '1');
-        o.ucisection = 'second';  // Changed to 'second'
+        o.ucisection = 'second';
 
         o = s.taboption('second_settings', form.TextValue, 'second_proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
         o.depends('second_mode', 'proxy');
-        o.ucisection = 'second';  // Changed to 'second'
+        o.ucisection = 'second';
 
         o = s.taboption('second_settings', form.ListValue, 'second_interface', _('Network Interface'), _('Select network interface for VPN connection'));
         o.depends('second_mode', 'vpn');
-        o.ucisection = 'second';  // Changed to 'second'
+        o.ucisection = 'second';
 
         try {
             const devices = await network.getDevices();
@@ -341,26 +342,26 @@ return view.extend({
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
-        o.ucisection = 'second';  // Changed to 'second'
+        o.ucisection = 'second';
 
         o = s.taboption('second_settings', form.ListValue, 'service_list', _('Service List'), _('Select predefined services for secondary routing'));
         o.placeholder = 'placeholder';
         o.value('youtube', 'Youtube');
         o.depends('domain_service_enabled', '1');
         o.rmempty = false;
-        o.ucisection = 'second';  // Changed to 'second'
+        o.ucisection = 'second';
 
         o = s.taboption('second_settings', form.Flag, 'second_custom_domains_list_enabled', _('Secondary Domain List'), _('Configure custom domains for secondary routing path'));
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
-        o.ucisection = 'second';  // Changed to 'second'
+        o.ucisection = 'second';
 
         o = s.taboption('second_settings', form.DynamicList, 'second_custom_domains', _('Secondary Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
         o.placeholder = 'Domains list';
         o.depends('second_custom_domains_list_enabled', '1');
         o.rmempty = false;
-        o.ucisection = 'second';  // Changed to 'second'
+        o.ucisection = 'second';
         o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;
@@ -378,13 +379,13 @@ return view.extend({
         o.default = '0';
         o.rmempty = false;
         o.depends('second_enable', '1');
-        o.ucisection = 'second';  // Changed to 'second'
+        o.ucisection = 'second';
 
         o = s.taboption('second_settings', form.DynamicList, 'second_custom_subnets', _('Secondary Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
         o.placeholder = 'Subnets list';
         o.depends('second_custom_subnets_list_enabled', '1');
         o.rmempty = false;
-        o.ucisection = 'second';  // Changed to 'second'
+        o.ucisection = 'second';
         o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
                 return true;

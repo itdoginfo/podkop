@@ -6,7 +6,7 @@ msgid "Podkop configuration"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Basic Settings"
+msgid "Main Config"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
@@ -62,63 +62,63 @@ msgid "Select predefined service networks for routing"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "User Settings"
+msgid "Add-ons"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Secondary Route"
+msgid "Alternative Config"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Secondary Route Enable"
+msgid "User Domain List"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Enable secondary routing configuration"
+msgid "Enable and manage your custom list of domains for selective routing"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Service Domain List Enable"
+msgid "User Domains"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Enable predefined service domain lists for secondary routing"
+msgid "Remote Domain Lists"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Service List"
+msgid "Download and use domain lists from remote URLs"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Select predefined services for secondary routing"
+msgid "Remote Domain URLs"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Secondary Domain List"
+msgid "Enter full URLs starting with http:// or https://"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Configure custom domains for secondary routing path"
+msgid "User Subnet List"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Secondary Domains"
+msgid "Enable and manage your custom list of IP subnets for selective routing"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Secondary Subnet List"
+msgid "User Subnets"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Configure custom subnets for secondary routing path"
+msgid "Remote Subnet Lists"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Secondary Subnets"
+msgid "Download and use subnet lists from remote URLs"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Additional Settings"
+msgid "Remote Subnet URLs"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
@@ -126,7 +126,31 @@ msgid "Domain Exclusions"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Exclude specific domains from routing rules"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
 msgid "Excluded Domains"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Force Proxy IPs"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Specify local IP addresses whose traffic will always use the configured route"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Local IPs"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Bypass Proxy IPs"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
+msgid "Specify local IP addresses that will never use the configured route"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
@@ -163,10 +187,6 @@ msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
 msgid "Once a week on Sunday at 04:00"
-msgstr ""
-
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0
-msgid "Once a week on Monday at 04:00"
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:0

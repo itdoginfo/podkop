@@ -4,8 +4,8 @@ msgstr "Content-Type: text/plain; charset=UTF-8"
 msgid "Podkop configuration"
 msgstr "Настройка Podkop"
 
-msgid "Basic Settings"
-msgstr "Основные настройки"
+msgid "Main Config"
+msgstr "Основная конфигурация"
 
 msgid "Connection Type"
 msgstr "Тип подключения"
@@ -46,8 +46,11 @@ msgstr "Сети сервисов"
 msgid "Select predefined service networks for routing"
 msgstr "Выберите предустановленные сети сервисов для маршрутизации"
 
-msgid "User Settings"
-msgstr "Пользовательские настройки"
+msgid "Add-ons"
+msgstr "Дополнения"
+
+msgid "Alternative Config"
+msgstr "Альтернативная конфигурация"
 
 msgid "User Domain List"
 msgstr "Пользовательский список доменов"
@@ -57,9 +60,6 @@ msgstr "Включить и управлять пользовательским 
 
 msgid "User Domains"
 msgstr "Пользовательские домены"
-
-msgid "Enter domain names without protocols (example: sub.example.com or example.com)"
-msgstr "Введите имена доменов без протоколов (пример: sub.example.com или example.com)"
 
 msgid "Remote Domain Lists"
 msgstr "Удаленные списки доменов"
@@ -93,9 +93,6 @@ msgstr "Загрузка и использование списков подсе
 
 msgid "Remote Subnet URLs"
 msgstr "URL удаленных подсетей"
-
-msgid "Additional Settings"
-msgstr "Дополнительные настройки"
 
 msgid "Domain Exclusions"
 msgstr "Исключения доменов"
@@ -171,9 +168,6 @@ msgstr "Исключить NTP"
 
 msgid "For issues with open connections sing-box"
 msgstr "Для проблем с открытыми соединениями sing-box"
-
-msgid "Secondary Route"
-msgstr "Вторичный маршрут"
 
 msgid "Secondary Route Enable"
 msgstr "Включить вторичный маршрут"
