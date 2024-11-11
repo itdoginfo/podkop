@@ -4,8 +4,20 @@ msgstr "Content-Type: text/plain; charset=UTF-8"
 msgid "Podkop configuration"
 msgstr "Настройка Podkop"
 
-msgid "Main Config"
-msgstr "Основная конфигурация"
+msgid "Basic Settings"
+msgstr "Основные настройки"
+
+msgid "Additional Settings"
+msgstr "Дополнительные настройки"
+
+msgid "Alternative Config"
+msgstr "Альтернативная конфигурация"
+
+msgid "Alternative VPN/Proxy Enable"
+msgstr "Включить альтернативный VPN/Proxy"
+
+msgid "Enable alternative VPN/Proxy configuration"
+msgstr "Включить конфигурацию альтернативного VPN/Proxy"
 
 msgid "Connection Type"
 msgstr "Тип подключения"
@@ -46,12 +58,6 @@ msgstr "Сети сервисов"
 msgid "Select predefined service networks for routing"
 msgstr "Выберите предустановленные сети сервисов для маршрутизации"
 
-msgid "Add-ons"
-msgstr "Дополнения"
-
-msgid "Alternative Config"
-msgstr "Альтернативная конфигурация"
-
 msgid "User Domain List"
 msgstr "Пользовательский список доменов"
 
@@ -60,6 +66,9 @@ msgstr "Включить и управлять пользовательским 
 
 msgid "User Domains"
 msgstr "Пользовательские домены"
+
+msgid "Enter domain names without protocols (example: sub.example.com or example.com)"
+msgstr "Введите имена доменов без протоколов (пример: sub.example.com или example.com)"
 
 msgid "Remote Domain Lists"
 msgstr "Удаленные списки доменов"
@@ -151,9 +160,6 @@ msgstr "Раз в день в 04:00"
 msgid "Once a week on Sunday at 04:00"
 msgstr "Раз в неделю в воскресенье в 04:00"
 
-msgid "Once a week on Monday at 04:00"
-msgstr "Раз в неделю в понедельник в 04:00"
-
 msgid "Yacd enable"
 msgstr "Включить Yacd"
 
@@ -169,41 +175,29 @@ msgstr "Исключить NTP"
 msgid "For issues with open connections sing-box"
 msgstr "Для проблем с открытыми соединениями sing-box"
 
-msgid "Secondary Route Enable"
-msgstr "Включить вторичный маршрут"
-
-msgid "Enable secondary routing configuration"
-msgstr "Включить вторичную конфигурацию маршрутизации"
-
 msgid "Service Domain List Enable"
 msgstr "Включить список доменов сервисов"
 
-msgid "Enable predefined service domain lists for secondary routing"
-msgstr "Включить предустановленные списки доменов сервисов для вторичной маршрутизации"
+msgid "Enable predefined service domain lists for routing"
+msgstr "Включить предустановленные списки доменов для маршрутизации"
 
 msgid "Service List"
 msgstr "Список сервисов"
 
-msgid "Select predefined services for secondary routing"
-msgstr "Выберите предустановленные сервисы для вторичной маршрутизации"
+msgid "Select predefined services for routing"
+msgstr "Выберите предустановленные сервисы для маршрутизации"
 
-msgid "Secondary Domain List"
-msgstr "Вторичный список доменов"
+msgid "Domains"
+msgstr "Домены"
 
-msgid "Configure custom domains for secondary routing path"
-msgstr "Настройте пользовательские домены для вторичного маршрута"
+msgid "Subnet List"
+msgstr "Список подсетей"
 
-msgid "Secondary Domains"
-msgstr "Вторичные домены"
+msgid "Configure custom subnets for routing"
+msgstr "Настройка пользовательских подсетей для маршрутизации"
 
-msgid "Secondary Subnet List"
-msgstr "Вторичный список подсетей"
-
-msgid "Configure custom subnets for secondary routing path"
-msgstr "Настройте пользовательские подсети для вторичного маршрута"
-
-msgid "Secondary Subnets"
-msgstr "Вторичные подсети"
+msgid "Subnets"
+msgstr "Подсети"
 
 msgid "Invalid domain format. Enter domain without protocol (example: sub.example.com)"
 msgstr "Неверный формат домена. Введите домен без протокола (пример: sub.example.com)"

@@ -299,7 +299,7 @@ return view.extend({
 
         o = s.tab('alternative_config', _('Alternative Config'));
 
-        o = s.taboption('alternative_config', form.Flag, 'second_enable', _('Alternative VPN/Proxy Enable'), _('Enable routing configuration'));
+        o = s.taboption('alternative_config', form.Flag, 'second_enable', _('Alternative VPN/Proxy Enable'), _('Enable alternative VPN/Proxy configuration'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'second';
