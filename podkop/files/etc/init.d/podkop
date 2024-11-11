@@ -1,420 +1,958 @@
-'use strict';
-'require view';
-'require form';
-'require ui';
-'require network';
-
-return view.extend({
-    async render() {
-        var m, s, o;
-
-        m = new form.Map('podkop', _('Podkop configuration'), null, ['main', 'second']);
-
-        s = m.section(form.TypedSection, 'main');
-        s.anonymous = true;
-
-        // Main Config Tab
-        o = s.tab('main_config', _('Main Config'));
-
-        o = s.taboption('main_config', form.ListValue, 'mode', _('Connection Type'), _('Select between VPN and Proxy connection methods for traffic routing'));
-        o.value('vpn', ('VPN'));
-        o.value('proxy', ('Proxy'));
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
-        o.depends('mode', 'proxy');
-        o.rows = 5;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.ListValue, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
-        o.depends('mode', 'vpn');
-        o.ucisection = 'main';
-
-        try {
-            const devices = await network.getDevices();
-            const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0'];
-
-            devices.forEach(function (device) {
-                if (device.dev && device.dev.name) {
-                    const deviceName = device.dev.name;
-                    const isExcluded = excludeInterfaces.includes(deviceName) || /^lan\d+$/.test(deviceName);
-
-                    if (!isExcluded) {
-                        o.value(deviceName, deviceName);
-                    }
-                }
-            });
-        } catch (error) {
-            console.error('Error fetching devices:', error);
-        }
-
-        o = s.taboption('main_config', form.Flag, 'domain_list_enabled', _('Predefined Domain Lists'), _('<a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.ListValue, 'domain_list', _('Domain List'), _('Select a predefined domain list'));
-        o.placeholder = 'placeholder';
-        o.value('ru_inside', 'Russia inside');
-        o.value('ru_outside', 'Russia outside');
-        o.value('ua', 'Ukraine');
-        o.depends('domain_list_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.Flag, 'subnets_list_enabled', _('Predefined Service Networks'), _('Enable routing for popular services like Twitter, Meta, and Discord'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.DynamicList, 'subnets', _('Service Networks'), _('Select predefined service networks for routing'));
-        o.placeholder = 'Service network list';
-        o.value('twitter', 'Twitter(x.com)');
-        o.value('meta', 'Meta');
-        o.value('discord', 'Discord(voice)');
-        o.depends('subnets_list_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.Flag, 'custom_domains_list_enabled', _('User Domain List'), _('Enable and manage your custom list of domains for selective routing'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.DynamicList, 'custom_domains', _('User Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
-        o.placeholder = 'Domains list';
-        o.depends('custom_domains_list_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
-
-            if (!domainRegex.test(value)) {
-                return _('Invalid domain format. Enter domain without protocol (example: sub.example.com)');
-            }
-            return true;
-        };
-
-        o = s.taboption('main_config', form.Flag, 'custom_download_domains_list_enabled', _('Remote Domain Lists'), _('Download and use domain lists from remote URLs'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.DynamicList, 'custom_download_domains', _('Remote Domain URLs'), _('Enter full URLs starting with http:// or https://'));
-        o.placeholder = 'URL';
-        o.depends('custom_download_domains_list_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            try {
-                const url = new URL(value);
-                if (!['http:', 'https:'].includes(url.protocol)) {
-                    return _('URL must use http:// or https:// protocol');
-                }
-                return true;
-            } catch (e) {
-                return _('Invalid URL format. URL must start with http:// or https://');
-            }
-        };
-
-        o = s.taboption('main_config', form.Flag, 'custom_subnets_list_enabled', _('User Subnet List'), _('Enable and manage your custom list of IP subnets for selective routing'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.DynamicList, 'custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
-        o.placeholder = 'Subnets list';
-        o.depends('custom_subnets_list_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
-
-            if (!subnetRegex.test(value)) {
-                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 192.168.1.0/24)');
-            }
-
-            const [ip, cidr] = value.split('/');
-            const ipParts = ip.split('.');
-            const cidrNum = parseInt(cidr);
-
-            for (const part of ipParts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-
-            if (cidrNum < 0 || cidrNum > 32) {
-                return _('CIDR must be between 0 and 32');
-            }
-
-            return true;
-        };
-
-        o = s.taboption('main_config', form.Flag, 'custom_download_subnets_list_enabled', _('Remote Subnet Lists'), _('Download and use subnet lists from remote URLs'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.DynamicList, 'custom_download_subnets', _('Remote Subnet URLs'), _('Enter full URLs starting with http:// or https://'));
-        o.placeholder = 'URL';
-        o.depends('custom_download_subnets_list_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            try {
-                const url = new URL(value);
-                if (!['http:', 'https:'].includes(url.protocol)) {
-                    return _('URL must use http:// or https:// protocol');
-                }
-                return true;
-            } catch (e) {
-                return _('Invalid URL format. URL must start with http:// or https://');
-            }
-        };
-
-        o = s.taboption('main_config', form.Flag, 'delist_domains_enabled', _('Domain Exclusions'), _('Exclude specific domains from routing rules'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.DynamicList, 'delist_domains', _('Excluded Domains'), _('Domains to be excluded from routing'));
-        o.placeholder = 'Delist domains';
-        o.depends('delist_domains_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.Flag, 'all_traffic_from_ip_enabled', _('Force Proxy IPs'), _('Specify local IP addresses whose traffic will always use the configured route'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.DynamicList, 'all_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
-        o.placeholder = 'IP';
-        o.depends('all_traffic_from_ip_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-
-            if (!ipRegex.test(value)) {
-                return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
-            }
-
-            const ipParts = value.split('.');
-            for (const part of ipParts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-
-            return true;
-        };
-
-        o = s.taboption('main_config', form.Flag, 'exclude_from_ip_enabled', _('Bypass Proxy IPs'), _('Specify local IP addresses that will never use the configured route'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('main_config', form.DynamicList, 'exclude_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
-        o.placeholder = 'IP';
-        o.depends('exclude_from_ip_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-
-            if (!ipRegex.test(value)) {
-                return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
-            }
-
-            const ipParts = value.split('.');
-            for (const part of ipParts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-
-            return true;
-        };
-
-        // Add-ons Tab
-        o = s.tab('addons', _('Add-ons'));
-
-        o = s.taboption('addons', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
-        o.default = '0';
-        o.depends('mode', 'proxy');
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('addons', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
-        o.default = '0';
-        o.depends('mode', 'proxy');
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('addons', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
-        o.default = '0';
-        o.depends('mode', 'proxy');
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('addons', form.ListValue, 'update_interval', _('List Update Frequency'), _('Select how often the lists will be updated'));
-        o.value('0 */1 * * *', _('Every hour'));
-        o.value('0 */2 * * *', _('Every 2 hours'));
-        o.value('0 */4 * * *', _('Every 4 hours'));
-        o.value('0 */6 * * *', _('Every 6 hours'));
-        o.value('0 */12 * * *', _('Every 12 hours'));
-        o.value('0 4 * * *', _('Once a day at 04:00'));
-        o.value('0 4 * * 0', _('Once a week on Sunday at 04:00'));
-        o.default = '0 4 * * *';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        // Alternative Config Tab
-        o = s.tab('alternative_config', _('Alternative Config'));
-
-        o = s.taboption('alternative_config', form.Flag, 'second_enable', _('Secondary Route Enable'), _('Enable secondary routing configuration'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'second';
-
-        o = s.taboption('alternative_config', form.ListValue, 'second_mode', _('Connection Type'), _('Select between VPN and Proxy for secondary route'));
-        o.value('vpn', ('VPN'));
-        o.value('proxy', ('Proxy'));
-        o.depends('second_enable', '1');
-        o.ucisection = 'second';
-
-        o = s.taboption('alternative_config', form.TextValue, 'second_proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
-        o.depends('second_mode', 'proxy');
-        o.ucisection = 'second';
-
-        o = s.taboption('alternative_config', form.ListValue, 'second_interface', _('Network Interface'), _('Select network interface for VPN connection'));
-        o.depends('second_mode', 'vpn');
-        o.ucisection = 'second';
-
-        try {
-            const devices = await network.getDevices();
-            const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0'];
-
-            devices.forEach(function (device) {
-                if (device.dev && device.dev.name) {
-                    const deviceName = device.dev.name;
-                    const isExcluded = excludeInterfaces.includes(deviceName) || /^lan\d+$/.test(deviceName);
-
-                    if (!isExcluded) {
-                        o.value(deviceName, deviceName);
-                    }
-                }
-            });
-        } catch (error) {
-            console.error('Error fetching devices:', error);
-        }
-
-        o = s.taboption('alternative_config', form.Flag, 'domain_service_enabled', _('Service Domain List Enable'), _('Enable predefined service domain lists for secondary routing'));
-        o.default = '0';
-        o.rmempty = false;
-        o.depends('second_enable', '1');
-        o.ucisection = 'second';
-
-        o = s.taboption('alternative_config', form.ListValue, 'service_list', _('Service List'), _('Select predefined services for secondary routing'));
-        o.placeholder = 'placeholder';
-        o.value('youtube', 'Youtube');
-        o.depends('domain_service_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'second';
-
-        o = s.taboption('alternative_config', form.Flag, 'second_custom_domains_list_enabled', _('Secondary Domain List'), _('Configure custom domains for secondary routing path'));
-        o.default = '0';
-        o.rmempty = false;
-        o.depends('second_enable', '1');
-        o.ucisection = 'second';
-
-        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_domains', _('Secondary Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
-        o.placeholder = 'Domains list';
-        o.depends('second_custom_domains_list_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'second';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
-
-            if (!domainRegex.test(value)) {
-                return _('Invalid domain format. Enter domain without protocol (example: sub.example.com)');
-            }
-            return true;
-        };
-
-        o = s.taboption('alternative_config', form.Flag, 'second_custom_subnets_list_enabled', _('Secondary Subnet List'), _('Configure custom subnets for secondary routing path'));
-        o.default = '0';
-        o.rmempty = false;
-        o.depends('second_enable', '1');
-        o.ucisection = 'second';
-
-        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_subnets', _('Secondary Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
-        o.placeholder = 'Subnets list';
-        o.depends('second_custom_subnets_list_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'second';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
-
-            if (!subnetRegex.test(value)) {
-                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 192.168.1.0/24)');
-            }
-
-            const [ip, cidr] = value.split('/');
-            const ipParts = ip.split('.');
-            const cidrNum = parseInt(cidr);
-
-            for (const part of ipParts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-
-            if (cidrNum < 0 || cidrNum > 32) {
-                return _('CIDR must be between 0 and 32');
-            }
-
-            return true;
-        };
-
-        return m.render();
+#!/bin/sh /etc/rc.common
+
+START=99
+USE_PROCD=1
+
+script=$(readlink "$initscript")
+NAME="$(basename ${script:-$initscript})"
+config_load "$NAME"
+
+EXTRA_COMMANDS="list_update add_route_interface"
+EXTRA_HELP="        list_update     Updating domain and subnet lists
+        add_route_interface  Adding route for interface
+        sing_box_config_vless For test vless string"
+
+config_get update_interval "main" "update_interval" "0 4 * * *"
+cron_job="${update_interval} /etc/init.d/podkop list_update"
+
+start_service() {
+    log "Start podkop"
+
+    dnsmasqfull
+    routing_table_create
+    add_mark
+
+    config_get mode "main" "mode"
+    case "$mode" in
+    "vpn")
+        log "VPN mode"
+        log "You are using VPN mode, make sure you have installed all the necessary packages, configured, created the zone and forwarding."
+        config_get interface "main" "interface" "0"
+        if [ -n "$interface" ]; then
+            add_route_interface "$interface" "podkop"
+        else
+            log "Interface undefined"
+        fi
+
+        config_get_bool second_enable "second" "second_enable" "0"
+        config_get second_mode "second" "second_mode" "0"
+        if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "proxy" ]; then
+            config_get proxy_string "second" "second_proxy_string"
+            if [[ "$proxy_string" =~ ^ss:// ]]; then
+                sing_box_config_shadowsocks "$proxy_string" "1603"
+            elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                sing_box_config_vless "$proxy_string" "1603"
+            else
+                log "Unsupported proxy type: $proxy_string"
+                return
+            fi
+            add_route_tproxy podkop2
+            sing_box_config_check
+            sing_box_uci
+            /etc/init.d/sing-box restart
+            /etc/init.d/sing-box enable
+        fi
+
+        if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "vpn" ]; then
+            log "VPN mode for second"
+            config_get interface "second" "second_interface" "0"
+            if [ -n "$interface" ]; then
+                add_route_interface "$interface" "podkop2"
+            else
+                log "Interface undefined"
+            fi
+        fi
+        ;;
+    "proxy")
+        log "Proxy mode"
+        if ! command -v sing-box >/dev/null 2>&1; then
+            log "Sing-box isn't installed. Proxy mode works with sing-box"
+            return
+        fi
+
+        # Main - proxy, Second - proxy
+        config_get_bool second_enable "second" "second_enable" "0"
+        config_get second_mode "second" "second_mode" "0"
+        if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "proxy" ]; then
+            log "Two proxy enable"
+            outbound_main=$(mktemp)
+            outbound_second=$(mktemp)
+
+            config_get proxy_string main "proxy_string"
+            if [[ "$proxy_string" =~ ^ss:// ]]; then
+                sing_box_config_outbound_shadowsocks "$proxy_string" "$outbound_main" main
+            elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                sing_box_config_outbound_vless "$proxy_string" "$outbound_main" main
+            else
+                log "Unsupported proxy type: $proxy_string"
+                return
+            fi
+
+            config_get proxy_string "second" "second_proxy_string"
+            if [[ "$proxy_string" =~ ^ss:// ]]; then
+                sing_box_config_outbound_shadowsocks "$proxy_string" "$outbound_second" second
+            elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                sing_box_config_outbound_vless "$proxy_string" "$outbound_second" second
+            else
+                log "Unsupported proxy type: $proxy_string"
+                return
+            fi
+
+            jq --argjson outbounds "$(jq -s '{"outbounds": (.[0].outbounds + .[1].outbounds)}' "$outbound_main" "$outbound_second")" \
+                '.outbounds += $outbounds.outbounds' /etc/podkop/sing-box-two-proxy-template.json >/etc/sing-box/config.json
+
+            rm -f "$outbound_main" "$outbound_second"
+
+            add_route_tproxy podkop
+            add_route_tproxy podkop2
+        fi
+
+        # Main proxy, second disable/vpn
+        config_get_bool second_enable "second" "second_enable" "0"
+        config_get second_mode "second" "second_mode" "0"
+        if [ "$second_enable" -eq "0" ] || [ "$second_mode" = "vpn" ]; then
+            config_get proxy_string main "proxy_string"
+            if [[ "$proxy_string" =~ ^ss:// ]]; then
+                sing_box_config_shadowsocks "$proxy_string" "1602"
+            elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                sing_box_config_vless "$proxy_string" "1602"
+            else
+                log "Unsupported proxy type: $proxy_string"
+                return
+            fi
+            add_route_tproxy podkop
+        fi
+
+        sing_box_config_check
+        sing_box_uci
+        /etc/init.d/sing-box restart
+        /etc/init.d/sing-box enable
+
+        # Main proxy, Second VPN
+        config_get_bool second_enable "second" "second_enable" "0"
+        config_get second_mode "second" "second_mode" "0"
+        if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "vpn" ]; then
+            log "VPN mode for seconds"
+            log "You are using VPN mode, make sure you have installed all the necessary packages, configured, created the zone and forwarding."
+            config_get interface "second" "second_interface" "0"
+            if [ -n "$interface" ]; then
+                add_route_interface "$interface" "podkop2"
+            else
+                log "Interface undefined"
+            fi
+        fi
+        ;;
+    *)
+        log "Requires *vpn* or *proxy* value"
+        return
+        ;;
+    esac
+
+    list_update
+
+    if [ "$domain_list_enabled" -eq 1 ] || [ "$subnets_list_enabled" -eq 1 ]; then
+        add_cron_job
+    fi
+
+    config_get_bool all_traffic_from_ip_enabled "main" "all_traffic_from_ip_enabled" "0"
+    if [ "$all_traffic_from_ip_enabled" -eq 1 ]; then
+        log "Adding an IP to redirect all traffic"
+        config_list_foreach main all_traffic_ip list_all_traffic_from_ip
+    fi
+
+    config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" "0"
+    if [ "$exclude_from_ip_enabled" -eq 1 ]; then
+        log "Adding an IP for exclusion"
+        config_list_foreach main exclude_traffic_ip list_exclude_traffic_from_ip
+    fi
+
+    config_get_bool yacd "main" "yacd" "0"
+    if [ "$yacd" -eq 1 ]; then
+        log "Yacd enable"
+        jq '.experimental.clash_api = {
+            "external_ui": "ui",
+            "external_controller": "0.0.0.0:9090"
+        }' /etc/sing-box/config.json >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json /etc/sing-box/config.json
+        /etc/init.d/sing-box restart
+    fi
+
+    config_get_bool socks5 "main" "socks5" "0"
+    if [ "$socks5" -eq 1 ]; then
+        log "Socks5 local enable port 2080"
+        jq '.inbounds += [{
+            "type": "mixed",
+            "listen": "0.0.0.0",
+            "listen_port": 2080,
+            "set_system_proxy": false
+        }]' /etc/sing-box/config.json >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json /etc/sing-box/config.json
+        /etc/init.d/sing-box restart
+    fi
+
+    config_get_bool exclude_ntp "main" "exclude_ntp" "0"
+    if [ "$exclude_ntp" -eq 1 ]; then
+        log "NTP traffic exclude for proxy"
+        nft insert rule inet PodkopTable mangle udp dport 123 return
+    fi
+}
+
+stop_service() {
+    log "Stopping the podkop"
+    rm -f /tmp/dnsmasq.d/podkop*
+    remove_cron_job
+
+    log "Flush nft"
+    if nft list table inet PodkopTable >/dev/null 2>&1; then
+        nft delete table inet PodkopTable
+    fi
+
+    log "Flush ip rule"
+    if ip rule list | grep -q "podkop"; then
+        ip rule del fwmark 0x105 table podkop priority 105
+    fi
+
+    if ip rule list | grep -q "podkop2"; then
+        ip rule del fwmark 0x106 table podkop2 priority 106
+    fi
+
+    log "Flush ip route"
+    if ip route list table podkop; then
+        ip route flush table podkop
+    fi
+
+    if ip route list table podkop2; then
+        ip route flush table podkop2
+    fi
+
+    log "Stop sing-box"
+    config_get mode_main "main" "mode" "0"
+    config_get mode_second "second" "second_mode" "0"
+
+    if [ "$mode_main" = "proxy" ] || [ "$mode_second" = "proxy" ]; then
+        /etc/init.d/sing-box stop
+        /etc/init.d/sing-box disable
+    fi
+}
+
+restart_service() {
+    stop
+    start
+}
+
+reload_service() {
+    stop
+    start
+}
+
+service_triggers() {
+    log "service_triggers start"
+    procd_add_config_trigger "config.change" "$NAME" "$initscript" reload 'on_config_change'
+    
+    config_get update_interval "main" "update_interval"
+    if [ -n "$update_interval" ]; then
+        add_cron_job
+    fi
+}
+
+log() {
+    local message="$1"
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local CYAN="\033[0;36m"
+    local GREEN="\033[0;32m"
+    local RESET="\033[0m"
+
+    echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
+    logger -t "podkop" "$timestamp $message"
+}
+
+add_cron_job() {
+    remove_cron_job
+    crontab -l | {
+        cat
+        echo "$cron_job"
+    } | crontab -
+    log "The cron job has been created: $cron_job"
+}
+
+remove_cron_job() {
+    (crontab -l | grep -v "/etc/init.d/podkop list_update") | crontab -
+    log "The cron job removed"
+}
+
+list_update() {
+    config_get_bool domain_list_enabled "main" "domain_list_enabled" "0"
+    if [ "$domain_list_enabled" -eq 1 ]; then
+        log "Adding a common domains list"
+        add_set "podkop_domains" "main"
+        config_get domain_list main "domain_list"
+        lists_domains_download "$domain_list"
+        dnsmasq_config_check podkop-domains.lst
+    fi
+
+    config_get_bool custom_domains_list_enabled "main" "custom_domains_list_enabled" "0"
+    if [ "$custom_domains_list_enabled" -eq 1 ]; then
+        log "Adding a custom domains list"
+        add_set "podkop_domains" "main"
+        rm -f /tmp/dnsmasq.d/podkop-custom-domains.lst
+        config_list_foreach main custom_domains "list_custom_domains_create" "podkop"
+        dnsmasq_config_check podkop-custom-domains.lst
+    fi
+
+    config_get_bool custom_download_domains_list_enabled "main" "custom_download_domains_list_enabled" "0"
+    if [ "$custom_download_domains_list_enabled" -eq 1 ]; then
+        log "Adding a custom domains list from URL"
+        add_set "podkop_domains" "main"
+        config_list_foreach main custom_download_domains "list_custom_download_domains_create" "podkop"
+    fi
+
+    config_get_bool delist_domains_enabled "main" "delist_domains_enabled" "0"
+    if [ "$delist_domains_enabled" -eq 1 ] && [ "$domain_list_enabled" -eq 1 ]; then
+        log "Exclude domains from the common list"
+        config_list_foreach main delist_domains "list_delist_domains"
+        dnsmasq_config_check podkop-domains.lst
+    fi
+
+    if [ "$domain_list_enabled" -eq 1 ] || [ "$custom_domains_list_enabled" -eq 1 ]; then
+        /etc/init.d/dnsmasq restart
+    fi
+
+    config_get_bool second_custom_domains_list_enabled "second" "second_custom_domains_list_enabled" "0"
+    if [ "$second_custom_domains_list_enabled" -eq 1 ]; then
+        log "Adding a custom domains list. Second podkop"
+        add_set "podkop2_domains" "second"
+        rm -f /tmp/dnsmasq.d/podkop2-custom-domains.lst
+        config_list_foreach second second_custom_domains "list_custom_domains_create" "podkop2"
+        dnsmasq_config_check podkop2-custom-domains.lst
+    fi
+
+    config_get_bool domain_service_enabled "second" "domain_service_enabled" "0"
+    if [ "$domain_service_enabled" -eq 1 ]; then
+        log "Adding a service for podkop2"
+        add_set "podkop2_domains" "second"
+        config_get service_list second "service_list"
+        lists_services_download "$service_list"
+        config_list_foreach second second_custom_domains "list_delist_domains"
+        dnsmasq_config_check podkop2-domains.lst
+    fi
+
+    if [ "$second_custom_domains_list_enabled" -eq 1 ] || [ "$domain_service_enabled" -eq 1 ]; then
+        /etc/init.d/dnsmasq restart
+    fi
+
+    config_get_bool subnets_list_enabled "main" "subnets_list_enabled" "0"
+    if [ "$subnets_list_enabled" -eq 1 ]; then
+        log "Adding a subnets from list"
+        mkdir -p /tmp/podkop
+        add_set "podkop_subnets" "main"
+        config_list_foreach main subnets "list_subnets_download"
+    fi
+
+    config_get_bool custom_download_subnets_list_enabled "main" "custom_download_subnets_list_enabled" "0"
+    if [ "$custom_download_subnets_list_enabled" -eq 1 ]; then
+        log "Adding a subnets from URL"
+        mkdir -p /tmp/podkop
+        add_set "podkop_subnets" "main"
+        config_list_foreach main custom_download_subnets "list_subnets_download"
+    fi
+
+    config_get_bool custom_subnets_list_enabled "main" "custom_subnets_list_enabled" "0"
+    if [ "$custom_subnets_list_enabled" -eq 1 ]; then
+        log "Adding a custom subnets list"
+        add_set "podkop_subnets" "main"
+        config_list_foreach main custom_subnets "list_custom_subnets_create" "podkop"
+    fi
+
+    config_get_bool second_custom_subnets_list_enabled "second" "second_custom_subnets_list_enabled" "0"
+    if [ "$second_custom_subnets_list_enabled" -eq 1 ]; then
+        log "Adding a custom subnets list. Second"
+        add_set "podkop2_subnets" "second"
+        config_list_foreach second second_custom_subnets "list_custom_subnets_create" "podkop2"
+    fi
+}
+
+dnsmasqfull() {
+    if /usr/sbin/dnsmasq -v | grep -q "no-nftset"; then
+        log "Dnsmasq-full is not installed. Future: link only"
+        log "Use script or:"
+        log "cd /tmp/ && /bin/opkg download dnsmasq-full && /bin/opkg remove dnsmasq && /bin/opkg install dnsmasq-full --cache /tmp/ && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp"
+        return
+    fi
+}
+
+routing_table_create() {
+    grep -q "105 podkop" /etc/iproute2/rt_tables || echo '105 podkop' >>/etc/iproute2/rt_tables
+    config_get_bool second_enable "second" "second_enable" "0"
+    if [ "$second_enable" -eq 1 ]; then
+        grep -q "106 podkop2" /etc/iproute2/rt_tables || echo '106 podkop2' >>/etc/iproute2/rt_tables
+    fi
+}
+
+add_set() {
+    local set_name="$1"
+    local connect="$2"
+
+    nft add table inet PodkopTable
+    log "Create set $set_name"
+    nft add chain inet PodkopTable mangle { type filter hook prerouting priority -150 \; policy accept \;}
+    nft add set inet PodkopTable "$set_name" { type ipv4_addr\; flags interval\; auto-merge\; }
+    if [ "$connect" = "main" ]; then
+        config_get mode "$connect" "mode"
+    else
+        config_get mode "$connect" "second_mode"
+    fi
+    case "$mode" in
+    "vpn")
+        if ! nft list chain inet PodkopTable mangle | grep -q "ip daddr @"$set_name" meta mark set"; then
+            if [ "$connect" = "main" ]; then
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta mark set 0x105 counter
+            elif [ "$connect" = "second" ]; then
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta mark set 0x106 counter
+            fi
+        fi
+        ;;
+
+    "proxy")
+        nft add chain inet PodkopTable proxy { type filter hook prerouting priority -100 \; }
+        if nft list table inet PodkopTable | grep -q "ip daddr @"$set_name" meta l4proto"; then
+            log "Nft rule tproxy exists"
+        else
+            log "Added nft rule tproxy"
+            if [ "$connect" = "main" ]; then
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto tcp meta mark set 0x105 counter
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto udp meta mark set 0x105 counter
+                if ! ( nft list table inet PodkopTable | grep -q "meta mark 0x00000105 meta l4proto tcp tproxy" ); then
+                    nft add rule inet PodkopTable proxy iifname "br-lan" meta mark 0x105 meta l4proto tcp tproxy ip to :1602 counter
+                    nft add rule inet PodkopTable proxy iifname "br-lan" meta mark 0x105 meta l4proto udp tproxy ip to :1602 counter
+                fi
+            elif [ "$connect" = "second" ]; then
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto tcp meta mark set 0x106 counter
+                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto udp meta mark set 0x106 counter
+                if ! ( nft list table inet PodkopTable | grep -q "meta mark 0x00000106 meta l4proto tcp tproxy" ); then
+                    nft add rule inet PodkopTable proxy iifname "br-lan" meta mark 0x106 meta l4proto tcp tproxy ip to :1603 counter
+                    nft add rule inet PodkopTable proxy iifname "br-lan" meta mark 0x106 meta l4proto udp tproxy ip to :1603 counter
+                fi
+            fi
+        fi
+        ;;
+
+    *)
+        log "Requires *vpn* or *proxy* value"
+        return
+        ;;
+    esac
+}
+
+add_route_interface() {
+    local interface="$1"
+    local table="$2"
+    local retry_count_route=0
+    local max_retries=10
+
+    if ! ip link show "$interface" >/dev/null 2>&1; then
+    log "Interface "$interface" undetected, wait 10 sec..."
+    sleep 10
+
+        if ! ip link show "$interface" >/dev/null 2>&1; then
+            log "Interface "$interface" undetected. exit"
+            return
+        fi
+    fi
+
+    if ! ip link show "$interface" >/dev/null 2>&1; then
+        log "Interface "$interface" does not exist, not possible to create a route"
+        return
+    fi
+
+    if ip route show table $table | grep -q "^default dev"; then
+        log "Route for "$interface" exists"
+        return 0
+    fi
+
+    log "Added route for "$interface""
+    while [ $retry_count_route -lt $max_retries ]; do
+        if ip route add table $table default dev "$interface" 2>&1 | grep -q "Network is down"; then
+            log "Attempt $retry_count_route: Interface "$interface" is down, retrying in 3 seconds..."
+            sleep 3
+            retry_count_route=$((retry_count_route + 1))
+        else
+            log "Route for "$interface" added"
+            return 0
+        fi
+    done
+
+    log "The maximum number of attempts has been exceeded. Failed to add a route."
+    return
+}
+
+add_route_tproxy() {
+    local table=$1
+    if ! ip route list table $table | grep -q "local default dev lo scope host"; then
+        log "Added route for tproxy"
+        ip route add local 0.0.0.0/0 dev lo table $table
+    else
+        log "Route for tproxy exists"
+    fi
+}
+
+add_mark() {
+    if ! ip rule list | grep -q "from all fwmark 0x105 lookup podkop"; then
+        log "Create marking rule"
+        ip -4 rule add fwmark 0x105 table podkop priority 105
+    else
+        log "Marking rule exist"
+    fi
+
+    config_get_bool second_enable "second" "second_enable" "0"
+    if [ "$second_enable" -eq 1 ]; then
+        if ! ip rule list | grep -q "from all fwmark 0x106 lookup podkop2"; then
+            log "Create marking rule for podkop second"
+            ip -4 rule add fwmark 0x106 table podkop2 priority 106
+        else
+            log "Podkop second marking rule exist"
+        fi
+    fi
+}
+
+lists_domains_download() {
+    local URL="$1"
+
+    RU_INSIDE_DOMAINS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Russia/inside-dnsmasq-nfset.lst
+    RU_OUTSIDE_DOMAINS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Russia/outside-dnsmasq-nfset.lst
+    UA_DOMAINS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Ukraine/inside-dnsmasq-nfset.lst
+
+    case "$URL" in
+    "ru_inside")
+        URL=$RU_INSIDE_DOMAINS
+        ;;
+    "ru_outside")
+        URL=$RU_OUTSIDE_DOMAINS
+        ;;
+    "ua")
+        URL=$UA_DOMAINS
+        ;;
+    *)
+        log "Unidentified list of domains"
+        return
+        ;;
+    esac
+
+    count=0
+    while true; do
+        if curl -m 3 github.com; then
+            curl -f $URL --output /tmp/dnsmasq.d/podkop-domains.lst
+            if [ "$connect" = "second" ]; then
+                sed -i 's/fw4#vpn_domains/PodkopTable#podkop2_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
+            else
+                sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
+            fi
+            return 0
+        else
+            log "GitHub is not available. Check the internet availability [$count sec]"
+            count=$((count + 1))
+        fi
+
+        if [ $count -lt 30 ]; then
+            sleep_interval=1
+        elif [ $count -ge 30 ] && [ $count -lt 60 ]; then
+            sleep_interval=5
+        elif [ $count -ge 60 ] && [ $count -lt 90 ]; then
+            sleep_interval=10
+        else
+            sleep_interval=30
+        fi
+
+        sleep $sleep_interval
+    done
+}
+
+lists_services_download() {
+    local URL="$1"
+
+    YOUTUBE=https://raw.githubusercontent.com/itdoginfo/allow-domains/refs/heads/main/Services/youtube.lst
+
+    case "$URL" in
+    "youtube")
+        URL=$YOUTUBE
+        ;;
+    *)
+        log "Unidentified list of domains"
+        return
+        ;;
+    esac
+
+    count=0
+    while true; do
+        if curl -m 3 github.com; then
+            curl -f $URL --output /tmp/dnsmasq.d/podkop2-domains.lst
+            delist_downloaded_domains
+            sed -i 's/.*/nftset=\/&\/4#inet#PodkopTable#podkop2_domains/g' /tmp/dnsmasq.d/podkop2-domains.lst
+            return 0
+        else
+            log "GitHub is not available. Check the internet availability [$count sec]"
+            count=$((count + 1))
+        fi
+
+        if [ $count -lt 30 ]; then
+            sleep_interval=1
+        elif [ $count -ge 30 ] && [ $count -lt 60 ]; then
+            sleep_interval=5
+        elif [ $count -ge 60 ] && [ $count -lt 90 ]; then
+            sleep_interval=10
+        else
+            sleep_interval=30
+        fi
+
+        sleep $sleep_interval
+    done
+}
+
+list_subnets_download() {
+    TWITTER_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Twitter.lst
+    META_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Meta.lst
+    DISCORD_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/refs/heads/main/Subnets/IPv4/Discord.lst
+    local URL="$1"
+
+    case "$URL" in
+    "twitter")
+        URL=$TWITTER_SUBNETS
+        ;;
+    "meta")
+        URL=$META_SUBNETS
+        ;;
+    "discord")
+        URL=$DISCORD_SUBNETS
+        ;;
+    *)
+        log "Custom URL for subnet"
+        if curl --output /dev/null --silent --head --fail "$URL"; then
+            log "URL is valid"
+        else
+            log "URL $URL is not valid"
+        fi
+        ;;
+    esac
+
+    local filename=$(basename "$URL")
+    curl -f "$URL" --output "/tmp/podkop/$filename"
+    while IFS= read -r subnet; do
+        nft add element inet PodkopTable podkop_subnets { $subnet }
+    done <"/tmp/podkop/$filename"
+}
+
+list_custom_domains_create() {
+    local domain="$1"
+    local name="$2"
+    echo "nftset=/$domain/4#inet#PodkopTable#${name}_domains" >>"/tmp/dnsmasq.d/${name}-custom-domains.lst"
+    log "$domain added to the list"
+}
+
+list_custom_download_domains_create() {
+    local URL="$1"
+    local name="$2"
+    local filename=$(basename "$URL")
+    local config="/tmp/dnsmasq.d/${name}-${filename}.lst"
+
+    rm -f $config
+    curl -f "$URL" --output "/tmp/podkop/${filename}"
+    while IFS= read -r domain; do
+        echo "nftset=/$domain/4#inet#PodkopTable#${name}_domains" >>$config
+    done <"/tmp/podkop/$filename"
+    dnsmasq_config_check ${name}-${filename}.lst
+}
+
+list_custom_subnets_create() {
+    local subnet="$1"
+    local name="$2"
+    nft add element inet PodkopTable ${name}_subnets { $subnet }
+}
+
+list_all_traffic_from_ip() {
+    local ip="$1"
+    if ! nft list chain inet PodkopTable mangle | grep -q "ip saddr $ip"; then
+        config_get mode "main" "mode" "0"
+        if [ "$mode" = "vpn" ]; then
+            nft insert rule inet PodkopTable mangle ip saddr $ip meta mark set 0x105 counter
+        elif [ "$mode" = "proxy" ]; then
+            nft add set inet PodkopTable localv4 { type ipv4_addr\; flags interval\; }
+            nft add element inet PodkopTable localv4 { \
+                0.0.0.0/8, \
+                10.0.0.0/8, \
+                127.0.0.0/8, \
+                169.254.0.0/16, \
+                172.16.0.0/12, \
+                192.0.0.0/24, \
+                192.0.2.0/24, \
+                192.88.99.0/24, \
+                192.168.0.0/16, \
+                198.18.0.0/15, \
+                198.51.100.0/24, \
+                203.0.113.0/24, \
+                224.0.0.0/4, \
+                240.0.0.0-255.255.255.255 }
+            nft insert rule inet PodkopTable mangle ip saddr $ip meta l4proto { tcp, udp } meta mark set 0x105 counter
+            nft insert rule inet PodkopTable mangle ip saddr $ip ip daddr @localv4 return
+        fi
+    fi
+}
+
+list_exclude_traffic_from_ip() {
+    local ip="$1"
+    if ! nft list chain inet PodkopTable mangle | grep -q "ip saddr $ip"; then
+        nft insert rule inet PodkopTable mangle ip saddr $ip return
+    fi
+}
+
+list_delist_domains() {
+    local domain="$1"
+
+    if [ -f "/tmp/dnsmasq.d/podkop-domains.lst" ]; then
+        sed -i "/$domain/d" /tmp/dnsmasq.d/podkop-domains.lst
+        nft flush set inet PodkopTable podkop_domains
+        log "Strings containing '$domain' have been excluded from the list"
+    else
+        log "Config /tmp/dnsmasq.d/podkop-domains.lst not exists"
+    fi
+}
+
+delist_downloaded_domains() {
+    local domains="/tmp/dnsmasq.d/podkop2-domains.lst"
+
+    if [ -f "$domains" ]; then
+        while IFS= read -r line; do
+            list_delist_domains "$line"
+        done <"$domains"
+    else
+        log "$domains not found"
+    fi
+}
+
+dnsmasq_config_check() {
+    local config="$1"
+    if ! /usr/sbin/dnsmasq --conf-file=/tmp/dnsmasq.d/$config --test 2>&1 | grep -q "syntax check OK"; then
+        log "Dnsmasq config $config contains errors. Break"
+        return
+    fi
+}
+
+sing_box_uci() {
+    local config="/etc/config/sing-box"
+    if grep -q "option enabled '0'" "$config" ||
+        grep -q "option user 'sing-box'" "$config"; then
+        sed -i \
+            -e "s/option enabled '0'/option enabled '1'/" \
+            -e "s/option user 'sing-box'/option user 'root'/" $config
+        log "Change sing-box UCI config"
+    else
+        log "Sing-box UCI config OK"
+    fi
+}
+
+sing_box_config_shadowsocks() {
+    local STRING="$1"
+    local listen_port="$2"
+
+    local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 --decode)
+    local method=$(echo "$encrypted_part" | cut -d':' -f1)
+    local password=$(echo "$encrypted_part" | cut -d':' -f2-)
+
+    local server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
+    local port=$(echo "$STRING" | sed -n 's|.*:\([0-9]\+\).*|\1|p')
+    local label=$(echo "$STRING" | cut -d'#' -f2)
+
+    template_config="/etc/podkop/sing-box-shadowsocks-template.json"
+
+    jq --arg server "$server" \
+        --arg port "$port" \
+        --arg method "$method" \
+        --arg password "$password" \
+        --arg listen_port "$listen_port" \
+        '.inbounds[] |=
+        if .type == "tproxy" then
+            .listen_port = ($listen_port | tonumber)
+        else
+            .
+        end |
+        .outbounds[] |= 
+        if .type == "shadowsocks" then 
+            .server = $server |
+            .server_port = ($port | tonumber) |
+            .method = $method |
+            .password = $password
+        else
+            .
+        end' "$template_config" >/etc/sing-box/config.json
+}
+
+sing_box_config_vless() {
+    local STRING="$1"
+    local listen_port="$2"
+
+    get_param() {
+        echo "$STRING" | sed -n "s/.*[?&]$1=\([^&?#]*\).*/\1/p"
     }
-});
+
+    uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
+    server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
+    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | awk -F'/' '{print $1}')
+
+    type=$(get_param "type")
+    flow=$(get_param "flow")
+    sni=$(get_param "sni")
+    fp=$(get_param "fp")
+    security=$(get_param "security")
+    pbk=$(get_param "pbk")
+    sid=$(get_param "sid")
+    encoding=$(get_param "packetEncoding")
+    alpn=$(echo "$(get_param "alpn" | sed 's/%2C/,/g; s/%2F/\//g')" | jq -R -s -c 'split(",")' | sed 's/\\n//g')
+    label=$(echo "$STRING" | cut -d'#' -f2)
+
+    template_config="/etc/podkop/sing-box-vless-template.json"
+
+    jq --arg server "$server" \
+        --arg port "$port" \
+        --arg uuid "$uuid" \
+        --arg type "$type" \
+        --arg flow "$flow" \
+        --arg sni "$sni" \
+        --arg fp "$fp" \
+        --arg security "$security" \
+        --arg pbk "$pbk" \
+        --arg sid "$sid" \
+        --argjson alpn "$alpn" \
+        --arg encoding "$encoding" \
+        --arg listen_port "$listen_port" \
+        '.inbounds[] |=
+        if .type == "tproxy" then
+            .listen_port = ($listen_port | tonumber)
+        else
+            .
+        end |
+        .outbounds[] |= 
+           (.server = $server |
+            .server_port = ($port | tonumber) |
+            .uuid = $uuid |
+            if $security == "reality" then 
+                if $flow == "" then del(.flow) else .flow = $flow end |
+                if $encoding == "" then del(.packet_encoding) else .packet_encoding = $encoding end |
+                .tls.server_name = $sni |
+                .tls.utls.fingerprint = $fp |
+                .tls.reality.public_key = $pbk |
+                .tls.reality.short_id = $sid
+            elif $security == "tls" then
+                .tls.alpn = $alpn |
+                .tls.server_name = $sni |
+                del(.flow) |
+                del(.tls.utls) |
+                del(.tls.reality)
+            elif $security == "" or $security == "none" then
+                del(.flow) |
+                del(.tls)
+        else
+            .
+        end)' "$template_config" >/etc/sing-box/config.json
+}
+
+sing_box_config_outbound_shadowsocks() {
+    local STRING="$1"
+    local outbound="$2"
+    local name="$3"
+
+    local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 --decode)
+    local method=$(echo "$encrypted_part" | cut -d':' -f1)
+    local password=$(echo "$encrypted_part" | cut -d':' -f2-)
+
+    local server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
+    local port=$(echo "$STRING" | cut -d':' -f3 | cut -d'#' -f1)
+    label=$(echo "$STRING" | cut -d'#' -f2)
+
+    template_config="/etc/podkop/sing-box-shadowsocks-outbound-template.json"
+
+    jq --arg server "$server" \
+        --arg port "$port" \
+        --arg method "$method" \
+        --arg password "$password" \
+        --arg tag "$name" \
+        '.outbounds[] |= 
+        if .type == "shadowsocks" then 
+            .server = $server |
+            .server_port = ($port | tonumber) |
+            .method = $method |
+            .password = $password |
+            .tag = $tag
+        else
+            .
+        end' "$template_config" >$outbound
+}
+
+sing_box_config_outbound_vless() {
+    local STRING="$1"
+    local outbound="$2"
+    local name="$3"
+
+    get_param() {
+        echo "$STRING" | sed -n "s/.*[?&]$1=\([^&?#]*\).*/\1/p"
+    }
+
+    uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
+    server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
+    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | awk -F'/' '{print $1}')
+
+    type=$(get_param "type")
+    flow=$(get_param "flow")
+    sni=$(get_param "sni")
+    fp=$(get_param "fp")
+    security=$(get_param "security")
+    pbk=$(get_param "pbk")
+    sid=$(get_param "sid")
+    alpn=$(echo "$(get_param "alpn" | sed 's/%2C/,/g; s/%2F/\//g')" | jq -R -s -c 'split(",")' | sed 's/\\n//g')
+    encoding=$(get_param "packetEncoding")
+    label=$(echo "$STRING" | cut -d'#' -f2)
+
+    template_config="/etc/podkop/sing-box-vless-outbound-template.json"
+
+    jq --arg server "$server" \
+        --arg port "$port" \
+        --arg uuid "$uuid" \
+        --arg type "$type" \
+        --arg flow "$flow" \
+        --arg sni "$sni" \
+        --arg fp "$fp" \
+        --arg security "$security" \
+        --arg pbk "$pbk" \
+        --arg sid "$sid" \
+        --argjson alpn "$alpn" \
+        --arg encoding "$encoding" \
+        --arg tag "$name" \
+        '.outbounds[] |= 
+           (.server = $server |
+            .server_port = ($port | tonumber) |
+            .uuid = $uuid |
+            if $security == "reality" then 
+                if $flow == "" then del(.flow) else .flow = $flow end |
+                if $encoding == "" then del(.packet_encoding) else .packet_encoding = $encoding end |
+                .tls.server_name = $sni |
+                .tls.utls.fingerprint = $fp |
+                .tls.reality.public_key = $pbk |
+                .tls.reality.short_id = $sid |
+                .tag = $tag
+            elif $security == "tls" then
+                .tls.alpn = $alpn |
+                .tls.server_name = $sni |
+                del(.flow) |
+                del(.tls.utls) |
+                del(.tls.reality) |
+                .tag = $tag
+            elif $security == "" or $security == "none" then
+                del(.flow) |
+                del(.tls) |
+                .tag = $tag
+        else
+            .
+        end)' "$template_config" >$outbound
+}
+
+sing_box_config_check() {
+    if ! sing-box -c /etc/sing-box/config.json check >/dev/null 2>&1; then
+        log "Sing-box configuration is invalid"
+        return
+    fi
+}
