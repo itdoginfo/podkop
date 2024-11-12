@@ -320,17 +320,17 @@ list_update() {
         dnsmasq_config_check podkop2-custom-domains.lst
     fi
 
-    config_get_bool domain_service_enabled "second" "domain_service_enabled" "0"
-    if [ "$domain_service_enabled" -eq 1 ]; then
+    config_get_bool second_domain_service_enabled "second" "second_domain_service_enabled" "0"
+    if [ "$second_domain_service_enabled" -eq 1 ]; then
         log "Adding a service for podkop2"
         add_set "podkop2_domains" "second"
-        config_get service_list second "service_list"
-        lists_services_download "$service_list"
+        config_get second_service_list second "second_service_list"
+        lists_services_download "$second_service_list"
         config_list_foreach second second_custom_domains "list_delist_domains"
         dnsmasq_config_check podkop2-domains.lst
     fi
 
-    if [ "$second_custom_domains_list_enabled" -eq 1 ] || [ "$domain_service_enabled" -eq 1 ]; then
+    if [ "$second_custom_domains_list_enabled" -eq 1 ] || [ "$second_domain_service_enabled" -eq 1 ]; then
         /etc/init.d/dnsmasq restart
     fi
 
@@ -399,9 +399,9 @@ add_set() {
     "vpn")
         if ! nft list chain inet PodkopTable mangle | grep -q "ip daddr @"$set_name" meta mark set"; then
             if [ "$connect" = "main" ]; then
-                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta mark set 0x105 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" ip daddr @"$set_name" meta mark set 0x105 counter
             elif [ "$connect" = "second" ]; then
-                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta mark set 0x106 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" ip daddr @"$set_name" meta mark set 0x106 counter
             fi
         fi
         ;;
@@ -413,18 +413,18 @@ add_set() {
         else
             log "Added nft rule tproxy"
             if [ "$connect" = "main" ]; then
-                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto tcp meta mark set 0x105 counter
-                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto udp meta mark set 0x105 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" ip daddr @"$set_name" meta l4proto tcp meta mark set 0x105 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" ip daddr @"$set_name" meta l4proto udp meta mark set 0x105 counter
                 if ! ( nft list table inet PodkopTable | grep -q "meta mark 0x00000105 meta l4proto tcp tproxy" ); then
-                    nft add rule inet PodkopTable proxy iifname "br-lan" meta mark 0x105 meta l4proto tcp tproxy ip to :1602 counter
-                    nft add rule inet PodkopTable proxy iifname "br-lan" meta mark 0x105 meta l4proto udp tproxy ip to :1602 counter
+                    nft add rule inet PodkopTable proxy meta mark 0x105 meta l4proto tcp tproxy ip to :1602 counter
+                    nft add rule inet PodkopTable proxy meta mark 0x105 meta l4proto udp tproxy ip to :1602 counter
                 fi
             elif [ "$connect" = "second" ]; then
-                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto tcp meta mark set 0x106 counter
-                nft add rule inet PodkopTable mangle ip daddr @"$set_name" meta l4proto udp meta mark set 0x106 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" ip daddr @"$set_name" meta l4proto tcp meta mark set 0x106 counter
+                nft add rule inet PodkopTable mangle iifname "br-lan" ip daddr @"$set_name" meta l4proto udp meta mark set 0x106 counter
                 if ! ( nft list table inet PodkopTable | grep -q "meta mark 0x00000106 meta l4proto tcp tproxy" ); then
-                    nft add rule inet PodkopTable proxy iifname "br-lan" meta mark 0x106 meta l4proto tcp tproxy ip to :1603 counter
-                    nft add rule inet PodkopTable proxy iifname "br-lan" meta mark 0x106 meta l4proto udp tproxy ip to :1603 counter
+                    nft add rule inet PodkopTable proxy meta mark 0x106 meta l4proto tcp tproxy ip to :1603 counter
+                    nft add rule inet PodkopTable proxy meta mark 0x106 meta l4proto udp tproxy ip to :1603 counter
                 fi
             fi
         fi
@@ -662,7 +662,7 @@ list_all_traffic_from_ip() {
     if ! nft list chain inet PodkopTable mangle | grep -q "ip saddr $ip"; then
         config_get mode "main" "mode" "0"
         if [ "$mode" = "vpn" ]; then
-            nft insert rule inet PodkopTable mangle ip saddr $ip meta mark set 0x105 counter
+            nft insert rule inet PodkopTable mangle iifname "br-lan" ip saddr $ip meta mark set 0x105 counter
         elif [ "$mode" = "proxy" ]; then
             nft add set inet PodkopTable localv4 { type ipv4_addr\; flags interval\; }
             nft add element inet PodkopTable localv4 { \
@@ -680,7 +680,7 @@ list_all_traffic_from_ip() {
                 203.0.113.0/24, \
                 224.0.0.0/4, \
                 240.0.0.0-255.255.255.255 }
-            nft insert rule inet PodkopTable mangle ip saddr $ip meta l4proto { tcp, udp } meta mark set 0x105 counter
+            nft insert rule inet PodkopTable mangle iifname "br-lan" ip saddr $ip meta l4proto { tcp, udp } meta mark set 0x105 counter
             nft insert rule inet PodkopTable mangle ip saddr $ip ip daddr @localv4 return
         fi
     fi

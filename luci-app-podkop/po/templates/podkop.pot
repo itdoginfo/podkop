@@ -10,13 +10,13 @@ msgstr ""
 msgid "Additional Settings"
 msgstr ""
 
-msgid "Alternative Config"
+msgid "Secondary Config"
 msgstr ""
 
-msgid "Alternative VPN/Proxy Enable"
+msgid "Secondary VPN/Proxy Enable"
 msgstr ""
 
-msgid "Enable alternative VPN/Proxy configuration"
+msgid "Enable secondary VPN/Proxy configuration"
 msgstr ""
 
 msgid "Connection Type"
@@ -37,16 +37,16 @@ msgstr ""
 msgid "Select network interface for VPN connection"
 msgstr ""
 
-msgid "Predefined Domain Lists"
+msgid "Community Domain Lists"
 msgstr ""
 
 msgid "Domain List"
 msgstr ""
 
-msgid "Select a predefined domain list"
+msgid "Select a list"
 msgstr ""
 
-msgid "Predefined Service Networks"
+msgid "Community Subnet Lists"
 msgstr ""
 
 msgid "Enable routing for popular services like Twitter, Meta, and Discord"
@@ -91,7 +91,7 @@ msgstr ""
 msgid "User Subnets"
 msgstr ""
 
-msgid "Enter subnet in CIDR notation (example: 192.168.1.0/24)"
+msgid "Enter subnet in CIDR notation (example: 103.21.244.0/22)"
 msgstr ""
 
 msgid "Remote Subnet Lists"
@@ -115,7 +115,7 @@ msgstr ""
 msgid "Domains to be excluded from routing"
 msgstr ""
 
-msgid "Force Proxy IPs"
+msgid "IP for full redirection"
 msgstr ""
 
 msgid "Specify local IP addresses whose traffic will always use the configured route"
@@ -127,7 +127,7 @@ msgstr ""
 msgid "Enter valid IPv4 addresses"
 msgstr ""
 
-msgid "Bypass Proxy IPs"
+msgid "IP for exclusion"
 msgstr ""
 
 msgid "Specify local IP addresses that will never use the configured route"
@@ -208,7 +208,7 @@ msgstr ""
 msgid "Invalid URL format. URL must start with http:// or https://"
 msgstr ""
 
-msgid "Invalid subnet format. Use format: X.X.X.X/Y (like 192.168.1.0/24)"
+msgid "Invalid subnet format. Use format: X.X.X.X/Y (like 103.21.244.0/22)"
 msgstr ""
 
 msgid "IP address parts must be between 0 and 255"

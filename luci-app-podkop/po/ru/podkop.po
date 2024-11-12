@@ -10,13 +10,13 @@ msgstr "Основные настройки"
 msgid "Additional Settings"
 msgstr "Дополнительные настройки"
 
-msgid "Alternative Config"
+msgid "Secondary Config"
 msgstr "Альтернативная конфигурация"
 
-msgid "Alternative VPN/Proxy Enable"
+msgid "Secondary VPN/Proxy Enable"
 msgstr "Включить альтернативный VPN/Proxy"
 
-msgid "Enable alternative VPN/Proxy configuration"
+msgid "Enable secondary VPN/Proxy configuration"
 msgstr "Включить конфигурацию альтернативного VPN/Proxy"
 
 msgid "Connection Type"
@@ -37,16 +37,16 @@ msgstr "Сетевой интерфейс"
 msgid "Select network interface for VPN connection"
 msgstr "Выберите сетевой интерфейс для VPN подключения"
 
-msgid "Predefined Domain Lists"
+msgid "Community Domain Lists"
 msgstr "Предустановленные списки доменов"
 
 msgid "Domain List"
 msgstr "Список доменов"
 
-msgid "Select a predefined domain list"
-msgstr "Выберите предустановленный список доменов"
+msgid "Select a list"
+msgstr "Выберите список доменов"
 
-msgid "Predefined Service Networks"
+msgid "Community Subnet Lists"
 msgstr "Предустановленные сети сервисов"
 
 msgid "Enable routing for popular services like Twitter, Meta, and Discord"
@@ -91,8 +91,8 @@ msgstr "Включить и управлять пользовательским 
 msgid "User Subnets"
 msgstr "Пользовательские подсети"
 
-msgid "Enter subnet in CIDR notation (example: 192.168.1.0/24)"
-msgstr "Введите подсеть в нотации CIDR (пример: 192.168.1.0/24)"
+msgid "Enter subnet in CIDR notation (example: 103.21.244.0/22)"
+msgstr "Введите подсеть в нотации CIDR (пример: 103.21.244.0/22)"
 
 msgid "Remote Subnet Lists"
 msgstr "Удаленные списки подсетей"
@@ -115,7 +115,7 @@ msgstr "Исключенные домены"
 msgid "Domains to be excluded from routing"
 msgstr "Домены, которые будут исключены из маршрутизации"
 
-msgid "Force Proxy IPs"
+msgid "IP for full redirection"
 msgstr "Принудительные прокси IP"
 
 msgid "Specify local IP addresses whose traffic will always use the configured route"
@@ -127,7 +127,7 @@ msgstr "Локальные IP"
 msgid "Enter valid IPv4 addresses"
 msgstr "Введите действительные IPv4 адреса"
 
-msgid "Bypass Proxy IPs"
+msgid "IP for exclusion"
 msgstr "Исключения прокси IP"
 
 msgid "Specify local IP addresses that will never use the configured route"
