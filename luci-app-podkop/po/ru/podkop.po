@@ -11,13 +11,13 @@ msgid "Additional Settings"
 msgstr "Дополнительные настройки"
 
 msgid "Secondary Config"
-msgstr "Альтернативная конфигурация"
+msgstr "Второй маршрут"
 
 msgid "Secondary VPN/Proxy Enable"
-msgstr "Включить альтернативный VPN/Proxy"
+msgstr "Включить второй VPN/Proxy"
 
 msgid "Enable secondary VPN/Proxy configuration"
-msgstr "Включить конфигурацию альтернативного VPN/Proxy"
+msgstr "Включить конфигурацию второго VPN/Proxy"
 
 msgid "Connection Type"
 msgstr "Тип подключения"
