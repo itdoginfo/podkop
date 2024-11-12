@@ -48,12 +48,12 @@ return view.extend({
             console.error('Error fetching devices:', error);
         }
 
-        o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Predefined Domain Lists'), _('<a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>'));
+        o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Community Domain Lists'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('basic', form.ListValue, 'domain_list', _('Domain List'), _('Select a predefined domain list'));
+        o = s.taboption('basic', form.ListValue, 'domain_list', _('Domain List'), _('Select a list <a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>'));
         o.placeholder = 'placeholder';
         o.value('ru_inside', 'Russia inside');
         o.value('ru_outside', 'Russia outside');
@@ -62,7 +62,19 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('basic', form.Flag, 'subnets_list_enabled', _('Predefined Service Networks'), _('Enable routing for popular services like Twitter, Meta, and Discord'));
+        o = s.taboption('basic', form.Flag, 'delist_domains_enabled', _('Domain Exclusions'), _('Exclude specific domains from routing rules'));
+        o.default = '0';
+        o.rmempty = false;
+        o.ucisection = 'main';
+        o.depends('domain_list_enabled', '1');
+
+        o = s.taboption('basic', form.DynamicList, 'delist_domains', _('Excluded Domains'), _('Domains to be excluded from routing'));
+        o.placeholder = 'Delist domains';
+        o.depends('delist_domains_enabled', '1');
+        o.rmempty = false;
+        o.ucisection = 'main';
+
+        o = s.taboption('basic', form.Flag, 'subnets_list_enabled', _('Community Subnet Lists'), _('Enable routing for popular services like Twitter, Meta, and Discord'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
@@ -130,7 +142,7 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('basic', form.DynamicList, 'custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
+        o = s.taboption('basic', form.DynamicList, 'custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 103.21.244.0/22)'));
         o.placeholder = 'Subnets list';
         o.depends('custom_subnets_list_enabled', '1');
         o.rmempty = false;
@@ -143,7 +155,7 @@ return view.extend({
             const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
 
             if (!subnetRegex.test(value)) {
-                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 192.168.1.0/24)');
+                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 103.21.244.0/22)');
             }
 
             const [ip, cidr] = value.split('/');
@@ -190,18 +202,7 @@ return view.extend({
             }
         };
 
-        o = s.taboption('basic', form.Flag, 'delist_domains_enabled', _('Domain Exclusions'), _('Exclude specific domains from routing rules'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('basic', form.DynamicList, 'delist_domains', _('Excluded Domains'), _('Domains to be excluded from routing'));
-        o.placeholder = 'Delist domains';
-        o.depends('delist_domains_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = s.taboption('basic', form.Flag, 'all_traffic_from_ip_enabled', _('Force Proxy IPs'), _('Specify local IP addresses whose traffic will always use the configured route'));
+        o = s.taboption('basic', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'), _('Specify local IP addresses whose traffic will always use the configured route'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
@@ -233,7 +234,7 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('basic', form.Flag, 'exclude_from_ip_enabled', _('Bypass Proxy IPs'), _('Specify local IP addresses that will never use the configured route'));
+        o = s.taboption('basic', form.Flag, 'exclude_from_ip_enabled', _('IP for exclusion'), _('Specify local IP addresses that will never use the configured route'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
@@ -264,6 +265,8 @@ return view.extend({
 
             return true;
         };
+
+        // Additional Settings Tab
 
         o = s.tab('additional', _('Additional Settings'));
 
@@ -296,6 +299,8 @@ return view.extend({
         o.default = '0 4 * * *';
         o.rmempty = false;
         o.ucisection = 'main';
+
+        // Secondary Settings Tab
 
         o = s.tab('alternative_config', _('Alternative Config'));
 
@@ -379,7 +384,7 @@ return view.extend({
         o.depends('second_enable', '1');
         o.ucisection = 'second';
 
-        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 192.168.1.0/24)'));
+        o = s.taboption('alternative_config', form.DynamicList, 'second_custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 103.21.244.0/22)'));
         o.placeholder = 'Subnets list';
         o.depends('second_custom_subnets_list_enabled', '1');
         o.rmempty = false;
@@ -392,7 +397,7 @@ return view.extend({
             const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
 
             if (!subnetRegex.test(value)) {
-                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 192.168.1.0/24)');
+                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 103.21.244.0/22)');
             }
 
             const [ip, cidr] = value.split('/');

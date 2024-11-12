@@ -246,11 +246,6 @@ reload_service() {
 service_triggers() {
     log "service_triggers start"
     procd_add_config_trigger "config.change" "$NAME" "$initscript" reload 'on_config_change'
-    
-    config_get update_interval "main" "update_interval"
-    if [ -n "$update_interval" ]; then
-        add_cron_job
-    fi
 }
 
 log() {
@@ -320,6 +315,7 @@ list_update() {
         log "Adding a custom domains list. Second podkop"
         add_set "podkop2_domains" "second"
         rm -f /tmp/dnsmasq.d/podkop2-custom-domains.lst
+        config_list_foreach second second_custom_domains "list_delist_domains"
         config_list_foreach second second_custom_domains "list_custom_domains_create" "podkop2"
         dnsmasq_config_check podkop2-custom-domains.lst
     fi
@@ -539,11 +535,7 @@ lists_domains_download() {
     while true; do
         if curl -m 3 github.com; then
             curl -f $URL --output /tmp/dnsmasq.d/podkop-domains.lst
-            if [ "$connect" = "second" ]; then
-                sed -i 's/fw4#vpn_domains/PodkopTable#podkop2_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
-            else
-                sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
-            fi
+            sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
             return 0
         else
             log "GitHub is not available. Check the internet availability [$count sec]"
