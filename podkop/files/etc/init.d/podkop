@@ -12,7 +12,8 @@ EXTRA_HELP="        list_update     Updating domain and subnet lists
         add_route_interface  Adding route for interface
         sing_box_config_vless For test vless string"
 
-cron_job="0 4 * * * /etc/init.d/podkop list_update"
+config_get update_interval "main" "update_interval" "0 4 * * *"
+cron_job="${update_interval} /etc/init.d/podkop list_update"
 
 start_service() {
     log "Start podkop"
@@ -34,9 +35,9 @@ start_service() {
         fi
 
         config_get_bool second_enable "second" "second_enable" "0"
-        config_get mode "second" "mode" "0"
-        if [ "$second_enable" -eq "1" ] && [ "$mode" = "proxy" ]; then
-            config_get proxy_string second "proxy_string"
+        config_get second_mode "second" "second_mode" "0"
+        if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "proxy" ]; then
+            config_get proxy_string "second" "second_proxy_string"
             if [[ "$proxy_string" =~ ^ss:// ]]; then
                 sing_box_config_shadowsocks "$proxy_string" "1603"
             elif [[ "$proxy_string" =~ ^vless:// ]]; then
@@ -52,9 +53,9 @@ start_service() {
             /etc/init.d/sing-box enable
         fi
 
-        if [ "$second_enable" -eq "1" ] && [ "$mode" = "vpn" ]; then
+        if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "vpn" ]; then
             log "VPN mode for second"
-            config_get interface "second" "interface" "0"
+            config_get interface "second" "second_interface" "0"
             if [ -n "$interface" ]; then
                 add_route_interface "$interface" "podkop2"
             else
@@ -71,8 +72,8 @@ start_service() {
 
         # Main - proxy, Second - proxy
         config_get_bool second_enable "second" "second_enable" "0"
-        config_get mode "second" "mode" "0"
-        if [ "$second_enable" -eq "1" ] && [ "$mode" = "proxy" ]; then
+        config_get second_mode "second" "second_mode" "0"
+        if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "proxy" ]; then
             log "Two proxy enable"
             outbound_main=$(mktemp)
             outbound_second=$(mktemp)
@@ -87,7 +88,7 @@ start_service() {
                 return
             fi
 
-            config_get proxy_string second "proxy_string"
+            config_get proxy_string "second" "second_proxy_string"
             if [[ "$proxy_string" =~ ^ss:// ]]; then
                 sing_box_config_outbound_shadowsocks "$proxy_string" "$outbound_second" second
             elif [[ "$proxy_string" =~ ^vless:// ]]; then
@@ -108,8 +109,8 @@ start_service() {
 
         # Main proxy, second disable/vpn
         config_get_bool second_enable "second" "second_enable" "0"
-        config_get mode "second" "mode" "0"
-        if [ "$second_enable" -eq "0" ] || [ "$mode" = "vpn" ]; then
+        config_get second_mode "second" "second_mode" "0"
+        if [ "$second_enable" -eq "0" ] || [ "$second_mode" = "vpn" ]; then
             config_get proxy_string main "proxy_string"
             if [[ "$proxy_string" =~ ^ss:// ]]; then
                 sing_box_config_shadowsocks "$proxy_string" "1602"
@@ -129,11 +130,11 @@ start_service() {
 
         # Main proxy, Second VPN
         config_get_bool second_enable "second" "second_enable" "0"
-        config_get mode "second" "mode" "0"
-        if [ "$second_enable" -eq "1" ] && [ "$mode" = "vpn" ]; then
+        config_get second_mode "second" "second_mode" "0"
+        if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "vpn" ]; then
             log "VPN mode for seconds"
             log "You are using VPN mode, make sure you have installed all the necessary packages, configured, created the zone and forwarding."
-            config_get interface "second" "interface" "0"
+            config_get interface "second" "second_interface" "0"
             if [ -n "$interface" ]; then
                 add_route_interface "$interface" "podkop2"
             else
@@ -224,7 +225,7 @@ stop_service() {
 
     log "Stop sing-box"
     config_get mode_main "main" "mode" "0"
-    config_get mode_second "second" "mode" "0"
+    config_get mode_second "second" "second_mode" "0"
 
     if [ "$mode_main" = "proxy" ] || [ "$mode_second" = "proxy" ]; then
         /etc/init.d/sing-box stop
@@ -245,6 +246,11 @@ reload_service() {
 service_triggers() {
     log "service_triggers start"
     procd_add_config_trigger "config.change" "$NAME" "$initscript" reload 'on_config_change'
+    
+    config_get update_interval "main" "update_interval"
+    if [ -n "$update_interval" ]; then
+        add_cron_job
+    fi
 }
 
 log() {
@@ -259,18 +265,16 @@ log() {
 }
 
 add_cron_job() {
-    if ! crontab -l | grep -q "podkop"; then
-        #echo "$cron_job" >>/etc/crontabs/root
-        crontab -l | {
-            cat
-            echo "$cron_job"
-        } | crontab -
-        log "The cron job has been created"
-    fi
+    remove_cron_job
+    crontab -l | {
+        cat
+        echo "$cron_job"
+    } | crontab -
+    log "The cron job has been created: $cron_job"
 }
 
 remove_cron_job() {
-    sed -i "\|podkop|d" /etc/crontabs/root
+    (crontab -l | grep -v "/etc/init.d/podkop list_update") | crontab -
     log "The cron job removed"
 }
 
@@ -311,13 +315,12 @@ list_update() {
         /etc/init.d/dnsmasq restart
     fi
 
-    config_get_bool custom_domains_list_enabled "second" "custom_domains_list_enabled" "0"
-    if [ "$custom_domains_list_enabled" -eq 1 ]; then
+    config_get_bool second_custom_domains_list_enabled "second" "second_custom_domains_list_enabled" "0"
+    if [ "$second_custom_domains_list_enabled" -eq 1 ]; then
         log "Adding a custom domains list. Second podkop"
         add_set "podkop2_domains" "second"
         rm -f /tmp/dnsmasq.d/podkop2-custom-domains.lst
-        config_list_foreach second custom_domains "list_delist_domains"
-        config_list_foreach second custom_domains "list_custom_domains_create" "podkop2"
+        config_list_foreach second second_custom_domains "list_custom_domains_create" "podkop2"
         dnsmasq_config_check podkop2-custom-domains.lst
     fi
 
@@ -327,11 +330,11 @@ list_update() {
         add_set "podkop2_domains" "second"
         config_get service_list second "service_list"
         lists_services_download "$service_list"
-        config_list_foreach second custom_domains "list_delist_domains"
+        config_list_foreach second second_custom_domains "list_delist_domains"
         dnsmasq_config_check podkop2-domains.lst
     fi
 
-    if [ "$custom_domains_list_enabled" -eq 1 ] || [ "$domain_service_enabled" -eq 1 ]; then
+    if [ "$second_custom_domains_list_enabled" -eq 1 ] || [ "$domain_service_enabled" -eq 1 ]; then
         /etc/init.d/dnsmasq restart
     fi
 
@@ -358,11 +361,11 @@ list_update() {
         config_list_foreach main custom_subnets "list_custom_subnets_create" "podkop"
     fi
 
-    config_get_bool custom_subnets_list_enabled "second" "custom_subnets_list_enabled" "0"
-    if [ "$custom_subnets_list_enabled" -eq 1 ]; then
+    config_get_bool second_custom_subnets_list_enabled "second" "second_custom_subnets_list_enabled" "0"
+    if [ "$second_custom_subnets_list_enabled" -eq 1 ]; then
         log "Adding a custom subnets list. Second"
         add_set "podkop2_subnets" "second"
-        config_list_foreach second custom_subnets "list_custom_subnets_create" "podkop2"
+        config_list_foreach second second_custom_subnets "list_custom_subnets_create" "podkop2"
     fi
 }
 
@@ -391,7 +394,11 @@ add_set() {
     log "Create set $set_name"
     nft add chain inet PodkopTable mangle { type filter hook prerouting priority -150 \; policy accept \;}
     nft add set inet PodkopTable "$set_name" { type ipv4_addr\; flags interval\; auto-merge\; }
-    config_get mode "$connect" "mode"
+    if [ "$connect" = "main" ]; then
+        config_get mode "$connect" "mode"
+    else
+        config_get mode "$connect" "second_mode"
+    fi
     case "$mode" in
     "vpn")
         if ! nft list chain inet PodkopTable mangle | grep -q "ip daddr @"$set_name" meta mark set"; then
@@ -532,7 +539,11 @@ lists_domains_download() {
     while true; do
         if curl -m 3 github.com; then
             curl -f $URL --output /tmp/dnsmasq.d/podkop-domains.lst
-            sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
+            if [ "$connect" = "second" ]; then
+                sed -i 's/fw4#vpn_domains/PodkopTable#podkop2_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
+            else
+                sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
+            fi
             return 0
         else
             log "GitHub is not available. Check the internet availability [$count sec]"
@@ -840,7 +851,6 @@ sing_box_config_vless() {
         end)' "$template_config" >/etc/sing-box/config.json
 }
 
-# make one function for full and outbound only
 sing_box_config_outbound_shadowsocks() {
     local STRING="$1"
     local outbound="$2"

@@ -1,15 +1,12 @@
 name: Build packages
-
 on:
   push:
     tags:
       - v*
-
 jobs:
   build:
     name: Build podkop and luci-app-podkop
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4.2.1
 
@@ -27,10 +24,20 @@ jobs:
           docker cp podkop:/builder/bin/packages/x86_64/utilites/. ./bin/
           docker cp podkop:/builder/bin/packages/x86_64/luci/. ./bin/
 
+      - name: Filter IPK files
+        run: |
+          # Извлекаем версию из тега, убирая префикс 'v'
+          VERSION=${GITHUB_REF#refs/tags/v}
+
+          mkdir -p ./filtered-bin
+          cp ./bin/luci-i18n-podkop-ru_*.ipk "./filtered-bin/luci-i18n-podkop-ru_${VERSION}.ipk"
+          cp ./bin/podkop_*.ipk ./filtered-bin/
+          cp ./bin/luci-app-podkop_*.ipk ./filtered-bin/
+
       - name: Remove Docker container
         run: docker rm podkop
 
       - name: Release
         uses: softprops/action-gh-release@v2.0.8
         with:
-          files: ./bin/*.ipk
+          files: ./filtered-bin/*.ipk
