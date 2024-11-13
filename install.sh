@@ -34,17 +34,18 @@ if [ -f "/etc/init.d/podkop" ]; then
     while true; do
         read -r -p '' UPDATE
         case $UPDATE in
-
-        y)
-            echo "Upgraded podkop..."
-            break
-            ;;
-
-        n)
-            add_tunnel
-            break
-            ;;
-    esac
+            y)
+                echo "Upgraded podkop..."
+                break
+                ;;
+            n)
+                add_tunnel
+                break
+                ;;
+            *)
+                echo "Please enter y or n"
+                ;;
+        esac
     done
 else
     echo "Installed podkop..."
@@ -54,16 +55,20 @@ fi
 opkg install $DOWNLOAD_DIR/podkop*.ipk
 opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
 
-echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)
+echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)"
 while true; do
     read -r -p '' RUS
     case $RUS in
-
-    y)
-        opkg install $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
-
-        break
-        ;;
+        y)
+            opkg install $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
+            break
+            ;;
+        n)
+            break
+            ;;
+        *)
+            echo "Please enter y or n"
+            ;;
     esac
 done
 
