@@ -2,7 +2,7 @@
 
 REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
 
-IS_SHOULD_RESTART_NETWORK=false
+IS_SHOULD_RESTART_NETWORK=
 DOWNLOAD_DIR="/tmp/podkop"
 mkdir -p "$DOWNLOAD_DIR"
 
@@ -54,7 +54,20 @@ fi
 opkg install $DOWNLOAD_DIR/podkop*.ipk
 opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
 
-rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk
+echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)
+while true; do
+    read -r -p '' RUS
+    case $RUS in
+
+    y)
+        opkg install $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
+
+        break
+        ;;
+    esac
+done
+
+rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
 
 if [ "$IS_SHOULD_RESTART_NETWORK" ]; then
     printf "\033[32;1mRestart network\033[0m\n"

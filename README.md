@@ -33,6 +33,11 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 opkg remove luci-app-podkop podkop
 ```
 
+Если был установлен русский язык
+```
+opkg remove luci-i18n-podkop-ru
+```
+
 # Использование
 Конфиг: /etc/config/podkop
 
@@ -72,6 +77,7 @@ opkg update && opkg install sing-box
 - [x] Не отрабатывает рестарт, при awg и не применяются изменения при awg
 - [x] awg работает не стабильно
 - [ ] Сеть рестартится при любом раскладе
+- [ ] Выкл-вкл wg через luci не отрабатывает поднятие маршрута
 
 # ToDo
 Сделано
