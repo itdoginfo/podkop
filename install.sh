@@ -57,7 +57,7 @@ main() {
     opkg install $DOWNLOAD_DIR/podkop*.ipk
     opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
 
-    echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)
+    echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)"
     while true; do
         read -r -p '' RUS
         case $RUS in
