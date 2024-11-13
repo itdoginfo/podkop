@@ -7,72 +7,81 @@ DOWNLOAD_DIR="/tmp/podkop"
 mkdir -p "$DOWNLOAD_DIR"
 
 main() {
-wget -qO- "$REPO" | grep -o 'https://[^"]*\.ipk' | while read -r url; do
-    filename=$(basename "$url")
-    echo "Download $filename..."
-    wget -q -O "$DOWNLOAD_DIR/$filename" "$url"
-done
+    wget -qO- "$REPO" | grep -o 'https://[^"]*\.ipk' | while read -r url; do
+        filename=$(basename "$url")
+        echo "Download $filename..."
+        wget -q -O "$DOWNLOAD_DIR/$filename" "$url"
+    done
 
-echo "opkg update"
-opkg update
+    echo "opkg update"
+    opkg update
 
-if opkg list-installed | grep -q dnsmasq-full; then
-    echo "dnsmasq-full already installed"
-else
-    echo "Installed dnsmasq-full"
-    cd /tmp/ && opkg download dnsmasq-full
-    opkg remove dnsmasq && opkg install dnsmasq-full --cache /tmp/
+    if opkg list-installed | grep -q dnsmasq-full; then
+        echo "dnsmasq-full already installed"
+    else
+        echo "Installed dnsmasq-full"
+        cd /tmp/ && opkg download dnsmasq-full
+        opkg remove dnsmasq && opkg install dnsmasq-full --cache /tmp/
 
-    [ -f /etc/config/dhcp-opkg ] && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp
-fi
+        [ -f /etc/config/dhcp-opkg ] && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp
+    fi
 
-if [ -f "/etc/init.d/podkop" ]; then
-    printf "\033[32;1mPodkop is already installed. Just upgrade it? (y/n)\033[0m\n"
-    printf "\033[32;1my - Only upgrade podkop\033[0m\n"
-    printf "\033[32;1mn - Upgrade and install proxy or tunnels\033[0m\n"
+    if [ -f "/etc/init.d/podkop" ]; then
+        printf "\033[32;1mPodkop is already installed. Just upgrade it? (y/n)\033[0m\n"
+        printf "\033[32;1my - Only upgrade podkop\033[0m\n"
+        printf "\033[32;1mn - Upgrade and install proxy or tunnels\033[0m\n"
 
+        while true; do
+            read -r -p '' UPDATE
+            case $UPDATE in
+            y)
+                echo "Upgraded podkop..."
+                break
+                ;;
+
+            n)
+                add_tunnel
+                break
+                ;;
+
+            *)
+                echo "Please enter y or n"
+                ;;
+            esac
+        done
+    else
+        echo "Installed podkop..."
+        add_tunnel
+    fi
+
+    opkg install $DOWNLOAD_DIR/podkop*.ipk
+    opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
+
+    echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)
     while true; do
-        read -r -p '' UPDATE
-        case $UPDATE in
-
+        read -r -p '' RUS
+        case $RUS in
         y)
-            echo "Upgraded podkop..."
+            opkg install $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
             break
             ;;
 
         n)
-            add_tunnel
             break
             ;;
-    esac
+
+        *)
+            echo "Please enter y or n"
+            ;;
+        esac
     done
-else
-    echo "Installed podkop..."
-    add_tunnel
-fi
 
-opkg install $DOWNLOAD_DIR/podkop*.ipk
-opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
+    rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
 
-echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)
-while true; do
-    read -r -p '' RUS
-    case $RUS in
-
-    y)
-        opkg install $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
-
-        break
-        ;;
-    esac
-done
-
-rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
-
-if [ "$IS_SHOULD_RESTART_NETWORK" ]; then
-    printf "\033[32;1mRestart network\033[0m\n"
-    /etc/init.d/network restart
-fi
+    if [ "$IS_SHOULD_RESTART_NETWORK" ]; then
+        printf "\033[32;1mRestart network\033[0m\n"
+        /etc/init.d/network restart
+    fi
 }
 
 add_tunnel() {
