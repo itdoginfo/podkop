@@ -16,13 +16,13 @@ if [ "$mode" = "proxy" ]; then
 fi
 
 config_get second_enable "second" "second_enable" "0"
-config_get interface "second" "interface" "0"
-config_get "mode" "second" "mode" "0"
-if [ "$second_enable" -eq "1" ] && [ "$mode" = "vpn" ] && [ -n "$interface" ]; then
-    add_route_interface "$interface" "podkop2"
+config_get second_interface "second" "second_interface" "0"
+config_get "second_mode" "second" "second_mode" "0"
+if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "vpn" ] && [ -n "$second_interface" ]; then
+    add_route_interface "$second_interface" "podkop2"
 fi
 
-if [ "$second_enable" -eq "1" ] && [ "$mode" = "proxy" ]; then
+if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "proxy" ]; then
     echo "Add route for second tproxy"
     add_route_tproxy podkop2
 fi
