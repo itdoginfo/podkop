@@ -28,6 +28,12 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 Сделать `opkg update`, чтоб установились зависимости.
 Скачать пакеты `podkop_*.ipk` и `luci-app-podkop_*.ipk` из релиза. `opkg install` сначала первый, потом второй.
 
+# Обновление
+Та же самая команда, что для установки. Скрипт обнаружит уже установленный podkop и предложит обновиться.
+```
+sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
+```
+
 # Удаление
 ```
 opkg remove luci-app-podkop podkop
@@ -76,8 +82,8 @@ opkg update && opkg install sing-box
 - [x] All traffic for IP ломает инет на клиенте. Proxy mode
 - [x] Не отрабатывает рестарт, при awg и не применяются изменения при awg
 - [x] awg работает не стабильно
-- [ ] Сеть рестартится при любом раскладе
-- [ ] Выкл-вкл wg через luci не отрабатывает поднятие маршрута
+- [x] Сеть рестартится при любом раскладе
+- [x] Выкл-вкл wg через luci не отрабатывает поднятие маршрута
 
 # ToDo
 Сделано
@@ -107,7 +113,7 @@ opkg update && opkg install sing-box
 Приоритет 1
 - [x] Изменить название "Alternative Config"
 - [x] "domain_service_enabled" Добавить _second
-- [ ] Установка Ru пакета в install.sh
+- [x] Установка Ru пакета в install.sh
 - [x] Правка nft mark, tproxy
 - [x] Правка перевода минимальная
 
@@ -184,6 +190,9 @@ make package/luci-app-podkop/{clean,compile} V=s
 ```
 
 .ipk лежат в `bin/packages/x86_64/base/`
+
+## Примеры строк
+https://github.com/itdoginfo/podkop/blob/main/String-example.md
 
 ## Ошибки
 ```
