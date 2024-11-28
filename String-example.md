@@ -38,6 +38,21 @@ vless://8b60389a-7a01-4365-9244-c87f12bb98cf@example.com:443?security=tls&sni=SI
 vless://8b60389a-7a01-4365-9244-c87f12bb98cf@example.com:443/?type=ws&encryption=none&path=%2Fwebsocket&security=tls&sni=sni.server.com&fp=chrome#vless-tls-ws
 ```
 
+4.
+```
+vless://[someid]@[someserver]?security=tls&sni=[somesni]&type=ws&path=/?ed%3D2560&host=[somesni]&encryption=none#vless-tls-ws-2
+```
+
+5.
+```
+vless://uuid@server:443?security=tls&sni=server&fp=chrome&type=ws&path=/websocket&encryption=none#vless-tls-ws-3
+```
+
+6.
+```
+vless://33333@example.com:443/?type=ws&encryption=none&path=%2Fwebsocket&security=tls&sni=example.com&fp=chrome#vless-tls-ws-4
+```
+
 ## No security
 ```
 vless://8b60389a-7a01-4365-9244-c87f12bb98cf@example.com:443?type=tcp&security=none#vless-tls-no-encrypt
