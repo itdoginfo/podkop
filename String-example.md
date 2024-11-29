@@ -23,6 +23,10 @@ ss://MjAyMi1ibGFrZTMtYWVzLTEyOC1nY206Y21lZklCdDhwMTJaZm1QWUplMnNCNThRd3R3NXNKeVp
 vless://eb445f4b-ddb4-4c79-86d5-0833fc674379@example.com:443?type=tcp&security=reality&pbk=ARQzddtXPJZHinwkPbgVpah9uwPTuzdjU9GpbUkQJkc&fp=chrome&sni=yahoo.com&sid=6cabf01472a3&spx=%2F&flow=xtls-rprx-vision#vless-reality
 ```
 
+```
+vless://UUID@IP:2082?security=reality&sni=dash.cloudflare.com&alpn=h2,http/1.1&allowInsecure=1&fp=chrome&pbk=pukkey&sid=id&type=grpc&encryption=none#vless-reality-strange
+```
+
 ## TLS
 1. 
 ```
