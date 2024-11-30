@@ -115,14 +115,17 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('basic', form.Flag, 'custom_domains_list_enabled', _('User Domain List'), _('Enable and manage your custom list of domains for selective routing'));
-        o.default = '0';
+        o = s.taboption('basic', form.ListValue, 'custom_domains_list_enabled', _('User Domain List Type'), _('Select how to add your custom domains'));
+        o.value('disabled', _('Disabled'));
+        o.value('dynamic', _('Dynamic List'));
+        o.value('text', _('Text List'));
+        o.default = 'disabled';
         o.rmempty = false;
         o.ucisection = 'main';
 
         o = s.taboption('basic', form.DynamicList, 'custom_domains', _('User Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
         o.placeholder = 'Domains list';
-        o.depends('custom_domains_list_enabled', '1');
+        o.depends('custom_domains_list_enabled', 'dynamic');
         o.rmempty = false;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
@@ -134,6 +137,31 @@ return view.extend({
 
             if (!domainRegex.test(value)) {
                 return _('Invalid domain format. Enter domain without protocol (example: sub.example.com)');
+            }
+            return true;
+        };
+
+        o = s.taboption('basic', form.TextValue, 'custom_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)'));
+        o.placeholder = 'example.com, sub.example.com\ndomain.com test.com\nsubdomain.domain.com another.com, third.com';
+        o.depends('custom_domains_list_enabled', 'text');
+        o.rows = 10;
+        o.rmempty = false;
+        o.ucisection = 'main';
+        o.validate = function (section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            const domains = value.split(/[,\s\n]/)
+                .map(d => d.trim())
+                .filter(d => d.length > 0);
+
+            const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+
+            for (const domain of domains) {
+                if (!domainRegex.test(domain)) {
+                    return _('Invalid domain format: ' + domain + '. Enter domain without protocol');
+                }
             }
             return true;
         };
@@ -164,14 +192,18 @@ return view.extend({
             }
         };
 
-        o = s.taboption('basic', form.Flag, 'custom_subnets_list_enabled', _('User Subnet List'), _('Enable and manage your custom list of IP subnets for selective routing'));
-        o.default = '0';
+
+        o = s.taboption('basic', form.ListValue, 'custom_subnets_list_enabled', _('User Subnet List Type'), _('Select how to add your custom subnets'));
+        o.value('disabled', _('Disabled'));
+        o.value('dynamic', _('Dynamic List'));
+        o.value('text', _('Text List (comma/space/newline separated)'));
+        o.default = 'disabled';
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('basic', form.DynamicList, 'custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 103.21.244.0/22)'));
-        o.placeholder = 'Subnets list';
-        o.depends('custom_subnets_list_enabled', '1');
+        o = s.taboption('basic', form.DynamicList, 'custom_subnets', _('User Subnets'), _('Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses'));
+        o.placeholder = 'IP or subnet';
+        o.depends('custom_subnets_list_enabled', 'dynamic');
         o.rmempty = false;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
@@ -179,15 +211,15 @@ return view.extend({
                 return true;
             }
 
-            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
 
             if (!subnetRegex.test(value)) {
-                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 103.21.244.0/22)');
+                return _('Invalid format. Use format: X.X.X.X or X.X.X.X/Y');
             }
 
+            // Разбираем IP и маску
             const [ip, cidr] = value.split('/');
             const ipParts = ip.split('.');
-            const cidrNum = parseInt(cidr);
 
             for (const part of ipParts) {
                 const num = parseInt(part);
@@ -196,10 +228,56 @@ return view.extend({
                 }
             }
 
-            if (cidrNum < 0 || cidrNum > 32) {
-                return _('CIDR must be between 0 and 32');
+            if (cidr !== undefined) {
+                const cidrNum = parseInt(cidr);
+                if (cidrNum < 0 || cidrNum > 32) {
+                    return _('CIDR must be between 0 and 32');
+                }
             }
 
+            return true;
+        };
+
+        o = s.taboption('basic', form.TextValue, 'custom_subnets_text', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline'));
+        o.placeholder = '103.21.244.0/22\n8.8.8.8\n1.1.1.1/32, 9.9.9.9 10.10.10.10';
+        o.depends('custom_subnets_list_enabled', 'text');
+        o.rows = 10;
+        o.rmempty = false;
+        o.ucisection = 'main';
+        o.validate = function (section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            // Split by commas, spaces and newlines
+            const subnets = value.split(/[,\s\n]/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+
+            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+
+            for (const subnet of subnets) {
+                if (!subnetRegex.test(subnet)) {
+                    return _('Invalid format: ' + subnet + '. Use format: X.X.X.X or X.X.X.X/Y');
+                }
+
+                const [ip, cidr] = subnet.split('/');
+                const ipParts = ip.split('.');
+
+                for (const part of ipParts) {
+                    const num = parseInt(part);
+                    if (num < 0 || num > 255) {
+                        return _('IP parts must be between 0 and 255 in: ' + subnet);
+                    }
+                }
+
+                if (cidr !== undefined) {
+                    const cidrNum = parseInt(cidr);
+                    if (cidrNum < 0 || cidrNum > 32) {
+                        return _('CIDR must be between 0 and 32 in: ' + subnet);
+                    }
+                }
+            }
             return true;
         };
 
@@ -409,15 +487,18 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'second';
 
-        o = s.taboption('secondary_config', form.Flag, 'second_custom_domains_list_enabled', _('User Domain List'), _('Enable and manage your custom list of domains for selective routing'));
-        o.default = '0';
+        o = s.taboption('secondary_config', form.ListValue, 'second_custom_domains_list_enabled', _('User Domain List Type'), _('Select how to add your custom domains'));
+        o.value('disabled', _('Disabled'));
+        o.value('dynamic', _('Dynamic List'));
+        o.value('text', _('Text List'));
+        o.default = 'disabled';
         o.rmempty = false;
         o.depends('second_enable', '1');
         o.ucisection = 'second';
 
         o = s.taboption('secondary_config', form.DynamicList, 'second_custom_domains', _('User Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
         o.placeholder = 'Domains list';
-        o.depends('second_custom_domains_list_enabled', '1');
+        o.depends('second_custom_domains_list_enabled', 'dynamic');
         o.rmempty = false;
         o.ucisection = 'second';
         o.validate = function (section_id, value) {
@@ -433,15 +514,10 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('secondary_config', form.Flag, 'second_custom_subnets_list_enabled', _('User Subnet List'), _('Enable and manage your custom list of IP subnets for selective routing'));
-        o.default = '0';
-        o.rmempty = false;
-        o.depends('second_enable', '1');
-        o.ucisection = 'second';
-
-        o = s.taboption('secondary_config', form.DynamicList, 'second_custom_subnets', _('User Subnets'), _('Enter subnet in CIDR notation (example: 103.21.244.0/22)'));
-        o.placeholder = 'Subnets list';
-        o.depends('second_custom_subnets_list_enabled', '1');
+        o = s.taboption('secondary_config', form.TextValue, 'second_custom_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)'));
+        o.placeholder = 'example.com, sub.example.com\ndomain.com test.com\nsubdomain.domain.com another.com, third.com';
+        o.depends('second_custom_domains_list_enabled', 'text');
+        o.rows = 10;
         o.rmempty = false;
         o.ucisection = 'second';
         o.validate = function (section_id, value) {
@@ -449,15 +525,47 @@ return view.extend({
                 return true;
             }
 
-            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+            const domains = value.split(/[,\s\n]/)
+                .map(d => d.trim())
+                .filter(d => d.length > 0);
+
+            const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+
+            for (const domain of domains) {
+                if (!domainRegex.test(domain)) {
+                    return _('Invalid domain format: ' + domain + '. Enter domain without protocol');
+                }
+            }
+            return true;
+        };
+
+        o = s.taboption('secondary_config', form.ListValue, 'second_custom_subnets_list_enabled', _('User Subnet List Type'), _('Select how to add your custom subnets'));
+        o.value('disabled', _('Disabled'));
+        o.value('dynamic', _('Dynamic List'));
+        o.value('text', _('Text List'));
+        o.default = 'disabled';
+        o.rmempty = false;
+        o.depends('second_enable', '1');
+        o.ucisection = 'second';
+
+        o = s.taboption('secondary_config', form.DynamicList, 'second_custom_subnets', _('User Subnets'), _('Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses'));
+        o.placeholder = 'IP or subnet';
+        o.depends('second_custom_subnets_list_enabled', 'dynamic');
+        o.rmempty = false;
+        o.ucisection = 'second';
+        o.validate = function (section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
 
             if (!subnetRegex.test(value)) {
-                return _('Invalid subnet format. Use format: X.X.X.X/Y (like 103.21.244.0/22)');
+                return _('Invalid format. Use format: X.X.X.X or X.X.X.X/Y');
             }
 
             const [ip, cidr] = value.split('/');
             const ipParts = ip.split('.');
-            const cidrNum = parseInt(cidr);
 
             for (const part of ipParts) {
                 const num = parseInt(part);
@@ -466,10 +574,55 @@ return view.extend({
                 }
             }
 
-            if (cidrNum < 0 || cidrNum > 32) {
-                return _('CIDR must be between 0 and 32');
+            if (cidr !== undefined) {
+                const cidrNum = parseInt(cidr);
+                if (cidrNum < 0 || cidrNum > 32) {
+                    return _('CIDR must be between 0 and 32');
+                }
             }
 
+            return true;
+        };
+
+        o = s.taboption('secondary_config', form.TextValue, 'second_custom_subnets_text', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline'));
+        o.placeholder = '103.21.244.0/22\n8.8.8.8\n1.1.1.1/32, 9.9.9.9 10.10.10.10';
+        o.depends('second_custom_subnets_list_enabled', 'text');
+        o.rows = 10;
+        o.rmempty = false;
+        o.ucisection = 'second';
+        o.validate = function (section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            const subnets = value.split(/[,\s\n]/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+
+            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+
+            for (const subnet of subnets) {
+                if (!subnetRegex.test(subnet)) {
+                    return _('Invalid format: ' + subnet + '. Use format: X.X.X.X or X.X.X.X/Y');
+                }
+
+                const [ip, cidr] = subnet.split('/');
+                const ipParts = ip.split('.');
+
+                for (const part of ipParts) {
+                    const num = parseInt(part);
+                    if (num < 0 || num > 255) {
+                        return _('IP parts must be between 0 and 255 in: ' + subnet);
+                    }
+                }
+
+                if (cidr !== undefined) {
+                    const cidrNum = parseInt(cidr);
+                    if (cidrNum < 0 || cidrNum > 32) {
+                        return _('CIDR must be between 0 and 32 in: ' + subnet);
+                    }
+                }
+            }
             return true;
         };
 
