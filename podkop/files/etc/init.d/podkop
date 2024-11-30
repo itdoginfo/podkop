@@ -826,36 +826,61 @@ sing_box_config_shadowsocks() {
     local STRING="$1"
     local listen_port="$2"
 
-    local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 --decode)
-    local method=$(echo "$encrypted_part" | cut -d':' -f1)
-    local password=$(echo "$encrypted_part" | cut -d':' -f2-)
+    # Определяем тип SS (2022 или old) по наличию : в base64 части
+    if echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 -d 2>/dev/null | grep -q ":"; then
+        # Old SS format
+        local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 --decode)
+        local method=$(echo "$encrypted_part" | cut -d':' -f1)
+        local password=$(echo "$encrypted_part" | cut -d':' -f2-)
+    else
+        # SS 2022 format
+        local method_and_password=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
+        local method=$(echo "$method_and_password" | cut -d':' -f1)
+        local password=$(echo "$method_and_password" | cut -d':' -f2- | sed 's/%3D/=/g')
+        
+        # Если method в base64, декодируем
+        if echo "$method" | base64 -d &>/dev/null; then
+            method=$(echo "$method" | base64 -d)
+        fi
+    fi
 
     local server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
     local port=$(echo "$STRING" | sed -n 's|.*:\([0-9]\+\).*|\1|p')
-    local label=$(echo "$STRING" | cut -d'#' -f2)
 
-    template_config="/etc/podkop/sing-box-shadowsocks-template.json"
+    # Create base config
+    cat > /tmp/ss_config.json << EOF
+{
+  "log": {
+    "level": "warn"
+  },
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "listen": "::",
+      "listen_port": $listen_port,
+      "sniff": false
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "shadowsocks",
+      "server": "$server",
+      "server_port": $port,
+      "method": "$method",
+      "password": "$password",
+      "udp_over_tcp": {
+        "enabled": true,
+        "version": 2
+      }
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true
+  }
+}
+EOF
 
-    jq --arg server "$server" \
-        --arg port "$port" \
-        --arg method "$method" \
-        --arg password "$password" \
-        --arg listen_port "$listen_port" \
-        '.inbounds[] |=
-        if .type == "tproxy" then
-            .listen_port = ($listen_port | tonumber)
-        else
-            .
-        end |
-        .outbounds[] |= 
-        if .type == "shadowsocks" then 
-            .server = $server |
-            .server_port = ($port | tonumber) |
-            .method = $method |
-            .password = $password
-        else
-            .
-        end' "$template_config" >/etc/sing-box/config.json
+    mv /tmp/ss_config.json /etc/sing-box/config.json
 }
 
 sing_box_config_vless() {
@@ -863,68 +888,171 @@ sing_box_config_vless() {
     local listen_port="$2"
 
     get_param() {
-        echo "$STRING" | sed -n "s/.*[?&]$1=\([^&?#]*\).*/\1/p"
+        local param="$1"
+        local value=$(echo "$STRING" | sed -n "s/.*[?&]$param=\([^&?#]*\).*/\1/p" | sed 's/%2F/\//g; s/%2C/,/g; s/%3D/=/g')
+        echo "$value"
     }
 
+    # Extract basic parameters
     uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
     server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
-    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | awk -F'/' '{print $1}')
+    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | cut -d'/' -f1)
 
+    # Get all possible parameters
     type=$(get_param "type")
-    flow=$(get_param "flow")
+    security=$(get_param "security")
     sni=$(get_param "sni")
     fp=$(get_param "fp")
-    security=$(get_param "security")
+    flow=$(get_param "flow")
+    
+    # Reality specific
     pbk=$(get_param "pbk")
     sid=$(get_param "sid")
-    encoding=$(get_param "packetEncoding")
-    alpn=$(echo "$(get_param "alpn" | sed 's/%2C/,/g; s/%2F/\//g')" | jq -R -s -c 'split(",")' | sed 's/\\n//g')
-    label=$(echo "$STRING" | cut -d'#' -f2)
 
-    template_config="/etc/podkop/sing-box-vless-template.json"
+    # TLS specific
+    alpn=$(get_param "alpn")
+    if [ -z "$alpn" ]; then
+        alpn="h2,http/1.1"
+    fi
+    alpn_json=$(echo "$alpn" | tr ',' '\n' | jq -R . | jq -s .)
 
-    jq --arg server "$server" \
-        --arg port "$port" \
-        --arg uuid "$uuid" \
-        --arg type "$type" \
-        --arg flow "$flow" \
-        --arg sni "$sni" \
-        --arg fp "$fp" \
-        --arg security "$security" \
-        --arg pbk "$pbk" \
-        --arg sid "$sid" \
-        --argjson alpn "$alpn" \
-        --arg encoding "$encoding" \
-        --arg listen_port "$listen_port" \
-        '.inbounds[] |=
-        if .type == "tproxy" then
-            .listen_port = ($listen_port | tonumber)
-        else
-            .
-        end |
-        .outbounds[] |= 
-           (.server = $server |
-            .server_port = ($port | tonumber) |
-            .uuid = $uuid |
-            if $security == "reality" then 
-                if $flow == "" then del(.flow) else .flow = $flow end |
-                if $encoding == "" then del(.packet_encoding) else .packet_encoding = $encoding end |
-                .tls.server_name = $sni |
-                .tls.utls.fingerprint = $fp |
-                .tls.reality.public_key = $pbk |
-                .tls.reality.short_id = $sid
-            elif $security == "tls" then
-                .tls.alpn = $alpn |
-                .tls.server_name = $sni |
-                del(.flow) |
-                del(.tls.utls) |
-                del(.tls.reality)
-            elif $security == "" or $security == "none" then
-                del(.flow) |
-                del(.tls)
-        else
-            .
-        end)' "$template_config" >/etc/sing-box/config.json
+    # WebSocket specific
+    path=$(get_param "path")
+    host=$(get_param "host")
+
+    # Create base config
+    cat > /tmp/vless_config.json << EOF
+{
+  "log": {
+    "level": "warn"
+  },
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "listen": "::",
+      "listen_port": $listen_port,
+      "sniff": false
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "server": "$server",
+      "server_port": $port,
+      "uuid": "$uuid"
+EOF
+
+    # Add transport configuration if needed
+    if [ "$type" = "ws" ]; then
+        cat >> /tmp/vless_config.json << EOF
+,
+      "transport": {
+        "type": "ws",
+        "path": "$path"
+EOF
+        if [ -n "$host" ]; then
+            cat >> /tmp/vless_config.json << EOF
+,
+        "headers": {
+          "Host": "$host"
+        }
+EOF
+        fi
+        echo "      }" >> /tmp/vless_config.json
+    elif [ "$type" = "grpc" ]; then
+        cat >> /tmp/vless_config.json << EOF
+,
+      "transport": {
+        "type": "grpc"
+      }
+EOF
+    fi
+
+    # Add security configuration
+    if [ "$security" = "reality" ]; then
+        if [ -n "$flow" ]; then
+            echo "      ,\"flow\": \"$flow\"" >> /tmp/vless_config.json
+        fi
+        cat >> /tmp/vless_config.json << EOF
+,
+      "tls": {
+        "enabled": true,
+        "server_name": "$sni",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "$fp"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "$pbk",
+          "short_id": "$sid"
+        }
+      }
+EOF
+    elif [ "$security" = "tls" ]; then
+        if [ -n "$flow" ]; then
+            echo "      ,\"flow\": \"$flow\"" >> /tmp/vless_config.json
+        fi
+        cat >> /tmp/vless_config.json << EOF
+,
+      "tls": {
+        "enabled": true,
+        "server_name": "$sni",
+        "insecure": $([ "$(get_param 'allowInsecure')" = "1" ] && echo "true" || echo "false"),
+        "utls": {
+          "enabled": true,
+          "fingerprint": "$fp"
+        }
+EOF
+        if [ -n "$alpn" ]; then
+            echo "        ,\"alpn\": $alpn_json" >> /tmp/vless_config.json
+        fi
+        echo "      }" >> /tmp/vless_config.json
+    fi
+
+    # Close outbound and add route
+    cat >> /tmp/vless_config.json << EOF
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true
+  }
+}
+EOF
+
+    mv /tmp/vless_config.json /etc/sing-box/config.json
+}
+
+sing_box_config_outbound_json() {
+    local json_config="$1"
+    local listen_port="$2"
+    
+    # Create temporary file with base config structure
+    cat > /tmp/base_config.json << EOF
+{
+  "log": {
+    "level": "warn"
+  },
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "listen": "::",
+      "listen_port": $listen_port,
+      "sniff": false
+    }
+  ],
+  "outbounds": [],
+  "route": {
+    "auto_detect_interface": true
+  }
+}
+EOF
+
+    # Add the outbound config using jq
+    jq --argjson outbound "$json_config" '.outbounds += [$outbound]' /tmp/base_config.json > /etc/sing-box/config.json
+    
+    # Cleanup
+    rm -f /tmp/base_config.json
 }
 
 sing_box_config_outbound_shadowsocks() {
