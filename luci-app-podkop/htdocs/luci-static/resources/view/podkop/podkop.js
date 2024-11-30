@@ -21,10 +21,37 @@ return view.extend({
         o.value('proxy', ('Proxy'));
         o.ucisection = 'main';
 
-        o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
+        o = s.taboption('basic', form.ListValue, 'proxy_config_type', _('Configuration Type'), _('Select how to configure the proxy'));
+        o.value('url', _('Connection URL'));
+        o.value('outbound', _('Outbound Config'));
+        o.default = 'url';
         o.depends('mode', 'proxy');
+        o.ucisection = 'main';
+
+        o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
+        o.depends('proxy_config_type', 'url');
         o.rows = 5;
         o.ucisection = 'main';
+
+        o = s.taboption('basic', form.TextValue, 'outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
+        o.depends('proxy_config_type', 'outbound');
+        o.rows = 10;
+        o.ucisection = 'main';
+        o.validate = function (section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            try {
+                const parsed = JSON.parse(value);
+                if (!parsed.type || !parsed.server || !parsed.server_port) {
+                    return _('JSON must contain at least type, server and server_port fields');
+                }
+                return true;
+            } catch (e) {
+                return _('Invalid JSON format');
+            }
+        };
 
         o = s.taboption('basic', form.ListValue, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
         o.depends('mode', 'vpn');
@@ -315,9 +342,37 @@ return view.extend({
         o.depends('second_enable', '1');
         o.ucisection = 'second';
 
-        o = s.taboption('secondary_config', form.TextValue, 'second_proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
+        o = s.taboption('secondary_config', form.ListValue, 'second_proxy_config_type', _('Configuration Type'), _('Select how to configure the proxy'));
+        o.value('url', _('Connection URL'));
+        o.value('outbound', _('Outbound Config'));
+        o.default = 'url';
         o.depends('second_mode', 'proxy');
         o.ucisection = 'second';
+
+        o = s.taboption('secondary_config', form.TextValue, 'second_proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
+        o.depends('second_proxy_config_type', 'url');
+        o.rows = 5;
+        o.ucisection = 'second';
+
+        o = s.taboption('secondary_config', form.TextValue, 'second_outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
+        o.depends('second_proxy_config_type', 'outbound');
+        o.rows = 10;
+        o.ucisection = 'second';
+        o.validate = function (section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            try {
+                const parsed = JSON.parse(value);
+                if (!parsed.type || !parsed.server || !parsed.server_port) {
+                    return _('JSON must contain at least type, server and server_port fields');
+                }
+                return true;
+            } catch (e) {
+                return _('Invalid JSON format');
+            }
+        };
 
         o = s.taboption('secondary_config', form.ListValue, 'second_interface', _('Network Interface'), _('Select network interface for VPN connection'));
         o.depends('second_mode', 'vpn');

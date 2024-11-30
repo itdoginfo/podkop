@@ -37,14 +37,27 @@ start_service() {
         config_get_bool second_enable "second" "second_enable" "0"
         config_get second_mode "second" "second_mode" "0"
         if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "proxy" ]; then
-            config_get proxy_string "second" "second_proxy_string"
-            if [[ "$proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_shadowsocks "$proxy_string" "1603"
-            elif [[ "$proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_vless "$proxy_string" "1603"
+            config_get proxy_config_type "second" "second_proxy_config_type"
+            
+            if [ "$proxy_config_type" = "outbound" ]; then
+                config_get outbound_json "second" "second_outbound_json"
+                if [ -n "$outbound_json" ]; then
+                    log "Using JSON outbound configuration for second proxy"
+                    sing_box_config_outbound_json "$outbound_json" "1603"
+                else
+                    log "Missing outbound JSON configuration"
+                    return
+                fi
             else
-                log "Unsupported proxy type: $proxy_string"
-                return
+                config_get proxy_string "second" "second_proxy_string"
+                if [[ "$proxy_string" =~ ^ss:// ]]; then
+                    sing_box_config_shadowsocks "$proxy_string" "1603"
+                elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                    sing_box_config_vless "$proxy_string" "1603"
+                else
+                    log "Unsupported proxy type or missing configuration"
+                    return
+                fi
             fi
             add_route_tproxy podkop2
             sing_box_config_check
@@ -78,27 +91,53 @@ start_service() {
             outbound_main=$(mktemp)
             outbound_second=$(mktemp)
 
-            config_get proxy_string main "proxy_string"
-            if [[ "$proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_outbound_shadowsocks "$proxy_string" "$outbound_main" main
-            elif [[ "$proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_outbound_vless "$proxy_string" "$outbound_main" main
+            # Main proxy config
+            config_get proxy_config_type main "proxy_config_type"
+            if [ "$proxy_config_type" = "outbound" ]; then
+                config_get outbound_json main "outbound_json"
+                if [ -n "$outbound_json" ]; then
+                    echo "$outbound_json" > "$outbound_main"
+                    jq '.tag = "main"' "$outbound_main" > "${outbound_main}.tmp" && mv "${outbound_main}.tmp" "$outbound_main"
+                else
+                    log "Missing main outbound JSON configuration"
+                    return
+                fi
             else
-                log "Unsupported proxy type: $proxy_string"
-                return
+                config_get proxy_string main "proxy_string"
+                if [[ "$proxy_string" =~ ^ss:// ]]; then
+                    sing_box_config_outbound_shadowsocks "$proxy_string" "$outbound_main" main
+                elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                    sing_box_config_outbound_vless "$proxy_string" "$outbound_main" main
+                else
+                    log "Unsupported proxy type or missing configuration for main"
+                    return
+                fi
             fi
 
-            config_get proxy_string "second" "second_proxy_string"
-            if [[ "$proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_outbound_shadowsocks "$proxy_string" "$outbound_second" second
-            elif [[ "$proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_outbound_vless "$proxy_string" "$outbound_second" second
+            # Second proxy config
+            config_get proxy_config_type second "second_proxy_config_type"
+            if [ "$proxy_config_type" = "outbound" ]; then
+                config_get outbound_json second "second_outbound_json"
+                if [ -n "$outbound_json" ]; then
+                    echo "$outbound_json" > "$outbound_second"
+                    jq '.tag = "second"' "$outbound_second" > "${outbound_second}.tmp" && mv "${outbound_second}.tmp" "$outbound_second"
+                else
+                    log "Missing second outbound JSON configuration"
+                    return
+                fi
             else
-                log "Unsupported proxy type: $proxy_string"
-                return
+                config_get proxy_string "second" "second_proxy_string"
+                if [[ "$proxy_string" =~ ^ss:// ]]; then
+                    sing_box_config_outbound_shadowsocks "$proxy_string" "$outbound_second" second
+                elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                    sing_box_config_outbound_vless "$proxy_string" "$outbound_second" second
+                else
+                    log "Unsupported proxy type or missing configuration for second"
+                    return
+                fi
             fi
 
-            jq --argjson outbounds "$(jq -s '{"outbounds": (.[0].outbounds + .[1].outbounds)}' "$outbound_main" "$outbound_second")" \
+            jq --argjson outbounds "$(jq -s '{"outbounds": [{"type":"selector","tag":"proxy","outbounds":["main","second"]}] + .[0].outbounds + .[1].outbounds}' "$outbound_main" "$outbound_second")" \
                 '.outbounds += $outbounds.outbounds' /etc/podkop/sing-box-two-proxy-template.json >/etc/sing-box/config.json
 
             rm -f "$outbound_main" "$outbound_second"
@@ -111,14 +150,27 @@ start_service() {
         config_get_bool second_enable "second" "second_enable" "0"
         config_get second_mode "second" "second_mode" "0"
         if [ "$second_enable" -eq "0" ] || [ "$second_mode" = "vpn" ]; then
-            config_get proxy_string main "proxy_string"
-            if [[ "$proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_shadowsocks "$proxy_string" "1602"
-            elif [[ "$proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_vless "$proxy_string" "1602"
+            config_get proxy_config_type main "proxy_config_type"
+            
+            if [ "$proxy_config_type" = "outbound" ]; then
+                config_get outbound_json main "outbound_json"
+                if [ -n "$outbound_json" ]; then
+                    log "Using JSON outbound configuration"
+                    sing_box_config_outbound_json "$outbound_json" "1602"
+                else
+                    log "Missing outbound JSON configuration"
+                    return
+                fi
             else
-                log "Unsupported proxy type: $proxy_string"
-                return
+                config_get proxy_string main "proxy_string"
+                if [[ "$proxy_string" =~ ^ss:// ]]; then
+                    sing_box_config_shadowsocks "$proxy_string" "1602"
+                elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                    sing_box_config_vless "$proxy_string" "1602"
+                else
+                    log "Unsupported proxy type or missing configuration"
+                    return
+                fi
             fi
             add_route_tproxy podkop
         fi
@@ -723,6 +775,38 @@ dnsmasq_config_check() {
         log "Dnsmasq config $config contains errors. Break"
         return
     fi
+}
+
+sing_box_config_outbound_json() {
+    local json_config="$1"
+    local listen_port="$2"
+    
+    # Create temporary file with base config structure
+    cat > /tmp/base_config.json << EOF
+{
+  "log": {
+    "level": "warn"
+  },
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "listen": "::",
+      "listen_port": $listen_port,
+      "sniff": false
+    }
+  ],
+  "outbounds": [],
+  "route": {
+    "auto_detect_interface": true
+  }
+}
+EOF
+
+    # Add the outbound config using jq
+    jq --argjson outbound "$json_config" '.outbounds += [$outbound]' /tmp/base_config.json > /etc/sing-box/config.json
+    
+    # Cleanup
+    rm -f /tmp/base_config.json
 }
 
 sing_box_uci() {
