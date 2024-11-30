@@ -647,7 +647,7 @@ list_custom_domains_create() {
 list_custom_local_domains_create() {
     local local_file="$1"
     local name="$2"
-    local filename=$(echo "${local_file%.*}")
+    local filename=$(basename "$local_file" | cut -d. -f1)
     local config="/tmp/dnsmasq.d/${name}-${filename}.lst"
 
     rm -f $config
