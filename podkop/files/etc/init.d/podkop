@@ -857,7 +857,6 @@ sing_box_config_outbound_json() {
     local json_config="$1"
     local listen_port="$2"
     
-    # Create temporary file with base config structure
     cat > /tmp/base_config.json << EOF
 {
   "log": {
@@ -878,10 +877,7 @@ sing_box_config_outbound_json() {
 }
 EOF
 
-    # Add the outbound config using jq
     jq --argjson outbound "$json_config" '.outbounds += [$outbound]' /tmp/base_config.json > /etc/sing-box/config.json
-    
-    # Cleanup
     rm -f /tmp/base_config.json
 }
 
@@ -1094,34 +1090,6 @@ EOF
     fi
 
     rm -f /tmp/vless_temp.json
-}
-
-sing_box_config_outbound_json() {
-    local json_config="$1"
-    local listen_port="$2"
-    
-    cat > /tmp/base_config.json << EOF
-{
-  "log": {
-    "level": "warn"
-  },
-  "inbounds": [
-    {
-      "type": "tproxy",
-      "listen": "::",
-      "listen_port": $listen_port,
-      "sniff": false
-    }
-  ],
-  "outbounds": [],
-  "route": {
-    "auto_detect_interface": true
-  }
-}
-EOF
-
-    jq --argjson outbound "$json_config" '.outbounds += [$outbound]' /tmp/base_config.json > /etc/sing-box/config.json
-    rm -f /tmp/base_config.json
 }
 
 sing_box_config_check() {
