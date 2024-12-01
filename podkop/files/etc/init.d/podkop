@@ -966,33 +966,26 @@ sing_box_config_vless() {
     get_param() {
         local param="$1"
         local value=$(echo "$STRING" | sed -n "s/.*[?&]$param=\([^&?#]*\).*/\1/p")
-        value=$(echo "$value" | sed 's/%2F/\//gi; s/%2C/,/gi; s/%3D/=/gi; s/%2B/+/gi')
+        value=$(echo "$value" | sed 's/%2F/\//g; s/%2C/,/g; s/%3D/=/g; s/%2B/+/g; s/%20/ /g' | tr -d '\n' | tr -d '\r')
         echo "$value"
     }
 
-    uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
-    server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
-    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | cut -d'/' -f1)
+    uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | tr -d '\n' | tr -d '\r' | sed 's/False//g')
+    server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1 | tr -d '\n' | tr -d '\r' | sed 's/False//g')
+    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | cut -d'/' -f1 | cut -d'#' -f1 | tr -d '\n' | tr -d '\r' | sed 's/False//g')
 
     type=$(get_param "type")
     security=$(get_param "security")
     sni=$(get_param "sni")
     fp=$(get_param "fp")
     flow=$(get_param "flow")
-    
     pbk=$(get_param "pbk")
     sid=$(get_param "sid")
-
-    alpn=$(get_param "alpn")
-    if [ -z "$alpn" ]; then
-        alpn="h2,http/1.1"
-    fi
-    alpn_json=$(echo "$alpn" | tr ',' '\n' | jq -R . | jq -s .)
-
     path=$(get_param "path")
     host=$(get_param "host")
+    spx=$(get_param "spx")
 
-    cat > /tmp/vless_config.json << EOF
+    cat > /tmp/vless_temp.json << EOF
 {
   "log": {
     "level": "warn"
@@ -1010,39 +1003,43 @@ sing_box_config_vless() {
       "type": "vless",
       "server": "$server",
       "server_port": $port,
-      "uuid": "$uuid"
+      "uuid": "$uuid",
+      "packet_encoding": "",
+      "domain_strategy": ""
 EOF
 
+    if [ -n "$flow" ]; then
+        echo "      ,\"flow\": \"$flow\"" >> /tmp/vless_temp.json
+    fi
+
     if [ "$type" = "ws" ]; then
-        cat >> /tmp/vless_config.json << EOF
+        cat >> /tmp/vless_temp.json << EOF
 ,
       "transport": {
         "type": "ws",
         "path": "$path"
 EOF
         if [ -n "$host" ]; then
-            cat >> /tmp/vless_config.json << EOF
+            cat >> /tmp/vless_temp.json << EOF
 ,
         "headers": {
           "Host": "$host"
         }
 EOF
         fi
-        echo "      }" >> /tmp/vless_config.json
+        echo "      }" >> /tmp/vless_temp.json
     elif [ "$type" = "grpc" ]; then
-        cat >> /tmp/vless_config.json << EOF
+        cat >> /tmp/vless_temp.json << EOF
 ,
       "transport": {
         "type": "grpc"
       }
 EOF
+    elif [ "$type" = "tcp" ]; then
     fi
 
     if [ "$security" = "reality" ]; then
-        if [ -n "$flow" ]; then
-            echo "      ,\"flow\": \"$flow\"" >> /tmp/vless_config.json
-        fi
-        cat >> /tmp/vless_config.json << EOF
+        cat >> /tmp/vless_temp.json << EOF
 ,
       "tls": {
         "enabled": true,
@@ -1059,10 +1056,7 @@ EOF
       }
 EOF
     elif [ "$security" = "tls" ]; then
-        if [ -n "$flow" ]; then
-            echo "      ,\"flow\": \"$flow\"" >> /tmp/vless_config.json
-        fi
-        cat >> /tmp/vless_config.json << EOF
+        cat >> /tmp/vless_temp.json << EOF
 ,
       "tls": {
         "enabled": true,
@@ -1074,12 +1068,13 @@ EOF
         }
 EOF
         if [ -n "$alpn" ]; then
-            echo "        ,\"alpn\": $alpn_json" >> /tmp/vless_config.json
+            local alpn_json=$(echo "$alpn" | tr ',' '\n' | jq -R . | jq -s .)
+            echo "        ,\"alpn\": $alpn_json" >> /tmp/vless_temp.json
         fi
-        echo "      }" >> /tmp/vless_config.json
+        echo "      }" >> /tmp/vless_temp.json
     fi
 
-    cat >> /tmp/vless_config.json << EOF
+    cat >> /tmp/vless_temp.json << EOF
     }
   ],
   "route": {
@@ -1088,7 +1083,17 @@ EOF
 }
 EOF
 
-    mv /tmp/vless_config.json /etc/sing-box/config.json
+    if jq . /tmp/vless_temp.json >/tmp/vless_config.json 2>/dev/null; then
+        mv /tmp/vless_config.json /etc/sing-box/config.json
+        echo "Config created successfully"
+    else
+        echo "Error: Invalid JSON config generated"
+        cat /tmp/vless_temp.json
+        rm -f /tmp/vless_temp.json
+        return 1
+    fi
+
+    rm -f /tmp/vless_temp.json
 }
 
 sing_box_config_outbound_json() {
