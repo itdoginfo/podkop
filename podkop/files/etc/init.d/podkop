@@ -1032,6 +1032,7 @@ EOF
       }
 EOF
     elif [ "$type" = "tcp" ]; then
+        : # tcp doesn't need additional transport configuration
     fi
 
     if [ "$security" = "reality" ]; then
