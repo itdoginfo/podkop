@@ -299,6 +299,13 @@ list_update() {
         config_list_foreach main custom_download_domains "list_custom_download_domains_create" "podkop"
     fi
 
+    config_get_bool custom_local_domains_list_enabled "main" "custom_local_domains_list_enabled" "0"
+    if [ "$custom_local_domains_list_enabled" -eq 1 ]; then
+        log "Adding a custom local domain list"
+        add_set "podkop_domains" "main"
+        config_list_foreach main custom_local_domains "list_custom_local_domains_create" "podkop"
+    fi
+
     config_get_bool delist_domains_enabled "main" "delist_domains_enabled" "0"
     if [ "$delist_domains_enabled" -eq 1 ] && [ "$domain_list_enabled" -eq 1 ]; then
         log "Exclude domains from the common list"
@@ -635,6 +642,19 @@ list_custom_domains_create() {
     local name="$2"
     echo "nftset=/$domain/4#inet#PodkopTable#${name}_domains" >>"/tmp/dnsmasq.d/${name}-custom-domains.lst"
     log "$domain added to the list"
+}
+
+list_custom_local_domains_create() {
+    local local_file="$1"
+    local name="$2"
+    local filename=$(basename "$local_file" | cut -d. -f1)
+    local config="/tmp/dnsmasq.d/${name}-${filename}.lst"
+
+    rm -f $config
+    while IFS= read -r domain; do
+        echo "nftset=/$domain/4#inet#PodkopTable#${name}_domains" >>$config
+    done <"$local_file"
+    dnsmasq_config_check ${name}-${filename}.lst
 }
 
 list_custom_download_domains_create() {
