@@ -25,7 +25,13 @@ main() {
 
         [ -f /etc/config/dhcp-opkg ] && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp
     fi
-
+    if uci get dhcp.@dnsmasq[0].confdir | grep -q /tmp/dnsmasq.d; then
+        echo "confdir alreadt set"
+    else
+        printf "Setting confdir"
+        uci set dhcp.@dnsmasq[0].confdir='/tmp/dnsmasq.d'
+        uci commit dhcp
+    fi
     if [ -f "/etc/init.d/podkop" ]; then
         printf "\033[32;1mPodkop is already installed. Just upgrade it? (y/n)\033[0m\n"
         printf "\033[32;1my - Only upgrade podkop\033[0m\n"
