@@ -980,6 +980,7 @@ sing_box_config_vless() {
     path=$(get_param "path")
     host=$(get_param "host")
     spx=$(get_param "spx")
+    alpn=$(get_param "alpn")
 
     cat > /tmp/vless_temp.json << EOF
 {
