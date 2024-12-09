@@ -50,9 +50,6 @@ define Package/podkop/install
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/etc/config/podkop $(1)/etc/config/podkop
 
-	$(INSTALL_DIR) $(1)/etc/podkop
-	$(INSTALL_DATA) ./files/etc/podkop/* $(1)/etc/podkop/
-
 	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface
 	$(INSTALL_DATA) ./files/etc/hotplug.d/iface/50-podkop $(1)/etc/hotplug.d/iface/50-podkop
 endef
