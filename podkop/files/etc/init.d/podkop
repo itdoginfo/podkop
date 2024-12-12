@@ -37,14 +37,27 @@ start_service() {
         config_get_bool second_enable "second" "second_enable" "0"
         config_get second_mode "second" "second_mode" "0"
         if [ "$second_enable" -eq "1" ] && [ "$second_mode" = "proxy" ]; then
-            config_get proxy_string "second" "second_proxy_string"
-            if [[ "$proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_shadowsocks "$proxy_string" "1603"
-            elif [[ "$proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_vless "$proxy_string" "1603"
+            config_get proxy_config_type "second" "second_proxy_config_type"
+            
+            if [ "$proxy_config_type" = "outbound" ]; then
+                config_get outbound_json "second" "second_outbound_json"
+                if [ -n "$outbound_json" ]; then
+                    log "Using JSON outbound configuration for second proxy"
+                    sing_box_config_outbound_json "$outbound_json" "1603"
+                else
+                    log "Missing outbound JSON configuration"
+                    return
+                fi
             else
-                log "Unsupported proxy type: $proxy_string"
-                return
+                config_get proxy_string "second" "second_proxy_string"
+                if [[ "$proxy_string" =~ ^ss:// ]]; then
+                    sing_box_config_shadowsocks "$proxy_string" "1603"
+                elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                    sing_box_config_vless "$proxy_string" "1603"
+                else
+                    log "Unsupported proxy type or missing configuration"
+                    return
+                fi
             fi
             add_route_tproxy podkop2
             sing_box_config_check
@@ -78,28 +91,95 @@ start_service() {
             outbound_main=$(mktemp)
             outbound_second=$(mktemp)
 
-            config_get proxy_string main "proxy_string"
-            if [[ "$proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_outbound_shadowsocks "$proxy_string" "$outbound_main" main
-            elif [[ "$proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_outbound_vless "$proxy_string" "$outbound_main" main
+            # Main proxy config
+            config_get proxy_config_type main "proxy_config_type"
+            if [ "$proxy_config_type" = "outbound" ]; then
+                config_get outbound_json main "outbound_json"
+                if [ -n "$outbound_json" ]; then
+                    echo '{"outbounds":[' > "$outbound_main"
+                    echo "$outbound_json" | jq '. + {tag: "main"}' >> "$outbound_main"
+                    echo ']}' >> "$outbound_main"
+                else
+                    log "Missing main outbound JSON configuration"
+                    rm -f "$outbound_main" "$outbound_second"
+                    return
+                fi
             else
-                log "Unsupported proxy type: $proxy_string"
-                return
+                config_get proxy_string main "proxy_string"
+                if [[ "$proxy_string" =~ ^ss:// ]]; then
+                    sing_box_config_shadowsocks "$proxy_string" "1602"
+                    jq '.outbounds[0] + {tag: "main"} | {outbounds: [.]}' /etc/sing-box/config.json > "$outbound_main"
+                elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                    sing_box_config_vless "$proxy_string" "1602"
+                    jq '.outbounds[0] + {tag: "main"} | {outbounds: [.]}' /etc/sing-box/config.json > "$outbound_main"
+                else
+                    log "Unsupported proxy type or missing configuration for main"
+                    rm -f "$outbound_main" "$outbound_second"
+                    return
+                fi
             fi
 
-            config_get proxy_string "second" "second_proxy_string"
-            if [[ "$proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_outbound_shadowsocks "$proxy_string" "$outbound_second" second
-            elif [[ "$proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_outbound_vless "$proxy_string" "$outbound_second" second
+            # Second proxy config
+            config_get proxy_config_type second "second_proxy_config_type"
+            if [ "$proxy_config_type" = "outbound" ]; then
+                config_get outbound_json second "second_outbound_json"
+                if [ -n "$outbound_json" ]; then
+                    echo '{"outbounds":[' > "$outbound_second"
+                    echo "$outbound_json" | jq '. + {tag: "second"}' >> "$outbound_second"
+                    echo ']}' >> "$outbound_second"
+                else
+                    log "Missing second outbound JSON configuration"
+                    rm -f "$outbound_main" "$outbound_second"
+                    return
+                fi
             else
-                log "Unsupported proxy type: $proxy_string"
-                return
+                config_get proxy_string "second" "second_proxy_string"
+                if [[ "$proxy_string" =~ ^ss:// ]]; then
+                    sing_box_config_shadowsocks "$proxy_string" "1603"
+                    jq '.outbounds[0] + {tag: "second"} | {outbounds: [.]}' /etc/sing-box/config.json > "$outbound_second"
+                elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                    sing_box_config_vless "$proxy_string" "1603"
+                    jq '.outbounds[0] + {tag: "second"} | {outbounds: [.]}' /etc/sing-box/config.json > "$outbound_second"
+                else
+                    log "Unsupported proxy type or missing configuration for second"
+                    rm -f "$outbound_main" "$outbound_second"
+                    return
+                fi
             fi
 
-            jq --argjson outbounds "$(jq -s '{"outbounds": (.[0].outbounds + .[1].outbounds)}' "$outbound_main" "$outbound_second")" \
-                '.outbounds += $outbounds.outbounds' /etc/podkop/sing-box-two-proxy-template.json >/etc/sing-box/config.json
+            jq -s '{
+                "log": {"level": "warn"},
+                "inbounds": [
+                    {
+                        "type": "tproxy",
+                        "listen": "::",
+                        "listen_port": 1602,
+                        "sniff": false,
+                        "tag": "main"
+                    },
+                    {
+                        "type": "tproxy",
+                        "listen": "::",
+                        "listen_port": 1603,
+                        "sniff": false,
+                        "tag": "second"
+                    }
+                ],
+                "outbounds": (.[0].outbounds + .[1].outbounds),
+                "route": {
+                    "rules": [
+                        {
+                            "inbound": "main",
+                            "outbound": "main"
+                        },
+                        {
+                            "inbound": "second",
+                            "outbound": "second"
+                        }
+                    ],
+                    "auto_detect_interface": true
+                }
+            }' "$outbound_main" "$outbound_second" > /etc/sing-box/config.json
 
             rm -f "$outbound_main" "$outbound_second"
 
@@ -111,14 +191,27 @@ start_service() {
         config_get_bool second_enable "second" "second_enable" "0"
         config_get second_mode "second" "second_mode" "0"
         if [ "$second_enable" -eq "0" ] || [ "$second_mode" = "vpn" ]; then
-            config_get proxy_string main "proxy_string"
-            if [[ "$proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_shadowsocks "$proxy_string" "1602"
-            elif [[ "$proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_vless "$proxy_string" "1602"
+            config_get proxy_config_type main "proxy_config_type"
+            
+            if [ "$proxy_config_type" = "outbound" ]; then
+                config_get outbound_json main "outbound_json"
+                if [ -n "$outbound_json" ]; then
+                    log "Using JSON outbound configuration"
+                    sing_box_config_outbound_json "$outbound_json" "1602"
+                else
+                    log "Missing outbound JSON configuration"
+                    return
+                fi
             else
-                log "Unsupported proxy type: $proxy_string"
-                return
+                config_get proxy_string main "proxy_string"
+                if [[ "$proxy_string" =~ ^ss:// ]]; then
+                    sing_box_config_shadowsocks "$proxy_string" "1602"
+                elif [[ "$proxy_string" =~ ^vless:// ]]; then
+                    sing_box_config_vless "$proxy_string" "1602"
+                else
+                    log "Unsupported proxy type or missing configuration"
+                    return
+                fi
             fi
             add_route_tproxy podkop
         fi
@@ -274,6 +367,7 @@ remove_cron_job() {
 }
 
 list_update() {
+    # Main domains processing
     config_get_bool domain_list_enabled "main" "domain_list_enabled" "0"
     if [ "$domain_list_enabled" -eq 1 ]; then
         log "Adding a common domains list"
@@ -283,15 +377,24 @@ list_update() {
         dnsmasq_config_check podkop-domains.lst
     fi
 
-    config_get_bool custom_domains_list_enabled "main" "custom_domains_list_enabled" "0"
-    if [ "$custom_domains_list_enabled" -eq 1 ]; then
+    # Main custom domains processing
+    config_get custom_domains_list_type "main" "custom_domains_list_enabled" "disabled"
+    if [ "$custom_domains_list_type" != "disabled" ]; then
         log "Adding a custom domains list"
         add_set "podkop_domains" "main"
         rm -f /tmp/dnsmasq.d/podkop-custom-domains.lst
-        config_list_foreach main custom_domains "list_custom_domains_create" "podkop"
+        
+        if [ "$custom_domains_list_type" = "dynamic" ]; then
+            config_list_foreach main custom_domains "list_custom_domains_create" "podkop"
+        elif [ "$custom_domains_list_type" = "text" ]; then
+            config_get custom_domains_text main "custom_domains_text"
+            process_domains_text "$custom_domains_text" "podkop"
+        fi
+        
         dnsmasq_config_check podkop-custom-domains.lst
     fi
 
+    # Main custom download domains
     config_get_bool custom_download_domains_list_enabled "main" "custom_download_domains_list_enabled" "0"
     if [ "$custom_download_domains_list_enabled" -eq 1 ]; then
         log "Adding a custom domains list from URL"
@@ -299,6 +402,7 @@ list_update() {
         config_list_foreach main custom_download_domains "list_custom_download_domains_create" "podkop"
     fi
 
+    # Main domains delist
     config_get_bool custom_local_domains_list_enabled "main" "custom_local_domains_list_enabled" "0"
     if [ "$custom_local_domains_list_enabled" -eq 1 ]; then
         log "Adding a custom local domain list"
@@ -313,20 +417,56 @@ list_update() {
         dnsmasq_config_check podkop-domains.lst
     fi
 
-    if [ "$domain_list_enabled" -eq 1 ] || [ "$custom_domains_list_enabled" -eq 1 ]; then
-        /etc/init.d/dnsmasq restart
+    # Main subnets processing
+    config_get_bool subnets_list_enabled "main" "subnets_list_enabled" "0"
+    if [ "$subnets_list_enabled" -eq 1 ]; then
+        log "Adding a subnets from list"
+        mkdir -p /tmp/podkop
+        add_set "podkop_subnets" "main"
+        config_list_foreach main subnets "list_subnets_download"
     fi
 
-    config_get_bool second_custom_domains_list_enabled "second" "second_custom_domains_list_enabled" "0"
-    if [ "$second_custom_domains_list_enabled" -eq 1 ]; then
+    # Main custom subnets
+    config_get custom_subnets_list_type "main" "custom_subnets_list_enabled" "disabled"
+    if [ "$custom_subnets_list_type" != "disabled" ]; then
+        log "Adding a custom subnets list"
+        add_set "podkop_subnets" "main"
+        
+        if [ "$custom_subnets_list_type" = "dynamic" ]; then
+            config_list_foreach main custom_subnets list_custom_subnets_preprocess "podkop"
+        elif [ "$custom_subnets_list_type" = "text" ]; then
+            config_get custom_subnets_text main "custom_subnets_text"
+            process_subnets_text "$custom_subnets_text" "podkop"
+        fi
+    fi
+
+    # Main custom download subnets
+    config_get_bool custom_download_subnets_list_enabled "main" "custom_download_subnets_list_enabled" "0"
+    if [ "$custom_download_subnets_list_enabled" -eq 1 ]; then
+        log "Adding a subnets from URL"
+        mkdir -p /tmp/podkop
+        add_set "podkop_subnets" "main"
+        config_list_foreach main custom_download_subnets "list_subnets_download"
+    fi
+
+    # Second custom domains processing
+    config_get second_custom_domains_list_type "second" "second_custom_domains_list_enabled" "disabled"
+    if [ "$second_custom_domains_list_type" != "disabled" ]; then
         log "Adding a custom domains list. Second podkop"
         add_set "podkop2_domains" "second"
         rm -f /tmp/dnsmasq.d/podkop2-custom-domains.lst
-        config_list_foreach second second_custom_domains "list_delist_domains"
-        config_list_foreach second second_custom_domains "list_custom_domains_create" "podkop2"
+        
+        if [ "$second_custom_domains_list_type" = "dynamic" ]; then
+            config_list_foreach second second_custom_domains "list_custom_domains_create" "podkop2"
+        elif [ "$second_custom_domains_list_type" = "text" ]; then
+            config_get second_custom_domains_text second "second_custom_domains_text"
+            process_domains_text "$second_custom_domains_text" "podkop2"
+        fi
+        
         dnsmasq_config_check podkop2-custom-domains.lst
     fi
 
+    # Second service domains
     config_get_bool second_domain_service_enabled "second" "second_domain_service_enabled" "0"
     if [ "$second_domain_service_enabled" -eq 1 ]; then
         log "Adding a service for podkop2"
@@ -337,38 +477,26 @@ list_update() {
         dnsmasq_config_check podkop2-domains.lst
     fi
 
-    if [ "$second_custom_domains_list_enabled" -eq 1 ] || [ "$second_domain_service_enabled" -eq 1 ]; then
-        /etc/init.d/dnsmasq restart
-    fi
-
-    config_get_bool subnets_list_enabled "main" "subnets_list_enabled" "0"
-    if [ "$subnets_list_enabled" -eq 1 ]; then
-        log "Adding a subnets from list"
-        mkdir -p /tmp/podkop
-        add_set "podkop_subnets" "main"
-        config_list_foreach main subnets "list_subnets_download"
-    fi
-
-    config_get_bool custom_download_subnets_list_enabled "main" "custom_download_subnets_list_enabled" "0"
-    if [ "$custom_download_subnets_list_enabled" -eq 1 ]; then
-        log "Adding a subnets from URL"
-        mkdir -p /tmp/podkop
-        add_set "podkop_subnets" "main"
-        config_list_foreach main custom_download_subnets "list_subnets_download"
-    fi
-
-    config_get_bool custom_subnets_list_enabled "main" "custom_subnets_list_enabled" "0"
-    if [ "$custom_subnets_list_enabled" -eq 1 ]; then
-        log "Adding a custom subnets list"
-        add_set "podkop_subnets" "main"
-        config_list_foreach main custom_subnets "list_custom_subnets_create" "podkop"
-    fi
-
-    config_get_bool second_custom_subnets_list_enabled "second" "second_custom_subnets_list_enabled" "0"
-    if [ "$second_custom_subnets_list_enabled" -eq 1 ]; then
+    # Second custom subnets
+    config_get second_custom_subnets_list_type "second" "second_custom_subnets_list_enabled" "disabled"
+    if [ "$second_custom_subnets_list_type" != "disabled" ]; then
         log "Adding a custom subnets list. Second"
         add_set "podkop2_subnets" "second"
-        config_list_foreach second second_custom_subnets "list_custom_subnets_create" "podkop2"
+        
+        if [ "$second_custom_subnets_list_type" = "dynamic" ]; then
+            config_list_foreach second second_custom_subnets list_custom_subnets_preprocess "podkop2"
+        elif [ "$second_custom_subnets_list_type" = "text" ]; then
+            config_get second_custom_subnets_text second "second_custom_subnets_text"
+            process_subnets_text "$second_custom_subnets_text" "podkop2"
+        fi
+    fi
+
+    # Restart dnsmasq if needed
+    if [ "$domain_list_enabled" -eq 1 ] || [ "$custom_domains_list_type" != "disabled" ] || \
+       [ "$custom_download_domains_list_enabled" -eq 1 ] || \
+       [ "$second_custom_domains_list_type" != "disabled" ] || \
+       [ "$second_domain_service_enabled" -eq 1 ]; then
+        /etc/init.d/dnsmasq restart
     fi
 }
 
@@ -745,6 +873,34 @@ dnsmasq_config_check() {
     fi
 }
 
+sing_box_config_outbound_json() {
+    local json_config="$1"
+    local listen_port="$2"
+    
+    cat > /tmp/base_config.json << EOF
+{
+  "log": {
+    "level": "warn"
+  },
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "listen": "::",
+      "listen_port": $listen_port,
+      "sniff": false
+    }
+  ],
+  "outbounds": [],
+  "route": {
+    "auto_detect_interface": true
+  }
+}
+EOF
+
+    jq --argjson outbound "$json_config" '.outbounds += [$outbound]' /tmp/base_config.json > /etc/sing-box/config.json
+    rm -f /tmp/base_config.json
+}
+
 sing_box_uci() {
     local config="/etc/config/sing-box"
     if grep -q "option enabled '0'" "$config" ||
@@ -762,36 +918,61 @@ sing_box_config_shadowsocks() {
     local STRING="$1"
     local listen_port="$2"
 
-    local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 --decode)
-    local method=$(echo "$encrypted_part" | cut -d':' -f1)
-    local password=$(echo "$encrypted_part" | cut -d':' -f2-)
+    # Определяем тип SS (2022 или old) по наличию : в base64 части
+    if echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 -d 2>/dev/null | grep -q ":"; then
+        # Old SS format
+        local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 --decode)
+        local method=$(echo "$encrypted_part" | cut -d':' -f1)
+        local password=$(echo "$encrypted_part" | cut -d':' -f2-)
+    else
+        # SS 2022 format
+        local method_and_password=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
+        local method=$(echo "$method_and_password" | cut -d':' -f1)
+        local password=$(echo "$method_and_password" | cut -d':' -f2- | sed 's/%3D/=/g')
+        
+        # Если method в base64, декодируем
+        if echo "$method" | base64 -d &>/dev/null; then
+            method=$(echo "$method" | base64 -d)
+        fi
+    fi
 
     local server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
     local port=$(echo "$STRING" | sed -n 's|.*:\([0-9]\+\).*|\1|p')
-    local label=$(echo "$STRING" | cut -d'#' -f2)
 
-    template_config="/etc/podkop/sing-box-shadowsocks-template.json"
+    # Create base config
+    cat > /tmp/ss_config.json << EOF
+{
+  "log": {
+    "level": "warn"
+  },
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "listen": "::",
+      "listen_port": $listen_port,
+      "sniff": false
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "shadowsocks",
+      "server": "$server",
+      "server_port": $port,
+      "method": "$method",
+      "password": "$password",
+      "udp_over_tcp": {
+        "enabled": true,
+        "version": 2
+      }
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true
+  }
+}
+EOF
 
-    jq --arg server "$server" \
-        --arg port "$port" \
-        --arg method "$method" \
-        --arg password "$password" \
-        --arg listen_port "$listen_port" \
-        '.inbounds[] |=
-        if .type == "tproxy" then
-            .listen_port = ($listen_port | tonumber)
-        else
-            .
-        end |
-        .outbounds[] |= 
-        if .type == "shadowsocks" then 
-            .server = $server |
-            .server_port = ($port | tonumber) |
-            .method = $method |
-            .password = $password
-        else
-            .
-        end' "$template_config" >/etc/sing-box/config.json
+    mv /tmp/ss_config.json /etc/sing-box/config.json
 }
 
 sing_box_config_vless() {
@@ -799,167 +980,106 @@ sing_box_config_vless() {
     local listen_port="$2"
 
     get_param() {
-        echo "$STRING" | sed -n "s/.*[?&]$1=\([^&?#]*\).*/\1/p"
+        local param="$1"
+        local value=$(echo "$STRING" | sed -n "s/.*[?&]$param=\([^&?#]*\).*/\1/p")
+        value=$(echo "$value" | sed 's/%2F/\//g; s/%2C/,/g; s/%3D/=/g; s/%2B/+/g; s/%20/ /g' | tr -d '\n' | tr -d '\r')
+        echo "$value"
     }
 
-    uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
-    server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
-    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | awk -F'/' '{print $1}')
+    uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | tr -d '\n' | tr -d '\r' | sed 's/False//g')
+    server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1 | tr -d '\n' | tr -d '\r' | sed 's/False//g')
+    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | cut -d'/' -f1 | cut -d'#' -f1 | tr -d '\n' | tr -d '\r' | sed 's/False//g')
 
-    type=$(get_param "type")
-    flow=$(get_param "flow")
-    sni=$(get_param "sni")
-    fp=$(get_param "fp")
-    security=$(get_param "security")
-    pbk=$(get_param "pbk")
-    sid=$(get_param "sid")
-    encoding=$(get_param "packetEncoding")
-    alpn=$(echo "$(get_param "alpn" | sed 's/%2C/,/g; s/%2F/\//g')" | jq -R -s -c 'split(",")' | sed 's/\\n//g')
-    label=$(echo "$STRING" | cut -d'#' -f2)
+    jq -n \
+    --arg listen_port "$listen_port" \
+    --arg server      "$server" \
+    --argjson port    "$port" \
+    --arg uuid        "$uuid" \
+    --arg type        "$(get_param "type")" \
+    --arg flow        "$(get_param "flow")" \
+    --arg sni         "$(get_param "sni")" \
+    --arg fp          "$(get_param "fp")" \
+    --arg security    "$(get_param "security")" \
+    --arg pbk         "$(get_param "pbk")" \
+    --arg sid         "$(get_param "sid")" \
+    --arg alpn        "$(get_param "alpn")" \
+    --arg path        "$(get_param "path")" \
+    --arg host        "$(get_param "host")" \
+    --arg spx         "$(get_param "spx")" \
+    --arg insecure    "$(get_param "allowInsecure")" \
+    '{
+        "log": {
+            "level": "warn"
+        },
+        "inbounds": [
+            {
+                "type": "tproxy",
+                "listen": "::",
+                "listen_port": ($listen_port|tonumber),
+                "sniff": false
+            }
+        ],
+        "outbounds": [
+            {
+                "type": "vless",
+                "server": $server,
+                "server_port": ($port|tonumber),
+                "uuid": $uuid,
+                "packet_encoding": "",
+                "domain_strategy": ""
+            }
+        ],
+        "route": {
+            "auto_detect_interface": true
+        }
+    } |
 
-    template_config="/etc/podkop/sing-box-vless-template.json"
+    if $flow != "" then .outbounds[0].flow = $flow else . end |
 
-    jq --arg server "$server" \
-        --arg port "$port" \
-        --arg uuid "$uuid" \
-        --arg type "$type" \
-        --arg flow "$flow" \
-        --arg sni "$sni" \
-        --arg fp "$fp" \
-        --arg security "$security" \
-        --arg pbk "$pbk" \
-        --arg sid "$sid" \
-        --argjson alpn "$alpn" \
-        --arg encoding "$encoding" \
-        --arg listen_port "$listen_port" \
-        '.inbounds[] |=
-        if .type == "tproxy" then
-            .listen_port = ($listen_port | tonumber)
-        else
-            .
-        end |
-        .outbounds[] |= 
-           (.server = $server |
-            .server_port = ($port | tonumber) |
-            .uuid = $uuid |
-            if $security == "reality" then 
-                if $flow == "" then del(.flow) else .flow = $flow end |
-                if $encoding == "" then del(.packet_encoding) else .packet_encoding = $encoding end |
-                .tls.server_name = $sni |
-                .tls.utls.fingerprint = $fp |
-                .tls.reality.public_key = $pbk |
-                .tls.reality.short_id = $sid
-            elif $security == "tls" then
-                .tls.alpn = $alpn |
-                .tls.server_name = $sni |
-                del(.flow) |
-                del(.tls.utls) |
-                del(.tls.reality)
-            elif $security == "" or $security == "none" then
-                del(.flow) |
-                del(.tls)
-        else
-            .
-        end)' "$template_config" >/etc/sing-box/config.json
-}
+    if $type == "ws" then
+        .outbounds[0].transport = {
+            "type": "ws",
+            "path": $path
+        } |
+        if $host != "" then
+            .outbounds[0].transport.headers = {
+                "Host": $host
+            }
+        else . end
+    elif $type == "grpc" then
+        .outbounds[0].transport = {
+            "type": "grpc"
+        }
+    else . end |
 
-sing_box_config_outbound_shadowsocks() {
-    local STRING="$1"
-    local outbound="$2"
-    local name="$3"
+    if $security == "reality" or $security == "tls" then
+        .outbounds[0].tls = {
+            "enabled": true,
+            "server_name": $sni,
+            "utls": {
+                "enabled": true,
+                "fingerprint": $fp
+            },
+            "insecure": ($insecure == "1")
+        } |
+        if $alpn != "" then
+            .outbounds[0].tls.alpn = ($alpn | split(","))
+        else . end |
+        if $security == "reality" then
+            .outbounds[0].tls.reality = {
+                "enabled": true,
+                "public_key": $pbk,
+                "short_id": $sid
+            }
+        else . end
+    else . end' > /etc/sing-box/config.json
 
-    local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 --decode)
-    local method=$(echo "$encrypted_part" | cut -d':' -f1)
-    local password=$(echo "$encrypted_part" | cut -d':' -f2-)
-
-    local server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
-    local port=$(echo "$STRING" | cut -d':' -f3 | cut -d'#' -f1)
-    label=$(echo "$STRING" | cut -d'#' -f2)
-
-    template_config="/etc/podkop/sing-box-shadowsocks-outbound-template.json"
-
-    jq --arg server "$server" \
-        --arg port "$port" \
-        --arg method "$method" \
-        --arg password "$password" \
-        --arg tag "$name" \
-        '.outbounds[] |= 
-        if .type == "shadowsocks" then 
-            .server = $server |
-            .server_port = ($port | tonumber) |
-            .method = $method |
-            .password = $password |
-            .tag = $tag
-        else
-            .
-        end' "$template_config" >$outbound
-}
-
-sing_box_config_outbound_vless() {
-    local STRING="$1"
-    local outbound="$2"
-    local name="$3"
-
-    get_param() {
-        echo "$STRING" | sed -n "s/.*[?&]$1=\([^&?#]*\).*/\1/p"
-    }
-
-    uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
-    server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
-    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | awk -F'/' '{print $1}')
-
-    type=$(get_param "type")
-    flow=$(get_param "flow")
-    sni=$(get_param "sni")
-    fp=$(get_param "fp")
-    security=$(get_param "security")
-    pbk=$(get_param "pbk")
-    sid=$(get_param "sid")
-    alpn=$(echo "$(get_param "alpn" | sed 's/%2C/,/g; s/%2F/\//g')" | jq -R -s -c 'split(",")' | sed 's/\\n//g')
-    encoding=$(get_param "packetEncoding")
-    label=$(echo "$STRING" | cut -d'#' -f2)
-
-    template_config="/etc/podkop/sing-box-vless-outbound-template.json"
-
-    jq --arg server "$server" \
-        --arg port "$port" \
-        --arg uuid "$uuid" \
-        --arg type "$type" \
-        --arg flow "$flow" \
-        --arg sni "$sni" \
-        --arg fp "$fp" \
-        --arg security "$security" \
-        --arg pbk "$pbk" \
-        --arg sid "$sid" \
-        --argjson alpn "$alpn" \
-        --arg encoding "$encoding" \
-        --arg tag "$name" \
-        '.outbounds[] |= 
-           (.server = $server |
-            .server_port = ($port | tonumber) |
-            .uuid = $uuid |
-            if $security == "reality" then 
-                if $flow == "" then del(.flow) else .flow = $flow end |
-                if $encoding == "" then del(.packet_encoding) else .packet_encoding = $encoding end |
-                .tls.server_name = $sni |
-                .tls.utls.fingerprint = $fp |
-                .tls.reality.public_key = $pbk |
-                .tls.reality.short_id = $sid |
-                .tag = $tag
-            elif $security == "tls" then
-                .tls.alpn = $alpn |
-                .tls.server_name = $sni |
-                del(.flow) |
-                del(.tls.utls) |
-                del(.tls.reality) |
-                .tag = $tag
-            elif $security == "" or $security == "none" then
-                del(.flow) |
-                del(.tls) |
-                .tag = $tag
-        else
-            .
-        end)' "$template_config" >$outbound
+    if [ $? -eq 0 ]; then
+        echo "Config created successfully"
+    else
+        echo "Error: Invalid JSON config generated"
+        return 1
+    fi
 }
 
 sing_box_config_check() {
@@ -967,4 +1087,51 @@ sing_box_config_check() {
         log "Sing-box configuration is invalid"
         return
     fi
+}
+
+process_domains_text() {
+    local text="$1"
+    local name="$2"
+    
+    local tmp_file=$(mktemp)
+    echo "$text" > "$tmp_file"
+    
+    sed 's/[, ]\+/\n/g' "$tmp_file" | while IFS= read -r domain; do
+        domain=$(echo "$domain" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [ -n "$domain" ]; then
+            list_custom_domains_create "$domain" "$name"
+        fi
+    done
+    
+    rm -f "$tmp_file"
+}
+
+process_subnets_text() {
+    local text="$1"
+    local name="$2"
+    
+    local tmp_file=$(mktemp)
+    echo "$text" > "$tmp_file"
+    
+    sed 's/[, ]\+/\n/g' "$tmp_file" | while IFS= read -r subnet; do
+        subnet=$(echo "$subnet" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [ -n "$subnet" ]; then
+            if ! echo "$subnet" | grep -q "/"; then
+                subnet="$subnet/32"
+            fi
+            list_custom_subnets_create "$subnet" "$name"
+        fi
+    done
+    
+    rm -f "$tmp_file"
+}
+
+list_custom_subnets_preprocess() {
+    local subnet="$1"
+    local name="$2"
+    
+    if ! echo "$subnet" | grep -q "/"; then
+        subnet="$subnet/32"
+    fi
+    list_custom_subnets_create "$subnet" "$name"
 }

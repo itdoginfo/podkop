@@ -219,3 +219,75 @@ msgstr "CIDR должен быть между 0 и 32"
 
 msgid "Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)"
 msgstr "Неверный формат IP. Используйте формат: X.X.X.X (например: 192.168.1.1)"
+
+msgid "User Domain List Type"
+msgstr "Тип пользовательского списка доменов"
+
+msgid "Select how to add your custom domains"
+msgstr "Выберите способ добавления пользовательских доменов"
+
+msgid "Disabled"
+msgstr "Отключено"
+
+msgid "Dynamic List"
+msgstr "Динамический список"
+
+msgid "Text List"
+msgstr "Текстовый список"
+
+msgid "User Domains List"
+msgstr "Список пользовательских доменов"
+
+msgid "Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)"
+msgstr "Введите имена доменов через запятую, пробел или новую строку (пример: sub.example.com, example.com или один домен на строку)"
+
+msgid "Invalid domain format: %s. Enter domain without protocol"
+msgstr "Неверный формат домена: %s. Введите домен без протокола"
+
+msgid "User Subnet List Type"
+msgstr "Тип пользовательского списка подсетей"
+
+msgid "Select how to add your custom subnets"
+msgstr "Выберите способ добавления пользовательских подсетей"
+
+msgid "Text List (comma/space/newline separated)"
+msgstr "Текстовый список (разделенный запятыми/пробелами/новыми строками)"
+
+msgid "Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses"
+msgstr "Введите подсети в нотации CIDR (пример: 103.21.244.0/22) или отдельные IP-адреса"
+
+msgid "User Subnets List"
+msgstr "Список пользовательских подсетей"
+
+msgid "Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline"
+msgstr "Введите подсети в нотации CIDR или отдельные IP-адреса через запятую, пробел или новую строку"
+
+msgid "Invalid format. Use format: X.X.X.X or X.X.X.X/Y"
+msgstr "Неверный формат. Используйте формат: X.X.X.X или X.X.X.X/Y"
+
+msgid "IP parts must be between 0 and 255 in: %s"
+msgstr "Части IP-адреса должны быть между 0 и 255 в: %s"
+
+msgid "Configuration Type"
+msgstr "Тип конфигурации"
+
+msgid "Select how to configure the proxy"
+msgstr "Выберите способ настройки прокси"
+
+msgid "Connection URL"
+msgstr "URL подключения"
+
+msgid "Outbound Config"
+msgstr "Конфигурация Outbound"
+
+msgid "Outbound Configuration"
+msgstr "Конфигурация исходящего соединения"
+
+msgid "Enter complete outbound configuration in JSON format"
+msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
+
+msgid "JSON must contain at least type, server and server_port fields"
+msgstr "JSON должен содержать как минимум поля type, server и server_port"
+
+msgid "Invalid JSON format"
+msgstr "Неверный формат JSON"

@@ -219,3 +219,75 @@ msgstr ""
 
 msgid "Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)"
 msgstr ""
+
+msgid "User Domain List Type"
+msgstr ""
+
+msgid "Select how to add your custom domains"
+msgstr ""
+
+msgid "Disabled"
+msgstr ""
+
+msgid "Dynamic List"
+msgstr ""
+
+msgid "Text List"
+msgstr ""
+
+msgid "User Domains List"
+msgstr ""
+
+msgid "Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)"
+msgstr ""
+
+msgid "Invalid domain format: %s. Enter domain without protocol"
+msgstr ""
+
+msgid "User Subnet List Type"
+msgstr ""
+
+msgid "Select how to add your custom subnets"
+msgstr ""
+
+msgid "Text List (comma/space/newline separated)"
+msgstr ""
+
+msgid "Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses"
+msgstr ""
+
+msgid "User Subnets List"
+msgstr ""
+
+msgid "Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline"
+msgstr ""
+
+msgid "Invalid format. Use format: X.X.X.X or X.X.X.X/Y"
+msgstr ""
+
+msgid "IP parts must be between 0 and 255 in: %s"
+msgstr ""
+
+msgid "Configuration Type"
+msgstr ""
+
+msgid "Select how to configure the proxy"
+msgstr ""
+
+msgid "Connection URL"
+msgstr ""
+
+msgid "Outbound Config"
+msgstr ""
+
+msgid "Outbound Configuration"
+msgstr ""
+
+msgid "Enter complete outbound configuration in JSON format"
+msgstr ""
+
+msgid "JSON must contain at least type, server and server_port fields"
+msgstr ""
+
+msgid "Invalid JSON format"
+msgstr ""
