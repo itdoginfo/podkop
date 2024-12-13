@@ -627,12 +627,8 @@ return view.extend({
             return true;
         };
 
-        // Добавьте новую вкладку Diagnostics (оставьте весь существующий код и добавьте это перед return m.render())
-
-        // Добавляем вкладку диагностики
         o = s.tab('diagnostics', _('Diagnostics'));
 
-        // Функция форматирования вывода для модального окна
         function formatDiagnosticOutput(output) {
             if (!output) return '';
 
@@ -709,7 +705,6 @@ return view.extend({
                 });
         };
 
-        // Check Logs - проверка логов
         o = s.taboption('diagnostics', form.Button, '_check_logs');
         o.title = _('System Logs');
         o.description = _('View recent system logs related to Podkop');
