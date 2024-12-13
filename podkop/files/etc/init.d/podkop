@@ -1132,12 +1132,15 @@ check_proxy() {
     fi
 
     jq '
-        .outbounds |= map(. + {
-            uuid: "MASKED-UUID",
-            server: "MASKED-SERVER",
-            tls: (if .tls.reality then .tls + {reality: (.reality + {public_key: "MASKED-PUBLIC-KEY"})} else .tls end)
-        })
-    ' $SING_BOX_CONFIG
+        walk(
+            if type == "object" then
+                with_entries(
+                    if [.key] | inside(["uuid", "server", "server_name", "password", "public_key", "short_id"]) then 
+                        .value = "MASKED" 
+                    else . end
+                )
+            else . end
+        )' $SING_BOX_CONFIG
 
     nolog "Checking proxy connection..."
 
