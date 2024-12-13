@@ -291,3 +291,42 @@ msgstr ""
 
 msgid "Invalid JSON format"
 msgstr ""
+
+msgid "Diagnostics"
+msgstr ""
+
+msgid "Main Check"
+msgstr ""
+
+msgid "Run a comprehensive diagnostic check of all components"
+msgstr ""
+
+msgid "Run Check"
+msgstr ""
+
+msgid "Full Diagnostic Results"
+msgstr ""
+
+msgid "Failed to copy: "
+msgstr ""
+
+msgid "Copy to Clipboard"
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "No output"
+msgstr ""
+
+msgid "System Logs"
+msgstr ""
+
+msgid "View recent system logs related to Podkop"
+msgstr ""
+
+msgid "View Logs"
+msgstr ""
+
+msgid "Failed to copy logs: "
+msgstr ""

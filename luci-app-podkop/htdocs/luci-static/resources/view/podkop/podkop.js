@@ -683,7 +683,6 @@ return view.extend({
                                     textarea.select();
                                     try {
                                         document.execCommand('copy');
-                                        ui.addNotification(null, E('p', {}, _('Results copied to clipboard')));
                                     } catch (err) {
                                         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
                                     }
@@ -745,7 +744,6 @@ return view.extend({
                                     textarea.select();
                                     try {
                                         document.execCommand('copy');
-                                        ui.addNotification(null, E('p', {}, _('Logs copied to clipboard')));
                                     } catch (err) {
                                         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
                                     }
