@@ -3,6 +3,7 @@
 'require form';
 'require ui';
 'require network';
+'require fs';
 
 return view.extend({
     async render() {
@@ -624,6 +625,151 @@ return view.extend({
                 }
             }
             return true;
+        };
+
+        // Добавьте новую вкладку Diagnostics (оставьте весь существующий код и добавьте это перед return m.render())
+
+        // Добавляем вкладку диагностики
+        o = s.tab('diagnostics', _('Diagnostics'));
+
+        // Функция форматирования вывода для модального окна
+        function formatDiagnosticOutput(output) {
+            if (!output) return '';
+
+            return output
+                .replace(/\x1B\[[0-9;]*[mK]/g, '')
+                .replace(/\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\] /g, '')
+                .replace(/\n{3,}/g, '\n\n')
+                .replace(/===\s+(.*?)\s+===/g, (_, title) => `\n${title}\n${'─'.repeat(title.length)}`)
+                .replace(/^Checking\s+(.+)\.{3}/gm, '► Checking $1...')
+                .replace(/:\s+(available|not found)$/gm, (_, status) =>
+                    `: ${status === 'available' ? '✓' : '✗'}`);
+        }
+
+        // Check All - полная диагностика
+        o = s.taboption('diagnostics', form.Button, '_check_all');
+        o.title = _('Main Check');
+        o.description = _('Run a comprehensive diagnostic check of all components');
+        o.inputtitle = _('Run Check');
+        o.inputstyle = 'apply';
+        o.onclick = function () {
+            return fs.exec('/etc/init.d/podkop', ['check_three'])
+                .then(function (res) {
+                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+
+                    const modalElement = ui.showModal(_('Full Diagnostic Results'), [
+                        E('div', {
+                            style:
+                                'max-height: 70vh;' +
+                                'overflow-y: auto;' +
+                                'margin: 1em 0;' +
+                                'padding: 1.5em;' +
+                                'background: #f8f9fa;' +
+                                'border: 1px solid #e9ecef;' +
+                                'border-radius: 4px;' +
+                                'font-family: monospace;' +
+                                'white-space: pre-wrap;' +
+                                'word-wrap: break-word;' +
+                                'line-height: 1.5;' +
+                                'font-size: 14px;'
+                        }, [
+                            E('pre', { style: 'margin: 0;' }, formattedOutput)
+                        ]),
+                        E('div', {
+                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                        }, [
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    const textarea = document.createElement('textarea');
+                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                    document.body.appendChild(textarea);
+                                    textarea.select();
+                                    try {
+                                        document.execCommand('copy');
+                                        ui.addNotification(null, E('p', {}, _('Results copied to clipboard')));
+                                    } catch (err) {
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                    }
+                                    document.body.removeChild(textarea);
+                                }
+                            }, _('Copy to Clipboard')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': ui.hideModal
+                            }, _('Close'))
+                        ])
+                    ], 'large');
+
+                    if (modalElement && modalElement.parentElement) {
+                        modalElement.parentElement.style.width = '90%';
+                        modalElement.parentElement.style.maxWidth = '1200px';
+                        modalElement.parentElement.style.margin = '2rem auto';
+                    }
+                });
+        };
+
+        // Check Logs - проверка логов
+        o = s.taboption('diagnostics', form.Button, '_check_logs');
+        o.title = _('System Logs');
+        o.description = _('View recent system logs related to Podkop');
+        o.inputtitle = _('View Logs');
+        o.inputstyle = 'apply';
+        o.onclick = function () {
+            return fs.exec('/etc/init.d/podkop', ['check_logs'])
+                .then(function (res) {
+                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+
+                    const modalElement = ui.showModal(_('System Logs'), [
+                        E('div', {
+                            style:
+                                'max-height: 70vh;' +
+                                'overflow-y: auto;' +
+                                'margin: 1em 0;' +
+                                'padding: 1.5em;' +
+                                'background: #f8f9fa;' +
+                                'border: 1px solid #e9ecef;' +
+                                'border-radius: 4px;' +
+                                'font-family: monospace;' +
+                                'white-space: pre-wrap;' +
+                                'word-wrap: break-word;' +
+                                'line-height: 1.5;' +
+                                'font-size: 14px;'
+                        }, [
+                            E('pre', { style: 'margin: 0;' }, formattedOutput)
+                        ]),
+                        E('div', {
+                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                        }, [
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    const textarea = document.createElement('textarea');
+                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                    document.body.appendChild(textarea);
+                                    textarea.select();
+                                    try {
+                                        document.execCommand('copy');
+                                        ui.addNotification(null, E('p', {}, _('Logs copied to clipboard')));
+                                    } catch (err) {
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                    }
+                                    document.body.removeChild(textarea);
+                                }
+                            }, _('Copy to Clipboard')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': ui.hideModal
+                            }, _('Close'))
+                        ])
+                    ], 'large');
+
+                    if (modalElement && modalElement.parentElement) {
+                        modalElement.parentElement.style.width = '90%';
+                        modalElement.parentElement.style.maxWidth = '1200px';
+                        modalElement.parentElement.style.margin = '2rem auto';
+                    }
+                });
         };
 
         return m.render();

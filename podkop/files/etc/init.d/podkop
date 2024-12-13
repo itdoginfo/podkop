@@ -7,7 +7,7 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="list_update add_route_interface check_proxy check_nft check_github check_logs check_all"
+EXTRA_COMMANDS="list_update add_route_interface check_proxy check_nft check_github check_logs check_all check_three"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         add_route_interface  Adding route for interface
         sing_box_config_vless For test vless string
@@ -15,7 +15,8 @@ EXTRA_HELP="        list_update     Updating domain and subnet lists
         check_nft           Show PodkopTable nftables rules
         check_github        Check GitHub connectivity and lists availability
         check_logs         Show podkop logs from system journal
-        check_all          Run all checks"
+        check_all          Run all checks
+        check_three         Run check_proxy, check_nft and check_github"
 
 [ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
 
@@ -1125,12 +1126,20 @@ check_proxy() {
     fi
 
     nolog "Checking sing-box proxy connection..."
-    if ! sing-box tools fetch ifconfig.me -D /etc/sing-box; then
-        nolog "Failed to check proxy connection"
-        return 1
-    fi
 
-    nolog "Proxy check completed successfully"
+    for attempt in `seq 1 5`; do
+        response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box)
+        if echo "$response" | grep -q "403 Forbidden"; then
+            :
+        else
+            nolog "Proxy check completed successfully"
+            echo "$response"
+            return 0
+        fi
+    done
+
+    nolog "Failed to get a non-403 response after 5 attempts"
+    return 1
 }
 
 check_nft() {
@@ -1204,12 +1213,7 @@ check_logs() {
     fi
 }
 
-check_all() {
-    nolog "Starting full diagnostic check..."
-    
-    nolog "\n=== Checking recent logs ==="
-    check_logs
-    
+check_three() {
     nolog "\n=== Checking GitHub connectivity ==="
     check_github
     
@@ -1220,6 +1224,15 @@ check_all() {
     check_nft
     
     nolog "\nFull diagnostic check completed"
+}
+
+check_all() {
+    nolog "Starting full diagnostic check..."
+    
+    nolog "\n=== Checking recent logs ==="
+    check_logs
+
+    check_three
 }
 
 process_domains_text() {
