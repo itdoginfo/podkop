@@ -1124,31 +1124,28 @@ check_proxy() {
         return 1
     fi
 
-    if ! sing-box -c $SING_BOX_CONFIG check; then
+    nolog "Checking sing-box configuration..."
+
+    if ! sing-box -c $SING_BOX_CONFIG check >/dev/null; then
         nolog "Invalid configuration"
         return 1
     fi
 
-    nolog "Checking sing-box configuration..."
-
     jq '
-        .outbounds[].uuid |= "MASKED-UUID" |
-        .outbounds[].server |= "MASKED-SERVER" |
-        if .outbounds[].tls.reality.public_key then
-            .outbounds[].tls.reality.public_key |= "MASKED-PUBLIC-KEY"
-        else . end
+        .outbounds |= map(. + {
+            uuid: "MASKED-UUID",
+            server: "MASKED-SERVER",
+            tls: (if .tls.reality then .tls + {reality: (.reality + {public_key: "MASKED-PUBLIC-KEY"})} else .tls end)
+        })
     ' $SING_BOX_CONFIG
 
-    nolog "Checking sing-box proxy connection..."
+    nolog "Checking proxy connection..."
 
     for attempt in `seq 1 5`; do
-        response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box)
-        if echo "$response" | grep -q "403 Forbidden"; then
-            :
-        else
+        response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
+        if ! echo "$response" | grep -q "403 Forbidden"; then
             nolog "Proxy check completed successfully"
-            masked_ip=$(echo "$response" | sed 's/\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/XXX.\2.\3.\4/')
-            echo "$masked_ip"            
+            echo "$response" | sed 's/\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/XXX.\2.\3.\4/'
             return 0
         fi
     done
