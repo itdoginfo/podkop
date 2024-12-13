@@ -7,10 +7,17 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="list_update add_route_interface"
+EXTRA_COMMANDS="list_update add_route_interface check_proxy check_nft check_github check_logs check_all"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         add_route_interface  Adding route for interface
-        sing_box_config_vless For test vless string"
+        sing_box_config_vless For test vless string
+        check_proxy          Check if sing-box proxy works correctly
+        check_nft           Show PodkopTable nftables rules
+        check_github        Check GitHub connectivity and lists availability
+        check_logs         Show podkop logs from system journal
+        check_all          Run all checks"
+
+[ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
 
 config_get update_interval "main" "update_interval" "0 4 * * *"
 cron_job="${update_interval} /etc/init.d/podkop list_update"
@@ -350,6 +357,16 @@ log() {
 
     echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
     logger -t "podkop" "$timestamp $message"
+}
+
+nolog() {
+    local message="$1"
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local CYAN="\033[0;36m"
+    local GREEN="\033[0;32m"
+    local RESET="\033[0m"
+
+    echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
 }
 
 add_cron_job() {
@@ -778,7 +795,7 @@ list_custom_local_domains_create() {
     local filename=$(basename "$local_file" | cut -d. -f1)
     local config="/tmp/dnsmasq.d/${name}-${filename}.lst"
 
-    rm -f $config
+    rm -f "$config"
     while IFS= read -r domain; do
         echo "nftset=/$domain/4#inet#PodkopTable#${name}_domains" >>$config
     done <"$local_file"
@@ -791,7 +808,7 @@ list_custom_download_domains_create() {
     local filename=$(basename "$URL")
     local config="/tmp/dnsmasq.d/${name}-${filename}.lst"
 
-    rm -f $config
+    rm -f "$config"
     curl -f "$URL" --output "/tmp/podkop/${filename}"
     while IFS= read -r domain; do
         echo "nftset=/$domain/4#inet#PodkopTable#${name}_domains" >>$config
@@ -1087,6 +1104,122 @@ sing_box_config_check() {
         log "Sing-box configuration is invalid"
         return
     fi
+}
+
+check_proxy() {
+    if ! command -v sing-box >/dev/null 2>&1; then
+        nolog "sing-box is not installed"
+        return 1
+    fi
+
+    # Проверка конфигурации
+    if [ ! -f /etc/sing-box/config.json ]; then
+        nolog "Configuration file not found"
+        return 1
+    fi
+
+    # Проверка валидности конфига
+    if ! sing-box -c /etc/sing-box/config.json check; then
+        nolog "Invalid configuration"
+        return 1
+    fi
+
+    nolog "Checking sing-box proxy connection..."
+    if ! sing-box tools fetch ifconfig.me -D /etc/sing-box; then
+        nolog "Failed to check proxy connection"
+        return 1
+    fi
+
+    nolog "Proxy check completed successfully"
+}
+
+check_nft() {
+    if ! command -v nft >/dev/null 2>&1; then
+        nolog "nft is not installed"
+        return 1
+    fi
+
+    nolog "Checking PodkopTable rules..."
+    
+    # Список всех возможных сетов
+    local sets="podkop_domains podkop_subnets podkop2_domains podkop2_subnets localv4"
+    
+    nolog "Sets statistics:"
+    for set_name in $sets; do
+        if nft list set inet PodkopTable $set_name >/dev/null 2>&1; then
+            local count=$(nft list set inet PodkopTable $set_name 2>/dev/null | grep -c ",")
+            nolog "- $set_name: $count elements"
+        else
+            nolog "- $set_name: not found"
+        fi
+    done
+
+    # Показываем правила с счетчиками
+    nolog "Current chains and rules:"
+    nft list table inet PodkopTable | grep "chain\|counter"
+
+    nolog "NFT check completed"
+}
+
+check_github() {
+    nolog "Checking GitHub connectivity..."
+    
+    # Проверка базового соединения с GitHub
+    if ! curl -m 3 -sf https://github.com >/dev/null 2>&1; then
+        nolog "Error: Cannot connect to GitHub"
+        return 1
+    fi
+    nolog "GitHub is accessible"
+    
+    # Список URL для проверки
+    local urls="
+        https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Russia/inside-dnsmasq-nfset.lst
+        https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Russia/outside-dnsmasq-nfset.lst
+        https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Ukraine/inside-dnsmasq-nfset.lst
+        https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Services/youtube.lst
+        https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Twitter.lst
+        https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Meta.lst
+        https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Discord.lst"
+    
+    nolog "Checking lists availability:"
+    for url in $urls; do
+        local list_name=$(basename "$url")
+        if curl -m 5 -sf "$url" >/dev/null 2>&1; then
+            nolog "- $list_name: available"
+        else
+            nolog "- $list_name: not available"
+        fi
+    done
+}
+
+check_logs() {
+    nolog "Showing podkop logs from system journal..."
+    
+    if command -v logread >/dev/null 2>&1; then
+        # Попытка получить последние 50 записей
+        logread -e "podkop" | tail -n 50
+    else
+        nolog "Error: logread command not found"
+        return 1
+    fi
+}
+
+check_all() {
+    nolog "Starting full diagnostic check..."
+    
+    nolog "\n=== Checking recent logs ==="
+    check_logs
+    
+    nolog "\n=== Checking GitHub connectivity ==="
+    check_github
+    
+    nolog "\n=== Checking proxy settings ==="
+    check_proxy
+    
+    nolog "\n=== Checking NFT rules ==="
+    check_nft
+    
+    nolog "\nFull diagnostic check completed"
 }
 
 process_domains_text() {
