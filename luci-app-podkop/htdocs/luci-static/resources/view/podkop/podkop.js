@@ -765,6 +765,25 @@ return view.extend({
                 });
         };
 
+        o = s.taboption('diagnostics', form.Button, '_list_update');
+        o.title = _('Update lists');
+        o.description = _('Update all lists in config');
+        o.inputtitle = _('Update lists');
+        o.inputstyle = 'apply';
+        o.onclick = function () {
+            fs.exec('/etc/init.d/podkop', ['list_update']);
+
+            ui.showModal(_('List Update'), [
+                E('p', {}, _('Lists will be updated in background. You can check the progress in system logs.')),
+                E('div', { class: 'right' }, [
+                    E('button', {
+                        'class': 'btn',
+                        'click': ui.hideModal
+                    }, _('Close'))
+                ])
+            ]);
+        };
+
         return m.render();
     }
 });
