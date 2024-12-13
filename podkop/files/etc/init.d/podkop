@@ -1129,7 +1129,7 @@ check_proxy() {
         return 1
     fi
 
-    nolog "\nCurrent sing-box configuration (sensitive data masked):"
+    nolog "Checking sing-box configuration..."
 
     jq '
         .outbounds[].uuid |= "MASKED-UUID" |
@@ -1138,7 +1138,7 @@ check_proxy() {
             .outbounds[].tls.reality.public_key |= "MASKED-PUBLIC-KEY"
         else . end
     ' $SING_BOX_CONFIG
-    
+
     nolog "Checking sing-box proxy connection..."
 
     for attempt in `seq 1 5`; do
