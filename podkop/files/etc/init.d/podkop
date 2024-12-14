@@ -7,10 +7,28 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="list_update add_route_interface"
+EXTRA_COMMANDS="list_update add_route_interface check_proxy check_nft check_github check_logs check_all check_three"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         add_route_interface  Adding route for interface
-        sing_box_config_vless For test vless string"
+        sing_box_config_vless For test vless string
+        check_proxy          Check if sing-box proxy works correctly
+        check_nft           Show PodkopTable nftables rules
+        check_github        Check GitHub connectivity and lists availability
+        check_logs         Show podkop logs from system journal
+        check_all          Run all checks
+        check_three         Run check_proxy, check_nft and check_github"
+
+[ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
+
+GITHUB_RAW_URL="https://raw.githubusercontent.com/itdoginfo/allow-domains/main"
+DOMAINS_RU_INSIDE="${GITHUB_RAW_URL}/Russia/inside-dnsmasq-nfset.lst"
+DOMAINS_RU_OUTSIDE="${GITHUB_RAW_URL}/Russia/outside-dnsmasq-nfset.lst" 
+DOMAINS_UA="${GITHUB_RAW_URL}/Ukraine/inside-dnsmasq-nfset.lst"
+DOMAINS_YOUTUBE="${GITHUB_RAW_URL}/Services/youtube.lst"
+SUBNETS_TWITTER="${GITHUB_RAW_URL}/Subnets/IPv4/Twitter.lst"
+SUBNETS_META="${GITHUB_RAW_URL}/Subnets/IPv4/Meta.lst"
+SUBNETS_DISCORD="${GITHUB_RAW_URL}/Subnets/IPv4/Discord.lst"
+SING_BOX_CONFIG="/etc/sing-box/config.json"
 
 config_get update_interval "main" "update_interval" "0 4 * * *"
 cron_job="${update_interval} /etc/init.d/podkop list_update"
@@ -108,10 +126,10 @@ start_service() {
                 config_get proxy_string main "proxy_string"
                 if [[ "$proxy_string" =~ ^ss:// ]]; then
                     sing_box_config_shadowsocks "$proxy_string" "1602"
-                    jq '.outbounds[0] + {tag: "main"} | {outbounds: [.]}' /etc/sing-box/config.json > "$outbound_main"
+                    jq '.outbounds[0] + {tag: "main"} | {outbounds: [.]}' $SING_BOX_CONFIG > "$outbound_main"
                 elif [[ "$proxy_string" =~ ^vless:// ]]; then
                     sing_box_config_vless "$proxy_string" "1602"
-                    jq '.outbounds[0] + {tag: "main"} | {outbounds: [.]}' /etc/sing-box/config.json > "$outbound_main"
+                    jq '.outbounds[0] + {tag: "main"} | {outbounds: [.]}' $SING_BOX_CONFIG > "$outbound_main"
                 else
                     log "Unsupported proxy type or missing configuration for main"
                     rm -f "$outbound_main" "$outbound_second"
@@ -136,10 +154,10 @@ start_service() {
                 config_get proxy_string "second" "second_proxy_string"
                 if [[ "$proxy_string" =~ ^ss:// ]]; then
                     sing_box_config_shadowsocks "$proxy_string" "1603"
-                    jq '.outbounds[0] + {tag: "second"} | {outbounds: [.]}' /etc/sing-box/config.json > "$outbound_second"
+                    jq '.outbounds[0] + {tag: "second"} | {outbounds: [.]}' $SING_BOX_CONFIG > "$outbound_second"
                 elif [[ "$proxy_string" =~ ^vless:// ]]; then
                     sing_box_config_vless "$proxy_string" "1603"
-                    jq '.outbounds[0] + {tag: "second"} | {outbounds: [.]}' /etc/sing-box/config.json > "$outbound_second"
+                    jq '.outbounds[0] + {tag: "second"} | {outbounds: [.]}' $SING_BOX_CONFIG > "$outbound_second"
                 else
                     log "Unsupported proxy type or missing configuration for second"
                     rm -f "$outbound_main" "$outbound_second"
@@ -179,7 +197,7 @@ start_service() {
                     ],
                     "auto_detect_interface": true
                 }
-            }' "$outbound_main" "$outbound_second" > /etc/sing-box/config.json
+            }' "$outbound_main" "$outbound_second" > $SING_BOX_CONFIG
 
             rm -f "$outbound_main" "$outbound_second"
 
@@ -265,7 +283,7 @@ start_service() {
         jq '.experimental.clash_api = {
             "external_ui": "ui",
             "external_controller": "0.0.0.0:9090"
-        }' /etc/sing-box/config.json >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json /etc/sing-box/config.json
+        }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
         /etc/init.d/sing-box restart
     fi
 
@@ -277,7 +295,7 @@ start_service() {
             "listen": "0.0.0.0",
             "listen_port": 2080,
             "set_system_proxy": false
-        }]' /etc/sing-box/config.json >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json /etc/sing-box/config.json
+        }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
         /etc/init.d/sing-box restart
     fi
 
@@ -350,6 +368,16 @@ log() {
 
     echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
     logger -t "podkop" "$timestamp $message"
+}
+
+nolog() {
+    local message="$1"
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local CYAN="\033[0;36m"
+    local GREEN="\033[0;32m"
+    local RESET="\033[0m"
+
+    echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
 }
 
 add_cron_job() {
@@ -646,19 +674,15 @@ add_mark() {
 lists_domains_download() {
     local URL="$1"
 
-    RU_INSIDE_DOMAINS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Russia/inside-dnsmasq-nfset.lst
-    RU_OUTSIDE_DOMAINS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Russia/outside-dnsmasq-nfset.lst
-    UA_DOMAINS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Ukraine/inside-dnsmasq-nfset.lst
-
     case "$URL" in
     "ru_inside")
-        URL=$RU_INSIDE_DOMAINS
+        URL=$DOMAINS_RU_INSIDE
         ;;
     "ru_outside")
-        URL=$RU_OUTSIDE_DOMAINS
+        URL=$DOMAINS_RU_OUTSIDE
         ;;
     "ua")
-        URL=$UA_DOMAINS
+        URL=$DOMAINS_UA
         ;;
     *)
         log "Unidentified list of domains"
@@ -668,10 +692,12 @@ lists_domains_download() {
 
     count=0
     while true; do
-        if curl -m 3 github.com; then
-            curl -f $URL --output /tmp/dnsmasq.d/podkop-domains.lst
-            sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
-            return 0
+        if ping -c 1 -W 3 github.com >/dev/null 2>&1; then
+            wget -q -O /tmp/dnsmasq.d/podkop-domains.lst $URL
+            if [ $? -eq 0 ]; then
+                sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
+                return 0
+            fi
         else
             log "GitHub is not available. Check the internet availability [$count sec]"
             count=$((count + 1))
@@ -694,11 +720,9 @@ lists_domains_download() {
 lists_services_download() {
     local URL="$1"
 
-    YOUTUBE=https://raw.githubusercontent.com/itdoginfo/allow-domains/refs/heads/main/Services/youtube.lst
-
     case "$URL" in
     "youtube")
-        URL=$YOUTUBE
+        URL=$DOMAINS_YOUTUBE
         ;;
     *)
         log "Unidentified list of domains"
@@ -708,11 +732,13 @@ lists_services_download() {
 
     count=0
     while true; do
-        if curl -m 3 github.com; then
-            curl -f $URL --output /tmp/dnsmasq.d/podkop2-domains.lst
-            delist_downloaded_domains
-            sed -i 's/.*/nftset=\/&\/4#inet#PodkopTable#podkop2_domains/g' /tmp/dnsmasq.d/podkop2-domains.lst
-            return 0
+        if ping -c 1 -W 3 github.com >/dev/null 2>&1; then
+            wget -q -O /tmp/dnsmasq.d/podkop2-domains.lst $URL
+            if [ $? -eq 0 ]; then
+                delist_downloaded_domains
+                sed -i 's/.*/nftset=\/&\/4#inet#PodkopTable#podkop2_domains/g' /tmp/dnsmasq.d/podkop2-domains.lst
+                return 0
+            fi
         else
             log "GitHub is not available. Check the internet availability [$count sec]"
             count=$((count + 1))
@@ -733,33 +759,31 @@ lists_services_download() {
 }
 
 list_subnets_download() {
-    TWITTER_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Twitter.lst
-    META_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/main/Subnets/IPv4/Meta.lst
-    DISCORD_SUBNETS=https://raw.githubusercontent.com/itdoginfo/allow-domains/refs/heads/main/Subnets/IPv4/Discord.lst
     local URL="$1"
 
     case "$URL" in
     "twitter")
-        URL=$TWITTER_SUBNETS
+        URL=$SUBNETS_TWITTER
         ;;
     "meta")
-        URL=$META_SUBNETS
+        URL=$SUBNETS_META
         ;;
     "discord")
-        URL=$DISCORD_SUBNETS
+        URL=$SUBNETS_DISCORD
         ;;
     *)
         log "Custom URL for subnet"
-        if curl --output /dev/null --silent --head --fail "$URL"; then
+        if wget -q --spider "$URL"; then
             log "URL is valid"
         else
             log "URL $URL is not valid"
+            return
         fi
         ;;
     esac
 
     local filename=$(basename "$URL")
-    curl -f "$URL" --output "/tmp/podkop/$filename"
+    wget -q -O "/tmp/podkop/$filename" "$URL"
     while IFS= read -r subnet; do
         nft add element inet PodkopTable podkop_subnets { $subnet }
     done <"/tmp/podkop/$filename"
@@ -778,7 +802,7 @@ list_custom_local_domains_create() {
     local filename=$(basename "$local_file" | cut -d. -f1)
     local config="/tmp/dnsmasq.d/${name}-${filename}.lst"
 
-    rm -f $config
+    rm -f "$config"
     while IFS= read -r domain; do
         echo "nftset=/$domain/4#inet#PodkopTable#${name}_domains" >>$config
     done <"$local_file"
@@ -791,8 +815,8 @@ list_custom_download_domains_create() {
     local filename=$(basename "$URL")
     local config="/tmp/dnsmasq.d/${name}-${filename}.lst"
 
-    rm -f $config
-    curl -f "$URL" --output "/tmp/podkop/${filename}"
+    rm -f "$config"
+    wget -q -O "/tmp/podkop/${filename}" "$URL"
     while IFS= read -r domain; do
         echo "nftset=/$domain/4#inet#PodkopTable#${name}_domains" >>$config
     done <"/tmp/podkop/$filename"
@@ -897,7 +921,7 @@ sing_box_config_outbound_json() {
 }
 EOF
 
-    jq --argjson outbound "$json_config" '.outbounds += [$outbound]' /tmp/base_config.json > /etc/sing-box/config.json
+    jq --argjson outbound "$json_config" '.outbounds += [$outbound]' /tmp/base_config.json > $SING_BOX_CONFIG
     rm -f /tmp/base_config.json
 }
 
@@ -972,7 +996,7 @@ sing_box_config_shadowsocks() {
 }
 EOF
 
-    mv /tmp/ss_config.json /etc/sing-box/config.json
+    mv /tmp/ss_config.json $SING_BOX_CONFIG
 }
 
 sing_box_config_vless() {
@@ -1072,7 +1096,7 @@ sing_box_config_vless() {
                 "short_id": $sid
             }
         else . end
-    else . end' > /etc/sing-box/config.json
+    else . end' > $SING_BOX_CONFIG
 
     if [ $? -eq 0 ]; then
         echo "Config created successfully"
@@ -1083,10 +1107,138 @@ sing_box_config_vless() {
 }
 
 sing_box_config_check() {
-    if ! sing-box -c /etc/sing-box/config.json check >/dev/null 2>&1; then
+    if ! sing-box -c $SING_BOX_CONFIG check >/dev/null 2>&1; then
         log "Sing-box configuration is invalid"
         return
     fi
+}
+
+check_proxy() {
+    if ! command -v sing-box >/dev/null 2>&1; then
+        nolog "sing-box is not installed"
+        return 1
+    fi
+
+    if [ ! -f $SING_BOX_CONFIG ]; then
+        nolog "Configuration file not found"
+        return 1
+    fi
+
+    nolog "Checking sing-box configuration..."
+
+    if ! sing-box -c $SING_BOX_CONFIG check >/dev/null; then
+        nolog "Invalid configuration"
+        return 1
+    fi
+
+    jq '
+        walk(
+            if type == "object" then
+                with_entries(
+                    if [.key] | inside(["uuid", "server", "server_name", "password", "public_key", "short_id"]) then 
+                        .value = "MASKED" 
+                    else . end
+                )
+            else . end
+        )' $SING_BOX_CONFIG
+
+    nolog "Checking proxy connection..."
+
+    for attempt in `seq 1 5`; do
+        response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
+        if ! echo "$response" | grep -q "403 Forbidden"; then
+            nolog "Proxy check completed successfully"
+            echo "$response" | sed 's/\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/XXX.\2.\3.\4/'
+            return 0
+        fi
+    done
+
+    nolog "Failed to get a non-403 response after 5 attempts"
+    return 1
+}
+
+check_nft() {
+    if ! command -v nft >/dev/null 2>&1; then
+        nolog "nft is not installed"
+        return 1
+    fi
+
+    nolog "Checking PodkopTable rules..."
+    
+    # Список всех возможных сетов
+    local sets="podkop_domains podkop_subnets podkop2_domains podkop2_subnets localv4"
+    
+    nolog "Sets statistics:"
+    for set_name in $sets; do
+        if nft list set inet PodkopTable $set_name >/dev/null 2>&1; then
+            local count=$(nft list set inet PodkopTable $set_name 2>/dev/null | grep -c ",")
+            nolog "- $set_name: $count elements"
+        else
+            nolog "- $set_name: not found"
+        fi
+    done
+
+    # Показываем правила с счетчиками
+    nolog "Current chains and rules:"
+    nft list table inet PodkopTable | grep "chain\|counter"
+
+    nolog "NFT check completed"
+}
+
+check_github() {
+    nolog "Checking GitHub connectivity..."
+    
+    if ! ping -c 1 -W 3 github.com >/dev/null 2>&1; then
+        nolog "Error: Cannot connect to GitHub"
+        return 1
+    fi
+    nolog "GitHub is accessible"
+    
+    nolog "Checking lists availability:"
+    for url in "$DOMAINS_RU_INSIDE" "$DOMAINS_RU_OUTSIDE" "$DOMAINS_UA" "$DOMAINS_YOUTUBE" \
+              "$SUBNETS_TWITTER" "$SUBNETS_META" "$SUBNETS_DISCORD"; do
+        local list_name=$(basename "$url")
+        wget -q -O /dev/null "$url"
+        if [ $? -eq 0 ]; then
+            nolog "- $list_name: available"
+        else
+            nolog "- $list_name: not available"
+        fi
+    done
+}
+
+check_logs() {
+    nolog "Showing podkop logs from system journal..."
+    
+    if command -v logread >/dev/null 2>&1; then
+        # Попытка получить последние 50 записей
+        logread -e "podkop" | tail -n 50
+    else
+        nolog "Error: logread command not found"
+        return 1
+    fi
+}
+
+check_three() {
+    nolog "\n=== Checking GitHub connectivity ==="
+    check_github
+    
+    nolog "\n=== Checking proxy settings ==="
+    check_proxy
+    
+    nolog "\n=== Checking NFT rules ==="
+    check_nft
+    
+    nolog "\nFull diagnostic check completed"
+}
+
+check_all() {
+    nolog "Starting full diagnostic check..."
+    
+    nolog "\n=== Checking recent logs ==="
+    check_logs
+
+    check_three
 }
 
 process_domains_text() {

@@ -291,3 +291,42 @@ msgstr "JSON должен содержать как минимум поля type
 
 msgid "Invalid JSON format"
 msgstr "Неверный формат JSON"
+
+msgid "Diagnostics"
+msgstr "Диагностика"
+
+msgid "Main Check"
+msgstr "Основная проверка"
+
+msgid "Run a comprehensive diagnostic check of all components"
+msgstr "Запустить комплексную диагностическую проверку всех компонентов"
+
+msgid "Run Check"
+msgstr "Запустить проверку"
+
+msgid "Full Diagnostic Results"
+msgstr "Полные результаты диагностики"
+
+msgid "Failed to copy: "
+msgstr "Ошибка копирования: "
+
+msgid "Copy to Clipboard"
+msgstr "Скопировать в буфер"
+
+msgid "Close"
+msgstr "Закрыть"
+
+msgid "No output"
+msgstr "Нет данных"
+
+msgid "System Logs"
+msgstr "Системные логи"
+
+msgid "View recent system logs related to Podkop"
+msgstr "Просмотр недавних системных логов, связанных с Podkop"
+
+msgid "View Logs"
+msgstr "Просмотр логов"
+
+msgid "Failed to copy logs: "
+msgstr "Ошибка копирования логов: "

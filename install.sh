@@ -7,6 +7,8 @@ DOWNLOAD_DIR="/tmp/podkop"
 mkdir -p "$DOWNLOAD_DIR"
 
 main() {
+    check_system
+
     wget -qO- "$REPO" | grep -o 'https://[^"]*\.ipk' | while read -r url; do
         filename=$(basename "$url")
         echo "Download $filename..."
@@ -382,6 +384,26 @@ wg_awg_setup() {
     fi
 
     handler_network_restart
+}
+
+check_system() {
+    # Get router model
+    MODEL=$(cat /tmp/sysinfo/model)
+    echo "Router model: $MODEL"
+
+    # Check available space
+    AVAILABLE_SPACE=$(df /tmp | awk 'NR==2 {print $4}')
+    REQUIRED_SPACE=20480 # 20MB in KB
+
+    echo "Available space: $((AVAILABLE_SPACE/1024))MB"
+    echo "Required space: $((REQUIRED_SPACE/1024))MB"
+
+    if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE" ]; then
+        echo "Error: Insufficient space in /tmp"
+        echo "Available: $((AVAILABLE_SPACE/1024))MB"
+        echo "Required: $((REQUIRED_SPACE/1024))MB"
+        exit 1
+    fi
 }
 
 main
