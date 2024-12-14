@@ -2,10 +2,14 @@
   "luci-app-podkop": {
     "description": "Grant UCI and RPC access to LuCI app podkop",
     "read": {
+      "file": {
+        "/etc/init.d/podkop": [
+          "exec"
+        ]
+      },
       "ubus": {
-        "luci.podkop": [
-          "get_sample1",
-          "get_sample2"
+        "service": [
+          "list"
         ]
       },
       "uci": [

@@ -692,7 +692,7 @@ lists_domains_download() {
 
     count=0
     while true; do
-        if ping -c 1 -W 3 github.com >/dev/null 2>&1; then
+        if curl -m 3 github.com; then
             wget -q -O /tmp/dnsmasq.d/podkop-domains.lst $URL
             if [ $? -eq 0 ]; then
                 sed -i 's/fw4#vpn_domains/PodkopTable#podkop_domains/g' /tmp/dnsmasq.d/podkop-domains.lst
@@ -783,6 +783,7 @@ list_subnets_download() {
     esac
 
     local filename=$(basename "$URL")
+    mkdir -p /tmp/podkop
     wget -q -O "/tmp/podkop/$filename" "$URL"
     while IFS= read -r subnet; do
         nft add element inet PodkopTable podkop_subnets { $subnet }
@@ -816,6 +817,7 @@ list_custom_download_domains_create() {
     local config="/tmp/dnsmasq.d/${name}-${filename}.lst"
 
     rm -f "$config"
+    mkdir -p /tmp/podkop
     wget -q -O "/tmp/podkop/${filename}" "$URL"
     while IFS= read -r domain; do
         echo "nftset=/$domain/4#inet#PodkopTable#${name}_domains" >>$config
@@ -1148,7 +1150,8 @@ check_proxy() {
         response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
         if ! echo "$response" | grep -q "403 Forbidden"; then
             nolog "Proxy check completed successfully"
-            echo "$response" | sed 's/\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/XXX.\2.\3.\4/'
+            #echo "$response" | sed 's/\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/XXX.\2.\3.\4/'
+            echo "$response" | sed -n 's/^[0-9]\+\.[0-9]\+\.[0-9]\+\.\([0-9]\+\)$/X.X.X.\1/p'
             return 0
         fi
     done
@@ -1188,7 +1191,7 @@ check_nft() {
 check_github() {
     nolog "Checking GitHub connectivity..."
     
-    if ! ping -c 1 -W 3 github.com >/dev/null 2>&1; then
+    if ! curl -m 3 github.com; then
         nolog "Error: Cannot connect to GitHub"
         return 1
     fi

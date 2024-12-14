@@ -167,6 +167,32 @@ return view.extend({
             return true;
         };
 
+        o = s.taboption('basic', form.Flag, 'custom_local_domains_list_enabled', _('Local Domain Lists'), _('Use the list from the router filesystem'));
+        o.default = '0';
+        o.rmempty = false;
+        o.ucisection = 'main';
+
+        o = s.taboption('basic', form.DynamicList, 'custom_local_domains', _('Local Domain Lists Path'), _('Enter to the list file path'));
+        o.placeholder = '/path/file.lst';
+        o.depends('custom_local_domains_list_enabled', '1');
+        o.rmempty = false;
+        o.ucisection = 'main';
+        o.validate = function (section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            try {
+                const pathRegex = /^\/[a-zA-Z0-9_\-\/\.]+$/;
+                if (!pathRegex.test(value)) {
+                    throw new Error(_('Invalid path format. Path must start with "/" and contain only valid characters (letters, numbers, "-", "_", "/", ".")'));
+                }
+                return true;
+            } catch (e) {
+                return _('Invalid path format');
+            }
+        };
+
         o = s.taboption('basic', form.Flag, 'custom_download_domains_list_enabled', _('Remote Domain Lists'), _('Download and use domain lists from remote URLs'));
         o.default = '0';
         o.rmempty = false;

@@ -27,6 +27,7 @@ main() {
 
         [ -f /etc/config/dhcp-opkg ] && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp
     fi
+
     openwrt_release=$(cat /etc/openwrt_release | grep -Eo [0-9]{2}[.][0-9]{2}[.][0-9]* | cut -d '.' -f 1 | tail -n 1)
     if [ $openwrt_release -ge 24 ]; then
         if uci get dhcp.@dnsmasq[0].confdir | grep -q /tmp/dnsmasq.d; then
@@ -37,6 +38,7 @@ main() {
             uci commit dhcp
         fi
     fi
+    
     if [ -f "/etc/init.d/podkop" ]; then
         printf "\033[32;1mPodkop is already installed. Just upgrade it? (y/n)\033[0m\n"
         printf "\033[32;1my - Only upgrade podkop\033[0m\n"
@@ -393,7 +395,8 @@ check_system() {
 
     # Check available space
     AVAILABLE_SPACE=$(df /tmp | awk 'NR==2 {print $4}')
-    REQUIRED_SPACE=20480 # 20MB in KB
+    # Change after switch sing-box
+    REQUIRED_SPACE=1024 # 20MB in KB
 
     echo "Available space: $((AVAILABLE_SPACE/1024))MB"
     echo "Required space: $((REQUIRED_SPACE/1024))MB"
