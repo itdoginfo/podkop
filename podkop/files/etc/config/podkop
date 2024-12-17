@@ -1,4 +1,5 @@
 config main 'main'
+	option version '0.2.5'
 	option mode ''
 	option interface ''
 	option proxy_config_type ''

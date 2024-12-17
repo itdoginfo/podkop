@@ -1,9 +1,6 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
-msgid "Podkop configuration"
-msgstr "Настройка Podkop"
-
 msgid "Basic Settings"
 msgstr "Основные настройки"
 
@@ -330,3 +327,39 @@ msgstr "Просмотр логов"
 
 msgid "Failed to copy logs: "
 msgstr "Ошибка копирования логов: "
+
+msgid "Show Config"
+msgstr "Показать конфиг"
+
+msgid "Show current podkop configuration with masked sensitive data"
+msgstr "Показать текущую конфигурацию podkop со скрытыми конфиденциальными данными"
+
+msgid "Update lists"
+msgstr "Обновить списки"
+
+msgid "Update all lists in config"
+msgstr "Обновить все списки в конфигурации"
+
+msgid "Lists will be updated in background. You can check the progress in system logs."
+msgstr "Списки будут обновлены в фоновом режиме. Вы можете проверить прогресс в системных логах."
+
+msgid "Local Domain Lists"
+msgstr "Локальные списки доменов"
+
+msgid "Use the list from the router filesystem"
+msgstr "Использовать список из файловой системы роутера"
+
+msgid "Local Domain Lists Path"
+msgstr "Путь к локальным спискам доменов"
+
+msgid "Enter to the list file path"
+msgstr "Введите путь к файлу списка"
+
+msgid "Invalid path format"
+msgstr "Неверный формат пути"
+
+msgid "Invalid path format. Path must start with "/" and contain only valid characters (letters, numbers, "-", "_", "/", ".")"
+msgstr "Неверный формат пути. Путь должен начинаться с "/" и содержать только допустимые символы (буквы, цифры, "-", "_", "/", ".")"
+
+msgid "List Update"
+msgstr "Обновление списков"

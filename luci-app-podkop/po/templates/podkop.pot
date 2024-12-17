@@ -1,9 +1,6 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
-msgid "Podkop configuration"
-msgstr ""
-
 msgid "Basic Settings"
 msgstr ""
 
@@ -329,4 +326,41 @@ msgid "View Logs"
 msgstr ""
 
 msgid "Failed to copy logs: "
+msgstr ""
+
+
+msgid "Show Config"
+msgstr ""
+
+msgid "Show current podkop configuration with masked sensitive data"
+msgstr ""
+
+msgid "Update lists"
+msgstr ""
+
+msgid "Update all lists in config"
+msgstr ""
+
+msgid "Lists will be updated in background. You can check the progress in system logs."
+msgstr ""
+
+msgid "Local Domain Lists"
+msgstr ""
+
+msgid "Use the list from the router filesystem"
+msgstr ""
+
+msgid "Local Domain Lists Path"
+msgstr ""
+
+msgid "Enter to the list file path"
+msgstr ""
+
+msgid "Invalid path format"
+msgstr ""
+
+msgid "Invalid path format. Path must start with "/" and contain only valid characters (letters, numbers, "-", "_", "/", ".")"
+msgstr ""
+
+msgid "List Update"
 msgstr ""
