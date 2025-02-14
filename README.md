@@ -90,7 +90,14 @@ Luci: Services/podkop
 - [ ] `service network restart` ломает маршруты при sing-box
 - [ ] Совпадение секции с ruleset ломает конфиг sing-box
 - [ ] В каких-то случаях плохо отрабатывает localfile
-
+- [ ] exit 1 если в конфиге присуствует
+```
+        option doh_backup_noresolv '0'
+        list doh_backup_server ''
+        list doh_backup_server ''
+        list doh_server '127.0.0.1#5053'
+        list doh_server '127.0.0.1#5054'
+```
 # ToDo
 Этот раздел не означает задачи, которые нужно брать и делать. Это общий список хотелок. Если вы хотите помочь, пожалуйста, спросите сначала в телеграмме.
 

@@ -28,8 +28,6 @@ main() {
             case $UPDATE in
             y)
                 echo "Upgraded podkop..."
-                sed -i '/second/d' /etc/config/podkop
-                sed -i '/ru_inside/d; /ru_outside/d; /update_interval/d; /ua/d' /etc/config/podkop
                 break
                 ;;
 

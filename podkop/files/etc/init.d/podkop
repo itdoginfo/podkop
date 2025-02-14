@@ -43,6 +43,8 @@ start_service() {
         echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg install sing-box"
         exit 1
     fi
+
+    migration
     
     config_foreach wget_github
 
@@ -169,6 +171,20 @@ nolog() {
     local RESET="\033[0m"
 
     echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
+}
+
+# Migrations funcs
+migration() {
+    # list migrate
+    grep -q "list domain_list 'ru_inside'" /etc/config/podkop && sed -i "s/list domain_list 'ru_inside'/list domain_list 'russia_inside'/" /etc/config/podkop
+    grep -q "list domain_list 'ru_outside'" /etc/config/podkop && sed -i "s/list domain_list 'ru_outside'/list domain_list 'russia_outside'/" /etc/config/podkop
+    grep -q "list domain_list 'ua'" /etc/config/podkop && sed -i "s/list domain_list 'ua'/list domain_list 'ukraine_inside'/" /etc/config/podkop
+
+    # second remove
+    grep -q "config second 'second'" /etc/config/podkop && sed -i '/second/d' /etc/config/podkop
+
+    # cron update
+    grep -qE "^\s*option update_interval '[0-9*/,-]+( [0-9*/,-]+){4}'" /etc/config/podkop && sed -i "s|^\(\s*option update_interval\) '[0-9*/,-]\+\( [0-9*/,-]\+\)\{4\}'|\1 '1d'|" /etc/config/podkop
 }
 
 # Main funcs
@@ -603,7 +619,7 @@ sing_box_rule_dns() {
 sing_box_config_check() {
     if ! sing-box -c $SING_BOX_CONFIG check >/dev/null 2>&1; then
         log "Sing-box configuration is invalid"
-        return
+        exit 1
     fi
 }
 
