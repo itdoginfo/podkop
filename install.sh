@@ -77,12 +77,12 @@ main() {
 }
 
 add_tunnel() {
-    echo "What type of VPN or proxy will be used? We also can automatically configure Wireguard and Amnezia WireGuard."
+    echo "Will you be using Wireguard, AmneziaWG, OpenVPN, OpenConnect? If yes, select a number and they will be automatically installed"
     echo "1) Wireguard"
     echo "2) AmneziaWG"
     echo "3) OpenVPN"
     echo "4) OpenConnect"
-    echo "5) Skip this step"
+    echo "5) I use VLESS/SS. Skip this step"
 
     while true; do
         read -r -p '' TUNNEL
