@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=podkop
-PKG_VERSION:=0.2.5
+PKG_VERSION:=0.3.0
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=ITDog <podkop@itdog.info>
@@ -12,7 +12,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/podkop
 	SECTION:=net
 	CATEGORY:=Network
-	DEPENDS:=+dnsmasq-full +curl +jq +kmod-nft-tproxy +coreutils-base64
+	DEPENDS:=+sing-box +curl +jq +kmod-nft-tproxy +coreutils-base64
 	TITLE:=Domain routing app
 	URL:=https://itdog.info
 	PKGARCH:=all
@@ -33,8 +33,6 @@ define Package/podkop/prerm
 
 grep -q "105 podkop" /etc/iproute2/rt_tables && sed -i "/105 podkop/d" /etc/iproute2/rt_tables
 
-rm -f /etc/hotplug.d/iface/50-podkop
-
 exit 0
 endef
 
@@ -49,9 +47,6 @@ define Package/podkop/install
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/etc/config/podkop $(1)/etc/config/podkop
-
-	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface
-	$(INSTALL_DATA) ./files/etc/hotplug.d/iface/50-podkop $(1)/etc/hotplug.d/iface/50-podkop
 endef
 
 $(eval $(call BuildPackage,podkop))

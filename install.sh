@@ -17,28 +17,7 @@ main() {
 
     echo "opkg update"
     opkg update
-
-    if opkg list-installed | grep -q dnsmasq-full; then
-        echo "dnsmasq-full already installed"
-    else
-        echo "Installed dnsmasq-full"
-        cd /tmp/ && opkg download dnsmasq-full
-        opkg remove dnsmasq && opkg install dnsmasq-full --cache /tmp/
-
-        [ -f /etc/config/dhcp-opkg ] && cp /etc/config/dhcp /etc/config/dhcp-old && mv /etc/config/dhcp-opkg /etc/config/dhcp
-    fi
-
-    openwrt_release=$(cat /etc/openwrt_release | grep -Eo [0-9]{2}[.][0-9]{2}[.][0-9]* | cut -d '.' -f 1 | tail -n 1)
-    if [ $openwrt_release -ge 24 ]; then
-        if uci get dhcp.@dnsmasq[0].confdir | grep -q /tmp/dnsmasq.d; then
-            echo "confdir alreadt set"
-        else
-            printf "Setting confdir"
-            uci set dhcp.@dnsmasq[0].confdir='/tmp/dnsmasq.d'
-            uci commit dhcp
-        fi
-    fi
-    
+  
     if [ -f "/etc/init.d/podkop" ]; then
         printf "\033[32;1mPodkop is already installed. Just upgrade it? (y/n)\033[0m\n"
         printf "\033[32;1my - Only upgrade podkop\033[0m\n"
@@ -49,6 +28,7 @@ main() {
             case $UPDATE in
             y)
                 echo "Upgraded podkop..."
+                sed -i '/second/d' /etc/config/podkop
                 break
                 ;;
 
@@ -99,23 +79,17 @@ main() {
 
 add_tunnel() {
     echo "What type of VPN or proxy will be used? We also can automatically configure Wireguard and Amnezia WireGuard."
-    echo "1) VLESS, Shadowsocks (A sing-box will be installed)"
-    echo "2) Wireguard"
-    echo "3) AmneziaWG"
-    echo "4) OpenVPN"
-    echo "5) OpenConnect"
-    echo "6) Skip this step"
+    echo "1) Wireguard"
+    echo "2) AmneziaWG"
+    echo "3) OpenVPN"
+    echo "4) OpenConnect"
+    echo "5) Skip this step"
 
     while true; do
         read -r -p '' TUNNEL
         case $TUNNEL in
 
         1)
-            opkg install sing-box
-            break
-            ;;
-
-        2)
             opkg install wireguard-tools luci-proto-wireguard luci-app-wireguard
 
             printf "\033[32;1mDo you want to configure the wireguard interface? (y/n): \033[0m\n"
@@ -130,7 +104,7 @@ add_tunnel() {
             break
             ;;
 
-        3)
+        2)
             install_awg_packages
 
             printf "\033[32;1mThere are no instructions for manual configure yet. Do you want to configure the amneziawg interface? (y/n): \033[0m\n"
@@ -143,19 +117,19 @@ add_tunnel() {
             break
             ;;
 
-        4)
+        3)
             opkg install opkg install openvpn-openssl luci-app-openvpn
             printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openvpn-na-openwrt/\e[0m\n"
             break
             ;;
 
-        5)
+        4)
             opkg install opkg install openconnect luci-proto-openconnect
             printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openconnect-na-openwrt/\e[0m\n"
             break
             ;;
 
-        6)
+        5)
             echo "Skip. Use this if you're installing an upgrade."
             break
             ;;
@@ -395,8 +369,7 @@ check_system() {
 
     # Check available space
     AVAILABLE_SPACE=$(df /tmp | awk 'NR==2 {print $4}')
-    # Change after switch sing-box
-    REQUIRED_SPACE=1024 # 20MB in KB
+    REQUIRED_SPACE=15360 # 15MB in KB
 
     echo "Available space: $((AVAILABLE_SPACE/1024))MB"
     echo "Required space: $((REQUIRED_SPACE/1024))MB"
