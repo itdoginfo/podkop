@@ -7,7 +7,7 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="list_update check_proxy check_nft check_github check_logs check_all check_three main"
+EXTRA_COMMANDS="list_update check_proxy check_nft check_github check_logs check_all check_three main show_config show_version"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         sing_box_config_vless For test vless string
         check_proxy          Check if sing-box proxy works correctly
@@ -16,7 +16,9 @@ EXTRA_HELP="        list_update     Updating domain and subnet lists
         check_logs         Show podkop logs from system journal
         check_all          Run all checks
         check_three         Run check_proxy, check_nft and check_github
-        main                Main function"
+        main                Main function
+        show_config         Show current configuration with masked sensitive data
+        show_version        Show current version"
 
 [ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
 
@@ -1081,7 +1083,7 @@ sing_box_rules() {
     local rule_set="$1"
     local outbound="$2"
 
-    # Check if there is an outbound rule for “tproxy-in”
+    # Check if there is an outbound rule for "tproxy-in"
     local rule_exists=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .inbound == ["tproxy-in"])' "$SING_BOX_CONFIG")
 
     if [[ -n "$rule_exists" ]]; then
@@ -1309,18 +1311,31 @@ check_proxy() {
 
     nolog "Checking proxy connection..."
 
-    for attempt in `seq 1 5`; do
-        response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
-        if ! echo "$response" | grep -q "403 Forbidden"; then
-            nolog "Proxy check completed successfully"
-            #echo "$response" | sed 's/\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/XXX.\2.\3.\4/'
-            echo "$response" | sed -n 's/^[0-9]\+\.[0-9]\+\.[0-9]\+\.\([0-9]\+\)$/X.X.X.\1/p'
-            return 0
-        fi
-    done
 
-    nolog "Failed to get a non-403 response after 5 attempts"
-    return 1
+   for attempt in `seq 1 5`; do
+       response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
+       if echo "$response" | grep -q "^<html\|403 Forbidden"; then
+           continue
+       fi
+       if [[ $response =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+           ip=$(echo "$response" | sed -n 's/^[0-9]\+\.[0-9]\+\.[0-9]\+\.\([0-9]\+\)$/X.X.X.\1/p')
+           nolog "$ip - should match proxy IP"
+           return 0
+       elif echo "$response" | grep -q "^[0-9a-fA-F:]*::[0-9a-fA-F:]*$\|^[0-9a-fA-F:]\+$"; then
+           ip=$(echo "$response" | sed 's/\([0-9a-fA-F]\+:[0-9a-fA-F]\+:[0-9a-fA-F]\+\):.*/\1:XXXX:XXXX:XXXX/')
+           nolog "$ip - should match proxy IP"
+           return 0
+       fi
+       if [ $attempt -eq 5 ]; then
+           nolog "Failed to get valid IP address after 5 attempts"
+           if [ -z "$response" ]; then
+               nolog "Error: Empty response"
+           else
+               nolog "Error response: $response"
+           fi
+           return 1
+       fi
+   done
 }
 
 check_nft() {
@@ -1331,7 +1346,6 @@ check_nft() {
 
     nolog "Checking PodkopTable rules..."
     
-    # Список всех возможных сетов
     local sets="podkop_domains podkop_subnets podkop_subnets_discord localv4"
     
     nolog "Sets statistics:"
@@ -1344,7 +1358,6 @@ check_nft() {
         fi
     done
 
-    # Показываем правила с счетчиками
     nolog "Current chains and rules:"
     nft list table inet PodkopTable | grep "chain\|counter"
 
@@ -1377,7 +1390,6 @@ check_logs() {
     nolog "Showing podkop logs from system journal..."
     
     if command -v logread >/dev/null 2>&1; then
-        # Попытка получить последние 50 записей
         logread -e "podkop" | tail -n 50
     else
         nolog "Error: logread command not found"
@@ -1405,4 +1417,34 @@ check_all() {
     check_logs
 
     check_three
+}
+
+show_config() {
+    nolog "Current podkop configuration:"
+    
+    if [ ! -f /etc/config/podkop ]; then
+        nolog "Configuration file not found"
+        return 1
+    fi
+
+    tmp_config=$(mktemp)
+    
+    cat /etc/config/podkop | sed \
+        -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option outbound_json\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option second_proxy_string\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option second_outbound_json\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(vless:\/\/[^@]*@\)/vless:\/\/MASKED@/g' \
+        -e 's/\(ss:\/\/[^@]*@\)/ss:\/\/MASKED@/g' \
+        -e 's/\(pbk=[^&]*\)/pbk=MASKED/g' \
+        -e 's/\(sid=[^&]*\)/sid=MASKED/g' \
+        > "$tmp_config"
+
+    cat "$tmp_config"
+    rm -f "$tmp_config"
+}
+
+show_version() {
+    local version=$(opkg info podkop | grep -m 1 "Version:" | cut -d' ' -f2)
+    echo "$version"
 }

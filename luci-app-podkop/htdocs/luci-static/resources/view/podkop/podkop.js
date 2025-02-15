@@ -7,10 +7,20 @@
 
 return view.extend({
     async render() {
+        document.getElementsByTagName('head')[0].insertAdjacentHTML('beforeend', `
+            <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+            <meta http-equiv="Pragma" content="no-cache">
+            <meta http-equiv="Expires" content="0">
+        `);
+
         var m, s, o;
 
         m = new form.Map('podkop', _('Podkop configuration'), null, ['main', 'second']);
-
+        fs.exec('/etc/init.d/podkop', ['show_version']).then(function (res) {
+            if (res.stdout) {
+                m.title = _('Podkop') + ' v' + res.stdout.trim();
+            }
+        });
         s = m.section(form.TypedSection, 'main');
         s.anonymous = true;
 
@@ -548,6 +558,50 @@ return view.extend({
                         modalElement.parentElement.style.width = '90%';
                         modalElement.parentElement.style.maxWidth = '1200px';
                         modalElement.parentElement.style.margin = '2rem auto';
+                    }
+                });
+        };
+
+        o = s.taboption('diagnostics', form.Button, '_show_config');
+        o.title = _('Show Config');
+        o.description = _('Show current podkop configuration with masked sensitive data');
+        o.inputtitle = _('Show Config');
+        o.inputstyle = 'apply';
+        o.onclick = function () {
+            return fs.exec('/etc/init.d/podkop', ['show_config'])
+                .then(function (res) {
+                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+
+                    const modalElement = ui.showModal(_('Podkop Configuration'), [
+                        E('div', { class: 'cbi-section' }, [
+                            E('pre', { class: 'cbi-value-field' }, formattedOutput)
+                        ]),
+                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
+                            E('button', {
+                                'class': 'btn cbi-button-save',
+                                'click': function () {
+                                    const textarea = document.createElement('textarea');
+                                    textarea.value = '```\n' + formattedOutput + '\n```';
+                                    document.body.appendChild(textarea);
+                                    textarea.select();
+                                    try {
+                                        document.execCommand('copy');
+                                        ui.hideModal();
+                                    } catch (err) {
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                    }
+                                    document.body.removeChild(textarea);
+                                }
+                            }, _('Copy to Clipboard')),
+                            E('button', {
+                                'class': 'btn cbi-button-neutral',
+                                'click': ui.hideModal
+                            }, _('Close'))
+                        ])
+                    ], 'large');
+
+                    if (modalElement && modalElement.parentElement) {
+                        modalElement.parentElement.classList.add('modal-overlay-large');
                     }
                 });
         };
