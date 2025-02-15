@@ -4,15 +4,37 @@ REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
 
 IS_SHOULD_RESTART_NETWORK=
 DOWNLOAD_DIR="/tmp/podkop"
+COUNT=3
+
+rm -rf "$DOWNLOAD_DIR"
 mkdir -p "$DOWNLOAD_DIR"
 
 main() {
     check_system
 
-    wget -qO- "$REPO" | grep -o 'https://[^"]*\.ipk' | while read -r url; do
+    wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk' | while read -r url; do
         filename=$(basename "$url")
-        echo "Download $filename..."
-        wget -q -O "$DOWNLOAD_DIR/$filename" "$url"
+        filepath="$DOWNLOAD_DIR/$filename"
+
+        attempt=0
+        while [ $attempt -lt $COUNT ]; do
+            if [ -f "$filepath" ] && [ -s "$filepath" ]; then
+                echo "$filename has already been uploaded"
+                break
+            fi
+
+            echo "Download $filename (count $((attempt+1)))..."
+            wget -q -O "$filepath" "$url"
+            
+            if [ -s "$filepath" ]; then
+                echo "$filename successfully downloaded"
+                break
+            else
+                echo "Download error $filename. Retry..."
+                rm -f "$filepath"
+            fi
+            attempt=$((attempt+1))
+        done
     done
 
     echo "opkg update"
