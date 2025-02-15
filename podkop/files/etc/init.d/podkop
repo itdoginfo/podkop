@@ -39,6 +39,14 @@ FAKEIP="198.18.0.0/15"
 start_service() {
     log "Start podkop"
 
+    sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
+    required_version="1.11.1"
+
+    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
+        echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg install sing-box"
+        exit 1
+    fi
+
 	procd_open_instance
 	procd_set_param command /bin/sh -c "/etc/init.d/podkop main &"
 	procd_set_param stdout 1
@@ -111,14 +119,6 @@ nolog() {
 }
 
 main() {
-    sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
-    required_version="1.11.1"
-
-    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
-        echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg install sing-box"
-        exit 1
-    fi
-    
     migration
     
     sleep 5
@@ -130,7 +130,7 @@ main() {
     if ! ip addr | grep -q "br-lan"; then
         log "Interface br-lan not found"
     fi
-    
+
     # base
     route_table_rule_mark
     create_nft_table
