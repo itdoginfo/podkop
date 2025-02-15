@@ -16,7 +16,11 @@ return view.extend({
         var m, s, o;
 
         m = new form.Map('podkop', _('Podkop configuration'), null, ['main', 'second']);
-
+        fs.exec('/etc/init.d/podkop', ['show_version']).then(function (res) {
+            if (res.stdout) {
+                m.title = _('Podkop') + ' v' + res.stdout.trim();
+            }
+        });
         s = m.section(form.TypedSection, 'main');
         s.anonymous = true;
 

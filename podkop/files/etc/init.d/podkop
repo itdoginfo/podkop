@@ -1346,7 +1346,6 @@ check_nft() {
 
     nolog "Checking PodkopTable rules..."
     
-    # Список всех возможных сетов
     local sets="podkop_domains podkop_subnets podkop_subnets_discord localv4"
     
     nolog "Sets statistics:"
@@ -1359,7 +1358,6 @@ check_nft() {
         fi
     done
 
-    # Показываем правила с счетчиками
     nolog "Current chains and rules:"
     nft list table inet PodkopTable | grep "chain\|counter"
 
@@ -1392,7 +1390,6 @@ check_logs() {
     nolog "Showing podkop logs from system journal..."
     
     if command -v logread >/dev/null 2>&1; then
-        # Попытка получить последние 50 записей
         logread -e "podkop" | tail -n 50
     else
         nolog "Error: logread command not found"
@@ -1430,10 +1427,8 @@ show_config() {
         return 1
     fi
 
-    # Создаем временный файл для обработанного конфига
     tmp_config=$(mktemp)
     
-    # Копируем и маскируем конфиденциальные данные
     cat /etc/config/podkop | sed \
         -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option outbound_json\).*/\1 '\''MASKED'\''/g' \
