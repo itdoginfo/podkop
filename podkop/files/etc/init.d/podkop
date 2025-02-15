@@ -7,7 +7,7 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="list_update check_proxy check_nft check_github check_logs check_all check_three"
+EXTRA_COMMANDS="list_update check_proxy check_nft check_github check_logs check_all check_three main"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         sing_box_config_vless For test vless string
         check_proxy          Check if sing-box proxy works correctly
@@ -15,7 +15,8 @@ EXTRA_HELP="        list_update     Updating domain and subnet lists
         check_github        Check GitHub connectivity and lists availability
         check_logs         Show podkop logs from system journal
         check_all          Run all checks
-        check_three         Run check_proxy, check_nft and check_github"
+        check_three         Run check_proxy, check_nft and check_github
+        main                Main function"
 
 [ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
 
@@ -36,84 +37,11 @@ FAKEIP="198.18.0.0/15"
 start_service() {
     log "Start podkop"
 
-    sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
-    required_version="1.11.1"
-
-    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
-        echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg install sing-box"
-        exit 1
-    fi
-    
-    migration
-    
-    # S99sing-box issue
-    if sing-box -c $SING_BOX_CONFIG check >/dev/null 2>&1; then
-        /etc/init.d/sing-box start
-    fi
-
-    sleep 5
-
-    config_foreach wget_github
-
-    mkdir -p /tmp/podkop
-
-    # base
-    route_table_rule_mark
-    create_nft_table
-    sing_box_uci
-
-    # sing-box
-    sing_box_inbound_proxy 1602
-    sing_box_dns
-    sing_box_dns_rule_fakeip
-    sing_box_rule_dns
-    sing_box_cache_file
-    process_socks5
-
-    # sing-box outbounds and rules
-    config_foreach sing_box_outdound
-    config_foreach process_domains_for_section
-    config_foreach process_remote_ruleset
-    config_foreach sing_box_rule_preset
-    config_foreach process_domains_list_local
-    config_foreach process_domains_list_url
-    config_foreach process_subnet_for_section
-    config_foreach process_subnet_for_section_remote
-    config_foreach process_all_traffic_for_section
-    config_foreach add_cron_job
-
-    #Future: exclude at the fakeip?
-    config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" "0"
-    if [ "$exclude_from_ip_enabled" -eq 1 ]; then
-        log "Adding an IP for exclusion"
-        config_list_foreach main exclude_traffic_ip sing_box_rules_source_ip_cidr $exclude_traffic_ip direct-out
-    fi
-
-    config_get_bool yacd "main" "yacd" "0"
-    if [ "$yacd" -eq 1 ]; then
-        log "Yacd enable"
-        jq '.experimental.clash_api = {
-            "external_ui": "ui",
-            "external_controller": "0.0.0.0:9090"
-        }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
-    fi
-
-    config_get_bool exclude_ntp "main" "exclude_ntp" "0"
-    if [ "$exclude_ntp" -eq 1 ]; then
-        log "NTP traffic exclude for proxy"
-        nft insert rule inet PodkopTable mangle udp dport 123 return
-    fi
-
-    sing_box_config_check
-    /etc/init.d/sing-box restart
-    /etc/init.d/sing-box enable
-
-    config_get proxy_string "main" "proxy_string"
-    config_get interface "main" "interface"
-
-    if [ -n "$proxy_string" ] || [ -n "$interface" ]; then
-        dnsmasq_add
-    fi
+	procd_open_instance
+	procd_set_param command /bin/sh -c "/etc/init.d/podkop main &"
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
 }
 
 stop_service() {
@@ -178,6 +106,82 @@ nolog() {
     local RESET="\033[0m"
 
     echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
+}
+
+main() {
+    sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
+    required_version="1.11.1"
+
+    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
+        echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg install sing-box"
+        exit 1
+    fi
+    
+    migration
+    
+    sleep 5
+
+    config_foreach wget_github
+
+    mkdir -p /tmp/podkop
+
+    # base
+    route_table_rule_mark
+    create_nft_table
+    sing_box_uci
+
+    # sing-box
+    sing_box_inbound_proxy 1602
+    sing_box_dns
+    sing_box_dns_rule_fakeip
+    sing_box_rule_dns
+    sing_box_cache_file
+    process_socks5
+
+    # sing-box outbounds and rules
+    config_foreach sing_box_outdound
+    config_foreach process_domains_for_section
+    config_foreach process_remote_ruleset
+    config_foreach sing_box_rule_preset
+    config_foreach process_domains_list_local
+    config_foreach process_domains_list_url
+    config_foreach process_subnet_for_section
+    config_foreach process_subnet_for_section_remote
+    config_foreach process_all_traffic_for_section
+    config_foreach add_cron_job
+
+    # Future: exclude at the fakeip?
+    config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" "0"
+    if [ "$exclude_from_ip_enabled" -eq 1 ]; then
+        log "Adding an IP for exclusion"
+        config_list_foreach main exclude_traffic_ip sing_box_rules_source_ip_cidr $exclude_traffic_ip direct-out
+    fi
+
+    config_get_bool yacd "main" "yacd" "0"
+    if [ "$yacd" -eq 1 ]; then
+        log "Yacd enable"
+        jq '.experimental.clash_api = {
+            "external_ui": "ui",
+            "external_controller": "0.0.0.0:9090"
+        }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    fi
+
+    config_get_bool exclude_ntp "main" "exclude_ntp" "0"
+    if [ "$exclude_ntp" -eq 1 ]; then
+        log "NTP traffic exclude for proxy"
+        nft insert rule inet PodkopTable mangle udp dport 123 return
+    fi
+
+    sing_box_config_check
+    /etc/init.d/sing-box restart
+    /etc/init.d/sing-box enable
+
+    config_get proxy_string "main" "proxy_string"
+    config_get interface "main" "interface"
+
+    if [ -n "$proxy_string" ] || [ -n "$interface" ]; then
+        dnsmasq_add
+    fi
 }
 
 # Migrations funcs
@@ -302,7 +306,8 @@ process_subnets_text() {
 }
 
 wget_github() {
-    local count=0
+    local count_nslookup=0
+    local count_curl=0
 
     config_get domain_list_enabled "$section" "domain_list_enabled"
     config_get subnets_list_enabled "$section" "subnets_list_enabled"
@@ -312,24 +317,40 @@ wget_github() {
     if [ "$domain_list_enabled" -eq 1 ] || [ "$subnets_list_enabled" -eq 1 ] ||
         [ "$custom_download_domains_list_enabled" -eq 1 ] || [ "$custom_download_subnets_list_enabled" -eq 1 ] ; then
 
-        if ! nslookup google.com >/dev/null 2>&1; then
-            log "DNS not work"
-            exit 1
-        fi
-
         while true; do
-            if ! curl -m 3 github.com; then
-                log "GitHub is not available. Check the internet availability [$count sec]"
-                count=$((count + 1))
+            if ! nslookup google.com >/dev/null 2>&1; then
+                log "DNS not working. Retrying... [$count_nslookup sec]"
+                count_nslookup=$((count_nslookup + 1))
             else
                 return
             fi
 
-            if [ $count -lt 30 ]; then
+            if [ $count_nslookup -lt 30 ]; then
                 sleep_interval=1
-            elif [ $count -ge 30 ] && [ $count -lt 60 ]; then
+            elif [ $count_nslookup -ge 30 ] && [ $count_nslookup -lt 60 ]; then
                 sleep_interval=5
-            elif [ $count -ge 60 ] && [ $count -lt 90 ]; then
+            elif [ $count_nslookup -ge 60 ] && [ $count_nslookup -lt 90 ]; then
+                sleep_interval=10
+            else
+                sleep_interval=30
+            fi
+
+            sleep $sleep_interval
+        done
+
+        while true; do
+            if ! curl -m 3 github.com; then
+                log "GitHub is not available. Check the internet availability [$count_curl sec]"
+                count_curl=$((count_curl + 1))
+            else
+                return
+            fi
+
+            if [ $count_curl -lt 30 ]; then
+                sleep_interval=1
+            elif [ $count_curl -ge 30 ] && [ $count_curl -lt 60 ]; then
+                sleep_interval=5
+            elif [ $count_curl -ge 60 ] && [ $count_curl -lt 90 ]; then
                 sleep_interval=10
             else
                 sleep_interval=30
