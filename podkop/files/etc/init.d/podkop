@@ -769,7 +769,7 @@ sing_box_config_vless() {
     get_param() {
         local param="$1"
         local value=$(echo "$STRING" | sed -n "s/.*[?&]$param=\([^&?#]*\).*/\1/p")
-        value=$(uhttpd -d "$value" | tr -d '\n' | tr -d '\r')
+        value=$(echo "$value" | sed 's/%2F/\//g; s/%2C/,/g; s/%3D/=/g; s/%2B/+/g; s/%20/ /g' | tr -d '\n' | tr -d '\r')
         echo "$value"
     }
 
