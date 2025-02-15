@@ -43,9 +43,16 @@ start_service() {
         echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg install sing-box"
         exit 1
     fi
-
+    
     migration
     
+    # S99sing-box issue
+    if sing-box -c $SING_BOX_CONFIG check >/dev/null 2>&1; then
+        /etc/init.d/sing-box start
+    fi
+
+    sleep 5
+
     config_foreach wget_github
 
     mkdir -p /tmp/podkop
@@ -305,6 +312,11 @@ wget_github() {
     if [ "$domain_list_enabled" -eq 1 ] || [ "$subnets_list_enabled" -eq 1 ] ||
         [ "$custom_download_domains_list_enabled" -eq 1 ] || [ "$custom_download_subnets_list_enabled" -eq 1 ] ; then
 
+        if ! nslookup google.com >/dev/null 2>&1; then
+            log "DNS not work"
+            exit 1
+        fi
+
         while true; do
             if ! curl -m 3 github.com; then
                 log "GitHub is not available. Check the internet availability [$count sec]"
@@ -497,19 +509,23 @@ sing_box_dns_rule_fakeip() {
 
 sing_box_dns_rule_fakeip_section() {
     local rule_set=$1
-
+    echo $rule_set
     log "Adding section to fakeip route rules in sing-box"
+
     jq \
     --arg rule_set "$rule_set" \
     '.dns.rules |= map(
         if .server == "fakeip-server" then 
-            .rule_set += [$rule_set] 
+            if any(.rule_set[]?; . == $rule_set) then 
+                .
+            else 
+                .rule_set += [$rule_set] 
+            end
         else 
             . 
         end
-    )' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    )' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
 }
-
 
 sing_box_cache_file() {
     log "Configure cache.db in sing-box"
@@ -531,7 +547,7 @@ sing_box_outdound() {
     case "$mode" in
     "vpn")
         log "VPN mode"
-        log "You are using VPN mode, make sure you have installed all the necessary packages, configured, created the zone and forwarding."
+        log "You are using VPN mode, make sure you have installed all the necessary packages and configured."
         config_get interface "$section" "interface"
         sing_box_outbound_interface $section $interface
         ;;
@@ -970,27 +986,37 @@ process_domains_for_section() {
 }
 
 sing_box_ruleset_remote() {
-    log "Configure ruleset remote in sing-box"
-
     local tag=$1
     local type=$2
     local update_interval=$3
 
     url="$SRS_MAIN_URL/$tag.srs"
 
-    jq \
-    --arg tag "$tag" \
-    --arg type "$type" \
-    --arg url "$url" \
-    --arg update_interval "$update_interval" \
-    '.route |= (if . == null then {rule_set: []} else . end) |
-            .route.rule_set += [{
+    local tag_exists=$(jq -r --arg tag "$tag" '
+        .route.rule_set[]? | select(.tag == $tag) | .tag
+    ' "$SING_BOX_CONFIG")
+
+    if [[ -n "$tag_exists" ]]; then
+        log "Ruleset with tag $tag already exists. Skipping addition."
+    else
+        jq \
+        --arg tag "$tag" \
+        --arg type "$type" \
+        --arg url "$url" \
+        --arg update_interval "$update_interval" \
+        '
+        .route.rule_set += [
+            {
                 "tag": $tag,
                 "type": $type,
                 "format": "binary",
                 "url": $url,
                 "update_interval": $update_interval
-            }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+            }
+        ]' "$SING_BOX_CONFIG" > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+
+        log "Added new ruleset with tag $tag"
+    fi
 }
 
 list_subnets_download() {
