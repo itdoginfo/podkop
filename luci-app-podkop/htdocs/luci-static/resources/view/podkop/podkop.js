@@ -17,18 +17,6 @@ return view.extend({
 
         m = new form.Map('podkop', _('Podkop configuration'), null, ['main', 'second']);
 
-        m = new form.Map('podkop', _('Podkop'), null, ['main', 'second']);
-        L.uci.load('podkop').then(() => {
-            const version = L.uci.get('podkop', 'main', 'version') || '';
-            if (version) {
-                m.title = _('Podkop') + ' v' + version;
-                if (!window.location.search.includes('v=')) {
-                    const newUrl = window.location.pathname + '?v=' + version;
-                    window.history.replaceState(null, '', newUrl);
-                }
-            }
-        });
-
         s = m.section(form.TypedSection, 'main');
         s.anonymous = true;
 
