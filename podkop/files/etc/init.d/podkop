@@ -127,6 +127,10 @@ main() {
 
     mkdir -p /tmp/podkop
 
+    if ! ip addr | grep -q "br-lan"; then
+        log "Interface br-lan not found"
+    fi
+    
     # base
     route_table_rule_mark
     create_nft_table
