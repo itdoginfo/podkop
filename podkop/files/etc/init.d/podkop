@@ -7,7 +7,7 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="list_update check_proxy check_nft check_github check_logs check_all check_three main"
+EXTRA_COMMANDS="list_update check_proxy check_nft check_github check_logs check_all check_three main show_config"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         sing_box_config_vless For test vless string
         check_proxy          Check if sing-box proxy works correctly
@@ -16,7 +16,8 @@ EXTRA_HELP="        list_update     Updating domain and subnet lists
         check_logs         Show podkop logs from system journal
         check_all          Run all checks
         check_three         Run check_proxy, check_nft and check_github
-        main                Main function"
+        main                Main function
+        show_config         Show current configuration with masked sensitive data"
 
 [ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
 
@@ -767,7 +768,7 @@ sing_box_config_vless() {
     get_param() {
         local param="$1"
         local value=$(echo "$STRING" | sed -n "s/.*[?&]$param=\([^&?#]*\).*/\1/p")
-        value=$(echo "$value" | sed 's/%2F/\//g; s/%2C/,/g; s/%3D/=/g; s/%2B/+/g; s/%20/ /g' | tr -d '\n' | tr -d '\r')
+        value=$(uhttpd -d "$value" | tr -d '\n' | tr -d '\r')
         echo "$value"
     }
 
@@ -1309,18 +1310,31 @@ check_proxy() {
 
     nolog "Checking proxy connection..."
 
-    for attempt in `seq 1 5`; do
-        response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
-        if ! echo "$response" | grep -q "403 Forbidden"; then
-            nolog "Proxy check completed successfully"
-            #echo "$response" | sed 's/\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/XXX.\2.\3.\4/'
-            echo "$response" | sed -n 's/^[0-9]\+\.[0-9]\+\.[0-9]\+\.\([0-9]\+\)$/X.X.X.\1/p'
-            return 0
-        fi
-    done
 
-    nolog "Failed to get a non-403 response after 5 attempts"
-    return 1
+   for attempt in `seq 1 5`; do
+       response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
+       if echo "$response" | grep -q "^<html\|403 Forbidden"; then
+           continue
+       fi
+       if [[ $response =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+           ip=$(echo "$response" | sed -n 's/^[0-9]\+\.[0-9]\+\.[0-9]\+\.\([0-9]\+\)$/X.X.X.\1/p')
+           nolog "$ip - should match proxy IP"
+           return 0
+       elif echo "$response" | grep -q "^[0-9a-fA-F:]*::[0-9a-fA-F:]*$\|^[0-9a-fA-F:]\+$"; then
+           ip=$(echo "$response" | sed 's/\([0-9a-fA-F]\+:[0-9a-fA-F]\+:[0-9a-fA-F]\+\):.*/\1:XXXX:XXXX:XXXX/')
+           nolog "$ip - should match proxy IP"
+           return 0
+       fi
+       if [ $attempt -eq 5 ]; then
+           nolog "Failed to get valid IP address after 5 attempts"
+           if [ -z "$response" ]; then
+               nolog "Error: Empty response"
+           else
+               nolog "Error response: $response"
+           fi
+           return 1
+       fi
+   done
 }
 
 check_nft() {
@@ -1405,4 +1419,31 @@ check_all() {
     check_logs
 
     check_three
+}
+
+show_config() {
+    nolog "Current podkop configuration:"
+    
+    if [ ! -f /etc/config/podkop ]; then
+        nolog "Configuration file not found"
+        return 1
+    fi
+
+    # Создаем временный файл для обработанного конфига
+    tmp_config=$(mktemp)
+    
+    # Копируем и маскируем конфиденциальные данные
+    cat /etc/config/podkop | sed \
+        -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option outbound_json\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option second_proxy_string\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option second_outbound_json\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(vless:\/\/[^@]*@\)/vless:\/\/MASKED@/g' \
+        -e 's/\(ss:\/\/[^@]*@\)/ss:\/\/MASKED@/g' \
+        -e 's/\(pbk=[^&]*\)/pbk=MASKED/g' \
+        -e 's/\(sid=[^&]*\)/sid=MASKED/g' \
+        > "$tmp_config"
+
+    cat "$tmp_config"
+    rm -f "$tmp_config"
 }
