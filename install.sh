@@ -69,15 +69,9 @@ main() {
         add_tunnel
     fi
 
-    until opkg install $DOWNLOAD_DIR/podkop*.ipk; do
-        echo "Install error. Repeat"
-        sleep 1
-    done
+    opkg install $DOWNLOAD_DIR/podkop*.ipk
+    opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
 
-    until opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk; do
-        echo "Install error. Repeat"
-        sleep 1
-    done
 
     echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)"
     while true; do
