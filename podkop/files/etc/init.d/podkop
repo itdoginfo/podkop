@@ -47,7 +47,7 @@ start_service() {
         exit 1
     fi
 
-    if opkg list-installed | grep -qE "iptables|kmod-ipt"; then
+    if opkg list-installed | grep -qE "iptables|kmod-iptab"; then
         echo "Found incompatible iptables packages. If you're using FriendlyWrt: https://t.me/itdogchat/44512/181082"
         exit 1
     fi
