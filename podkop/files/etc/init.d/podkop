@@ -43,9 +43,21 @@ start_service() {
     required_version="1.11.1"
 
     if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
-        echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg install sing-box"
+        echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box"
         exit 1
     fi
+
+    if opkg list-installed | grep -qE "iptables|kmod-ipt"; then
+        echo "Found incompatible iptables packages. If you're using FriendlyWrt: https://t.me/itdogchat/44512/181082"
+        exit 1
+    fi
+
+    if ! ip addr | grep -q "br-lan"; then
+        log "Interface br-lan not found"
+        exit 1
+    fi
+    
+    migration
 
 	procd_open_instance
 	procd_set_param command /bin/sh -c "/etc/init.d/podkop main &"
@@ -119,18 +131,12 @@ nolog() {
 }
 
 main() {
-    migration
-    
     sleep 5
 
     config_foreach wget_github
 
     mkdir -p /tmp/podkop
-
-    if ! ip addr | grep -q "br-lan"; then
-        log "Interface br-lan not found"
-    fi
-
+  
     # base
     route_table_rule_mark
     create_nft_table
@@ -178,6 +184,12 @@ main() {
         nft insert rule inet PodkopTable mangle udp dport 123 return
     fi
 
+    config_get_bool quic_disable "main" "quic_disable" "0"
+    if [ "$quic_disable" -eq 1 ]; then
+        log "Rule for disable QUIC"
+        sing_box_quic_reject
+    fi
+
     sing_box_config_check
     /etc/init.d/sing-box restart
     /etc/init.d/sing-box enable
@@ -193,15 +205,40 @@ main() {
 # Migrations funcs
 migration() {
     # list migrate
-    grep -q "list domain_list 'ru_inside'" /etc/config/podkop && sed -i "s/list domain_list 'ru_inside'/list domain_list 'russia_inside'/" /etc/config/podkop
-    grep -q "list domain_list 'ru_outside'" /etc/config/podkop && sed -i "s/list domain_list 'ru_outside'/list domain_list 'russia_outside'/" /etc/config/podkop
-    grep -q "list domain_list 'ua'" /etc/config/podkop && sed -i "s/list domain_list 'ua'/list domain_list 'ukraine_inside'/" /etc/config/podkop
+    local CONFIG="/etc/config/podkop"
+
+    if grep -q "list domain_list 'ru_inside'" $CONFIG; then
+        log "Depricated list found: ru_inside"
+        sed -i "s/list domain_list 'ru_inside'/list domain_list 'russia_inside'/" $CONFIG
+    fi
+
+    if grep -q "list domain_list 'ru_outside'" $CONFIG; then
+        log "Depricated list found: ru_outside"
+        sed -i "s/list domain_list 'ru_outside'/list domain_list 'russia_outside'/" $CONFIG
+    fi
+
+    if grep -q "list domain_list 'ua'" $CONFIG; then
+        log "Depricated list found: ua"
+        sed -i "s/list domain_list 'ua'/list domain_list 'ukraine_inside'/" $CONFIG
+    fi
 
     # second remove
-    grep -q "config second 'second'" /etc/config/podkop && sed -i '/second/d' /etc/config/podkop
+    if grep -q "config second 'second'" $CONFIG; then
+        log "Depricated second section found"
+        sed -i '/second/d' $CONFIG
+    fi
 
     # cron update
-    grep -qE "^\s*option update_interval '[0-9*/,-]+( [0-9*/,-]+){4}'" /etc/config/podkop && sed -i "s|^\(\s*option update_interval\) '[0-9*/,-]\+\( [0-9*/,-]\+\)\{4\}'|\1 '1d'|" /etc/config/podkop
+    if grep -qE "^\s*option update_interval '[0-9*/,-]+( [0-9*/,-]+){4}'" $CONFIG; then
+        log "Depricated update_interval"
+        sed -i "s|^\(\s*option update_interval\) '[0-9*/,-]\+\( [0-9*/,-]\+\)\{4\}'|\1 '1d'|" $CONFIG
+    fi
+
+    # dnsmasq https
+    if grep -q "^filter-rr=HTTPS" "/etc/dnsmasq.conf"; then
+        log "Found and removed filter-rr=HTTPS in dnsmasq config"
+        sed -i '/^filter-rr=HTTPS/d' "/etc/dnsmasq.conf"
+    fi
 }
 
 # Main funcs
@@ -252,11 +289,9 @@ dnsmasq_add() {
     uci set dhcp.@dnsmasq[0].filter_aaaa="1"
     uci set dhcp.@dnsmasq[0].cachesize="0"
     uci -q delete dhcp.@dnsmasq[0].server
-    uci add_list dhcp.@dnsmasq[0].server="127.0.0.1#5353"
+    uci add_list dhcp.@dnsmasq[0].server="127.0.0.42"
     uci add_list dhcp.@dnsmasq[0].server='/use-application-dns.net/'
     uci commit dhcp
-
-    grep -q "filter-rr=HTTPS" /etc/dnsmasq.conf || echo "filter-rr=HTTPS" >> /etc/dnsmasq.conf
 
     /etc/init.d/dnsmasq restart
 }
@@ -268,8 +303,6 @@ dnsmasq_rm() {
     uci set dhcp.@dnsmasq[0].cachesize="1000"
     uci -q delete dhcp.@dnsmasq[0].server
     uci commit dhcp
-
-    sed -i '/filter-rr=HTTPS/d' /etc/dnsmasq.conf
 
     /etc/init.d/dnsmasq restart
 }
@@ -484,8 +517,8 @@ sing_box_inbound_proxy() {
             {
                 "tag": "dns-in",
                 "type": "direct",
-                "listen": "127.0.0.1",
-                "listen_port": 5353
+                "listen": "127.0.0.42",
+                "listen_port": 53
             }
         ],
         "outbounds": [
@@ -526,6 +559,12 @@ sing_box_dns_rule_fakeip() {
     jq \
     '.dns += {
         "rules": [
+              {
+            "query_type": [
+                "HTTPS"
+            ],
+            "action": "reject"
+            },
             {
             "server": "fakeip-server",
             "rule_set": []
@@ -686,8 +725,8 @@ sing_box_config_outbound_json() {
     {
         "tag": "dns-in",
         "type": "direct",
-        "listen": "127.0.0.1",
-        "listen_port": 5353
+        "listen": "127.0.0.42",
+        "listen_port": 53
     }    
   ],
   "outbounds": [],
@@ -1108,6 +1147,25 @@ sing_box_rules() {
             "outbound": $outbound,
             "action": "route"
         }]' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+    fi
+}
+
+sing_box_quic_reject() {
+    local quic_rule_exists=$(jq -e '.route.rules[] | select(.protocol == "quic" and .action == "reject")' "$SING_BOX_CONFIG")
+
+    if [[ -z "$quic_rule_exists" ]]; then
+        jq '
+        .route.rules |= (
+            reduce .[] as $rule ([];
+                if $rule.protocol == "dns" and $rule.action == "hijack-dns" then
+                    . + [$rule, {"protocol": "quic", "action": "reject"}]
+                else
+                    . + [$rule]
+                end
+            )
+        )' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+
+        log "QUIC reject rule added successfully"
     fi
 }
 

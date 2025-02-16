@@ -404,13 +404,16 @@ return view.extend({
 
         o = s.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
         o.default = '0';
-        o.depends('mode', 'proxy');
         o.rmempty = false;
         o.ucisection = 'main';
 
         o = s.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
         o.default = '0';
-        o.depends('mode', 'proxy');
+        o.rmempty = false;
+        o.ucisection = 'main';
+
+        o = s.taboption('additional', form.Flag, 'quic_disable', _('QUIC disable'), _('For issues with the video stream'));
+        o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
 
