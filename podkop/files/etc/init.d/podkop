@@ -207,20 +207,26 @@ migration() {
     # list migrate
     local CONFIG="/etc/config/podkop"
 
-    if grep -q "list domain_list 'ru_inside'" $CONFIG; then
+    if grep -q "ru_inside" $CONFIG; then
         log "Depricated list found: ru_inside"
-        sed -i "s/list domain_list 'ru_inside'/list domain_list 'russia_inside'/" $CONFIG
+        sed -i '/ru_inside/d' $CONFIG
     fi
 
     if grep -q "list domain_list 'ru_outside'" $CONFIG; then
-        log "Depricated list found: ru_outside"
-        sed -i "s/list domain_list 'ru_outside'/list domain_list 'russia_outside'/" $CONFIG
+        log "Depricated list found: sru_outside"
+        sed -i '/ru_outside/d' $CONFIG
     fi
 
     if grep -q "list domain_list 'ua'" $CONFIG; then
         log "Depricated list found: ua"
-        sed -i "s/list domain_list 'ua'/list domain_list 'ukraine_inside'/" $CONFIG
+        sed -i '/ua/d' $CONFIG
     fi
+
+    # Subnet list
+    if grep -q "list subnets" $CONFIG; then
+        log "Depricated second section found"
+        sed -i '/list subnets/d' $CONFIG
+    fi 
 
     # second remove
     if grep -q "config second 'second'" $CONFIG; then
