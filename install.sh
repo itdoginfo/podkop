@@ -11,7 +11,8 @@ mkdir -p "$DOWNLOAD_DIR"
 
 main() {
     check_system
-
+    sing_box
+    
     wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk' | while read -r url; do
         filename=$(basename "$url")
         filepath="$DOWNLOAD_DIR/$filename"
@@ -68,8 +69,15 @@ main() {
         add_tunnel
     fi
 
-    opkg install $DOWNLOAD_DIR/podkop*.ipk
-    opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
+    until opkg install $DOWNLOAD_DIR/podkop*.ipk; do
+        echo "Install error. Repeat"
+        sleep 1
+    done
+
+    until opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk; do
+        echo "Install error. Repeat"
+        sleep 1
+    done
 
     echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)"
     while true; do
@@ -400,6 +408,15 @@ check_system() {
         echo "Available: $((AVAILABLE_SPACE/1024))MB"
         echo "Required: $((REQUIRED_SPACE/1024))MB"
         exit 1
+    fi  
+}
+
+sing_box() {
+    sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
+    required_version="1.11.1"
+
+    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
+        opkg remove sing-box
     fi
 }
 
