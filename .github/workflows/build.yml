@@ -35,23 +35,10 @@ jobs:
           cp ./bin/podkop_*.ipk ./filtered-bin/
           cp ./bin/luci-app-podkop_*.ipk ./filtered-bin/
 
-      - name: Generate install script
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-
-          # Replace REPO line with the current version
-          sed -i "s|REPO=\"https://api.github.com/repos/itdoginfo/podkop/releases/latest\"|REPO=\"https://api.github.com/repos/itdoginfo/podkop/releases/tags/v${VERSION}\"|" "install.sh"
-
-          # Add and commit the modified install script
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git commit -am "Change install script for version ${VERSION}"
-          git push origin "refs/tags/v${VERSION}"
-
       - name: Remove Docker container
         run: docker rm podkop
 
       - name: Release
         uses: softprops/action-gh-release@v2.0.8
         with:
-          files: ./filtered-bin/*
+          files: ./filtered-bin/*.ipk
