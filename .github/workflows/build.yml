@@ -38,7 +38,7 @@ jobs:
       - name: Generate install script
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          cat > "./filtered-bin/install-v${VERSION}.sh" << 'EOFMARKER'
+          cat > "./filtered-bin/install.sh" << 'EOFMARKER'
           #!/bin/sh
 
           REPO="https://api.github.com/repos/itdoginfo/podkop/releases/tags/v$VERSION"

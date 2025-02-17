@@ -34,6 +34,13 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 
 Для AmneziaWG скрипт проверяет наличие пакетов под вашу платформу в [стороннем репозитории](https://github.com/Slava-Shchipunov/awg-openwrt/releases), так как в официальном репозитории OpenWRT они отсутствуют, и автоматически их устанавливает.
 
+## Автоматическая выбранной версии
+```
+sh <(wget -O - https://github.com/itdoginfo/podkop/releases/download/v0.3.**/install.sh)
+```
+
+Аналогично предыдущему скрипту, но нужно указать версии в ссылке.
+
 ## Вручную
 Сделать `opkg update`, чтоб установились зависимости.
 Скачать пакеты `podkop_*.ipk` и `luci-app-podkop_*.ipk` из релиза. `opkg install` сначала первый, потом второй.
