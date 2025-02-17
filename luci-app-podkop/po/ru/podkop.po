@@ -330,3 +330,54 @@ msgstr "Просмотр логов"
 
 msgid "Failed to copy logs: "
 msgstr "Ошибка копирования логов: "
+
+msgid "Show Config"
+msgstr "Показать конфигурацию"
+
+msgid "Show current podkop configuration with masked sensitive data"
+msgstr "Показать текущую конфигурацию podkop с маскированными конфиденциальными данными"
+
+msgid "Podkop Configuration"
+msgstr "Конфигурация Podkop"
+
+msgid "Update lists"
+msgstr "Обновить списки"
+
+msgid "Update all lists in config"
+msgstr "Обновить все списки в конфигурации"
+
+msgid "List Update"
+msgstr "Обновление списков"
+
+msgid "Lists will be updated in background. You can check the progress in system logs."
+msgstr "Списки будут обновлены в фоновом режиме. Вы можете проверить прогресс в системных логах."
+
+msgid "Extra configurations"
+msgstr "Дополнительные конфигурации"
+
+msgid "Extra configuration"
+msgstr "Дополнительная конфигурация"
+
+msgid "Add Section"
+msgstr "Добавить раздел"
+
+msgid "QUIC disable"
+msgstr "Отключить QUIC"
+
+msgid "For issues with the video stream"
+msgstr "Для проблем с видеопотоком"
+
+msgid "Community Lists"
+msgstr "Списки сообщества"
+
+msgid "Local Domain Lists"
+msgstr "Локальные списки доменов"
+
+msgid "Use the list from the router filesystem"
+msgstr "Использовать список из файловой системы роутера"
+
+msgid "Local Domain Lists Path"
+msgstr "Путь к локальным спискам доменов"
+
+msgid "Enter to the list file path"
+msgstr "Введите путь к файлу списка"
