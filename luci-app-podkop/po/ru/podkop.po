@@ -381,3 +381,84 @@ msgstr "Путь к локальным спискам доменов"
 
 msgid "Enter to the list file path"
 msgstr "Введите путь к файлу списка"
+
+msgid "Proxy Check"
+msgstr "Проверка прокси"
+
+msgid "Check if sing-box proxy works correctly"
+msgstr "Проверить корректность работы прокси sing-box"
+
+msgid "Check Proxy"
+msgstr "Проверить прокси"
+
+msgid "Proxy Check Results"
+msgstr "Результаты проверки прокси"
+
+msgid "NFT Rules"
+msgstr "Правила NFT"
+
+msgid "Show current nftables rules and statistics"
+msgstr "Показать текущие правила и статистику nftables"
+
+msgid "Check Rules"
+msgstr "Проверить правила"
+
+msgid "GitHub Connectivity"
+msgstr "Подключение к GitHub"
+
+msgid "Check GitHub connectivity and lists availability"
+msgstr "Проверить подключение к GitHub и доступность списков"
+
+msgid "Check GitHub"
+msgstr "Проверить GitHub"
+
+msgid "GitHub Connectivity Results"
+msgstr "Результаты проверки подключения к GitHub"
+
+msgid "Sing-Box Logs"
+msgstr "Логи Sing-Box"
+
+msgid "View recent sing-box logs from system journal"
+msgstr "Просмотр последних логов sing-box из системного журнала"
+
+msgid "View Sing-Box Logs"
+msgstr "Просмотр логов Sing-Box"
+
+msgid "Podkop Logs"
+msgstr "Логи Podkop"
+
+msgid "View recent podkop logs from system journal"
+msgstr "Просмотр последних логов podkop из системного журнала"
+
+msgid "View Podkop Logs"
+msgstr "Просмотр логов Podkop"
+
+msgid "Active Connections"
+msgstr "Активные соединения"
+
+msgid "View active sing-box network connections"
+msgstr "Просмотр активных сетевых соединений sing-box"
+
+msgid "Check Connections"
+msgstr "Проверить соединения"
+
+msgid "DNSMasq Configuration"
+msgstr "Конфигурация DNSMasq"
+
+msgid "View current DNSMasq configuration settings"
+msgstr "Просмотр текущих настроек конфигурации DNSMasq"
+
+msgid "Check DNSMasq"
+msgstr "Проверить DNSMasq"
+
+msgid "Sing-Box Configuration"
+msgstr "Конфигурация Sing-Box"
+
+msgid "Show current sing-box configuration"
+msgstr "Показать текущую конфигурацию sing-box"
+
+msgid "Show Sing-Box Config"
+msgstr "Показать конфигурацию Sing-Box"
+
+msgid "Lists Update Results"
+msgstr "Результаты обновления списков"

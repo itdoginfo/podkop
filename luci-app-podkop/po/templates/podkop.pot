@@ -381,3 +381,84 @@ msgstr ""
 
 msgid "Enter to the list file path"
 msgstr ""
+
+msgid "Proxy Check"
+msgstr ""
+
+msgid "Check if sing-box proxy works correctly"
+msgstr ""
+
+msgid "Check Proxy"
+msgstr ""
+
+msgid "Proxy Check Results"
+msgstr ""
+
+msgid "NFT Rules"
+msgstr ""
+
+msgid "Show current nftables rules and statistics"
+msgstr ""
+
+msgid "Check Rules"
+msgstr ""
+
+msgid "GitHub Connectivity"
+msgstr ""
+
+msgid "Check GitHub connectivity and lists availability"
+msgstr ""
+
+msgid "Check GitHub"
+msgstr ""
+
+msgid "GitHub Connectivity Results"
+msgstr ""
+
+msgid "Sing-Box Logs"
+msgstr ""
+
+msgid "View recent sing-box logs from system journal"
+msgstr ""
+
+msgid "View Sing-Box Logs"
+msgstr ""
+
+msgid "Podkop Logs"
+msgstr ""
+
+msgid "View recent podkop logs from system journal"
+msgstr ""
+
+msgid "View Podkop Logs"
+msgstr ""
+
+msgid "Active Connections"
+msgstr ""
+
+msgid "View active sing-box network connections"
+msgstr ""
+
+msgid "Check Connections"
+msgstr ""
+
+msgid "DNSMasq Configuration"
+msgstr ""
+
+msgid "View current DNSMasq configuration settings"
+msgstr ""
+
+msgid "Check DNSMasq"
+msgstr ""
+
+msgid "Sing-Box Configuration"
+msgstr ""
+
+msgid "Show current sing-box configuration"
+msgstr ""
+
+msgid "Show Sing-Box Config"
+msgstr ""
+
+msgid "Lists Update Results"
+msgstr ""
