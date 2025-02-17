@@ -13,38 +13,12 @@ main() {
     check_system
     sing_box
     
-    wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk' | while read -r url; do
-        filename=$(basename "$url")
-        filepath="$DOWNLOAD_DIR/$filename"
-
-        attempt=0
-        while [ $attempt -lt $COUNT ]; do
-            if [ -f "$filepath" ] && [ -s "$filepath" ]; then
-                echo "$filename has already been uploaded"
-                break
-            fi
-
-            echo "Download $filename (count $((attempt+1)))..."
-            wget -q -O "$filepath" "$url"
-            
-            if [ -s "$filepath" ]; then
-                echo "$filename successfully downloaded"
-                break
-            else
-                echo "Download error $filename. Retry..."
-                rm -f "$filepath"
-            fi
-            attempt=$((attempt+1))
-        done
-    done
-
-    echo "opkg update"
     opkg update
   
     if [ -f "/etc/init.d/podkop" ]; then
         printf "\033[32;1mPodkop is already installed. Just upgrade it? (y/n)\033[0m\n"
         printf "\033[32;1my - Only upgrade podkop\033[0m\n"
-        printf "\033[32;1mn - Upgrade and install proxy or tunnels\033[0m\n"
+        printf "\033[32;1mn - Upgrade and install tunnels (WG, AWG, OpenVPN, OC)\033[0m\n"
 
         while true; do
             read -r -p '' UPDATE
@@ -69,28 +43,58 @@ main() {
         add_tunnel
     fi
 
-    opkg install $DOWNLOAD_DIR/podkop*.ipk
-    opkg install $DOWNLOAD_DIR/luci-app-podkop*.ipk
+    wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk' | while read -r url; do
+        filename=$(basename "$url")
+        filepath="$DOWNLOAD_DIR/$filename"
 
+        attempt=0
+        while [ $attempt -lt $COUNT ]; do
+            if [ -f "$filepath" ] && [ -s "$filepath" ]; then
+                echo "$filename has already been uploaded"
+                break
+            fi
 
-    echo "Русский язык интерфейса ставим? y/n (Need a Russian translation?)"
-    while true; do
-        read -r -p '' RUS
-        case $RUS in
-        y)
-            opkg install $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
-            break
-            ;;
-
-        n)
-            break
-            ;;
-
-        *)
-            echo "Please enter y or n"
-            ;;
-        esac
+            echo "Download $filename (count $((attempt+1)))..."
+            wget -q -O "$filepath" "$url"
+            
+            if [ -s "$filepath" ]; then
+                echo "$filename successfully downloaded"
+            else
+                echo "Download error $filename. Retry..."
+                rm -f "$filepath"
+            fi
+            attempt=$((attempt+1))
+        done
     done
+
+    for pkg in podkop luci-app-podkop; do
+        file=$(ls "$DOWNLOAD_DIR" | grep "^$pkg" | head -n 1)
+        if [ -n "$file" ]; then
+            echo "Installing $file"
+            opkg install "$DOWNLOAD_DIR/$file"
+        fi
+    done
+
+    ru=$(ls "$DOWNLOAD_DIR" | grep "luci-i18n-podkop-ru" | head -n 1)
+    if [ -n "$ru" ]; then
+        printf "\033[32;1mРусский язык интерфейса ставим? y/n (Need a Russian translation?)\033[0m "
+        while true; do
+            read -r -p '' RUS
+            case $RUS in
+            y)
+                opkg install "$DOWNLOAD_DIR/$ru"
+                break
+                ;;
+            n)
+                break
+                ;;
+            *)
+                echo "Введите y или n"
+                ;;
+            esac
+        done
+    fi
+
 
     rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
 
@@ -101,7 +105,7 @@ main() {
 }
 
 add_tunnel() {
-    echo "Will you be using Wireguard, AmneziaWG, OpenVPN, OpenConnect? If yes, select a number and they will be automatically installed"
+    printf "\033[32;1mWill you be using Wireguard, AmneziaWG, OpenVPN, OpenConnect? If yes, select a number and they will be automatically installed\033[0m "
     echo "1) Wireguard"
     echo "2) AmneziaWG"
     echo "3) OpenVPN"
@@ -153,7 +157,7 @@ add_tunnel() {
             ;;
 
         5)
-            echo "Skip. Use this if you're installing an upgrade."
+            echo "Installation without additional dependencies."
             break
             ;;
 
@@ -391,18 +395,24 @@ check_system() {
     echo "Router model: $MODEL"
 
     # Check available space
-    AVAILABLE_SPACE=$(df /tmp | awk 'NR==2 {print $4}')
+    AVAILABLE_SPACE=$(df /overlay | awk 'NR==2 {print $4}')
     REQUIRED_SPACE=15360 # 15MB in KB
 
-    echo "Available space: $((AVAILABLE_SPACE/1024))MB"
-    echo "Required space: $((REQUIRED_SPACE/1024))MB"
-
     if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE" ]; then
-        echo "Error: Insufficient space in /tmp"
+        printf "\033[31;1mError: Insufficient space in flash\033[0m\n"
         echo "Available: $((AVAILABLE_SPACE/1024))MB"
         echo "Required: $((REQUIRED_SPACE/1024))MB"
         exit 1
-    fi  
+    fi
+
+    if ! nslookup google.com >/dev/null 2>&1; then
+        log "DNS not working"
+        exit 1
+    fi
+
+    if opkg list-installed | grep -qE "iptables|kmod-iptab"; then
+        printf "\033[31;1mFound incompatible iptables packages. If you're using FriendlyWrt: https://t.me/itdogchat/44512/181082\033[0m\n"
+    fi
 }
 
 sing_box() {
