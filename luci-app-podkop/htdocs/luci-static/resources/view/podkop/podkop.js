@@ -442,18 +442,17 @@ return view.extend({
                     `: ${status === 'available' ? '✓' : '✗'}`);
         }
 
-        // Check All - full diagnostic
-        o = s.taboption('diagnostics', form.Button, '_check_all');
-        o.title = _('Main Check');
-        o.description = _('Run a comprehensive diagnostic check of all components');
-        o.inputtitle = _('Run Check');
+        // Connection Checks Section
+        o = s.taboption('diagnostics', form.Button, '_check_nft');
+        o.title = _('NFT Rules');
+        o.description = _('Show current nftables rules and statistics');
+        o.inputtitle = _('Check Rules');
         o.inputstyle = 'apply';
         o.onclick = function () {
-            return fs.exec('/etc/init.d/podkop', ['check_three'])
+            return fs.exec('/etc/init.d/podkop', ['check_nft'])
                 .then(function (res) {
                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-
-                    const modalElement = ui.showModal(_('Full Diagnostic Results'), [
+                    ui.showModal(_('NFT Rules'), [
                         E('div', {
                             style:
                                 'max-height: 70vh;' +
@@ -478,7 +477,7 @@ return view.extend({
                                 'class': 'btn',
                                 'click': function () {
                                     const textarea = document.createElement('textarea');
-                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                    textarea.value = formattedOutput;
                                     document.body.appendChild(textarea);
                                     textarea.select();
                                     try {
@@ -494,27 +493,77 @@ return view.extend({
                                 'click': ui.hideModal
                             }, _('Close'))
                         ])
-                    ], 'large');
+                    ]);
+                });
+        };
 
-                    if (modalElement && modalElement.parentElement) {
-                        modalElement.parentElement.style.width = '90%';
-                        modalElement.parentElement.style.maxWidth = '1200px';
-                        modalElement.parentElement.style.margin = '2rem auto';
-                    }
+
+
+        // Logs Section
+        o = s.taboption('diagnostics', form.Button, '_check_sing_box_logs');
+        o.title = _('Sing-Box Logs');
+        o.description = _('View recent sing-box logs from system journal');
+        o.inputtitle = _('View Sing-Box Logs');
+        o.inputstyle = 'apply';
+        o.onclick = function () {
+            return fs.exec('/etc/init.d/podkop', ['check_sing_box_logs'])
+                .then(function (res) {
+                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                    ui.showModal(_('Sing-Box Logs'), [
+                        E('div', {
+                            style:
+                                'max-height: 70vh;' +
+                                'overflow-y: auto;' +
+                                'margin: 1em 0;' +
+                                'padding: 1.5em;' +
+                                'background: #f8f9fa;' +
+                                'border: 1px solid #e9ecef;' +
+                                'border-radius: 4px;' +
+                                'font-family: monospace;' +
+                                'white-space: pre-wrap;' +
+                                'word-wrap: break-word;' +
+                                'line-height: 1.5;' +
+                                'font-size: 14px;'
+                        }, [
+                            E('pre', { style: 'margin: 0;' }, formattedOutput)
+                        ]),
+                        E('div', {
+                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                        }, [
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    const textarea = document.createElement('textarea');
+                                    textarea.value = formattedOutput;
+                                    document.body.appendChild(textarea);
+                                    textarea.select();
+                                    try {
+                                        document.execCommand('copy');
+                                    } catch (err) {
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                    }
+                                    document.body.removeChild(textarea);
+                                }
+                            }, _('Copy to Clipboard')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': ui.hideModal
+                            }, _('Close'))
+                        ])
+                    ]);
                 });
         };
 
         o = s.taboption('diagnostics', form.Button, '_check_logs');
-        o.title = _('System Logs');
-        o.description = _('View recent system logs related to Podkop');
-        o.inputtitle = _('View Logs');
+        o.title = _('Podkop Logs');
+        o.description = _('View recent podkop logs from system journal');
+        o.inputtitle = _('View Podkop Logs');
         o.inputstyle = 'apply';
         o.onclick = function () {
             return fs.exec('/etc/init.d/podkop', ['check_logs'])
                 .then(function (res) {
                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-
-                    const modalElement = ui.showModal(_('System Logs'), [
+                    ui.showModal(_('Podkop Logs'), [
                         E('div', {
                             style:
                                 'max-height: 70vh;' +
@@ -539,7 +588,7 @@ return view.extend({
                                 'class': 'btn',
                                 'click': function () {
                                     const textarea = document.createElement('textarea');
-                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                    textarea.value = formattedOutput;
                                     document.body.appendChild(textarea);
                                     textarea.select();
                                     try {
@@ -555,18 +604,175 @@ return view.extend({
                                 'click': ui.hideModal
                             }, _('Close'))
                         ])
-                    ], 'large');
+                    ]);
+                });
+        };
 
-                    if (modalElement && modalElement.parentElement) {
-                        modalElement.parentElement.style.width = '90%';
-                        modalElement.parentElement.style.maxWidth = '1200px';
-                        modalElement.parentElement.style.margin = '2rem auto';
-                    }
+        // Configurations Section
+        o = s.taboption('diagnostics', form.Button, '_check_sing_box_connections');
+        o.title = _('Active Connections');
+        o.description = _('View active sing-box network connections');
+        o.inputtitle = _('Check Connections');
+        o.inputstyle = 'apply';
+        o.onclick = function () {
+            return fs.exec('/etc/init.d/podkop', ['check_sing_box_connections'])
+                .then(function (res) {
+                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                    ui.showModal(_('Active Connections'), [
+                        E('div', {
+                            style:
+                                'max-height: 70vh;' +
+                                'overflow-y: auto;' +
+                                'margin: 1em 0;' +
+                                'padding: 1.5em;' +
+                                'background: #f8f9fa;' +
+                                'border: 1px solid #e9ecef;' +
+                                'border-radius: 4px;' +
+                                'font-family: monospace;' +
+                                'white-space: pre-wrap;' +
+                                'word-wrap: break-word;' +
+                                'line-height: 1.5;' +
+                                'font-size: 14px;'
+                        }, [
+                            E('pre', { style: 'margin: 0;' }, formattedOutput)
+                        ]),
+                        E('div', {
+                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                        }, [
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    const textarea = document.createElement('textarea');
+                                    textarea.value = formattedOutput;
+                                    document.body.appendChild(textarea);
+                                    textarea.select();
+                                    try {
+                                        document.execCommand('copy');
+                                    } catch (err) {
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                    }
+                                    document.body.removeChild(textarea);
+                                }
+                            }, _('Copy to Clipboard')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': ui.hideModal
+                            }, _('Close'))
+                        ])
+                    ]);
+                });
+        };
+
+        o = s.taboption('diagnostics', form.Button, '_check_dnsmasq');
+        o.title = _('DNSMasq Configuration');
+        o.description = _('View current DNSMasq configuration settings');
+        o.inputtitle = _('Check DNSMasq');
+        o.inputstyle = 'apply';
+        o.onclick = function () {
+            return fs.exec('/etc/init.d/podkop', ['check_dnsmasq'])
+                .then(function (res) {
+                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                    ui.showModal(_('DNSMasq Configuration'), [
+                        E('div', {
+                            style:
+                                'max-height: 70vh;' +
+                                'overflow-y: auto;' +
+                                'margin: 1em 0;' +
+                                'padding: 1.5em;' +
+                                'background: #f8f9fa;' +
+                                'border: 1px solid #e9ecef;' +
+                                'border-radius: 4px;' +
+                                'font-family: monospace;' +
+                                'white-space: pre-wrap;' +
+                                'word-wrap: break-word;' +
+                                'line-height: 1.5;' +
+                                'font-size: 14px;'
+                        }, [
+                            E('pre', { style: 'margin: 0;' }, formattedOutput)
+                        ]),
+                        E('div', {
+                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                        }, [
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    const textarea = document.createElement('textarea');
+                                    textarea.value = formattedOutput;
+                                    document.body.appendChild(textarea);
+                                    textarea.select();
+                                    try {
+                                        document.execCommand('copy');
+                                    } catch (err) {
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                    }
+                                    document.body.removeChild(textarea);
+                                }
+                            }, _('Copy to Clipboard')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': ui.hideModal
+                            }, _('Close'))
+                        ])
+                    ]);
+                });
+        };
+
+        o = s.taboption('diagnostics', form.Button, '_show_sing_box_config');
+        o.title = _('Sing-Box Configuration');
+        o.description = _('Show current sing-box configuration');
+        o.inputtitle = _('Show Sing-Box Config');
+        o.inputstyle = 'apply';
+        o.onclick = function () {
+            return fs.exec('/etc/init.d/podkop', ['show_sing_box_config'])
+                .then(function (res) {
+                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                    ui.showModal(_('Sing-Box Configuration'), [
+                        E('div', {
+                            style:
+                                'max-height: 70vh;' +
+                                'overflow-y: auto;' +
+                                'margin: 1em 0;' +
+                                'padding: 1.5em;' +
+                                'background: #f8f9fa;' +
+                                'border: 1px solid #e9ecef;' +
+                                'border-radius: 4px;' +
+                                'font-family: monospace;' +
+                                'white-space: pre-wrap;' +
+                                'word-wrap: break-word;' +
+                                'line-height: 1.5;' +
+                                'font-size: 14px;'
+                        }, [
+                            E('pre', { style: 'margin: 0;' }, formattedOutput)
+                        ]),
+                        E('div', {
+                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                        }, [
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    const textarea = document.createElement('textarea');
+                                    textarea.value = '```json\n' + formattedOutput + '\n```';
+                                    document.body.appendChild(textarea);
+                                    textarea.select();
+                                    try {
+                                        document.execCommand('copy');
+                                    } catch (err) {
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                    }
+                                    document.body.removeChild(textarea);
+                                }
+                            }, _('Copy to Clipboard')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': ui.hideModal
+                            }, _('Close'))
+                        ])
+                    ]);
                 });
         };
 
         o = s.taboption('diagnostics', form.Button, '_show_config');
-        o.title = _('Show Config');
+        o.title = _('Podkop Configuration');
         o.description = _('Show current podkop configuration with masked sensitive data');
         o.inputtitle = _('Show Config');
         o.inputstyle = 'apply';
@@ -574,58 +780,33 @@ return view.extend({
             return fs.exec('/etc/init.d/podkop', ['show_config'])
                 .then(function (res) {
                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-
-                    const modalElement = ui.showModal(_('Podkop Configuration'), [
-                        E('div', { class: 'cbi-section' }, [
-                            E('pre', { class: 'cbi-value-field' }, formattedOutput)
-                        ]),
-                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
-                            E('button', {
-                                'class': 'btn cbi-button-save',
-                                'click': function () {
-                                    const textarea = document.createElement('textarea');
-                                    textarea.value = '```\n' + formattedOutput + '\n```';
-                                    document.body.appendChild(textarea);
-                                    textarea.select();
-                                    try {
-                                        document.execCommand('copy');
-                                        ui.hideModal();
-                                    } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                    }
-                                    document.body.removeChild(textarea);
-                                }
-                            }, _('Copy to Clipboard')),
-                            E('button', {
-                                'class': 'btn cbi-button-neutral',
-                                'click': ui.hideModal
-                            }, _('Close'))
-                        ])
-                    ], 'large');
-
-                    if (modalElement && modalElement.parentElement) {
-                        modalElement.parentElement.classList.add('modal-overlay-large');
-                    }
+                    ui.showModal(_('Podkop Configuration'), [
+                        E('div', { style: 'white-space:pre-wrap;padding:5px' }, formattedOutput),
+                        E('div', { class: 'right' }, E('button', {
+                            class: 'btn',
+                            click: ui.hideModal
+                        }, _('Close')))
+                    ]);
                 });
         };
 
         o = s.taboption('diagnostics', form.Button, '_list_update');
-        o.title = _('Update lists');
+        o.title = _('Update Lists');
         o.description = _('Update all lists in config');
-        o.inputtitle = _('Update lists');
+        o.inputtitle = _('Update Lists');
         o.inputstyle = 'apply';
         o.onclick = function () {
-            fs.exec('/etc/init.d/podkop', ['list_update']);
-
-            ui.showModal(_('List Update'), [
-                E('p', {}, _('Lists will be updated in background. You can check the progress in system logs.')),
-                E('div', { class: 'right' }, [
-                    E('button', {
-                        'class': 'btn',
-                        'click': ui.hideModal
-                    }, _('Close'))
-                ])
-            ]);
+            return fs.exec('/etc/init.d/podkop', ['list_update'])
+                .then(function (res) {
+                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                    ui.showModal(_('Lists Update Results'), [
+                        E('div', { style: 'white-space:pre-wrap;padding:5px' }, formattedOutput),
+                        E('div', { class: 'right' }, E('button', {
+                            class: 'btn',
+                            click: ui.hideModal
+                        }, _('Close')))
+                    ]);
+                });
         };
 
 

@@ -7,18 +7,18 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="list_update check_proxy check_nft check_github check_logs check_all check_three main show_config show_version"
+EXTRA_COMMANDS="main list_update check_proxy check_nft check_github check_logs check_sing_box_connections check_sing_box_logs check_dnsmasq show_config show_version show_sing_box_config"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
-        sing_box_config_vless For test vless string
         check_proxy          Check if sing-box proxy works correctly
         check_nft           Show PodkopTable nftables rules
         check_github        Check GitHub connectivity and lists availability
         check_logs         Show podkop logs from system journal
-        check_all          Run all checks
-        check_three         Run check_proxy, check_nft and check_github
-        main                Main function
+        check_sing_box_connections Show active sing-box network connections
+        check_sing_box_logs Show recent sing-box logs
+        check_dnsmasq       Show current DNSMasq configuration
         show_config         Show current configuration with masked sensitive data
-        show_version        Show current version"
+        show_version        Show current version
+        show_sing_box_config Show current sing-box configuration"
 
 [ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
 
@@ -1390,15 +1390,29 @@ check_proxy() {
     fi
 
     jq '
-        walk(
-            if type == "object" then
-                with_entries(
-                    if [.key] | inside(["uuid", "server", "server_name", "password", "public_key", "short_id"]) then 
-                        .value = "MASKED" 
-                    else . end
-                )
-            else . end
-        )' $SING_BOX_CONFIG
+    walk(
+        if type == "object" then
+            with_entries(
+                if .key == "uuid" then
+                    .value = "MASKED"
+                elif .key == "server" then
+                    .value = "MASKED"
+                elif .key == "server_name" then
+                    .value = "MASKED"
+                elif .key == "password" then
+                    .value = "MASKED"
+                elif .key == "public_key" then
+                    .value = "MASKED"
+                elif .key == "short_id" then
+                    .value = "MASKED"
+                elif .key == "fingerprint" then
+                    .value = "MASKED"
+                elif .key == "server_port" then
+                    .value = "MASKED"
+                else . end
+            )
+        else . end
+    )' $SING_BOX_CONFIG
 
     nolog "Checking proxy connection..."
 
@@ -1437,22 +1451,18 @@ check_nft() {
 
     nolog "Checking PodkopTable rules..."
     
-    local sets="podkop_domains podkop_subnets podkop_subnets_discord localv4"
-    
-    nolog "Sets statistics:"
-    for set_name in $sets; do
-        if nft list set inet PodkopTable $set_name >/dev/null 2>&1; then
-            local count=$(nft list set inet PodkopTable $set_name 2>/dev/null | grep -c ",")
-            nolog "- $set_name: $count elements"
-        else
-            nolog "- $set_name: not found"
-        fi
-    done
+    # Check if table exists
+    if ! nft list table inet PodkopTable >/dev/null 2>&1; then
+        nolog "PodkopTable not found"
+        return 1
+    fi
 
-    nolog "Current chains and rules:"
-    nft list table inet PodkopTable | grep "chain\|counter"
+    # Get all sets
+    nolog "\nSets configuration:"
 
-    nolog "NFT check completed"
+    nft list table inet PodkopTable
+
+    nolog "\nNFT check completed"
 }
 
 check_github() {
@@ -1477,37 +1487,94 @@ check_github() {
     done
 }
 
+check_dnsmasq() {
+    nolog "Checking dnsmasq configuration..."
+
+    local config=$(uci show dhcp.@dnsmasq[0])
+    if [ -z "$config" ]; then
+        nolog "No dnsmasq configuration found"
+        return 1
+    fi
+
+    echo "$config" | while IFS='=' read -r key value; do
+        nolog "$key = $value"
+    done
+}
+
+check_sing_box_connections() {
+    nolog "Checking sing-box connections..."
+    
+    if ! command -v netstat >/dev/null 2>&1; then
+        nolog "netstat is not installed"
+        return 1
+    fi
+
+    local connections=$(netstat -tuanp | grep sing-box)
+    if [ -z "$connections" ]; then
+        nolog "No active sing-box connections found"
+        return 1
+    fi
+
+    echo "$connections" | while read -r line; do
+        nolog "$line"
+    done
+}
+
+check_sing_box_logs() {
+    nolog "Showing sing-box logs from system journal..."
+
+    local logs=$(logread -e sing-box | tail -n 50)
+    if [ -z "$logs" ]; then
+        nolog "No sing-box logs found"
+        return 1
+    fi
+
+    echo "$logs"
+}
+
 check_logs() {
     nolog "Showing podkop logs from system journal..."
     
     if command -v logread >/dev/null 2>&1; then
-        logread -e "podkop" | tail -n 50
+        logread -e podkop  | tail -n 50
     else
         nolog "Error: logread command not found"
         return 1
     fi
 }
 
-check_three() {
-    nolog "\n=== Checking GitHub connectivity ==="
-    check_github
+show_sing_box_config() {
+    nolog "Current sing-box configuration:"
     
-    nolog "\n=== Checking proxy settings ==="
-    check_proxy
-    
-    nolog "\n=== Checking NFT rules ==="
-    check_nft
-    
-    nolog "\nFull diagnostic check completed"
-}
+    if [ ! -f "$SING_BOX_CONFIG" ]; then
+        nolog "Configuration file not found"
+        return 1
+    fi
 
-check_all() {
-    nolog "Starting full diagnostic check..."
-    
-    nolog "\n=== Checking recent logs ==="
-    check_logs
-
-    check_three
+    jq '
+    walk(
+        if type == "object" then
+            with_entries(
+                if .key == "uuid" then
+                    .value = "MASKED"
+                elif .key == "server" then
+                    .value = "MASKED"
+                elif .key == "server_name" then
+                    .value = "MASKED"
+                elif .key == "password" then
+                    .value = "MASKED"
+                elif .key == "public_key" then
+                    .value = "MASKED"
+                elif .key == "short_id" then
+                    .value = "MASKED"
+                elif .key == "fingerprint" then
+                    .value = "MASKED"
+                elif .key == "server_port" then
+                    .value = "MASKED"
+                else . end
+            )
+        else . end
+    )' "$SING_BOX_CONFIG"
 }
 
 show_config() {
