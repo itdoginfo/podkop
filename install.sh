@@ -416,6 +416,10 @@ check_system() {
 }
 
 sing_box() {
+    if ! opkg list-installed | grep -q "^sing-box"; then
+        return
+    fi
+
     sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
     required_version="1.11.1"
 
