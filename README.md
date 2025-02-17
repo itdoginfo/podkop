@@ -46,7 +46,7 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 
 # Удаление
 ```
-opkg remove luci-app-podkop podkop
+opkg remove luci-i18n-podkop-ru luci-app-podkop podkop
 ```
 
 Если был установлен русский язык

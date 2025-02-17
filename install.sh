@@ -72,6 +72,7 @@ main() {
         if [ -n "$file" ]; then
             echo "Installing $file"
             opkg install "$DOWNLOAD_DIR/$file"
+            sleep 3
         fi
     done
 
