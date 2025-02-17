@@ -179,6 +179,14 @@ Wiki
 Хз как сделать
 - [ ] Добавить label от конфига vless\ss\etc в luci.
 
+# Установка версии v0.2.5
+Удаляет полностью все пакеты podkop. Удаляет текущую конфигурацию podkop.
+После установки **обязательно** сбросьте кэш в LuCI.
+
+```
+sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install-v0.2.5.sh)
+```
+
 # Разработка
 Есть два варианта:
 - Просто поставить пакет на роутер или виртуалку и прям редактировать через SFTP (opkg install openssh-sftp-server)
