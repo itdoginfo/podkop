@@ -39,7 +39,7 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 sh <(wget -O - https://github.com/itdoginfo/podkop/releases/download/v0.3.**/install.sh)
 ```
 
-Аналогично предыдущему скрипту, но нужно указать версии в ссылке.
+Аналогично предыдущему скрипту, но нужно указать версию в ссылке.
 
 ## Вручную
 Сделать `opkg update`, чтоб установились зависимости.
