@@ -45,7 +45,7 @@ jobs:
           # Add and commit the modified install script
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git commit -m "Change install script for version ${VERSION}"
+          git commit -am "Change install script for version ${VERSION}"
           git push origin "refs/tags/v${VERSION}"
 
       - name: Remove Docker container
