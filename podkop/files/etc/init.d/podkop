@@ -1210,8 +1210,11 @@ process_remote_ruleset() {
 sing_box_rule_preset() {
     config_get custom_domains_list_type "$section" "custom_domains_list_type"
     config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled"
+    config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
+    config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
 
-    if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_subnets_list_enabled" != "disabled" ]; then
+    if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_subnets_list_enabled" != "disabled" ]
+    || [ "$custom_local_domains_list_enabled" = "1" ] || [ "$custom_download_domains_list_enabled" = "1" ]; then
         sing_box_rules "$section" "$section"
         sing_box_dns_rule_fakeip_section "$section" "$section"
     fi
