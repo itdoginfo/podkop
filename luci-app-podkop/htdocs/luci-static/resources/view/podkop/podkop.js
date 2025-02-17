@@ -781,11 +781,46 @@ return view.extend({
                 .then(function (res) {
                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                     ui.showModal(_('Podkop Configuration'), [
-                        E('div', { style: 'white-space:pre-wrap;padding:5px' }, formattedOutput),
-                        E('div', { class: 'right' }, E('button', {
-                            class: 'btn',
-                            click: ui.hideModal
-                        }, _('Close')))
+                        E('div', {
+                            style:
+                                'max-height: 70vh;' +
+                                'overflow-y: auto;' +
+                                'margin: 1em 0;' +
+                                'padding: 1.5em;' +
+                                'background: #f8f9fa;' +
+                                'border: 1px solid #e9ecef;' +
+                                'border-radius: 4px;' +
+                                'font-family: monospace;' +
+                                'white-space: pre-wrap;' +
+                                'word-wrap: break-word;' +
+                                'line-height: 1.5;' +
+                                'font-size: 14px;'
+                        }, [
+                            E('pre', { style: 'margin: 0;' }, formattedOutput)
+                        ]),
+                        E('div', {
+                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                        }, [
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    const textarea = document.createElement('textarea');
+                                    textarea.value = formattedOutput;
+                                    document.body.appendChild(textarea);
+                                    textarea.select();
+                                    try {
+                                        document.execCommand('copy');
+                                    } catch (err) {
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                    }
+                                    document.body.removeChild(textarea);
+                                }
+                            }, _('Copy to Clipboard')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': ui.hideModal
+                            }, _('Close'))
+                        ])
                     ]);
                 });
         };
