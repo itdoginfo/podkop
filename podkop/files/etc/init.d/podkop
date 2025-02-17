@@ -35,6 +35,7 @@ SUBNETS_TELERAM="${GITHUB_RAW_URL}/Subnets/IPv4/telegram.lst"
 SING_BOX_CONFIG="/etc/sing-box/config.json"
 CACHE_FILE_PATH="/tmp/cache.db"
 FAKEIP="198.18.0.0/15"
+VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram"
 
 start_service() {
     log "Start podkop"
@@ -48,8 +49,7 @@ start_service() {
     fi
 
     if opkg list-installed | grep -qE "iptables|kmod-iptab"; then
-        echo "Found incompatible iptables packages. If you're using FriendlyWrt: https://t.me/itdogchat/44512/181082"
-        exit 1
+        printf "\033[31;1mFound incompatible iptables packages. If you're using FriendlyWrt: https://t.me/itdogchat/44512/181082\033[0m\n"
     fi
 
     if ! ip addr | grep -q "br-lan"; then
@@ -58,6 +58,8 @@ start_service() {
     fi
     
     migration
+
+    config_foreach process_validate_service
 
 	procd_open_instance
 	procd_set_param command /bin/sh -c "/etc/init.d/podkop main &"
@@ -202,7 +204,7 @@ main() {
     fi
 }
 
-# Migrations funcs
+# Migrations and validation funcs
 migration() {
     # list migrate
     local CONFIG="/etc/config/podkop"
@@ -244,6 +246,26 @@ migration() {
     if grep -q "^filter-rr=HTTPS" "/etc/dnsmasq.conf"; then
         log "Found and removed filter-rr=HTTPS in dnsmasq config"
         sed -i '/^filter-rr=HTTPS/d' "/etc/dnsmasq.conf"
+    fi
+}
+
+validate_service() {
+    local domain="$1"
+    
+    for valid_service in $VALID_SERVICES; do
+        if [ "$domain" = "$valid_service" ]; then
+            return 0
+        fi
+    done
+
+    log "Invalid service in domain_list: $domain. Exiting. Check config and LuCI cache"
+    exit 1
+}
+
+process_validate_service() {
+    config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
+    if [ "$domain_list_enabled" -eq 1 ]; then
+        config_list_foreach "$section" domain_list validate_service
     fi
 }
 
@@ -308,6 +330,7 @@ dnsmasq_rm() {
     uci set dhcp.@dnsmasq[0].filter_aaaa="0"
     uci set dhcp.@dnsmasq[0].cachesize="1000"
     uci -q delete dhcp.@dnsmasq[0].server
+    uci add_list dhcp.@dnsmasq[0].server="8.8.8.8"
     uci commit dhcp
 
     /etc/init.d/dnsmasq restart
