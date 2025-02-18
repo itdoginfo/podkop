@@ -307,7 +307,7 @@ msgstr ""
 msgid "Full Diagnostic Results"
 msgstr ""
 
-msgid "Failed to copy: "
+msgid "Failed to copy: %s"
 msgstr ""
 
 msgid "Copy to Clipboard"
@@ -328,7 +328,7 @@ msgstr ""
 msgid "View Logs"
 msgstr ""
 
-msgid "Failed to copy logs: "
+msgid "Failed to copy logs: %s"
 msgstr ""
 
 msgid "Show Config"
@@ -468,7 +468,7 @@ msgid "Warning: %s cannot be used together with %s. Previous selections have bee
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
-msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s have been removed from selection."
+msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
@@ -477,4 +477,358 @@ msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
 msgid "Russia inside restrictions"
+msgstr ""
+
+msgid "Version Information"
+msgstr ""
+
+msgid "Show version information for all components"
+msgstr ""
+
+msgid "Show Versions"
+msgstr ""
+
+msgid "Copied!"
+msgstr ""
+
+msgid "Service Status"
+msgstr ""
+
+msgid "Podkop Status"
+msgstr ""
+
+msgid "Start Podkop"
+msgstr ""
+
+msgid "Stop Podkop"
+msgstr ""
+
+msgid "Restart Podkop"
+msgstr ""
+
+msgid "Enable Podkop"
+msgstr ""
+
+msgid "Disable Podkop"
+msgstr ""
+
+msgid "Loading diagnostics..."
+msgstr ""
+
+msgid "Error loading diagnostics"
+msgstr ""
+
+msgid "Sing-box Status"
+msgstr ""
+
+msgid "Diagnostic Tools"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "Every 3 hours"
+msgstr ""
+
+msgid "Every day"
+msgstr ""
+
+msgid "Every 3 days"
+msgstr ""
+
+msgid "Device Model: "
+msgstr ""
+
+msgid "OpenWrt Version: "
+msgstr ""
+
+msgid "Sing-box: "
+msgstr ""
+
+msgid "LuCI App: "
+msgstr ""
+
+msgid "Podkop: "
+msgstr ""
+
+msgid "Check NFT Rules"
+msgstr ""
+
+msgid "Update Lists"
+msgstr ""
+
+msgid "Invalid path format. Path must start with \"/\" and contain only valid characters (letters, numbers, \"-\", \"_\", \"/\", \".\")"
+msgstr ""
+
+msgid "Invalid path format"
+msgstr ""
+
+msgid "CIDR must be between 0 and 32 in: %s"
+msgstr ""
+
+msgid "Invalid format: %s. Use format: X.X.X.X or X.X.X.X/Y"
+msgstr ""
+
+msgid "Failed to copy: %s"
+msgstr ""
+
+msgid "Failed to apply changes: %s"
+msgstr ""
+
+msgid "Operation completed successfully"
+msgstr ""
+
+msgid "Operation failed: %s"
+msgstr ""
+
+msgid "Configuration saved"
+msgstr ""
+
+msgid "Save failed: %s"
+msgstr ""
+
+msgid "Loading..."
+msgstr ""
+
+msgid "Processing..."
+msgstr ""
+
+msgid "Updating..."
+msgstr ""
+
+msgid "Checking..."
+msgstr ""
+
+msgid "Please wait..."
+msgstr ""
+
+msgid "Alert"
+msgstr ""
+
+msgid "Warning"
+msgstr ""
+
+msgid "Success"
+msgstr ""
+
+msgid "Info"
+msgstr ""
+
+msgid "Error"
+msgstr ""
+
+msgid "Debug"
+msgstr ""
+
+msgid "Trace"
+msgstr ""
+
+msgid "Yes"
+msgstr ""
+
+msgid "No"
+msgstr ""
+
+msgid "OK"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Apply"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Add"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Move Up"
+msgstr ""
+
+msgid "Move Down"
+msgstr ""
+
+msgid "Expand"
+msgstr ""
+
+msgid "Collapse"
+msgstr ""
+
+msgid "Show"
+msgstr ""
+
+msgid "Hide"
+msgstr ""
+
+msgid "Enable"
+msgstr ""
+
+msgid "Disable"
+msgstr ""
+
+msgid "Start"
+msgstr ""
+
+msgid "Stop"
+msgstr ""
+
+msgid "Restart"
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
+msgid "Refresh"
+msgstr ""
+
+msgid "Update"
+msgstr ""
+
+msgid "Install"
+msgstr ""
+
+msgid "Uninstall"
+msgstr ""
+
+msgid "Configure"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "Options"
+msgstr ""
+
+msgid "Advanced"
+msgstr ""
+
+msgid "Basic"
+msgstr ""
+
+msgid "General"
+msgstr ""
+
+msgid "Details"
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+msgid "Information"
+msgstr ""
+
+msgid "Configuration"
+msgstr ""
+
+msgid "Management"
+msgstr ""
+
+msgid "System"
+msgstr ""
+
+msgid "Network"
+msgstr ""
+
+msgid "Services"
+msgstr ""
+
+msgid "Remote Domain Lists URL"
+msgstr ""
+
+msgid "Enter URL to download domain list"
+msgstr ""
+
+msgid "Update Interval"
+msgstr ""
+
+msgid "Select how often to update the lists"
+msgstr ""
+
+msgid "Last Update"
+msgstr ""
+
+msgid "Last update time"
+msgstr ""
+
+msgid "Next Update"
+msgstr ""
+
+msgid "Next scheduled update time"
+msgstr ""
+
+msgid "Version"
+msgstr ""
+
+msgid "Component version"
+msgstr ""
+
+msgid "Installed"
+msgstr ""
+
+msgid "Not installed"
+msgstr ""
+
+msgid "Unknown version"
+msgstr ""
+
+msgid "Error parsing version"
+msgstr ""
+
+msgid "Error parsing status"
+msgstr ""
+
+msgid "Service is running"
+msgstr ""
+
+msgid "Service is stopped"
+msgstr ""
+
+msgid "Service is enabled"
+msgstr ""
+
+msgid "Service is disabled"
+msgstr ""
+
+msgid "Service status unknown"
+msgstr ""
+
+msgid "Error checking service status"
+msgstr ""
+
+msgid "Diagnostic check in progress..."
+msgstr ""
+
+msgid "Diagnostic check completed"
+msgstr ""
+
+msgid "Diagnostic check failed"
+msgstr ""
+
+msgid "Update in progress..."
+msgstr ""
+
+msgid "Update completed"
+msgstr ""
+
+msgid "Update failed"
+msgstr ""
+
+msgid "Check in progress..."
+msgstr ""
+
+msgid "Check completed"
+msgstr ""
+
+msgid "Check failed"
 msgstr ""
