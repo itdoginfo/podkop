@@ -649,16 +649,13 @@ return view.extend({
         // Service Status Section
         let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system) {
             return E('div', { 'class': 'cbi-section' }, [
-                E('h3', {}, _('Service Status')),
                 E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
                     // Podkop Column
                     E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
                         E('div', { 'style': 'margin-bottom: 15px;' }, [
                             E('strong', {}, _('Podkop Status')),
                             E('br'),
-                            E('span', {
-                                'style': `color: ${podkopStatus.running ? '#4caf50' : '#f44336'}`
-                            }, [
+                            E('span', { 'style': `color: ${podkopStatus.running ? '#4caf50' : '#f44336'}` }, [
                                 podkopStatus.running ? '✔' : '✘',
                                 ' ',
                                 podkopStatus.status
@@ -809,9 +806,7 @@ return view.extend({
                         E('div', { 'style': 'margin-bottom: 15px;' }, [
                             E('strong', {}, _('Sing-box Status')),
                             E('br'),
-                            E('span', {
-                                'style': `color: ${singboxStatus.running ? '#4caf50' : '#f44336'}`
-                            }, [
+                            E('span', { 'style': `color: ${singboxStatus.running ? '#4caf50' : '#f44336'}` }, [
                                 singboxStatus.running ? '✔' : '✘',
                                 ' ',
                                 `${singboxStatus.status}`
@@ -1175,7 +1170,11 @@ return view.extend({
         o = s.taboption('diagnostics', form.DummyValue, '_status');
         o.rawhtml = true;
         o.cfgvalue = function () {
-            return Promise.all([
+            return E('div', { id: 'diagnostics-status' }, _('Loading diagnostics...'));
+        };
+
+        function updateDiagnostics() {
+            Promise.all([
                 fs.exec('/etc/init.d/podkop', ['get_status']),
                 fs.exec('/etc/init.d/podkop', ['get_sing_box_status']),
                 fs.exec('/etc/init.d/podkop', ['show_version']),
@@ -1186,17 +1185,21 @@ return view.extend({
                 try {
                     const parsedPodkopStatus = JSON.parse(podkopStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
                     const parsedSingboxStatus = JSON.parse(singboxStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
-                    return createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system);
+                    var newContent = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system);
+                    var container = document.getElementById('diagnostics-status');
+                    if (container) {
+                        container.innerHTML = '';
+                        container.appendChild(newContent);
+                    }
                 } catch (e) {
-                    console.error('Error parsing status:', e);
-                    return E('div', { 'class': 'alert-message warning' }, [
-                        E('strong', {}, _('Error loading status')), E('br'),
-                        E('pre', {}, e.toString())
-                    ]);
+                    console.error('Error parsing diagnostics status:', e);
+                    var container = document.getElementById('diagnostics-status');
+                    if (container) {
+                        container.innerHTML = '<div class="alert-message warning"><strong>' + _('Error loading diagnostics') + '</strong><br><pre>' + e.toString() + '</pre></div>';
+                    }
                 }
             });
-        };
-
+        }
 
         // Add new section 'extra'
         var s = m.section(form.TypedSection, 'extra', _('Extra configurations'));
@@ -1523,6 +1526,15 @@ return view.extend({
         // o = s.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080 (extra +1)'));
         // o.default = '0';
         // o.rmempty = false;
-        return m.render();
+
+        let map_promise = m.render();
+
+        map_promise.then(node => {
+            node.classList.add('fade-in');
+            updateDiagnostics();
+            return node;
+        });
+
+        return map_promise;
     }
 });
