@@ -7,7 +7,7 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="main list_update check_proxy check_nft check_github check_logs check_sing_box_connections check_sing_box_logs check_dnsmasq show_config show_version show_sing_box_config"
+EXTRA_COMMANDS="main list_update check_proxy check_nft check_github check_logs check_sing_box_connections check_sing_box_logs check_dnsmasq show_config show_version show_sing_box_config show_luci_version show_sing_box_version show_system_info"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         check_proxy          Check if sing-box proxy works correctly
         check_nft           Show PodkopTable nftables rules
@@ -18,7 +18,10 @@ EXTRA_HELP="        list_update     Updating domain and subnet lists
         check_dnsmasq       Show current DNSMasq configuration
         show_config         Show current configuration with masked sensitive data
         show_version        Show current version
-        show_sing_box_config Show current sing-box configuration"
+        show_sing_box_config Show current sing-box configuration
+        show_luci_version   Show LuCI app version
+        show_sing_box_version Show sing-box version
+        show_system_info    Show OpenWrt version and device model"
 
 [ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
 
@@ -1608,4 +1611,22 @@ show_config() {
 show_version() {
     local version=$(opkg info podkop | grep -m 1 "Version:" | cut -d' ' -f2)
     echo "$version"
+}
+
+show_luci_version() {
+    local version=$(opkg info luci-app-podkop | grep -m 1 "Version:" | cut -d' ' -f2)
+    echo "$version"
+}
+
+show_sing_box_version() {
+    local version=$(opkg info sing-box | grep -m 1 "Version:" | cut -d' ' -f2)
+    echo "$version"
+}
+
+show_system_info() {
+    echo "=== OpenWrt Version ==="
+    grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2
+    echo
+    echo "=== Device Model ==="
+    cat /tmp/sysinfo/model
 }

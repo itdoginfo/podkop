@@ -468,7 +468,7 @@ msgid "Warning: %s cannot be used together with %s. Previous selections have bee
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
-msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s have been removed from selection."
+msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
@@ -477,4 +477,16 @@ msgstr ""
 
 #: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
 msgid "Russia inside restrictions"
+msgstr ""
+
+msgid "Version Information"
+msgstr ""
+
+msgid "Show version information for all components"
+msgstr ""
+
+msgid "Show Versions"
+msgstr ""
+
+msgid "Copied!"
 msgstr ""

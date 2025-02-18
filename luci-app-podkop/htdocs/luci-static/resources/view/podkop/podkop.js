@@ -153,7 +153,7 @@ return view.extend({
                     if (removedServices.length > 0) {
                         newValues = newValues.filter(v => allowedWithRussiaInside.includes(v));
 
-                        const warningMsg = _('Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s have been removed from selection.').format(
+                        const warningMsg = _('Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection.').format(
                             removedServices.join(', ')
                         );
 
@@ -469,7 +469,6 @@ return view.extend({
         o.ucisection = 'main';
 
         // Additional Settings Tab
-
         o = s.tab('additional', _('Additional Settings'));
 
         o = s.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
@@ -497,6 +496,7 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
+        // Diagnostics tab
         o = s.tab('diagnostics', _('Diagnostics'));
 
         function formatDiagnosticOutput(output) {
@@ -511,6 +511,76 @@ return view.extend({
                 .replace(/:\s+(available|not found)$/gm, (_, status) =>
                     `: ${status === 'available' ? '✓' : '✗'}`);
         }
+
+        // Version Information Section
+        o = s.taboption('diagnostics', form.Button, '_show_versions');
+        o.title = _('Version Information');
+        o.description = _('Show version information for all components');
+        o.inputtitle = _('Show Versions');
+        o.inputstyle = 'apply';
+        o.onclick = function () {
+            Promise.all([
+                fs.exec('/etc/init.d/podkop', ['show_version']),
+                fs.exec('/etc/init.d/podkop', ['show_luci_version']),
+                fs.exec('/etc/init.d/podkop', ['show_sing_box_version']),
+                fs.exec('/etc/init.d/podkop', ['show_system_info'])
+            ]).then(function ([podkop, luci, singbox, system]) {
+                const versions = [
+                    '=== Podkop Version ===\n' + (podkop.stdout || _('No output')) + '\n',
+                    '=== LuCI App ===\n' + (luci.stdout || _('No output')) + '\n',
+                    '=== sing-box ===\n' + (singbox.stdout || _('No output')) + '\n',
+                    system.stdout || _('No output')
+                ].join('\n');
+
+                const formattedOutput = formatDiagnosticOutput(versions);
+                ui.showModal(_('Version Information'), [
+                    E('div', {
+                        style:
+                            'max-height: 70vh;' +
+                            'overflow-y: auto;' +
+                            'margin: 1em 0;' +
+                            'padding: 1.5em;' +
+                            'background: #f8f9fa;' +
+                            'border: 1px solid #e9ecef;' +
+                            'border-radius: 4px;' +
+                            'font-family: monospace;' +
+                            'white-space: pre-wrap;' +
+                            'word-wrap: break-word;' +
+                            'line-height: 1.5;' +
+                            'font-size: 14px;'
+                    }, [
+                        E('pre', { style: 'margin: 0;' }, formattedOutput)
+                    ]),
+                    E('div', {
+                        style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                    }, [
+                        E('button', {
+                            'class': 'btn',
+                            'click': function (ev) {
+                                const textarea = document.createElement('textarea');
+                                textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                document.body.appendChild(textarea);
+                                textarea.select();
+                                try {
+                                    document.execCommand('copy');
+                                    ev.target.textContent = _('Copied!');
+                                    setTimeout(() => {
+                                        ev.target.textContent = _('Copy to Clipboard');
+                                    }, 1000);
+                                } catch (err) {
+                                    ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                }
+                                document.body.removeChild(textarea);
+                            }
+                        }, _('Copy to Clipboard')),
+                        E('button', {
+                            'class': 'btn',
+                            'click': ui.hideModal
+                        }, _('Close'))
+                    ])
+                ]);
+            });
+        };
 
         // Connection Checks Section
         o = s.taboption('diagnostics', form.Button, '_check_nft');
@@ -545,13 +615,17 @@ return view.extend({
                         }, [
                             E('button', {
                                 'class': 'btn',
-                                'click': function () {
+                                'click': function (ev) {
                                     const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
+                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
                                     document.body.appendChild(textarea);
                                     textarea.select();
                                     try {
                                         document.execCommand('copy');
+                                        ev.target.textContent = _('Copied!');
+                                        setTimeout(() => {
+                                            ev.target.textContent = _('Copy to Clipboard');
+                                        }, 1000);
                                     } catch (err) {
                                         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
                                     }
@@ -566,8 +640,6 @@ return view.extend({
                     ]);
                 });
         };
-
-
 
         // Logs Section
         o = s.taboption('diagnostics', form.Button, '_check_sing_box_logs');
@@ -602,15 +674,19 @@ return view.extend({
                         }, [
                             E('button', {
                                 'class': 'btn',
-                                'click': function () {
+                                'click': function (ev) {
                                     const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
+                                    textarea.value = '```logs\n' + formattedOutput + '\n```';
                                     document.body.appendChild(textarea);
                                     textarea.select();
                                     try {
                                         document.execCommand('copy');
+                                        ev.target.textContent = _('Copied!');
+                                        setTimeout(() => {
+                                            ev.target.textContent = _('Copy to Clipboard');
+                                        }, 1000);
                                     } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy logs: ') + err.message));
                                     }
                                     document.body.removeChild(textarea);
                                 }
@@ -656,15 +732,19 @@ return view.extend({
                         }, [
                             E('button', {
                                 'class': 'btn',
-                                'click': function () {
+                                'click': function (ev) {
                                     const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
+                                    textarea.value = '```logs\n' + formattedOutput + '\n```';
                                     document.body.appendChild(textarea);
                                     textarea.select();
                                     try {
                                         document.execCommand('copy');
+                                        ev.target.textContent = _('Copied!');
+                                        setTimeout(() => {
+                                            ev.target.textContent = _('Copy to Clipboard');
+                                        }, 1000);
                                     } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                        ui.addNotification(null, E('p', {}, _('Failed to copy logs: ') + err.message));
                                     }
                                     document.body.removeChild(textarea);
                                 }
@@ -711,13 +791,17 @@ return view.extend({
                         }, [
                             E('button', {
                                 'class': 'btn',
-                                'click': function () {
+                                'click': function (ev) {
                                     const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
+                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
                                     document.body.appendChild(textarea);
                                     textarea.select();
                                     try {
                                         document.execCommand('copy');
+                                        ev.target.textContent = _('Copied!');
+                                        setTimeout(() => {
+                                            ev.target.textContent = _('Copy to Clipboard');
+                                        }, 1000);
                                     } catch (err) {
                                         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
                                     }
@@ -765,13 +849,17 @@ return view.extend({
                         }, [
                             E('button', {
                                 'class': 'btn',
-                                'click': function () {
+                                'click': function (ev) {
                                     const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
+                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
                                     document.body.appendChild(textarea);
                                     textarea.select();
                                     try {
                                         document.execCommand('copy');
+                                        ev.target.textContent = _('Copied!');
+                                        setTimeout(() => {
+                                            ev.target.textContent = _('Copy to Clipboard');
+                                        }, 1000);
                                     } catch (err) {
                                         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
                                     }
@@ -819,13 +907,17 @@ return view.extend({
                         }, [
                             E('button', {
                                 'class': 'btn',
-                                'click': function () {
+                                'click': function (ev) {
                                     const textarea = document.createElement('textarea');
                                     textarea.value = '```json\n' + formattedOutput + '\n```';
                                     document.body.appendChild(textarea);
                                     textarea.select();
                                     try {
                                         document.execCommand('copy');
+                                        ev.target.textContent = _('Copied!');
+                                        setTimeout(() => {
+                                            ev.target.textContent = _('Copy to Clipboard');
+                                        }, 1000);
                                     } catch (err) {
                                         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
                                     }
@@ -873,13 +965,17 @@ return view.extend({
                         }, [
                             E('button', {
                                 'class': 'btn',
-                                'click': function () {
+                                'click': function (ev) {
                                     const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
+                                    textarea.value = '```json\n' + formattedOutput + '\n```';
                                     document.body.appendChild(textarea);
                                     textarea.select();
                                     try {
                                         document.execCommand('copy');
+                                        ev.target.textContent = _('Copied!');
+                                        setTimeout(() => {
+                                            ev.target.textContent = _('Copy to Clipboard');
+                                        }, 1000);
                                     } catch (err) {
                                         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
                                     }
