@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=podkop
-PKG_VERSION:=0.3.9
+PKG_VERSION:=0.3.10
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=ITDog <podkop@itdog.info>
@@ -32,6 +32,8 @@ define Package/podkop/prerm
 #!/bin/sh
 
 grep -q "105 podkop" /etc/iproute2/rt_tables && sed -i "/105 podkop/d" /etc/iproute2/rt_tables
+
+/etc/init.d/podkop stop
 
 exit 0
 endef

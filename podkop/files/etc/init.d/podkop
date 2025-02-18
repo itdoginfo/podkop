@@ -76,7 +76,7 @@ stop_service() {
     remove_cron_job
     dnsmasq_rm
 
-    rm -rf /tmp/podkop/*
+    rm -rf /tmp/podkop/*.lst
 
     log "Flush nft"
     if nft list table inet PodkopTable >/dev/null 2>&1; then
