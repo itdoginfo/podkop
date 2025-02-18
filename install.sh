@@ -43,31 +43,42 @@ main() {
         add_tunnel
     fi
 
-    wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk' | while read -r url; do
+    download_success=0
+    while read -r url; do
         filename=$(basename "$url")
         filepath="$DOWNLOAD_DIR/$filename"
-
+        
         if [ -f "$filepath" ] && [ -s "$filepath" ]; then
             echo "$filename has already been uploaded"
+            download_success=1
             continue
         fi
-
+        
         attempt=0
         while [ $attempt -lt $COUNT ]; do
             echo "Download $filename (count $((attempt+1)))..."
-            wget -q -O "$filepath" "$url"
-            
-            if [ -s "$filepath" ]; then
-                echo "$filename successfully downloaded"
-                break
-            else
-                echo "Download error $filename. Retry..."
-                rm -f "$filepath"
-                attempt=$((attempt+1))
+            if wget -q -O "$filepath" "$url"; then
+                if [ -s "$filepath" ]; then
+                    echo "$filename successfully downloaded"
+                    download_success=1
+                    break
+                fi
             fi
+            echo "Download error $filename. Retry..."
+            rm -f "$filepath"
+            attempt=$((attempt+1))
         done
-    done
-
+        
+        if [ $attempt -eq $COUNT ]; then
+            echo "Failed to download $filename after $COUNT attempts"
+        fi
+    done < <(wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk')
+    
+    if [ $download_success -eq 0 ]; then
+        echo "No packages were downloaded successfully"
+        exit 1
+    fi
+    
     for pkg in podkop luci-app-podkop; do
         file=$(ls "$DOWNLOAD_DIR" | grep "^$pkg" | head -n 1)
         if [ -n "$file" ]; then
