@@ -21,75 +21,10 @@ return view.extend({
             <meta http-equiv="Expires" content="0">
             <style>
                 .cbi-value {
-                    margin-bottom: 4px !important;
-                }
-                .cbi-value-field {
-                    display: flex !important;
-                    align-items: flex-start !important;
-                    position: relative !important;
-                    margin-left: 10px;
-                }
-                .cbi-value-description {
-                    display: none !important;
-                }
-                .tooltip {
-                    position: absolute !important;
-                    background: #fff !important;
-                    border: 1px solid #ccc !important;
-                    border-radius: 4px !important;
-                    padding: 8px !important;
-                    max-width: 300px !important;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
-                    z-index: 1000 !important;
-                    color: #777777 !important;
-                    font-size: 13px !important;
-                    line-height: 1.4 !important;
-                }
-                .cbi-value-description::before {
-                    display: none !important;
+                    margin-bottom: 10px !important;
                 }
             </style>
         `);
-
-        // Add tooltip functionality
-        setTimeout(() => {
-            document.querySelectorAll('.cbi-value-field').forEach(field => {
-                const description = field.querySelector('.cbi-value-description');
-                if (description) {
-                    const text = description.textContent;
-                    let tooltip = null;
-
-                    // Find all input elements within the field
-                    const inputElements = field.querySelectorAll('input, select, textarea');
-                    inputElements.forEach(inputElement => {
-                        inputElement.addEventListener('mouseenter', (e) => {
-                            tooltip = document.createElement('div');
-                            tooltip.className = 'tooltip';
-                            tooltip.textContent = text;
-                            document.body.appendChild(tooltip);
-
-                            const updatePosition = (e) => {
-                                const rect = inputElement.getBoundingClientRect();
-                                const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-                                const scrollY = window.pageYOffset || document.documentElement.scrollTop;
-                                tooltip.style.left = (e.pageX + 15) + 'px';
-                                tooltip.style.top = (e.pageY + 10) + 'px';
-                            };
-
-                            updatePosition(e);
-                            inputElement.addEventListener('mousemove', updatePosition);
-                        });
-
-                        inputElement.addEventListener('mouseleave', () => {
-                            if (tooltip) {
-                                tooltip.remove();
-                                tooltip = null;
-                            }
-                        });
-                    });
-                }
-            });
-        }, 1000);
 
         var m, s, o;
 
