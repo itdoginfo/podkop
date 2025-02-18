@@ -47,13 +47,7 @@ main() {
     while read -r url; do
         filename=$(basename "$url")
         filepath="$DOWNLOAD_DIR/$filename"
-        
-        if [ -f "$filepath" ] && [ -s "$filepath" ]; then
-            echo "$filename has already been uploaded"
-            download_success=1
-            continue
-        fi
-        
+               
         attempt=0
         while [ $attempt -lt $COUNT ]; do
             echo "Download $filename (count $((attempt+1)))..."
