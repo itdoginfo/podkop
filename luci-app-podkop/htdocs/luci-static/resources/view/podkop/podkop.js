@@ -43,6 +43,144 @@ return view.extend({
         o.depends('proxy_config_type', 'url');
         o.rows = 5;
         o.ucisection = 'main';
+        o.validate = function (section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            try {
+                // Check if it's a valid URL format
+                if (!value.startsWith('vless://') && !value.startsWith('ss://')) {
+                    return _('URL must start with vless:// or ss://');
+                }
+
+                // For Shadowsocks
+                if (value.startsWith('ss://')) {
+                    let encrypted_part;
+                    try {
+                        // Split URL properly handling both old and new formats
+                        let mainPart = value.includes('?') ? value.split('?')[0] : value.split('#')[0];
+                        encrypted_part = mainPart.split('/')[2].split('@')[0];
+
+                        // Try base64 decode first (for old format)
+                        try {
+                            let decoded = atob(encrypted_part);
+                            if (!decoded.includes(':')) {
+                                // Not old format, check if it's 2022 format
+                                if (!encrypted_part.includes(':') && !encrypted_part.includes('-')) {
+                                    return _('Invalid Shadowsocks URL format: missing method and password separator ":"');
+                                }
+                            }
+                        } catch (e) {
+                            // If base64 decode fails, check if it's 2022 format
+                            if (!encrypted_part.includes(':') && !encrypted_part.includes('-')) {
+                                return _('Invalid Shadowsocks URL format: missing method and password separator ":"');
+                            }
+                        }
+                    } catch (e) {
+                        return _('Invalid Shadowsocks URL format');
+                    }
+
+                    // Check server and port
+                    try {
+                        let serverPart = value.split('@')[1];
+                        if (!serverPart) {
+                            return _('Invalid Shadowsocks URL: missing server address');
+                        }
+                        let [server, portAndRest] = serverPart.split(':');
+                        if (!server) {
+                            return _('Invalid Shadowsocks URL: missing server');
+                        }
+                        let port = portAndRest ? portAndRest.split(/[?#]/)[0] : null;
+                        if (!port) {
+                            return _('Invalid Shadowsocks URL: missing port');
+                        }
+                        let portNum = parseInt(port);
+                        if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+                            return _('Invalid port number. Must be between 1 and 65535');
+                        }
+                    } catch (e) {
+                        return _('Invalid Shadowsocks URL: missing or invalid server/port format');
+                    }
+                }
+
+                // For VLESS
+                if (value.startsWith('vless://')) {
+                    // Check UUID
+                    let uuid = value.split('/')[2].split('@')[0];
+                    if (!uuid || uuid.length === 0) {
+                        return _('Invalid VLESS URL: missing UUID');
+                    }
+
+                    // Check server and port
+                    try {
+                        let serverPart = value.split('@')[1];
+                        if (!serverPart) {
+                            return _('Invalid VLESS URL: missing server address');
+                        }
+                        let [server, portAndRest] = serverPart.split(':');
+                        if (!server) {
+                            return _('Invalid VLESS URL: missing server');
+                        }
+                        // Handle cases where port might be followed by / or ? or #
+                        let port = portAndRest ? portAndRest.split(/[/?#]/)[0] : null;
+                        if (!port && port !== '') { // Allow empty port for specific cases
+                            return _('Invalid VLESS URL: missing port');
+                        }
+                        if (port !== '') { // Only validate port if it's not empty
+                            let portNum = parseInt(port);
+                            if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+                                return _('Invalid port number. Must be between 1 and 65535');
+                            }
+                        }
+                    } catch (e) {
+                        return _('Invalid VLESS URL: missing or invalid server/port format');
+                    }
+
+                    // Parse query parameters
+                    let queryString = value.split('?')[1];
+                    if (!queryString) {
+                        return _('Invalid VLESS URL: missing query parameters');
+                    }
+
+                    let params = new URLSearchParams(queryString.split('#')[0]);
+
+                    // Check type parameter
+                    let type = params.get('type');
+                    if (!type) {
+                        return _('Invalid VLESS URL: missing type parameter');
+                    }
+
+                    // Check security parameter
+                    let security = params.get('security');
+                    if (!security) {
+                        return _('Invalid VLESS URL: missing security parameter');
+                    }
+
+                    // If security is "reality", check required reality parameters
+                    if (security === 'reality') {
+                        if (!params.get('pbk')) {
+                            return _('Invalid VLESS URL: missing pbk parameter for reality security');
+                        }
+                        if (!params.get('fp')) {
+                            return _('Invalid VLESS URL: missing fp parameter for reality security');
+                        }
+                    }
+
+                    // If security is "tls", check required TLS parameters
+                    if (security === 'tls') {
+                        if (!params.get('sni') && type !== 'tcp') {
+                            return _('Invalid VLESS URL: missing sni parameter for tls security');
+                        }
+                    }
+                }
+
+                return true;
+            } catch (e) {
+                console.error('Validation error:', e);
+                return _('Invalid URL format: ' + e.message);
+            }
+        };
 
         o = s.taboption('basic', form.TextValue, 'outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
         o.depends('proxy_config_type', 'outbound');
@@ -1215,7 +1353,6 @@ return view.extend({
                 return _('Invalid format. Use format: X.X.X.X or X.X.X.X/Y');
             }
 
-            // Разбираем IP и маску
             const [ip, cidr] = value.split('/');
             const ipParts = ip.split('.');
 
