@@ -19,7 +19,77 @@ return view.extend({
             <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
             <meta http-equiv="Pragma" content="no-cache">
             <meta http-equiv="Expires" content="0">
+            <style>
+                .cbi-value {
+                    margin-bottom: 4px !important;
+                }
+                .cbi-value-field {
+                    display: flex !important;
+                    align-items: flex-start !important;
+                    position: relative !important;
+                    margin-left: 10px;
+                }
+                .cbi-value-description {
+                    display: none !important;
+                }
+                .tooltip {
+                    position: absolute !important;
+                    background: #fff !important;
+                    border: 1px solid #ccc !important;
+                    border-radius: 4px !important;
+                    padding: 8px !important;
+                    max-width: 300px !important;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+                    z-index: 1000 !important;
+                    color: #777777 !important;
+                    font-size: 13px !important;
+                    line-height: 1.4 !important;
+                }
+                .cbi-value-description::before {
+                    display: none !important;
+                }
+            </style>
         `);
+
+        // Add tooltip functionality
+        setTimeout(() => {
+            document.querySelectorAll('.cbi-value-field').forEach(field => {
+                const description = field.querySelector('.cbi-value-description');
+                if (description) {
+                    const text = description.textContent;
+                    let tooltip = null;
+
+                    // Find all input elements within the field
+                    const inputElements = field.querySelectorAll('input, select, textarea');
+                    inputElements.forEach(inputElement => {
+                        inputElement.addEventListener('mouseenter', (e) => {
+                            tooltip = document.createElement('div');
+                            tooltip.className = 'tooltip';
+                            tooltip.textContent = text;
+                            document.body.appendChild(tooltip);
+
+                            const updatePosition = (e) => {
+                                const rect = inputElement.getBoundingClientRect();
+                                const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+                                const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+                                tooltip.style.left = (e.pageX + 15) + 'px';
+                                tooltip.style.top = (e.pageY + 10) + 'px';
+                            };
+
+                            updatePosition(e);
+                            inputElement.addEventListener('mousemove', updatePosition);
+                        });
+
+                        inputElement.addEventListener('mouseleave', () => {
+                            if (tooltip) {
+                                tooltip.remove();
+                                tooltip = null;
+                            }
+                        });
+                    });
+                }
+            });
+        }, 1000);
 
         var m, s, o;
 
@@ -50,7 +120,7 @@ return view.extend({
 
         o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
         o.depends('proxy_config_type', 'url');
-        o.rows = 5;
+        o.rows = 7;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
@@ -193,7 +263,7 @@ return view.extend({
 
         o = s.taboption('basic', form.TextValue, 'outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
         o.depends('proxy_config_type', 'outbound');
-        o.rows = 10;
+        o.rows = 7;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
@@ -358,7 +428,7 @@ return view.extend({
         o = s.taboption('basic', form.TextValue, 'custom_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)'));
         o.placeholder = 'example.com, sub.example.com\ndomain.com test.com\nsubdomain.domain.com another.com, third.com';
         o.depends('custom_domains_list_type', 'text');
-        o.rows = 10;
+        o.rows = 8;
         o.rmempty = false;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
@@ -649,6 +719,7 @@ return view.extend({
         // Service Status Section
         let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system) {
             return E('div', { 'class': 'cbi-section' }, [
+                E('h3', {}, _('Service Status')),
                 E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
                     // Podkop Column
                     E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
