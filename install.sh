@@ -97,7 +97,7 @@ main() {
     fi
 
 
-    rm -f $DOWNLOAD_DIR/podkop*.ipk $DOWNLOAD_DIR/luci-app-podkop*.ipk $DOWNLOAD_DIR/luci-i18n-podkop-ru*.ipk
+    find "$DOWNLOAD_DIR" -type f -name '*podkop*' -exec rm {} \;
 
     if [ "$IS_SHOULD_RESTART_NETWORK" ]; then
         printf "\033[32;1mRestart network\033[0m\n"
