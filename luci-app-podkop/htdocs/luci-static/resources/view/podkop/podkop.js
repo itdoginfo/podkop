@@ -985,7 +985,9 @@ return view.extend({
                     // Diagnostics Column
                     E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
                         E('div', { 'style': 'margin-bottom: 15px;' }, [
-                            E('strong', {}, _('Diagnostic Tools'))
+                            E('strong', {}, _('Diagnostic Tools')),
+                            E('br'),
+                            E('div', { 'style': 'height: 18px;' })
                         ]),
                         E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
                             E('button', {
