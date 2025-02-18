@@ -47,23 +47,24 @@ main() {
         filename=$(basename "$url")
         filepath="$DOWNLOAD_DIR/$filename"
 
+        if [ -f "$filepath" ] && [ -s "$filepath" ]; then
+            echo "$filename has already been uploaded"
+            continue
+        fi
+
         attempt=0
         while [ $attempt -lt $COUNT ]; do
-            if [ -f "$filepath" ] && [ -s "$filepath" ]; then
-                echo "$filename has already been uploaded"
-                break
-            fi
-
             echo "Download $filename (count $((attempt+1)))..."
             wget -q -O "$filepath" "$url"
             
             if [ -s "$filepath" ]; then
                 echo "$filename successfully downloaded"
+                break
             else
                 echo "Download error $filename. Retry..."
                 rm -f "$filepath"
+                attempt=$((attempt+1))
             fi
-            attempt=$((attempt+1))
         done
     done
 
@@ -95,7 +96,6 @@ main() {
             esac
         done
     fi
-
 
     find "$DOWNLOAD_DIR" -type f -name '*podkop*' -exec rm {} \;
 
