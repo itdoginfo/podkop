@@ -490,3 +490,48 @@ msgstr ""
 
 msgid "Copied!"
 msgstr ""
+
+msgid "Service Status"
+msgstr ""
+
+msgid "Podkop Status"
+msgstr ""
+
+msgid "Start Podkop"
+msgstr ""
+
+msgid "Stop Podkop"
+msgstr ""
+
+msgid "Restart Podkop"
+msgstr ""
+
+msgid "Enable Podkop"
+msgstr ""
+
+msgid "Disable Podkop"
+msgstr ""
+
+msgid "Loading diagnostics..."
+msgstr ""
+
+msgid "Error loading diagnostics"
+msgstr ""
+
+msgid "Sing-box Status"
+msgstr ""
+
+msgid "Diagnostic Tools"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "Every 3 hours"
+msgstr ""
+
+msgid "Every day"
+msgstr ""
+
+msgid "Every 3 days"
+msgstr ""

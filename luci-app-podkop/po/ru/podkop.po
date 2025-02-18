@@ -490,3 +490,48 @@ msgstr "Показать версии"
 
 msgid "Copied!"
 msgstr "Скопировано!"
+
+msgid "Service Status"
+msgstr "Статус сервиса"
+
+msgid "Podkop Status"
+msgstr "Статус Podkop"
+
+msgid "Start Podkop"
+msgstr "Запустить Podkop"
+
+msgid "Stop Podkop"
+msgstr "Остановить Podkop"
+
+msgid "Restart Podkop"
+msgstr "Перезапустить Podkop"
+
+msgid "Enable Podkop"
+msgstr "Включить Podkop"
+
+msgid "Disable Podkop"
+msgstr "Отключить Podkop"
+
+msgid "Loading diagnostics..."
+msgstr "Загрузка диагностики..."
+
+msgid "Error loading diagnostics"
+msgstr "Ошибка загрузки диагностики"
+
+msgid "Sing-box Status"
+msgstr "Статус Sing-box"
+
+msgid "Diagnostic Tools"
+msgstr "Инструменты диагностики"
+
+msgid "Unknown"
+msgstr "Неизвестно"
+
+msgid "Every 3 hours"
+msgstr "Каждые 3 часа"
+
+msgid "Every day"
+msgstr "Каждый день"
+
+msgid "Every 3 days"
+msgstr "Каждые 3 дня"
