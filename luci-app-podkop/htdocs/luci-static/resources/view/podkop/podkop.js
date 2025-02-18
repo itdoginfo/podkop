@@ -112,6 +112,76 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
+        let lastValues = [];
+        let isProcessing = false;
+
+        o.onchange = function (ev, section_id, value) {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            try {
+                const values = Array.isArray(value) ? value : [value];
+                let newValues = [...values];
+                let notifications = [];
+
+                // Проверка взаимоисключающих региональных опций
+                const regionalOptions = ['russia_inside', 'russia_outside', 'ukraine_inside'];
+                const selectedRegionalOptions = regionalOptions.filter(opt => newValues.includes(opt));
+
+                if (selectedRegionalOptions.length > 1) {
+                    // Оставляем только последний выбранный региональный вариант
+                    const lastSelected = selectedRegionalOptions[selectedRegionalOptions.length - 1];
+                    const removedRegions = selectedRegionalOptions.slice(0, -1);
+                    newValues = newValues.filter(v => v === lastSelected || !regionalOptions.includes(v));
+
+                    const warningMsg = _('Warning: %s cannot be used together with %s. Previous selections have been removed.').format(
+                        removedRegions.join(', '),
+                        lastSelected
+                    );
+
+                    notifications.push(E('p', { class: 'alert-message warning' }, [
+                        E('strong', {}, _('Regional options cannot be used together')), E('br'),
+                        warningMsg
+                    ]));
+                }
+
+                // Специальная обработка для russia_inside
+                if (newValues.includes('russia_inside')) {
+                    const allowedWithRussiaInside = ['russia_inside', 'meta', 'twitter', 'discord', 'telegram'];
+                    const removedServices = newValues.filter(v => !allowedWithRussiaInside.includes(v));
+
+                    if (removedServices.length > 0) {
+                        newValues = newValues.filter(v => allowedWithRussiaInside.includes(v));
+
+                        const warningMsg = _('Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s have been removed from selection.').format(
+                            removedServices.join(', ')
+                        );
+
+                        notifications.push(E('p', { class: 'alert-message warning' }, [
+                            E('strong', {}, _('Russia inside restrictions')), E('br'),
+                            warningMsg
+                        ]));
+                    }
+                }
+
+                // Если были изменения, обновляем значения
+                if (JSON.stringify(newValues.sort()) !== JSON.stringify(values.sort())) {
+                    this.getUIElement(section_id).setValue(newValues);
+                }
+
+                // Показываем все накопленные уведомления
+                notifications.forEach(notification => {
+                    ui.addNotification(null, notification);
+                });
+
+                lastValues = newValues;
+            } catch (e) {
+                console.error('Error in onchange handler:', e);
+            } finally {
+                isProcessing = false;
+            }
+        };
+
         o = s.taboption('basic', form.ListValue, 'custom_domains_list_type', _('User Domain List Type'), _('Select how to add your custom domains'));
         o.value('disabled', _('Disabled'));
         o.value('dynamic', _('Dynamic List'));
@@ -844,333 +914,6 @@ return view.extend({
                 });
         };
 
-
-        // Add new section 'extra'
-        var s = m.section(form.TypedSection, 'extra', _('Extra configurations'));
-        s.anonymous = false;
-        s.addremove = true;
-        s.addbtntitle = _('Add Section');
-
-        o = s.tab('basic', _('Extra configuration'));
-
-        o = s.taboption('basic', form.ListValue, 'mode', _('Connection Type'), _('Select between VPN and Proxy connection methods for traffic routing'));
-        o.value('proxy', ('Proxy'));
-        o.value('vpn', ('VPN'));
-
-        o = s.taboption('basic', form.ListValue, 'proxy_config_type', _('Configuration Type'), _('Select how to configure the proxy'));
-        o.value('url', _('Connection URL'));
-        o.value('outbound', _('Outbound Config'));
-        o.default = 'url';
-        o.depends('mode', 'proxy');
-
-        o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
-        o.depends('proxy_config_type', 'url');
-        o.rows = 5;
-
-        o = s.taboption('basic', form.TextValue, 'outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
-        o.depends('proxy_config_type', 'outbound');
-        o.rows = 10;
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            try {
-                const parsed = JSON.parse(value);
-                if (!parsed.type || !parsed.server || !parsed.server_port) {
-                    return _('JSON must contain at least type, server and server_port fields');
-                }
-                return true;
-            } catch (e) {
-                return _('Invalid JSON format');
-            }
-        };
-
-        o = s.taboption('basic', form.ListValue, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
-        o.depends('mode', 'vpn');
-
-        try {
-            const devices = await network.getDevices();
-            const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0'];
-
-            devices.forEach(function (device) {
-                if (device.dev && device.dev.name) {
-                    const deviceName = device.dev.name;
-                    const isExcluded = excludeInterfaces.includes(deviceName) || /^lan\d+$/.test(deviceName);
-
-                    if (!isExcluded) {
-                        o.value(deviceName, deviceName);
-                    }
-                }
-            });
-        } catch (error) {
-            console.error('Error fetching devices:', error);
-        }
-
-        o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Community Lists'));
-        o.default = '0';
-        o.rmempty = false;
-
-        o = s.taboption('basic', form.DynamicList, 'domain_list', _('Service List'), _('Select predefined service networks for routing') + ' <a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>');
-        o.placeholder = 'Service list';
-        o.value('russia_inside', 'Russia inside');
-        o.value('russia_outside', 'Russia outside');
-        o.value('ukraine_inside', 'Ukraine');
-        o.value('geoblock', 'GEO Block');
-        o.value('block', 'Block');
-        o.value('porn', 'Porn');
-        o.value('news', 'News');
-        o.value('anime', 'Anime');
-        o.value('youtube', 'Youtube');
-        o.value('discord', 'Discord');
-        o.value('meta', 'Meta');
-        o.value('twitter', 'Twitter (X)');
-        o.value('hdrezka', 'HDRezka');
-        o.value('tiktok', 'Tik-Tok');
-        o.value('telegram', 'Telegram');
-        o.depends('domain_list_enabled', '1');
-        o.rmempty = false;
-
-        o = s.taboption('basic', form.ListValue, 'custom_domains_list_type', _('User Domain List Type'), _('Select how to add your custom domains'));
-        o.value('disabled', _('Disabled'));
-        o.value('dynamic', _('Dynamic List'));
-        o.value('text', _('Text List'));
-        o.default = 'disabled';
-        o.rmempty = false;
-
-        o = s.taboption('basic', form.DynamicList, 'custom_domains', _('User Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
-        o.placeholder = 'Domains list';
-        o.depends('custom_domains_list_type', 'dynamic');
-        o.rmempty = false;
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
-
-            if (!domainRegex.test(value)) {
-                return _('Invalid domain format. Enter domain without protocol (example: sub.example.com)');
-            }
-            return true;
-        };
-
-        o = s.taboption('basic', form.TextValue, 'custom_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)'));
-        o.placeholder = 'example.com, sub.example.com\ndomain.com test.com\nsubdomain.domain.com another.com, third.com';
-        o.depends('custom_domains_list_type', 'text');
-        o.rows = 10;
-        o.rmempty = false;
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const domains = value.split(/[,\s\n]/)
-                .map(d => d.trim())
-                .filter(d => d.length > 0);
-
-            const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
-
-            for (const domain of domains) {
-                if (!domainRegex.test(domain)) {
-                    return _('Invalid domain format: ' + domain + '. Enter domain without protocol');
-                }
-            }
-            return true;
-        };
-
-        o = s.taboption('basic', form.Flag, 'custom_local_domains_list_enabled', _('Local Domain Lists'), _('Use the list from the router filesystem'));
-        o.default = '0';
-        o.rmempty = false;
-
-        o = s.taboption('basic', form.DynamicList, 'custom_local_domains', _('Local Domain Lists Path'), _('Enter to the list file path'));
-        o.placeholder = '/path/file.lst';
-        o.depends('custom_local_domains_list_enabled', '1');
-        o.rmempty = false;
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            try {
-                const pathRegex = /^\/[a-zA-Z0-9_\-\/\.]+$/;
-                if (!pathRegex.test(value)) {
-                    throw new Error(_('Invalid path format. Path must start with "/" and contain only valid characters (letters, numbers, "-", "_", "/", ".")'));
-                }
-                return true;
-            } catch (e) {
-                return _('Invalid path format');
-            }
-        };
-
-        o = s.taboption('basic', form.Flag, 'custom_download_domains_list_enabled', _('Remote Domain Lists'), _('Download and use domain lists from remote URLs'));
-        o.default = '0';
-        o.rmempty = false;
-
-        o = s.taboption('basic', form.DynamicList, 'custom_download_domains', _('Remote Domain URLs'), _('Enter full URLs starting with http:// or https://'));
-        o.placeholder = 'URL';
-        o.depends('custom_download_domains_list_enabled', '1');
-        o.rmempty = false;
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            try {
-                const url = new URL(value);
-                if (!['http:', 'https:'].includes(url.protocol)) {
-                    return _('URL must use http:// or https:// protocol');
-                }
-                return true;
-            } catch (e) {
-                return _('Invalid URL format. URL must start with http:// or https://');
-            }
-        };
-
-
-        o = s.taboption('basic', form.ListValue, 'custom_subnets_list_enabled', _('User Subnet List Type'), _('Select how to add your custom subnets'));
-        o.value('disabled', _('Disabled'));
-        o.value('dynamic', _('Dynamic List'));
-        o.value('text', _('Text List (comma/space/newline separated)'));
-        o.default = 'disabled';
-        o.rmempty = false;
-
-        o = s.taboption('basic', form.DynamicList, 'custom_subnets', _('User Subnets'), _('Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses'));
-        o.placeholder = 'IP or subnet';
-        o.depends('custom_subnets_list_enabled', 'dynamic');
-        o.rmempty = false;
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-
-            if (!subnetRegex.test(value)) {
-                return _('Invalid format. Use format: X.X.X.X or X.X.X.X/Y');
-            }
-
-            // Разбираем IP и маску
-            const [ip, cidr] = value.split('/');
-            const ipParts = ip.split('.');
-
-            for (const part of ipParts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-
-            if (cidr !== undefined) {
-                const cidrNum = parseInt(cidr);
-                if (cidrNum < 0 || cidrNum > 32) {
-                    return _('CIDR must be between 0 and 32');
-                }
-            }
-
-            return true;
-        };
-
-        o = s.taboption('basic', form.TextValue, 'custom_subnets_text', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline'));
-        o.placeholder = '103.21.244.0/22\n8.8.8.8\n1.1.1.1/32, 9.9.9.9 10.10.10.10';
-        o.depends('custom_subnets_list_enabled', 'text');
-        o.rows = 10;
-        o.rmempty = false;
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            // Split by commas, spaces and newlines
-            const subnets = value.split(/[,\s\n]/)
-                .map(s => s.trim())
-                .filter(s => s.length > 0);
-
-            const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-
-            for (const subnet of subnets) {
-                if (!subnetRegex.test(subnet)) {
-                    return _('Invalid format: ' + subnet + '. Use format: X.X.X.X or X.X.X.X/Y');
-                }
-
-                const [ip, cidr] = subnet.split('/');
-                const ipParts = ip.split('.');
-
-                for (const part of ipParts) {
-                    const num = parseInt(part);
-                    if (num < 0 || num > 255) {
-                        return _('IP parts must be between 0 and 255 in: ' + subnet);
-                    }
-                }
-
-                if (cidr !== undefined) {
-                    const cidrNum = parseInt(cidr);
-                    if (cidrNum < 0 || cidrNum > 32) {
-                        return _('CIDR must be between 0 and 32 in: ' + subnet);
-                    }
-                }
-            }
-            return true;
-        };
-
-        o = s.taboption('basic', form.Flag, 'custom_download_subnets_list_enabled', _('Remote Subnet Lists'), _('Download and use subnet lists from remote URLs'));
-        o.default = '0';
-        o.rmempty = false;
-
-        o = s.taboption('basic', form.DynamicList, 'custom_download_subnets', _('Remote Subnet URLs'), _('Enter full URLs starting with http:// or https://'));
-        o.placeholder = 'URL';
-        o.depends('custom_download_subnets_list_enabled', '1');
-        o.rmempty = false;
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            try {
-                const url = new URL(value);
-                if (!['http:', 'https:'].includes(url.protocol)) {
-                    return _('URL must use http:// or https:// protocol');
-                }
-                return true;
-            } catch (e) {
-                return _('Invalid URL format. URL must start with http:// or https://');
-            }
-        };
-
-        o = s.taboption('basic', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'), _('Specify local IP addresses whose traffic will always use the configured route'));
-        o.default = '0';
-        o.rmempty = false;
-
-        o = s.taboption('basic', form.DynamicList, 'all_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
-        o.placeholder = 'IP';
-        o.depends('all_traffic_from_ip_enabled', '1');
-        o.rmempty = false;
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) {
-                return true;
-            }
-
-            const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-
-            if (!ipRegex.test(value)) {
-                return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
-            }
-
-            const ipParts = value.split('.');
-            for (const part of ipParts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-
-            return true;
-        };
-
-        // For future
-        // o = s.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080 (extra +1)'));
-        // o.default = '0';
-        // o.rmempty = false;
         return m.render();
     }
 });
