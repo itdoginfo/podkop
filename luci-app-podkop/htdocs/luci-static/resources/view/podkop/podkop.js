@@ -112,6 +112,76 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
+        let lastValues = [];
+        let isProcessing = false;
+
+        o.onchange = function (ev, section_id, value) {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            try {
+                const values = Array.isArray(value) ? value : [value];
+                let newValues = [...values];
+                let notifications = [];
+
+                // Проверка взаимоисключающих региональных опций
+                const regionalOptions = ['russia_inside', 'russia_outside', 'ukraine_inside'];
+                const selectedRegionalOptions = regionalOptions.filter(opt => newValues.includes(opt));
+
+                if (selectedRegionalOptions.length > 1) {
+                    // Оставляем только последний выбранный региональный вариант
+                    const lastSelected = selectedRegionalOptions[selectedRegionalOptions.length - 1];
+                    const removedRegions = selectedRegionalOptions.slice(0, -1);
+                    newValues = newValues.filter(v => v === lastSelected || !regionalOptions.includes(v));
+
+                    const warningMsg = _('Warning: %s cannot be used together with %s. Previous selections have been removed.').format(
+                        removedRegions.join(', '),
+                        lastSelected
+                    );
+
+                    notifications.push(E('p', { class: 'alert-message warning' }, [
+                        E('strong', {}, _('Regional options cannot be used together')), E('br'),
+                        warningMsg
+                    ]));
+                }
+
+                // Специальная обработка для russia_inside
+                if (newValues.includes('russia_inside')) {
+                    const allowedWithRussiaInside = ['russia_inside', 'meta', 'twitter', 'discord', 'telegram'];
+                    const removedServices = newValues.filter(v => !allowedWithRussiaInside.includes(v));
+
+                    if (removedServices.length > 0) {
+                        newValues = newValues.filter(v => allowedWithRussiaInside.includes(v));
+
+                        const warningMsg = _('Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s have been removed from selection.').format(
+                            removedServices.join(', ')
+                        );
+
+                        notifications.push(E('p', { class: 'alert-message warning' }, [
+                            E('strong', {}, _('Russia inside restrictions')), E('br'),
+                            warningMsg
+                        ]));
+                    }
+                }
+
+                // Если были изменения, обновляем значения
+                if (JSON.stringify(newValues.sort()) !== JSON.stringify(values.sort())) {
+                    this.getUIElement(section_id).setValue(newValues);
+                }
+
+                // Показываем все накопленные уведомления
+                notifications.forEach(notification => {
+                    ui.addNotification(null, notification);
+                });
+
+                lastValues = newValues;
+            } catch (e) {
+                console.error('Error in onchange handler:', e);
+            } finally {
+                isProcessing = false;
+            }
+        };
+
         o = s.taboption('basic', form.ListValue, 'custom_domains_list_type', _('User Domain List Type'), _('Select how to add your custom domains'));
         o.value('disabled', _('Disabled'));
         o.value('dynamic', _('Dynamic List'));
@@ -843,7 +913,6 @@ return view.extend({
                     ]);
                 });
         };
-
 
         // Add new section 'extra'
         var s = m.section(form.TypedSection, 'extra', _('Extra configurations'));

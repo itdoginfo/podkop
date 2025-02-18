@@ -462,3 +462,19 @@ msgstr ""
 
 msgid "Lists Update Results"
 msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
+msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
+msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s have been removed from selection."
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
+msgid "Regional options cannot be used together"
+msgstr ""
+
+#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
+msgid "Russia inside restrictions"
+msgstr ""
