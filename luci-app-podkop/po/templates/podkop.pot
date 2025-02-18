@@ -307,7 +307,7 @@ msgstr ""
 msgid "Full Diagnostic Results"
 msgstr ""
 
-msgid "Failed to copy: "
+msgid "Failed to copy: %s"
 msgstr ""
 
 msgid "Copy to Clipboard"
@@ -328,7 +328,7 @@ msgstr ""
 msgid "View Logs"
 msgstr ""
 
-msgid "Failed to copy logs: "
+msgid "Failed to copy logs: %s"
 msgstr ""
 
 msgid "Show Config"
@@ -557,74 +557,278 @@ msgstr ""
 msgid "Update Lists"
 msgstr ""
 
-msgid "Invalid path format. Path must start with "/" and contain only valid characters (letters, numbers, "-", "_", "/", ".")"
+msgid "Invalid path format. Path must start with \"/\" and contain only valid characters (letters, numbers, \"-\", \"_\", \"/\", \".\")"
 msgstr ""
 
 msgid "Invalid path format"
 msgstr ""
 
-msgid "CIDR must be between 0 and 32 in: "
+msgid "CIDR must be between 0 and 32 in: %s"
 msgstr ""
 
-msgid "Invalid format: "
+msgid "Invalid format: %s. Use format: X.X.X.X or X.X.X.X/Y"
 msgstr ""
 
-msgid "Use format: X.X.X.X or X.X.X.X/Y"
+msgid "Failed to copy: %s"
 msgstr ""
 
-msgid "URL must start with vless:// or ss://"
+msgid "Failed to apply changes: %s"
 msgstr ""
 
-msgid "Invalid Shadowsocks URL format"
+msgid "Operation completed successfully"
 msgstr ""
 
-msgid "Invalid Shadowsocks URL format: missing method and password separator ":"
+msgid "Operation failed: %s"
 msgstr ""
 
-msgid "Invalid Shadowsocks URL: missing server address"
+msgid "Configuration saved"
 msgstr ""
 
-msgid "Invalid Shadowsocks URL: missing server"
+msgid "Save failed: %s"
 msgstr ""
 
-msgid "Invalid Shadowsocks URL: missing port"
+msgid "Loading..."
 msgstr ""
 
-msgid "Invalid port number. Must be between 1 and 65535"
+msgid "Processing..."
 msgstr ""
 
-msgid "Invalid Shadowsocks URL: missing or invalid server/port format"
+msgid "Updating..."
 msgstr ""
 
-msgid "Invalid VLESS URL: missing UUID"
+msgid "Checking..."
 msgstr ""
 
-msgid "Invalid VLESS URL: missing server address"
+msgid "Please wait..."
 msgstr ""
 
-msgid "Invalid VLESS URL: missing server"
+msgid "Alert"
 msgstr ""
 
-msgid "Invalid VLESS URL: missing port"
+msgid "Warning"
 msgstr ""
 
-msgid "Invalid VLESS URL: missing query parameters"
+msgid "Success"
 msgstr ""
 
-msgid "Invalid VLESS URL: missing type parameter"
+msgid "Info"
 msgstr ""
 
-msgid "Invalid VLESS URL: missing security parameter"
+msgid "Error"
 msgstr ""
 
-msgid "Invalid VLESS URL: missing pbk parameter for reality security"
+msgid "Debug"
 msgstr ""
 
-msgid "Invalid VLESS URL: missing fp parameter for reality security"
+msgid "Trace"
 msgstr ""
 
-msgid "Invalid VLESS URL: missing sni parameter for tls security"
+msgid "Yes"
 msgstr ""
 
-msgid "Invalid URL format: "
+msgid "No"
+msgstr ""
+
+msgid "OK"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Apply"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Add"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Move Up"
+msgstr ""
+
+msgid "Move Down"
+msgstr ""
+
+msgid "Expand"
+msgstr ""
+
+msgid "Collapse"
+msgstr ""
+
+msgid "Show"
+msgstr ""
+
+msgid "Hide"
+msgstr ""
+
+msgid "Enable"
+msgstr ""
+
+msgid "Disable"
+msgstr ""
+
+msgid "Start"
+msgstr ""
+
+msgid "Stop"
+msgstr ""
+
+msgid "Restart"
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
+msgid "Refresh"
+msgstr ""
+
+msgid "Update"
+msgstr ""
+
+msgid "Install"
+msgstr ""
+
+msgid "Uninstall"
+msgstr ""
+
+msgid "Configure"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "Options"
+msgstr ""
+
+msgid "Advanced"
+msgstr ""
+
+msgid "Basic"
+msgstr ""
+
+msgid "General"
+msgstr ""
+
+msgid "Details"
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+msgid "Information"
+msgstr ""
+
+msgid "Configuration"
+msgstr ""
+
+msgid "Management"
+msgstr ""
+
+msgid "System"
+msgstr ""
+
+msgid "Network"
+msgstr ""
+
+msgid "Services"
+msgstr ""
+
+msgid "Remote Domain Lists URL"
+msgstr ""
+
+msgid "Enter URL to download domain list"
+msgstr ""
+
+msgid "Update Interval"
+msgstr ""
+
+msgid "Select how often to update the lists"
+msgstr ""
+
+msgid "Last Update"
+msgstr ""
+
+msgid "Last update time"
+msgstr ""
+
+msgid "Next Update"
+msgstr ""
+
+msgid "Next scheduled update time"
+msgstr ""
+
+msgid "Version"
+msgstr ""
+
+msgid "Component version"
+msgstr ""
+
+msgid "Installed"
+msgstr ""
+
+msgid "Not installed"
+msgstr ""
+
+msgid "Unknown version"
+msgstr ""
+
+msgid "Error parsing version"
+msgstr ""
+
+msgid "Error parsing status"
+msgstr ""
+
+msgid "Service is running"
+msgstr ""
+
+msgid "Service is stopped"
+msgstr ""
+
+msgid "Service is enabled"
+msgstr ""
+
+msgid "Service is disabled"
+msgstr ""
+
+msgid "Service status unknown"
+msgstr ""
+
+msgid "Error checking service status"
+msgstr ""
+
+msgid "Diagnostic check in progress..."
+msgstr ""
+
+msgid "Diagnostic check completed"
+msgstr ""
+
+msgid "Diagnostic check failed"
+msgstr ""
+
+msgid "Update in progress..."
+msgstr ""
+
+msgid "Update completed"
+msgstr ""
+
+msgid "Update failed"
+msgstr ""
+
+msgid "Check in progress..."
+msgstr ""
+
+msgid "Check completed"
+msgstr ""
+
+msgid "Check failed"
 msgstr ""
