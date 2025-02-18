@@ -535,3 +535,96 @@ msgstr "Каждый день"
 
 msgid "Every 3 days"
 msgstr "Каждые 3 дня"
+
+msgid "Device Model: "
+msgstr "Модель устройства: "
+
+msgid "OpenWrt Version: "
+msgstr "Версия OpenWrt: "
+
+msgid "Sing-box: "
+msgstr "Sing-box: "
+
+msgid "LuCI App: "
+msgstr "LuCI App: "
+
+msgid "Podkop: "
+msgstr "Podkop: "
+
+msgid "Check NFT Rules"
+msgstr "Проверить правила NFT"
+
+msgid "Update Lists"
+msgstr "Обновить списки"
+
+msgid "Invalid path format. Path must start with "/" and contain only valid characters (letters, numbers, "-", "_", "/", ".")"
+msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать только допустимые символы (буквы, цифры, \"-\", \"_\", \"/\", \".\")"
+
+msgid "Invalid path format"
+msgstr "Неверный формат пути"
+
+msgid "CIDR must be between 0 and 32 in: "
+msgstr "CIDR должен быть между 0 и 32 в: "
+
+msgid "Invalid format: "
+msgstr "Неверный формат: "
+
+msgid "Use format: X.X.X.X or X.X.X.X/Y"
+msgstr "Используйте формат: X.X.X.X или X.X.X.X/Y"
+
+msgid "URL must start with vless:// or ss://"
+msgstr "URL должен начинаться с vless:// или ss://"
+
+msgid "Invalid Shadowsocks URL format"
+msgstr "Неверный формат URL Shadowsocks"
+
+msgid "Invalid Shadowsocks URL format: missing method and password separator ":"
+msgstr "Неверный формат URL Shadowsocks: отсутствует разделитель метода и пароля \":\""
+
+msgid "Invalid Shadowsocks URL: missing server address"
+msgstr "Неверный URL Shadowsocks: отсутствует адрес сервера"
+
+msgid "Invalid Shadowsocks URL: missing server"
+msgstr "Неверный URL Shadowsocks: отсутствует сервер"
+
+msgid "Invalid Shadowsocks URL: missing port"
+msgstr "Неверный URL Shadowsocks: отсутствует порт"
+
+msgid "Invalid port number. Must be between 1 and 65535"
+msgstr "Неверный номер порта. Должен быть между 1 и 65535"
+
+msgid "Invalid Shadowsocks URL: missing or invalid server/port format"
+msgstr "Неверный URL Shadowsocks: отсутствует или неверный формат сервера/порта"
+
+msgid "Invalid VLESS URL: missing UUID"
+msgstr "Неверный URL VLESS: отсутствует UUID"
+
+msgid "Invalid VLESS URL: missing server address"
+msgstr "Неверный URL VLESS: отсутствует адрес сервера"
+
+msgid "Invalid VLESS URL: missing server"
+msgstr "Неверный URL VLESS: отсутствует сервер"
+
+msgid "Invalid VLESS URL: missing port"
+msgstr "Неверный URL VLESS: отсутствует порт"
+
+msgid "Invalid VLESS URL: missing query parameters"
+msgstr "Неверный URL VLESS: отсутствуют параметры запроса"
+
+msgid "Invalid VLESS URL: missing type parameter"
+msgstr "Неверный URL VLESS: отсутствует параметр type"
+
+msgid "Invalid VLESS URL: missing security parameter"
+msgstr "Неверный URL VLESS: отсутствует параметр security"
+
+msgid "Invalid VLESS URL: missing pbk parameter for reality security"
+msgstr "Неверный URL VLESS: отсутствует параметр pbk для security reality"
+
+msgid "Invalid VLESS URL: missing fp parameter for reality security"
+msgstr "Неверный URL VLESS: отсутствует параметр fp для security reality"
+
+msgid "Invalid VLESS URL: missing sni parameter for tls security"
+msgstr "Неверный URL VLESS: отсутствует параметр sni для security tls"
+
+msgid "Invalid URL format: "
+msgstr "Неверный формат URL: "

@@ -535,3 +535,96 @@ msgstr ""
 
 msgid "Every 3 days"
 msgstr ""
+
+msgid "Device Model: "
+msgstr ""
+
+msgid "OpenWrt Version: "
+msgstr ""
+
+msgid "Sing-box: "
+msgstr ""
+
+msgid "LuCI App: "
+msgstr ""
+
+msgid "Podkop: "
+msgstr ""
+
+msgid "Check NFT Rules"
+msgstr ""
+
+msgid "Update Lists"
+msgstr ""
+
+msgid "Invalid path format. Path must start with "/" and contain only valid characters (letters, numbers, "-", "_", "/", ".")"
+msgstr ""
+
+msgid "Invalid path format"
+msgstr ""
+
+msgid "CIDR must be between 0 and 32 in: "
+msgstr ""
+
+msgid "Invalid format: "
+msgstr ""
+
+msgid "Use format: X.X.X.X or X.X.X.X/Y"
+msgstr ""
+
+msgid "URL must start with vless:// or ss://"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL format"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL format: missing method and password separator ":"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL: missing server address"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL: missing server"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL: missing port"
+msgstr ""
+
+msgid "Invalid port number. Must be between 1 and 65535"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL: missing or invalid server/port format"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing UUID"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing server address"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing server"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing port"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing query parameters"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing type parameter"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing security parameter"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing pbk parameter for reality security"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing fp parameter for reality security"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing sni parameter for tls security"
+msgstr ""
+
+msgid "Invalid URL format: "
+msgstr ""
