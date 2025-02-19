@@ -153,6 +153,7 @@ main() {
     sing_box_dns
     sing_box_dns_rule_fakeip
     sing_box_rule_dns
+    sing_box_add_secure_dns_probe_domain
     sing_box_cache_file
     process_socks5
 
@@ -1698,4 +1699,40 @@ get_status() {
     fi
 
     echo "{\"running\":$running,\"enabled\":$enabled,\"status\":\"$status\"}"
+}
+
+sing_box_add_secure_dns_probe_domain() {
+    local domain="httpbin.org"
+    local override_address="numbersapi.com"
+
+    if [ -z "$override_address" ]; then
+        log "Error: Could not get br-lan IP address"
+        return 1
+    fi
+
+    log "Adding DNS probe domain ${domain} to fakeip-server configuration"
+
+    jq \
+    --arg domain "$domain" \
+    --arg override "$override_address" \
+    '.dns.rules |= map(
+        if .server == "fakeip-server" then
+            {
+                "server": .server,
+                "domain": $domain,
+                "rule_set": .rule_set
+            }
+        else
+            .
+        end
+    ) |
+    .route.rules |= . + [
+        {
+            "domain": $domain,
+            "action": "route-options",
+            "override_address": $override
+        }
+    ]' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+
+    log "DNS probe domain ${domain} configured with override to ${override_address}"
 }

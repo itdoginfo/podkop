@@ -55,7 +55,7 @@ return view.extend({
 
         o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
         o.depends('proxy_config_type', 'url');
-        o.rows = 7;
+        o.rows = 5;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
@@ -198,7 +198,7 @@ return view.extend({
 
         o = s.taboption('basic', form.TextValue, 'outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
         o.depends('proxy_config_type', 'outbound');
-        o.rows = 7;
+        o.rows = 10;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value || value.length === 0) {
@@ -986,9 +986,10 @@ return view.extend({
                     // Diagnostics Column
                     E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
                         E('div', { 'style': 'margin-bottom: 15px;' }, [
-                            E('strong', {}, _('Diagnostic Tools')),
-                            E('br'),
-                            E('div', { 'style': 'height: 18px;' })
+                            E('strong', {}, _('FakeIP Status')),
+                            E('div', { 'id': 'fakeip-status' }, [
+                                E('span', {}, _('Checking FakeIP...'))
+                            ])
                         ]),
                         E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
                             E('button', {
@@ -1168,7 +1169,7 @@ return view.extend({
                                 E('strong', {}, 'Device Model: '), system.stdout ? system.stdout.split('\n')[4].trim() : _('Unknown')
                             ])
                         ])
-                    ])
+                    ]),
                 ])
             ]);
         };
@@ -1178,6 +1179,44 @@ return view.extend({
         o.cfgvalue = function () {
             return E('div', { id: 'diagnostics-status' }, _('Loading diagnostics...'));
         };
+
+        function checkFakeIP() {
+            fetch('http://httpbin.org/ip')
+                .then(response => response.text())
+                .then(text => {
+                    const statusElement = document.getElementById('fakeip-status');
+                    if (!statusElement) return;
+
+                    console.log('FakeIP check response:', text);
+
+                    if (text.includes('Cannot GET /ip')) {
+                        console.log('FakeIP status: working (Cannot GET /ip)');
+                        statusElement.innerHTML = E('span', { 'style': 'color: #4caf50' }, [
+                            '✔ ',
+                            _('working')
+                        ]).outerHTML;
+                    } else if (text.includes('"origin":')) {
+                        console.log('FakeIP status: not working (got IP response)');
+                        statusElement.innerHTML = E('span', { 'style': 'color: #f44336' }, [
+                            '✘ ',
+                            _('not working')
+                        ]).outerHTML;
+                    } else {
+                        console.log('FakeIP status: check error (unexpected response)');
+                        statusElement.innerHTML = E('span', { 'style': 'color: #ff9800' }, [
+                            '! ',
+                            _('check error')
+                        ]).outerHTML;
+                    }
+                })
+                .catch(error => {
+                    console.log('FakeIP check error:', error.message);
+                    const statusElement = document.getElementById('fakeip-status');
+                    if (statusElement) {
+                        statusElement.innerHTML = E('span', { 'style': 'color: #ff9800' }, 'check error').outerHTML;
+                    }
+                });
+        }
 
         function updateDiagnostics() {
             Promise.all([
@@ -1196,6 +1235,7 @@ return view.extend({
                     if (container) {
                         container.innerHTML = '';
                         container.appendChild(newContent);
+                        checkFakeIP();
                     }
                 } catch (e) {
                     console.error('Error parsing diagnostics status:', e);
