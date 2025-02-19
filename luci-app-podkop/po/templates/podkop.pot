@@ -25,16 +25,316 @@ msgstr ""
 msgid "Select between VPN and Proxy connection methods for traffic routing"
 msgstr ""
 
+msgid "Configuration Type"
+msgstr ""
+
+msgid "Select how to configure the proxy"
+msgstr ""
+
+msgid "Connection URL"
+msgstr ""
+
+msgid "Outbound Config"
+msgstr ""
+
 msgid "Proxy Configuration URL"
 msgstr ""
 
 msgid "Enter connection string starting with vless:// or ss:// for proxy configuration"
 msgstr ""
 
+msgid "Outbound Configuration"
+msgstr ""
+
+msgid "Enter complete outbound configuration in JSON format"
+msgstr ""
+
 msgid "Network Interface"
 msgstr ""
 
 msgid "Select network interface for VPN connection"
+msgstr ""
+
+msgid "Community Lists"
+msgstr ""
+
+msgid "Service List"
+msgstr ""
+
+msgid "Select predefined service for routing"
+msgstr ""
+
+msgid "User Domain List Type"
+msgstr ""
+
+msgid "Select how to add your custom domains"
+msgstr ""
+
+msgid "Disabled"
+msgstr ""
+
+msgid "Dynamic List"
+msgstr ""
+
+msgid "Text List"
+msgstr ""
+
+msgid "User Domains"
+msgstr ""
+
+msgid "Enter domain names without protocols (example: sub.example.com or example.com)"
+msgstr ""
+
+msgid "User Domains List"
+msgstr ""
+
+msgid "Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)"
+msgstr ""
+
+msgid "Local Domain Lists"
+msgstr ""
+
+msgid "Use the list from the router filesystem"
+msgstr ""
+
+msgid "Local Domain Lists Path"
+msgstr ""
+
+msgid "Enter to the list file path"
+msgstr ""
+
+msgid "Remote Domain Lists"
+msgstr ""
+
+msgid "Download and use domain lists from remote URLs"
+msgstr ""
+
+msgid "Remote Domain URLs"
+msgstr ""
+
+msgid "Enter full URLs starting with http:// or https://"
+msgstr ""
+
+msgid "User Subnet List Type"
+msgstr ""
+
+msgid "Select how to add your custom subnets"
+msgstr ""
+
+msgid "Text List (comma/space/newline separated)"
+msgstr ""
+
+msgid "User Subnets"
+msgstr ""
+
+msgid "Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses"
+msgstr ""
+
+msgid "User Subnets List"
+msgstr ""
+
+msgid "Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline"
+msgstr ""
+
+msgid "Remote Subnet Lists"
+msgstr ""
+
+msgid "Download and use subnet lists from remote URLs"
+msgstr ""
+
+msgid "Remote Subnet URLs"
+msgstr ""
+
+msgid "IP for full redirection"
+msgstr ""
+
+msgid "Specify local IP addresses whose traffic will always use the configured route"
+msgstr ""
+
+msgid "Local IPs"
+msgstr ""
+
+msgid "Enter valid IPv4 addresses"
+msgstr ""
+
+msgid "IP for exclusion"
+msgstr ""
+
+msgid "Specify local IP addresses that will never use the configured route"
+msgstr ""
+
+msgid "Mixed enable"
+msgstr ""
+
+msgid "Browser port: 2080"
+msgstr ""
+
+msgid "Yacd enable"
+msgstr ""
+
+msgid "Exclude NTP"
+msgstr ""
+
+msgid "For issues with open connections sing-box"
+msgstr ""
+
+msgid "QUIC disable"
+msgstr ""
+
+msgid "For issues with the video stream"
+msgstr ""
+
+msgid "List Update Frequency"
+msgstr ""
+
+msgid "Select how often the lists will be updated"
+msgstr ""
+
+msgid "Every hour"
+msgstr ""
+
+msgid "Every 2 hours"
+msgstr ""
+
+msgid "Every 3 hours"
+msgstr ""
+
+msgid "Every 4 hours"
+msgstr ""
+
+msgid "Every 6 hours"
+msgstr ""
+
+msgid "Every 12 hours"
+msgstr ""
+
+msgid "Every day"
+msgstr ""
+
+msgid "Every 3 days"
+msgstr ""
+
+msgid "Once a day at 04:00"
+msgstr ""
+
+msgid "Once a week on Sunday at 04:00"
+msgstr ""
+
+msgid "Invalid domain format. Enter domain without protocol (example: sub.example.com)"
+msgstr ""
+
+msgid "URL must use http:// or https:// protocol"
+msgstr ""
+
+msgid "Invalid URL format. URL must start with http:// or https://"
+msgstr ""
+
+msgid "Invalid format. Use format: X.X.X.X or X.X.X.X/Y"
+msgstr ""
+
+msgid "IP address parts must be between 0 and 255"
+msgstr ""
+
+msgid "CIDR must be between 0 and 32"
+msgstr ""
+
+msgid "Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)"
+msgstr ""
+
+msgid "Invalid domain format: %s. Enter domain without protocol"
+msgstr ""
+
+msgid "Invalid format: %s. Use format: X.X.X.X or X.X.X.X/Y"
+msgstr ""
+
+msgid "IP parts must be between 0 and 255 in: %s"
+msgstr ""
+
+msgid "CIDR must be between 0 and 32 in: %s"
+msgstr ""
+
+msgid "Invalid path format. Path must start with \"/\" and contain only valid characters (letters, numbers, \"-\", \"_\", \"/\", \".\")"
+msgstr ""
+
+msgid "Invalid path format"
+msgstr ""
+
+msgid "JSON must contain at least type, server and server_port fields"
+msgstr ""
+
+msgid "Invalid JSON format"
+msgstr ""
+
+msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
+msgstr ""
+
+msgid "Regional options cannot be used together"
+msgstr ""
+
+msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection."
+msgstr ""
+
+msgid "Russia inside restrictions"
+msgstr ""
+
+msgid "URL must start with vless:// or ss://"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL format: missing method and password separator \":\""
+msgstr ""
+
+msgid "Invalid Shadowsocks URL format"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL: missing server address"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL: missing server"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL: missing port"
+msgstr ""
+
+msgid "Invalid port number. Must be between 1 and 65535"
+msgstr ""
+
+msgid "Invalid Shadowsocks URL: missing or invalid server/port format"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing UUID"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing server address"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing server"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing port"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing or invalid server/port format"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing query parameters"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing type parameter"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing security parameter"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing pbk parameter for reality security"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing fp parameter for reality security"
+msgstr ""
+
+msgid "Invalid VLESS URL: missing sni parameter for tls security"
+msgstr ""
+
+msgid "Invalid URL format: %s"
 msgstr ""
 
 msgid "Community Domain Lists"
@@ -64,292 +364,169 @@ msgstr ""
 msgid "Enable and manage your custom list of domains for selective routing"
 msgstr ""
 
-msgid "User Domains"
-msgstr ""
-
-msgid "Enter domain names without protocols (example: sub.example.com or example.com)"
-msgstr ""
-
-msgid "Remote Domain Lists"
-msgstr ""
-
-msgid "Download and use domain lists from remote URLs"
-msgstr ""
-
-msgid "Remote Domain URLs"
-msgstr ""
-
-msgid "Enter full URLs starting with http:// or https://"
-msgstr ""
-
-msgid "User Subnet List"
-msgstr ""
-
-msgid "Enable and manage your custom list of IP subnets for selective routing"
-msgstr ""
-
-msgid "User Subnets"
-msgstr ""
-
-msgid "Enter subnet in CIDR notation (example: 103.21.244.0/22)"
-msgstr ""
-
-msgid "Remote Subnet Lists"
-msgstr ""
-
-msgid "Download and use subnet lists from remote URLs"
-msgstr ""
-
-msgid "Remote Subnet URLs"
-msgstr ""
-
-msgid "Domain Exclusions"
-msgstr ""
-
-msgid "Exclude specific domains from routing rules"
-msgstr ""
-
-msgid "Excluded Domains"
-msgstr ""
-
-msgid "Domains to be excluded from routing"
-msgstr ""
-
-msgid "IP for full redirection"
-msgstr ""
-
-msgid "Specify local IP addresses whose traffic will always use the configured route"
-msgstr ""
-
-msgid "Local IPs"
-msgstr ""
-
-msgid "Enter valid IPv4 addresses"
-msgstr ""
-
-msgid "IP for exclusion"
-msgstr ""
-
-msgid "Specify local IP addresses that will never use the configured route"
-msgstr ""
-
-msgid "List Update Frequency"
-msgstr ""
-
-msgid "Select how often the lists will be updated"
-msgstr ""
-
-msgid "Every hour"
-msgstr ""
-
-msgid "Every 2 hours"
-msgstr ""
-
-msgid "Every 4 hours"
-msgstr ""
-
-msgid "Every 6 hours"
-msgstr ""
-
-msgid "Every 12 hours"
-msgstr ""
-
-msgid "Once a day at 04:00"
-msgstr ""
-
-msgid "Once a week on Sunday at 04:00"
-msgstr ""
-
-msgid "Yacd enable"
-msgstr ""
-
-msgid "Mixed enable"
-msgstr ""
-
-msgid "Browser port: 2080"
-msgstr ""
-
-msgid "Exclude NTP"
-msgstr ""
-
-msgid "For issues with open connections sing-box"
-msgstr ""
-
-msgid "Service Domain List Enable"
-msgstr ""
-
-msgid "Enable predefined service domain lists for routing"
-msgstr ""
-
-msgid "Service List"
-msgstr ""
-
-msgid "Select predefined services for routing"
-msgstr ""
-
-msgid "Domains"
-msgstr ""
-
-msgid "Subnet List"
-msgstr ""
-
-msgid "Configure custom subnets for routing"
-msgstr ""
-
-msgid "Subnets"
-msgstr ""
-
-msgid "Invalid domain format. Enter domain without protocol (example: sub.example.com)"
-msgstr ""
-
-msgid "URL must use http:// or https:// protocol"
-msgstr ""
-
-msgid "Invalid URL format. URL must start with http:// or https://"
-msgstr ""
-
-msgid "Invalid subnet format. Use format: X.X.X.X/Y (like 103.21.244.0/22)"
-msgstr ""
-
-msgid "IP address parts must be between 0 and 255"
-msgstr ""
-
-msgid "CIDR must be between 0 and 32"
-msgstr ""
-
-msgid "Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)"
-msgstr ""
-
-msgid "User Domain List Type"
-msgstr ""
-
-msgid "Select how to add your custom domains"
-msgstr ""
-
-msgid "Disabled"
-msgstr ""
-
-msgid "Dynamic List"
-msgstr ""
-
-msgid "Text List"
-msgstr ""
-
 msgid "User Domains List"
 msgstr ""
 
 msgid "Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)"
 msgstr ""
 
-msgid "Invalid domain format: %s. Enter domain without protocol"
+msgid "Remote Domain Lists URL"
 msgstr ""
 
-msgid "User Subnet List Type"
+msgid "Enter URL to download domain list"
 msgstr ""
 
-msgid "Select how to add your custom subnets"
+msgid "Update Interval"
 msgstr ""
 
-msgid "Text List (comma/space/newline separated)"
+msgid "Select how often to update the lists"
 msgstr ""
 
-msgid "Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses"
+msgid "Last Update"
 msgstr ""
 
-msgid "User Subnets List"
+msgid "Last update time"
 msgstr ""
 
-msgid "Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline"
+msgid "Next Update"
 msgstr ""
 
-msgid "Invalid format. Use format: X.X.X.X or X.X.X.X/Y"
+msgid "Next scheduled update time"
 msgstr ""
 
-msgid "IP parts must be between 0 and 255 in: %s"
+msgid "Version"
 msgstr ""
 
-msgid "Configuration Type"
+msgid "Component version"
 msgstr ""
 
-msgid "Select how to configure the proxy"
+msgid "Installed"
 msgstr ""
 
-msgid "Connection URL"
+msgid "Not installed"
 msgstr ""
 
-msgid "Outbound Config"
+msgid "Unknown version"
 msgstr ""
 
-msgid "Outbound Configuration"
+msgid "Error parsing version"
 msgstr ""
 
-msgid "Enter complete outbound configuration in JSON format"
+msgid "Error parsing status"
 msgstr ""
 
-msgid "JSON must contain at least type, server and server_port fields"
+msgid "Service is running"
 msgstr ""
 
-msgid "Invalid JSON format"
+msgid "Service is stopped"
 msgstr ""
 
-msgid "Diagnostics"
+msgid "Service is enabled"
 msgstr ""
 
-msgid "Main Check"
+msgid "Service is disabled"
 msgstr ""
 
-msgid "Run a comprehensive diagnostic check of all components"
+msgid "Service Status"
 msgstr ""
 
-msgid "Run Check"
+msgid "working"
 msgstr ""
 
-msgid "Full Diagnostic Results"
+msgid "not working"
 msgstr ""
 
-msgid "Failed to copy: "
+msgid "check error"
 msgstr ""
 
-msgid "Copy to Clipboard"
+msgid "Diagnostic check in progress..."
 msgstr ""
 
-msgid "Close"
+msgid "Diagnostic check completed"
 msgstr ""
 
-msgid "No output"
+msgid "Diagnostic check failed"
 msgstr ""
 
-msgid "System Logs"
+msgid "Update in progress..."
 msgstr ""
 
-msgid "View recent system logs related to Podkop"
+msgid "Update completed"
 msgstr ""
 
-msgid "View Logs"
+msgid "Update failed"
 msgstr ""
 
-msgid "Failed to copy logs: "
+msgid "Check in progress..."
 msgstr ""
 
-msgid "Show Config"
+msgid "Check completed"
 msgstr ""
 
-msgid "Show current podkop configuration with masked sensitive data"
+msgid "Check failed"
 msgstr ""
 
-msgid "Podkop Configuration"
+msgid "Version Information"
 msgstr ""
 
-msgid "Update lists"
+msgid "Copied!"
 msgstr ""
 
-msgid "Update all lists in config"
+msgid "Podkop Status"
 msgstr ""
 
-msgid "List Update"
+msgid "Start Podkop"
 msgstr ""
 
-msgid "Lists will be updated in background. You can check the progress in system logs."
+msgid "Stop Podkop"
+msgstr ""
+
+msgid "Restart Podkop"
+msgstr ""
+
+msgid "Enable Podkop"
+msgstr ""
+
+msgid "Disable Podkop"
+msgstr ""
+
+msgid "Loading diagnostics..."
+msgstr ""
+
+msgid "Error loading diagnostics"
+msgstr ""
+
+msgid "Sing-box Status"
+msgstr ""
+
+msgid "Diagnostic Tools"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "Device Model: "
+msgstr ""
+
+msgid "OpenWrt Version: "
+msgstr ""
+
+msgid "Sing-box: "
+msgstr ""
+
+msgid "LuCI App: "
+msgstr ""
+
+msgid "Podkop: "
+msgstr ""
+
+msgid "Check NFT Rules"
+msgstr ""
+
+msgid "Update Lists"
+msgstr ""
+
+msgid "Lists Update Results"
 msgstr ""
 
 msgid "Extra configurations"
@@ -361,25 +538,7 @@ msgstr ""
 msgid "Add Section"
 msgstr ""
 
-msgid "QUIC disable"
-msgstr ""
-
-msgid "For issues with the video stream"
-msgstr ""
-
-msgid "Community Lists"
-msgstr ""
-
-msgid "Local Domain Lists"
-msgstr ""
-
-msgid "Use the list from the router filesystem"
-msgstr ""
-
-msgid "Local Domain Lists Path"
-msgstr ""
-
-msgid "Enter to the list file path"
+msgid "Lists Update Results"
 msgstr ""
 
 msgid "Proxy Check"
@@ -463,18 +622,236 @@ msgstr ""
 msgid "Lists Update Results"
 msgstr ""
 
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
-msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
+msgid "Warning"
 msgstr ""
 
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
-msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s have been removed from selection."
+msgid "Success"
 msgstr ""
 
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
-msgid "Regional options cannot be used together"
+msgid "Info"
 msgstr ""
 
-#: applications/luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:XXX
-msgid "Russia inside restrictions"
+msgid "Error"
+msgstr ""
+
+msgid "Debug"
+msgstr ""
+
+msgid "Trace"
+msgstr ""
+
+msgid "Yes"
+msgstr ""
+
+msgid "No"
+msgstr ""
+
+msgid "OK"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Apply"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Add"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Move Up"
+msgstr ""
+
+msgid "Move Down"
+msgstr ""
+
+msgid "Expand"
+msgstr ""
+
+msgid "Collapse"
+msgstr ""
+
+msgid "Show"
+msgstr ""
+
+msgid "Hide"
+msgstr ""
+
+msgid "Enable"
+msgstr ""
+
+msgid "Disable"
+msgstr ""
+
+msgid "Start"
+msgstr ""
+
+msgid "Stop"
+msgstr ""
+
+msgid "Restart"
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
+msgid "Refresh"
+msgstr ""
+
+msgid "Update"
+msgstr ""
+
+msgid "Install"
+msgstr ""
+
+msgid "Uninstall"
+msgstr ""
+
+msgid "Configure"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "Options"
+msgstr ""
+
+msgid "Advanced"
+msgstr ""
+
+msgid "Basic"
+msgstr ""
+
+msgid "General"
+msgstr ""
+
+msgid "Details"
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+msgid "Information"
+msgstr ""
+
+msgid "Configuration"
+msgstr ""
+
+msgid "Management"
+msgstr ""
+
+msgid "System"
+msgstr ""
+
+msgid "Network"
+msgstr ""
+
+msgid "Services"
+msgstr ""
+
+msgid "Remote Domain Lists URL"
+msgstr ""
+
+msgid "Enter URL to download domain list"
+msgstr ""
+
+msgid "Update Interval"
+msgstr ""
+
+msgid "Select how often to update the lists"
+msgstr ""
+
+msgid "Last Update"
+msgstr ""
+
+msgid "Last update time"
+msgstr ""
+
+msgid "Next Update"
+msgstr ""
+
+msgid "Next scheduled update time"
+msgstr ""
+
+msgid "Version"
+msgstr ""
+
+msgid "Component version"
+msgstr ""
+
+msgid "Installed"
+msgstr ""
+
+msgid "Not installed"
+msgstr ""
+
+msgid "Unknown version"
+msgstr ""
+
+msgid "Error parsing version"
+msgstr ""
+
+msgid "Error parsing status"
+msgstr ""
+
+msgid "Service is running"
+msgstr ""
+
+msgid "Service is stopped"
+msgstr ""
+
+msgid "Service is enabled"
+msgstr ""
+
+msgid "Service is disabled"
+msgstr ""
+
+msgid "Service Status"
+msgstr ""
+
+msgid "working"
+msgstr ""
+
+msgid "not working"
+msgstr ""
+
+msgid "check error"
+msgstr ""
+
+msgid "Diagnostic check in progress..."
+msgstr ""
+
+msgid "Diagnostic check completed"
+msgstr ""
+
+msgid "Diagnostic check failed"
+msgstr ""
+
+msgid "Update in progress..."
+msgstr ""
+
+msgid "Update completed"
+msgstr ""
+
+msgid "Update failed"
+msgstr ""
+
+msgid "Check in progress..."
+msgstr ""
+
+msgid "Check completed"
+msgstr ""
+
+msgid "Check failed"
 msgstr ""

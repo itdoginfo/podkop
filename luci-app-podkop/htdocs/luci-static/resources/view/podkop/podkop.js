@@ -5,12 +5,25 @@
 'require network';
 'require fs';
 
+function formatDiagnosticOutput(output) {
+    if (!output) return '';
+    return output.trim()
+        .replace(/\x1b\[[0-9;]*m/g, '')  // Remove ANSI color codes
+        .replace(/\r\n/g, '\n')          // Normalize line endings
+        .replace(/\r/g, '\n');
+}
+
 return view.extend({
     async render() {
         document.getElementsByTagName('head')[0].insertAdjacentHTML('beforeend', `
             <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
             <meta http-equiv="Pragma" content="no-cache">
             <meta http-equiv="Expires" content="0">
+            <style>
+                .cbi-value {
+                    margin-bottom: 10px !important;
+                }
+            </style>
         `);
 
         var m, s, o;
@@ -21,6 +34,7 @@ return view.extend({
                 m.title = _('Podkop') + ' v' + res.stdout.trim();
             }
         });
+
         s = m.section(form.TypedSection, 'main');
         s.anonymous = true;
 
@@ -43,6 +57,144 @@ return view.extend({
         o.depends('proxy_config_type', 'url');
         o.rows = 5;
         o.ucisection = 'main';
+        o.validate = function (section_id, value) {
+            if (!value || value.length === 0) {
+                return true;
+            }
+
+            try {
+                // Check if it's a valid URL format
+                if (!value.startsWith('vless://') && !value.startsWith('ss://')) {
+                    return _('URL must start with vless:// or ss://');
+                }
+
+                // For Shadowsocks
+                if (value.startsWith('ss://')) {
+                    let encrypted_part;
+                    try {
+                        // Split URL properly handling both old and new formats
+                        let mainPart = value.includes('?') ? value.split('?')[0] : value.split('#')[0];
+                        encrypted_part = mainPart.split('/')[2].split('@')[0];
+
+                        // Try base64 decode first (for old format)
+                        try {
+                            let decoded = atob(encrypted_part);
+                            if (!decoded.includes(':')) {
+                                // Not old format, check if it's 2022 format
+                                if (!encrypted_part.includes(':') && !encrypted_part.includes('-')) {
+                                    return _('Invalid Shadowsocks URL format: missing method and password separator ":"');
+                                }
+                            }
+                        } catch (e) {
+                            // If base64 decode fails, check if it's 2022 format
+                            if (!encrypted_part.includes(':') && !encrypted_part.includes('-')) {
+                                return _('Invalid Shadowsocks URL format: missing method and password separator ":"');
+                            }
+                        }
+                    } catch (e) {
+                        return _('Invalid Shadowsocks URL format');
+                    }
+
+                    // Check server and port
+                    try {
+                        let serverPart = value.split('@')[1];
+                        if (!serverPart) {
+                            return _('Invalid Shadowsocks URL: missing server address');
+                        }
+                        let [server, portAndRest] = serverPart.split(':');
+                        if (!server) {
+                            return _('Invalid Shadowsocks URL: missing server');
+                        }
+                        let port = portAndRest ? portAndRest.split(/[?#]/)[0] : null;
+                        if (!port) {
+                            return _('Invalid Shadowsocks URL: missing port');
+                        }
+                        let portNum = parseInt(port);
+                        if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+                            return _('Invalid port number. Must be between 1 and 65535');
+                        }
+                    } catch (e) {
+                        return _('Invalid Shadowsocks URL: missing or invalid server/port format');
+                    }
+                }
+
+                // For VLESS
+                if (value.startsWith('vless://')) {
+                    // Check UUID
+                    let uuid = value.split('/')[2].split('@')[0];
+                    if (!uuid || uuid.length === 0) {
+                        return _('Invalid VLESS URL: missing UUID');
+                    }
+
+                    // Check server and port
+                    try {
+                        let serverPart = value.split('@')[1];
+                        if (!serverPart) {
+                            return _('Invalid VLESS URL: missing server address');
+                        }
+                        let [server, portAndRest] = serverPart.split(':');
+                        if (!server) {
+                            return _('Invalid VLESS URL: missing server');
+                        }
+                        // Handle cases where port might be followed by / or ? or #
+                        let port = portAndRest ? portAndRest.split(/[/?#]/)[0] : null;
+                        if (!port && port !== '') { // Allow empty port for specific cases
+                            return _('Invalid VLESS URL: missing port');
+                        }
+                        if (port !== '') { // Only validate port if it's not empty
+                            let portNum = parseInt(port);
+                            if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+                                return _('Invalid port number. Must be between 1 and 65535');
+                            }
+                        }
+                    } catch (e) {
+                        return _('Invalid VLESS URL: missing or invalid server/port format');
+                    }
+
+                    // Parse query parameters
+                    let queryString = value.split('?')[1];
+                    if (!queryString) {
+                        return _('Invalid VLESS URL: missing query parameters');
+                    }
+
+                    let params = new URLSearchParams(queryString.split('#')[0]);
+
+                    // Check type parameter
+                    let type = params.get('type');
+                    if (!type) {
+                        return _('Invalid VLESS URL: missing type parameter');
+                    }
+
+                    // Check security parameter
+                    let security = params.get('security');
+                    if (!security) {
+                        return _('Invalid VLESS URL: missing security parameter');
+                    }
+
+                    // If security is "reality", check required reality parameters
+                    if (security === 'reality') {
+                        if (!params.get('pbk')) {
+                            return _('Invalid VLESS URL: missing pbk parameter for reality security');
+                        }
+                        if (!params.get('fp')) {
+                            return _('Invalid VLESS URL: missing fp parameter for reality security');
+                        }
+                    }
+
+                    // If security is "tls", check required TLS parameters
+                    if (security === 'tls') {
+                        if (!params.get('sni') && type !== 'tcp') {
+                            return _('Invalid VLESS URL: missing sni parameter for tls security');
+                        }
+                    }
+                }
+
+                return true;
+            } catch (e) {
+                console.error('Validation error:', e);
+                return _('Invalid URL format: ' + e.message);
+            }
+        };
 
         o = s.taboption('basic', form.TextValue, 'outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
         o.depends('proxy_config_type', 'outbound');
@@ -153,7 +305,7 @@ return view.extend({
                     if (removedServices.length > 0) {
                         newValues = newValues.filter(v => allowedWithRussiaInside.includes(v));
 
-                        const warningMsg = _('Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s have been removed from selection.').format(
+                        const warningMsg = _('Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection.').format(
                             removedServices.join(', ')
                         );
 
@@ -211,7 +363,7 @@ return view.extend({
         o = s.taboption('basic', form.TextValue, 'custom_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)'));
         o.placeholder = 'example.com, sub.example.com\ndomain.com test.com\nsubdomain.domain.com another.com, third.com';
         o.depends('custom_domains_list_type', 'text');
-        o.rows = 10;
+        o.rows = 8;
         o.rmempty = false;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
@@ -469,7 +621,6 @@ return view.extend({
         o.ucisection = 'main';
 
         // Additional Settings Tab
-
         o = s.tab('additional', _('Additional Settings'));
 
         o = s.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
@@ -497,422 +648,604 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
+        // Diagnostics tab
         o = s.tab('diagnostics', _('Diagnostics'));
 
-        function formatDiagnosticOutput(output) {
-            if (!output) return '';
+        // Service Status Section
+        let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system) {
+            return E('div', { 'class': 'cbi-section' }, [
+                E('h3', {}, _('Service Status')),
+                E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
+                    // Podkop Column
+                    E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
+                        E('div', { 'style': 'margin-bottom: 15px;' }, [
+                            E('strong', {}, _('Podkop Status')),
+                            E('br'),
+                            E('span', { 'style': `color: ${podkopStatus.running ? '#4caf50' : '#f44336'}` }, [
+                                podkopStatus.running ? '✔' : '✘',
+                                ' ',
+                                podkopStatus.status
+                            ])
+                        ]),
+                        E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
+                            podkopStatus.running ?
+                                E('button', {
+                                    'class': 'btn cbi-button-remove',
+                                    'click': function () {
+                                        return fs.exec('/etc/init.d/podkop', ['stop'])
+                                            .then(() => location.reload());
+                                    }
+                                }, _('Stop Podkop')) :
+                                E('button', {
+                                    'class': 'btn cbi-button-apply',
+                                    'click': function () {
+                                        return fs.exec('/etc/init.d/podkop', ['start'])
+                                            .then(() => location.reload());
+                                    }
+                                }, _('Start Podkop')),
+                            E('button', {
+                                'class': 'btn cbi-button-apply',
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', ['restart'])
+                                        .then(() => location.reload());
+                                }
+                            }, _('Restart Podkop')),
+                            E('button', {
+                                'class': 'btn cbi-button-' + (podkopStatus.enabled ? 'remove' : 'apply'),
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', [podkopStatus.enabled ? 'disable' : 'enable'])
+                                        .then(() => location.reload());
+                                }
+                            }, podkopStatus.enabled ? _('Disable Podkop') : _('Enable Podkop')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', ['show_config'])
+                                        .then(function (res) {
+                                            const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                                            ui.showModal(_('Podkop Configuration'), [
+                                                E('div', {
+                                                    style: 'max-height: 70vh;' +
+                                                        'overflow-y: auto;' +
+                                                        'margin: 1em 0;' +
+                                                        'padding: 1.5em;' +
+                                                        'background: #f8f9fa;' +
+                                                        'border: 1px solid #e9ecef;' +
+                                                        'border-radius: 4px;' +
+                                                        'font-family: monospace;' +
+                                                        'white-space: pre-wrap;' +
+                                                        'word-wrap: break-word;' +
+                                                        'line-height: 1.5;' +
+                                                        'font-size: 14px;'
+                                                }, [
+                                                    E('pre', { style: 'margin: 0;' }, formattedOutput)
+                                                ]),
+                                                E('div', {
+                                                    style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                                                }, [
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': function (ev) {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            try {
+                                                                document.execCommand('copy');
+                                                                ev.target.textContent = _('Copied!');
+                                                                setTimeout(() => {
+                                                                    ev.target.textContent = _('Copy to Clipboard');
+                                                                }, 1000);
+                                                            } catch (err) {
+                                                                ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                                            }
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    }, _('Copy to Clipboard')),
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': ui.hideModal
+                                                    }, _('Close'))
+                                                ])
+                                            ]);
+                                        });
+                                }
+                            }, _('Show Config')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', ['check_logs'])
+                                        .then(function (res) {
+                                            const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                                            ui.showModal(_('Podkop Logs'), [
+                                                E('div', {
+                                                    style: 'max-height: 70vh;' +
+                                                        'overflow-y: auto;' +
+                                                        'margin: 1em 0;' +
+                                                        'padding: 1.5em;' +
+                                                        'background: #f8f9fa;' +
+                                                        'border: 1px solid #e9ecef;' +
+                                                        'border-radius: 4px;' +
+                                                        'font-family: monospace;' +
+                                                        'white-space: pre-wrap;' +
+                                                        'word-wrap: break-word;' +
+                                                        'line-height: 1.5;' +
+                                                        'font-size: 14px;'
+                                                }, [
+                                                    E('pre', { style: 'margin: 0;' }, formattedOutput)
+                                                ]),
+                                                E('div', {
+                                                    style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                                                }, [
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': function (ev) {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            try {
+                                                                document.execCommand('copy');
+                                                                ev.target.textContent = _('Copied!');
+                                                                setTimeout(() => {
+                                                                    ev.target.textContent = _('Copy to Clipboard');
+                                                                }, 1000);
+                                                            } catch (err) {
+                                                                ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                                            }
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    }, _('Copy to Clipboard')),
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': ui.hideModal
+                                                    }, _('Close'))
+                                                ])
+                                            ]);
+                                        });
+                                }
+                            }, _('View Logs'))
+                        ])
+                    ]),
+                    // Sing-box Column
+                    E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
+                        E('div', { 'style': 'margin-bottom: 15px;' }, [
+                            E('strong', {}, _('Sing-box Status')),
+                            E('br'),
+                            E('span', { 'style': `color: ${singboxStatus.running ? '#4caf50' : '#f44336'}` }, [
+                                singboxStatus.running ? '✔' : '✘',
+                                ' ',
+                                `${singboxStatus.status}`
+                            ])
+                        ]),
+                        E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', ['show_sing_box_config'])
+                                        .then(function (res) {
+                                            const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                                            ui.showModal(_('Sing-box Configuration'), [
+                                                E('div', {
+                                                    style: 'max-height: 70vh;' +
+                                                        'overflow-y: auto;' +
+                                                        'margin: 1em 0;' +
+                                                        'padding: 1.5em;' +
+                                                        'background: #f8f9fa;' +
+                                                        'border: 1px solid #e9ecef;' +
+                                                        'border-radius: 4px;' +
+                                                        'font-family: monospace;' +
+                                                        'white-space: pre-wrap;' +
+                                                        'word-wrap: break-word;' +
+                                                        'line-height: 1.5;' +
+                                                        'font-size: 14px;'
+                                                }, [
+                                                    E('pre', { style: 'margin: 0;' }, formattedOutput)
+                                                ]),
+                                                E('div', {
+                                                    style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                                                }, [
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': function (ev) {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            try {
+                                                                document.execCommand('copy');
+                                                                ev.target.textContent = _('Copied!');
+                                                                setTimeout(() => {
+                                                                    ev.target.textContent = _('Copy to Clipboard');
+                                                                }, 1000);
+                                                            } catch (err) {
+                                                                ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                                            }
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    }, _('Copy to Clipboard')),
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': ui.hideModal
+                                                    }, _('Close'))
+                                                ])
+                                            ]);
+                                        });
+                                }
+                            }, _('Show Config')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', ['check_sing_box_logs'])
+                                        .then(function (res) {
+                                            const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                                            ui.showModal(_('Sing-box Logs'), [
+                                                E('div', {
+                                                    style: 'max-height: 70vh;' +
+                                                        'overflow-y: auto;' +
+                                                        'margin: 1em 0;' +
+                                                        'padding: 1.5em;' +
+                                                        'background: #f8f9fa;' +
+                                                        'border: 1px solid #e9ecef;' +
+                                                        'border-radius: 4px;' +
+                                                        'font-family: monospace;' +
+                                                        'white-space: pre-wrap;' +
+                                                        'word-wrap: break-word;' +
+                                                        'line-height: 1.5;' +
+                                                        'font-size: 14px;'
+                                                }, [
+                                                    E('pre', { style: 'margin: 0;' }, formattedOutput)
+                                                ]),
+                                                E('div', {
+                                                    style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                                                }, [
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': function (ev) {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            try {
+                                                                document.execCommand('copy');
+                                                                ev.target.textContent = _('Copied!');
+                                                                setTimeout(() => {
+                                                                    ev.target.textContent = _('Copy to Clipboard');
+                                                                }, 1000);
+                                                            } catch (err) {
+                                                                ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                                            }
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    }, _('Copy to Clipboard')),
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': ui.hideModal
+                                                    }, _('Close'))
+                                                ])
+                                            ]);
+                                        });
+                                }
+                            }, _('View Logs')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', ['check_sing_box_connections'])
+                                        .then(function (res) {
+                                            const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                                            ui.showModal(_('Active Connections'), [
+                                                E('div', {
+                                                    style: 'max-height: 70vh;' +
+                                                        'overflow-y: auto;' +
+                                                        'margin: 1em 0;' +
+                                                        'padding: 1.5em;' +
+                                                        'background: #f8f9fa;' +
+                                                        'border: 1px solid #e9ecef;' +
+                                                        'border-radius: 4px;' +
+                                                        'font-family: monospace;' +
+                                                        'white-space: pre-wrap;' +
+                                                        'word-wrap: break-word;' +
+                                                        'line-height: 1.5;' +
+                                                        'font-size: 14px;'
+                                                }, [
+                                                    E('pre', { style: 'margin: 0;' }, formattedOutput)
+                                                ]),
+                                                E('div', {
+                                                    style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                                                }, [
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': function (ev) {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            try {
+                                                                document.execCommand('copy');
+                                                                ev.target.textContent = _('Copied!');
+                                                                setTimeout(() => {
+                                                                    ev.target.textContent = _('Copy to Clipboard');
+                                                                }, 1000);
+                                                            } catch (err) {
+                                                                ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                                            }
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    }, _('Copy to Clipboard')),
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': ui.hideModal
+                                                    }, _('Close'))
+                                                ])
+                                            ]);
+                                        });
+                                }
+                            }, _('Check Connections'))
+                        ])
+                    ]),
+                    // Diagnostics Column
+                    E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
+                        E('div', { 'style': 'margin-bottom: 15px;' }, [
+                            E('strong', {}, _('FakeIP Status')),
+                            E('div', { 'id': 'fakeip-status' }, [
+                                E('span', {}, _('Checking FakeIP...'))
+                            ])
+                        ]),
+                        E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', ['check_nft'])
+                                        .then(function (res) {
+                                            const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                                            ui.showModal(_('NFT Rules'), [
+                                                E('div', {
+                                                    style: 'max-height: 70vh;' +
+                                                        'overflow-y: auto;' +
+                                                        'margin: 1em 0;' +
+                                                        'padding: 1.5em;' +
+                                                        'background: #f8f9fa;' +
+                                                        'border: 1px solid #e9ecef;' +
+                                                        'border-radius: 4px;' +
+                                                        'font-family: monospace;' +
+                                                        'white-space: pre-wrap;' +
+                                                        'word-wrap: break-word;' +
+                                                        'line-height: 1.5;' +
+                                                        'font-size: 14px;'
+                                                }, [
+                                                    E('pre', { style: 'margin: 0;' }, formattedOutput)
+                                                ]),
+                                                E('div', {
+                                                    style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                                                }, [
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': function (ev) {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            try {
+                                                                document.execCommand('copy');
+                                                                ev.target.textContent = _('Copied!');
+                                                                setTimeout(() => {
+                                                                    ev.target.textContent = _('Copy to Clipboard');
+                                                                }, 1000);
+                                                            } catch (err) {
+                                                                ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                                            }
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    }, _('Copy to Clipboard')),
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': ui.hideModal
+                                                    }, _('Close'))
+                                                ])
+                                            ]);
+                                        });
+                                }
+                            }, _('Check NFT Rules')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', ['check_dnsmasq'])
+                                        .then(function (res) {
+                                            const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                                            ui.showModal(_('DNSMasq Configuration'), [
+                                                E('div', {
+                                                    style: 'max-height: 70vh;' +
+                                                        'overflow-y: auto;' +
+                                                        'margin: 1em 0;' +
+                                                        'padding: 1.5em;' +
+                                                        'background: #f8f9fa;' +
+                                                        'border: 1px solid #e9ecef;' +
+                                                        'border-radius: 4px;' +
+                                                        'font-family: monospace;' +
+                                                        'white-space: pre-wrap;' +
+                                                        'word-wrap: break-word;' +
+                                                        'line-height: 1.5;' +
+                                                        'font-size: 14px;'
+                                                }, [
+                                                    E('pre', { style: 'margin: 0;' }, formattedOutput)
+                                                ]),
+                                                E('div', {
+                                                    style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                                                }, [
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': function (ev) {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            try {
+                                                                document.execCommand('copy');
+                                                                ev.target.textContent = _('Copied!');
+                                                                setTimeout(() => {
+                                                                    ev.target.textContent = _('Copy to Clipboard');
+                                                                }, 1000);
+                                                            } catch (err) {
+                                                                ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                                            }
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    }, _('Copy to Clipboard')),
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': ui.hideModal
+                                                    }, _('Close'))
+                                                ])
+                                            ]);
+                                        });
+                                }
+                            }, _('Check DNSMasq')),
+                            E('button', {
+                                'class': 'btn',
+                                'click': function () {
+                                    return fs.exec('/etc/init.d/podkop', ['list_update'])
+                                        .then(function (res) {
+                                            const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                                            ui.showModal(_('Lists Update Results'), [
+                                                E('div', {
+                                                    style: 'max-height: 70vh;' +
+                                                        'overflow-y: auto;' +
+                                                        'margin: 1em 0;' +
+                                                        'padding: 1.5em;' +
+                                                        'background: #f8f9fa;' +
+                                                        'border: 1px solid #e9ecef;' +
+                                                        'border-radius: 4px;' +
+                                                        'font-family: monospace;' +
+                                                        'white-space: pre-wrap;' +
+                                                        'word-wrap: break-word;' +
+                                                        'line-height: 1.5;' +
+                                                        'font-size: 14px;'
+                                                }, [
+                                                    E('pre', { style: 'margin: 0;' }, formattedOutput)
+                                                ]),
+                                                E('div', {
+                                                    style: 'display: flex; justify-content: space-between; margin-top: 1em;'
+                                                }, [
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': function (ev) {
+                                                            const textarea = document.createElement('textarea');
+                                                            textarea.value = '```txt\n' + formattedOutput + '\n```';
+                                                            document.body.appendChild(textarea);
+                                                            textarea.select();
+                                                            try {
+                                                                document.execCommand('copy');
+                                                                ev.target.textContent = _('Copied!');
+                                                                setTimeout(() => {
+                                                                    ev.target.textContent = _('Copy to Clipboard');
+                                                                }, 1000);
+                                                            } catch (err) {
+                                                                ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+                                                            }
+                                                            document.body.removeChild(textarea);
+                                                        }
+                                                    }, _('Copy to Clipboard')),
+                                                    E('button', {
+                                                        'class': 'btn',
+                                                        'click': ui.hideModal
+                                                    }, _('Close'))
+                                                ])
+                                            ]);
+                                        });
+                                }
+                            }, _('Update Lists'))
+                        ])
+                    ]),
+                    // Version Information Column
+                    E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
+                        E('div', { 'style': 'margin-bottom: 15px;' }, [
+                            E('strong', {}, _('Version Information')),
+                            E('br'),
+                            E('div', { 'style': 'margin-top: 10px; font-family: monospace; white-space: pre-wrap;' }, [
+                                E('strong', {}, 'Podkop: '), podkop.stdout ? podkop.stdout.trim() : _('Unknown'), '\n',
+                                E('strong', {}, 'LuCI App: '), luci.stdout ? luci.stdout.trim() : _('Unknown'), '\n',
+                                E('strong', {}, 'Sing-box: '), singbox.stdout ? singbox.stdout.trim() : _('Unknown'), '\n',
+                                E('strong', {}, 'OpenWrt Version: '), system.stdout ? system.stdout.split('\n')[1].trim() : _('Unknown'), '\n',
+                                E('strong', {}, 'Device Model: '), system.stdout ? system.stdout.split('\n')[4].trim() : _('Unknown')
+                            ])
+                        ])
+                    ]),
+                ])
+            ]);
+        };
 
-            return output
-                .replace(/\x1B\[[0-9;]*[mK]/g, '')
-                .replace(/\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\] /g, '')
-                .replace(/\n{3,}/g, '\n\n')
-                .replace(/===\s+(.*?)\s+===/g, (_, title) => `\n${title}\n${'─'.repeat(title.length)}`)
-                .replace(/^Checking\s+(.+)\.{3}/gm, '► Checking $1...')
-                .replace(/:\s+(available|not found)$/gm, (_, status) =>
-                    `: ${status === 'available' ? '✓' : '✗'}`);
+        o = s.taboption('diagnostics', form.DummyValue, '_status');
+        o.rawhtml = true;
+        o.cfgvalue = function () {
+            return E('div', { id: 'diagnostics-status' }, _('Loading diagnostics...'));
+        };
+
+        function checkFakeIP() {
+            fetch('http://httpbin.org/ip')
+                .then(response => response.text())
+                .then(text => {
+                    const statusElement = document.getElementById('fakeip-status');
+                    if (!statusElement) return;
+
+                    console.log('FakeIP check response:', text);
+
+                    if (text.includes('Cannot GET /ip')) {
+                        console.log('FakeIP status: working (Cannot GET /ip)');
+                        statusElement.innerHTML = E('span', { 'style': 'color: #4caf50' }, [
+                            '✔ ',
+                            _('working')
+                        ]).outerHTML;
+                    } else if (text.includes('"origin":')) {
+                        console.log('FakeIP status: not working (got IP response)');
+                        statusElement.innerHTML = E('span', { 'style': 'color: #f44336' }, [
+                            '✘ ',
+                            _('not working')
+                        ]).outerHTML;
+                    } else {
+                        console.log('FakeIP status: check error (unexpected response)');
+                        statusElement.innerHTML = E('span', { 'style': 'color: #ff9800' }, [
+                            '! ',
+                            _('check error')
+                        ]).outerHTML;
+                    }
+                })
+                .catch(error => {
+                    console.log('FakeIP check error:', error.message);
+                    const statusElement = document.getElementById('fakeip-status');
+                    if (statusElement) {
+                        statusElement.innerHTML = E('span', { 'style': 'color: #ff9800' }, 'check error').outerHTML;
+                    }
+                });
         }
 
-        // Connection Checks Section
-        o = s.taboption('diagnostics', form.Button, '_check_nft');
-        o.title = _('NFT Rules');
-        o.description = _('Show current nftables rules and statistics');
-        o.inputtitle = _('Check Rules');
-        o.inputstyle = 'apply';
-        o.onclick = function () {
-            return fs.exec('/etc/init.d/podkop', ['check_nft'])
-                .then(function (res) {
-                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                    ui.showModal(_('NFT Rules'), [
-                        E('div', {
-                            style:
-                                'max-height: 70vh;' +
-                                'overflow-y: auto;' +
-                                'margin: 1em 0;' +
-                                'padding: 1.5em;' +
-                                'background: #f8f9fa;' +
-                                'border: 1px solid #e9ecef;' +
-                                'border-radius: 4px;' +
-                                'font-family: monospace;' +
-                                'white-space: pre-wrap;' +
-                                'word-wrap: break-word;' +
-                                'line-height: 1.5;' +
-                                'font-size: 14px;'
-                        }, [
-                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                        ]),
-                        E('div', {
-                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
-                        }, [
-                            E('button', {
-                                'class': 'btn',
-                                'click': function () {
-                                    const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
-                                    document.body.appendChild(textarea);
-                                    textarea.select();
-                                    try {
-                                        document.execCommand('copy');
-                                    } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                    }
-                                    document.body.removeChild(textarea);
-                                }
-                            }, _('Copy to Clipboard')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': ui.hideModal
-                            }, _('Close'))
-                        ])
-                    ]);
-                });
-        };
-
-
-
-        // Logs Section
-        o = s.taboption('diagnostics', form.Button, '_check_sing_box_logs');
-        o.title = _('Sing-Box Logs');
-        o.description = _('View recent sing-box logs from system journal');
-        o.inputtitle = _('View Sing-Box Logs');
-        o.inputstyle = 'apply';
-        o.onclick = function () {
-            return fs.exec('/etc/init.d/podkop', ['check_sing_box_logs'])
-                .then(function (res) {
-                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                    ui.showModal(_('Sing-Box Logs'), [
-                        E('div', {
-                            style:
-                                'max-height: 70vh;' +
-                                'overflow-y: auto;' +
-                                'margin: 1em 0;' +
-                                'padding: 1.5em;' +
-                                'background: #f8f9fa;' +
-                                'border: 1px solid #e9ecef;' +
-                                'border-radius: 4px;' +
-                                'font-family: monospace;' +
-                                'white-space: pre-wrap;' +
-                                'word-wrap: break-word;' +
-                                'line-height: 1.5;' +
-                                'font-size: 14px;'
-                        }, [
-                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                        ]),
-                        E('div', {
-                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
-                        }, [
-                            E('button', {
-                                'class': 'btn',
-                                'click': function () {
-                                    const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
-                                    document.body.appendChild(textarea);
-                                    textarea.select();
-                                    try {
-                                        document.execCommand('copy');
-                                    } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                    }
-                                    document.body.removeChild(textarea);
-                                }
-                            }, _('Copy to Clipboard')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': ui.hideModal
-                            }, _('Close'))
-                        ])
-                    ]);
-                });
-        };
-
-        o = s.taboption('diagnostics', form.Button, '_check_logs');
-        o.title = _('Podkop Logs');
-        o.description = _('View recent podkop logs from system journal');
-        o.inputtitle = _('View Podkop Logs');
-        o.inputstyle = 'apply';
-        o.onclick = function () {
-            return fs.exec('/etc/init.d/podkop', ['check_logs'])
-                .then(function (res) {
-                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                    ui.showModal(_('Podkop Logs'), [
-                        E('div', {
-                            style:
-                                'max-height: 70vh;' +
-                                'overflow-y: auto;' +
-                                'margin: 1em 0;' +
-                                'padding: 1.5em;' +
-                                'background: #f8f9fa;' +
-                                'border: 1px solid #e9ecef;' +
-                                'border-radius: 4px;' +
-                                'font-family: monospace;' +
-                                'white-space: pre-wrap;' +
-                                'word-wrap: break-word;' +
-                                'line-height: 1.5;' +
-                                'font-size: 14px;'
-                        }, [
-                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                        ]),
-                        E('div', {
-                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
-                        }, [
-                            E('button', {
-                                'class': 'btn',
-                                'click': function () {
-                                    const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
-                                    document.body.appendChild(textarea);
-                                    textarea.select();
-                                    try {
-                                        document.execCommand('copy');
-                                    } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                    }
-                                    document.body.removeChild(textarea);
-                                }
-                            }, _('Copy to Clipboard')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': ui.hideModal
-                            }, _('Close'))
-                        ])
-                    ]);
-                });
-        };
-
-        // Configurations Section
-        o = s.taboption('diagnostics', form.Button, '_check_sing_box_connections');
-        o.title = _('Active Connections');
-        o.description = _('View active sing-box network connections');
-        o.inputtitle = _('Check Connections');
-        o.inputstyle = 'apply';
-        o.onclick = function () {
-            return fs.exec('/etc/init.d/podkop', ['check_sing_box_connections'])
-                .then(function (res) {
-                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                    ui.showModal(_('Active Connections'), [
-                        E('div', {
-                            style:
-                                'max-height: 70vh;' +
-                                'overflow-y: auto;' +
-                                'margin: 1em 0;' +
-                                'padding: 1.5em;' +
-                                'background: #f8f9fa;' +
-                                'border: 1px solid #e9ecef;' +
-                                'border-radius: 4px;' +
-                                'font-family: monospace;' +
-                                'white-space: pre-wrap;' +
-                                'word-wrap: break-word;' +
-                                'line-height: 1.5;' +
-                                'font-size: 14px;'
-                        }, [
-                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                        ]),
-                        E('div', {
-                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
-                        }, [
-                            E('button', {
-                                'class': 'btn',
-                                'click': function () {
-                                    const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
-                                    document.body.appendChild(textarea);
-                                    textarea.select();
-                                    try {
-                                        document.execCommand('copy');
-                                    } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                    }
-                                    document.body.removeChild(textarea);
-                                }
-                            }, _('Copy to Clipboard')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': ui.hideModal
-                            }, _('Close'))
-                        ])
-                    ]);
-                });
-        };
-
-        o = s.taboption('diagnostics', form.Button, '_check_dnsmasq');
-        o.title = _('DNSMasq Configuration');
-        o.description = _('View current DNSMasq configuration settings');
-        o.inputtitle = _('Check DNSMasq');
-        o.inputstyle = 'apply';
-        o.onclick = function () {
-            return fs.exec('/etc/init.d/podkop', ['check_dnsmasq'])
-                .then(function (res) {
-                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                    ui.showModal(_('DNSMasq Configuration'), [
-                        E('div', {
-                            style:
-                                'max-height: 70vh;' +
-                                'overflow-y: auto;' +
-                                'margin: 1em 0;' +
-                                'padding: 1.5em;' +
-                                'background: #f8f9fa;' +
-                                'border: 1px solid #e9ecef;' +
-                                'border-radius: 4px;' +
-                                'font-family: monospace;' +
-                                'white-space: pre-wrap;' +
-                                'word-wrap: break-word;' +
-                                'line-height: 1.5;' +
-                                'font-size: 14px;'
-                        }, [
-                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                        ]),
-                        E('div', {
-                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
-                        }, [
-                            E('button', {
-                                'class': 'btn',
-                                'click': function () {
-                                    const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
-                                    document.body.appendChild(textarea);
-                                    textarea.select();
-                                    try {
-                                        document.execCommand('copy');
-                                    } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                    }
-                                    document.body.removeChild(textarea);
-                                }
-                            }, _('Copy to Clipboard')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': ui.hideModal
-                            }, _('Close'))
-                        ])
-                    ]);
-                });
-        };
-
-        o = s.taboption('diagnostics', form.Button, '_show_sing_box_config');
-        o.title = _('Sing-Box Configuration');
-        o.description = _('Show current sing-box configuration');
-        o.inputtitle = _('Show Sing-Box Config');
-        o.inputstyle = 'apply';
-        o.onclick = function () {
-            return fs.exec('/etc/init.d/podkop', ['show_sing_box_config'])
-                .then(function (res) {
-                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                    ui.showModal(_('Sing-Box Configuration'), [
-                        E('div', {
-                            style:
-                                'max-height: 70vh;' +
-                                'overflow-y: auto;' +
-                                'margin: 1em 0;' +
-                                'padding: 1.5em;' +
-                                'background: #f8f9fa;' +
-                                'border: 1px solid #e9ecef;' +
-                                'border-radius: 4px;' +
-                                'font-family: monospace;' +
-                                'white-space: pre-wrap;' +
-                                'word-wrap: break-word;' +
-                                'line-height: 1.5;' +
-                                'font-size: 14px;'
-                        }, [
-                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                        ]),
-                        E('div', {
-                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
-                        }, [
-                            E('button', {
-                                'class': 'btn',
-                                'click': function () {
-                                    const textarea = document.createElement('textarea');
-                                    textarea.value = '```json\n' + formattedOutput + '\n```';
-                                    document.body.appendChild(textarea);
-                                    textarea.select();
-                                    try {
-                                        document.execCommand('copy');
-                                    } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                    }
-                                    document.body.removeChild(textarea);
-                                }
-                            }, _('Copy to Clipboard')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': ui.hideModal
-                            }, _('Close'))
-                        ])
-                    ]);
-                });
-        };
-
-        o = s.taboption('diagnostics', form.Button, '_show_config');
-        o.title = _('Podkop Configuration');
-        o.description = _('Show current podkop configuration with masked sensitive data');
-        o.inputtitle = _('Show Config');
-        o.inputstyle = 'apply';
-        o.onclick = function () {
-            return fs.exec('/etc/init.d/podkop', ['show_config'])
-                .then(function (res) {
-                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                    ui.showModal(_('Podkop Configuration'), [
-                        E('div', {
-                            style:
-                                'max-height: 70vh;' +
-                                'overflow-y: auto;' +
-                                'margin: 1em 0;' +
-                                'padding: 1.5em;' +
-                                'background: #f8f9fa;' +
-                                'border: 1px solid #e9ecef;' +
-                                'border-radius: 4px;' +
-                                'font-family: monospace;' +
-                                'white-space: pre-wrap;' +
-                                'word-wrap: break-word;' +
-                                'line-height: 1.5;' +
-                                'font-size: 14px;'
-                        }, [
-                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                        ]),
-                        E('div', {
-                            style: 'display: flex; justify-content: space-between; margin-top: 1em;'
-                        }, [
-                            E('button', {
-                                'class': 'btn',
-                                'click': function () {
-                                    const textarea = document.createElement('textarea');
-                                    textarea.value = formattedOutput;
-                                    document.body.appendChild(textarea);
-                                    textarea.select();
-                                    try {
-                                        document.execCommand('copy');
-                                    } catch (err) {
-                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                    }
-                                    document.body.removeChild(textarea);
-                                }
-                            }, _('Copy to Clipboard')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': ui.hideModal
-                            }, _('Close'))
-                        ])
-                    ]);
-                });
-        };
-
-        o = s.taboption('diagnostics', form.Button, '_list_update');
-        o.title = _('Update Lists');
-        o.description = _('Update all lists in config');
-        o.inputtitle = _('Update Lists');
-        o.inputstyle = 'apply';
-        o.onclick = function () {
-            return fs.exec('/etc/init.d/podkop', ['list_update'])
-                .then(function (res) {
-                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                    ui.showModal(_('Lists Update Results'), [
-                        E('div', { style: 'white-space:pre-wrap;padding:5px' }, formattedOutput),
-                        E('div', { class: 'right' }, E('button', {
-                            class: 'btn',
-                            click: ui.hideModal
-                        }, _('Close')))
-                    ]);
-                });
-        };
+        function updateDiagnostics() {
+            Promise.all([
+                fs.exec('/etc/init.d/podkop', ['get_status']),
+                fs.exec('/etc/init.d/podkop', ['get_sing_box_status']),
+                fs.exec('/etc/init.d/podkop', ['show_version']),
+                fs.exec('/etc/init.d/podkop', ['show_luci_version']),
+                fs.exec('/etc/init.d/podkop', ['show_sing_box_version']),
+                fs.exec('/etc/init.d/podkop', ['show_system_info'])
+            ]).then(function ([podkopStatus, singboxStatus, podkop, luci, singbox, system]) {
+                try {
+                    const parsedPodkopStatus = JSON.parse(podkopStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
+                    const parsedSingboxStatus = JSON.parse(singboxStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
+                    var newContent = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system);
+                    var container = document.getElementById('diagnostics-status');
+                    if (container) {
+                        container.innerHTML = '';
+                        container.appendChild(newContent);
+                        checkFakeIP();
+                    }
+                } catch (e) {
+                    console.error('Error parsing diagnostics status:', e);
+                    var container = document.getElementById('diagnostics-status');
+                    if (container) {
+                        container.innerHTML = '<div class="alert-message warning"><strong>' + _('Error loading diagnostics') + '</strong><br><pre>' + e.toString() + '</pre></div>';
+                    }
+                }
+            });
+        }
 
         // Add new section 'extra'
         var s = m.section(form.TypedSection, 'extra', _('Extra configurations'));
@@ -1119,7 +1452,6 @@ return view.extend({
                 return _('Invalid format. Use format: X.X.X.X or X.X.X.X/Y');
             }
 
-            // Разбираем IP и маску
             const [ip, cidr] = value.split('/');
             const ipParts = ip.split('.');
 
@@ -1240,6 +1572,15 @@ return view.extend({
         // o = s.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080 (extra +1)'));
         // o.default = '0';
         // o.rmempty = false;
-        return m.render();
+
+        let map_promise = m.render();
+
+        map_promise.then(node => {
+            node.classList.add('fade-in');
+            updateDiagnostics();
+            return node;
+        });
+
+        return map_promise;
     }
 });

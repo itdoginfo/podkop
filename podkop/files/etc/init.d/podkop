@@ -7,7 +7,7 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="main list_update check_proxy check_nft check_github check_logs check_sing_box_connections check_sing_box_logs check_dnsmasq show_config show_version show_sing_box_config"
+EXTRA_COMMANDS="main list_update check_proxy check_nft check_github check_logs check_sing_box_connections check_sing_box_logs check_dnsmasq show_config show_version show_sing_box_config show_luci_version show_sing_box_version show_system_info get_status get_sing_box_status"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         check_proxy          Check if sing-box proxy works correctly
         check_nft           Show PodkopTable nftables rules
@@ -18,7 +18,11 @@ EXTRA_HELP="        list_update     Updating domain and subnet lists
         check_dnsmasq       Show current DNSMasq configuration
         show_config         Show current configuration with masked sensitive data
         show_version        Show current version
-        show_sing_box_config Show current sing-box configuration"
+        show_sing_box_config Show current sing-box configuration
+        show_luci_version   Show LuCI app version
+        show_sing_box_version Show sing-box version
+        show_system_info    Show OpenWrt version and device model
+        get_sing_box_status  Get sing-box status"
 
 [ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
 
@@ -1640,4 +1644,126 @@ show_config() {
 show_version() {
     local version=$(opkg info podkop | grep -m 1 "Version:" | cut -d' ' -f2)
     echo "$version"
+}
+
+show_luci_version() {
+    local version=$(opkg info luci-app-podkop | grep -m 1 "Version:" | cut -d' ' -f2)
+    echo "$version"
+}
+
+show_sing_box_version() {
+    local version=$(opkg info sing-box | grep -m 1 "Version:" | cut -d' ' -f2)
+    echo "$version"
+}
+
+show_system_info() {
+    echo "=== OpenWrt Version ==="
+    grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2
+    echo
+    echo "=== Device Model ==="
+    cat /tmp/sysinfo/model
+}
+
+get_sing_box_status() {
+    local running=0
+    local enabled=0
+    local status=""
+    local version=""
+
+    # Check if service is enabled
+    if [ -x /etc/rc.d/S99sing-box ]; then
+        enabled=1
+    fi
+
+    # Check if service is running
+    if pgrep -f "sing-box" >/dev/null; then
+        running=1
+        version=$(sing-box version | head -n 1 | awk '{print $3}')
+    fi
+
+    # Format status message
+    if [ $running -eq 1 ]; then
+        if [ $enabled -eq 1 ]; then
+            status="running & enabled"
+        else
+            status="running but disabled"
+        fi
+    else
+        if [ $enabled -eq 1 ]; then
+            status="stopped but enabled"
+        else
+            status="stopped & disabled"
+        fi
+    fi
+
+    echo "{\"running\":$running,\"enabled\":$enabled,\"status\":\"$status\"}"
+}
+
+get_status() {
+    local running=0
+    local enabled=0
+    local status=""
+
+    # Check if service is enabled
+    if [ -x /etc/rc.d/S99podkop ]; then
+        enabled=1
+    fi
+
+    # Check if service is running
+    if pgrep -f "sing-box" >/dev/null; then
+        running=1
+    fi
+
+    # Format status message
+    if [ $running -eq 1 ]; then
+        if [ $enabled -eq 1 ]; then
+            status="running & enabled"
+        else
+            status="running but disabled"
+        fi
+    else
+        if [ $enabled -eq 1 ]; then
+            status="stopped but enabled"
+        else
+            status="stopped & disabled"
+        fi
+    fi
+
+    echo "{\"running\":$running,\"enabled\":$enabled,\"status\":\"$status\"}"
+}
+
+sing_box_add_secure_dns_probe_domain() {
+    local domain="httpbin.org"
+    local override_address="numbersapi.com"
+
+    if [ -z "$override_address" ]; then
+        log "Error: Could not get br-lan IP address"
+        return 1
+    fi
+
+    log "Adding DNS probe domain ${domain} to fakeip-server configuration"
+
+    jq \
+    --arg domain "$domain" \
+    --arg override "$override_address" \
+    '.dns.rules |= map(
+        if .server == "fakeip-server" then
+            {
+                "server": .server,
+                "domain": $domain,
+                "rule_set": .rule_set
+            }
+        else
+            .
+        end
+    ) |
+    .route.rules |= . + [
+        {
+            "domain": $domain,
+            "action": "route-options",
+            "override_address": $override
+        }
+    ]' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+
+    log "DNS probe domain ${domain} configured with override to ${override_address}"
 }
