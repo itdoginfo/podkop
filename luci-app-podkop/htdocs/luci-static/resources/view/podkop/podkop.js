@@ -628,6 +628,11 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
+        o = s.taboption('additional', form.Flag, 'dont_touch_dhcp', _('Dont touch my DHCP!'), _('Podkop will not change the DHCP config'));
+        o.default = '0';
+        o.rmempty = false;
+        o.ucisection = 'main';
+
         o = s.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
         o.default = '0';
         o.rmempty = false;

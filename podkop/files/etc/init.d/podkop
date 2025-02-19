@@ -75,7 +75,11 @@ start_service() {
 stop_service() {
     log "Stopping the podkop"
     remove_cron_job
-    dnsmasq_rm
+
+    config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" "0"
+    if [ "$dont_touch_dhcp" -eq 0 ]; then
+        dnsmasq_restore
+    fi 
 
     rm -rf /tmp/podkop/*.lst
 
@@ -205,7 +209,10 @@ main() {
     config_get interface "main" "interface"
 
     if [ -n "$proxy_string" ] || [ -n "$interface" ]; then
-        dnsmasq_add
+        config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" "0"
+        if [ "$dont_touch_dhcp" -eq 0 ]; then
+            dnsmasq_add_resolver
+        fi
     fi
 }
 
@@ -315,27 +322,71 @@ create_nft_table() {
     nft add rule inet $table proxy meta mark 0x105 meta l4proto udp tproxy ip to :1602 counter
 }
 
-dnsmasq_add() {
-    ## Future: Check config and skip restart
+save_dnsmasq_config() {
+    local key="$1"
+    local backup_key="$2"
+    value=$(uci get "$key" 2>/dev/null)
+
+    if [ -z "$value" ]; then
+        uci -q delete "$backup_key"
+    else
+        uci set "$backup_key"="$value"
+    fi
+}
+
+dnsmasq_add_resolver() {
+    log "Save dnsmasq config"
+    save_dnsmasq_config "dhcp.@dnsmasq[0].noresolv" "dhcp.@dnsmasq[0].podkop_noresolv"
+    save_dnsmasq_config "dhcp.@dnsmasq[0].cachesize" "dhcp.@dnsmasq[0].podkop_cachesize"
+
+    uci -q delete dhcp.@dnsmasq[0].podkop_server
+    for server in $(uci get dhcp.@dnsmasq[0].server 2>/dev/null); do
+        if [[ "$server" == "127.0.0.42" ]]; then
+            log "Dnsmasq save config error: server=127.0.0.42"
+        else
+            uci add_list dhcp.@dnsmasq[0].podkop_server="$server"
+        fi
+    done
+
     log "Configure dnsmasq for sing-box"
     uci set dhcp.@dnsmasq[0].noresolv="1"
-    uci set dhcp.@dnsmasq[0].filter_aaaa="1"
     uci set dhcp.@dnsmasq[0].cachesize="0"
     uci -q delete dhcp.@dnsmasq[0].server
     uci add_list dhcp.@dnsmasq[0].server="127.0.0.42"
-    uci add_list dhcp.@dnsmasq[0].server='/use-application-dns.net/'
     uci commit dhcp
 
     /etc/init.d/dnsmasq restart
 }
 
-dnsmasq_rm() {
+dnsmasq_restore() {
     log "Removing configuration for dnsmasq"
-    uci set dhcp.@dnsmasq[0].noresolv="0"
-    uci set dhcp.@dnsmasq[0].filter_aaaa="0"
-    uci set dhcp.@dnsmasq[0].cachesize="1000"
-    uci -q delete dhcp.@dnsmasq[0].server
-    uci add_list dhcp.@dnsmasq[0].server="8.8.8.8"
+
+    local cachesize=$(uci get dhcp.@dnsmasq[0].podkop_cachesize 2>/dev/null)
+    if [ -z "$cachesize" ]; then
+        log "dnsmasq revert: cachesize is unset"
+    else
+        uci set dhcp.@dnsmasq[0].cachesize="$cachesize"
+    fi
+
+    local noresolv=$(uci get dhcp.@dnsmasq[0].podkop_noresolv 2>/dev/null)
+    if [ -z "$noresolv" ]; then
+        log "dnsmasq revert: noresolv is unset"
+    else
+        uci set dhcp.@dnsmasq[0].noresolv="$noresolv"
+    fi
+
+    local server=$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)
+    if [[ "$server" == "127.0.0.42" ]]; then
+        uci -q delete dhcp.@dnsmasq[0].server
+        for server in $(uci get dhcp.@dnsmasq[0].podkop_server 2>/dev/null); do
+            uci add_list dhcp.@dnsmasq[0].server="$server"
+        done
+        uci delete dhcp.@dnsmasq[0].podkop_server
+    fi
+
+    uci delete dhcp.@dnsmasq[0].podkop_cachesize
+    uci delete dhcp.@dnsmasq[0].podkop_noresolv
+
     uci commit dhcp
 
     /etc/init.d/dnsmasq restart
@@ -598,6 +649,12 @@ sing_box_dns_rule_fakeip() {
                 "HTTPS"
             ],
             "action": "reject"
+            },
+            {
+            "domain_suffix": [
+                "use-application-dns.net"
+            ],
+                "action": "reject"
             },
             {
             "server": "fakeip-server",

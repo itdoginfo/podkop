@@ -102,6 +102,8 @@ Luci: Services/podkop
         list doh_server '127.0.0.1#5054'
 ```
 - [x] Только кастомный remote list не создаёт секцию в route-rules-rule-set и dns-rules-ruleset
+- [ ] Не отрабатывает service podkop stop, если podkop запущен и не может, к пример, зарезолвить домен с сломанным DNS
+- [ ] Всплывает в логах при старте. Не каждый раз. На работу не влияет. Wed Feb 19 17:12:28 2025 daemon.err sh[17665]: Command failed: ubus call service delete { "name": "sing-box" } (Not found)
 
 # ToDo
 Этот раздел не означает задачи, которые нужно брать и делать. Это общий список хотелок. Если вы хотите помочь, пожалуйста, спросите сначала в телеграмме.
