@@ -732,37 +732,6 @@ sing_box_rule_dns() {
     }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
 }
 
-sing_box_add_secure_dns_probe_domain() {
-    local domain="example.com"
-    local override_address="neverssl.com"
-
-    log "Configure DNS probe domain ${domain}"
-
-    jq \
-    --arg domain "$domain" \
-    --arg override "$override_address" \
-    '.dns.rules |= map(
-        if .server == "fakeip-server" then
-            {
-                "server": .server,
-                "domain": $domain,
-                "rule_set": .rule_set
-            }
-        else
-            .
-        end
-    ) |
-    .route.rules |= . + [
-        {
-            "domain": $domain,
-            "action": "route-options",
-            "override_address": $override
-        }
-    ]' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
-
-    log "DNS probe domain ${domain} configured with override to ${override_address}"
-}
-
 sing_box_config_check() {
     if ! sing-box -c $SING_BOX_CONFIG check >/dev/null 2>&1; then
         log "Sing-box configuration is invalid"
