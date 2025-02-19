@@ -259,6 +259,12 @@ migration() {
         log "Found and removed filter-rr=HTTPS in dnsmasq config"
         sed -i '/^filter-rr=HTTPS/d' "/etc/dnsmasq.conf"
     fi
+
+    # dhcp use-application-dns.net
+    if grep -q "use-application-dns.net" "/etc/config/dhcp"; then
+        log "Found and removed use-application-dns.net in dhcp config"
+        sed -i '/use-application-dns/d' "/etc/config/dhcp"
+    fi
 }
 
 validate_service() {
