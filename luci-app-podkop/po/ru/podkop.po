@@ -522,3 +522,36 @@ msgstr "Адрес DNS сервера не может быть пустым"
 
 msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com"
 msgstr "Неверный формат DNS сервера. Примеры: 8.8.8.8 или dns.example.com"
+
+msgid "DNS Rewrite TTL"
+msgstr "Перезапись TTL для DNS"
+
+msgid "Time in seconds for DNS record caching (default: 600)"
+msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 600)"
+
+msgid "TTL value cannot be empty"
+msgstr "Значение TTL не может быть пустым"
+
+msgid "TTL must be a positive number"
+msgstr "TTL должно быть положительным числом"
+
+msgid "Cache File Path"
+msgstr "Путь к файлу кэша"
+
+msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
+msgstr "Выберите или введите путь к файлу кэша sing-box. Меняйте ТОЛЬКО если знаете, что делаете"
+
+msgid "Cache file path cannot be empty"
+msgstr "Путь к файлу кэша не может быть пустым"
+
+msgid "Path must be absolute (start with /)"
+msgstr "Путь должен быть абсолютным (начинаться с /)"
+
+msgid "Path must end with cache.db"
+msgstr "Путь должен заканчиваться на cache.db"
+
+msgid "Path must contain at least one directory (like /tmp/cache.db)"
+msgstr "Путь должен содержать хотя бы одну директорию (например /tmp/cache.db)"
+
+msgid "Invalid path format. Must be like /tmp/cache.db"
+msgstr "Неверный формат пути. Пример: /tmp/cache.db"

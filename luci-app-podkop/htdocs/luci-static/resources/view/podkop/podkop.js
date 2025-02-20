@@ -697,6 +697,52 @@ return view.extend({
             return true;
         };
 
+        o = s.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 600)'));
+        o.default = '600';
+        o.rmempty = false;
+        o.ucisection = 'main';
+
+        o.validate = function (section_id, value) {
+            if (!value) {
+                return _('TTL value cannot be empty');
+            }
+
+            const ttl = parseInt(value);
+            if (isNaN(ttl) || ttl < 0) {
+                return _('TTL must be a positive number');
+            }
+
+            return true;
+        };
+
+        o = s.taboption('additional', form.Value, 'cache_file', _('Cache File Path'), _('Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing'));
+        o.value('/tmp/cache.db', 'RAM (/tmp/cache.db)');
+        o.value('/usr/share/sing-box/cache.db', 'Flash (/usr/share/sing-box/cache.db)');
+        o.default = '/tmp/cache.db';
+        o.rmempty = false;
+        o.ucisection = 'main';
+
+        o.validate = function(section_id, value) {
+            if (!value) {
+                return _('Cache file path cannot be empty');
+            }
+
+            if (!value.startsWith('/')) {
+                return _('Path must be absolute (start with /)');
+            }
+
+            if (!value.endsWith('cache.db')) {
+                return _('Path must end with cache.db');
+            }
+
+            const parts = value.split('/').filter(Boolean);
+            if (parts.length < 2) {
+                return _('Path must contain at least one directory (like /tmp/cache.db)');
+            }
+
+            return true;
+        };
+
         // Diagnostics tab
         o = s.tab('diagnostics', _('Diagnostics'));
 

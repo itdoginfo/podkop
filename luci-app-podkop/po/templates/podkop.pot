@@ -876,3 +876,36 @@ msgstr ""
 
 msgid "Select or enter DNS server address"
 msgstr ""
+
+msgid "DNS Rewrite TTL"
+msgstr ""
+
+msgid "Time in seconds for DNS record caching (default: 600)"
+msgstr ""
+
+msgid "TTL value cannot be empty"
+msgstr ""
+
+msgid "TTL must be a positive number"
+msgstr ""
+
+msgid "Cache File Path"
+msgstr ""
+
+msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
+msgstr ""
+
+msgid "Cache file path cannot be empty"
+msgstr ""
+
+msgid "Path must be absolute (start with /)"
+msgstr ""
+
+msgid "Path must end with cache.db"
+msgstr ""
+
+msgid "Path must contain at least one directory (like /tmp/cache.db)"
+msgstr ""
+
+msgid "Invalid path format. Must be like /tmp/cache.db"
+msgstr ""
