@@ -697,6 +697,13 @@ return view.extend({
             return true;
         };
 
+        o = s.taboption('additional', form.Value, 'cache_file', 'Cache File Path', 'Select or enter path for sing-box cache file');
+        o.value('/tmp/cache.db', 'RAM (/tmp/cache.db)');
+        o.value('/usr/share/sing-box/cache.db', 'Flash (/usr/share/sing-box/cache.db)');
+        o.default = '/tmp/cache.db';
+        o.rmempty = false;
+        o.ucisection = 'main';
+
         // Diagnostics tab
         o = s.tab('diagnostics', _('Diagnostics'));
 

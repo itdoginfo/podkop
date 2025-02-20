@@ -754,9 +754,20 @@ sing_box_dns_rule_fakeip_section() {
 }
 
 sing_box_cache_file() {
-    log "Configure cache.db in sing-box"
+    local cache_path
+
+    config_get cache_file "main" "cache_file" "/tmp/cache.db"
+    
+    if [ "$cache_file" = "custom" ]; then
+        config_get cache_path "main" "custom_cache_path"
+    else
+        cache_path="$cache_file"
+    fi
+
+    log "Configure sing-box cache.db path"
+
     jq \
-    --arg CACHE_FILE_PATH "$CACHE_FILE_PATH" \
+    --arg CACHE_FILE_PATH "$cache_path" \
     '.experimental = {
         "cache_file": {
         "enabled": true,
