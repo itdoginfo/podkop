@@ -334,7 +334,7 @@ save_dnsmasq_config() {
     value=$(uci get "$key" 2>/dev/null)
 
     if [ -z "$value" ]; then
-        uci -q delete "$backup_key"
+        uci set "$backup_key"="unset"
     else
         uci set "$backup_key"="$value"
     fi
@@ -375,8 +375,9 @@ dnsmasq_restore() {
     fi
 
     local noresolv=$(uci get dhcp.@dnsmasq[0].podkop_noresolv 2>/dev/null)
-    if [ -z "$noresolv" ]; then
+    if [[ "$noresolv" == "unset" ]]; then
         log "dnsmasq revert: noresolv is unset"
+        uci -q delete dhcp.@dnsmasq[0].noresolv
     else
         uci set dhcp.@dnsmasq[0].noresolv="$noresolv"
     fi
