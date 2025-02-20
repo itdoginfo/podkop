@@ -740,11 +740,6 @@ return view.extend({
                 return _('Path must contain at least one directory (like /tmp/cache.db)');
             }
 
-            const pathRegex = /^\/(?:[^/]+\/)+[^/]+\.db$/;
-            if (!pathRegex.test(value)) {
-                return _('Invalid path format. Must be like /tmp/cache.db');
-            }
-
             return true;
         };
 
