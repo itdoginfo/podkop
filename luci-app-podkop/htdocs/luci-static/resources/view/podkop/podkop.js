@@ -653,6 +653,25 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
+        o = s.taboption('additional', form.ListValue, 'dns_type', 'DNS Protocol Type', 'Select DNS protocol to use');
+        o.value('doh', 'DNS over HTTPS (DoH)');
+        o.value('dot', 'DNS over TLS (DoT)');
+        o.value('udp', 'UDP (Unprotected DNS)');
+        o.default = 'doh';
+        o.rmempty = false;
+        o.ucisection = 'main';
+
+        o = s.taboption('additional', form.Value, 'dns_server', 'DNS Server', 'Select or enter DNS server address');
+        o.value('1.1.1.1', 'Cloudflare (1.1.1.1)');
+        o.value('8.8.8.8', 'Google (8.8.8.8)');
+        o.value('9.9.9.9', 'Quad9 (9.9.9.9)');
+        o.value('dns.adguard-dns.com', 'AdGuard Default (dns.adguard-dns.com)');
+        o.value('unfiltered.adguard-dns.com', 'AdGuard Unfiltered (unfiltered.adguard-dns.com)');
+        o.value('family.adguard-dns.com', 'AdGuard Family (family.adguard-dns.com)');
+        o.default = '1.1.1.1';
+        o.rmempty = false;
+        o.ucisection = 'main';
+
         // Diagnostics tab
         o = s.tab('diagnostics', _('Diagnostics'));
 
