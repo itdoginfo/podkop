@@ -40,6 +40,8 @@ SING_BOX_CONFIG="/etc/sing-box/config.json"
 CACHE_FILE_PATH="/tmp/cache.db"
 FAKEIP="198.18.0.0/15"
 VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram"
+DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.140.15.15 208.67.220.220 208.67.222.222 77.88.8.1 77.88.8.8"
+TEST_DOMAIN="google.com"
 
 start_service() {
     log "Start podkop"
@@ -545,6 +547,17 @@ list_update() {
     config_foreach process_subnet_for_section_remote
 }
 
+find_working_resolver() {
+    local resolver_found=""
+    for resolver in $DNS_RESOLVERS; do
+        if nslookup $TEST_DOMAIN $resolver >/dev/null 2>&1; then
+            echo "$resolver"
+            return 0
+        fi
+    done
+    echo "8.8.8.8"
+    return 1
+}
 
 # sing-box funcs
 
@@ -622,27 +635,78 @@ sing_box_inbound_proxy() {
 }
 
 sing_box_dns() {
+    local dns_type
+    local dns_server
+    local resolver_tag="resolver"
+
+    config_get dns_type "main" "dns_type" "doh"
+    config_get dns_server "main" "dns_server" "1.1.1.1"
+    
+    local server_json
+    local is_ip=$(echo "$dns_server" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' && echo "1" || echo "0")
+    
+    if [ "$is_ip" = "0" ]; then
+        log "Finding working DNS resolver"
+        local dns_resolver=$(find_working_resolver)
+        log "Found working resolver: $dns_resolver"
+    fi
+    
     log "Configure DNS in sing-box"
+    
+    server_json=$(jq -n \
+        --arg type "$dns_type" \
+        --arg server "$dns_server" \
+        --arg resolver "$resolver_tag" \
+        --arg is_ip "$is_ip" \
+        '{
+            "servers": [
+                {
+                    "tag": "dns-server",
+                    "address": (
+                        if $type == "doh" then
+                            "https://" + $server + "/dns-query"
+                        elif $type == "dot" then
+                            "tls://" + $server
+                        else
+                            $server
+                        end
+                    ),
+                    "detour": "direct-out"
+                } + (
+                    if $is_ip == "0" then
+                        {"address_resolver": $resolver}
+                    else
+                        {}
+                    end
+                )
+            ]
+        }')
+    
+    if [ "$is_ip" = "0" ]; then
+        server_json=$(echo "$server_json" | jq \
+            --arg resolver "$resolver_tag" \
+            --arg address "$dns_resolver" \
+            '.servers += [{
+                "tag": $resolver,
+                "address": $address
+            }]')
+    fi
+    
+    # Добавляем fakeip сервер
+    server_json=$(echo "$server_json" | jq '.servers += [{"tag": "fakeip-server", "address": "fakeip"}]')
+    
+    # Обновляем конфигурацию sing-box
     jq \
-    --arg FAKEIP "$FAKEIP" \
-    '.dns = {
-        "strategy": "ipv4_only",
-        "fakeip": {
-            "enabled": true,
-            "inet4_range": $FAKEIP
-        },
-        "servers": [
-            {
-                "tag": "cloudflare-doh-server",
-                "address": "https://1.1.1.1/dns-query",
-                "detour": "direct-out"
+        --argjson dns_config "$server_json" \
+        --arg fakeip "$FAKEIP" \
+        '.dns = {
+            "strategy": "ipv4_only",
+            "fakeip": {
+                "enabled": true,
+                "inet4_range": $fakeip
             },
-            {
-                "tag": "fakeip-server",
-                "address": "fakeip"
-            }
-        ]
-    }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+            "servers": $dns_config.servers
+        }' $SING_BOX_CONFIG > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
 }
 
 sing_box_dns_rule_fakeip() {
