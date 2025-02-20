@@ -672,7 +672,7 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value) {
                 return _('DNS server address cannot be empty');
             }
@@ -1230,41 +1230,81 @@ return view.extend({
         };
 
         function checkFakeIP() {
-            fetch('http://httpbin.org/ip')
-                .then(response => response.text())
-                .then(text => {
-                    const statusElement = document.getElementById('fakeip-status');
-                    if (!statusElement) return;
+            let lastStatus = null;
+            let statusElement = document.getElementById('fakeip-status');
 
-                    console.log('FakeIP check response:', text);
+            function updateFakeIPStatus() {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-                    if (text.includes('Cannot GET /ip')) {
-                        console.log('FakeIP status: working (Cannot GET /ip)');
-                        statusElement.innerHTML = E('span', { 'style': 'color: #4caf50' }, [
-                            '✔ ',
-                            _('working')
-                        ]).outerHTML;
-                    } else if (text.includes('"origin":')) {
-                        console.log('FakeIP status: not working (got IP response)');
-                        statusElement.innerHTML = E('span', { 'style': 'color: #f44336' }, [
-                            '✘ ',
-                            _('not working')
-                        ]).outerHTML;
-                    } else {
-                        console.log('FakeIP status: check error (unexpected response)');
-                        statusElement.innerHTML = E('span', { 'style': 'color: #ff9800' }, [
-                            '! ',
-                            _('check error')
-                        ]).outerHTML;
-                    }
+                fetch('http://httpbin.org/ip', {
+                    signal: controller.signal
                 })
-                .catch(error => {
-                    console.log('FakeIP check error:', error.message);
-                    const statusElement = document.getElementById('fakeip-status');
-                    if (statusElement) {
-                        statusElement.innerHTML = E('span', { 'style': 'color: #ff9800' }, 'check error').outerHTML;
-                    }
-                });
+                    .then(response => response.text())
+                    .then(text => {
+                        clearTimeout(timeoutId);
+                        if (!statusElement) {
+                            statusElement = document.getElementById('fakeip-status');
+                            if (!statusElement) return;
+                        }
+
+                        console.log('FakeIP check response:', text);
+
+                        let currentStatus;
+                        let statusHTML;
+
+                        if (text.includes('Cannot GET /ip')) {
+                            console.log('FakeIP status: working (Cannot GET /ip)');
+                            currentStatus = 'working';
+                            statusHTML = E('span', { 'style': 'color: #4caf50' }, [
+                                '✔ ',
+                                _('working')
+                            ]).outerHTML;
+                        } else if (text.includes('"origin":')) {
+                            console.log('FakeIP status: not working (got IP response)');
+                            currentStatus = 'not_working';
+                            statusHTML = E('span', { 'style': 'color: #f44336' }, [
+                                '✘ ',
+                                _('not working')
+                            ]).outerHTML;
+                        } else {
+                            console.log('FakeIP status: check error (unexpected response)');
+                            currentStatus = 'error';
+                            statusHTML = E('span', { 'style': 'color: #ff9800' }, [
+                                '! ',
+                                _('check error')
+                            ]).outerHTML;
+                        }
+
+                        if (currentStatus !== lastStatus) {
+                            lastStatus = currentStatus;
+                            statusElement.innerHTML = statusHTML;
+                        }
+                    })
+                    .catch(error => {
+                        clearTimeout(timeoutId);
+                        console.log('FakeIP check error:', error.message);
+                        const errorStatus = 'error';
+                        if (errorStatus !== lastStatus) {
+                            lastStatus = errorStatus;
+                            if (statusElement) {
+                                statusElement.innerHTML = E('span', { 'style': 'color: #ff9800' }, [
+                                    '! ',
+                                    error.name === 'AbortError' ? _('timeout') : _('check error')
+                                ]).outerHTML;
+                            }
+                        }
+                    });
+            }
+
+            updateFakeIPStatus();
+
+            // Set up periodic checks every 10 seconds
+            const intervalId = setInterval(updateFakeIPStatus, 10000);
+
+            window.addEventListener('unload', () => {
+                clearInterval(intervalId);
+            });
         }
 
         function updateDiagnostics() {
