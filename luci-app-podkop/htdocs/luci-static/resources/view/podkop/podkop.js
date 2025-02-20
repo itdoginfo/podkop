@@ -661,7 +661,7 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = s.taboption('additional', form.Value, 'dns_servers', _('DNS Server'), _('Select or enter DNS server address'));
+        o = s.taboption('additional', form.Value, 'dns_server', _('DNS Server'), _('Select or enter DNS server address'));
         o.value('1.1.1.1', 'Cloudflare (1.1.1.1)');
         o.value('8.8.8.8', 'Google (8.8.8.8)');
         o.value('9.9.9.9', 'Quad9 (9.9.9.9)');
