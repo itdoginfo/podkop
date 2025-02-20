@@ -715,12 +715,38 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('additional', form.Value, 'cache_file', 'Cache File Path', 'Select or enter path for sing-box cache file');
+        o = s.taboption('additional', form.Value, 'cache_file', 'Cache File Path', 'Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing');
         o.value('/tmp/cache.db', 'RAM (/tmp/cache.db)');
         o.value('/usr/share/sing-box/cache.db', 'Flash (/usr/share/sing-box/cache.db)');
         o.default = '/tmp/cache.db';
         o.rmempty = false;
         o.ucisection = 'main';
+
+        o.validate = function(section_id, value) {
+            if (!value) {
+                return _('Cache file path cannot be empty');
+            }
+
+            if (!value.startsWith('/')) {
+                return _('Path must be absolute (start with /)');
+            }
+
+            if (!value.endsWith('cache.db')) {
+                return _('Path must end with cache.db');
+            }
+
+            const parts = value.split('/').filter(Boolean);
+            if (parts.length < 2) {
+                return _('Path must contain at least one directory (like /tmp/cache.db)');
+            }
+
+            const pathRegex = /^\/(?:[^/]+\/)+[^/]+\.db$/;
+            if (!pathRegex.test(value)) {
+                return _('Invalid path format. Must be like /tmp/cache.db');
+            }
+
+            return true;
+        };
 
         // Diagnostics tab
         o = s.tab('diagnostics', _('Diagnostics'));
