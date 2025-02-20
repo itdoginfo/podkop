@@ -855,3 +855,24 @@ msgstr ""
 
 msgid "Check failed"
 msgstr ""
+
+msgid "DNS Protocol Type"
+msgstr ""
+
+msgid "Select DNS protocol to use"
+msgstr ""
+
+msgid "DNS over HTTPS (DoH)"
+msgstr ""
+
+msgid "DNS over TLS (DoT)"
+msgstr ""
+
+msgid "UDP (Unprotected DNS)"
+msgstr ""
+
+msgid "DNS Server"
+msgstr ""
+
+msgid "Select or enter DNS server address"
+msgstr ""
