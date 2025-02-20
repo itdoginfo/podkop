@@ -495,3 +495,24 @@ msgstr "Обновить списки"
 
 msgid "Lists Update Results"
 msgstr "Результаты обновления списков"
+
+msgid "DNS Protocol Type"
+msgstr "Тип DNS протокола"
+
+msgid "Select DNS protocol to use"
+msgstr "Выберите протокол DNS"
+
+msgid "DNS over HTTPS (DoH)"
+msgstr "DNS через HTTPS (DoH)"
+
+msgid "DNS over TLS (DoT)"
+msgstr "DNS через TLS (DoT)"
+
+msgid "UDP (Unprotected DNS)"
+msgstr "UDP (Незащищённый DNS)"
+
+msgid "DNS Server"
+msgstr "DNS сервер"
+
+msgid "Select or enter DNS server address"
+msgstr "Выберите или введите адрес DNS сервера"
