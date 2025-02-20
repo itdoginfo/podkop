@@ -692,10 +692,8 @@ sing_box_dns() {
             }]')
     fi
     
-    # Добавляем fakeip сервер
     server_json=$(echo "$server_json" | jq '.servers += [{"tag": "fakeip-server", "address": "fakeip"}]')
     
-    # Обновляем конфигурацию sing-box
     jq \
         --argjson dns_config "$server_json" \
         --arg fakeip "$FAKEIP" \
