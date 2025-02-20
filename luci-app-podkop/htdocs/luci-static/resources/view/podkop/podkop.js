@@ -697,25 +697,25 @@ return view.extend({
             return true;
         };
 
-        o = s.taboption('additional', form.Value, 'dns_rewrite_ttl', 'DNS Rewrite TTL', 'Time in seconds for DNS record caching (default: 600)');
+        o = s.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 600)'));
         o.default = '600';
         o.rmempty = false;
         o.ucisection = 'main';
 
         o.validate = function (section_id, value) {
             if (!value) {
-                return 'TTL value cannot be empty';
+                return _('TTL value cannot be empty');
             }
 
             const ttl = parseInt(value);
             if (isNaN(ttl) || ttl < 0) {
-                return 'TTL must be a positive number';
+                return _('TTL must be a positive number');
             }
 
             return true;
         };
 
-        o = s.taboption('additional', form.Value, 'cache_file', 'Cache File Path', 'Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing');
+        o = s.taboption('additional', form.Value, 'cache_file', _('Cache File Path'), _('Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing'));
         o.value('/tmp/cache.db', 'RAM (/tmp/cache.db)');
         o.value('/usr/share/sing-box/cache.db', 'Flash (/usr/share/sing-box/cache.db)');
         o.default = '/tmp/cache.db';
