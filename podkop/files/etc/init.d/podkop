@@ -709,8 +709,13 @@ sing_box_dns() {
 }
 
 sing_box_dns_rule_fakeip() {
-    log "Configure fakeip route in sing-box"
+    local rewrite_ttl
+    config_get rewrite_ttl "main" "dns_rewrite_ttl" "600"
+    
+    log "Configure fakeip route in sing-box and set TTL to $rewrite_ttl seconds"
+    
     jq \
+    --arg ttl "$rewrite_ttl" \
     '.dns += {
         "rules": [
               {
@@ -727,6 +732,8 @@ sing_box_dns_rule_fakeip() {
             },
             {
             "server": "fakeip-server",
+            "domain": "",
+            "rewrite_ttl": ($ttl | tonumber),
             "rule_set": []
             }
         ]
@@ -1854,10 +1861,8 @@ sing_box_add_secure_dns_probe_domain() {
     --arg override "$override_address" \
     '.dns.rules |= map(
         if .server == "fakeip-server" then
-            {
-                "server": .server,
-                "domain": $domain,
-                "rule_set": .rule_set
+            . + {
+                "domain": $domain
             }
         else
             .
