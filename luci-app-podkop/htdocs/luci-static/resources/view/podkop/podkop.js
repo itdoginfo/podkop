@@ -672,6 +672,31 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
+        o.validate = function(section_id, value) {
+            if (!value) {
+                return _('DNS server address cannot be empty');
+            }
+
+            const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+            if (ipRegex.test(value)) {
+                const parts = value.split('.');
+                for (const part of parts) {
+                    const num = parseInt(part);
+                    if (num < 0 || num > 255) {
+                        return _('IP address parts must be between 0 and 255');
+                    }
+                }
+                return true;
+            }
+
+            const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
+            if (!domainRegex.test(value)) {
+                return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com');
+            }
+
+            return true;
+        };
+
         // Diagnostics tab
         o = s.tab('diagnostics', _('Diagnostics'));
 
