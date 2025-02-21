@@ -263,9 +263,9 @@ function createConfigSection(section, map, network) {
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
-        const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+        const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*(\.[A-Za-z]{2,})?$/;
         if (!domainRegex.test(value)) {
-            return _('Invalid domain format. Enter domain without protocol (example: sub.example.com)');
+            return _('Invalid domain format. Enter domain without protocol (example: sub.example.com or ru)');
         }
         return true;
     };
@@ -279,7 +279,7 @@ function createConfigSection(section, map, network) {
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
         const domains = value.split(/[,\s\n]/).map(d => d.trim()).filter(d => d.length > 0);
-        const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+        const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*(\.[A-Za-z]{2,})?$/;
         for (const domain of domains) {
             if (!domainRegex.test(domain)) return _('Invalid domain format: %s. Enter domain without protocol').format(domain);
         }
