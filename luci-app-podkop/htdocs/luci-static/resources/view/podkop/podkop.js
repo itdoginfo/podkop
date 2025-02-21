@@ -13,6 +13,23 @@ function formatDiagnosticOutput(output) {
         .replace(/\r/g, '\n');
 }
 
+function getNetworkInterfaces(o) {
+    const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan'];
+
+    return network.getDevices().then(devices => {
+        devices.forEach(device => {
+            if (device.dev && device.dev.name) {
+                const deviceName = device.dev.name;
+                if (!excludeInterfaces.includes(deviceName) && !/^lan\d+$/.test(deviceName)) {
+                    o.value(deviceName, deviceName);
+                }
+            }
+        });
+    }).catch(error => {
+        console.error('Failed to get network devices:', error);
+    });
+}
+
 // Общая функция для создания конфигурационных секций
 function createConfigSection(section, map, network) {
     const s = section;
@@ -168,21 +185,7 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.ListValue, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
     o.depends('mode', 'vpn');
     o.ucisection = s.section;
-
-    try {
-        const devices = network.getDevicesSync ? network.getDevicesSync() : network.getDevices();
-        const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0'];
-        devices.forEach(device => {
-            if (device.dev && device.dev.name) {
-                const deviceName = device.dev.name;
-                if (!excludeInterfaces.includes(deviceName) && !/^lan\d+$/.test(deviceName)) {
-                    o.value(deviceName, deviceName);
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching devices:', error);
-    }
+    getNetworkInterfaces(o);
 
     o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Community Lists'));
     o.default = '0';
@@ -637,10 +640,6 @@ return view.extend({
                                 'class': 'btn cbi-button-apply',
                                 'click': () => fs.exec('/etc/init.d/podkop', ['restart']).then(() => location.reload())
                             }, _('Restart Podkop')),
-                            E('button', {
-                                'class': 'btn cbi-button-' + (podkopStatus.enabled ? 'remove' : 'apply'),
-                                'click': () => fs.exec('/etc/init.d/podkop', [podkopStatus.enabled ? 'disable' : 'enable']).then(() => location.reload())
-                            }, podkopStatus.enabled ? _('Disable Podkop') : _('Enable Podkop')),
                             E('button', {
                                 'class': 'btn',
                                 'click': () => fs.exec('/etc/init.d/podkop', ['show_config']).then(res => {
