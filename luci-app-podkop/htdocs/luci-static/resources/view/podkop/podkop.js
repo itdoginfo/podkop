@@ -867,10 +867,7 @@ return view.extend({
         o.cfgvalue = () => E('div', { id: 'diagnostics-status' }, _('Loading diagnostics...'));
 
         function checkFakeIP() {
-            let lastStatus = null;
-            let statusElement = document.getElementById('fakeip-status');
-
-            function updateFakeIPStatus() {
+            return new Promise((resolve) => {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -878,75 +875,93 @@ return view.extend({
                     .then(response => response.text())
                     .then(text => {
                         clearTimeout(timeoutId);
-                        if (!statusElement) {
-                            statusElement = document.getElementById('fakeip-status');
-                            if (!statusElement) return;
-                        }
+                        let status = {
+                            state: 'unknown',
+                            message: '',
+                            color: '#ff9800'
+                        };
 
-                        let currentStatus, statusHTML;
                         if (text.includes('Cannot GET /ip')) {
-                            currentStatus = 'working';
-                            statusHTML = E('span', { 'style': 'color: #4caf50' }, ['✔ ', _('working')]).outerHTML;
+                            status.state = 'working';
+                            status.message = _('working');
+                            status.color = '#4caf50';
                         } else if (text.includes('"origin":')) {
-                            currentStatus = 'not_working';
-                            statusHTML = E('span', { 'style': 'color: #f44336' }, ['✘ ', _('not working')]).outerHTML;
+                            status.state = 'not_working';
+                            status.message = _('not working');
+                            status.color = '#f44336';
                         } else {
-                            currentStatus = 'error';
-                            statusHTML = E('span', { 'style': 'color: #ff9800' }, ['! ', _('check error')]).outerHTML;
+                            status.state = 'error';
+                            status.message = _('check error');
                         }
-
-                        if (currentStatus !== lastStatus) {
-                            lastStatus = currentStatus;
-                            statusElement.innerHTML = statusHTML;
-                        }
+                        resolve(status);
                     })
                     .catch(error => {
                         clearTimeout(timeoutId);
-                        const errorStatus = 'error';
-                        if (errorStatus !== lastStatus) {
-                            lastStatus = errorStatus;
-                            if (statusElement) {
-                                statusElement.innerHTML = E('span', { 'style': 'color: #ff9800' }, [
-                                    '! ',
-                                    error.name === 'AbortError' ? _('timeout') : _('check error')
-                                ]).outerHTML;
-                            }
-                        }
+                        resolve({
+                            state: 'error',
+                            message: error.name === 'AbortError' ? _('timeout') : _('check error'),
+                            color: '#ff9800'
+                        });
                     });
-            }
-
-            updateFakeIPStatus();
-            const intervalId = setInterval(updateFakeIPStatus, 10000);
-            window.addEventListener('unload', () => clearInterval(intervalId));
+            });
         }
 
-        function updateDiagnostics() {
-            Promise.all([
-                fs.exec('/etc/init.d/podkop', ['get_status']),
-                fs.exec('/etc/init.d/podkop', ['get_sing_box_status']),
-                fs.exec('/etc/init.d/podkop', ['show_version']),
-                fs.exec('/etc/init.d/podkop', ['show_luci_version']),
-                fs.exec('/etc/init.d/podkop', ['show_sing_box_version']),
-                fs.exec('/etc/init.d/podkop', ['show_system_info'])
-            ]).then(([podkopStatus, singboxStatus, podkop, luci, singbox, system]) => {
-                try {
-                    const parsedPodkopStatus = JSON.parse(podkopStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
-                    const parsedSingboxStatus = JSON.parse(singboxStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
-                    const newContent = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system);
-                    const container = document.getElementById('diagnostics-status');
-                    if (container) {
-                        container.innerHTML = '';
-                        container.appendChild(newContent);
-                        checkFakeIP();
-                    }
-                } catch (e) {
-                    console.error('Error parsing diagnostics status:', e);
-                    const container = document.getElementById('diagnostics-status');
-                    if (container) {
-                        container.innerHTML = '<div class="alert-message warning"><strong>' + _('Error loading diagnostics') + '</strong><br><pre>' + e.toString() + '</pre></div>';
-                    }
+        async function updateDiagnostics() {
+            try {
+                const [
+                    podkopStatus,
+                    singboxStatus,
+                    podkop,
+                    luci,
+                    singbox,
+                    system,
+                    fakeipStatus
+                ] = await Promise.all([
+                    fs.exec('/etc/init.d/podkop', ['get_status']),
+                    fs.exec('/etc/init.d/podkop', ['get_sing_box_status']),
+                    fs.exec('/etc/init.d/podkop', ['show_version']),
+                    fs.exec('/etc/init.d/podkop', ['show_luci_version']),
+                    fs.exec('/etc/init.d/podkop', ['show_sing_box_version']),
+                    fs.exec('/etc/init.d/podkop', ['show_system_info']),
+                    checkFakeIP()
+                ]);
+
+                const parsedPodkopStatus = JSON.parse(podkopStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
+                const parsedSingboxStatus = JSON.parse(singboxStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
+
+                const container = document.getElementById('diagnostics-status');
+                if (!container) return;
+
+                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system);
+                container.innerHTML = '';
+                container.appendChild(statusSection);
+
+                // Update FakeIP status
+                const fakeipElement = document.getElementById('fakeip-status');
+                if (fakeipElement) {
+                    fakeipElement.innerHTML = E('span', { 'style': `color: ${fakeipStatus.color}` }, [
+                        fakeipStatus.state === 'working' ? '✔ ' : fakeipStatus.state === 'not_working' ? '✘ ' : '! ',
+                        fakeipStatus.message
+                    ]).outerHTML;
                 }
-            });
+            } catch (e) {
+                console.error('Error updating diagnostics:', e);
+                const container = document.getElementById('diagnostics-status');
+                if (container) {
+                    container.innerHTML = E('div', { 'class': 'alert-message warning' }, [
+                        E('strong', {}, _('Error loading diagnostics')),
+                        E('br'),
+                        E('pre', {}, e.toString())
+                    ]).outerHTML;
+                }
+            }
+        }
+
+        // Start periodic updates
+        function startPeriodicUpdates() {
+            updateDiagnostics();
+            const intervalId = setInterval(updateDiagnostics, 10000);
+            window.addEventListener('unload', () => clearInterval(intervalId));
         }
 
         // Extra Section
@@ -960,7 +975,7 @@ return view.extend({
         const map_promise = m.render();
         map_promise.then(node => {
             node.classList.add('fade-in');
-            updateDiagnostics();
+            startPeriodicUpdates();
             return node;
         });
 
