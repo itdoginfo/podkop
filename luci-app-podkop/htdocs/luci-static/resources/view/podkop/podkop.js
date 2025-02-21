@@ -35,6 +35,20 @@ function createConfigSection(section, map, network) {
     o.depends('proxy_config_type', 'url');
     o.rows = 5;
     o.ucisection = s.section;
+    o.load = function (section_id) {
+        return fs.exec('/etc/init.d/podkop', ['get_proxy_label', section_id]).then(res => {
+            if (res.stdout) {
+                try {
+                    const decodedLabel = decodeURIComponent(res.stdout.trim());
+                    this.description = _('Current config: ') + decodedLabel;
+                } catch (e) {
+                    console.error('Error decoding label:', e);
+                    this.description = _('Current config: ') + res.stdout.trim();
+                }
+            }
+            return this.super('load', section_id);
+        });
+    };
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) {
             return true;

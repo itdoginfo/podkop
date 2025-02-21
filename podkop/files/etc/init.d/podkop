@@ -7,7 +7,7 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
-EXTRA_COMMANDS="main list_update check_proxy check_nft check_github check_logs check_sing_box_connections check_sing_box_logs check_dnsmasq show_config show_version show_sing_box_config show_luci_version show_sing_box_version show_system_info get_status get_sing_box_status"
+EXTRA_COMMANDS="main list_update check_proxy check_nft check_github check_logs check_sing_box_connections check_sing_box_logs check_dnsmasq show_config show_version show_sing_box_config show_luci_version show_sing_box_version show_system_info get_status get_sing_box_status get_proxy_label"
 EXTRA_HELP="        list_update     Updating domain and subnet lists
         check_proxy          Check if sing-box proxy works correctly
         check_nft           Show PodkopTable nftables rules
@@ -1834,6 +1834,18 @@ get_status() {
     fi
 
     echo "{\"running\":$running,\"enabled\":$enabled,\"status\":\"$status\"}"
+}
+
+get_proxy_label() {
+    local section="$1"
+    local proxy_string
+    local label=""
+
+    config_get proxy_string "$section" "proxy_string"
+    if [ -n "$proxy_string" ]; then
+        label=$(echo "$proxy_string" | sed -n 's/.*#\(.*\)$/\1/p')
+        echo "$label"
+    fi
 }
 
 sing_box_add_secure_dns_probe_domain() {
