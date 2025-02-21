@@ -412,7 +412,7 @@ check_system() {
     fi
 
     if ! nslookup google.com >/dev/null 2>&1; then
-        log "DNS not working"
+        printf "\033[31;1mDNS not working\033[0m\n"
         exit 1
     fi
 
