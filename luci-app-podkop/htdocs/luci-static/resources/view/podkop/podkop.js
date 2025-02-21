@@ -499,29 +499,38 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
-        o = mainSection.taboption('additional', form.Value, 'dns_server', _('DNS Server'), _('Select or enter DNS server address'));
+        o = mainSection.taboption('additional', form.Value, 'dns_servers', _('DNS Server'), _('Select or enter DNS server address'));
         o.value('1.1.1.1', 'Cloudflare (1.1.1.1)');
         o.value('8.8.8.8', 'Google (8.8.8.8)');
         o.value('9.9.9.9', 'Quad9 (9.9.9.9)');
-        o.value('dns.adguard-dns.com', 'AdGuard Default');
-        o.value('unfiltered.adguard-dns.com', 'AdGuard Unfiltered');
-        o.value('family.adguard-dns.com', 'AdGuard Family');
+        o.value('dns.adguard-dns.com', 'AdGuard Default (dns.adguard-dns.com)');
+        o.value('unfiltered.adguard-dns.com', 'AdGuard Unfiltered (unfiltered.adguard-dns.com)');
+        o.value('family.adguard-dns.com', 'AdGuard Family (family.adguard-dns.com)');
         o.default = '1.1.1.1';
         o.rmempty = false;
         o.ucisection = 'main';
-        o.validate = function (section_id, value) {
-            if (!value) return _('DNS server address cannot be empty');
+        o.validate = function(section_id, value) {
+            if (!value) {
+                return _('DNS server address cannot be empty');
+            }
+
             const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
             if (ipRegex.test(value)) {
                 const parts = value.split('.');
                 for (const part of parts) {
                     const num = parseInt(part);
-                    if (num < 0 || num > 255) return _('IP address parts must be between 0 and 255');
+                    if (num < 0 || num > 255) {
+                        return _('IP address parts must be between 0 and 255');
+                    }
                 }
                 return true;
             }
+
             const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
-            if (!domainRegex.test(value)) return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com');
+            if (!domainRegex.test(value)) {
+                return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com');
+            }
+
             return true;
         };
 
