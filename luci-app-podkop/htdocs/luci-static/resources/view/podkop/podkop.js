@@ -588,6 +588,10 @@ return view.extend({
                                 'click': () => fs.exec('/etc/init.d/podkop', ['restart']).then(() => location.reload())
                             }, _('Restart Podkop')),
                             E('button', {
+                                'class': 'btn cbi-button-' + (podkopStatus.enabled ? 'remove' : 'apply'),
+                                'click': () => fs.exec('/etc/init.d/podkop', [podkopStatus.enabled ? 'disable' : 'enable']).then(() => location.reload())
+                            }, podkopStatus.enabled ? _('Disable Podkop') : _('Enable Podkop')),
+                            E('button', {
                                 'class': 'btn',
                                 'click': () => fs.exec('/etc/init.d/podkop', ['show_config']).then(res => {
                                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
