@@ -53,23 +53,6 @@ function getNetworkInterfaces(o) {
     });
 }
 
-function getNetworkInterfaces(o) {
-    const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan'];
-
-    return network.getDevices().then(devices => {
-        devices.forEach(device => {
-            if (device.dev && device.dev.name) {
-                const deviceName = device.dev.name;
-                if (!excludeInterfaces.includes(deviceName) && !/^lan\d+$/.test(deviceName)) {
-                    o.value(deviceName, deviceName);
-                }
-            }
-        });
-    }).catch(error => {
-        console.error('Failed to get network devices:', error);
-    });
-}
-
 // Общая функция для создания конфигурационных секций
 function createConfigSection(section, map, network) {
     const s = section;
@@ -225,7 +208,6 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.ListValue, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
     o.depends('mode', 'vpn');
     o.ucisection = s.section;
-    getNetworkInterfaces(o);
     getNetworkInterfaces(o);
 
     o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Community Lists'));
