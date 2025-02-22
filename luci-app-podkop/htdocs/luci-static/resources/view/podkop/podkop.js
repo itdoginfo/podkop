@@ -53,36 +53,17 @@ function createConfigSection(section, map, network) {
     o.rows = 5;
     o.ucisection = s.section;
     o.load = function (section_id) {
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                console.error('Label fetch timeout');
-                resolve(this.super('load', section_id));
-            }, 5000); // 5 second timeout
-
-            fs.exec('/etc/init.d/podkop', ['get_proxy_label', section_id])
-                .then(res => {
-                    clearTimeout(timeout);
-                    if (res.stdout) {
-                        try {
-                            const chunks = res.stdout.trim().split('\n');
-                            const fullLabel = chunks.join('');
-                            const decodedLabel = decodeURIComponent(fullLabel);
-                            this.description = _('Current config: ') + decodedLabel;
-                        } catch (e) {
-                            console.error('Error processing label:', e);
-                            // If decoding fails, try to display the raw chunks
-                            const chunks = res.stdout.trim().split('\n');
-                            const fullLabel = chunks.join('');
-                            this.description = _('Current config: ') + fullLabel;
-                        }
-                    }
-                    resolve(this.super('load', section_id));
-                })
-                .catch(error => {
-                    clearTimeout(timeout);
-                    console.error('Error fetching label:', error);
-                    resolve(this.super('load', section_id));
-                });
+        return fs.exec('/etc/init.d/podkop', ['get_proxy_label', section_id]).then(res => {
+            if (res.stdout) {
+                try {
+                    const decodedLabel = decodeURIComponent(res.stdout.trim());
+                    this.description = _('Current config: ') + decodedLabel;
+                } catch (e) {
+                    console.error('Error decoding label:', e);
+                    this.description = _('Current config: ') + res.stdout.trim();
+                }
+            }
+            return this.super('load', section_id);
         });
     };
     o.validate = function (section_id, value) {

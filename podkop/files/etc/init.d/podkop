@@ -1840,19 +1840,11 @@ get_proxy_label() {
     local section="$1"
     local proxy_string
     local label=""
-    local chunk_size=50
-    local start=0
 
     config_get proxy_string "$section" "proxy_string"
     if [ -n "$proxy_string" ]; then
         label=$(echo "$proxy_string" | sed -n 's/.*#\(.*\)$/\1/p')
-        if [ -n "$label" ]; then
-            # Split label into chunks and output one at a time
-            while [ $start -lt ${#label} ]; do
-                echo "${label:$start:$chunk_size}"
-                start=$((start + chunk_size))
-            done
-        fi
+        echo "$label"
     fi
 }
 
