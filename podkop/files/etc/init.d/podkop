@@ -212,8 +212,9 @@ main() {
 
     config_get proxy_string "main" "proxy_string"
     config_get interface "main" "interface"
+    config_get outbound_json "main" "outbound_json"
 
-    if [ -n "$proxy_string" ] || [ -n "$interface" ]; then
+    if [ -n "$proxy_string" ] || [ -n "$interface" ] || [ -n "$outbound_json" ]; then
         config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" "0"
         if [ "$dont_touch_dhcp" -eq 0 ]; then
             dnsmasq_add_resolver
@@ -798,7 +799,7 @@ sing_box_outdound() {
             config_get outbound_json $section "outbound_json"
             if [ -n "$outbound_json" ]; then
                 log "Using JSON outbound configuration"
-                sing_box_config_outbound_json "$outbound_json" 
+                sing_box_config_outbound_json "$outbound_json" "$section"
             else
                 log "Missing outbound JSON configuration"
                 return
@@ -880,37 +881,34 @@ sing_box_config_check() {
 
 sing_box_config_outbound_json() {
     local json_config="$1"
-    local listen_port="$2"
+    local section="$2"
     
-    cat > /tmp/base_config.json << EOF
-{
-  "log": {
-    "level": "warn"
-  },
-  "inbounds": [
-    {
-        "type": "tproxy",
-        "listen": "::",
-        "listen_port": $listen_port,
-        "tcp_fast_open": true,
-        "udp_fragment": true
-    },
-    {
-        "tag": "dns-in",
-        "type": "direct",
-        "listen": "127.0.0.42",
-        "listen_port": 53
-    }    
-  ],
-  "outbounds": [],
-  "route": {
-    "auto_detect_interface": true
-  }
-}
-EOF
+    # Create new object with tag first, then merge with the rest of the config
+    local modified_config=$(echo "$json_config" | jq --arg section "$section" \
+        'del(.tag) | {"tag": $section} + .')
+    
+    jq --argjson outbound "$modified_config" \
+       --arg section "$section" \
+       '. |
+          .outbounds |= (
+            map(
+              if .tag == $section then
+                $outbound
+              else . end
+            ) +
+            (
+              if (map(select(.tag == $section)) | length) == 0 then
+                [$outbound]
+              else [] end
+            )
+          )' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
 
-    jq --argjson outbound "$json_config" '.outbounds += [$outbound]' /tmp/base_config.json > $SING_BOX_CONFIG
-    rm -f /tmp/base_config.json
+    if [ $? -eq 0 ]; then
+        log "Outbound config updated successfully"
+    else
+        log "Error: Invalid JSON config generated"
+        return 1
+    fi
 }
 
 
@@ -985,7 +983,7 @@ sing_box_config_vless() {
     get_param() {
         local param="$1"
         local value=$(echo "$STRING" | sed -n "s/.*[?&]$param=\([^&?#]*\).*/\1/p")
-        value=$(echo "$value" | sed 's/%2F/\//g; s/%2C/,/g; s/%3D/=/g; s/%2B/+/g; s/%20/ /g' | tr -d '\n' | tr -d '\r')
+        value=$(echo "$value" | sed 's/%2F/\//g; s/%2C/,/g; s/%3D/=/g; s/%2B/+/g; s/%20/ /g; s/%3B/;/g' | tr -d '\n' | tr -d '\r')
         echo "$value"
     }
 
@@ -1823,7 +1821,7 @@ get_status() {
     fi
 
     # Check if service is running
-    if pgrep -f "sing-box" >/dev/null; then
+    if pgrep -f "podkop" >/dev/null; then
         running=1
     fi
 

@@ -5,6 +5,29 @@
 'require network';
 'require fs';
 
+// Add helper function for safe command execution with timeout
+async function safeExec(command, args = [], timeout = 3000) {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        const result = await Promise.race([
+            fs.exec(command, args),
+            new Promise((_, reject) => {
+                controller.signal.addEventListener('abort', () => {
+                    reject(new Error('Command execution timed out'));
+                });
+            })
+        ]);
+
+        clearTimeout(timeoutId);
+        return result;
+    } catch (error) {
+        console.warn(`Command execution failed or timed out: ${command} ${args.join(' ')}`);
+        return { stdout: '', stderr: error.message };
+    }
+}
+
 function formatDiagnosticOutput(output) {
     if (typeof output !== 'string') return '';
     return output.trim()
@@ -53,7 +76,7 @@ function createConfigSection(section, map, network) {
     o.rows = 5;
     o.ucisection = s.section;
     o.load = function (section_id) {
-        return fs.exec('/etc/init.d/podkop', ['get_proxy_label', section_id]).then(res => {
+        return safeExec('/etc/init.d/podkop', ['get_proxy_label', section_id]).then(res => {
             if (res.stdout) {
                 try {
                     const decodedLabel = decodeURIComponent(res.stdout.trim());
@@ -457,7 +480,7 @@ return view.extend({
         `);
 
         const m = new form.Map('podkop', _('Podkop configuration'), null, ['main', 'extra']);
-        fs.exec('/etc/init.d/podkop', ['show_version']).then(res => {
+        safeExec('/etc/init.d/podkop', ['show_version']).then(res => {
             if (res.stdout) m.title = _('Podkop') + ' v' + res.stdout.trim();
         });
 
@@ -512,7 +535,7 @@ return view.extend({
         o.default = '1.1.1.1';
         o.rmempty = false;
         o.ucisection = 'main';
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value) {
                 return _('DNS server address cannot be empty');
             }
@@ -560,7 +583,7 @@ return view.extend({
         o.default = '/tmp/cache.db';
         o.rmempty = false;
         o.ucisection = 'main';
-        o.validate = function(section_id, value) {
+        o.validate = function (section_id, value) {
             if (!value) {
                 return _('Cache file path cannot be empty');
             }
@@ -630,19 +653,23 @@ return view.extend({
                             podkopStatus.running ?
                                 E('button', {
                                     'class': 'btn cbi-button-remove',
-                                    'click': () => fs.exec('/etc/init.d/podkop', ['stop']).then(() => location.reload())
+                                    'click': () => safeExec('/etc/init.d/podkop', ['stop']).then(() => location.reload())
                                 }, _('Stop Podkop')) :
                                 E('button', {
                                     'class': 'btn cbi-button-apply',
-                                    'click': () => fs.exec('/etc/init.d/podkop', ['start']).then(() => location.reload())
+                                    'click': () => safeExec('/etc/init.d/podkop', ['start']).then(() => location.reload())
                                 }, _('Start Podkop')),
                             E('button', {
                                 'class': 'btn cbi-button-apply',
-                                'click': () => fs.exec('/etc/init.d/podkop', ['restart']).then(() => location.reload())
+                                'click': () => safeExec('/etc/init.d/podkop', ['restart']).then(() => location.reload())
                             }, _('Restart Podkop')),
                             E('button', {
+                                'class': 'btn cbi-button-' + (podkopStatus.enabled ? 'remove' : 'apply'),
+                                'click': () => safeExec('/etc/init.d/podkop', [podkopStatus.enabled ? 'disable' : 'enable']).then(() => location.reload())
+                            }, podkopStatus.enabled ? _('Disable Podkop') : _('Enable Podkop')),
+                            E('button', {
                                 'class': 'btn',
-                                'click': () => fs.exec('/etc/init.d/podkop', ['show_config']).then(res => {
+                                'click': () => safeExec('/etc/init.d/podkop', ['show_config']).then(res => {
                                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                                     ui.showModal(_('Podkop Configuration'), [
                                         E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
@@ -673,7 +700,7 @@ return view.extend({
                             }, _('Show Config')),
                             E('button', {
                                 'class': 'btn',
-                                'click': () => fs.exec('/etc/init.d/podkop', ['check_logs']).then(res => {
+                                'click': () => safeExec('/etc/init.d/podkop', ['check_logs']).then(res => {
                                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                                     ui.showModal(_('Podkop Logs'), [
                                         E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
@@ -717,7 +744,7 @@ return view.extend({
                         E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
                             E('button', {
                                 'class': 'btn',
-                                'click': () => fs.exec('/etc/init.d/podkop', ['show_sing_box_config']).then(res => {
+                                'click': () => safeExec('/etc/init.d/podkop', ['show_sing_box_config']).then(res => {
                                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                                     ui.showModal(_('Sing-box Configuration'), [
                                         E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
@@ -748,7 +775,7 @@ return view.extend({
                             }, _('Show Config')),
                             E('button', {
                                 'class': 'btn',
-                                'click': () => fs.exec('/etc/init.d/podkop', ['check_sing_box_logs']).then(res => {
+                                'click': () => safeExec('/etc/init.d/podkop', ['check_sing_box_logs']).then(res => {
                                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                                     ui.showModal(_('Sing-box Logs'), [
                                         E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
@@ -779,7 +806,7 @@ return view.extend({
                             }, _('View Logs')),
                             E('button', {
                                 'class': 'btn',
-                                'click': () => fs.exec('/etc/init.d/podkop', ['check_sing_box_connections']).then(res => {
+                                'click': () => safeExec('/etc/init.d/podkop', ['check_sing_box_connections']).then(res => {
                                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                                     ui.showModal(_('Active Connections'), [
                                         E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
@@ -818,7 +845,7 @@ return view.extend({
                         E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
                             E('button', {
                                 'class': 'btn',
-                                'click': () => fs.exec('/etc/init.d/podkop', ['check_nft']).then(res => {
+                                'click': () => safeExec('/etc/init.d/podkop', ['check_nft']).then(res => {
                                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                                     ui.showModal(_('NFT Rules'), [
                                         E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
@@ -849,7 +876,7 @@ return view.extend({
                             }, _('Check NFT Rules')),
                             E('button', {
                                 'class': 'btn',
-                                'click': () => fs.exec('/etc/init.d/podkop', ['check_dnsmasq']).then(res => {
+                                'click': () => safeExec('/etc/init.d/podkop', ['check_dnsmasq']).then(res => {
                                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                                     ui.showModal(_('DNSMasq Configuration'), [
                                         E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
@@ -880,7 +907,7 @@ return view.extend({
                             }, _('Check DNSMasq')),
                             E('button', {
                                 'class': 'btn',
-                                'click': () => fs.exec('/etc/init.d/podkop', ['list_update']).then(res => {
+                                'click': () => safeExec('/etc/init.d/podkop', ['list_update']).then(res => {
                                     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                                     ui.showModal(_('Lists Update Results'), [
                                         E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
@@ -983,12 +1010,12 @@ return view.extend({
                     system,
                     fakeipStatus
                 ] = await Promise.all([
-                    fs.exec('/etc/init.d/podkop', ['get_status']),
-                    fs.exec('/etc/init.d/podkop', ['get_sing_box_status']),
-                    fs.exec('/etc/init.d/podkop', ['show_version']),
-                    fs.exec('/etc/init.d/podkop', ['show_luci_version']),
-                    fs.exec('/etc/init.d/podkop', ['show_sing_box_version']),
-                    fs.exec('/etc/init.d/podkop', ['show_system_info']),
+                    safeExec('/etc/init.d/podkop', ['get_status']),
+                    safeExec('/etc/init.d/podkop', ['get_sing_box_status']),
+                    safeExec('/etc/init.d/podkop', ['show_version']),
+                    safeExec('/etc/init.d/podkop', ['show_luci_version']),
+                    safeExec('/etc/init.d/podkop', ['show_sing_box_version']),
+                    safeExec('/etc/init.d/podkop', ['show_system_info']),
                     checkFakeIP()
                 ]);
 
