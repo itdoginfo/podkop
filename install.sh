@@ -111,7 +111,7 @@ main() {
 }
 
 add_tunnel() {
-    printf "\033[32;1mWill you be using Wireguard, AmneziaWG, OpenVPN, OpenConnect? If yes, select a number and they will be automatically installed\033[0m "
+    printf "\033[32;1mWill you be using Wireguard, AmneziaWG, OpenVPN, OpenConnect? If yes, select a number and they will be automatically installed\033[0m\n"
     echo "1) Wireguard"
     echo "2) AmneziaWG"
     echo "3) OpenVPN"

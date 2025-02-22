@@ -53,8 +53,12 @@ start_service() {
         exit 1
     fi
 
-    if opkg list-installed | grep -qE "iptables|kmod-iptab"; then
-        printf "\033[31;1mFound incompatible iptables packages. If you're using FriendlyWrt: https://t.me/itdogchat/44512/181082\033[0m\n"
+    if grep -q FriendlyWrt /etc/banner; then
+        printf "\033[31;1mYou use FriendlyWrt. If you have problems, check out: https://t.me/itdogchat/44512/181082\033[0m\n"
+    fi
+
+    if grep -qE 'doh_backup_noresolv|doh_backup_server|doh_server' /etc/config/dhcp; then
+        printf "\033[31;1mDetected https-dns-proxy. Disable or uninstall it for correct functionality.\033[0m\n"
     fi
 
     if ! ip addr | grep -q "br-lan"; then
@@ -1373,8 +1377,13 @@ list_custom_local_domains_create() {
     local filename=$(basename "$local_file" | cut -d. -f1)
 
     while IFS= read -r domain; do
-        log "From local file: $domain"
-        sing_box_ruleset_domains $domain $section
+        domain=$(echo "$domain" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [ -n "$domain" ] && echo "$domain" | grep -E -q '^([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,}$'; then
+            log "Added $domain from local file"
+            sing_box_ruleset_domains "$domain" "$section"
+        else
+            log "Invalid domain skipped: $domain"
+        fi
     done <"$local_file"
 }
 

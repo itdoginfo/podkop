@@ -53,6 +53,23 @@ function getNetworkInterfaces(o) {
     });
 }
 
+function getNetworkInterfaces(o) {
+    const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan'];
+
+    return network.getDevices().then(devices => {
+        devices.forEach(device => {
+            if (device.dev && device.dev.name) {
+                const deviceName = device.dev.name;
+                if (!excludeInterfaces.includes(deviceName) && !/^lan\d+$/.test(deviceName)) {
+                    o.value(deviceName, deviceName);
+                }
+            }
+        });
+    }).catch(error => {
+        console.error('Failed to get network devices:', error);
+    });
+}
+
 // Общая функция для создания конфигурационных секций
 function createConfigSection(section, map, network) {
     const s = section;
@@ -208,6 +225,7 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.ListValue, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
     o.depends('mode', 'vpn');
     o.ucisection = s.section;
+    getNetworkInterfaces(o);
     getNetworkInterfaces(o);
 
     o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Community Lists'));
@@ -529,25 +547,78 @@ return view.extend({
         o.value('1.1.1.1', 'Cloudflare (1.1.1.1)');
         o.value('8.8.8.8', 'Google (8.8.8.8)');
         o.value('9.9.9.9', 'Quad9 (9.9.9.9)');
-        o.value('dns.adguard-dns.com', 'AdGuard Default');
-        o.value('unfiltered.adguard-dns.com', 'AdGuard Unfiltered');
-        o.value('family.adguard-dns.com', 'AdGuard Family');
+        o.value('dns.adguard-dns.com', 'AdGuard Default (dns.adguard-dns.com)');
+        o.value('unfiltered.adguard-dns.com', 'AdGuard Unfiltered (unfiltered.adguard-dns.com)');
+        o.value('family.adguard-dns.com', 'AdGuard Family (family.adguard-dns.com)');
         o.default = '1.1.1.1';
         o.rmempty = false;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
-            if (!value) return _('DNS server address cannot be empty');
+            if (!value) {
+                return _('DNS server address cannot be empty');
+            }
+
             const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
             if (ipRegex.test(value)) {
                 const parts = value.split('.');
                 for (const part of parts) {
                     const num = parseInt(part);
-                    if (num < 0 || num > 255) return _('IP address parts must be between 0 and 255');
+                    if (num < 0 || num > 255) {
+                        return _('IP address parts must be between 0 and 255');
+                    }
                 }
                 return true;
             }
+
             const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
-            if (!domainRegex.test(value)) return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com');
+            if (!domainRegex.test(value)) {
+                return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com');
+            }
+
+            return true;
+        };
+
+        o = mainSection.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 600)'));
+        o.default = '600';
+        o.rmempty = false;
+        o.ucisection = 'main';
+        o.validate = function (section_id, value) {
+            if (!value) {
+                return _('TTL value cannot be empty');
+            }
+
+            const ttl = parseInt(value);
+            if (isNaN(ttl) || ttl < 0) {
+                return _('TTL must be a positive number');
+            }
+
+            return true;
+        };
+
+        o = mainSection.taboption('additional', form.Value, 'cache_file', _('Cache File Path'), _('Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing'));
+        o.value('/tmp/cache.db', 'RAM (/tmp/cache.db)');
+        o.value('/usr/share/sing-box/cache.db', 'Flash (/usr/share/sing-box/cache.db)');
+        o.default = '/tmp/cache.db';
+        o.rmempty = false;
+        o.ucisection = 'main';
+        o.validate = function (section_id, value) {
+            if (!value) {
+                return _('Cache file path cannot be empty');
+            }
+
+            if (!value.startsWith('/')) {
+                return _('Path must be absolute (start with /)');
+            }
+
+            if (!value.endsWith('cache.db')) {
+                return _('Path must end with cache.db');
+            }
+
+            const parts = value.split('/').filter(Boolean);
+            if (parts.length < 2) {
+                return _('Path must contain at least one directory (like /tmp/cache.db)');
+            }
+
             return true;
         };
 
