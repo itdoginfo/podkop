@@ -1388,23 +1388,59 @@ process_remote_ruleset_item() {
 }
 
 sing_box_rule_preset() {
-    config_get custom_domains_list_type "$section" "custom_domains_list_type"
-    config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled"
-    config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
-    config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
+    local section="$1"
 
-    if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_subnets_list_enabled" != "disabled" ] ||
-        [ "$custom_local_domains_list_enabled" = "1" ] || [ "$custom_download_domains_list_enabled" = "1" ]; then
-        sing_box_rules "$section" "$section"
-        sing_box_dns_rule_fakeip_section "$section" "$section"
-    fi
+    config_get custom_domains_list_type "$section" "custom_domains_list_type" "disabled"
+    config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled" "disabled"
+    config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled" "0"
 
-    config_get domain_list_enabled "$section" "domain_list_enabled"
-    config_get domain_list "$section" "domain_list"
-    if [ "$domain_list_enabled" -eq 1 ]; then
-        config_list_foreach $section domain_list sing_box_rules $section
-        config_list_foreach $section domain_list sing_box_dns_rule_fakeip_section domain_list
-    fi 
+    log "[DEBUG] Проверка условий для ruleset 'main':"
+    log "  - custom_domains_list_type: $custom_domains_list_type"
+    log "  - custom_subnets_list_enabled: $custom_subnets_list_enabled"
+    log "  - custom_local_domains_list_enabled: $custom_local_domains_list_enabled"
+
+    if [ "$custom_domains_list_type" = "disabled" ] && 
+       [ "$custom_subnets_list_enabled" = "disabled" ] && 
+       [ "$custom_local_domains_list_enabled" -eq 0 ]; then
+        
+        log "Удаление ruleset 'main' (все опции отключены)..."
+
+        jq 'del(.route.rule_set[]? | select(.tag == "main"))' "$SING_BOX_CONFIG" > /tmp/sing-box-tmp.json
+
+        jq '
+            .route.rules |= map(
+                if .rule_set? then 
+                    .rule_set |= (map(select(. != "main"))) 
+                else . end
+            )
+        ' /tmp/sing-box-tmp.json > "$SING_BOX_CONFIG"
+
+        jq '
+            .route.rules |= map(
+                if .rule_set? and (.rule_set | length == 0) then 
+                    del(.rule_set) 
+                else . end
+            )
+        ' "$SING_BOX_CONFIG" > /tmp/sing-box-tmp.json && mv /tmp/sing-box-tmp.json "$SING_BOX_CONFIG"
+
+        log "Конфиг после удаления 'main':"
+        log "$(jq '.route' "$SING_BOX_CONFIG")"
+
+    else
+        log "Правила 'main' не удалены (есть активные опции)."
+
+        sing_box_rules "$section"
+        sing_box_dns_rule_fakeip_section "$section"
+    fi
+
+    config_get domain_list_enabled "$section" "domain_list_enabled"
+    if [ "$domain_list_enabled" -eq 1 ]; then
+        log "Обработка domain_list для секции $section..."
+        config_list_foreach "$section" domain_list sing_box_rules "$section"
+        config_list_foreach "$section" domain_list sing_box_dns_rule_fakeip_section
+    fi
+
+    rm -f /tmp/sing-box-tmp.json
 }
 
 list_custom_local_domains_create() {
