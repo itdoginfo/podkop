@@ -1004,9 +1004,41 @@ return view.extend({
 
         // Start periodic updates
         function startPeriodicUpdates() {
+            let intervalId = null;
+            let isVisible = true;
+
+            // Initial update
             updateDiagnostics();
-            const intervalId = setInterval(updateDiagnostics, 10000);
-            window.addEventListener('unload', () => clearInterval(intervalId));
+
+            // Handle visibility change
+            document.addEventListener('visibilitychange', () => {
+                isVisible = document.visibilityState === 'visible';
+                if (isVisible) {
+                    // Tab became visible - do immediate update and restart interval
+                    updateDiagnostics();
+                    if (intervalId === null) {
+                        intervalId = setInterval(updateDiagnostics, 10000);
+                    }
+                } else {
+                    // Tab hidden - clear interval
+                    if (intervalId !== null) {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                    }
+                }
+            });
+
+            // Start interval if page is visible
+            if (isVisible) {
+                intervalId = setInterval(updateDiagnostics, 10000);
+            }
+
+            // Cleanup on page unload
+            window.addEventListener('unload', () => {
+                if (intervalId !== null) {
+                    clearInterval(intervalId);
+                }
+            });
         }
 
         // Extra Section
