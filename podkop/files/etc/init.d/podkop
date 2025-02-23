@@ -1828,7 +1828,7 @@ get_status() {
     fi
 
     # Check if service is running
-    if pgrep -f "podkop" >/dev/null; then
+    if pgrep -f "sing-box" >/dev/null; then
         running=1
     fi
 

@@ -20,7 +20,7 @@ async function safeExec(command, args = [], timeout = 3000) {
             fs.exec(command, args),
             new Promise((_, reject) => {
                 controller.signal.addEventListener('abort', () => {
-                    reject(new Error(`Command execution timed out after ${timeout}ms`));
+                    reject(new Error('Command execution timed out'));
                 });
             })
         ]);
@@ -28,13 +28,8 @@ async function safeExec(command, args = [], timeout = 3000) {
         clearTimeout(timeoutId);
         return result;
     } catch (error) {
-        console.error(`Command execution error: ${error.message}`);
-        console.error(`Command: ${command} ${args.join(' ')}`);
-        return {
-            stdout: '',
-            stderr: `Error executing command: ${error.message}`,
-            error: error
-        };
+        console.warn(`Command execution failed or timed out: ${command} ${args.join(' ')}`);
+        return { stdout: '', stderr: error.message };
     }
 }
 
@@ -94,10 +89,13 @@ function createConfigSection(section, map, network) {
         if (cfgvalue) {
             try {
                 const label = cfgvalue.split('#').pop() || 'unnamed';
-                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + label);
+                const decodedLabel = decodeURIComponent(label);
+                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
                 container.appendChild(descDiv);
             } catch (e) {
                 console.error('Error parsing config label:', e);
+                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + (cfgvalue.split('#').pop() || 'unnamed'));
+                container.appendChild(descDiv);
             }
         } else {
             const defaultDesc = E('div', { 'class': 'cbi-value-description' },
@@ -718,10 +716,7 @@ return view.extend({
             </style>
         `);
 
-        const m = new form.Map('podkop', _('Podkop configuration'), null, ['main', 'extra']);
-        safeExec('/etc/init.d/podkop', ['show_version']).then(res => {
-            if (res.stdout) m.title = _('Podkop') + ' v' + res.stdout.trim();
-        });
+        const m = new form.Map('podkop', _(''), null, ['main', 'extra']);
 
         // Main Section
         const mainSection = m.section(form.TypedSection, 'main');
@@ -879,74 +874,47 @@ return view.extend({
         o.cfgvalue = () => E('div', { id: 'diagnostics-status' }, _('Loading diagnostics...'));
 
         function checkFakeIP() {
+            const createStatus = (state, message, color) => ({
+                state,
+                message: _(message),
+                color: STATUS_COLORS[color]
+            });
+
             return new Promise(async (resolve) => {
                 try {
-                    // Check sing-box status and DNS configuration first
                     const singboxStatusResult = await safeExec('/etc/init.d/podkop', ['get_sing_box_status']);
                     const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
 
                     if (!singboxStatus.running) {
-                        resolve({
-                            state: 'not_working',
-                            message: _('sing-box not running'),
-                            color: STATUS_COLORS.ERROR
-                        });
-                        return;
+                        return resolve(createStatus('not_working', 'sing-box not running', 'ERROR'));
                     }
-
                     if (!singboxStatus.dns_configured) {
-                        resolve({
-                            state: 'not_working',
-                            message: _('DNS not configured'),
-                            color: STATUS_COLORS.ERROR
-                        });
-                        return;
+                        return resolve(createStatus('not_working', 'DNS not configured', 'ERROR'));
                     }
 
-                    if (singboxStatus.running && singboxStatus.dns_configured) {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 10000);
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-                        try {
-                            const response = await fetch('http://httpbin.org/ip', { signal: controller.signal });
-                            const text = await response.text();
-                            clearTimeout(timeoutId);
+                    try {
+                        const response = await fetch('http://httpbin.org/ip', { signal: controller.signal });
+                        const text = await response.text();
+                        clearTimeout(timeoutId);
 
-                            if (text.includes('Cannot GET /ip')) {
-                                resolve({
-                                    state: 'working',
-                                    message: _('working'),
-                                    color: STATUS_COLORS.SUCCESS
-                                });
-                            } else if (text.includes('"origin":')) {
-                                resolve({
-                                    state: 'not_working',
-                                    message: _('not working'),
-                                    color: STATUS_COLORS.ERROR
-                                });
-                            } else {
-                                resolve({
-                                    state: 'error',
-                                    message: _('check error'),
-                                    color: STATUS_COLORS.WARNING
-                                });
-                            }
-                        } catch (fetchError) {
-                            clearTimeout(timeoutId);
-                            resolve({
-                                state: 'error',
-                                message: fetchError.name === 'AbortError' ? _('timeout') : _('check error'),
-                                color: STATUS_COLORS.WARNING
-                            });
+                        if (text.includes('Cannot GET /ip')) {
+                            return resolve(createStatus('working', 'working', 'SUCCESS'));
                         }
+                        if (text.includes('"origin":')) {
+                            return resolve(createStatus('not_working', 'not working', 'ERROR'));
+                        }
+                        return resolve(createStatus('error', 'check error', 'WARNING'));
+                    } catch (fetchError) {
+                        clearTimeout(timeoutId);
+                        const message = fetchError.name === 'AbortError' ? 'timeout' : 'check error';
+                        return resolve(createStatus('error', message, 'WARNING'));
                     }
                 } catch (error) {
                     console.error('Error in checkFakeIP:', error);
-                    resolve({
-                        state: 'error',
-                        message: _('check error'),
-                        color: STATUS_COLORS.WARNING
-                    });
+                    return resolve(createStatus('error', 'check error', 'WARNING'));
                 }
             });
         }
@@ -981,7 +949,6 @@ return view.extend({
                 container.innerHTML = '';
                 container.appendChild(statusSection);
 
-                // Update FakeIP status
                 const fakeipElement = document.getElementById('fakeip-status');
                 if (fakeipElement) {
                     fakeipElement.innerHTML = E('span', { 'style': `color: ${fakeipStatus.color}` }, [
@@ -1002,41 +969,57 @@ return view.extend({
             }
         }
 
-        // Start periodic updates
-        function startPeriodicUpdates() {
-            let intervalId = null;
-            let isVisible = true;
+        function startPeriodicUpdates(titleDiv) {
+            let updateTimer = null;
+            let isVisible = !document.hidden;
+            let versionText = _('Podkop');
+            let versionReceived = false;
 
-            // Initial update
-            updateDiagnostics();
+            const updateStatus = async () => {
+                try {
+                    if (!versionReceived) {
+                        const version = await safeExec('/etc/init.d/podkop', ['show_version'], 2000);
+                        if (version.stdout) {
+                            versionText = _('Podkop') + ' v' + version.stdout.trim();
+                            versionReceived = true;
+                        }
+                    }
 
-            // Handle visibility change
-            document.addEventListener('visibilitychange', () => {
-                isVisible = document.visibilityState === 'visible';
-                if (isVisible) {
-                    // Tab became visible - do immediate update and restart interval
-                    updateDiagnostics();
-                    if (intervalId === null) {
-                        intervalId = setInterval(updateDiagnostics, 10000);
-                    }
-                } else {
-                    // Tab hidden - clear interval
-                    if (intervalId !== null) {
-                        clearInterval(intervalId);
-                        intervalId = null;
-                    }
+                    const singboxStatusResult = await safeExec('/etc/init.d/podkop', ['get_sing_box_status']);
+                    const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
+                    const fakeipStatus = await checkFakeIP();
+
+                    titleDiv.textContent = versionText + (!singboxStatus.running || !singboxStatus.dns_configured || fakeipStatus.state === 'not_working' ? ' (not working)' : '');
+
+                    await updateDiagnostics();
+                } catch (error) {
+                    console.warn('Failed to update status:', error);
+                    titleDiv.textContent = versionText + ' (not working)';
                 }
+            };
+
+            const toggleUpdates = (visible) => {
+                if (visible) {
+                    updateStatus();
+                    if (!updateTimer) {
+                        updateTimer = setInterval(updateStatus, 10000);
+                    }
+                } else if (updateTimer) {
+                    clearInterval(updateTimer);
+                    updateTimer = null;
+                }
+            };
+
+            document.addEventListener('visibilitychange', () => {
+                isVisible = !document.hidden;
+                toggleUpdates(isVisible);
             });
 
-            // Start interval if page is visible
-            if (isVisible) {
-                intervalId = setInterval(updateDiagnostics, 10000);
-            }
+            toggleUpdates(isVisible);
 
-            // Cleanup on page unload
             window.addEventListener('unload', () => {
-                if (intervalId !== null) {
-                    clearInterval(intervalId);
+                if (updateTimer) {
+                    clearInterval(updateTimer);
                 }
             });
         }
@@ -1049,10 +1032,12 @@ return view.extend({
         extraSection.multiple = true;
         createConfigSection(extraSection, m, network);
 
-        const map_promise = m.render();
-        map_promise.then(node => {
+        const map_promise = m.render().then(node => {
+            const titleDiv = E('h2', { 'class': 'cbi-map-title' }, _('Podkop'));
+            node.insertBefore(titleDiv, node.firstChild);
+
             node.classList.add('fade-in');
-            startPeriodicUpdates();
+            startPeriodicUpdates(titleDiv);
             return node;
         });
 
