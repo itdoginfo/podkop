@@ -410,14 +410,17 @@ process_domains_text() {
     local tmp_file=$(mktemp)
     echo "$text" > "$tmp_file"
     
-    sed 's/[, ]\+/\n/g' "$tmp_file" | while IFS= read -r domain; do
+    # First filter out full comment lines and remove comments after domains
+    grep -v "^[[:space:]]*\/\/" "$tmp_file" | sed 's/\/\/.*$//' > "${tmp_file}.filtered"
+    
+    sed 's/[, ]\+/\n/g' "${tmp_file}.filtered" | while IFS= read -r domain; do
         domain=$(echo "$domain" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         if [ -n "$domain" ]; then
             sing_box_ruleset_domains "$domain" "$name"
         fi
     done
     
-    rm -f "$tmp_file"
+    rm -f "$tmp_file" "${tmp_file}.filtered"
 }
 
 process_subnets_text() {
@@ -427,7 +430,10 @@ process_subnets_text() {
     local tmp_file=$(mktemp)
     echo "$text" > "$tmp_file"
     
-    sed 's/[, ]\+/\n/g' "$tmp_file" | while IFS= read -r subnet; do
+    # First filter out full comment lines and remove comments after subnets
+    grep -v "^[[:space:]]*\/\/" "$tmp_file" | sed 's/\/\/.*$//' > "${tmp_file}.filtered"
+    
+    sed 's/[, ]\+/\n/g' "${tmp_file}.filtered" | while IFS= read -r subnet; do
         subnet=$(echo "$subnet" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         if [ -n "$subnet" ]; then
             if ! echo "$subnet" | grep -q "/"; then
@@ -437,7 +443,7 @@ process_subnets_text() {
         fi
     done
     
-    rm -f "$tmp_file"
+    rm -f "$tmp_file" "${tmp_file}.filtered"
 }
 
 add_cron_job() {
@@ -747,10 +753,19 @@ sing_box_outdound() {
             fi
         else
             config_get proxy_string $section "proxy_string"
-            if [[ "$proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_shadowsocks "$section" "$proxy_string"
-            elif [[ "$proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_vless "$section" "$proxy_string"
+            
+            # Extract the first non-comment line as the active configuration
+            active_proxy_string=$(echo "$proxy_string" | grep -v "^[[:space:]]*\/\/" | head -n 1)
+            
+            if [ -z "$active_proxy_string" ]; then
+                log "No active proxy configuration found"
+                return
+            fi
+            
+            if [[ "$active_proxy_string" =~ ^ss:// ]]; then
+                sing_box_config_shadowsocks "$section" "$active_proxy_string"
+            elif [[ "$active_proxy_string" =~ ^vless:// ]]; then
+                sing_box_config_vless "$section" "$active_proxy_string"
             else
                 log "Unsupported proxy type or missing configuration"
                 return
@@ -851,8 +866,6 @@ sing_box_config_outbound_json() {
         return 1
     fi
 }
-
-
 
 sing_box_config_shadowsocks() {
     local section="$1"
