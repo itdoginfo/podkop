@@ -225,7 +225,11 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.ListValue, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
     o.depends('mode', 'vpn');
     o.ucisection = s.section;
-    getNetworkInterfaces(o);
+    o.load = function (section_id) {
+        return getNetworkInterfaces(this).then(() => {
+            return this.super('load', section_id);
+        });
+    };
 
     o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Community Lists'));
     o.default = '0';
