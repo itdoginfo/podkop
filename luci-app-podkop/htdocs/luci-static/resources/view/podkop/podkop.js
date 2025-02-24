@@ -989,7 +989,7 @@ return view.extend({
                     const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
                     const fakeipStatus = await checkFakeIP();
 
-                    titleDiv.textContent = versionText + (!singboxStatus.running || !singboxStatus.dns_configured || fakeipStatus.state === 'not_working' ? ' (not working)' : '');
+                    titleDiv.textContent = versionText + (!singboxStatus.running || !singboxStatus.dns_configured === 'not_working' ? ' (not working)' : '');
 
                     await updateDiagnostics();
                 } catch (error) {
