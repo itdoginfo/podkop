@@ -146,9 +146,7 @@ nolog() {
 }
 
 main() {
-    sleep 5
-
-    config_foreach wget_github
+    sleep 3
 
     mkdir -p /tmp/podkop
   
@@ -441,63 +439,6 @@ process_subnets_text() {
     
     rm -f "$tmp_file"
 }
-
-wget_github() {
-    local count_nslookup=0
-    local count_curl=0
-
-    config_get domain_list_enabled "$section" "domain_list_enabled"
-    config_get subnets_list_enabled "$section" "subnets_list_enabled"
-    config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
-    config_get custom_download_subnets_list_enabled "$section" "custom_download_subnets_list_enabled"
-
-    if [ "$domain_list_enabled" -eq 1 ] || [ "$subnets_list_enabled" -eq 1 ] ||
-        [ "$custom_download_domains_list_enabled" -eq 1 ] || [ "$custom_download_subnets_list_enabled" -eq 1 ] ; then
-
-        while true; do
-            if ! nslookup google.com >/dev/null 2>&1; then
-                log "DNS not working. Retrying... [$count_nslookup sec]"
-                count_nslookup=$((count_nslookup + 1))
-            else
-                return
-            fi
-
-            if [ $count_nslookup -lt 30 ]; then
-                sleep_interval=1
-            elif [ $count_nslookup -ge 30 ] && [ $count_nslookup -lt 60 ]; then
-                sleep_interval=5
-            elif [ $count_nslookup -ge 60 ] && [ $count_nslookup -lt 90 ]; then
-                sleep_interval=10
-            else
-                sleep_interval=30
-            fi
-
-            sleep $sleep_interval
-        done
-
-        while true; do
-            if ! curl -m 3 github.com; then
-                log "GitHub is not available. Check the internet availability [$count_curl sec]"
-                count_curl=$((count_curl + 1))
-            else
-                return
-            fi
-
-            if [ $count_curl -lt 30 ]; then
-                sleep_interval=1
-            elif [ $count_curl -ge 30 ] && [ $count_curl -lt 60 ]; then
-                sleep_interval=5
-            elif [ $count_curl -ge 60 ] && [ $count_curl -lt 90 ]; then
-                sleep_interval=10
-            else
-                sleep_interval=30
-            fi
-
-            sleep $sleep_interval
-        done
-    fi
-}
-
 
 add_cron_job() {
     ## Future: make a check so that it doesn't recreate many times
