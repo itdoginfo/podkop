@@ -41,10 +41,14 @@ function formatDiagnosticOutput(output) {
         .replace(/\r/g, '\n');
 }
 
-function getNetworkInterfaces(o) {
+function getNetworkInterfaces(o, section_id) {
     const excludeInterfaces = ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan'];
 
     return network.getDevices().then(devices => {
+        // Reset the options by creating a new keylist
+        o.keylist = [];
+        o.vallist = [];
+
         devices.forEach(device => {
             if (device.dev && device.dev.name) {
                 const deviceName = device.dev.name;
@@ -226,7 +230,7 @@ function createConfigSection(section, map, network) {
     o.depends('mode', 'vpn');
     o.ucisection = s.section;
     o.load = function (section_id) {
-        return getNetworkInterfaces(this).then(() => {
+        return getNetworkInterfaces(this, section_id).then(() => {
             return this.super('load', section_id);
         });
     };
