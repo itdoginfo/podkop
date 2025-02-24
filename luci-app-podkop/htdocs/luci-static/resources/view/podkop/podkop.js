@@ -11,7 +11,7 @@ const STATUS_COLORS = {
     WARNING: '#ff9800'
 };
 
-async function safeExec(command, args = [], timeout = 5000) {
+async function safeExec(command, args = [], timeout = 7000) {
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
