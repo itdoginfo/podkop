@@ -5,7 +5,12 @@
 'require network';
 'require fs';
 
-// Add helper function for safe command execution with timeout
+const STATUS_COLORS = {
+    SUCCESS: '#4caf50',
+    ERROR: '#f44336',
+    WARNING: '#ff9800'
+};
+
 async function safeExec(command, args = [], timeout = 3000) {
     try {
         const controller = new AbortController();
@@ -31,8 +36,8 @@ async function safeExec(command, args = [], timeout = 3000) {
 function formatDiagnosticOutput(output) {
     if (typeof output !== 'string') return '';
     return output.trim()
-        .replace(/\x1b\[[0-9;]*m/g, '')  // Remove ANSI color codes
-        .replace(/\r\n/g, '\n')          // Normalize line endings
+        .replace(/\x1b\[[0-9;]*m/g, '')
+        .replace(/\r\n/g, '\n')
         .replace(/\r/g, '\n');
 }
 
@@ -53,7 +58,6 @@ function getNetworkInterfaces(o) {
     });
 }
 
-// Общая функция для создания конфигурационных секций
 function createConfigSection(section, map, network) {
     const s = section;
 
@@ -71,24 +75,37 @@ function createConfigSection(section, map, network) {
     o.depends('mode', 'proxy');
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
+    o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), '');
     o.depends('proxy_config_type', 'url');
     o.rows = 5;
     o.ucisection = s.section;
-    o.load = function (section_id) {
-        return safeExec('/etc/init.d/podkop', ['get_proxy_label', section_id]).then(res => {
-            if (res.stdout) {
-                try {
-                    const decodedLabel = decodeURIComponent(res.stdout.trim());
-                    this.description = _('Current config: ') + decodedLabel;
-                } catch (e) {
-                    console.error('Error decoding label:', e);
-                    this.description = _('Current config: ') + res.stdout.trim();
-                }
+    o.sectionDescriptions = new Map();
+
+    o.renderWidget = function (section_id, option_index, cfgvalue) {
+        const original = form.TextValue.prototype.renderWidget.apply(this, [section_id, option_index, cfgvalue]);
+        const container = E('div', {});
+        container.appendChild(original);
+
+        if (cfgvalue) {
+            try {
+                const label = cfgvalue.split('#').pop() || 'unnamed';
+                const decodedLabel = decodeURIComponent(label);
+                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
+                container.appendChild(descDiv);
+            } catch (e) {
+                console.error('Error parsing config label:', e);
+                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + (cfgvalue.split('#').pop() || 'unnamed'));
+                container.appendChild(descDiv);
             }
-            return this.super('load', section_id);
-        });
+        } else {
+            const defaultDesc = E('div', { 'class': 'cbi-value-description' },
+                _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
+            container.appendChild(defaultDesc);
+        }
+
+        return container;
     };
+
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) {
             return true;
@@ -357,13 +374,7 @@ function createConfigSection(section, map, network) {
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
-        try {
-            const url = new URL(value);
-            if (!['http:', 'https:'].includes(url.protocol)) return _('URL must use http:// or https:// protocol');
-            return true;
-        } catch (e) {
-            return _('Invalid URL format. URL must start with http:// or https://');
-        }
+        return validateUrl(value);
     };
 
     o = s.taboption('basic', form.ListValue, 'custom_subnets_list_enabled', _('User Subnet List Type'), _('Select how to add your custom subnets'));
@@ -434,13 +445,7 @@ function createConfigSection(section, map, network) {
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
-        try {
-            const url = new URL(value);
-            if (!['http:', 'https:'].includes(url.protocol)) return _('URL must use http:// or https:// protocol');
-            return true;
-        } catch (e) {
-            return _('Invalid URL format. URL must start with http:// or https://');
-        }
+        return validateUrl(value);
     };
 
     o = s.taboption('basic', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'), _('Specify local IP addresses whose traffic will always use the configured route'));
@@ -466,9 +471,225 @@ function createConfigSection(section, map, network) {
     };
 }
 
+// Utility functions
+const copyToClipboard = (text, button) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        const originalText = button.textContent;
+        button.textContent = _('Copied!');
+        setTimeout(() => button.textContent = originalText, 1000);
+    } catch (err) {
+        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
+    }
+    document.body.removeChild(textarea);
+};
+
+const validateUrl = (url, protocols = ['http:', 'https:']) => {
+    try {
+        const parsedUrl = new URL(url);
+        if (!protocols.includes(parsedUrl.protocol)) {
+            return _('URL must use one of the following protocols: ') + protocols.join(', ');
+        }
+        return true;
+    } catch (e) {
+        return _('Invalid URL format');
+    }
+};
+
+// UI Helper functions
+const createModalContent = (title, content) => {
+    return [
+        E('div', {
+            'class': 'panel-body',
+            style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; ' +
+                'font-family: monospace; white-space: pre-wrap; word-wrap: break-word; ' +
+                'line-height: 1.5; font-size: 14px;'
+        }, [
+            E('pre', { style: 'margin: 0;' }, content)
+        ]),
+        E('div', {
+            'class': 'right',
+            style: 'margin-top: 1em;'
+        }, [
+            E('button', {
+                'class': 'btn',
+                'click': ev => copyToClipboard('```txt\n' + content + '\n```', ev.target)
+            }, _('Copy to Clipboard')),
+            E('button', {
+                'class': 'btn',
+                'click': ui.hideModal
+            }, _('Close'))
+        ])
+    ];
+};
+
+const showConfigModal = async (command, title) => {
+    const res = await safeExec('/etc/init.d/podkop', [command]);
+    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+    ui.showModal(_(title), createModalContent(title, formattedOutput));
+};
+
+// Button Factory
+const ButtonFactory = {
+    createButton: function (config) {
+        return E('button', {
+            'class': `btn ${config.additionalClass || ''}`.trim(),
+            'click': config.onClick,
+            'style': config.style || ''
+        }, _(config.label));
+    },
+
+    createActionButton: function (config) {
+        return this.createButton({
+            label: config.label,
+            additionalClass: `cbi-button-${config.type || ''}`,
+            onClick: () => safeExec('/etc/init.d/podkop', [config.action])
+                .then(() => config.reload && location.reload()),
+            style: config.style
+        });
+    },
+
+    createModalButton: function (config) {
+        return this.createButton({
+            label: config.label,
+            onClick: () => showConfigModal(config.command, config.title),
+            style: config.style
+        });
+    }
+};
+
+// Status Panel Factory
+const createStatusPanel = (title, status, buttons) => {
+    const headerContent = [
+        E('strong', {}, _(title)),
+        status && E('br'),
+        status && E('span', {
+            'style': `color: ${status.running ? STATUS_COLORS.SUCCESS : STATUS_COLORS.ERROR}`
+        }, [
+            status.running ? '✔' : '✘',
+            ' ',
+            status.status
+        ])
+    ].filter(Boolean);
+
+    return E('div', {
+        'class': 'panel',
+        'style': 'flex: 1; padding: 15px;'
+    }, [
+        E('div', { 'class': 'panel-heading' }, headerContent),
+        E('div', {
+            'class': 'panel-body',
+            'style': 'display: flex; flex-direction: column; gap: 8px;'
+        }, buttons)
+    ]);
+};
+
+// Update the status section creation
+let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system, fakeipStatus) {
+    return E('div', { 'class': 'cbi-section' }, [
+        E('h3', {}, _('Service Status')),
+        E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
+            // Podkop Status Panel
+            createStatusPanel('Podkop Status', podkopStatus, [
+                podkopStatus.running ?
+                    ButtonFactory.createActionButton({
+                        label: 'Stop Podkop',
+                        type: 'remove',
+                        action: 'stop',
+                        reload: true
+                    }) :
+                    ButtonFactory.createActionButton({
+                        label: 'Start Podkop',
+                        type: 'apply',
+                        action: 'start',
+                        reload: true
+                    }),
+                ButtonFactory.createActionButton({
+                    label: 'Restart Podkop',
+                    type: 'apply',
+                    action: 'restart',
+                    reload: true
+                }),
+                ButtonFactory.createActionButton({
+                    label: podkopStatus.enabled ? 'Disable Podkop' : 'Enable Podkop',
+                    type: podkopStatus.enabled ? 'remove' : 'apply',
+                    action: podkopStatus.enabled ? 'disable' : 'enable',
+                    reload: true
+                }),
+                ButtonFactory.createModalButton({
+                    label: 'Show Config',
+                    command: 'show_config',
+                    title: 'Podkop Configuration'
+                }),
+                ButtonFactory.createModalButton({
+                    label: 'View Logs',
+                    command: 'check_logs',
+                    title: 'Podkop Logs'
+                })
+            ]),
+
+            // Sing-box Status Panel
+            createStatusPanel('Sing-box Status', singboxStatus, [
+                ButtonFactory.createModalButton({
+                    label: 'Show Config',
+                    command: 'show_sing_box_config',
+                    title: 'Sing-box Configuration'
+                }),
+                ButtonFactory.createModalButton({
+                    label: 'View Logs',
+                    command: 'check_sing_box_logs',
+                    title: 'Sing-box Logs'
+                }),
+                ButtonFactory.createModalButton({
+                    label: 'Check Connections',
+                    command: 'check_sing_box_connections',
+                    title: 'Active Connections'
+                })
+            ]),
+
+            // FakeIP Status Panel with dynamic status
+            createStatusPanel('FakeIP Status', {
+                running: fakeipStatus.state === 'working',
+                status: fakeipStatus.message
+            }, [
+                ButtonFactory.createModalButton({
+                    label: 'Check NFT Rules',
+                    command: 'check_nft',
+                    title: 'NFT Rules'
+                }),
+                ButtonFactory.createModalButton({
+                    label: 'Check DNSMasq',
+                    command: 'check_dnsmasq',
+                    title: 'DNSMasq Configuration'
+                }),
+                ButtonFactory.createModalButton({
+                    label: 'Update Lists',
+                    command: 'list_update',
+                    title: 'Lists Update Results'
+                })
+            ]),
+
+            // Version Information Panel
+            createStatusPanel('Version Information', null, [
+                E('div', { 'style': 'margin-top: 10px; font-family: monospace; white-space: pre-wrap;' }, [
+                    E('strong', {}, 'Podkop: '), podkop.stdout ? podkop.stdout.trim() : _('Unknown'), '\n',
+                    E('strong', {}, 'LuCI App: '), luci.stdout ? luci.stdout.trim() : _('Unknown'), '\n',
+                    E('strong', {}, 'Sing-box: '), singbox.stdout ? singbox.stdout.trim() : _('Unknown'), '\n',
+                    E('strong', {}, 'OpenWrt Version: '), system.stdout ? system.stdout.split('\n')[1].trim() : _('Unknown'), '\n',
+                    E('strong', {}, 'Device Model: '), system.stdout ? system.stdout.split('\n')[4].trim() : _('Unknown')
+                ])
+            ])
+        ])
+    ]);
+};
+
 return view.extend({
     async render() {
-        document.getElementsByTagName('head')[0].insertAdjacentHTML('beforeend', `
+        document.head.insertAdjacentHTML('beforeend', `
             <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
             <meta http-equiv="Pragma" content="no-cache">
             <meta http-equiv="Expires" content="0">
@@ -476,13 +697,26 @@ return view.extend({
                 .cbi-value {
                     margin-bottom: 10px !important;
                 }
+
+                #diagnostics-status .table > div {
+                    background: var(--background-color-primary);
+                    border: 1px solid var(--border-color-medium);
+                    border-radius: var(--border-radius);
+                }
+
+                #diagnostics-status .table > div pre,
+                #diagnostics-status .table > div div[style*="monospace"] {
+                    color: var(--color-text-primary);
+                }
+
+                #diagnostics-status .alert-message {
+                    background: var(--background-color-primary);
+                    border-color: var(--border-color-medium);
+                }
             </style>
         `);
 
-        const m = new form.Map('podkop', _('Podkop configuration'), null, ['main', 'extra']);
-        safeExec('/etc/init.d/podkop', ['show_version']).then(res => {
-            if (res.stdout) m.title = _('Podkop') + ' v' + res.stdout.trim();
-        });
+        const m = new form.Map('podkop', _(''), null, ['main', 'extra']);
 
         // Main Section
         const mainSection = m.section(form.TypedSection, 'main');
@@ -635,367 +869,53 @@ return view.extend({
         // Diagnostics Tab (main section)
         o = mainSection.tab('diagnostics', _('Diagnostics'));
 
-        let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system) {
-            return E('div', { 'class': 'cbi-section' }, [
-                E('h3', {}, _('Service Status')),
-                E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
-                    E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
-                        E('div', { 'style': 'margin-bottom: 15px;' }, [
-                            E('strong', {}, _('Podkop Status')),
-                            E('br'),
-                            E('span', { 'style': `color: ${podkopStatus.running ? '#4caf50' : '#f44336'}` }, [
-                                podkopStatus.running ? '✔' : '✘',
-                                ' ',
-                                podkopStatus.status
-                            ])
-                        ]),
-                        E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
-                            podkopStatus.running ?
-                                E('button', {
-                                    'class': 'btn cbi-button-remove',
-                                    'click': () => safeExec('/etc/init.d/podkop', ['stop']).then(() => location.reload())
-                                }, _('Stop Podkop')) :
-                                E('button', {
-                                    'class': 'btn cbi-button-apply',
-                                    'click': () => safeExec('/etc/init.d/podkop', ['start']).then(() => location.reload())
-                                }, _('Start Podkop')),
-                            E('button', {
-                                'class': 'btn cbi-button-apply',
-                                'click': () => safeExec('/etc/init.d/podkop', ['restart']).then(() => location.reload())
-                            }, _('Restart Podkop')),
-                            E('button', {
-                                'class': 'btn cbi-button-' + (podkopStatus.enabled ? 'remove' : 'apply'),
-                                'click': () => safeExec('/etc/init.d/podkop', [podkopStatus.enabled ? 'disable' : 'enable']).then(() => location.reload())
-                            }, podkopStatus.enabled ? _('Disable Podkop') : _('Enable Podkop')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': () => safeExec('/etc/init.d/podkop', ['show_config']).then(res => {
-                                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                                    ui.showModal(_('Podkop Configuration'), [
-                                        E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
-                                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                                        ]),
-                                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
-                                            E('button', {
-                                                'class': 'btn',
-                                                'click': function (ev) {
-                                                    const textarea = document.createElement('textarea');
-                                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
-                                                    document.body.appendChild(textarea);
-                                                    textarea.select();
-                                                    try {
-                                                        document.execCommand('copy');
-                                                        ev.target.textContent = _('Copied!');
-                                                        setTimeout(() => ev.target.textContent = _('Copy to Clipboard'), 1000);
-                                                    } catch (err) {
-                                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                                    }
-                                                    document.body.removeChild(textarea);
-                                                }
-                                            }, _('Copy to Clipboard')),
-                                            E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Close'))
-                                        ])
-                                    ]);
-                                })
-                            }, _('Show Config')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': () => safeExec('/etc/init.d/podkop', ['check_logs']).then(res => {
-                                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                                    ui.showModal(_('Podkop Logs'), [
-                                        E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
-                                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                                        ]),
-                                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
-                                            E('button', {
-                                                'class': 'btn',
-                                                'click': function (ev) {
-                                                    const textarea = document.createElement('textarea');
-                                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
-                                                    document.body.appendChild(textarea);
-                                                    textarea.select();
-                                                    try {
-                                                        document.execCommand('copy');
-                                                        ev.target.textContent = _('Copied!');
-                                                        setTimeout(() => ev.target.textContent = _('Copy to Clipboard'), 1000);
-                                                    } catch (err) {
-                                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                                    }
-                                                    document.body.removeChild(textarea);
-                                                }
-                                            }, _('Copy to Clipboard')),
-                                            E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Close'))
-                                        ])
-                                    ]);
-                                })
-                            }, _('View Logs'))
-                        ])
-                    ]),
-                    E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
-                        E('div', { 'style': 'margin-bottom: 15px;' }, [
-                            E('strong', {}, _('Sing-box Status')),
-                            E('br'),
-                            E('span', { 'style': `color: ${singboxStatus.running ? '#4caf50' : '#f44336'}` }, [
-                                singboxStatus.running ? '✔' : '✘',
-                                ' ',
-                                `${singboxStatus.status}`
-                            ])
-                        ]),
-                        E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
-                            E('button', {
-                                'class': 'btn',
-                                'click': () => safeExec('/etc/init.d/podkop', ['show_sing_box_config']).then(res => {
-                                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                                    ui.showModal(_('Sing-box Configuration'), [
-                                        E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
-                                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                                        ]),
-                                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
-                                            E('button', {
-                                                'class': 'btn',
-                                                'click': function (ev) {
-                                                    const textarea = document.createElement('textarea');
-                                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
-                                                    document.body.appendChild(textarea);
-                                                    textarea.select();
-                                                    try {
-                                                        document.execCommand('copy');
-                                                        ev.target.textContent = _('Copied!');
-                                                        setTimeout(() => ev.target.textContent = _('Copy to Clipboard'), 1000);
-                                                    } catch (err) {
-                                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                                    }
-                                                    document.body.removeChild(textarea);
-                                                }
-                                            }, _('Copy to Clipboard')),
-                                            E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Close'))
-                                        ])
-                                    ]);
-                                })
-                            }, _('Show Config')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': () => safeExec('/etc/init.d/podkop', ['check_sing_box_logs']).then(res => {
-                                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                                    ui.showModal(_('Sing-box Logs'), [
-                                        E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
-                                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                                        ]),
-                                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
-                                            E('button', {
-                                                'class': 'btn',
-                                                'click': function (ev) {
-                                                    const textarea = document.createElement('textarea');
-                                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
-                                                    document.body.appendChild(textarea);
-                                                    textarea.select();
-                                                    try {
-                                                        document.execCommand('copy');
-                                                        ev.target.textContent = _('Copied!');
-                                                        setTimeout(() => ev.target.textContent = _('Copy to Clipboard'), 1000);
-                                                    } catch (err) {
-                                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                                    }
-                                                    document.body.removeChild(textarea);
-                                                }
-                                            }, _('Copy to Clipboard')),
-                                            E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Close'))
-                                        ])
-                                    ]);
-                                })
-                            }, _('View Logs')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': () => safeExec('/etc/init.d/podkop', ['check_sing_box_connections']).then(res => {
-                                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                                    ui.showModal(_('Active Connections'), [
-                                        E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
-                                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                                        ]),
-                                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
-                                            E('button', {
-                                                'class': 'btn',
-                                                'click': function (ev) {
-                                                    const textarea = document.createElement('textarea');
-                                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
-                                                    document.body.appendChild(textarea);
-                                                    textarea.select();
-                                                    try {
-                                                        document.execCommand('copy');
-                                                        ev.target.textContent = _('Copied!');
-                                                        setTimeout(() => ev.target.textContent = _('Copy to Clipboard'), 1000);
-                                                    } catch (err) {
-                                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                                    }
-                                                    document.body.removeChild(textarea);
-                                                }
-                                            }, _('Copy to Clipboard')),
-                                            E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Close'))
-                                        ])
-                                    ]);
-                                })
-                            }, _('Check Connections'))
-                        ])
-                    ]),
-                    E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
-                        E('div', { 'style': 'margin-bottom: 15px;' }, [
-                            E('strong', {}, _('FakeIP Status')),
-                            E('div', { 'id': 'fakeip-status' }, [E('span', {}, _('Checking FakeIP...'))])
-                        ]),
-                        E('div', { 'class': 'btn-group', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
-                            E('button', {
-                                'class': 'btn',
-                                'click': () => safeExec('/etc/init.d/podkop', ['check_nft']).then(res => {
-                                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                                    ui.showModal(_('NFT Rules'), [
-                                        E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
-                                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                                        ]),
-                                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
-                                            E('button', {
-                                                'class': 'btn',
-                                                'click': function (ev) {
-                                                    const textarea = document.createElement('textarea');
-                                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
-                                                    document.body.appendChild(textarea);
-                                                    textarea.select();
-                                                    try {
-                                                        document.execCommand('copy');
-                                                        ev.target.textContent = _('Copied!');
-                                                        setTimeout(() => ev.target.textContent = _('Copy to Clipboard'), 1000);
-                                                    } catch (err) {
-                                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                                    }
-                                                    document.body.removeChild(textarea);
-                                                }
-                                            }, _('Copy to Clipboard')),
-                                            E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Close'))
-                                        ])
-                                    ]);
-                                })
-                            }, _('Check NFT Rules')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': () => safeExec('/etc/init.d/podkop', ['check_dnsmasq']).then(res => {
-                                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                                    ui.showModal(_('DNSMasq Configuration'), [
-                                        E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
-                                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                                        ]),
-                                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
-                                            E('button', {
-                                                'class': 'btn',
-                                                'click': function (ev) {
-                                                    const textarea = document.createElement('textarea');
-                                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
-                                                    document.body.appendChild(textarea);
-                                                    textarea.select();
-                                                    try {
-                                                        document.execCommand('copy');
-                                                        ev.target.textContent = _('Copied!');
-                                                        setTimeout(() => ev.target.textContent = _('Copy to Clipboard'), 1000);
-                                                    } catch (err) {
-                                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                                    }
-                                                    document.body.removeChild(textarea);
-                                                }
-                                            }, _('Copy to Clipboard')),
-                                            E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Close'))
-                                        ])
-                                    ]);
-                                })
-                            }, _('Check DNSMasq')),
-                            E('button', {
-                                'class': 'btn',
-                                'click': () => safeExec('/etc/init.d/podkop', ['list_update']).then(res => {
-                                    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-                                    ui.showModal(_('Lists Update Results'), [
-                                        E('div', { style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 14px;' }, [
-                                            E('pre', { style: 'margin: 0;' }, formattedOutput)
-                                        ]),
-                                        E('div', { style: 'display: flex; justify-content: space-between; margin-top: 1em;' }, [
-                                            E('button', {
-                                                'class': 'btn',
-                                                'click': function (ev) {
-                                                    const textarea = document.createElement('textarea');
-                                                    textarea.value = '```txt\n' + formattedOutput + '\n```';
-                                                    document.body.appendChild(textarea);
-                                                    textarea.select();
-                                                    try {
-                                                        document.execCommand('copy');
-                                                        ev.target.textContent = _('Copied!');
-                                                        setTimeout(() => ev.target.textContent = _('Copy to Clipboard'), 1000);
-                                                    } catch (err) {
-                                                        ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
-                                                    }
-                                                    document.body.removeChild(textarea);
-                                                }
-                                            }, _('Copy to Clipboard')),
-                                            E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Close'))
-                                        ])
-                                    ]);
-                                })
-                            }, _('Update Lists'))
-                        ])
-                    ]),
-                    E('div', { 'style': 'flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;' }, [
-                        E('div', { 'style': 'margin-bottom: 15px;' }, [
-                            E('strong', {}, _('Version Information')),
-                            E('br'),
-                            E('div', { 'style': 'margin-top: 10px; font-family: monospace; white-space: pre-wrap;' }, [
-                                E('strong', {}, 'Podkop: '), podkop.stdout ? podkop.stdout.trim() : _('Unknown'), '\n',
-                                E('strong', {}, 'LuCI App: '), luci.stdout ? luci.stdout.trim() : _('Unknown'), '\n',
-                                E('strong', {}, 'Sing-box: '), singbox.stdout ? singbox.stdout.trim() : _('Unknown'), '\n',
-                                E('strong', {}, 'OpenWrt Version: '), system.stdout ? system.stdout.split('\n')[1].trim() : _('Unknown'), '\n',
-                                E('strong', {}, 'Device Model: '), system.stdout ? system.stdout.split('\n')[4].trim() : _('Unknown')
-                            ])
-                        ])
-                    ])
-                ])
-            ]);
-        };
-
         o = mainSection.taboption('diagnostics', form.DummyValue, '_status');
         o.rawhtml = true;
         o.cfgvalue = () => E('div', { id: 'diagnostics-status' }, _('Loading diagnostics...'));
 
         function checkFakeIP() {
-            return new Promise((resolve) => {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000);
+            const createStatus = (state, message, color) => ({
+                state,
+                message: _(message),
+                color: STATUS_COLORS[color]
+            });
 
-                fetch('http://httpbin.org/ip', { signal: controller.signal })
-                    .then(response => response.text())
-                    .then(text => {
+            return new Promise(async (resolve) => {
+                try {
+                    const singboxStatusResult = await safeExec('/etc/init.d/podkop', ['get_sing_box_status']);
+                    const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
+
+                    if (!singboxStatus.running) {
+                        return resolve(createStatus('not_working', 'sing-box not running', 'ERROR'));
+                    }
+                    if (!singboxStatus.dns_configured) {
+                        return resolve(createStatus('not_working', 'DNS not configured', 'ERROR'));
+                    }
+
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                    try {
+                        const response = await fetch('http://httpbin.org/ip', { signal: controller.signal });
+                        const text = await response.text();
                         clearTimeout(timeoutId);
-                        let status = {
-                            state: 'unknown',
-                            message: '',
-                            color: '#ff9800'
-                        };
 
                         if (text.includes('Cannot GET /ip')) {
-                            status.state = 'working';
-                            status.message = _('working');
-                            status.color = '#4caf50';
-                        } else if (text.includes('"origin":')) {
-                            status.state = 'not_working';
-                            status.message = _('not working');
-                            status.color = '#f44336';
-                        } else {
-                            status.state = 'error';
-                            status.message = _('check error');
+                            return resolve(createStatus('working', 'working', 'SUCCESS'));
                         }
-                        resolve(status);
-                    })
-                    .catch(error => {
+                        if (text.includes('"origin":')) {
+                            return resolve(createStatus('not_working', 'not working', 'ERROR'));
+                        }
+                        return resolve(createStatus('error', 'check error', 'WARNING'));
+                    } catch (fetchError) {
                         clearTimeout(timeoutId);
-                        resolve({
-                            state: 'error',
-                            message: error.name === 'AbortError' ? _('timeout') : _('check error'),
-                            color: '#ff9800'
-                        });
-                    });
+                        const message = fetchError.name === 'AbortError' ? 'timeout' : 'check error';
+                        return resolve(createStatus('error', message, 'WARNING'));
+                    }
+                } catch (error) {
+                    console.error('Error in checkFakeIP:', error);
+                    return resolve(createStatus('error', 'check error', 'WARNING'));
+                }
             });
         }
 
@@ -1025,11 +945,10 @@ return view.extend({
                 const container = document.getElementById('diagnostics-status');
                 if (!container) return;
 
-                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system);
+                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system, fakeipStatus);
                 container.innerHTML = '';
                 container.appendChild(statusSection);
 
-                // Update FakeIP status
                 const fakeipElement = document.getElementById('fakeip-status');
                 if (fakeipElement) {
                     fakeipElement.innerHTML = E('span', { 'style': `color: ${fakeipStatus.color}` }, [
@@ -1050,11 +969,59 @@ return view.extend({
             }
         }
 
-        // Start periodic updates
-        function startPeriodicUpdates() {
-            updateDiagnostics();
-            const intervalId = setInterval(updateDiagnostics, 10000);
-            window.addEventListener('unload', () => clearInterval(intervalId));
+        function startPeriodicUpdates(titleDiv) {
+            let updateTimer = null;
+            let isVisible = !document.hidden;
+            let versionText = _('Podkop');
+            let versionReceived = false;
+
+            const updateStatus = async () => {
+                try {
+                    if (!versionReceived) {
+                        const version = await safeExec('/etc/init.d/podkop', ['show_version'], 2000);
+                        if (version.stdout) {
+                            versionText = _('Podkop') + ' v' + version.stdout.trim();
+                            versionReceived = true;
+                        }
+                    }
+
+                    const singboxStatusResult = await safeExec('/etc/init.d/podkop', ['get_sing_box_status']);
+                    const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
+                    const fakeipStatus = await checkFakeIP();
+
+                    titleDiv.textContent = versionText + (!singboxStatus.running || !singboxStatus.dns_configured === 'not_working' ? ' (not working)' : '');
+
+                    await updateDiagnostics();
+                } catch (error) {
+                    console.warn('Failed to update status:', error);
+                    titleDiv.textContent = versionText + ' (not working)';
+                }
+            };
+
+            const toggleUpdates = (visible) => {
+                if (visible) {
+                    updateStatus();
+                    if (!updateTimer) {
+                        updateTimer = setInterval(updateStatus, 10000);
+                    }
+                } else if (updateTimer) {
+                    clearInterval(updateTimer);
+                    updateTimer = null;
+                }
+            };
+
+            document.addEventListener('visibilitychange', () => {
+                isVisible = !document.hidden;
+                toggleUpdates(isVisible);
+            });
+
+            toggleUpdates(isVisible);
+
+            window.addEventListener('unload', () => {
+                if (updateTimer) {
+                    clearInterval(updateTimer);
+                }
+            });
         }
 
         // Extra Section
@@ -1065,10 +1032,12 @@ return view.extend({
         extraSection.multiple = true;
         createConfigSection(extraSection, m, network);
 
-        const map_promise = m.render();
-        map_promise.then(node => {
+        const map_promise = m.render().then(node => {
+            const titleDiv = E('h2', { 'class': 'cbi-map-title' }, _('Podkop'));
+            node.insertBefore(titleDiv, node.firstChild);
+
             node.classList.add('fade-in');
-            startPeriodicUpdates();
+            startPeriodicUpdates(titleDiv);
             return node;
         });
 

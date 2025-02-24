@@ -909,3 +909,171 @@ msgstr ""
 
 msgid "Invalid path format. Must be like /tmp/cache.db"
 msgstr ""
+
+msgid "Copy to Clipboard"
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "Loading..."
+msgstr ""
+
+msgid "Loading version information..."
+msgstr ""
+
+msgid "Checking FakeIP..."
+msgstr ""
+
+msgid "timeout"
+msgstr ""
+
+msgid "Current config: "
+msgstr ""
+
+msgid "Invalid VLESS URL: type must be one of tcp, udp, grpc, http"
+msgstr ""
+
+msgid "Invalid VLESS URL: security must be one of tls, reality, none"
+msgstr ""
+
+msgid "Podkop"
+msgstr ""
+
+msgid "Proxy"
+msgstr ""
+
+msgid "VPN"
+msgstr ""
+
+msgid "http://openwrt.lan:9090/ui"
+msgstr ""
+
+msgid "Podkop Configuration"
+msgstr ""
+
+msgid "Active Connections"
+msgstr ""
+
+msgid "DNSMasq Configuration"
+msgstr ""
+
+msgid "Sing-box Configuration"
+msgstr ""
+
+msgid "Extra configurations"
+msgstr ""
+
+msgid "Add Section"
+msgstr ""
+
+msgid "No output"
+msgstr ""
+
+msgid "Failed to copy: "
+msgstr ""
+
+msgid "Show Config"
+msgstr ""
+
+msgid "View Logs"
+msgstr ""
+
+msgid "Check Connections"
+msgstr ""
+
+msgid "FakeIP Status"
+msgstr ""
+
+msgid "Device Model: "
+msgstr ""
+
+msgid "OpenWrt Version: "
+msgstr ""
+
+msgid "Check DNSMasq"
+msgstr ""
+
+msgid "Check NFT Rules"
+msgstr ""
+
+msgid "Update Lists"
+msgstr ""
+
+msgid "Lists Update Results"
+msgstr ""
+
+msgid "NFT Rules"
+msgstr ""
+
+msgid "GitHub Connectivity"
+msgstr ""
+
+msgid "Check GitHub"
+msgstr ""
+
+msgid "GitHub Connectivity Results"
+msgstr ""
+
+msgid "Sing-Box Logs"
+msgstr ""
+
+msgid "View recent sing-box logs from system journal"
+msgstr ""
+
+msgid "View Sing-Box Logs"
+msgstr ""
+
+msgid "Podkop Logs"
+msgstr ""
+
+msgid "View recent podkop logs from system journal"
+msgstr ""
+
+msgid "View Podkop Logs"
+msgstr ""
+
+msgid "Active Connections"
+msgstr ""
+
+msgid "View active sing-box network connections"
+msgstr ""
+
+msgid "DNSMasq Configuration"
+msgstr ""
+
+msgid "View current DNSMasq configuration settings"
+msgstr ""
+
+msgid "Sing-Box Configuration"
+msgstr ""
+
+msgid "Show current sing-box configuration"
+msgstr ""
+
+msgid "Show Sing-Box Config"
+msgstr ""
+
+msgid "Diagnostic Tools"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "sing-box not running"
+msgstr ""
+
+msgid "DNS not configured"
+msgstr ""
+
+msgid "running & enabled"
+msgstr ""
+
+msgid "running but disabled"
+msgstr ""
+
+msgid "stopped but enabled"
+msgstr ""
+
+msgid "stopped & disabled"
+msgstr ""

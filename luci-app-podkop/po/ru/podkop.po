@@ -555,3 +555,171 @@ msgstr "Путь должен содержать хотя бы одну дире
 
 msgid "Invalid path format. Must be like /tmp/cache.db"
 msgstr "Неверный формат пути. Пример: /tmp/cache.db"
+
+msgid "Copy to Clipboard"
+msgstr "Копировать в буфер обмена"
+
+msgid "Close"
+msgstr "Закрыть"
+
+msgid "Loading..."
+msgstr "Загрузка..."
+
+msgid "Loading version information..."
+msgstr "Загрузка информации о версии..."
+
+msgid "Checking FakeIP..."
+msgstr "Проверка FakeIP..."
+
+msgid "timeout"
+msgstr "таймаут"
+
+msgid "Current config: "
+msgstr "Текущая конфигурация: "
+
+msgid "Invalid VLESS URL: type must be one of tcp, udp, grpc, http"
+msgstr "Неверный URL VLESS: тип должен быть одним из tcp, udp, grpc, http"
+
+msgid "Invalid VLESS URL: security must be one of tls, reality, none"
+msgstr "Неверный URL VLESS: security должен быть одним из tls, reality, none"
+
+msgid "Podkop"
+msgstr "Podkop"
+
+msgid "Proxy"
+msgstr "Прокси"
+
+msgid "VPN"
+msgstr "VPN"
+
+msgid "http://openwrt.lan:9090/ui"
+msgstr "http://openwrt.lan:9090/ui"
+
+msgid "Podkop Configuration"
+msgstr "Конфигурация Podkop"
+
+msgid "Active Connections"
+msgstr "Активные соединения"
+
+msgid "DNSMasq Configuration"
+msgstr "Конфигурация DNSMasq"
+
+msgid "Sing-box Configuration"
+msgstr "Конфигурация Sing-box"
+
+msgid "Extra configurations"
+msgstr "Дополнительные конфигурации"
+
+msgid "Add Section"
+msgstr "Добавить раздел"
+
+msgid "No output"
+msgstr "Нет вывода"
+
+msgid "Failed to copy: "
+msgstr "Не удалось скопировать: "
+
+msgid "Show Config"
+msgstr "Показать конфигурацию"
+
+msgid "View Logs"
+msgstr "Просмотр логов"
+
+msgid "Check Connections"
+msgstr "Проверить соединения"
+
+msgid "FakeIP Status"
+msgstr "Статус FakeIP"
+
+msgid "Device Model: "
+msgstr "Модель устройства: "
+
+msgid "OpenWrt Version: "
+msgstr "Версия OpenWrt: "
+
+msgid "Check DNSMasq"
+msgstr "Проверить DNSMasq"
+
+msgid "Check NFT Rules"
+msgstr "Проверить правила NFT"
+
+msgid "Update Lists"
+msgstr "Обновить списки"
+
+msgid "Lists Update Results"
+msgstr "Результаты обновления списков"
+
+msgid "NFT Rules"
+msgstr "Правила NFT"
+
+msgid "GitHub Connectivity"
+msgstr "Подключение к GitHub"
+
+msgid "Check GitHub"
+msgstr "Проверить GitHub"
+
+msgid "GitHub Connectivity Results"
+msgstr "Результаты проверки подключения к GitHub"
+
+msgid "Sing-Box Logs"
+msgstr "Логи Sing-Box"
+
+msgid "View recent sing-box logs from system journal"
+msgstr "Просмотр последних логов sing-box из системного журнала"
+
+msgid "View Sing-Box Logs"
+msgstr "Просмотр логов Sing-Box"
+
+msgid "Podkop Logs"
+msgstr "Логи Podkop"
+
+msgid "View recent podkop logs from system journal"
+msgstr "Просмотр последних логов podkop из системного журнала"
+
+msgid "View Podkop Logs"
+msgstr "Просмотр логов Podkop"
+
+msgid "Active Connections"
+msgstr "Активные соединения"
+
+msgid "View active sing-box network connections"
+msgstr "Просмотр активных сетевых подключений sing-box"
+
+msgid "DNSMasq Configuration"
+msgstr "Конфигурация DNSMasq"
+
+msgid "View current DNSMasq configuration settings"
+msgstr "Просмотр текущих настроек конфигурации DNSMasq"
+
+msgid "Sing-Box Configuration"
+msgstr "Конфигурация Sing-Box"
+
+msgid "Show current sing-box configuration"
+msgstr "Показать текущую конфигурацию sing-box"
+
+msgid "Show Sing-Box Config"
+msgstr "Показать конфигурацию Sing-Box"
+
+msgid "Diagnostic Tools"
+msgstr "Инструменты диагностики"
+
+msgid "Unknown"
+msgstr "Неизвестно"
+
+msgid "sing-box not running"
+msgstr "sing-box не запущен"
+
+msgid "DNS not configured"
+msgstr "DNS не настроен"
+
+msgid "running & enabled"
+msgstr "запущен и активирован"
+
+msgid "running but disabled"
+msgstr "запущен, но деактивирован"
+
+msgid "stopped but enabled"
+msgstr "остановлен, но активирован"
+
+msgid "stopped & disabled"
+msgstr "остановлен и деактивирован"
