@@ -11,7 +11,7 @@ const STATUS_COLORS = {
     WARNING: '#ff9800'
 };
 
-async function safeExec(command, args = [], timeout = 3000) {
+async function safeExec(command, args = [], timeout = 7000) {
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -79,11 +79,12 @@ function createConfigSection(section, map, network) {
     o.depends('mode', 'proxy');
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), '');
+    o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _(''));
     o.depends('proxy_config_type', 'url');
     o.rows = 5;
     o.ucisection = s.section;
     o.sectionDescriptions = new Map();
+    o.placeholder = 'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt';
 
     o.renderWidget = function (section_id, option_index, cfgvalue) {
         const original = form.TextValue.prototype.renderWidget.apply(this, [section_id, option_index, cfgvalue]);
@@ -92,10 +93,17 @@ function createConfigSection(section, map, network) {
 
         if (cfgvalue) {
             try {
-                const label = cfgvalue.split('#').pop() || 'unnamed';
-                const decodedLabel = decodeURIComponent(label);
-                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
-                container.appendChild(descDiv);
+                // Extract only the active configuration (first non-comment line)
+                const activeConfig = cfgvalue.split('\n')
+                    .map(line => line.trim())
+                    .find(line => line && !line.startsWith('//'));
+
+                if (activeConfig) {
+                    const label = activeConfig.split('#').pop() || 'unnamed';
+                    const decodedLabel = decodeURIComponent(label);
+                    const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
+                    container.appendChild(descDiv);
+                }
             } catch (e) {
                 console.error('Error parsing config label:', e);
                 const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + (cfgvalue.split('#').pop() || 'unnamed'));
@@ -103,7 +111,7 @@ function createConfigSection(section, map, network) {
             }
         } else {
             const defaultDesc = E('div', { 'class': 'cbi-value-description' },
-                _('Enter connection string starting with vless:// or ss:// for proxy configuration'));
+                _('Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs'));
             container.appendChild(defaultDesc);
         }
 
@@ -116,14 +124,23 @@ function createConfigSection(section, map, network) {
         }
 
         try {
-            if (!value.startsWith('vless://') && !value.startsWith('ss://')) {
+            // Get the first non-comment line as the active configuration
+            const activeConfig = value.split('\n')
+                .map(line => line.trim())
+                .find(line => line && !line.startsWith('//'));
+
+            if (!activeConfig) {
+                return _('No active configuration found. At least one non-commented line is required.');
+            }
+
+            if (!activeConfig.startsWith('vless://') && !activeConfig.startsWith('ss://')) {
                 return _('URL must start with vless:// or ss://');
             }
 
-            if (value.startsWith('ss://')) {
+            if (activeConfig.startsWith('ss://')) {
                 let encrypted_part;
                 try {
-                    let mainPart = value.includes('?') ? value.split('?')[0] : value.split('#')[0];
+                    let mainPart = activeConfig.includes('?') ? activeConfig.split('?')[0] : activeConfig.split('#')[0];
                     encrypted_part = mainPart.split('/')[2].split('@')[0];
                     try {
                         let decoded = atob(encrypted_part);
@@ -142,7 +159,7 @@ function createConfigSection(section, map, network) {
                 }
 
                 try {
-                    let serverPart = value.split('@')[1];
+                    let serverPart = activeConfig.split('@')[1];
                     if (!serverPart) return _('Invalid Shadowsocks URL: missing server address');
                     let [server, portAndRest] = serverPart.split(':');
                     if (!server) return _('Invalid Shadowsocks URL: missing server');
@@ -157,12 +174,12 @@ function createConfigSection(section, map, network) {
                 }
             }
 
-            if (value.startsWith('vless://')) {
-                let uuid = value.split('/')[2].split('@')[0];
+            if (activeConfig.startsWith('vless://')) {
+                let uuid = activeConfig.split('/')[2].split('@')[0];
                 if (!uuid || uuid.length === 0) return _('Invalid VLESS URL: missing UUID');
 
                 try {
-                    let serverPart = value.split('@')[1];
+                    let serverPart = activeConfig.split('@')[1];
                     if (!serverPart) return _('Invalid VLESS URL: missing server address');
                     let [server, portAndRest] = serverPart.split(':');
                     if (!server) return _('Invalid VLESS URL: missing server');
@@ -176,7 +193,7 @@ function createConfigSection(section, map, network) {
                     return _('Invalid VLESS URL: missing or invalid server/port format');
                 }
 
-                let queryString = value.split('?')[1];
+                let queryString = activeConfig.split('?')[1];
                 if (!queryString) return _('Invalid VLESS URL: missing query parameters');
 
                 let params = new URLSearchParams(queryString.split('#')[0]);
@@ -335,18 +352,33 @@ function createConfigSection(section, map, network) {
         return true;
     };
 
-    o = s.taboption('basic', form.TextValue, 'custom_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline'));
-    o.placeholder = 'example.com, sub.example.com\ndomain.com test.com';
+    o = s.taboption('basic', form.TextValue, 'custom_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline. You can add comments after //'));
+    o.placeholder = 'example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains';
     o.depends('custom_domains_list_type', 'text');
     o.rows = 8;
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
-        const domains = value.split(/[,\s\n]/).map(d => d.trim()).filter(d => d.length > 0);
+
         const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*(\.[A-Za-z]{2,})?$/;
-        for (const domain of domains) {
-            if (!domainRegex.test(domain)) return _('Invalid domain format: %s. Enter domain without protocol').format(domain);
+        const lines = value.split(/\n/).map(line => line.trim());
+
+        for (const line of lines) {
+            // Skip empty lines or lines that start with //
+            if (!line || line.startsWith('//')) continue;
+
+            // Extract domain part (before any //)
+            const domainPart = line.split('//')[0].trim();
+
+            // Process each domain in the line (separated by comma or space)
+            const domains = domainPart.split(/[,\s]+/).map(d => d.trim()).filter(d => d.length > 0);
+
+            for (const domain of domains) {
+                if (!domainRegex.test(domain)) {
+                    return _('Invalid domain format: %s. Enter domain without protocol').format(domain);
+                }
+            }
         }
         return true;
     };
@@ -415,27 +447,48 @@ function createConfigSection(section, map, network) {
         return true;
     };
 
-    o = s.taboption('basic', form.TextValue, 'custom_subnets_text', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline'));
-    o.placeholder = '103.21.244.0/22\n8.8.8.8\n1.1.1.1/32, 9.9.9.9';
+    o = s.taboption('basic', form.TextValue, 'custom_subnets_text', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments after //'));
+    o.placeholder = '103.21.244.0/22\n// Google DNS\n8.8.8.8\n1.1.1.1/32, 9.9.9.9 // Cloudflare and Quad9';
     o.depends('custom_subnets_list_enabled', 'text');
     o.rows = 10;
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
-        const subnets = value.split(/[,\s\n]/).map(s => s.trim()).filter(s => s.length > 0);
+
         const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-        for (const subnet of subnets) {
-            if (!subnetRegex.test(subnet)) return _('Invalid format: %s. Use format: X.X.X.X or X.X.X.X/Y').format(subnet);
-            const [ip, cidr] = subnet.split('/');
-            const ipParts = ip.split('.');
-            for (const part of ipParts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) return _('IP parts must be between 0 and 255 in: %s').format(subnet);
-            }
-            if (cidr !== undefined) {
-                const cidrNum = parseInt(cidr);
-                if (cidrNum < 0 || cidrNum > 32) return _('CIDR must be between 0 and 32 in: %s').format(subnet);
+        const lines = value.split(/\n/).map(line => line.trim());
+
+        for (const line of lines) {
+            // Skip empty lines or lines that start with //
+            if (!line || line.startsWith('//')) continue;
+
+            // Extract subnet part (before any //)
+            const subnetPart = line.split('//')[0].trim();
+
+            // Process each subnet in the line (separated by comma or space)
+            const subnets = subnetPart.split(/[,\s]+/).map(s => s.trim()).filter(s => s.length > 0);
+
+            for (const subnet of subnets) {
+                if (!subnetRegex.test(subnet)) {
+                    return _('Invalid format: %s. Use format: X.X.X.X or X.X.X.X/Y').format(subnet);
+                }
+
+                const [ip, cidr] = subnet.split('/');
+                const ipParts = ip.split('.');
+                for (const part of ipParts) {
+                    const num = parseInt(part);
+                    if (num < 0 || num > 255) {
+                        return _('IP parts must be between 0 and 255 in: %s').format(subnet);
+                    }
+                }
+
+                if (cidr !== undefined) {
+                    const cidrNum = parseInt(cidr);
+                    if (cidrNum < 0 || cidrNum > 32) {
+                        return _('CIDR must be between 0 and 32 in: %s').format(subnet);
+                    }
+                }
             }
         }
         return true;
