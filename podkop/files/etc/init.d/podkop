@@ -1432,7 +1432,7 @@ process_all_traffic_for_section() {
 sing_box_rules_source_ip_cidr() {
     log "Configure source_ip_cidr rule in sing-box"
     local source_ip_cidr="$1"
-    local outbound="$2"
+    local outbound="$section"
 
     local current_source_ip_cidr=$(jq -r ".route.rules[] | select(.outbound == \"$outbound\" and .source_ip_cidr) | .rule_set" $SING_BOX_CONFIG)
 
