@@ -1235,7 +1235,7 @@ list_subnets_download() {
     esac
 
     local filename=$(basename "$URL")
-    wget -q -O "/tmp/podkop/$filename" "$URL"
+    wget -O "/tmp/podkop/$filename" "$URL"
 
     while IFS= read -r subnet; do
         if [ "$service" = "discord" ]; then
@@ -1308,10 +1308,16 @@ sing_box_rule_preset() {
     config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled"
     config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
     config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
+    config_get custom_download_subnets_list_enabled "$section" "custom_download_subnets_list_enabled"
 
     if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_subnets_list_enabled" != "disabled" ] ||
-        [ "$custom_local_domains_list_enabled" = "1" ] || [ "$custom_download_domains_list_enabled" = "1" ]; then
+        [ "$custom_local_domains_list_enabled" = "1" ] || [ "$custom_download_domains_list_enabled" = "1" ] ||
+        [ "$custom_download_subnets_list_enabled" = "1" ]; then
         sing_box_rules "$section" "$section"
+    fi
+
+    if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_local_domains_list_enabled" = "1" ] ||
+        [ "$custom_download_domains_list_enabled" = "1" ]; then
         sing_box_dns_rule_fakeip_section "$section" "$section"
     fi
 
@@ -1419,14 +1425,14 @@ process_all_traffic_for_section() {
     if [ "$all_traffic_from_ip_enabled" -eq "1" ]; then
         log "Adding an IP to redirect all traffic"
         config_list_foreach $section all_traffic_ip list_all_traffic_from_ip
-        config_list_foreach $section all_traffic_ip sing_box_rules_source_ip_cidr "$section" "$all_traffic_ip"
+        config_list_foreach $section all_traffic_ip sing_box_rules_source_ip_cidr
     fi
 }
 
 sing_box_rules_source_ip_cidr() {
     log "Configure source_ip_cidr rule in sing-box"
-    local outbound="$2"
     local source_ip_cidr="$1"
+    local outbound="$2"
 
     local current_source_ip_cidr=$(jq -r ".route.rules[] | select(.outbound == \"$outbound\" and .source_ip_cidr) | .rule_set" $SING_BOX_CONFIG)
 
