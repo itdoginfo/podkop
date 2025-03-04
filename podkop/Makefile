@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=podkop
-PKG_VERSION:=0.3.22
+PKG_VERSION:=0.3.23
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=ITDog <podkop@itdog.info>
@@ -49,6 +49,9 @@ define Package/podkop/install
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/etc/config/podkop $(1)/etc/config/podkop
+
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/podkop $(1)/usr/bin/podkop
 endef
 
 $(eval $(call BuildPackage,podkop))

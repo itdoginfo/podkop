@@ -589,7 +589,7 @@ const createModalContent = (title, content) => {
 };
 
 const showConfigModal = async (command, title) => {
-    const res = await safeExec('/etc/init.d/podkop', [command]);
+    const res = await safeExec('/usr/bin/podkop', [command]);
     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
     ui.showModal(_(title), createModalContent(title, formattedOutput));
 };
@@ -608,7 +608,7 @@ const ButtonFactory = {
         return this.createButton({
             label: config.label,
             additionalClass: `cbi-button-${config.type || ''}`,
-            onClick: () => safeExec('/etc/init.d/podkop', [config.action])
+            onClick: () => safeExec('/usr/bin/podkop', [config.action])
                 .then(() => config.reload && location.reload()),
             style: config.style
         });
@@ -787,7 +787,7 @@ return view.extend({
         // Additional Settings Tab (main section)
         let o = mainSection.tab('additional', _('Additional Settings'));
 
-        o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('http://openwrt.lan:9090/ui'));
+        o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>'));
         o.default = '0';
         o.rmempty = false;
         o.ucisection = 'main';
@@ -943,7 +943,7 @@ return view.extend({
 
             return new Promise(async (resolve) => {
                 try {
-                    const singboxStatusResult = await safeExec('/etc/init.d/podkop', ['get_sing_box_status']);
+                    const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
                     const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
 
                     if (!singboxStatus.running) {
@@ -991,12 +991,12 @@ return view.extend({
                     system,
                     fakeipStatus
                 ] = await Promise.all([
-                    safeExec('/etc/init.d/podkop', ['get_status']),
-                    safeExec('/etc/init.d/podkop', ['get_sing_box_status']),
-                    safeExec('/etc/init.d/podkop', ['show_version']),
-                    safeExec('/etc/init.d/podkop', ['show_luci_version']),
-                    safeExec('/etc/init.d/podkop', ['show_sing_box_version']),
-                    safeExec('/etc/init.d/podkop', ['show_system_info']),
+                    safeExec('/usr/bin/podkop', ['get_status']),
+                    safeExec('/usr/bin/podkop', ['get_sing_box_status']),
+                    safeExec('/usr/bin/podkop', ['show_version']),
+                    safeExec('/usr/bin/podkop', ['show_luci_version']),
+                    safeExec('/usr/bin/podkop', ['show_sing_box_version']),
+                    safeExec('/usr/bin/podkop', ['show_system_info']),
                     checkFakeIP()
                 ]);
 
@@ -1039,14 +1039,14 @@ return view.extend({
             const updateStatus = async () => {
                 try {
                     if (!versionReceived) {
-                        const version = await safeExec('/etc/init.d/podkop', ['show_version'], 2000);
+                        const version = await safeExec('/usr/bin/podkop', ['show_version'], 2000);
                         if (version.stdout) {
                             versionText = _('Podkop') + ' v' + version.stdout.trim();
                             versionReceived = true;
                         }
                     }
 
-                    const singboxStatusResult = await safeExec('/etc/init.d/podkop', ['get_sing_box_status']);
+                    const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
                     const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
                     const fakeipStatus = await checkFakeIP();
 

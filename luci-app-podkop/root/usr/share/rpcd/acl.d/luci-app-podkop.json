@@ -5,6 +5,9 @@
       "file": {
         "/etc/init.d/podkop": [
           "exec"
+        ],
+        "/usr/bin/podkop": [
+          "exec"
         ]
       },
       "ubus": {
