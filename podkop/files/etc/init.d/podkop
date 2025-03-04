@@ -24,8 +24,6 @@ EXTRA_HELP="        list_update     Updating domain and subnet lists
         show_system_info    Show OpenWrt version and device model
         get_sing_box_status  Get sing-box status"
 
-[ ! -L /usr/sbin/podkop ] && ln -s /etc/init.d/podkop /usr/sbin/podkop
-
 GITHUB_RAW_URL="https://raw.githubusercontent.com/itdoginfo/allow-domains/main"
 SRS_MAIN_URL="https://github.com/itdoginfo/allow-domains/releases/latest/download"
 DOMAINS_RU_INSIDE="${GITHUB_RAW_URL}/Russia/inside-dnsmasq-nfset.lst"
@@ -1425,22 +1423,23 @@ process_all_traffic_for_section() {
     if [ "$all_traffic_from_ip_enabled" -eq "1" ]; then
         log "Adding an IP to redirect all traffic"
         config_list_foreach $section all_traffic_ip list_all_traffic_from_ip
-        config_list_foreach $section all_traffic_ip sing_box_rules_source_ip_cidr
+        config_list_foreach $section all_traffic_ip sing_box_rules_source_ip_cidr $all_traffic_ip $section
     fi
 }
 
 sing_box_rules_source_ip_cidr() {
     log "Configure source_ip_cidr rule in sing-box"
     local source_ip_cidr="$1"
-    local outbound="$section"
+    local outbound="$2"
 
-    local current_source_ip_cidr=$(jq -r ".route.rules[] | select(.outbound == \"$outbound\" and .source_ip_cidr) | .rule_set" $SING_BOX_CONFIG)
+    local current_source_ip_cidr=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .action == "route" and (.rule_set | not))' $SING_BOX_CONFIG)
+
 
     if [[ -n "$current_source_ip_cidr" ]]; then
         jq \
         --arg source_ip_cidr "$source_ip_cidr" \
         --arg outbound "$outbound" \
-        '(.route.rules[] | select(.outbound == $outbound) | .source_ip_cidr) += [$source_ip_cidr]' \
+        '(.route.rules[] | select(.outbound == $outbound and .action == "route" and (.rule_set | not)) | .source_ip_cidr) += [$source_ip_cidr]' \
         $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
     else
         jq \
@@ -1450,7 +1449,8 @@ sing_box_rules_source_ip_cidr() {
             {
                 "inbound": ["tproxy-in"],
                 "source_ip_cidr": [$source_ip_cidr],
-                "outbound": $outbound
+                "outbound": $outbound,
+                "action": "route"
             }
         ] + .route.rules' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
     fi
