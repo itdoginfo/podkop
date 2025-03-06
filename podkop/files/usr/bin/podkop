@@ -459,25 +459,45 @@ sing_box_uci() {
     fi
 }
 
-# Future: for every section. +1 port?
+add_socks5_for_section() {
+    local section="$1"
+    local port="$2"
+    local tag="$section-mixed-in"
+    
+    log "Adding Socks5 for $section on port $port"
+    
+    jq \
+    --arg tag "$tag" \
+    --arg port "$port" \
+    --arg section "$section" \
+    '.inbounds += [{
+        "tag": $tag,
+        "type": "mixed",
+        "listen": "0.0.0.0",
+        "listen_port": ($port|tonumber),
+        "set_system_proxy": false
+    }] | 
+    .route.rules += [{
+        "inbound": [$tag],
+        "outbound": $section,
+        "action": "route"
+    }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+}
+
 process_socks5() {
-    config_get_bool socks5 "main" "socks5" "0"
-    if [ "$socks5" -eq 1 ]; then
-        log "Socks5 local enable port 2080"
-        jq \
-        '.inbounds += [{
-            "tag": "mixed-in",
-            "type": "mixed",
-            "listen": "0.0.0.0",
-            "listen_port": 2080,
-            "set_system_proxy": false
-        }] | 
-        .route.rules += [{
-            "inbound": ["mixed-in"],
-            "outbound": "main",
-            "action": "route"
-        }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    config_get_bool main_socks5 "main" "socks5" "0"
+    if [ "$main_socks5" -eq 1 ]; then
+        add_socks5_for_section "main" "2080"
     fi
+    
+    local port=2081
+    for section in $(uci show podkop | awk -F'[.=]' '/=extra/ {print $2}'); do
+        config_get_bool section_socks5 "$section" "socks5" "0"
+        if [ "$section_socks5" -eq 1 ]; then
+            add_socks5_for_section "$section" "$port"
+            port=$((port + 1))
+        fi
+    done
 }
 
 sing_box_inbound_proxy() {
