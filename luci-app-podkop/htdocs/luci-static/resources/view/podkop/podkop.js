@@ -827,7 +827,7 @@ return view.extend({
         o.value('dns.adguard-dns.com', 'AdGuard Default (dns.adguard-dns.com)');
         o.value('unfiltered.adguard-dns.com', 'AdGuard Unfiltered (unfiltered.adguard-dns.com)');
         o.value('family.adguard-dns.com', 'AdGuard Family (family.adguard-dns.com)');
-        o.default = '1.1.1.1';
+        o.default = '8.8.8.8';
         o.rmempty = false;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
@@ -856,7 +856,7 @@ return view.extend({
         };
 
         o = mainSection.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 600)'));
-        o.default = '600';
+        o.default = '60';
         o.rmempty = false;
         o.ucisection = 'main';
         o.validate = function (section_id, value) {
