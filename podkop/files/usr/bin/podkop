@@ -68,14 +68,16 @@ start() {
     # sing-box outbounds and rules
     config_foreach sing_box_outdound
     config_foreach process_domains_for_section
-    config_foreach process_remote_ruleset
     config_foreach sing_box_rule_preset
     config_foreach process_domains_list_local
-    config_foreach process_domains_list_url
     config_foreach process_subnet_for_section
-    config_foreach process_subnet_for_section_remote
+    config_foreach process_remote_ruleset_srs
     config_foreach process_all_traffic_for_section
     config_foreach add_cron_job
+
+    config_foreach prepare_custom_ruleset
+    list_update &
+    echo $! > /var/run/podkop_list_update.pid
 
     # Future: exclude at the fakeip?
     config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" "0"
@@ -123,6 +125,16 @@ start() {
 
 stop() {
     log "Stopping the podkop"
+
+    if [ -f /var/run/podkop_list_update.pid ]; then
+        pid=$(cat /var/run/podkop_list_update.pid)
+        if kill -0 "$pid"; then
+            kill "$pid"
+            log "Stopped list_update"
+        fi
+        rm -f /var/run/podkop_list_update.pid
+    fi
+
     remove_cron_job
 
     config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" "0"
@@ -202,6 +214,9 @@ migration() {
         log "Found and removed use-application-dns.net in dhcp config"
         sed -i '/use-application-dns/d' "/etc/config/dhcp"
     fi
+
+    # corntab init.d
+    (crontab -l | grep -v "/etc/init.d/podkop list_update") | crontab -
 }
 
 validate_service() {
@@ -389,19 +404,19 @@ add_cron_job() {
 
     case "$update_interval" in
         "1h")
-            cron_job="13 * * * * /etc/init.d/podkop list_update"
+            cron_job="13 * * * * /usr/bin/podkop list_update"
             ;;
         "3h")
-            cron_job="13 */3 * * * /etc/init.d/podkop list_update"
+            cron_job="13 */3 * * * /usr/bin/podkop list_update"
             ;;
         "12h")
-            cron_job="13 */12 * * * /etc/init.d/podkop list_update"
+            cron_job="13 */12 * * * /usr/bin/podkop list_update"
             ;;
         "1d")
-            cron_job="13 9 * * * /etc/init.d/podkop list_update"
+            cron_job="13 9 * * * /usr/bin/podkop list_update"
             ;;
         "3d")
-            cron_job="13 9 */3 * * /etc/init.d/podkop list_update"
+            cron_job="13 9 */3 * * /usr/bin/podkop list_update"
             ;;
         *)
             log "Invalid update_interval value: $update_interval"
@@ -421,13 +436,73 @@ add_cron_job() {
 }
 
 remove_cron_job() {
-    (crontab -l | grep -v "/etc/init.d/podkop list_update") | crontab -
+    (crontab -l | grep -v "/usr/bin/podkop list_update") | crontab -
     log "The cron job removed"
+}
+
+prepare_custom_ruleset() {
+    config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
+    config_get custom_download_domains_list_enabled "$section" "custom_download_subnets_list_enabled"
+    if [ "$custom_download_domains_list_enabled" -eq 1 ] || [ "$custom_download_subnets_list_enabled" -eq 1 ]; then
+        local file="/tmp/podkop/$section-custom-domains-subnets.json"
+        local tag="custom-$section"
+        rm -f  $file
+        jq -n '
+            {
+                "version": 3,
+                "rules": []
+            }' > $file
+
+        jq --arg tag "$tag" \
+            --arg file "$file" \
+        '.route.rule_set += [{
+            "tag": $tag,
+            "type": "local",
+            "format": "source",
+            "path": $file
+        }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+
+        sing_box_rules $tag $section
+        sing_box_dns_rule_fakeip_section $tag $tag
+
+        log "Added 'test' rule_set to sing-box config"
+    fi
 }
 
 list_update() {
     log "Update remote lists"
-    config_foreach process_remote_ruleset
+
+    local i
+
+    for i in $(seq 1 60); do
+        if nslookup -timeout=1 openwrt.org >/dev/null 2>&1; then
+            log "DNS is available"
+            break
+        fi
+        log "DNS is unavailable [$i/60]"
+        sleep 3
+    done
+
+    if [ "$i" -eq 60 ]; then
+        log "Error: DNS check failed after 10 attempts"
+        return 1
+    fi
+
+    for i in $(seq 1 60); do
+        if curl -s -m 3 https://github.com >/dev/null; then
+            log "GitHub is available"
+            break
+        fi
+        log "GitHub is unavailable [$i/60]"
+        sleep 3
+    done
+
+    if [ "$i" -eq 60 ]; then
+        log "Error: Cannot connect to GitHub after 10 attempts"
+        return 1
+    fi
+
+    config_foreach process_remote_ruleset_subnet
     config_foreach process_domains_list_url
     config_foreach process_subnet_for_section_remote
 }
@@ -1106,6 +1181,32 @@ sing_box_ruleset_subnets() {
     fi
 }
 
+sing_box_ruleset_domains_json() {
+    local domain="$1"
+    local section="$2"
+
+    local file="/tmp/podkop/$section-custom-domains-subnets.json"
+
+    jq --arg domain "$domain" '
+    .rules[0].domain_suffix += if .rules[0].domain_suffix | index($domain) then [] else [$domain] end
+    ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+
+    log "$domain added to custom-domains-subnets.json"
+}
+
+sing_box_ruleset_subnets_json() {
+    local subnet="$1"
+    local section="$2"
+
+    local file="/tmp/podkop/$section-custom-domains-subnets.json"
+
+    jq --arg subnet "$subnet" '
+    .rules[0].ip_cidr += if .rules[0].ip_cidr | index($subnet) then [] else [$subnet] end
+    ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+
+    log "$subnet added to '$section'-custom-domains-subnets.json"
+}
+
 process_domains_for_section() {
     local section="$1"
 
@@ -1242,11 +1343,18 @@ sing_box_quic_reject() {
     fi
 }
 
-process_remote_ruleset() {
+process_remote_ruleset_srs() {
     config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
     if [ "$domain_list_enabled" -eq 1 ]; then
         log "Adding a srs list for $section"
         config_list_foreach "$section" domain_list "sing_box_ruleset_remote" "remote" "1d"
+    fi
+}
+
+process_remote_ruleset_subnet() {
+    config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
+    if [ "$domain_list_enabled" -eq 1 ]; then
+        log "Adding a srs list for $section"
         config_list_foreach "$section" domain_list "list_subnets_download" "$section" "$domain_list"
     fi
 }
@@ -1255,17 +1363,15 @@ sing_box_rule_preset() {
     config_get custom_domains_list_type "$section" "custom_domains_list_type"
     config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled"
     config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
-    config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
-    config_get custom_download_subnets_list_enabled "$section" "custom_download_subnets_list_enabled"
+    # config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
+    # config_get custom_download_subnets_list_enabled "$section" "custom_download_subnets_list_enabled"
 
     if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_subnets_list_enabled" != "disabled" ] ||
-        [ "$custom_local_domains_list_enabled" = "1" ] || [ "$custom_download_domains_list_enabled" = "1" ] ||
-        [ "$custom_download_subnets_list_enabled" = "1" ]; then
+        [ "$custom_local_domains_list_enabled" = "1" ]; then
         sing_box_rules "$section" "$section"
     fi
 
-    if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_local_domains_list_enabled" = "1" ] ||
-        [ "$custom_download_domains_list_enabled" = "1" ]; then
+    if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_local_domains_list_enabled" = "1" ]; then
         sing_box_dns_rule_fakeip_section "$section" "$section"
     fi
 
@@ -1312,7 +1418,7 @@ list_custom_url_domains_create() {
 
     while IFS= read -r domain; do
         log "From local file: $domain"
-        sing_box_ruleset_domains $domain $section
+        sing_box_ruleset_domains_json $domain $section
     done <"/tmp/podkop/$filename"
 }
 
@@ -1352,7 +1458,8 @@ list_custom_url_subnets_create() {
 
     while IFS= read -r subnet; do
         log "From local file: $subnet"
-        sing_box_ruleset_subnets $subnet $section
+        sing_box_ruleset_subnets_json $subnet $section
+        nft add element inet PodkopTable podkop_subnets { $subnet }
     done <"/tmp/podkop/$filename"
 }
 
