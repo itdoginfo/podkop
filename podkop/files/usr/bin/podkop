@@ -442,11 +442,12 @@ remove_cron_job() {
 
 prepare_custom_ruleset() {
     config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
-    config_get custom_download_domains_list_enabled "$section" "custom_download_subnets_list_enabled"
+    config_get custom_download_subnets_list_enabled "$section" "custom_download_subnets_list_enabled"
     if [ "$custom_download_domains_list_enabled" -eq 1 ] || [ "$custom_download_subnets_list_enabled" -eq 1 ]; then
         local file="/tmp/podkop/$section-custom-domains-subnets.json"
         local tag="custom-$section"
         rm -f  $file
+
         jq -n '
             {
                 "version": 3,
@@ -529,8 +530,11 @@ sing_box_uci() {
             -e "s/option enabled '0'/option enabled '1'/" \
             -e "s/option user 'sing-box'/option user 'root'/" $config
         log "Change sing-box UCI config"
-    else
-        log "Sing-box UCI config OK"
+    fi
+
+    if grep -q '#\s*list ifaces' "$config"; then
+        sed -i '/ifaces/s/#//g' $config
+        log "Uncommented list ifaces"
     fi
 }
 
@@ -759,6 +763,12 @@ sing_box_outdound() {
         log "VPN mode"
         log "You are using VPN mode, make sure you have installed all the necessary packages and configured."
         config_get interface "$section" "interface"
+        
+        if [ -z "$interface" ]; then
+            log "VPN interface is not set. Exit"
+            exit 1
+        fi
+
         sing_box_outbound_interface $section $interface
         ;;
     "proxy")
@@ -781,8 +791,8 @@ sing_box_outdound() {
             active_proxy_string=$(echo "$proxy_string" | grep -v "^[[:space:]]*\/\/" | head -n 1)
             
             if [ -z "$active_proxy_string" ]; then
-                log "No active proxy configuration found"
-                return
+                log "Proxy string is not set. Exit"
+                exit 1
             fi
             
             if [[ "$active_proxy_string" =~ ^ss:// ]]; then
@@ -1191,7 +1201,7 @@ sing_box_ruleset_domains_json() {
     .rules[0].domain_suffix += if .rules[0].domain_suffix | index($domain) then [] else [$domain] end
     ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
 
-    log "$domain added to custom-domains-subnets.json"
+    log "$domain added to $section-custom-domains-subnets.json"
 }
 
 sing_box_ruleset_subnets_json() {
@@ -1204,7 +1214,7 @@ sing_box_ruleset_subnets_json() {
     .rules[0].ip_cidr += if .rules[0].ip_cidr | index($subnet) then [] else [$subnet] end
     ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
 
-    log "$subnet added to '$section'-custom-domains-subnets.json"
+    log "$subnet added to $section-custom-domains-subnets.json"
 }
 
 process_domains_for_section() {
@@ -1417,7 +1427,7 @@ list_custom_url_domains_create() {
     wget -q -O "/tmp/podkop/${filename}" "$URL"
 
     while IFS= read -r domain; do
-        log "From local file: $domain"
+        log "From downloaded file: $domain"
         sing_box_ruleset_domains_json $domain $section
     done <"/tmp/podkop/$filename"
 }

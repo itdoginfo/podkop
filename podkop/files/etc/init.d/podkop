@@ -6,6 +6,7 @@ USE_PROCD=1
 script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
+resolv_conf="/etc/resolv.conf"
 
 start_service() {
     echo "Start podkop"
@@ -29,6 +30,10 @@ start_service() {
     if ! ip addr | grep -q "br-lan"; then
         echo "Interface br-lan not found"
         exit 1
+    fi
+
+    if ! grep -q "search lan" "$resolv_conf" || ! grep -q "nameserver 127.0.0.1" "$resolv_conf"; then
+        echo "/etc/resolv.conf does not contain 'search lan' or 'nameserver 127.0.0.1' entries"
     fi
     
 	procd_open_instance
