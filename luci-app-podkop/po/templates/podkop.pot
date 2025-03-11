@@ -1077,3 +1077,27 @@ msgstr ""
 
 msgid "stopped & disabled"
 msgstr ""
+
+msgid "works in browser"
+msgstr ""
+
+msgid "works on router"
+msgstr ""
+
+msgid "Check Router FakeIP"
+msgstr ""
+
+msgid "FakeIP Router Check"
+msgstr ""
+
+msgid "FakeIP CLI Check"
+msgstr ""
+
+msgid "FakeIP CLI Check Results"
+msgstr ""
+
+msgid "not works in browser"
+msgstr ""
+
+msgid "not works on router"
+msgstr ""

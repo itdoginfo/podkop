@@ -591,7 +591,7 @@ const createModalContent = (title, content) => {
 const showConfigModal = async (command, title) => {
     const res = await safeExec('/usr/bin/podkop', [command]);
     const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-    ui.showModal(_(title), createModalContent(title, formattedOutput));
+    ui.showModal(_(title), createModalContent(_(title), formattedOutput));
 };
 
 // Button Factory
@@ -650,7 +650,7 @@ const createStatusPanel = (title, status, buttons) => {
 };
 
 // Update the status section creation
-let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system, fakeipStatus) {
+let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus) {
     return E('div', { 'class': 'cbi-section' }, [
         E('h3', {}, _('Service Status')),
         E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
@@ -712,36 +712,54 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                 })
             ]),
 
-            // FakeIP Status Panel with dynamic status
-            createStatusPanel('FakeIP Status', {
-                running: fakeipStatus.state === 'working',
-                status: fakeipStatus.message
-            }, [
+            // FakeIP Status Panel with both browser and router checks
+            createStatusPanel(_('FakeIP Status'), null, [
+                E('div', { style: 'margin-bottom: 10px;' }, [
+                    E('div', { style: 'margin-bottom: 5px;' }, [
+                        E('span', { style: `color: ${fakeipStatus.color}` }, [
+                            fakeipStatus.state === 'working' ? '✔' : fakeipStatus.state === 'not_working' ? '✘' : '!',
+                            ' ',
+                            fakeipStatus.state === 'working' ? _('works in browser') : _('not works in browser')
+                        ])
+                    ]),
+                    E('div', {}, [
+                        E('span', { style: `color: ${fakeipCLIStatus.color}` }, [
+                            fakeipCLIStatus.state === 'working' ? '✔' : fakeipCLIStatus.state === 'not_working' ? '✘' : '!',
+                            ' ',
+                            fakeipCLIStatus.state === 'working' ? _('works on router') : _('not works on router')
+                        ])
+                    ])
+                ]),
                 ButtonFactory.createModalButton({
-                    label: 'Check NFT Rules',
+                    label: _('Check NFT Rules'),
                     command: 'check_nft',
-                    title: 'NFT Rules'
+                    title: _('NFT Rules')
                 }),
                 ButtonFactory.createModalButton({
-                    label: 'Check DNSMasq',
+                    label: _('Check DNSMasq'),
                     command: 'check_dnsmasq',
-                    title: 'DNSMasq Configuration'
+                    title: _('DNSMasq Configuration')
                 }),
                 ButtonFactory.createModalButton({
-                    label: 'Update Lists',
+                    label: _('Update Lists'),
                     command: 'list_update',
-                    title: 'Lists Update Results'
+                    title: _('Lists Update Results')
+                }),
+                ButtonFactory.createModalButton({
+                    label: _('Check Router FakeIP'),
+                    command: 'check_fakeip',
+                    title: _('FakeIP Router Check')
                 })
             ]),
 
             // Version Information Panel
-            createStatusPanel('Version Information', null, [
+            createStatusPanel(_('Version Information'), null, [
                 E('div', { 'style': 'margin-top: 10px; font-family: monospace; white-space: pre-wrap;' }, [
-                    E('strong', {}, 'Podkop: '), podkop.stdout ? podkop.stdout.trim() : _('Unknown'), '\n',
-                    E('strong', {}, 'LuCI App: '), luci.stdout ? luci.stdout.trim() : _('Unknown'), '\n',
-                    E('strong', {}, 'Sing-box: '), singbox.stdout ? singbox.stdout.trim() : _('Unknown'), '\n',
-                    E('strong', {}, 'OpenWrt Version: '), system.stdout ? system.stdout.split('\n')[1].trim() : _('Unknown'), '\n',
-                    E('strong', {}, 'Device Model: '), system.stdout ? system.stdout.split('\n')[4].trim() : _('Unknown')
+                    E('strong', {}, _('Podkop: ')), podkop.stdout ? podkop.stdout.trim() : _('Unknown'), '\n',
+                    E('strong', {}, _('LuCI App: ')), luci.stdout ? luci.stdout.trim() : _('Unknown'), '\n',
+                    E('strong', {}, _('Sing-box: ')), singbox.stdout ? singbox.stdout.trim() : _('Unknown'), '\n',
+                    E('strong', {}, _('OpenWrt Version: ')), system.stdout ? system.stdout.split('\n')[1].trim() : _('Unknown'), '\n',
+                    E('strong', {}, _('Device Model: ')), system.stdout ? system.stdout.split('\n')[4].trim() : _('Unknown')
                 ])
             ])
         ])
@@ -957,17 +975,15 @@ return view.extend({
                     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
                     try {
-                        const response = await fetch('http://httpbin.org/ip', { signal: controller.signal });
-                        const text = await response.text();
+                        const response = await fetch('https://fakeip.tech-domain.club/check', { signal: controller.signal });
+                        const data = await response.json();
                         clearTimeout(timeoutId);
 
-                        if (text.includes('Cannot GET /ip')) {
+                        if (data.fakeip === true) {
                             return resolve(createStatus('working', 'working', 'SUCCESS'));
-                        }
-                        if (text.includes('"origin":')) {
+                        } else {
                             return resolve(createStatus('not_working', 'not working', 'ERROR'));
                         }
-                        return resolve(createStatus('error', 'check error', 'WARNING'));
                     } catch (fetchError) {
                         clearTimeout(timeoutId);
                         const message = fetchError.name === 'AbortError' ? 'timeout' : 'check error';
@@ -976,6 +992,39 @@ return view.extend({
                 } catch (error) {
                     console.error('Error in checkFakeIP:', error);
                     return resolve(createStatus('error', 'check error', 'WARNING'));
+                }
+            });
+        }
+
+        function checkFakeIPCLI() {
+            const createStatus = (state, message, color) => ({
+                state,
+                message: _(message),
+                color: STATUS_COLORS[color]
+            });
+
+            return new Promise(async (resolve) => {
+                try {
+                    const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
+                    const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
+
+                    if (!singboxStatus.running) {
+                        return resolve(createStatus('not_working', 'sing-box not running', 'ERROR'));
+                    }
+                    if (!singboxStatus.dns_configured) {
+                        return resolve(createStatus('not_working', 'DNS not configured', 'ERROR'));
+                    }
+
+                    const fakeipResult = await safeExec('/usr/bin/podkop', ['check_fakeip']);
+
+                    if (fakeipResult.stdout && fakeipResult.stdout.includes('198.18')) {
+                        return resolve(createStatus('working', 'FakeIP working (CLI)', 'SUCCESS'));
+                    } else {
+                        return resolve(createStatus('not_working', 'FakeIP not working (CLI)', 'ERROR'));
+                    }
+                } catch (error) {
+                    console.error('Error in checkFakeIPCLI:', error);
+                    return resolve(createStatus('error', 'CLI check error', 'WARNING'));
                 }
             });
         }
@@ -989,7 +1038,8 @@ return view.extend({
                     luci,
                     singbox,
                     system,
-                    fakeipStatus
+                    fakeipStatus,
+                    fakeipCLIStatus
                 ] = await Promise.all([
                     safeExec('/usr/bin/podkop', ['get_status']),
                     safeExec('/usr/bin/podkop', ['get_sing_box_status']),
@@ -997,7 +1047,8 @@ return view.extend({
                     safeExec('/usr/bin/podkop', ['show_luci_version']),
                     safeExec('/usr/bin/podkop', ['show_sing_box_version']),
                     safeExec('/usr/bin/podkop', ['show_system_info']),
-                    checkFakeIP()
+                    checkFakeIP(),
+                    checkFakeIPCLI()
                 ]);
 
                 const parsedPodkopStatus = JSON.parse(podkopStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
@@ -1006,7 +1057,7 @@ return view.extend({
                 const container = document.getElementById('diagnostics-status');
                 if (!container) return;
 
-                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system, fakeipStatus);
+                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus);
                 container.innerHTML = '';
                 container.appendChild(statusSection);
 
@@ -1015,6 +1066,14 @@ return view.extend({
                     fakeipElement.innerHTML = E('span', { 'style': `color: ${fakeipStatus.color}` }, [
                         fakeipStatus.state === 'working' ? '✔ ' : fakeipStatus.state === 'not_working' ? '✘ ' : '! ',
                         fakeipStatus.message
+                    ]).outerHTML;
+                }
+
+                const fakeipCLIElement = document.getElementById('fakeip-cli-status');
+                if (fakeipCLIElement) {
+                    fakeipCLIElement.innerHTML = E('span', { 'style': `color: ${fakeipCLIStatus.color}` }, [
+                        fakeipCLIStatus.state === 'working' ? '✔ ' : fakeipCLIStatus.state === 'not_working' ? '✘ ' : '! ',
+                        fakeipCLIStatus.message
                     ]).outerHTML;
                 }
             } catch (e) {
@@ -1049,6 +1108,7 @@ return view.extend({
                     const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
                     const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
                     const fakeipStatus = await checkFakeIP();
+                    const fakeipCLIStatus = await checkFakeIPCLI();
 
                     titleDiv.textContent = versionText + (!singboxStatus.running || !singboxStatus.dns_configured === 'not_working' ? ' (not working)' : '');
 

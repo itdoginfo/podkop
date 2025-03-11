@@ -723,3 +723,27 @@ msgstr "остановлен, но активирован"
 
 msgid "stopped & disabled"
 msgstr "остановлен и деактивирован"
+
+msgid "works in browser"
+msgstr "работает в браузере"
+
+msgid "works on router"
+msgstr "работает на роутере"
+
+msgid "Check Router FakeIP"
+msgstr "Проверить FakeIP на роутере"
+
+msgid "FakeIP Router Check"
+msgstr "Проверка FakeIP на роутере"
+
+msgid "FakeIP CLI Check"
+msgstr "Проверка FakeIP через CLI"
+
+msgid "FakeIP CLI Check Results"
+msgstr "Результаты проверки FakeIP через CLI"
+
+msgid "not works in browser"
+msgstr "не работает в браузере"
+
+msgid "not works on router"
+msgstr "не работает на роутере"
