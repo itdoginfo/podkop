@@ -1709,6 +1709,69 @@ check_sing_box_logs() {
     echo "$logs"
 }
 
+check_fakeip() {
+    nolog "Checking fakeip functionality..."
+    
+    if ! command -v nslookup >/dev/null 2>&1; then
+        nolog "nslookup is not installed"
+        return 1
+    fi
+    
+    local test_domain="fakeip.tech-domain.club"
+    
+    # Additional DNS checks with different servers
+    nolog "Testing DNS resolution with default DNS server"
+    echo "=== Testing with default DNS server ==="
+    nslookup $test_domain
+    echo ""
+    
+    nolog "Testing DNS resolution with Google DNS (8.8.8.8)"
+    echo "=== Testing with Google DNS (8.8.8.8) ==="
+    nslookup $test_domain 8.8.8.8
+    echo ""
+    
+    nolog "Testing DNS resolution with Cloudflare DNS (1.1.1.1)"
+    echo "=== Testing with Cloudflare DNS (1.1.1.1) ==="
+    nslookup $test_domain 1.1.1.1
+    echo ""
+    
+    # Main FakeIP check
+    nolog "Testing DNS resolution for $test_domain using 127.0.0.42"
+    echo "=== Testing with FakeIP DNS (127.0.0.42) ==="
+    local result=$(nslookup $test_domain 127.0.0.42 2>&1)
+    echo "$result"
+    
+    if echo "$result" | grep -q "198.18"; then
+        nolog "✅ FakeIP is working correctly! Domain resolved to FakeIP range (198.18.x.x)"
+        return 0
+    else
+        nolog "❌ FakeIP test failed. Domain did not resolve to FakeIP range"
+        nolog "Checking if sing-box is running..."
+        
+        if ! pgrep -f "sing-box" >/dev/null; then
+            nolog "sing-box is not running"
+        else
+            nolog "sing-box is running, but FakeIP might not be configured correctly"
+            nolog "Checking DNS configuration in sing-box..."
+            
+            if [ -f "$SING_BOX_CONFIG" ]; then
+                local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$SING_BOX_CONFIG")
+                local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$SING_BOX_CONFIG")
+                
+                nolog "FakeIP enabled: $fakeip_enabled"
+                nolog "FakeIP range: $fakeip_range"
+                
+                local dns_rules=$(jq -r '.dns.rules[] | select(.server == "fakeip-server") | .domain' "$SING_BOX_CONFIG")
+                nolog "FakeIP domain: $dns_rules"
+            else
+                nolog "sing-box config file not found"
+            fi
+        fi
+        
+        return 1
+    fi
+}
+
 check_logs() {
     nolog "Showing podkop logs from system journal..."
     
@@ -1878,19 +1941,14 @@ get_status() {
 }
 
 sing_box_add_secure_dns_probe_domain() {
-    local domain="httpbin.org"
-    local override_address="numbersapi.com"
-
-    if [ -z "$override_address" ]; then
-        log "Error: Could not get br-lan IP address"
-        return 1
-    fi
+    local domain="fakeip.tech-domain.club"
+    local override_port=8443
 
     log "Adding DNS probe domain ${domain} to fakeip-server configuration"
 
     jq \
     --arg domain "$domain" \
-    --arg override "$override_address" \
+    --argjson override_port "$override_port" \
     '.dns.rules |= map(
         if .server == "fakeip-server" then
             . + {
@@ -1904,11 +1962,11 @@ sing_box_add_secure_dns_probe_domain() {
         {
             "domain": $domain,
             "action": "route-options",
-            "override_address": $override
+            "override_port": $override_port
         }
     ]' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
 
-    log "DNS probe domain ${domain} configured with override to ${override_address}"
+    log "DNS probe domain ${domain} configured with override to port ${override_port}"
 }
 
 case "$1" in
@@ -1946,6 +2004,9 @@ case "$1" in
     check_sing_box_logs)
         check_sing_box_logs
         ;;
+    check_fakeip)
+        check_fakeip
+        ;;
     check_dnsmasq)
         check_dnsmasq
         ;;
@@ -1974,7 +2035,7 @@ case "$1" in
         get_sing_box_status
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status}"
+        echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status}"
         exit 1
         ;;
 esac
