@@ -547,16 +547,16 @@ add_socks5_for_section() {
     --arg section "$section" \
     '.inbounds += [{
         "tag": $tag,
-            "type": "mixed",
-            "listen": "0.0.0.0",
+        "type": "mixed",
+        "listen": "0.0.0.0",
         "listen_port": ($port|tonumber),
-            "set_system_proxy": false
+        "set_system_proxy": false
     }] | 
     .route.rules += [{
         "inbound": [$tag],
         "outbound": $section,
         "action": "route"
-        }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
 }
 
 process_socks5() {
