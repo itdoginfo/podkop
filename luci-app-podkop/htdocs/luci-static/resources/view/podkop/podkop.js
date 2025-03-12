@@ -769,9 +769,6 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
 return view.extend({
     async render() {
         document.head.insertAdjacentHTML('beforeend', `
-            <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-            <meta http-equiv="Pragma" content="no-cache">
-            <meta http-equiv="Expires" content="0">
             <style>
                 .cbi-value {
                     margin-bottom: 10px !important;
@@ -1015,12 +1012,12 @@ return view.extend({
                         return resolve(createStatus('not_working', 'DNS not configured', 'ERROR'));
                     }
 
-                    const fakeipResult = await safeExec('/usr/bin/podkop', ['check_fakeip']);
+                    const result = await safeExec('nslookup', ['-timeout=2', 'fakeip.tech-domain.club', '127.0.0.42']);
 
-                    if (fakeipResult.stdout && fakeipResult.stdout.includes('198.18')) {
-                        return resolve(createStatus('working', 'FakeIP working (CLI)', 'SUCCESS'));
+                    if (result.stdout && result.stdout.includes('198.18')) {
+                        return resolve(createStatus('working', 'working on router', 'SUCCESS'));
                     } else {
-                        return resolve(createStatus('not_working', 'FakeIP not working (CLI)', 'ERROR'));
+                        return resolve(createStatus('not_working', 'not working on router', 'ERROR'));
                     }
                 } catch (error) {
                     console.error('Error in checkFakeIPCLI:', error);
@@ -1092,30 +1089,12 @@ return view.extend({
         function startPeriodicUpdates(titleDiv) {
             let updateTimer = null;
             let isVisible = !document.hidden;
-            let versionText = _('Podkop');
-            let versionReceived = false;
 
             const updateStatus = async () => {
                 try {
-                    if (!versionReceived) {
-                        const version = await safeExec('/usr/bin/podkop', ['show_version'], 2000);
-                        if (version.stdout) {
-                            versionText = _('Podkop') + ' v' + version.stdout.trim();
-                            versionReceived = true;
-                        }
-                    }
-
-                    const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
-                    const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
-                    const fakeipStatus = await checkFakeIP();
-                    const fakeipCLIStatus = await checkFakeIPCLI();
-
-                    titleDiv.textContent = versionText + (!singboxStatus.running || !singboxStatus.dns_configured === 'not_working' ? ' (not working)' : '');
-
                     await updateDiagnostics();
                 } catch (error) {
                     console.warn('Failed to update status:', error);
-                    titleDiv.textContent = versionText + ' (not working)';
                 }
             };
 

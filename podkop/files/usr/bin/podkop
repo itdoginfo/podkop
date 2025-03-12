@@ -19,7 +19,7 @@ SING_BOX_CONFIG="/etc/sing-box/config.json"
 FAKEIP="198.18.0.0/15"
 VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram"
 DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.140.15.15 208.67.220.220 208.67.222.222 77.88.8.1 77.88.8.8"
-TEST_DOMAIN="google.com"
+TEST_DOMAIN="fakeip.tech-domain.club"
 
 log() {
     local message="$1"
@@ -510,12 +510,11 @@ list_update() {
 find_working_resolver() {
     local resolver_found=""
     for resolver in $DNS_RESOLVERS; do
-        if nslookup $TEST_DOMAIN $resolver >/dev/null 2>&1; then
+        if nslookup -timeout=2 $TEST_DOMAIN $resolver >/dev/null 2>&1; then
             echo "$resolver"
             return 0
         fi
     done
-    echo "8.8.8.8"
     return 1
 }
 
@@ -623,7 +622,12 @@ sing_box_dns() {
     if [ "$is_ip" = "0" ]; then
         log "Finding working DNS resolver"
         local dns_resolver=$(find_working_resolver)
-        log "Found working resolver: $dns_resolver"
+        if [ -z "$dns_resolver" ]; then
+            log "No working resolver found, using default DNS server"
+            dns_resolver="1.1.1.1"
+        else
+            log "Found working resolver: $dns_resolver"
+        fi
     fi
     
     log "Configure DNS in sing-box"
@@ -1707,28 +1711,30 @@ check_fakeip() {
         return 1
     fi
     
-    local test_domain="fakeip.tech-domain.club"
+    local test_domain="$TEST_DOMAIN"
     
-    # Additional DNS checks with different servers
     nolog "Testing DNS resolution with default DNS server"
     echo "=== Testing with default DNS server ==="
-    nslookup $test_domain
+    nslookup -timeout=2 $test_domain
     echo ""
     
-    nolog "Testing DNS resolution with Google DNS (8.8.8.8)"
-    echo "=== Testing with Google DNS (8.8.8.8) ==="
-    nslookup $test_domain 8.8.8.8
-    echo ""
-    
-    nolog "Testing DNS resolution with Cloudflare DNS (1.1.1.1)"
-    echo "=== Testing with Cloudflare DNS (1.1.1.1) ==="
-    nslookup $test_domain 1.1.1.1
-    echo ""
+    nolog "Finding a working DNS resolver..."
+    local working_resolver=$(find_working_resolver)
+    if [ -z "$working_resolver" ]; then
+        nolog "No working resolver found, skipping resolver check"
+    else
+        nolog "Using resolver: $working_resolver"
+        
+        nolog "Testing DNS resolution with working resolver ($working_resolver)"
+        echo "=== Testing with working resolver ($working_resolver) ==="
+        nslookup -timeout=2 $test_domain $working_resolver
+        echo ""
+    fi
     
     # Main FakeIP check
     nolog "Testing DNS resolution for $test_domain using 127.0.0.42"
     echo "=== Testing with FakeIP DNS (127.0.0.42) ==="
-    local result=$(nslookup $test_domain 127.0.0.42 2>&1)
+    local result=$(nslookup -timeout=2 $test_domain 127.0.0.42 2>&1)
     echo "$result"
     
     if echo "$result" | grep -q "198.18"; then
@@ -1931,7 +1937,7 @@ get_status() {
 }
 
 sing_box_add_secure_dns_probe_domain() {
-    local domain="fakeip.tech-domain.club"
+    local domain="$TEST_DOMAIN"
     local override_port=8443
 
     log "Adding DNS probe domain ${domain} to fakeip-server configuration"
