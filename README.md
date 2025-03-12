@@ -86,6 +86,7 @@ Luci: Services/podkop
 - [x] Проверка `/etc/resolv.conf` на наличие DNS-серверов
 - [x] Отслеживание интерфейса wan в sing-box
 - [ ] Рестарт сервиса без рестарта dnsmasq
+- [ ] `ash: can't kill pid 9848: No such process` при обновлении и stop
 
 Низкий приоритет
 - [ ] Галочка, которая режет доступ к doh серверам
