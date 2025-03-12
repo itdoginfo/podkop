@@ -620,6 +620,27 @@ const ButtonFactory = {
             onClick: () => showConfigModal(config.command, config.title),
             style: config.style
         });
+    },
+
+    createSystemButton: function (config) {
+        return this.createButton({
+            label: config.label,
+            additionalClass: `cbi-button-${config.type || ''}`,
+            onClick: () => {
+                try {
+                    const result = config.systemFunction();
+                    if (config.successMessage) {
+                        ui.addNotification(null, E('p', {}, _(config.successMessage)));
+                    }
+                    return result;
+                } catch (e) {
+                    if (config.errorMessage) {
+                        ui.addNotification(null, E('p', {}, _(config.errorMessage) + ': ' + e.message));
+                    }
+                }
+            },
+            style: config.style
+        });
     }
 };
 
@@ -760,7 +781,13 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                     E('strong', {}, _('Sing-box: ')), singbox.stdout ? singbox.stdout.trim() : _('Unknown'), '\n',
                     E('strong', {}, _('OpenWrt Version: ')), system.stdout ? system.stdout.split('\n')[1].trim() : _('Unknown'), '\n',
                     E('strong', {}, _('Device Model: ')), system.stdout ? system.stdout.split('\n')[4].trim() : _('Unknown')
-                ])
+                ]),
+                ButtonFactory.createSystemButton({
+                    label: _('Flush Cache'),
+                    systemFunction: () => ui.menu.flushCache(),
+                    successMessage: _('Cache has been flushed successfully!'),
+                    errorMessage: _('Failed to flush cache')
+                })
             ])
         ])
     ]);
