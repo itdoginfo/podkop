@@ -1965,6 +1965,18 @@ sing_box_add_secure_dns_probe_domain() {
     log "DNS probe domain ${domain} configured with override to port ${override_port}"
 }
 
+enable() {
+    log "Enabling podkop service"
+    /etc/init.d/podkop enable
+    log "Podkop service enabled"
+}
+
+disable() {
+    log "Disabling podkop service"
+    /etc/init.d/podkop disable
+    log "Podkop service disabled"
+}
+
 case "$1" in
     start)
         start
@@ -1975,6 +1987,12 @@ case "$1" in
     restart)
         stop
         start
+        ;;
+    enable)
+        enable
+        ;;
+    disable)
+        disable
         ;;
     main)
         main
