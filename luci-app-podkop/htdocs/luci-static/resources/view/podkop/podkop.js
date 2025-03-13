@@ -614,6 +614,16 @@ const ButtonFactory = {
         });
     },
 
+    createInitActionButton: function (config) {
+        return this.createButton({
+            label: config.label,
+            additionalClass: `cbi-button-${config.type || ''}`,
+            onClick: () => safeExec('/etc/init.d/podkop', [config.action])
+                .then(() => config.reload && location.reload()),
+            style: config.style
+        });
+    },
+
     createModalButton: function (config) {
         return this.createButton({
             label: config.label,
@@ -656,26 +666,19 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
         E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
             // Podkop Status Panel
             createStatusPanel('Podkop Status', podkopStatus, [
-                podkopStatus.running ?
-                    ButtonFactory.createActionButton({
-                        label: 'Stop Podkop',
-                        type: 'remove',
-                        action: 'stop',
-                        reload: true
-                    }) :
-                    ButtonFactory.createActionButton({
-                        label: 'Start Podkop',
-                        type: 'apply',
-                        action: 'start',
-                        reload: true
-                    }),
+                ButtonFactory.createActionButton({
+                    label: podkopStatus.running ? 'Stop Podkop' : 'Start Podkop',
+                    type: podkopStatus.running ? 'remove' : 'apply',
+                    action: podkopStatus.running ? 'stop' : 'start',
+                    reload: true
+                }),
                 ButtonFactory.createActionButton({
                     label: 'Restart Podkop',
                     type: 'apply',
                     action: 'restart',
                     reload: true
                 }),
-                ButtonFactory.createActionButton({
+                ButtonFactory.createInitActionButton({
                     label: podkopStatus.enabled ? 'Disable Podkop' : 'Enable Podkop',
                     type: podkopStatus.enabled ? 'remove' : 'apply',
                     action: podkopStatus.enabled ? 'disable' : 'enable',

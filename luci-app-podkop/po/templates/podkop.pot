@@ -1101,3 +1101,6 @@ msgstr ""
 
 msgid "not works on router"
 msgstr ""
+
+msgid "Diagnostics"
+msgstr ""

@@ -747,3 +747,6 @@ msgstr "не работает в браузере"
 
 msgid "not works on router"
 msgstr "не работает на роутере"
+
+msgid "Diagnostics"
+msgstr "Диагностика"
