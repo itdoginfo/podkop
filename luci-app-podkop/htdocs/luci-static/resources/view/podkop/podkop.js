@@ -614,6 +614,16 @@ const ButtonFactory = {
         });
     },
 
+    createInitActionButton: function (config) {
+        return this.createButton({
+            label: config.label,
+            additionalClass: `cbi-button-${config.type || ''}`,
+            onClick: () => safeExec('/etc/init.d/podkop', [config.action])
+                .then(() => config.reload && location.reload()),
+            style: config.style
+        });
+    },
+
     createModalButton: function (config) {
         return this.createButton({
             label: config.label,
@@ -668,7 +678,7 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                     action: 'restart',
                     reload: true
                 }),
-                ButtonFactory.createActionButton({
+                ButtonFactory.createInitActionButton({
                     label: podkopStatus.enabled ? 'Disable Podkop' : 'Enable Podkop',
                     type: podkopStatus.enabled ? 'remove' : 'apply',
                     action: podkopStatus.enabled ? 'disable' : 'enable',
