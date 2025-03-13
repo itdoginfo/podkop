@@ -14,7 +14,7 @@ jobs:
       - name: Check version match
         run: |
           PODKOP_VERSION=$(grep '^PKG_VERSION:=' podkop/Makefile | cut -d '=' -f 2)
-          LUCI_APP_PODKOP_VERSION=$(grep '^PKG_VERSION:=' podkop/Makefile | cut -d '=' -f 2)
+          LUCI_APP_PODKOP_VERSION=$(grep '^PKG_VERSION:=' luci-app-podkop/Makefile | cut -d '=' -f 2)
 
           TAG_VERSION=${GITHUB_REF#refs/tags/v}
 
