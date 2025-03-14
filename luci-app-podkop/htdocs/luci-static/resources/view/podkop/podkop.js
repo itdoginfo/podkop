@@ -950,7 +950,39 @@ return view.extend({
 
         o = mainSection.taboption('diagnostics', form.DummyValue, '_status');
         o.rawhtml = true;
-        o.cfgvalue = () => E('div', { id: 'diagnostics-status' }, _('Loading diagnostics...'));
+        o.cfgvalue = () => E('div', {
+            id: 'diagnostics-status',
+            'style': 'cursor: pointer;'
+        }, _('Click to load diagnostics...'));
+
+        let diagnosticsUpdateTimer = null;
+
+        function startDiagnosticsUpdates() {
+            if (diagnosticsUpdateTimer) {
+                clearInterval(diagnosticsUpdateTimer);
+            }
+
+            const container = document.getElementById('diagnostics-status');
+            if (container) {
+                container.innerHTML = _('Loading diagnostics...');
+            }
+
+            updateDiagnostics();
+            diagnosticsUpdateTimer = setInterval(updateDiagnostics, 10000);
+        }
+
+        function stopDiagnosticsUpdates() {
+            if (diagnosticsUpdateTimer) {
+                clearInterval(diagnosticsUpdateTimer);
+                diagnosticsUpdateTimer = null;
+            }
+
+            // Reset the loading state when stopping updates
+            const container = document.getElementById('diagnostics-status');
+            if (container) {
+                container.removeAttribute('data-loading');
+            }
+        }
 
         function checkFakeIP() {
             const createStatus = (state, message, color) => ({
@@ -990,7 +1022,6 @@ return view.extend({
                         return resolve(createStatus('error', message, 'WARNING'));
                     }
                 } catch (error) {
-                    console.error('Error in checkFakeIP:', error);
                     return resolve(createStatus('error', 'check error', 'WARNING'));
                 }
             });
@@ -1023,7 +1054,6 @@ return view.extend({
                         return resolve(createStatus('not_working', 'not working on router', 'ERROR'));
                     }
                 } catch (error) {
-                    console.error('Error in checkFakeIPCLI:', error);
                     return resolve(createStatus('error', 'CLI check error', 'WARNING'));
                 }
             });
@@ -1077,7 +1107,6 @@ return view.extend({
                     ]).outerHTML;
                 }
             } catch (e) {
-                console.error('Error updating diagnostics:', e);
                 const container = document.getElementById('diagnostics-status');
                 if (container) {
                     container.innerHTML = E('div', { 'class': 'alert-message warning' }, [
@@ -1087,44 +1116,6 @@ return view.extend({
                     ]).outerHTML;
                 }
             }
-        }
-
-        function startPeriodicUpdates(titleDiv) {
-            let updateTimer = null;
-            let isVisible = !document.hidden;
-
-            const updateStatus = async () => {
-                try {
-                    await updateDiagnostics();
-                } catch (error) {
-                    console.warn('Failed to update status:', error);
-                }
-            };
-
-            const toggleUpdates = (visible) => {
-                if (visible) {
-                    updateStatus();
-                    if (!updateTimer) {
-                        updateTimer = setInterval(updateStatus, 10000);
-                    }
-                } else if (updateTimer) {
-                    clearInterval(updateTimer);
-                    updateTimer = null;
-                }
-            };
-
-            document.addEventListener('visibilitychange', () => {
-                isVisible = !document.hidden;
-                toggleUpdates(isVisible);
-            });
-
-            toggleUpdates(isVisible);
-
-            window.addEventListener('unload', () => {
-                if (updateTimer) {
-                    clearInterval(updateTimer);
-                }
-            });
         }
 
         // Extra Section
@@ -1139,8 +1130,47 @@ return view.extend({
             const titleDiv = E('h2', { 'class': 'cbi-map-title' }, _('Podkop'));
             node.insertBefore(titleDiv, node.firstChild);
 
+            setTimeout(() => {
+                const diagnosticsContainer = document.getElementById('diagnostics-status');
+                if (diagnosticsContainer) {
+                    diagnosticsContainer.addEventListener('click', function () {
+                        if (!this.hasAttribute('data-loading')) {
+                            this.setAttribute('data-loading', 'true');
+                            startDiagnosticsUpdates();
+                        }
+                    });
+                }
+
+                const tabs = node.querySelectorAll('.cbi-tabmenu');
+                if (tabs.length > 0) {
+                    tabs[0].addEventListener('click', function (e) {
+                        const tab = e.target.closest('.cbi-tab');
+                        if (tab) {
+                            const tabName = tab.getAttribute('data-tab');
+                            if (tabName === 'diagnostics') {
+                                const container = document.getElementById('diagnostics-status');
+                                if (container && !container.hasAttribute('data-loading')) {
+                                    container.setAttribute('data-loading', 'true');
+                                    startDiagnosticsUpdates();
+                                }
+                            } else {
+                                stopDiagnosticsUpdates();
+                            }
+                        }
+                    });
+
+                    const activeTab = tabs[0].querySelector('.cbi-tab[data-tab="diagnostics"]');
+                    if (activeTab) {
+                        const container = document.getElementById('diagnostics-status');
+                        if (container && !container.hasAttribute('data-loading')) {
+                            container.setAttribute('data-loading', 'true');
+                            startDiagnosticsUpdates();
+                        }
+                    }
+                }
+            }, 100);
+
             node.classList.add('fade-in');
-            startPeriodicUpdates(titleDiv);
             return node;
         });
 
