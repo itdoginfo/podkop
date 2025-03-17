@@ -110,7 +110,7 @@ start() {
     fi
 
     sing_box_config_check
-    /etc/init.d/sing-box restart
+    /etc/init.d/sing-box start
     /etc/init.d/sing-box enable
 
     config_get proxy_string "main" "proxy_string"
