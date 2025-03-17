@@ -20,6 +20,8 @@ FAKEIP="198.18.0.0/15"
 VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram"
 DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.140.15.15 208.67.220.220 208.67.222.222 77.88.8.1 77.88.8.8"
 TEST_DOMAIN="fakeip.tech-domain.club"
+INTERFACES_LIST=""
+SRC_INTERFACE=""
 
 log() {
     local message="$1"
@@ -50,7 +52,7 @@ start() {
     sleep 3
 
     mkdir -p /tmp/podkop
-  
+
     # base
     route_table_rule_mark
     create_nft_table
@@ -261,20 +263,51 @@ route_table_rule_mark() {
     fi
 }
 
+process_interfaces() {
+  local interface="$1"
+  INTERFACES_LIST="$INTERFACES_LIST $interface"
+}
+
+nft_interfaces() {
+    local table=PodkopTable
+
+    config_list_foreach "main" "iface" "process_interfaces"
+
+    if [ $(echo "$INTERFACES_LIST" | wc -w) -eq 1 ]; then
+        SRC_INTERFACE=$INTERFACES_LIST
+    else
+        local set_name="interfaces"
+        if ! nft list set inet $table $set_name &>/dev/null; then
+            nft add set inet $table $set_name { type ifname\; flags interval\; }
+        fi
+
+        for interface in $INTERFACES_LIST; do
+            if ! nft list element inet $table $set_name { $interface } &>/dev/null; then
+            nft add element inet $table $set_name { $interface }
+            fi
+        done
+
+        SRC_INTERFACE=@$set_name
+    fi
+}
+
 create_nft_table() {
     local table="PodkopTable"
 
     nft add table inet $table
+
+    nft_interfaces
+
     log "Create nft rules"
     nft add chain inet $table mangle { type filter hook prerouting priority -150 \; policy accept \;}
     nft add chain inet $table proxy { type filter hook prerouting priority -100 \; policy accept \;}
 
     nft add set inet $table podkop_subnets { type ipv4_addr\; flags interval\; auto-merge\; }
 
-    nft add rule inet $table mangle iifname "br-lan" ip daddr @podkop_subnets meta l4proto tcp meta mark set 0x105 counter
-    nft add rule inet $table mangle iifname "br-lan" ip daddr @podkop_subnets meta l4proto udp meta mark set 0x105 counter
-    nft add rule inet $table mangle iifname "br-lan" ip daddr "$FAKEIP" meta l4proto tcp meta mark set 0x105 counter
-    nft add rule inet $table mangle iifname "br-lan" ip daddr "$FAKEIP" meta l4proto udp meta mark set 0x105 counter
+    nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr @podkop_subnets meta l4proto tcp meta mark set 0x105 counter
+    nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr @podkop_subnets meta l4proto udp meta mark set 0x105 counter
+    nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr "$FAKEIP" meta l4proto tcp meta mark set 0x105 counter
+    nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr "$FAKEIP" meta l4proto udp meta mark set 0x105 counter
 
     nft add rule inet $table proxy meta mark 0x105 meta l4proto tcp tproxy ip to :1602 counter
     nft add rule inet $table proxy meta mark 0x105 meta l4proto udp tproxy ip to :1602 counter
@@ -800,7 +833,8 @@ sing_box_outdound() {
             fi
             
             if [[ "$active_proxy_string" =~ ^ss:// ]]; then
-                sing_box_config_shadowsocks "$section" "$active_proxy_string"
+                config_get ss_uot $section "ss_uot"
+                sing_box_config_shadowsocks "$section" "$active_proxy_string" "$ss_uot"
             elif [[ "$active_proxy_string" =~ ^vless:// ]]; then
                 sing_box_config_vless "$section" "$active_proxy_string"
             else
@@ -907,6 +941,7 @@ sing_box_config_outbound_json() {
 sing_box_config_shadowsocks() {
     local section="$1"
     local STRING="$2"
+    local ss_uot="$3"
 
     if echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 -d 2>/dev/null | grep -q ":"; then
         local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 -d 2>/dev/null )
@@ -930,6 +965,7 @@ sing_box_config_shadowsocks() {
     --argjson port "$port" \
     --arg method "$method" \
     --arg password "$password" \
+    --argjson ss_uot "$ss_uot" \
     '. |
       .outbounds |= (
         map(
@@ -939,9 +975,8 @@ sing_box_config_shadowsocks() {
               "server": $server,
               "server_port": ($port | tonumber),
               "method": $method,
-              "password": $password,
-              "udp_over_tcp": { "enabled": true, "version": 2 }
-            }
+              "password": $password
+            } + (if $ss_uot == 1 then { "udp_over_tcp": { "enabled": true, "version": 2 } } else {} end)
           else . end
         ) +
         (
@@ -952,9 +987,8 @@ sing_box_config_shadowsocks() {
               "server": $server,
               "server_port": ($port | tonumber),
               "method": $method,
-              "password": $password,
-              "udp_over_tcp": { "enabled": true, "version": 2 }
-            }]
+              "password": $password
+            } + (if $ss_uot == 1 then { "udp_over_tcp": { "enabled": true, "version": 2 } } else {} end)]
           else [] end
         )
       )' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
@@ -1290,7 +1324,7 @@ list_subnets_download() {
         "discord")
             URL=$SUBNETS_DISCORD
             nft add set inet $table podkop_discord_subnets { type ipv4_addr\; flags interval\; auto-merge\; }
-            nft add rule inet $table mangle iifname "br-lan" ip daddr @podkop_discord_subnets udp dport { 50000-65535 } meta mark set 0x105 counter
+            nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr @podkop_discord_subnets udp dport { 50000-65535 } meta mark set 0x105 counter
             ;;
         *)
             return
@@ -1530,9 +1564,11 @@ sing_box_rules_source_ip_cidr() {
 ## nftables
 list_all_traffic_from_ip() {
     local ip="$1"
-    if ! nft list chain inet PodkopTable mangle | grep -q "ip saddr $ip"; then
-        nft add set inet PodkopTable localv4 { type ipv4_addr\; flags interval\; }
-        nft add element inet PodkopTable localv4 { \
+    local table="PodkopTable"
+
+    if ! nft list chain inet $table mangle | grep -q "ip saddr $ip"; then
+        nft add set inet $table localv4 { type ipv4_addr\; flags interval\; }
+        nft add element inet $table localv4 { \
             0.0.0.0/8, \
             10.0.0.0/8, \
             127.0.0.0/8, \
@@ -1546,8 +1582,8 @@ list_all_traffic_from_ip() {
             203.0.113.0/24, \
             224.0.0.0/4, \
             240.0.0.0-255.255.255.255 }
-        nft insert rule inet PodkopTable mangle iifname "br-lan" ip saddr $ip meta l4proto { tcp, udp } meta mark set 0x105 counter
-        nft insert rule inet PodkopTable mangle ip saddr $ip ip daddr @localv4 return
+        nft insert rule inet $table mangle iifname "$SRC_INTERFACE" ip saddr $ip meta l4proto { tcp, udp } meta mark set 0x105 counter
+        nft insert rule inet $table mangle ip saddr $ip ip daddr @localv4 return
     fi
 }
 
