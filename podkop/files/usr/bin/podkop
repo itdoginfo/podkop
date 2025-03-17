@@ -264,16 +264,19 @@ route_table_rule_mark() {
 }
 
 process_interfaces() {
-  local interface="$1"
-  INTERFACES_LIST="$INTERFACES_LIST $interface"
+    local iface="$1"
+    INTERFACES_LIST="$INTERFACES_LIST $iface"
+    iface_flag=1
 }
 
 nft_interfaces() {
     local table=PodkopTable
+    iface_flag=0
 
     config_list_foreach "main" "iface" "process_interfaces"
-
-    if [ $(echo "$INTERFACES_LIST" | wc -w) -eq 1 ]; then
+    if [ "$iface_flag" -eq 0 ]; then
+        SRC_INTERFACE="br-lan"
+    elif [ $(echo "$INTERFACES_LIST" | wc -w) -eq 1 ]; then
         SRC_INTERFACE=$INTERFACES_LIST
     else
         local set_name="interfaces"
@@ -941,7 +944,7 @@ sing_box_config_outbound_json() {
 sing_box_config_shadowsocks() {
     local section="$1"
     local STRING="$2"
-    local ss_uot="$3"
+    ss_uot="${3:-0}"
 
     if echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 -d 2>/dev/null | grep -q ":"; then
         local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 -d 2>/dev/null )
