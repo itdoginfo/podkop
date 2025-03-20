@@ -774,6 +774,14 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
 
 return view.extend({
     async render() {
+        // Add timestamp to URL to prevent caching
+        if (!window.location.href.includes('_nocache=')) {
+            const timestamp = new Date().getTime();
+            const separator = window.location.href.includes('?') ? '&' : '?';
+            const newUrl = `${window.location.href}${separator}_nocache=${timestamp}`;
+            window.history.replaceState({}, document.title, newUrl);
+        }
+
         document.head.insertAdjacentHTML('beforeend', `
             <style>
                 .cbi-value {
