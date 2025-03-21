@@ -40,8 +40,8 @@ msgstr "Конфигурация Outbound"
 msgid "Proxy Configuration URL"
 msgstr "URL конфигурации прокси"
 
-msgid "Enter connection string starting with vless:// or ss:// for proxy configuration"
-msgstr "Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси"
+msgid "Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs"
+msgstr "Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси. Добавляйте комментарии с // для резервных конфигураций"
 
 msgid "Outbound Configuration"
 msgstr "Конфигурация исходящего соединения"
@@ -789,3 +789,27 @@ msgstr "Сравнение IP-адресов не удалось"
 
 msgid "Bypass check error"
 msgstr "Ошибка проверки обхода"
+
+msgid "Main config"
+msgstr "Основная конфигурация"
+
+msgid "Config without description"
+msgstr "Конфигурация без описания"
+
+msgid "DNS working"
+msgstr "DNS работает"
+
+msgid "Router DNS working"
+msgstr "DNS роутера работает"
+
+msgid "Router DNS not working"
+msgstr "DNS роутера не работает"
+
+msgid "DNS check error"
+msgstr "Ошибка проверки DNS"
+
+msgid "available"
+msgstr "доступен"
+
+msgid "unavailable"
+msgstr "недоступен"

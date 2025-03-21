@@ -1143,3 +1143,30 @@ msgstr ""
 
 msgid "Bypass check error"
 msgstr ""
+
+msgid "Main config"
+msgstr ""
+
+msgid "Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs"
+msgstr ""
+
+msgid "Config without description"
+msgstr ""
+
+msgid "DNS working"
+msgstr ""
+
+msgid "Router DNS working"
+msgstr ""
+
+msgid "Router DNS not working"
+msgstr ""
+
+msgid "DNS check error"
+msgstr ""
+
+msgid "available"
+msgstr ""
+
+msgid "unavailable"
+msgstr ""
