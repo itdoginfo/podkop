@@ -2027,6 +2027,8 @@ check_dns_available() {
     local dns_server=$(uci get podkop.main.dns_server 2>/dev/null)
     local is_available=0
     local status="unavailable"
+    local local_dns_working=0
+    local local_dns_status="unavailable"
 
     if [ "$dns_type" = "doh" ]; then
         # Different DoH providers use different endpoints and formats
@@ -2058,7 +2060,13 @@ check_dns_available() {
         fi
     fi
     
-    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$dns_server\",\"is_available\":$is_available,\"status\":\"$status\"}"
+    # Check if local DNS resolver is working
+    if nslookup -timeout=2 $TEST_DOMAIN 127.0.0.1 >/dev/null 2>&1; then
+        local_dns_working=1
+        local_dns_status="available"
+    fi
+    
+    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$dns_server\",\"is_available\":$is_available,\"status\":\"$status\",\"local_dns_working\":$local_dns_working,\"local_dns_status\":\"$local_dns_status\"}"
 }
 
 sing_box_add_secure_dns_probe_domain() {

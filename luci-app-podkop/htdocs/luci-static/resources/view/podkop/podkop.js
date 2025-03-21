@@ -4,6 +4,7 @@
 'require ui';
 'require network';
 'require fs';
+'require uci';
 
 const STATUS_COLORS = {
     SUCCESS: '#4caf50',
@@ -90,20 +91,24 @@ function createConfigSection(section, map, network) {
 
         if (cfgvalue) {
             try {
-                // Extract only the active configuration (first non-comment line)
                 const activeConfig = cfgvalue.split('\n')
                     .map(line => line.trim())
                     .find(line => line && !line.startsWith('//'));
 
                 if (activeConfig) {
-                    const label = activeConfig.split('#').pop() || 'unnamed';
-                    const decodedLabel = decodeURIComponent(label);
-                    const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
-                    container.appendChild(descDiv);
+                    if (activeConfig.includes('#')) {
+                        const label = activeConfig.split('#').pop() || 'unnamed';
+                        const decodedLabel = decodeURIComponent(label);
+                        const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
+                        container.appendChild(descDiv);
+                    } else {
+                        const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Config without description'));
+                        container.appendChild(descDiv);
+                    }
                 }
             } catch (e) {
                 console.error('Error parsing config label:', e);
-                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + (cfgvalue.split('#').pop() || 'unnamed'));
+                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Config without description'));
                 container.appendChild(descDiv);
             }
         } else {
@@ -121,7 +126,6 @@ function createConfigSection(section, map, network) {
         }
 
         try {
-            // Get the first non-comment line as the active configuration
             const activeConfig = value.split('\n')
                 .map(line => line.trim())
                 .find(line => line && !line.startsWith('//'));
@@ -663,9 +667,8 @@ const createStatusPanel = (title, status, buttons) => {
 };
 
 // Update the status section creation
-let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus, dnsStatus, bypassStatus) {
+let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus, dnsStatus, bypassStatus, configName) {
     return E('div', { 'class': 'cbi-section' }, [
-        E('h3', {}, _('Service Status')),
         E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
             // Podkop Status Panel
             createStatusPanel('Podkop Status', podkopStatus, [
@@ -755,16 +758,22 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                     E('div', { style: 'margin-bottom: 5px;' }, [
                         E('strong', {}, _('DNS Status')),
                         E('br'),
-                        E('span', { style: `color: ${dnsStatus.color}` }, [
-                            dnsStatus.state === 'available' ? '✔' : dnsStatus.state === 'unavailable' ? '✘' : '!',
+                        E('span', { style: `color: ${dnsStatus.remote.color}` }, [
+                            dnsStatus.remote.state === 'available' ? '✔' : dnsStatus.remote.state === 'unavailable' ? '✘' : '!',
                             ' ',
-                            dnsStatus.message
+                            dnsStatus.remote.message
+                        ]),
+                        E('br'),
+                        E('span', { style: `color: ${dnsStatus.local.color}` }, [
+                            dnsStatus.local.state === 'available' ? '✔' : dnsStatus.local.state === 'unavailable' ? '✘' : '!',
+                            ' ',
+                            dnsStatus.local.message
                         ])
                     ])
                 ]),
                 E('div', { style: 'margin-bottom: 10px;' }, [
                     E('div', { style: 'margin-bottom: 5px;' }, [
-                        E('strong', {}, _('Main config')),
+                        E('strong', {}, configName),
                         E('br'),
                         E('span', { style: `color: ${bypassStatus.color}` }, [
                             bypassStatus.state === 'working' ? '✔' : bypassStatus.state === 'not_working' ? '✘' : '!',
@@ -788,6 +797,39 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
         ])
     ]);
 };
+
+function checkDNSAvailability() {
+    const createStatus = (state, message, color) => ({
+        state,
+        message: _(message),
+        color: STATUS_COLORS[color]
+    });
+
+    return new Promise(async (resolve) => {
+        try {
+            const dnsStatusResult = await safeExec('/usr/bin/podkop', ['check_dns_available']);
+            const dnsStatus = JSON.parse(dnsStatusResult.stdout || '{"dns_type":"unknown","dns_server":"unknown","is_available":0,"status":"unknown","local_dns_working":0,"local_dns_status":"unknown"}');
+
+            const remoteStatus = dnsStatus.is_available ?
+                createStatus('available', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) available`, 'SUCCESS') :
+                createStatus('unavailable', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) unavailable`, 'ERROR');
+
+            const localStatus = dnsStatus.local_dns_working ?
+                createStatus('available', 'Router DNS working', 'SUCCESS') :
+                createStatus('unavailable', 'Router DNS not working', 'ERROR');
+
+            return resolve({
+                remote: remoteStatus,
+                local: localStatus
+            });
+        } catch (error) {
+            return resolve({
+                remote: createStatus('error', 'DNS check error', 'WARNING'),
+                local: createStatus('error', 'DNS check error', 'WARNING')
+            });
+        }
+    });
+}
 
 return view.extend({
     async render() {
@@ -1164,29 +1206,6 @@ return view.extend({
             });
         }
 
-        function checkDNSAvailability() {
-            const createStatus = (state, message, color) => ({
-                state,
-                message: _(message),
-                color: STATUS_COLORS[color]
-            });
-
-            return new Promise(async (resolve) => {
-                try {
-                    const dnsStatusResult = await safeExec('/usr/bin/podkop', ['check_dns_available']);
-                    const dnsStatus = JSON.parse(dnsStatusResult.stdout || '{"dns_type":"unknown","dns_server":"unknown","is_available":0,"status":"unknown"}');
-
-                    if (dnsStatus.is_available) {
-                        return resolve(createStatus('available', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) available`, 'SUCCESS'));
-                    } else {
-                        return resolve(createStatus('unavailable', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) unavailable`, 'ERROR'));
-                    }
-                } catch (error) {
-                    return resolve(createStatus('error', 'DNS check error', 'WARNING'));
-                }
-            });
-        }
-
         async function updateDiagnostics() {
             try {
                 const [
@@ -1219,7 +1238,31 @@ return view.extend({
                 const container = document.getElementById('diagnostics-status');
                 if (!container) return;
 
-                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus, dnsStatus, bypassStatus);
+                let configName = _('Main config');
+                try {
+                    const data = await uci.load('podkop');
+                    const proxyString = uci.get('podkop', 'main', 'proxy_string');
+
+                    if (proxyString) {
+                        const activeConfig = proxyString.split('\n')
+                            .map(line => line.trim())
+                            .find(line => line && !line.startsWith('//'));
+
+                        if (activeConfig) {
+                            if (activeConfig.includes('#')) {
+                                const label = activeConfig.split('#').pop() || 'unnamed';
+                                configName = _('Config: ') + decodeURIComponent(label);
+                            } else {
+                                configName = _('Main config');
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error getting config name from UCI:', e);
+                }
+
+                // Create a modified statusSection function with the configName
+                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus, dnsStatus, bypassStatus, configName);
                 container.innerHTML = '';
                 container.appendChild(statusSection);
 
@@ -1236,6 +1279,22 @@ return view.extend({
                     fakeipCLIElement.innerHTML = E('span', { 'style': `color: ${fakeipCLIStatus.color}` }, [
                         fakeipCLIStatus.state === 'working' ? '✔ ' : fakeipCLIStatus.state === 'not_working' ? '✘ ' : '! ',
                         fakeipCLIStatus.message
+                    ]).outerHTML;
+                }
+
+                const dnsRemoteElement = document.getElementById('dns-remote-status');
+                if (dnsRemoteElement) {
+                    dnsRemoteElement.innerHTML = E('span', { 'style': `color: ${dnsStatus.remote.color}` }, [
+                        dnsStatus.remote.state === 'available' ? '✔ ' : dnsStatus.remote.state === 'unavailable' ? '✘ ' : '! ',
+                        dnsStatus.remote.message
+                    ]).outerHTML;
+                }
+
+                const dnsLocalElement = document.getElementById('dns-local-status');
+                if (dnsLocalElement) {
+                    dnsLocalElement.innerHTML = E('span', { 'style': `color: ${dnsStatus.local.color}` }, [
+                        dnsStatus.local.state === 'available' ? '✔ ' : dnsStatus.local.state === 'unavailable' ? '✘ ' : '! ',
+                        dnsStatus.local.message
                     ]).outerHTML;
                 }
             } catch (e) {
