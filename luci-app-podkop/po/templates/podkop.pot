@@ -1104,3 +1104,42 @@ msgstr ""
 
 msgid "Diagnostics"
 msgstr ""
+
+msgid "DNS Status"
+msgstr ""
+
+msgid "Bypass Status"
+msgstr ""
+
+msgid "proxy working correctly"
+msgstr ""
+
+msgid "vpn working correctly"
+msgstr ""
+
+msgid "proxy not working"
+msgstr ""
+
+msgid "vpn not working"
+msgstr ""
+
+msgid "proxy not running"
+msgstr ""
+
+msgid "vpn not running"
+msgstr ""
+
+msgid "proxy routing incorrect"
+msgstr ""
+
+msgid "vpn routing incorrect"
+msgstr ""
+
+msgid "First endpoint check failed"
+msgstr ""
+
+msgid "IP comparison failed"
+msgstr ""
+
+msgid "Bypass check error"
+msgstr ""

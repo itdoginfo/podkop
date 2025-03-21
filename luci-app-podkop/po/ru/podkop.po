@@ -750,3 +750,42 @@ msgstr "не работает на роутере"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
+
+msgid "DNS Status"
+msgstr "Статус DNS"
+
+msgid "Bypass Status"
+msgstr "Статус обхода"
+
+msgid "proxy working correctly"
+msgstr "прокси работает корректно"
+
+msgid "vpn working correctly"
+msgstr "vpn работает корректно"
+
+msgid "proxy not working"
+msgstr "прокси не работает"
+
+msgid "vpn not working"
+msgstr "vpn не работает"
+
+msgid "proxy not running"
+msgstr "прокси не запущен"
+
+msgid "vpn not running"
+msgstr "vpn не запущен"
+
+msgid "proxy routing incorrect"
+msgstr "маршрутизация прокси некорректна"
+
+msgid "vpn routing incorrect"
+msgstr "маршрутизация vpn некорректна"
+
+msgid "First endpoint check failed"
+msgstr "Проверка первой конечной точки не удалась"
+
+msgid "IP comparison failed"
+msgstr "Сравнение IP-адресов не удалось"
+
+msgid "Bypass check error"
+msgstr "Ошибка проверки обхода"

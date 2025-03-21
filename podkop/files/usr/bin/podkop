@@ -63,6 +63,7 @@ start() {
     sing_box_dns
     sing_box_dns_rule_fakeip
     sing_box_rule_dns
+    sing_box_create_bypass_ruleset
     sing_box_add_secure_dns_probe_domain
     sing_box_cache_file
     process_socks5
@@ -724,6 +725,42 @@ sing_box_dns() {
             },
             "servers": $dns_config.servers
         }' $SING_BOX_CONFIG > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+}
+
+sing_box_create_bypass_ruleset() {
+    log "Creating bypass ruleset for direct access"
+    
+    jq '
+    .route.rule_set += [{
+        "tag": "bypass",
+        "type": "inline",
+        "rules": [
+            {
+                "domain_suffix": [
+                    "ip.tech-domain.club"
+                ]
+            }
+        ]
+    }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    
+    # Add a rule to route bypass domains to direct-out outbound
+    jq '
+    .route.rules += [{
+        "inbound": ["tproxy-in"],
+        "rule_set": ["bypass"],
+        "outbound": "main",
+        "action": "route"
+    }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    
+    # Make sure the bypass ruleset is in the fakeip DNS rule
+    jq '
+    .dns.rules = (.dns.rules | map(
+        if .server == "fakeip-server" then 
+            .rule_set += ["bypass"] 
+        else 
+            . 
+        end
+    ))' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
 }
 
 sing_box_dns_rule_fakeip() {
@@ -1985,6 +2022,45 @@ get_status() {
     echo "{\"running\":$running,\"enabled\":$enabled,\"status\":\"$status\"}"
 }
 
+check_dns_available() {
+    local dns_type=$(uci get podkop.main.dns_type 2>/dev/null)
+    local dns_server=$(uci get podkop.main.dns_server 2>/dev/null)
+    local is_available=0
+    local status="unavailable"
+
+    if [ "$dns_type" = "doh" ]; then
+        # Different DoH providers use different endpoints and formats
+        local result=""
+        
+        # Try common DoH endpoints and check for valid responses
+        # First try /dns-query endpoint (Cloudflare, AdGuard DNS, etc.)
+        result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server/dns-query?name=itdog.info&type=A")
+        if [ $? -eq 0 ] && echo "$result" | grep -q "data"; then
+            is_available=1
+            status="available"
+        else
+            # If that fails, try /resolve endpoint (Google DNS)
+            result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server/resolve?name=itdog.info&type=A")
+            if [ $? -eq 0 ] && echo "$result" | grep -q "data"; then
+                is_available=1
+                status="available"
+            fi
+        fi
+    elif [ "$dns_type" = "dot" ]; then
+        if nc $dns_server 853 </dev/null >/dev/null 2>&1; then
+            is_available=1
+            status="available"
+        fi
+    elif [ "$dns_type" = "udp" ]; then
+        if nslookup -timeout=2 itdog.info $dns_server >/dev/null 2>&1; then
+            is_available=1
+            status="available"
+        fi
+    fi
+    
+    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$dns_server\",\"is_available\":$is_available,\"status\":\"$status\"}"
+}
+
 sing_box_add_secure_dns_probe_domain() {
     local domain="$TEST_DOMAIN"
     local override_port=8443
@@ -2079,8 +2155,11 @@ case "$1" in
     get_sing_box_status)
         get_sing_box_status
         ;;
+    check_dns_available)
+        check_dns_available
+        ;;
     *)
-        echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status}"
+        echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available}"
         exit 1
         ;;
 esac
