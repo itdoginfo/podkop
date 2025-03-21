@@ -704,16 +704,6 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                     label: _('Update Lists'),
                     command: 'list_update',
                     title: _('Lists Update Results')
-                }),
-                ButtonFactory.createModalButton({
-                    label: _('Check NFT Rules'),
-                    command: 'check_nft',
-                    title: _('NFT Rules')
-                }),
-                ButtonFactory.createModalButton({
-                    label: _('Check DNSMasq'),
-                    command: 'check_dnsmasq',
-                    title: _('DNSMasq Configuration')
                 })
             ]),
 
@@ -733,6 +723,16 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                     label: 'Check Connections',
                     command: 'check_sing_box_connections',
                     title: 'Active Connections'
+                }),
+                ButtonFactory.createModalButton({
+                    label: _('Check NFT Rules'),
+                    command: 'check_nft',
+                    title: _('NFT Rules')
+                }),
+                ButtonFactory.createModalButton({
+                    label: _('Check DNSMasq'),
+                    command: 'check_dnsmasq',
+                    title: _('DNSMasq Configuration')
                 })
             ]),
 
