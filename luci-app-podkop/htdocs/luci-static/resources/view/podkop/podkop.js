@@ -97,10 +97,15 @@ function createConfigSection(section, map, network) {
 
                 if (activeConfig) {
                     if (activeConfig.includes('#')) {
-                        const label = activeConfig.split('#').pop() || 'unnamed';
-                        const decodedLabel = decodeURIComponent(label);
-                        const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
-                        container.appendChild(descDiv);
+                        const label = activeConfig.split('#').pop();
+                        if (label && label.trim()) {
+                            const decodedLabel = decodeURIComponent(label);
+                            const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
+                            container.appendChild(descDiv);
+                        } else {
+                            const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Config without description'));
+                            container.appendChild(descDiv);
+                        }
                     } else {
                         const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Config without description'));
                         container.appendChild(descDiv);
@@ -1250,8 +1255,12 @@ return view.extend({
 
                         if (activeConfig) {
                             if (activeConfig.includes('#')) {
-                                const label = activeConfig.split('#').pop() || 'unnamed';
-                                configName = _('Config: ') + decodeURIComponent(label);
+                                const label = activeConfig.split('#').pop();
+                                if (label && label.trim()) {
+                                    configName = _('Config: ') + decodeURIComponent(label);
+                                } else {
+                                    configName = _('Main config');
+                                }
                             } else {
                                 configName = _('Main config');
                             }
@@ -1320,6 +1329,15 @@ return view.extend({
         const map_promise = m.render().then(node => {
             const titleDiv = E('h2', { 'class': 'cbi-map-title' }, _('Podkop'));
             node.insertBefore(titleDiv, node.firstChild);
+
+            document.addEventListener('visibilitychange', function () {
+                const diagnosticsContainer = document.getElementById('diagnostics-status');
+                if (document.hidden) {
+                    stopDiagnosticsUpdates();
+                } else if (diagnosticsContainer && diagnosticsContainer.hasAttribute('data-loading')) {
+                    startDiagnosticsUpdates();
+                }
+            });
 
             setTimeout(() => {
                 const diagnosticsContainer = document.getElementById('diagnostics-status');
