@@ -764,7 +764,7 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                 ]),
                 E('div', { style: 'margin-bottom: 10px;' }, [
                     E('div', { style: 'margin-bottom: 5px;' }, [
-                        E('strong', {}, _('Bypass Status')),
+                        E('strong', {}, _('Main config')),
                         E('br'),
                         E('span', { style: `color: ${bypassStatus.color}` }, [
                             bypassStatus.state === 'working' ? '✔' : bypassStatus.state === 'not_working' ? '✘' : '!',
