@@ -43,6 +43,13 @@ main() {
         add_tunnel
     fi
 
+    check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
+
+    if echo "$check_response" | grep -q 'API rate limit '; then
+        echo "You've reached rate limit from GitHub. Repeat in five minutes."
+        exit 1
+    fi
+
     download_success=0
     while read -r url; do
         filename=$(basename "$url")
