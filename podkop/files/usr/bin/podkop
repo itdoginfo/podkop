@@ -2041,7 +2041,7 @@ check_dns_available() {
         local result=""
         
         if echo "$dns_server" | grep -q "quad9.net" || \
-           echo "$dns_server" | grep -qE "^9\.9\.9\.9$|^149\.112\.112\.112$|^2620:fe::fe$|^2620:fe::9$"; then
+           echo "$dns_server" | grep -qE "^9\.9\.9\.(9|10|11)$|^149\.112\.112\.(112|10|11)$|^2620:fe::(fe|9|10|11)$|^2620:fe::fe:(10|11)$"; then
             result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server:5053/dns-query?name=itdog.info&type=A")
         else
             result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server/dns-query?name=itdog.info&type=A")
