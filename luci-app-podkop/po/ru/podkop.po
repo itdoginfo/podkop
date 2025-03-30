@@ -40,8 +40,8 @@ msgstr "Конфигурация Outbound"
 msgid "Proxy Configuration URL"
 msgstr "URL конфигурации прокси"
 
-msgid "Enter connection string starting with vless:// or ss:// for proxy configuration"
-msgstr "Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси"
+msgid "Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for saving other configs"
+msgstr "Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси. Добавляйте комментарии с // для сохранения других конфигураций"
 
 msgid "Outbound Configuration"
 msgstr "Конфигурация исходящего соединения"
@@ -750,3 +750,66 @@ msgstr "не работает на роутере"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
+
+msgid "DNS Status"
+msgstr "Статус DNS"
+
+msgid "Bypass Status"
+msgstr "Статус обхода"
+
+msgid "proxy working correctly"
+msgstr "прокси работает корректно"
+
+msgid "vpn working correctly"
+msgstr "vpn работает корректно"
+
+msgid "proxy not working"
+msgstr "прокси не работает"
+
+msgid "vpn not working"
+msgstr "vpn не работает"
+
+msgid "proxy not running"
+msgstr "прокси не запущен"
+
+msgid "vpn not running"
+msgstr "vpn не запущен"
+
+msgid "proxy routing incorrect"
+msgstr "маршрутизация прокси некорректна"
+
+msgid "vpn routing incorrect"
+msgstr "маршрутизация vpn некорректна"
+
+msgid "First endpoint check failed"
+msgstr "Проверка первой конечной точки не удалась"
+
+msgid "IP comparison failed"
+msgstr "Сравнение IP-адресов не удалось"
+
+msgid "Bypass check error"
+msgstr "Ошибка проверки обхода"
+
+msgid "Main config"
+msgstr "Основная конфигурация"
+
+msgid "Config without description"
+msgstr "Конфигурация без описания"
+
+msgid "DNS working"
+msgstr "DNS работает"
+
+msgid "Router DNS working"
+msgstr "DNS роутера работает"
+
+msgid "Router DNS not working"
+msgstr "DNS роутера не работает"
+
+msgid "DNS check error"
+msgstr "Ошибка проверки DNS"
+
+msgid "available"
+msgstr "доступен"
+
+msgid "unavailable"
+msgstr "недоступен"

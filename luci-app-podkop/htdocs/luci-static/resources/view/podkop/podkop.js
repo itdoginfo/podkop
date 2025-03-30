@@ -4,6 +4,7 @@
 'require ui';
 'require network';
 'require fs';
+'require uci';
 
 const STATUS_COLORS = {
     SUCCESS: '#4caf50',
@@ -90,20 +91,29 @@ function createConfigSection(section, map, network) {
 
         if (cfgvalue) {
             try {
-                // Extract only the active configuration (first non-comment line)
                 const activeConfig = cfgvalue.split('\n')
                     .map(line => line.trim())
                     .find(line => line && !line.startsWith('//'));
 
                 if (activeConfig) {
-                    const label = activeConfig.split('#').pop() || 'unnamed';
-                    const decodedLabel = decodeURIComponent(label);
-                    const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
-                    container.appendChild(descDiv);
+                    if (activeConfig.includes('#')) {
+                        const label = activeConfig.split('#').pop();
+                        if (label && label.trim()) {
+                            const decodedLabel = decodeURIComponent(label);
+                            const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + decodedLabel);
+                            container.appendChild(descDiv);
+                        } else {
+                            const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Config without description'));
+                            container.appendChild(descDiv);
+                        }
+                    } else {
+                        const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Config without description'));
+                        container.appendChild(descDiv);
+                    }
                 }
             } catch (e) {
                 console.error('Error parsing config label:', e);
-                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Current config: ') + (cfgvalue.split('#').pop() || 'unnamed'));
+                const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Config without description'));
                 container.appendChild(descDiv);
             }
         } else {
@@ -121,7 +131,6 @@ function createConfigSection(section, map, network) {
         }
 
         try {
-            // Get the first non-comment line as the active configuration
             const activeConfig = value.split('\n')
                 .map(line => line.trim())
                 .find(line => line && !line.startsWith('//'));
@@ -663,9 +672,8 @@ const createStatusPanel = (title, status, buttons) => {
 };
 
 // Update the status section creation
-let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus) {
+let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus, dnsStatus, bypassStatus, configName) {
     return E('div', { 'class': 'cbi-section' }, [
-        E('h3', {}, _('Service Status')),
         E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
             // Podkop Status Panel
             createStatusPanel('Podkop Status', podkopStatus, [
@@ -696,6 +704,11 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                     label: 'View Logs',
                     command: 'check_logs',
                     title: 'Podkop Logs'
+                }),
+                ButtonFactory.createModalButton({
+                    label: _('Update Lists'),
+                    command: 'list_update',
+                    title: _('Lists Update Results')
                 })
             ]),
 
@@ -715,6 +728,16 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                     label: 'Check Connections',
                     command: 'check_sing_box_connections',
                     title: 'Active Connections'
+                }),
+                ButtonFactory.createModalButton({
+                    label: _('Check NFT Rules'),
+                    command: 'check_nft',
+                    title: _('NFT Rules')
+                }),
+                ButtonFactory.createModalButton({
+                    label: _('Check DNSMasq'),
+                    command: 'check_dnsmasq',
+                    title: _('DNSMasq Configuration')
                 })
             ]),
 
@@ -736,26 +759,34 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                         ])
                     ])
                 ]),
-                ButtonFactory.createModalButton({
-                    label: _('Check NFT Rules'),
-                    command: 'check_nft',
-                    title: _('NFT Rules')
-                }),
-                ButtonFactory.createModalButton({
-                    label: _('Check DNSMasq'),
-                    command: 'check_dnsmasq',
-                    title: _('DNSMasq Configuration')
-                }),
-                ButtonFactory.createModalButton({
-                    label: _('Update Lists'),
-                    command: 'list_update',
-                    title: _('Lists Update Results')
-                }),
-                ButtonFactory.createModalButton({
-                    label: _('Check Router FakeIP'),
-                    command: 'check_fakeip',
-                    title: _('FakeIP Router Check')
-                })
+                E('div', { style: 'margin-bottom: 10px;' }, [
+                    E('div', { style: 'margin-bottom: 5px;' }, [
+                        E('strong', {}, _('DNS Status')),
+                        E('br'),
+                        E('span', { style: `color: ${dnsStatus.remote.color}` }, [
+                            dnsStatus.remote.state === 'available' ? '✔' : dnsStatus.remote.state === 'unavailable' ? '✘' : '!',
+                            ' ',
+                            dnsStatus.remote.message
+                        ]),
+                        E('br'),
+                        E('span', { style: `color: ${dnsStatus.local.color}` }, [
+                            dnsStatus.local.state === 'available' ? '✔' : dnsStatus.local.state === 'unavailable' ? '✘' : '!',
+                            ' ',
+                            dnsStatus.local.message
+                        ])
+                    ])
+                ]),
+                E('div', { style: 'margin-bottom: 10px;' }, [
+                    E('div', { style: 'margin-bottom: 5px;' }, [
+                        E('strong', {}, configName),
+                        E('br'),
+                        E('span', { style: `color: ${bypassStatus.color}` }, [
+                            bypassStatus.state === 'working' ? '✔' : bypassStatus.state === 'not_working' ? '✘' : '!',
+                            ' ',
+                            bypassStatus.message
+                        ])
+                    ])
+                ])
             ]),
 
             // Version Information Panel
@@ -771,6 +802,39 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
         ])
     ]);
 };
+
+function checkDNSAvailability() {
+    const createStatus = (state, message, color) => ({
+        state,
+        message: _(message),
+        color: STATUS_COLORS[color]
+    });
+
+    return new Promise(async (resolve) => {
+        try {
+            const dnsStatusResult = await safeExec('/usr/bin/podkop', ['check_dns_available']);
+            const dnsStatus = JSON.parse(dnsStatusResult.stdout || '{"dns_type":"unknown","dns_server":"unknown","is_available":0,"status":"unknown","local_dns_working":0,"local_dns_status":"unknown"}');
+
+            const remoteStatus = dnsStatus.is_available ?
+                createStatus('available', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) available`, 'SUCCESS') :
+                createStatus('unavailable', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) unavailable`, 'ERROR');
+
+            const localStatus = dnsStatus.local_dns_working ?
+                createStatus('available', 'Router DNS working', 'SUCCESS') :
+                createStatus('unavailable', 'Router DNS not working', 'ERROR');
+
+            return resolve({
+                remote: remoteStatus,
+                local: localStatus
+            });
+        } catch (error) {
+            return resolve({
+                remote: createStatus('error', 'DNS check error', 'WARNING'),
+                local: createStatus('error', 'DNS check error', 'WARNING')
+            });
+        }
+    });
+}
 
 return view.extend({
     async render() {
@@ -1071,6 +1135,82 @@ return view.extend({
             });
         }
 
+        function checkBypass() {
+            const createStatus = (state, message, color) => ({
+                state,
+                message: _(message),
+                color: STATUS_COLORS[color]
+            });
+
+            return new Promise(async (resolve) => {
+                try {
+                    let configMode = 'proxy'; // Default fallback
+                    try {
+                        const formData = document.querySelector('form.map-podkop');
+                        if (formData) {
+                            const modeSelect = formData.querySelector('select[name="cbid.podkop.main.mode"]');
+                            if (modeSelect && modeSelect.value) {
+                                configMode = modeSelect.value;
+                            }
+                        }
+                    } catch (formError) {
+                        console.error('Error getting mode from form:', formError);
+                    }
+
+                    // Check if sing-box is running
+                    const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
+                    const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
+
+                    if (!singboxStatus.running) {
+                        return resolve(createStatus('not_working', `${configMode} not running`, 'ERROR'));
+                    }
+
+                    // Fetch IP from first endpoint
+                    let ip1 = null;
+                    try {
+                        const controller1 = new AbortController();
+                        const timeoutId1 = setTimeout(() => controller1.abort(), 10000);
+
+                        const response1 = await fetch('https://fakeip.tech-domain.club/check', { signal: controller1.signal });
+                        const data1 = await response1.json();
+                        clearTimeout(timeoutId1);
+
+                        ip1 = data1.IP;
+                    } catch (error) {
+                        return resolve(createStatus('error', 'First endpoint check failed', 'WARNING'));
+                    }
+
+                    // Fetch IP from second endpoint
+                    let ip2 = null;
+                    try {
+                        const controller2 = new AbortController();
+                        const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
+
+                        const response2 = await fetch('https://ip.tech-domain.club/check', { signal: controller2.signal });
+                        const data2 = await response2.json();
+                        clearTimeout(timeoutId2);
+
+                        ip2 = data2.IP;
+                    } catch (error) {
+                        return resolve(createStatus('not_working', `${configMode} not working`, 'ERROR'));
+                    }
+
+                    // Compare IPs
+                    if (ip1 && ip2) {
+                        if (ip1 !== ip2) {
+                            return resolve(createStatus('working', `${configMode} working correctly`, 'SUCCESS'));
+                        } else {
+                            return resolve(createStatus('not_working', `${configMode} routing incorrect`, 'ERROR'));
+                        }
+                    } else {
+                        return resolve(createStatus('error', 'IP comparison failed', 'WARNING'));
+                    }
+                } catch (error) {
+                    return resolve(createStatus('error', 'Bypass check error', 'WARNING'));
+                }
+            });
+        }
+
         async function updateDiagnostics() {
             try {
                 const [
@@ -1081,7 +1221,9 @@ return view.extend({
                     singbox,
                     system,
                     fakeipStatus,
-                    fakeipCLIStatus
+                    fakeipCLIStatus,
+                    dnsStatus,
+                    bypassStatus
                 ] = await Promise.all([
                     safeExec('/usr/bin/podkop', ['get_status']),
                     safeExec('/usr/bin/podkop', ['get_sing_box_status']),
@@ -1090,7 +1232,9 @@ return view.extend({
                     safeExec('/usr/bin/podkop', ['show_sing_box_version']),
                     safeExec('/usr/bin/podkop', ['show_system_info']),
                     checkFakeIP(),
-                    checkFakeIPCLI()
+                    checkFakeIPCLI(),
+                    checkDNSAvailability(),
+                    checkBypass()
                 ]);
 
                 const parsedPodkopStatus = JSON.parse(podkopStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
@@ -1099,7 +1243,35 @@ return view.extend({
                 const container = document.getElementById('diagnostics-status');
                 if (!container) return;
 
-                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus);
+                let configName = _('Main config');
+                try {
+                    const data = await uci.load('podkop');
+                    const proxyString = uci.get('podkop', 'main', 'proxy_string');
+
+                    if (proxyString) {
+                        const activeConfig = proxyString.split('\n')
+                            .map(line => line.trim())
+                            .find(line => line && !line.startsWith('//'));
+
+                        if (activeConfig) {
+                            if (activeConfig.includes('#')) {
+                                const label = activeConfig.split('#').pop();
+                                if (label && label.trim()) {
+                                    configName = _('Config: ') + decodeURIComponent(label);
+                                } else {
+                                    configName = _('Main config');
+                                }
+                            } else {
+                                configName = _('Main config');
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error getting config name from UCI:', e);
+                }
+
+                // Create a modified statusSection function with the configName
+                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus, dnsStatus, bypassStatus, configName);
                 container.innerHTML = '';
                 container.appendChild(statusSection);
 
@@ -1116,6 +1288,22 @@ return view.extend({
                     fakeipCLIElement.innerHTML = E('span', { 'style': `color: ${fakeipCLIStatus.color}` }, [
                         fakeipCLIStatus.state === 'working' ? '✔ ' : fakeipCLIStatus.state === 'not_working' ? '✘ ' : '! ',
                         fakeipCLIStatus.message
+                    ]).outerHTML;
+                }
+
+                const dnsRemoteElement = document.getElementById('dns-remote-status');
+                if (dnsRemoteElement) {
+                    dnsRemoteElement.innerHTML = E('span', { 'style': `color: ${dnsStatus.remote.color}` }, [
+                        dnsStatus.remote.state === 'available' ? '✔ ' : dnsStatus.remote.state === 'unavailable' ? '✘ ' : '! ',
+                        dnsStatus.remote.message
+                    ]).outerHTML;
+                }
+
+                const dnsLocalElement = document.getElementById('dns-local-status');
+                if (dnsLocalElement) {
+                    dnsLocalElement.innerHTML = E('span', { 'style': `color: ${dnsStatus.local.color}` }, [
+                        dnsStatus.local.state === 'available' ? '✔ ' : dnsStatus.local.state === 'unavailable' ? '✘ ' : '! ',
+                        dnsStatus.local.message
                     ]).outerHTML;
                 }
             } catch (e) {
@@ -1141,6 +1329,15 @@ return view.extend({
         const map_promise = m.render().then(node => {
             const titleDiv = E('h2', { 'class': 'cbi-map-title' }, _('Podkop'));
             node.insertBefore(titleDiv, node.firstChild);
+
+            document.addEventListener('visibilitychange', function () {
+                const diagnosticsContainer = document.getElementById('diagnostics-status');
+                if (document.hidden) {
+                    stopDiagnosticsUpdates();
+                } else if (diagnosticsContainer && diagnosticsContainer.hasAttribute('data-loading')) {
+                    startDiagnosticsUpdates();
+                }
+            });
 
             setTimeout(() => {
                 const diagnosticsContainer = document.getElementById('diagnostics-status');
