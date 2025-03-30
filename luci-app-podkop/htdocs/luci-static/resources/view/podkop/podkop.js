@@ -813,20 +813,34 @@ function checkDNSAvailability() {
     return new Promise(async (resolve) => {
         try {
             const dnsStatusResult = await safeExec('/usr/bin/podkop', ['check_dns_available']);
-            const dnsStatus = JSON.parse(dnsStatusResult.stdout || '{"dns_type":"unknown","dns_server":"unknown","is_available":0,"status":"unknown","local_dns_working":0,"local_dns_status":"unknown"}');
+            if (!dnsStatusResult || !dnsStatusResult.stdout) {
+                return resolve({
+                    remote: createStatus('error', 'DNS check timeout', 'WARNING'),
+                    local: createStatus('error', 'DNS check timeout', 'WARNING')
+                });
+            }
 
-            const remoteStatus = dnsStatus.is_available ?
-                createStatus('available', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) available`, 'SUCCESS') :
-                createStatus('unavailable', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) unavailable`, 'ERROR');
+            try {
+                const dnsStatus = JSON.parse(dnsStatusResult.stdout);
 
-            const localStatus = dnsStatus.local_dns_working ?
-                createStatus('available', 'Router DNS working', 'SUCCESS') :
-                createStatus('unavailable', 'Router DNS not working', 'ERROR');
+                const remoteStatus = dnsStatus.is_available ?
+                    createStatus('available', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) available`, 'SUCCESS') :
+                    createStatus('unavailable', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) unavailable`, 'ERROR');
 
-            return resolve({
-                remote: remoteStatus,
-                local: localStatus
-            });
+                const localStatus = dnsStatus.local_dns_working ?
+                    createStatus('available', 'Router DNS working', 'SUCCESS') :
+                    createStatus('unavailable', 'Router DNS not working', 'ERROR');
+
+                return resolve({
+                    remote: remoteStatus,
+                    local: localStatus
+                });
+            } catch (parseError) {
+                return resolve({
+                    remote: createStatus('error', 'DNS check parse error', 'WARNING'),
+                    local: createStatus('error', 'DNS check parse error', 'WARNING')
+                });
+            }
         } catch (error) {
             return resolve({
                 remote: createStatus('error', 'DNS check error', 'WARNING'),
