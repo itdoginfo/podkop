@@ -2038,22 +2038,24 @@ check_dns_available() {
     fi
 
     if [ "$dns_type" = "doh" ]; then
-        # Different DoH providers use different endpoints and formats
         local result=""
         
-        # Try common DoH endpoints and check for valid responses
-        # First try /dns-query endpoint (Cloudflare, AdGuard DNS, etc.)
-        result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server/dns-query?name=itdog.info&type=A")
-        if [ $? -eq 0 ] && echo "$result" | grep -q "data"; then
-            is_available=1
-            status="available"
+        if echo "$dns_server" | grep -q "quad9.net" || \
+           echo "$dns_server" | grep -qE "^9\.9\.9\.9$|^149\.112\.112\.112$|^2620:fe::fe$|^2620:fe::9$"; then
+            result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server:5053/dns-query?name=itdog.info&type=A")
         else
-            # If that fails, try /resolve endpoint (Google DNS)
-            result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server/resolve?name=itdog.info&type=A")
+            result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server/dns-query?name=itdog.info&type=A")
             if [ $? -eq 0 ] && echo "$result" | grep -q "data"; then
                 is_available=1
                 status="available"
+            else
+                result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server/resolve?name=itdog.info&type=A")
             fi
+        fi
+        
+        if [ $? -eq 0 ] && echo "$result" | grep -q "data"; then
+            is_available=1
+            status="available"
         fi
     elif [ "$dns_type" = "dot" ]; then
         (nc "$dns_server" 853 </dev/null >/dev/null 2>&1) & pid=$!
