@@ -40,8 +40,8 @@ msgstr "Конфигурация Outbound"
 msgid "Proxy Configuration URL"
 msgstr "URL конфигурации прокси"
 
-msgid "Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs"
-msgstr "Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси. Добавляйте комментарии с // для резервных конфигураций"
+msgid "Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for saving other configs"
+msgstr "Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси. Добавляйте комментарии с // для сохранения других конфигураций"
 
 msgid "Outbound Configuration"
 msgstr "Конфигурация исходящего соединения"

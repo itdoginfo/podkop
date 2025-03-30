@@ -2049,10 +2049,14 @@ check_dns_available() {
             fi
         fi
     elif [ "$dns_type" = "dot" ]; then
-        if nc $dns_server 853 </dev/null >/dev/null 2>&1; then
+        nc $dns_server 853 </dev/null >/dev/null 2>&1 & pid=$!
+        (sleep 3; kill $pid 2>/dev/null) & killpid=$!
+        wait $pid >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
             is_available=1
             status="available"
         fi
+        kill $killpid 2>/dev/null
     elif [ "$dns_type" = "udp" ]; then
         if nslookup -timeout=2 itdog.info $dns_server >/dev/null 2>&1; then
             is_available=1
