@@ -1918,6 +1918,7 @@ show_config() {
         -e 's/\(ss:\/\/[^@]*@\)/ss:\/\/MASKED@/g' \
         -e 's/\(pbk=[^&]*\)/pbk=MASKED/g' \
         -e 's/\(sid=[^&]*\)/sid=MASKED/g' \
+        -e 's/\(option dns_server '\''[^'\'']*\.dns\.nextdns\.io'\''\)/option dns_server '\''MASKED.dns.nextdns.io'\''/g' \
         > "$tmp_config"
 
     cat "$tmp_config"
