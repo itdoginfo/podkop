@@ -2029,6 +2029,13 @@ check_dns_available() {
     local status="unavailable"
     local local_dns_working=0
     local local_dns_status="unavailable"
+    
+    # Mask NextDNS ID if present
+    local display_dns_server="$dns_server"
+    if echo "$dns_server" | grep -q "\.dns\.nextdns\.io$"; then
+        local nextdns_id=$(echo "$dns_server" | cut -d'.' -f1)
+        display_dns_server="$(echo "$nextdns_id" | sed 's/./*/g').dns.nextdns.io"
+    fi
 
     if [ "$dns_type" = "doh" ]; then
         # Different DoH providers use different endpoints and formats
@@ -2049,14 +2056,15 @@ check_dns_available() {
             fi
         fi
     elif [ "$dns_type" = "dot" ]; then
-        nc $dns_server 853 </dev/null >/dev/null 2>&1 & pid=$!
-        (sleep 3; kill $pid 2>/dev/null) & killpid=$!
-        wait $pid >/dev/null 2>&1
-        if [ $? -eq 0 ]; then
+        (nc "$dns_server" 853 </dev/null >/dev/null 2>&1) & pid=$!
+        sleep 2
+        if kill -0 $pid 2>/dev/null; then
+            kill $pid 2>/dev/null
+            wait $pid 2>/dev/null
+        else
             is_available=1
             status="available"
         fi
-        kill $killpid 2>/dev/null
     elif [ "$dns_type" = "udp" ]; then
         if nslookup -timeout=2 itdog.info $dns_server >/dev/null 2>&1; then
             is_available=1
@@ -2070,7 +2078,7 @@ check_dns_available() {
         local_dns_status="available"
     fi
     
-    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$dns_server\",\"is_available\":$is_available,\"status\":\"$status\",\"local_dns_working\":$local_dns_working,\"local_dns_status\":\"$local_dns_status\"}"
+    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"is_available\":$is_available,\"status\":\"$status\",\"local_dns_working\":$local_dns_working,\"local_dns_status\":\"$local_dns_status\"}"
 }
 
 sing_box_add_secure_dns_probe_domain() {
