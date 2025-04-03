@@ -12,6 +12,8 @@ const STATUS_COLORS = {
     WARNING: '#ff9800'
 };
 
+const ERROR_POLL_INTERVAL = 5000; // 5 seconds
+
 async function safeExec(command, args = [], timeout = 7000) {
     try {
         const controller = new AbortController();
@@ -850,6 +852,84 @@ function checkDNSAvailability() {
     });
 }
 
+async function getPodkopErrors() {
+    try {
+        const result = await safeExec('/usr/bin/podkop', ['check_logs']);
+        if (!result || !result.stdout) return [];
+
+        const logs = result.stdout.split('\n');
+        const errors = logs.filter(log =>
+            // log.includes('saved for future filters') ||
+            log.includes('[critical]')
+        );
+
+        console.log('Found errors:', errors);
+        return errors;
+    } catch (error) {
+        console.error('Error getting podkop logs:', error);
+        return [];
+    }
+}
+
+let errorPollTimer = null;
+let lastErrorsSet = new Set();
+let isInitialCheck = true;
+
+function showErrorNotification(error, isMultiple = false) {
+    const notificationContent = E('div', { 'class': 'alert-message error' }, [
+        E('pre', { 'class': 'error-log' }, error)
+    ]);
+
+    ui.addNotification(null, notificationContent);
+}
+
+function startErrorPolling() {
+    if (errorPollTimer) {
+        clearInterval(errorPollTimer);
+    }
+
+    async function checkErrors() {
+        const result = await safeExec('/usr/bin/podkop', ['check_logs']);
+        if (!result || !result.stdout) return;
+
+        const logs = result.stdout;
+
+        const errorLines = logs.split('\n').filter(line =>
+            // line.includes('saved for future filters') ||
+            line.includes('[critical]')
+        );
+
+        if (errorLines.length > 0) {
+            const currentErrors = new Set(errorLines);
+
+            if (isInitialCheck) {
+                if (errorLines.length > 0) {
+                    showErrorNotification(errorLines.join('\n'), true);
+                }
+                isInitialCheck = false;
+            } else {
+                const newErrors = [...currentErrors].filter(error => !lastErrorsSet.has(error));
+
+                newErrors.forEach(error => {
+                    showErrorNotification(error, false);
+                });
+            }
+            lastErrorsSet = currentErrors;
+        }
+    }
+
+    checkErrors();
+
+    errorPollTimer = setInterval(checkErrors, ERROR_POLL_INTERVAL);
+}
+
+function stopErrorPolling() {
+    if (errorPollTimer) {
+        clearInterval(errorPollTimer);
+        errorPollTimer = null;
+    }
+}
+
 return view.extend({
     async render() {
         document.head.insertAdjacentHTML('beforeend', `
@@ -1348,8 +1428,10 @@ return view.extend({
                 const diagnosticsContainer = document.getElementById('diagnostics-status');
                 if (document.hidden) {
                     stopDiagnosticsUpdates();
+                    stopErrorPolling();
                 } else if (diagnosticsContainer && diagnosticsContainer.hasAttribute('data-loading')) {
                     startDiagnosticsUpdates();
+                    startErrorPolling();
                 }
             });
 
@@ -1360,6 +1442,7 @@ return view.extend({
                         if (!this.hasAttribute('data-loading')) {
                             this.setAttribute('data-loading', 'true');
                             startDiagnosticsUpdates();
+                            startErrorPolling();
                         }
                     });
                 }
@@ -1375,9 +1458,11 @@ return view.extend({
                                 if (container && !container.hasAttribute('data-loading')) {
                                     container.setAttribute('data-loading', 'true');
                                     startDiagnosticsUpdates();
+                                    startErrorPolling();
                                 }
                             } else {
                                 stopDiagnosticsUpdates();
+                                stopErrorPolling();
                             }
                         }
                     });
@@ -1388,6 +1473,7 @@ return view.extend({
                         if (container && !container.hasAttribute('data-loading')) {
                             container.setAttribute('data-loading', 'true');
                             startDiagnosticsUpdates();
+                            startErrorPolling();
                         }
                     }
                 }
