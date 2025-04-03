@@ -22,6 +22,7 @@ DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.
 TEST_DOMAIN="fakeip.tech-domain.club"
 INTERFACES_LIST=""
 SRC_INTERFACE=""
+RESOLV_CONF="/etc/resolv.conf"
 
 log() {
     local message="$1"
@@ -68,7 +69,7 @@ start() {
         log "[critical] Detected https-dns-proxy. Disable or uninstall it for correct functionality."
     fi
 
-    if { ! grep -q "search lan" "$resolv_conf" || ! grep -q "nameserver 127.0.0.1" "$resolv_conf"; } && ! grep -q "search tail" "$resolv_conf"; then
+    if { ! grep -q "search lan" "$RESOLV_CONF" || ! grep -q "nameserver 127.0.0.1" "$RESOLV_CONF"; } && ! grep -q "search tail" "$RESOLV_CONF"; then
         log "[critical] /etc/resolv.conf does not contain 'search lan' or 'nameserver 127.0.0.1' entries"
     fi
 

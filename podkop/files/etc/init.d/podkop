@@ -6,14 +6,13 @@ USE_PROCD=1
 script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
-resolv_conf="/etc/resolv.conf"
+RESOLV_CONF="/etc/resolv.conf"
 
 start_service() {
     echo "Start podkop"
 
     sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
     required_version="1.11.1"
-    resolv_conf="/etc/resolv.conf"
 
     if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box"
@@ -32,7 +31,7 @@ start_service() {
         printf "\033[31;1mDetected https-dns-proxy. Disable or uninstall it for correct functionality.\033[0m\n"
     fi
 
-    if { ! grep -q "search lan" "$resolv_conf" || ! grep -q "nameserver 127.0.0.1" "$resolv_conf"; } && ! grep -q "search tail" "$resolv_conf"; then
+    if { ! grep -q "search lan" "$RESOLV_CONF" || ! grep -q "nameserver 127.0.0.1" "$RESOLV_CONF"; } && ! grep -q "search tail" "$RESOLV_CONF"; then
         echo "/etc/resolv.conf does not contain 'search lan' or 'nameserver 127.0.0.1' entries"
     fi
     
