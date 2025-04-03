@@ -871,32 +871,6 @@ async function getPodkopErrors() {
     }
 }
 
-function createErrorModal(errors) {
-    return [
-        E('div', {
-            'class': 'panel-body',
-            style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; ' +
-                'font-family: monospace; white-space: pre-wrap; word-wrap: break-word; ' +
-                'line-height: 1.5; font-size: 14px; background-color: #1e1e1e; color: #e0e0e0;'
-        }, [
-            E('pre', { style: 'margin: 0; white-space: pre-wrap;' }, errors)
-        ]),
-        E('div', {
-            'class': 'right',
-            style: 'margin-top: 1em;'
-        }, [
-            E('button', {
-                'class': 'btn',
-                'click': ev => copyToClipboard(errors, ev.target)
-            }, _('Copy')),
-            E('button', {
-                'class': 'btn',
-                'click': ui.hideModal
-            }, _('Close'))
-        ])
-    ];
-}
-
 let errorPollTimer = null;
 let lastErrorsSet = new Set();
 let isInitialCheck = true;
@@ -906,7 +880,7 @@ function showErrorNotification(error, isMultiple = false) {
         E('pre', { 'class': 'error-log' }, error)
     ]);
 
-    const notification = ui.addNotification(null, notificationContent);
+    ui.addNotification(null, notificationContent);
 }
 
 function startErrorPolling() {
@@ -918,10 +892,8 @@ function startErrorPolling() {
         const result = await safeExec('/usr/bin/podkop', ['check_logs']);
         if (!result || !result.stdout) return;
 
-        // Get all logs since last "Starting podkop"
         const logs = result.stdout;
 
-        // Extract all error messages
         const errorLines = logs.split('\n').filter(line =>
             line.includes('error') ||
             line.includes('Error') ||
@@ -929,34 +901,26 @@ function startErrorPolling() {
         );
 
         if (errorLines.length > 0) {
-            // Create a set of current errors
             const currentErrors = new Set(errorLines);
 
             if (isInitialCheck) {
-                // При первой проверке показываем все ошибки в одном уведомлении
                 if (errorLines.length > 0) {
                     showErrorNotification(errorLines.join('\n'), true);
                 }
                 isInitialCheck = false;
             } else {
-                // Find new errors that weren't shown before
                 const newErrors = [...currentErrors].filter(error => !lastErrorsSet.has(error));
 
-                // Show each new error as a separate notification
                 newErrors.forEach(error => {
                     showErrorNotification(error, false);
                 });
             }
-
-            // Update the set of shown errors
             lastErrorsSet = currentErrors;
         }
     }
 
-    // Initial check
     checkErrors();
 
-    // Set up polling
     errorPollTimer = setInterval(checkErrors, ERROR_POLL_INTERVAL);
 }
 
