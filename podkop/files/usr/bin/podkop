@@ -45,6 +45,7 @@ nolog() {
 }
 
 start() {
+    log "Starting podkop"
     migration
 
     config_foreach process_validate_service
@@ -1857,12 +1858,24 @@ check_fakeip() {
 check_logs() {
     nolog "Showing podkop logs from system journal..."
     
-    if command -v logread >/dev/null 2>&1; then
-        logread -e podkop  | tail -n 50
-    else
+    if ! command -v logread >/dev/null 2>&1; then
         nolog "Error: logread command not found"
         return 1
     fi
+
+    # Get all logs first
+    local all_logs=$(logread)
+    
+    # Find the last occurrence of "Starting podkop"
+    local start_line=$(echo "$all_logs" | grep -n "podkop.*Starting podkop" | tail -n 1 | cut -d: -f1)
+    
+    if [ -z "$start_line" ]; then
+        nolog "No 'Starting podkop' message found in logs"
+        return 1
+    fi
+    
+    # Output all logs from the last start
+    echo "$all_logs" | tail -n +"$start_line"
 }
 
 show_sing_box_config() {
