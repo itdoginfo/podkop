@@ -42,12 +42,14 @@ main() {
         echo "Installed podkop..."
         add_tunnel
     fi
+    
+    if command -v curl &> /dev/null; then
+        check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
 
-    check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
-
-    if echo "$check_response" | grep -q 'API rate limit '; then
-        echo "You've reached rate limit from GitHub. Repeat in five minutes."
-        exit 1
+        if echo "$check_response" | grep -q 'API rate limit '; then
+            echo "You've reached rate limit from GitHub. Repeat in five minutes."
+            exit 1
+        fi
     fi
 
     download_success=0
