@@ -46,6 +46,32 @@ nolog() {
 
 start() {
     log "Starting podkop"
+
+    # checking
+    sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
+    required_version="1.11.1"
+
+    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
+        log "[critical] The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box"
+        exit 1
+    fi
+
+    if opkg list-installed | grep -q iptables-mod-extra; then
+        log "[critical] Conflicting package detected: iptables-mod-extra"
+    fi
+
+    if opkg list-installed | grep -q kmod-ipt-nat; then
+        log "[critical] Conflicting package detected: kmod-ipt-nat"
+    fi
+
+    if grep -qE 'doh_backup_noresolv|doh_backup_server|doh_server' /etc/config/dhcp; then
+        log "[critical] Detected https-dns-proxy. Disable or uninstall it for correct functionality."
+    fi
+
+    if ! grep -q "search lan" "$resolv_conf" || ! grep -q "nameserver 127.0.0.1" "$resolv_conf"; then
+        log "[critical] /etc/resolv.conf does not contain 'search lan' or 'nameserver 127.0.0.1' entries"
+    fi
+
     migration
 
     config_foreach process_validate_service
@@ -843,7 +869,7 @@ sing_box_outdound() {
         config_get interface "$section" "interface"
         
         if [ -z "$interface" ]; then
-            log "VPN interface is not set. Exit"
+            log "[critical] VPN interface is not set. Exit"
             exit 1
         fi
 
@@ -869,7 +895,7 @@ sing_box_outdound() {
             active_proxy_string=$(echo "$proxy_string" | grep -v "^[[:space:]]*\/\/" | head -n 1)
             
             if [ -z "$active_proxy_string" ]; then
-                log "Proxy string is not set. Exit"
+                log "[critical] Proxy string is not set. Exit"
                 exit 1
             fi
             
@@ -942,7 +968,7 @@ sing_box_rule_dns() {
 
 sing_box_config_check() {
     if ! sing-box -c $SING_BOX_CONFIG check >/dev/null 2>&1; then
-        log "Sing-box configuration is invalid"
+        log "[critical] Sing-box configuration is invalid"
         exit 1
     fi
 }
