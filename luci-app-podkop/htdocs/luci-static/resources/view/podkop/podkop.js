@@ -895,9 +895,8 @@ function startErrorPolling() {
         const logs = result.stdout;
 
         const errorLines = logs.split('\n').filter(line =>
-            line.includes('error') ||
-            line.includes('Error') ||
-            line.includes('ERROR')
+            // line.includes('saved for future filters') ||
+            line.includes('[critical]')
         );
 
         if (errorLines.length > 0) {
