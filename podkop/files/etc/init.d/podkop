@@ -32,7 +32,7 @@ start_service() {
         printf "\033[31;1mDetected https-dns-proxy. Disable or uninstall it for correct functionality.\033[0m\n"
     fi
 
-    if ! grep -q "search lan" "$resolv_conf" || ! grep -q "nameserver 127.0.0.1" "$resolv_conf"; then
+    if ! grep -q "search lan" "$resolv_conf" || ! grep -q "nameserver 127.0.0.1" "$resolv_conf" || ! grep -q "search tail" "$resolv_conf"; then
         echo "/etc/resolv.conf does not contain 'search lan' or 'nameserver 127.0.0.1' entries"
     fi
     
