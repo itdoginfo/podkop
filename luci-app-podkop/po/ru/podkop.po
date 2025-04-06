@@ -828,3 +828,18 @@ msgstr "Внимание: %s уже используется и были уда�
 
 msgid "Warning: Russia inside contains %s, so these options have been removed."
 msgstr "Внимание: Russia inside содержит %s, поэтому эти опции были удалены."
+
+msgid "Warning!"
+msgstr "Внимание!"
+
+msgid "This will reset all Podkop settings to their default values and remove any custom configurations."
+msgstr "Это сбросит все настройки Podkop к значениям по умолчанию и удалит все пользовательские конфигурации."
+
+msgid "The service will be stopped and restarted with default settings."
+msgstr "Сервис будет остановлен и перезапущен с настройками по умолчанию."
+
+msgid "This action cannot be undone!"
+msgstr "Это действие нельзя отменить!"
+
+msgid "Reset Settings"
+msgstr "Сбросить настройки"

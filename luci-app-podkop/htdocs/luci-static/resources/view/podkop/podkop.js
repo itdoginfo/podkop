@@ -1026,6 +1026,77 @@ function stopErrorPolling() {
 }
 
 return view.extend({
+    handleReset: function () {
+        // Show confirmation modal
+        ui.showModal(_('Reset Settings'), [
+            E('div', { class: 'alert-message warning' }, [
+                E('h4', {}, _('Warning!')),
+                E('p', {}, _('This will reset all Podkop settings to their default values and remove any custom configurations.')),
+                E('p', {}, _('The service will be stopped and restarted with default settings.')),
+                E('p', {}, _('This action cannot be undone!'))
+            ]),
+            E('div', { class: 'right' }, [
+                E('button', {
+                    'class': 'btn',
+                    'click': ui.hideModal
+                }, _('Cancel')),
+                ' ',
+                E('button', {
+                    'class': 'btn btn-negative',
+                    'click': () => {
+                        ui.hideModal();
+                        return Promise.all([
+                            // Stop the service first
+                            safeExec('/usr/bin/podkop', ['stop']),
+                            // Reset UCI config to defaults
+                            uci.load('podkop').then(() => {
+                                // Reset main section to defaults
+                                uci.set('podkop', 'main', 'mode', 'proxy');
+                                uci.set('podkop', 'main', 'proxy_config_type', 'url');
+                                uci.set('podkop', 'main', 'proxy_string', '');
+                                uci.set('podkop', 'main', 'domain_list_enabled', '1');
+                                uci.set('podkop', 'main', 'domain_list', ['russia_inside']);
+                                uci.set('podkop', 'main', 'subnets_list_enabled', '0');
+                                uci.set('podkop', 'main', 'custom_domains_list_type', 'disabled');
+                                uci.set('podkop', 'main', 'custom_local_domains_list_enabled', '0');
+                                uci.set('podkop', 'main', 'custom_download_domains_list_enabled', '0');
+                                uci.set('podkop', 'main', 'custom_download_subnets_list_enabled', '0');
+                                uci.set('podkop', 'main', 'all_traffic_from_ip_enabled', '0');
+                                uci.set('podkop', 'main', 'exclude_from_ip_enabled', '0');
+                                uci.set('podkop', 'main', 'yacd', '0');
+                                uci.set('podkop', 'main', 'socks5', '0');
+                                uci.set('podkop', 'main', 'exclude_ntp', '0');
+                                uci.set('podkop', 'main', 'quic_disable', '0');
+                                uci.set('podkop', 'main', 'dont_touch_dhcp', '0');
+                                uci.set('podkop', 'main', 'update_interval', '1d');
+                                uci.set('podkop', 'main', 'dns_type', 'doh');
+                                uci.set('podkop', 'main', 'dns_server', '8.8.8.8');
+                                uci.set('podkop', 'main', 'dns_rewrite_ttl', '60');
+                                uci.set('podkop', 'main', 'cache_file', '/tmp/cache.db');
+                                uci.set('podkop', 'main', 'iface', ['br-lan']);
+                                uci.set('podkop', 'main', 'ss_uot', '0');
+
+                                // Remove all extra sections
+                                uci.sections('podkop', 'extra', (s) => {
+                                    uci.remove('podkop', s['.name']);
+                                });
+
+                                // Save changes
+                                return uci.save();
+                            })
+                        ]).then(() => {
+                            // Show success message
+                            ui.addNotification(null, E('p', {}, _('Settings have been reset to defaults')));
+                            // Reload the page to show updated settings
+                            window.location.reload();
+                        }).catch((error) => {
+                            ui.addNotification(null, E('p', {}, _('Failed to reset settings: ') + error.message));
+                        });
+                    }
+                }, _('Reset Settings'))
+            ])
+        ]);
+    },
     async render() {
         document.head.insertAdjacentHTML('beforeend', `
             <style>
