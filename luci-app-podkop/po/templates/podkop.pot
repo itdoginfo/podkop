@@ -1200,3 +1200,18 @@ msgstr ""
 
 msgid "Reset Settings"
 msgstr ""
+
+msgid "Proxy Servers"
+msgstr ""
+
+msgid "Server List"
+msgstr ""
+
+msgid "Add your proxy servers here. Format: name url description"
+msgstr ""
+
+msgid "Each server must have at least a name and URL"
+msgstr ""
+
+msgid "Select proxy server from the list"
+msgstr ""

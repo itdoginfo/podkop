@@ -81,6 +81,8 @@ start() {
 
     mkdir -p /tmp/podkop
 
+    update_subscriptions
+
     # base
     route_table_rule_mark
     create_nft_table
@@ -97,7 +99,7 @@ start() {
     process_socks5
 
     # sing-box outbounds and rules
-    config_foreach sing_box_outdound
+    config_foreach sing_box_outbound
     config_foreach process_domains_for_section
     config_foreach sing_box_rule_preset
     config_foreach process_domains_list_local
@@ -571,6 +573,8 @@ list_update() {
     config_foreach process_remote_ruleset_subnet
     config_foreach process_domains_list_url
     config_foreach process_subnet_for_section_remote
+    
+    update_subscriptions
 }
 
 find_working_resolver() {
@@ -859,8 +863,11 @@ sing_box_cache_file() {
     }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
 }
 
-sing_box_outdound() {
+sing_box_outbound() {
     local section="$1"
+
+    # Skip proxy_servers section
+    [ "$section" = "proxy_servers" ] && return 0
 
     config_get mode "$section" "mode"
     case "$mode" in
@@ -887,6 +894,48 @@ sing_box_outdound() {
                 sing_box_config_outbound_json "$outbound_json" "$section"
             else
                 log "Missing outbound JSON configuration"
+                return
+            fi
+        elif [ "$proxy_config_type" = "server" ]; then
+            log "Using saved server configuration"
+            config_get selected_server $section "selected_server"
+            if [ -n "$selected_server" ]; then
+                # Check if this is a saved server or subscription server
+                local is_saved=0
+                config_get saved_servers "proxy_servers" "server"
+                for server in $saved_servers; do
+                    if [ "$server" = "$selected_server" ]; then
+                        is_saved=1
+                        break
+                    fi
+                done
+
+                # If not in saved servers, check subscriptions
+                if [ "$is_saved" -eq 0 ] && [ -d "/tmp/podkop/subscriptions" ]; then
+                    for file in /tmp/podkop/subscriptions/*.conf; do
+                        if [ -f "$file" ] && grep -Fxq "$selected_server" "$file"; then
+                            is_saved=1
+                            break
+                        fi
+                    done
+                fi
+
+                if [ "$is_saved" -eq 1 ]; then
+                    if [[ "$selected_server" =~ ^ss:// ]]; then
+                        config_get ss_uot $section "ss_uot"
+                        sing_box_config_shadowsocks "$section" "$selected_server" "$ss_uot"
+                    elif [[ "$selected_server" =~ ^vless:// ]]; then
+                        sing_box_config_vless "$section" "$selected_server"
+                    else
+                        log "Unsupported proxy type in saved server"
+                        return
+                    fi
+                else
+                    log "Selected server not found in saved servers or subscriptions"
+                    return
+                fi
+            else
+                log "No server selected"
                 return
             fi
         else
@@ -1326,6 +1375,9 @@ sing_box_ruleset_subnets_json() {
 process_domains_for_section() {
     local section="$1"
 
+    # Skip proxy_servers section
+    [ "$section" = "proxy_servers" ] && return 0
+
     config_get custom_domains_list_type "$section" "custom_domains_list_type" "disabled"
 
     if [ "$custom_domains_list_type" != "disabled" ]; then
@@ -1460,6 +1512,10 @@ sing_box_quic_reject() {
 }
 
 process_remote_ruleset_srs() {
+    local section="$1"
+    # Skip proxy_servers section
+    [ "$section" = "proxy_servers" ] && return 0
+
     config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
     if [ "$domain_list_enabled" -eq 1 ]; then
         log "Adding a srs list for $section"
@@ -1476,6 +1532,10 @@ process_remote_ruleset_subnet() {
 }
 
 sing_box_rule_preset() {
+    local section="$1"
+    # Skip proxy_servers section
+    [ "$section" = "proxy_servers" ] && return 0
+
     config_get custom_domains_list_type "$section" "custom_domains_list_type"
     config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled"
     config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
@@ -1518,6 +1578,9 @@ list_custom_local_domains_create() {
 process_domains_list_local() {
     local section="$1"
 
+    # Skip proxy_servers section
+    [ "$section" = "proxy_servers" ] && return 0
+
     config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
     if [ "$custom_local_domains_list_enabled" -eq 1 ]; then
         log "Adding a custom domains list from file in $section"
@@ -1550,6 +1613,9 @@ process_domains_list_url() {
 
 process_subnet_for_section() {
     local section="$1"
+
+    # Skip proxy_servers section
+    [ "$section" = "proxy_servers" ] && return 0
 
     config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled" "disabled"
     if [ "$custom_subnets_list_enabled" != "disabled" ]; then
@@ -1591,6 +1657,9 @@ process_subnet_for_section_remote() {
 
 process_all_traffic_for_section() {
     local section="$1"
+
+    # Skip proxy_servers section
+    [ "$section" = "proxy_servers" ] && return 0
 
     config_get all_traffic_from_ip_enabled "$section" "all_traffic_from_ip_enabled"
     if [ "$all_traffic_from_ip_enabled" -eq "1" ]; then
@@ -2161,6 +2230,73 @@ sing_box_add_secure_dns_probe_domain() {
     log "DNS probe domain ${domain} configured with override to port ${override_port}"
 }
 
+update_subscriptions() {
+    log "Updating proxy server subscriptions"
+    mkdir -p /tmp/podkop/subscriptions
+
+    # Clear old subscription servers
+    rm -f /tmp/podkop/subscriptions/*.conf
+
+    # Get subscription URLs from config
+    config_load "podkop"
+    local urls
+    config_get urls "proxy_servers" "subscription_urls"
+
+    if [ -z "$urls" ]; then
+        log "No subscription URLs configured"
+        return 0
+    fi
+
+    for url in $urls; do
+        local filename=$(echo "$url" | md5sum | cut -d' ' -f1)
+        local tmpfile="/tmp/podkop/subscriptions/${filename}.conf"
+        
+        log "Downloading subscription from $url"
+        
+        # Download and decode base64 content
+        if curl -s "$url" | base64 -d > "$tmpfile.tmp" 2>/dev/null; then
+            # Validate and filter servers
+            while IFS= read -r line; do
+                if [[ "$line" =~ ^vless:// ]] || [[ "$line" =~ ^ss:// ]]; then
+                    echo "$line" >> "$tmpfile"
+                fi
+            done < "$tmpfile.tmp"
+            rm -f "$tmpfile.tmp"
+            
+            if [ -s "$tmpfile" ]; then
+                log "Successfully updated subscription from $url"
+            else
+                log "No valid servers found in subscription from $url"
+                rm -f "$tmpfile"
+            fi
+        else
+            log "Failed to download or decode subscription from $url"
+        fi
+    done
+}
+
+get_all_servers() {
+    # First get saved servers from UCI config
+    config_load "podkop"
+    local saved_servers
+    config_get saved_servers "proxy_servers" "server"
+    
+    # Then add subscription servers
+    if [ -d "/tmp/podkop/subscriptions" ]; then
+        for file in /tmp/podkop/subscriptions/*.conf; do
+            if [ -f "$file" ]; then
+                while IFS= read -r line; do
+                    if [ -n "$line" ]; then
+                        saved_servers="$saved_servers $line"
+                    fi
+                done < "$file"
+            fi
+        done
+    fi
+    
+    echo "$saved_servers"
+}
+
 case "$1" in
     start)
         start
@@ -2229,8 +2365,14 @@ case "$1" in
     check_dns_available)
         check_dns_available
         ;;
+    update_subscriptions)
+        update_subscriptions
+        ;;
+    get_all_servers)
+        get_all_servers
+        ;;
     *)
-        echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available}"
+        echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available|update_subscriptions|get_all_servers}"
         exit 1
         ;;
 esac 

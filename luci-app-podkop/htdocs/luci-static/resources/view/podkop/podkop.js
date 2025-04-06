@@ -73,6 +73,7 @@ function getNetworkInterfaces(o, section_id, excludeInterfaces = []) {
 function createConfigSection(section, map, network) {
     const s = section;
 
+    // Basic Settings Tab
     let o = s.tab('basic', _('Basic Settings'));
 
     o = s.taboption('basic', form.ListValue, 'mode', _('Connection Type'), _('Select between VPN and Proxy connection methods for traffic routing'));
@@ -83,15 +84,39 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.ListValue, 'proxy_config_type', _('Configuration Type'), _('Select how to configure the proxy'));
     o.value('url', _('Connection URL'));
     o.value('outbound', _('Outbound Config'));
+    o.value('server', _('Saved Server'));
     o.default = 'url';
     o.depends('mode', 'proxy');
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _(''));
+    // Server selection dropdown
+    o = s.taboption('basic', form.ListValue, 'selected_server', _('Saved Server'), _('Select a saved proxy server'));
+    o.depends('proxy_config_type', 'server');
+    o.ucisection = s.section;
+    o.load = function (section_id) {
+        return Promise.all([
+            uci.load('podkop'),
+            safeExec('/usr/bin/podkop', ['get_all_servers'])
+        ]).then(([_, result]) => {
+            const allServers = result.stdout.trim().split(/\s+/).filter(Boolean);
+            allServers.forEach(server => {
+                if (server.includes('#')) {
+                    const [url, label] = server.split('#');
+                    if (url && label) {
+                        const decodedLabel = decodeURIComponent(label);
+                        this.value(server, decodedLabel);
+                    }
+                }
+            });
+            return this.super('load', section_id);
+        });
+    };
+
+    // Original URL input field
+    o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'));
     o.depends('proxy_config_type', 'url');
     o.rows = 5;
     o.ucisection = s.section;
-    o.sectionDescriptions = new Map();
     o.placeholder = 'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt';
 
     o.renderWidget = function (section_id, option_index, cfgvalue) {
@@ -126,12 +151,10 @@ function createConfigSection(section, map, network) {
                 const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Config without description'));
                 container.appendChild(descDiv);
             }
-        } else {
-            const defaultDesc = E('div', { 'class': 'cbi-value-description' },
-                _('Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs'));
-            container.appendChild(defaultDesc);
         }
-
+        const defaultDesc = E('div', { 'class': 'cbi-value-description' },
+            _('Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs'));
+        container.appendChild(defaultDesc);
         return container;
     };
 
@@ -242,6 +265,7 @@ function createConfigSection(section, map, network) {
         }
     };
 
+    // Outbound configuration
     o = s.taboption('basic', form.TextValue, 'outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
     o.depends('proxy_config_type', 'outbound');
     o.rows = 10;
@@ -1612,6 +1636,125 @@ return view.extend({
         extraSection.addbtntitle = _('Add Section');
         extraSection.multiple = true;
         createConfigSection(extraSection, m, network);
+
+        // Add a separator section
+        const separatorSection = m.section(form.TypedSection, 'separator');
+        separatorSection.anonymous = true;
+        separatorSection.render = function () {
+            return E('div', { 'class': 'cbi-section' }, E('hr'));
+        };
+
+        // Add a shared 'Proxy Servers' tab for all sections
+        const sharedSection = m.section(form.NamedSection, 'proxy_servers', 'proxy_servers', _('Proxy Servers'));
+        sharedSection.anonymous = true;
+
+        // Add subscription URLs list
+        let subscriptionOption = sharedSection.option(form.DynamicList, 'subscription_urls', _('Subscription URLs'),
+            _('Add VLESS subscription URLs. Servers from subscriptions will be available in the selection dropdown.'));
+        subscriptionOption.placeholder = 'https://example.com/sub/...';
+        subscriptionOption.rmempty = true;
+        subscriptionOption.validate = function (section_id, value) {
+            if (!value) return true;
+
+            try {
+                const url = new URL(value);
+                if (!url.protocol.match(/^https?:$/)) {
+                    return _('URL must use HTTP or HTTPS protocol');
+                }
+                return true;
+            } catch (e) {
+                return _('Invalid URL format');
+            }
+        };
+        subscriptionOption.write = function (section_id, value) {
+            return uci.load('podkop').then(() => {
+                if (!Array.isArray(value)) {
+                    value = [value];
+                }
+                uci.set('podkop', 'proxy_servers', 'subscription_urls', value);
+                return uci.save();
+            });
+        };
+
+        let isProcessingSubscriptionChange = false;
+        subscriptionOption.onchange = function (ev, section_id, value) {
+            if (isProcessingSubscriptionChange) return;
+            isProcessingSubscriptionChange = true;
+
+            try {
+                if (value !== null) {
+                    this.getUIElement(section_id).setValue(value);
+                    this.write(section_id, value).finally(() => {
+                        isProcessingSubscriptionChange = false;
+                    });
+                }
+            } catch (e) {
+                console.error('Error in onchange:', e);
+                isProcessingSubscriptionChange = false;
+                throw e;
+            }
+        };
+
+        // Server List
+        let sharedOption = sharedSection.option(form.DynamicList, 'server', _('Server List'),
+            _('Add your proxy servers here. Format: config_string#label'));
+        sharedOption.placeholder = 'vless://...#My Server Description';
+        sharedOption.rmempty = true;
+        sharedOption.ucisection = 'proxy_servers';
+        sharedOption.load = function (section_id) {
+            return uci.load('podkop').then(() => {
+                const servers = uci.get('podkop', 'proxy_servers', 'server') || [];
+                this.value = Array.isArray(servers) ? servers : [servers];
+                return Promise.resolve(this.value);
+            });
+        };
+        sharedOption.validate = function (section_id, value) {
+            if (!value) return true;
+
+            if (!value.includes('#')) {
+                return _('Each server must have a label after #');
+            }
+
+            const [url] = value.split('#');
+            if (!url.startsWith('vless://') && !url.startsWith('ss://')) {
+                return _('URL must start with vless:// or ss://');
+            }
+
+            return true;
+        };
+        sharedOption.write = function (section_id, value) {
+            return uci.load('podkop').then(() => {
+                if (!Array.isArray(value)) {
+                    value = [value];
+                }
+                uci.set('podkop', 'proxy_servers', 'server', value);
+                return uci.save().then(() => {
+                    ui.addNotification(null, E('p', {}, _('Server list has been updated. Click "Save & Apply" to apply changes.')));
+                    window.location.reload();
+                }).catch((error) => {
+                    ui.addNotification(null, E('p', {}, _('Failed to save changes: ') + error.message));
+                });
+            });
+        };
+
+        let isProcessingChange = false;
+        sharedOption.onchange = function (ev, section_id, value) {
+            if (isProcessingChange) return;
+            isProcessingChange = true;
+
+            try {
+                if (value !== null) {
+                    this.getUIElement(section_id).setValue(value);
+                    this.write(section_id, value).finally(() => {
+                        isProcessingChange = false;
+                    });
+                }
+            } catch (e) {
+                console.error('Error in onchange:', e);
+                isProcessingChange = false;
+                throw e;
+            }
+        };
 
         const map_promise = m.render().then(node => {
             const titleDiv = E('h2', { 'class': 'cbi-map-title' }, _('Podkop'));

@@ -1,3 +1,8 @@
+# Proxy servers configuration
+config proxy_servers 'proxy_servers'
+	option enabled '1'
+	# list server 'server_name url description'
+
 config main 'main'
 	option mode 'proxy'
 	#option interface ''
