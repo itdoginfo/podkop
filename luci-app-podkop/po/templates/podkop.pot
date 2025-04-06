@@ -1170,3 +1170,18 @@ msgstr ""
 
 msgid "unavailable"
 msgstr ""
+
+msgid "Proxy configuration URL cannot be empty when proxy mode is selected"
+msgstr ""
+
+msgid "Outbound configuration cannot be empty when proxy mode is selected"
+msgstr ""
+
+msgid "Duplicate values found"
+msgstr ""
+
+msgid "Warning: %s already used and have been removed from selection."
+msgstr ""
+
+msgid "Warning: %s cannot be used with Russia inside. These options have been removed."
+msgstr ""

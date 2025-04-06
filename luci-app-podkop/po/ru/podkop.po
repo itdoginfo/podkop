@@ -813,3 +813,18 @@ msgstr "доступен"
 
 msgid "unavailable"
 msgstr "недоступен"
+
+msgid "Proxy configuration URL cannot be empty when proxy mode is selected"
+msgstr "URL конфигурации прокси не может быть пустым при выбранном режиме прокси"
+
+msgid "Outbound configuration cannot be empty when proxy mode is selected"
+msgstr "Конфигурация исходящего соединения не может быть пустой при выбранном режиме прокси"
+
+msgid "Duplicate values found"
+msgstr "Найдены дублирующиеся значения"
+
+msgid "Warning: %s already used and have been removed from selection."
+msgstr "Внимание: %s уже используется и были удалены из выбора."
+
+msgid "Warning: %s cannot be used with Russia inside. These options have been removed."
+msgstr "Внимание: %s нельзя использовать с Russia inside. Эти опции были удалены."

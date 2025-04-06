@@ -14,6 +14,14 @@ const STATUS_COLORS = {
 
 const ERROR_POLL_INTERVAL = 5000; // 5 seconds
 
+const REGIONAL_OPTIONS = ['russia_inside', 'russia_outside', 'ukraine_inside'];
+const RESTRICTED_WITH_RUSSIA_INSIDE = ['geoblock', 'block', 'porn', 'news', 'anime', 'youtube', 'hdrezka', 'tiktok'];
+
+const selectedDomainLists = {
+    main: new Set(),
+    extra: new Map() // Map of section_id -> Set of values
+};
+
 async function safeExec(command, args = [], timeout = 7000) {
     try {
         const controller = new AbortController();
@@ -129,7 +137,7 @@ function createConfigSection(section, map, network) {
 
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) {
-            return true;
+            return _('Proxy configuration URL cannot be empty when proxy mode is selected');
         }
 
         try {
@@ -239,7 +247,9 @@ function createConfigSection(section, map, network) {
     o.rows = 10;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
+        if (!value || value.length === 0) {
+            return _('Outbound configuration cannot be empty when proxy mode is selected');
+        }
         try {
             const parsed = JSON.parse(value);
             if (!parsed.type || !parsed.server || !parsed.server_port) {
@@ -292,6 +302,37 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
 
+    const originalLoad = o.load;
+
+    o.load = function (section_id) {
+        return Promise.all([
+            originalLoad.call(this, section_id),
+            uci.load('podkop')
+        ]).then(([result, config]) => {
+            const allValues = new Set();
+
+            if (this.keylist) {
+                this.keylist.forEach(value => allValues.add(value));
+            }
+
+            if (config.main && config.main.domain_list) {
+                config.main.domain_list.forEach(value => allValues.add(value));
+            }
+
+            Object.keys(config).forEach(section => {
+                if (section.startsWith('extra_') && config[section].domain_list) {
+                    config[section].domain_list.forEach(value => allValues.add(value));
+                }
+            });
+
+            // Update the keylist and vallist with all values
+            this.keylist = Array.from(allValues);
+            this.vallist = Array.from(allValues);
+
+            return result;
+        });
+    };
+
     let lastValues = [];
     let isProcessing = false;
 
@@ -304,13 +345,50 @@ function createConfigSection(section, map, network) {
             let newValues = [...values];
             let notifications = [];
 
-            const regionalOptions = ['russia_inside', 'russia_outside', 'ukraine_inside'];
-            const selectedRegionalOptions = regionalOptions.filter(opt => newValues.includes(opt));
+            const usedValues = new Set();
+
+            if (section_id !== 'main') {
+                selectedDomainLists.main.forEach(v => usedValues.add(v));
+            }
+
+            selectedDomainLists.extra.forEach((values, extraSectionId) => {
+                if (extraSectionId !== section_id) {
+                    values.forEach(v => usedValues.add(v));
+                }
+            });
+
+            const russiaInsideUsed = selectedDomainLists.main.has('russia_inside') ||
+                Array.from(selectedDomainLists.extra.values()).some(set => set.has('russia_inside'));
+
+            if (russiaInsideUsed || newValues.includes('russia_inside')) {
+                const restrictedServices = newValues.filter(v => RESTRICTED_WITH_RUSSIA_INSIDE.includes(v));
+                if (restrictedServices.length > 0) {
+                    newValues = newValues.filter(v => !RESTRICTED_WITH_RUSSIA_INSIDE.includes(v));
+                    notifications.push(E('p', { class: 'alert-message warning' }, [
+                        E('strong', {}, _('Russia inside restrictions')), E('br'),
+                        _('Warning: %s cannot be used with Russia inside. These options have been removed.')
+                            .format(restrictedServices.join(', '))
+                    ]));
+                }
+            }
+
+            const duplicates = newValues.filter(v => usedValues.has(v));
+
+            if (duplicates.length > 0) {
+                newValues = newValues.filter(v => !duplicates.includes(v));
+                notifications.push(E('p', { class: 'alert-message warning' }, [
+                    E('strong', {}, _('Duplicate values found')), E('br'),
+                    _('Warning: %s already used and have been removed from selection.')
+                        .format(duplicates.join(', '))
+                ]));
+            }
+
+            const selectedRegionalOptions = REGIONAL_OPTIONS.filter(opt => newValues.includes(opt));
 
             if (selectedRegionalOptions.length > 1) {
                 const lastSelected = selectedRegionalOptions[selectedRegionalOptions.length - 1];
                 const removedRegions = selectedRegionalOptions.slice(0, -1);
-                newValues = newValues.filter(v => v === lastSelected || !regionalOptions.includes(v));
+                newValues = newValues.filter(v => v === lastSelected || !REGIONAL_OPTIONS.includes(v));
                 notifications.push(E('p', { class: 'alert-message warning' }, [
                     E('strong', {}, _('Regional options cannot be used together')), E('br'),
                     _('Warning: %s cannot be used together with %s. Previous selections have been removed.')
@@ -318,21 +396,14 @@ function createConfigSection(section, map, network) {
                 ]));
             }
 
-            if (newValues.includes('russia_inside')) {
-                const allowedWithRussiaInside = ['russia_inside', 'meta', 'twitter', 'discord', 'telegram'];
-                const removedServices = newValues.filter(v => !allowedWithRussiaInside.includes(v));
-                if (removedServices.length > 0) {
-                    newValues = newValues.filter(v => allowedWithRussiaInside.includes(v));
-                    notifications.push(E('p', { class: 'alert-message warning' }, [
-                        E('strong', {}, _('Russia inside restrictions')), E('br'),
-                        _('Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection.')
-                            .format(removedServices.join(', '))
-                    ]));
-                }
-            }
-
             if (JSON.stringify(newValues.sort()) !== JSON.stringify(values.sort())) {
                 this.getUIElement(section_id).setValue(newValues);
+            }
+
+            if (section_id === 'main') {
+                selectedDomainLists.main = new Set(newValues);
+            } else {
+                selectedDomainLists.extra.set(section_id, new Set(newValues));
             }
 
             notifications.forEach(notification => ui.addNotification(null, notification));
@@ -957,6 +1028,33 @@ return view.extend({
         `);
 
         const m = new form.Map('podkop', _(''), null, ['main', 'extra']);
+
+        try {
+            await uci.load('podkop');
+
+            selectedDomainLists.main = new Set();
+            selectedDomainLists.extra = new Map();
+
+            const mainDomainList = uci.get('podkop', 'main', 'domain_list');
+            if (mainDomainList) {
+                const mainValues = Array.isArray(mainDomainList) ?
+                    mainDomainList :
+                    [mainDomainList];
+                mainValues.forEach(v => selectedDomainLists.main.add(v));
+            }
+
+            const sections = uci.sections('podkop');
+            sections.forEach(section => {
+                if (section['.type'] === 'extra' && section.domain_list) {
+                    const extraValues = Array.isArray(section.domain_list) ?
+                        section.domain_list :
+                        [section.domain_list];
+                    selectedDomainLists.extra.set(section['.name'], new Set(extraValues));
+                }
+            });
+        } catch (e) {
+            console.error('Error initializing selectedDomainLists:', e);
+        }
 
         // Main Section
         const mainSection = m.section(form.TypedSection, 'main');
