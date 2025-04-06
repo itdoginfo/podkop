@@ -366,7 +366,7 @@ function createConfigSection(section, map, network) {
                     newValues = newValues.filter(v => !RESTRICTED_WITH_RUSSIA_INSIDE.includes(v));
                     notifications.push(E('p', { class: 'alert-message warning' }, [
                         E('strong', {}, _('Russia inside restrictions')), E('br'),
-                        _('Warning: %s cannot be used with Russia inside. These options have been removed.')
+                        _('Warning: Russia inside contains %s, so these options have been removed.')
                             .format(restrictedServices.join(', '))
                     ]));
                 }

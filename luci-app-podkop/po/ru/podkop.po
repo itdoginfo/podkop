@@ -826,5 +826,5 @@ msgstr "Найдены дублирующиеся значения"
 msgid "Warning: %s already used and have been removed from selection."
 msgstr "Внимание: %s уже используется и были удалены из выбора."
 
-msgid "Warning: %s cannot be used with Russia inside. These options have been removed."
-msgstr "Внимание: %s нельзя использовать с Russia inside. Эти опции были удалены."
+msgid "Warning: Russia inside contains %s, so these options have been removed."
+msgstr "Внимание: Russia inside содержит %s, поэтому эти опции были удалены."

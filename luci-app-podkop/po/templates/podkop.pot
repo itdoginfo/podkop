@@ -274,6 +274,9 @@ msgstr ""
 msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
+msgid "Warning: Russia inside contains %s, so these options have been removed."
+msgstr "Warning: Russia inside contains %s, so these options have been removed."
+
 msgid "Russia inside restrictions"
 msgstr ""
 
@@ -1181,7 +1184,4 @@ msgid "Duplicate values found"
 msgstr ""
 
 msgid "Warning: %s already used and have been removed from selection."
-msgstr ""
-
-msgid "Warning: %s cannot be used with Russia inside. These options have been removed."
 msgstr ""
