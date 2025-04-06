@@ -1991,9 +1991,15 @@ show_system_info() {
 get_sing_box_status() {
     local running=0
     local enabled=0
+    local installed=0
     local status=""
     local version=""
     local dns_configured=0
+
+    # Check if sing-box is installed
+    if command -v sing-box >/dev/null 2>&1; then
+        installed=1
+    fi
 
     # Check if service is enabled
     if [ -x /etc/rc.d/S99sing-box ]; then
@@ -2013,7 +2019,9 @@ get_sing_box_status() {
     fi
 
     # Format status message
-    if [ $running -eq 1 ]; then
+    if [ $installed -eq 0 ]; then
+        status="not installed"
+    elif [ $running -eq 1 ]; then
         if [ $enabled -eq 1 ]; then
             status="running & enabled"
         else
@@ -2027,8 +2035,8 @@ get_sing_box_status() {
         fi
     fi
 
-    echo "{\"running\":$running,\"enabled\":$enabled,\"status\":\"$status\",\"dns_configured\":$dns_configured}"
-}
+    echo "{\"running\":$running,\"enabled\":$enabled,\"installed\":$installed,\"status\":\"$status\",\"dns_configured\":$dns_configured}"
+} 
 
 get_status() {
     local running=0
@@ -2225,4 +2233,4 @@ case "$1" in
         echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available}"
         exit 1
         ;;
-esac
+esac 

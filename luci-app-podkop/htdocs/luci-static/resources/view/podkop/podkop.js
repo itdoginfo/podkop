@@ -732,6 +732,30 @@ const createStatusPanel = (title, status, buttons) => {
         ])
     ].filter(Boolean);
 
+    // If this is the sing-box panel and sing-box is not installed, show install button instead
+    if (title === 'Sing-box Status' && status && !status.installed) {
+        return E('div', {
+            'class': 'panel',
+            'style': 'flex: 1; padding: 15px;'
+        }, [
+            E('div', { 'class': 'panel-heading' }, headerContent),
+            E('div', {
+                'class': 'panel-body',
+                'style': 'display: flex; flex-direction: column; gap: 8px;'
+            }, [
+                E('button', {
+                    'class': 'btn cbi-button-apply',
+                    'click': () => {
+                        window.location.href = '/cgi-bin/luci/admin/system/package-manager?query=sing-box';
+                    }
+                }, _('Install Sing-box')),
+                E('div', { 'class': 'panel-body' }, [
+                    E('span', {}, _('Sing-box is needed to use Podkop. Please install it.'))
+                ])
+            ])
+        ]);
+    }
+
     return E('div', {
         'class': 'panel',
         'style': 'flex: 1; padding: 15px;'
