@@ -22,6 +22,9 @@ const selectedDomainLists = {
     extra: new Map() // Map of section_id -> Set of values
 };
 
+let globalServerList = [];
+let globalServerValues = new Map(); // Store shared values for all sections
+
 async function safeExec(command, args = [], timeout = 7000) {
     try {
         const controller = new AbortController();
@@ -93,23 +96,27 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.ListValue, 'selected_server', _('Saved Server'), _('Select a saved proxy server'));
     o.depends('proxy_config_type', 'server');
     o.ucisection = s.section;
+    o.rmempty = true;
     o.load = function (section_id) {
-        return Promise.all([
-            uci.load('podkop'),
-            safeExec('/usr/bin/podkop', ['get_all_servers'])
-        ]).then(([_, result]) => {
-            const allServers = result.stdout.trim().split(/\s+/).filter(Boolean);
-            allServers.forEach(server => {
-                if (server.includes('#')) {
-                    const [url, label] = server.split('#');
-                    if (url && label) {
-                        const decodedLabel = decodeURIComponent(label);
-                        this.value(server, decodedLabel);
-                    }
+        this.keylist = [];
+        this.vallist = [];
+
+        // Add empty value first
+        this.value('', _('-- Please select --'));
+
+        if (globalServerValues.size === 0) {
+            globalServerList.forEach(server => {
+                if (server.url && server.label) {
+                    globalServerValues.set(server.url, server.label);
                 }
             });
-            return this.super('load', section_id);
+        }
+
+        globalServerValues.forEach((label, url) => {
+            this.value(url, label);
         });
+
+        return this.super('load', section_id);
     };
 
     // Original URL input field
@@ -1151,6 +1158,33 @@ return view.extend({
         try {
             await uci.load('podkop');
 
+            // Clear global values before initialization
+            globalServerList = [];
+            globalServerValues.clear();
+
+            // Load servers once at initialization
+            const serverResult = await safeExec('/usr/bin/podkop', ['get_all_servers']);
+            const allServers = serverResult.stdout.trim().split(/\s+/).filter(Boolean);
+            globalServerList = allServers.map(server => {
+                if (server.includes('#')) {
+                    const [url, label] = server.split('#');
+                    if (url && label) {
+                        return {
+                            url: server,
+                            label: decodeURIComponent(label)
+                        };
+                    }
+                }
+                return null;
+            }).filter(Boolean);
+
+            // Initialize global server values
+            globalServerList.forEach(server => {
+                if (server.url && server.label) {
+                    globalServerValues.set(server.url, server.label);
+                }
+            });
+
             selectedDomainLists.main = new Set();
             selectedDomainLists.extra = new Map();
 
@@ -1178,25 +1212,71 @@ return view.extend({
         // Main Section
         const mainSection = m.section(form.TypedSection, 'main');
         mainSection.anonymous = true;
-        createConfigSection(mainSection, m, network);
 
-        // Additional Settings Tab (main section)
-        let o = mainSection.tab('additional', _('Additional Settings'));
+        // Basic Settings Tab
+        let o = mainSection.tab('basic', _('Basic Settings'));
+
+        // Add subscription URLs list
+        o = mainSection.taboption('basic', form.DynamicList, 'subscription_urls', _('Subscription URLs'),
+            _('Add VLESS subscription URLs. Servers from subscriptions will be available in the selection dropdown.'));
+        o.placeholder = 'https://example.com/sub/...';
+        o.rmempty = true;
+        o.validate = function (section_id, value) {
+            if (!value) return true;
+
+            try {
+                const url = new URL(value);
+                if (!url.protocol.match(/^https?:$/)) {
+                    return _('URL must use HTTP or HTTPS protocol');
+                }
+                return true;
+            } catch (e) {
+                return _('Invalid URL format');
+            }
+        };
+
+        // Server List
+        o = mainSection.taboption('basic', form.DynamicList, 'server', _('Server List'),
+            _('Add your proxy servers here. Format: config_string#label'));
+        o.placeholder = 'vless://...#My Server Description';
+        o.rmempty = true;
+        o.validate = function (section_id, value) {
+            if (!value) return true;
+
+            if (!value.includes('#')) {
+                return _('Each server must have a label after #');
+            }
+
+            const [url, label] = value.split('#');
+            if (!url.startsWith('vless://') && !url.startsWith('ss://')) {
+                return _('URL must start with vless:// or ss://');
+            }
+
+            if (!label || label.trim().length === 0) {
+                return _('Label after # cannot be empty');
+            }
+
+            return true;
+        };
+
+        o = mainSection.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
+        o.default = '0';
+        o.rmempty = false;
+
+        // Additional Settings Tab
+        o = mainSection.tab('additional', _('Additional Settings'));
 
         o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>'));
         o.default = '0';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
         o.default = '0';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.Flag, 'quic_disable', _('QUIC disable'), _('For issues with the video stream'));
         o.default = '0';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.ListValue, 'update_interval', _('List Update Frequency'), _('Select how often the lists will be updated'));
         o.value('1h', _('Every hour'));
@@ -1206,7 +1286,6 @@ return view.extend({
         o.value('3d', _('Every 3 days'));
         o.default = '1d';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.ListValue, 'dns_type', _('DNS Protocol Type'), _('Select DNS protocol to use'));
         o.value('doh', _('DNS over HTTPS (DoH)'));
@@ -1214,7 +1293,6 @@ return view.extend({
         o.value('udp', _('UDP (Unprotected DNS)'));
         o.default = 'doh';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.Value, 'dns_server', _('DNS Server'), _('Select or enter DNS server address'));
         o.value('1.1.1.1', 'Cloudflare (1.1.1.1)');
@@ -1225,7 +1303,6 @@ return view.extend({
         o.value('family.adguard-dns.com', 'AdGuard Family (family.adguard-dns.com)');
         o.default = '8.8.8.8';
         o.rmempty = false;
-        o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value) {
                 return _('DNS server address cannot be empty');
@@ -1254,7 +1331,6 @@ return view.extend({
         o = mainSection.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 600)'));
         o.default = '60';
         o.rmempty = false;
-        o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value) {
                 return _('TTL value cannot be empty');
@@ -1273,7 +1349,6 @@ return view.extend({
         o.value('/usr/share/sing-box/cache.db', 'Flash (/usr/share/sing-box/cache.db)');
         o.default = '/tmp/cache.db';
         o.rmempty = false;
-        o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value) {
                 return _('Cache file path cannot be empty');
@@ -1296,7 +1371,6 @@ return view.extend({
         };
 
         o = mainSection.taboption('additional', form.MultiValue, 'iface', _('Source Network Interface'), _('Select the network interface from which the traffic will originate'));
-        o.ucisection = 'main';
         o.default = 'br-lan';
         o.load = function (section_id) {
             return getNetworkInterfaces(this, section_id, ['wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan']).then(() => {
@@ -1304,35 +1378,7 @@ return view.extend({
             });
         };
 
-        // Extra IPs and exclusions (main section)
-        o = mainSection.taboption('basic', form.Flag, 'exclude_from_ip_enabled', _('IP for exclusion'), _('Specify local IP addresses that will never use the configured route'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = mainSection.taboption('basic', form.DynamicList, 'exclude_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
-        o.placeholder = 'IP';
-        o.depends('exclude_from_ip_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) return true;
-            const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-            if (!ipRegex.test(value)) return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
-            const ipParts = value.split('.');
-            for (const part of ipParts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) return _('IP address parts must be between 0 and 255');
-            }
-            return true;
-        };
-
-        o = mainSection.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        // Diagnostics Tab (main section)
+        // Diagnostics Tab
         o = mainSection.tab('diagnostics', _('Diagnostics'));
 
         o = mainSection.taboption('diagnostics', form.DummyValue, '_status');
@@ -1341,6 +1387,21 @@ return view.extend({
             id: 'diagnostics-status',
             'style': 'cursor: pointer;'
         }, _('Click to load diagnostics...'));
+
+        // Extra Section
+        const extraSection = m.section(form.TypedSection, 'extra', _('Сonfigurations'));
+        extraSection.anonymous = false;
+        extraSection.addremove = true;
+        extraSection.addbtntitle = _('Add Section');
+        extraSection.multiple = true;
+        createConfigSection(extraSection, m, network);
+
+        // Add a separator section
+        const separatorSection = m.section(form.TypedSection, 'separator');
+        separatorSection.anonymous = true;
+        separatorSection.render = function () {
+            return E('div', { 'class': 'cbi-section' }, E('hr'));
+        };
 
         let diagnosticsUpdateTimer = null;
 
@@ -1628,133 +1689,6 @@ return view.extend({
                 }
             }
         }
-
-        // Extra Section
-        const extraSection = m.section(form.TypedSection, 'extra', _('Extra configurations'));
-        extraSection.anonymous = false;
-        extraSection.addremove = true;
-        extraSection.addbtntitle = _('Add Section');
-        extraSection.multiple = true;
-        createConfigSection(extraSection, m, network);
-
-        // Add a separator section
-        const separatorSection = m.section(form.TypedSection, 'separator');
-        separatorSection.anonymous = true;
-        separatorSection.render = function () {
-            return E('div', { 'class': 'cbi-section' }, E('hr'));
-        };
-
-        // Add a shared 'Proxy Servers' tab for all sections
-        const sharedSection = m.section(form.NamedSection, 'proxy_servers', 'proxy_servers', _('Proxy Servers'));
-        sharedSection.anonymous = true;
-
-        // Add subscription URLs list
-        let subscriptionOption = sharedSection.option(form.DynamicList, 'subscription_urls', _('Subscription URLs'),
-            _('Add VLESS subscription URLs. Servers from subscriptions will be available in the selection dropdown.'));
-        subscriptionOption.placeholder = 'https://example.com/sub/...';
-        subscriptionOption.rmempty = true;
-        subscriptionOption.validate = function (section_id, value) {
-            if (!value) return true;
-
-            try {
-                const url = new URL(value);
-                if (!url.protocol.match(/^https?:$/)) {
-                    return _('URL must use HTTP or HTTPS protocol');
-                }
-                return true;
-            } catch (e) {
-                return _('Invalid URL format');
-            }
-        };
-        subscriptionOption.write = function (section_id, value) {
-            return uci.load('podkop').then(() => {
-                if (!Array.isArray(value)) {
-                    value = [value];
-                }
-                uci.set('podkop', 'proxy_servers', 'subscription_urls', value);
-                return uci.save();
-            });
-        };
-
-        let isProcessingSubscriptionChange = false;
-        subscriptionOption.onchange = function (ev, section_id, value) {
-            if (isProcessingSubscriptionChange) return;
-            isProcessingSubscriptionChange = true;
-
-            try {
-                if (value !== null) {
-                    this.getUIElement(section_id).setValue(value);
-                    this.write(section_id, value).finally(() => {
-                        isProcessingSubscriptionChange = false;
-                    });
-                }
-            } catch (e) {
-                console.error('Error in onchange:', e);
-                isProcessingSubscriptionChange = false;
-                throw e;
-            }
-        };
-
-        // Server List
-        let sharedOption = sharedSection.option(form.DynamicList, 'server', _('Server List'),
-            _('Add your proxy servers here. Format: config_string#label'));
-        sharedOption.placeholder = 'vless://...#My Server Description';
-        sharedOption.rmempty = true;
-        sharedOption.ucisection = 'proxy_servers';
-        sharedOption.load = function (section_id) {
-            return uci.load('podkop').then(() => {
-                const servers = uci.get('podkop', 'proxy_servers', 'server') || [];
-                this.value = Array.isArray(servers) ? servers : [servers];
-                return Promise.resolve(this.value);
-            });
-        };
-        sharedOption.validate = function (section_id, value) {
-            if (!value) return true;
-
-            if (!value.includes('#')) {
-                return _('Each server must have a label after #');
-            }
-
-            const [url] = value.split('#');
-            if (!url.startsWith('vless://') && !url.startsWith('ss://')) {
-                return _('URL must start with vless:// or ss://');
-            }
-
-            return true;
-        };
-        sharedOption.write = function (section_id, value) {
-            return uci.load('podkop').then(() => {
-                if (!Array.isArray(value)) {
-                    value = [value];
-                }
-                uci.set('podkop', 'proxy_servers', 'server', value);
-                return uci.save().then(() => {
-                    ui.addNotification(null, E('p', {}, _('Server list has been updated. Click "Save & Apply" to apply changes.')));
-                    window.location.reload();
-                }).catch((error) => {
-                    ui.addNotification(null, E('p', {}, _('Failed to save changes: ') + error.message));
-                });
-            });
-        };
-
-        let isProcessingChange = false;
-        sharedOption.onchange = function (ev, section_id, value) {
-            if (isProcessingChange) return;
-            isProcessingChange = true;
-
-            try {
-                if (value !== null) {
-                    this.getUIElement(section_id).setValue(value);
-                    this.write(section_id, value).finally(() => {
-                        isProcessingChange = false;
-                    });
-                }
-            } catch (e) {
-                console.error('Error in onchange:', e);
-                isProcessingChange = false;
-                throw e;
-            }
-        };
 
         const map_promise = m.render().then(node => {
             const titleDiv = E('h2', { 'class': 'cbi-map-title' }, _('Podkop'));
