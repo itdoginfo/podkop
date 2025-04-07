@@ -646,6 +646,10 @@ function createConfigSection(section, map, network) {
         }
         return true;
     };
+
+    o = s.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
+    o.default = '0';
+    o.rmempty = false;
 }
 
 // Utility functions
@@ -1056,6 +1060,59 @@ function stopErrorPolling() {
     }
 }
 
+// Add this helper function before the render() function
+function createCollapsibleSection(title, content, defaultOpen = false) {
+    const contentDiv = E('div', {
+        'class': 'collapsible-content',
+        'style': defaultOpen ? 'display:block' : 'display:none'
+    }, content);
+
+    return E('div', { 'class': 'cbi-section' }, [
+        E('h4', {
+            'class': 'collapsible-header',
+            'click': ev => {
+                const content = ev.target.nextElementSibling;
+                const isHidden = content.style.display === 'none';
+                content.style.display = isHidden ? 'block' : 'none';
+                ev.target.classList.toggle('open', isHidden);
+            },
+            'style': 'cursor:pointer; position:relative; padding-right:20px;'
+        }, [
+            title,
+            E('span', {
+                'class': 'cbi-button-arrow',
+                'style': `position:absolute; right:0; top:50%; transform:translateY(-50%) rotate(${defaultOpen ? '180' : '0'}deg);`
+            }, '▼')
+        ]),
+        contentDiv
+    ]);
+}
+
+// Add this CSS to the render() function, right after the first style block
+document.head.insertAdjacentHTML('beforeend', `
+    <style>
+        .collapsible-header {
+            margin: 0;
+            padding: 8px;
+            background: var(--background-color-primary);
+            border: 1px solid var(--border-color-medium);
+            border-radius: var(--border-radius);
+        }
+        .collapsible-header:hover {
+            background: var(--background-color-secondary);
+        }
+        .collapsible-header.open .cbi-button-arrow {
+            transform: translateY(-50%) rotate(180deg) !important;
+        }
+        .collapsible-content {
+            padding: 10px;
+            border: 1px solid var(--border-color-medium);
+            border-top: none;
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+        }
+    </style>
+`);
+
 return view.extend({
     handleReset: function () {
         // Show confirmation modal
@@ -1217,11 +1274,10 @@ return view.extend({
         let o = mainSection.tab('basic', _('Basic Settings'));
 
         // Add subscription URLs list
-        o = mainSection.taboption('basic', form.DynamicList, 'subscription_urls', _('Subscription URLs'),
-            _('Add VLESS subscription URLs. Servers from subscriptions will be available in the selection dropdown.'));
-        o.placeholder = 'https://example.com/sub/...';
-        o.rmempty = true;
-        o.validate = function (section_id, value) {
+        const subscriptionUrlsOption = mainSection.taboption('basic', form.DynamicList, 'subscription_urls');
+        subscriptionUrlsOption.placeholder = 'https://example.com/sub/...';
+        subscriptionUrlsOption.rmempty = true;
+        subscriptionUrlsOption.validate = function (section_id, value) {
             if (!value) return true;
 
             try {
@@ -1234,13 +1290,23 @@ return view.extend({
                 return _('Invalid URL format');
             }
         };
+        subscriptionUrlsOption.renderWidget = function (section_id, option_index, cfgvalue) {
+            const original = form.DynamicList.prototype.renderWidget.apply(this, [section_id, option_index, cfgvalue]);
+            return createCollapsibleSection(
+                _('Subscription URLs'),
+                [
+                    E('div', { 'class': 'cbi-value-description' },
+                        _('Add VLESS subscription URLs. Servers from subscriptions will be available in the selection dropdown.')),
+                    original
+                ]
+            );
+        };
 
         // Server List
-        o = mainSection.taboption('basic', form.DynamicList, 'server', _('Server List'),
-            _('Add your proxy servers here. Format: config_string#label'));
-        o.placeholder = 'vless://...#My Server Description';
-        o.rmempty = true;
-        o.validate = function (section_id, value) {
+        const serverListOption = mainSection.taboption('basic', form.DynamicList, 'server');
+        serverListOption.placeholder = 'vless://...#My Server Description';
+        serverListOption.rmempty = true;
+        serverListOption.validate = function (section_id, value) {
             if (!value) return true;
 
             if (!value.includes('#')) {
@@ -1258,10 +1324,19 @@ return view.extend({
 
             return true;
         };
+        serverListOption.renderWidget = function (section_id, option_index, cfgvalue) {
+            const original = form.DynamicList.prototype.renderWidget.apply(this, [section_id, option_index, cfgvalue]);
+            return createCollapsibleSection(
+                _('Server List'),
+                [
+                    E('div', { 'class': 'cbi-value-description' },
+                        _('Add your proxy servers here. Format: config_string#label')),
+                    original
+                ]
+            );
+        };
 
-        o = mainSection.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
-        o.default = '0';
-        o.rmempty = false;
+
 
         // Additional Settings Tab
         o = mainSection.tab('additional', _('Additional Settings'));
@@ -1618,23 +1693,33 @@ return view.extend({
                 let configName = _('Main config');
                 try {
                     const data = await uci.load('podkop');
-                    const proxyString = uci.get('podkop', 'main', 'proxy_string');
+                    const extraSections = uci.sections('podkop', 'extra');
 
-                    if (proxyString) {
-                        const activeConfig = proxyString.split('\n')
-                            .map(line => line.trim())
-                            .find(line => line && !line.startsWith('//'));
+                    if (extraSections.length > 0) {
+                        const firstExtraSection = extraSections[0];
+                        const configType = firstExtraSection.proxy_config_type;
 
-                        if (activeConfig) {
-                            if (activeConfig.includes('#')) {
-                                const label = activeConfig.split('#').pop();
+                        let configString = null;
+
+                        if (configType === 'server') {
+                            configString = firstExtraSection.selected_server;
+                        } else if (configType === 'url') {
+                            configString = firstExtraSection.proxy_string;
+                            if (configString) {
+                                // For proxy_string, find the first non-commented line
+                                const activeConfig = configString.split('\n')
+                                    .map(line => line.trim())
+                                    .find(line => line && !line.startsWith('//'));
+                                configString = activeConfig;
+                            }
+                        }
+
+                        if (configString) {
+                            if (configString.includes('#')) {
+                                const label = configString.split('#').pop();
                                 if (label && label.trim()) {
                                     configName = _('Config: ') + decodeURIComponent(label);
-                                } else {
-                                    configName = _('Main config');
                                 }
-                            } else {
-                                configName = _('Main config');
                             }
                         }
                     }
