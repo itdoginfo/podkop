@@ -23,7 +23,6 @@ TEST_DOMAIN="fakeip.tech-domain.club"
 INTERFACES_LIST=""
 SRC_INTERFACE=""
 RESOLV_CONF="/etc/resolv.conf"
-FIRST_EXTRA=""
 
 log() {
     local message="$1"
@@ -46,18 +45,8 @@ nolog() {
     echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
 }
 
-# Add this function at the beginning of the file, after the constants
-get_first_extra_section() {
-    FIRST_EXTRA=$(uci show podkop | awk -F'[.=]' '/=extra/ {print $2; exit}')
-    [ -z "$FIRST_EXTRA" ] && FIRST_EXTRA="DEFAULT"
-    echo "$FIRST_EXTRA"
-}
-
 start() {
     log "Starting podkop"
-
-    # Get first extra section
-    get_first_extra_section
 
     # checking
     sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
@@ -104,13 +93,13 @@ start() {
     sing_box_dns
     sing_box_dns_rule_fakeip
     sing_box_rule_dns
+    sing_box_create_bypass_ruleset
+    sing_box_add_secure_dns_probe_domain
     sing_box_cache_file
     process_socks5
 
     # sing-box outbounds and rules
     config_foreach sing_box_outbound
-    sing_box_add_secure_dns_probe_domain
-    sing_box_create_bypass_ruleset
     config_foreach process_domains_for_section
     config_foreach sing_box_rule_preset
     config_foreach process_domains_list_local
@@ -124,13 +113,13 @@ start() {
     echo $! > /var/run/podkop_list_update.pid
 
     # Future: exclude at the fakeip?
-    config_get_bool exclude_from_ip_enabled "$FIRST_EXTRA" "exclude_from_ip_enabled" "0"
+    config_get_bool exclude_from_ip_enabled "default" "exclude_from_ip_enabled" "0"
     if [ "$exclude_from_ip_enabled" -eq 1 ]; then
         log "Adding an IP for exclusion"
-        config_list_foreach "$FIRST_EXTRA" exclude_traffic_ip sing_box_rules_source_ip_cidr $exclude_traffic_ip direct-out
+        config_list_foreach "default" exclude_traffic_ip sing_box_rules_source_ip_cidr $exclude_traffic_ip direct-out
     fi
 
-    config_get_bool yacd "$FIRST_EXTRA" "yacd" "0"
+    config_get_bool yacd "default" "yacd" "0"
     if [ "$yacd" -eq 1 ]; then
         log "Yacd enable"
         jq '.experimental.clash_api = {
@@ -139,13 +128,13 @@ start() {
         }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
     fi
 
-    config_get_bool exclude_ntp "$FIRST_EXTRA" "exclude_ntp" "0"
+    config_get_bool exclude_ntp "default" "exclude_ntp" "0"
     if [ "$exclude_ntp" -eq 1 ]; then
         log "NTP traffic exclude for proxy"
         nft insert rule inet PodkopTable mangle udp dport 123 return
     fi
 
-    config_get_bool quic_disable "$FIRST_EXTRA" "quic_disable" "0"
+    config_get_bool quic_disable "default" "quic_disable" "0"
     if [ "$quic_disable" -eq 1 ]; then
         log "Rule for disable QUIC"
         sing_box_quic_reject
@@ -155,13 +144,13 @@ start() {
     /etc/init.d/sing-box start
     /etc/init.d/sing-box enable
 
-    config_get proxy_string "$FIRST_EXTRA" "proxy_string"
-    config_get interface "$FIRST_EXTRA" "interface"
-    config_get outbound_json "$FIRST_EXTRA" "outbound_json"
-    config_get selected_server "$FIRST_EXTRA" "selected_server"
+    config_get proxy_string "default" "proxy_string"
+    config_get interface "default" "interface"
+    config_get outbound_json "default" "outbound_json"
+    config_get selected_server "default" "selected_server"
 
     if [ -n "$proxy_string" ] || [ -n "$interface" ] || [ -n "$outbound_json" ] || [ -n "$selected_server" ]; then
-        config_get_bool dont_touch_dhcp "$FIRST_EXTRA" "dont_touch_dhcp" "0"
+        config_get_bool dont_touch_dhcp "default" "dont_touch_dhcp" "0"
         if [ "$dont_touch_dhcp" -eq 0 ]; then
             dnsmasq_add_resolver
         fi
@@ -278,10 +267,6 @@ validate_service() {
 }
 
 process_validate_service() {
-    local section="$1"
-    # Skip main section
-    [ "$section" = "main" ] && return 0
-
     config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
     if [ "$domain_list_enabled" -eq 1 ]; then
         config_list_foreach "$section" domain_list validate_service
@@ -525,7 +510,6 @@ remove_cron_job() {
 
 prepare_custom_ruleset() {
     local section="$1"
-    # Skip main section
     [ "$section" = "main" ] && return 0
 
     config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
@@ -795,13 +779,12 @@ sing_box_create_bypass_ruleset() {
         ]
     }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
     
-    # Add a rule to route bypass domains to the first extra section outbound
-    jq \
-    --arg section "$FIRST_EXTRA" \
-    '.route.rules += [{
+    # Add a rule to route bypass domains to direct-out outbound
+    jq '
+    .route.rules += [{
         "inbound": ["tproxy-in"],
         "rule_set": ["bypass"],
-        "outbound": $section,
+        "outbound": "default",
         "action": "route"
     }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
     
@@ -824,7 +807,6 @@ sing_box_dns_rule_fakeip() {
     
     jq \
     --arg ttl "$rewrite_ttl" \
-    --arg section "$FIRST_EXTRA" \
     '.dns += {
         "rules": [
             {
@@ -843,7 +825,7 @@ sing_box_dns_rule_fakeip() {
                 "server": "fakeip-server",
                 "domain": "",
                 "rewrite_ttl": ($ttl | tonumber),
-                "rule_set": [$section]
+                "rule_set": []
             }
         ]
     }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
@@ -852,6 +834,9 @@ sing_box_dns_rule_fakeip() {
 sing_box_dns_rule_fakeip_section() {
     local rule_set=$1
     echo $rule_set
+
+    [ "$section" = "main" ] && return 0
+
     log "Adding section to fakeip route rules in sing-box"
 
     jq \
@@ -887,8 +872,6 @@ sing_box_cache_file() {
 
 sing_box_outbound() {
     local section="$1"
-
-    # Skip main section
     [ "$section" = "main" ] && return 0
 
     config_get mode "$section" "mode"
@@ -1396,8 +1379,6 @@ sing_box_ruleset_subnets_json() {
 
 process_domains_for_section() {
     local section="$1"
-
-    # Skip main section
     [ "$section" = "main" ] && return 0
 
     config_get custom_domains_list_type "$section" "custom_domains_list_type" "disabled"
@@ -1490,6 +1471,8 @@ sing_box_rules() {
     local rule_set="$1"
     local outbound="$2"
 
+    [ "$outbound" = "main" ] && return 0
+
     # Check if there is an outbound rule for "tproxy-in"
     local rule_exists=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .inbound == ["tproxy-in"])' "$SING_BOX_CONFIG")
 
@@ -1535,7 +1518,6 @@ sing_box_quic_reject() {
 
 process_remote_ruleset_srs() {
     local section="$1"
-    # Skip main section
     [ "$section" = "main" ] && return 0
 
     config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
@@ -1554,10 +1536,6 @@ process_remote_ruleset_subnet() {
 }
 
 sing_box_rule_preset() {
-    local section="$1"
-    # Skip main section
-    [ "$section" = "main" ] && return 0
-
     config_get custom_domains_list_type "$section" "custom_domains_list_type"
     config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled"
     config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
@@ -1599,8 +1577,6 @@ list_custom_local_domains_create() {
 
 process_domains_list_local() {
     local section="$1"
-
-    # Skip main section
     [ "$section" = "main" ] && return 0
 
     config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
@@ -1635,8 +1611,6 @@ process_domains_list_url() {
 
 process_subnet_for_section() {
     local section="$1"
-
-    # Skip main section
     [ "$section" = "main" ] && return 0
 
     config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled" "disabled"
@@ -1679,8 +1653,6 @@ process_subnet_for_section_remote() {
 
 process_all_traffic_for_section() {
     local section="$1"
-
-    # Skip main section
     [ "$section" = "main" ] && return 0
 
     config_get all_traffic_from_ip_enabled "$section" "all_traffic_from_ip_enabled"
@@ -2085,15 +2057,9 @@ show_system_info() {
 get_sing_box_status() {
     local running=0
     local enabled=0
-    local installed=0
     local status=""
     local version=""
     local dns_configured=0
-
-    # Check if sing-box is installed
-    if command -v sing-box >/dev/null 2>&1; then
-        installed=1
-    fi
 
     # Check if service is enabled
     if [ -x /etc/rc.d/S99sing-box ]; then
@@ -2113,9 +2079,7 @@ get_sing_box_status() {
     fi
 
     # Format status message
-    if [ $installed -eq 0 ]; then
-        status="not installed"
-    elif [ $running -eq 1 ]; then
+    if [ $running -eq 1 ]; then
         if [ $enabled -eq 1 ]; then
             status="running & enabled"
         else
@@ -2129,8 +2093,8 @@ get_sing_box_status() {
         fi
     fi
 
-    echo "{\"running\":$running,\"enabled\":$enabled,\"installed\":$installed,\"status\":\"$status\",\"dns_configured\":$dns_configured}"
-} 
+    echo "{\"running\":$running,\"enabled\":$enabled,\"status\":\"$status\",\"dns_configured\":$dns_configured}"
+}
 
 get_status() {
     local running=0
@@ -2230,21 +2194,15 @@ sing_box_add_secure_dns_probe_domain() {
     local domain="$TEST_DOMAIN"
     local override_port=8443
 
-    # Get first extra section
-    local first_extra=$(uci show podkop | awk -F'[.=]' '/=extra/ {print $2; exit}')
-    [ -z "$first_extra" ] && first_extra="DEFAULT"
-
     log "Adding DNS probe domain ${domain} to fakeip-server configuration"
 
     jq \
     --arg domain "$domain" \
     --argjson override_port "$override_port" \
-    --arg section "$first_extra" \
     '.dns.rules |= map(
         if .server == "fakeip-server" then
             . + {
-                "domain": $domain,
-                "rule_set": [$section]
+                "domain": $domain
             }
         else
             .

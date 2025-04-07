@@ -1057,7 +1057,7 @@ function createCollapsibleSection(title, content, defaultOpen = false) {
             title,
             E('span', {
                 'class': 'cbi-button-arrow',
-                'style': `position:absolute; right:0; top:50%; transform:translateY(-50%) rotate(${defaultOpen ? '180' : '0'}deg);`
+                'style': `position:absolute; right:10px; top:50%; transform:translateY(-50%) rotate(${defaultOpen ? '180' : '0'}deg);`
             }, '▼')
         ]),
         contentDiv
@@ -1069,7 +1069,8 @@ document.head.insertAdjacentHTML('beforeend', `
     <style>
         .collapsible-header {
             margin: 0;
-            padding: 8px;
+            padding: 4px 10px;
+            line-height: 1.2;
             background: var(--background-color-primary);
             border: 1px solid var(--border-color-medium);
             border-radius: var(--border-radius);
@@ -1241,8 +1242,6 @@ return view.extend({
             );
         };
 
-
-
         // Additional Settings Tab
         o = mainSection.tab('additional', _('Additional Settings'));
 
@@ -1368,8 +1367,15 @@ return view.extend({
             'style': 'cursor: pointer;'
         }, _('Click to load diagnostics...'));
 
+
+        // Default Section
+        const defaultSection = m.section(form.TypedSection, 'default', _('Default configuration'));
+        defaultSection.anonymous = true;
+        defaultSection.addremove = false;
+        createConfigSection(defaultSection, m, network);
+
         // Extra Section
-        const extraSection = m.section(form.TypedSection, 'extra', _('Сonfigurations'));
+        const extraSection = m.section(form.TypedSection, 'extra', _('Extra configurations'));
         extraSection.anonymous = false;
         extraSection.addremove = true;
         extraSection.addbtntitle = _('Add Section');
@@ -1598,7 +1604,7 @@ return view.extend({
                 let configName = _('Main config');
                 try {
                     const data = await uci.load('podkop');
-                    const extraSections = uci.sections('podkop', 'extra');
+                    const extraSections = uci.sections('podkop', 'default');
 
                     if (extraSections.length > 0) {
                         const firstExtraSection = extraSections[0];
