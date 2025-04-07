@@ -1186,21 +1186,6 @@ msgstr ""
 msgid "Warning: %s already used and have been removed from selection."
 msgstr ""
 
-msgid "Warning!"
-msgstr ""
-
-msgid "This will reset all Podkop settings to their default values and remove any custom configurations."
-msgstr ""
-
-msgid "The service will be stopped and restarted with default settings."
-msgstr ""
-
-msgid "This action cannot be undone!"
-msgstr ""
-
-msgid "Reset Settings"
-msgstr ""
-
 msgid "Proxy Servers"
 msgstr ""
 
