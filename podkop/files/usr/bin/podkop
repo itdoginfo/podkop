@@ -2045,6 +2045,9 @@ show_config() {
         -e 's/\(option outbound_json\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option second_proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option second_outbound_json\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option selected_server\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(list subscription_urls\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(list server\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(vless:\/\/[^@]*@\)/vless:\/\/MASKED@/g' \
         -e 's/\(ss:\/\/[^@]*@\)/ss:\/\/MASKED@/g' \
         -e 's/\(pbk=[^&]*\)/pbk=MASKED/g' \
