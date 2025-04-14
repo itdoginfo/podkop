@@ -160,13 +160,13 @@ add_tunnel() {
             ;;
 
         3)
-            opkg install opkg install openvpn-openssl luci-app-openvpn
+            opkg install openvpn-openssl luci-app-openvpn
             printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openvpn-na-openwrt/\e[0m\n"
             break
             ;;
 
         4)
-            opkg install opkg install openconnect luci-proto-openconnect
+            opkg install openconnect luci-proto-openconnect
             printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openconnect-na-openwrt/\e[0m\n"
             break
             ;;
@@ -248,8 +248,8 @@ install_awg_packages() {
         fi
     fi
     
-    if opkg list-installed | grep -q luci-app-amneziawg; then
-        echo "luci-app-amneziawg already installed"
+    if opkg list-installed | grep -qE 'luci-app-amneziawg|luci-proto-amneziawg'; then
+        echo "luci-app-amneziawg or luci-proto-amneziawg already installed"
     else
         LUCI_APP_AMNEZIAWG_FILENAME="luci-app-amneziawg${PKGPOSTFIX}"
         DOWNLOAD_URL="${BASE_URL}v${VERSION}/${LUCI_APP_AMNEZIAWG_FILENAME}"
