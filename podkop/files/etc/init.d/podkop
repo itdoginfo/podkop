@@ -11,30 +11,6 @@ RESOLV_CONF="/etc/resolv.conf"
 start_service() {
     echo "Start podkop"
 
-    sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
-    required_version="1.11.1"
-
-    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
-        echo "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box"
-        exit 1
-    fi
-
-    if opkg list-installed | grep -q iptables-mod-extra; then
-        echo "Conflicting package detected: iptables-mod-extra"
-    fi
-
-    if opkg list-installed | grep -q kmod-ipt-nat; then
-        echo "Conflicting package detected: kmod-ipt-nat"
-    fi
-
-    if grep -qE 'doh_backup_noresolv|doh_backup_server|doh_server' /etc/config/dhcp; then
-        printf "\033[31;1mDetected https-dns-proxy. Disable or uninstall it for correct functionality.\033[0m\n"
-    fi
-
-    if { ! grep -q "search lan" "$RESOLV_CONF" || ! grep -q "nameserver 127.0.0.1" "$RESOLV_CONF"; } && ! grep -q "search tail" "$RESOLV_CONF"; then
-        echo "/etc/resolv.conf does not contain 'search lan' or 'nameserver 127.0.0.1' entries"
-    fi
-    
 	procd_open_instance
 	procd_set_param command /bin/sh -c "/usr/bin/podkop start"
 	procd_set_param stdout 1

@@ -61,16 +61,12 @@ start() {
         log "[critical] Conflicting package detected: iptables-mod-extra"
     fi
 
-    if opkg list-installed | grep -q kmod-ipt-nat; then
-        log "[critical] Conflicting package detected: kmod-ipt-nat"
-    fi
-
     if grep -qE 'doh_backup_noresolv|doh_backup_server|doh_server' /etc/config/dhcp; then
         log "[critical] Detected https-dns-proxy. Disable or uninstall it for correct functionality."
     fi
 
-    if { ! grep -q "search lan" "$RESOLV_CONF" || ! grep -q "nameserver 127.0.0.1" "$RESOLV_CONF"; } && ! grep -q "search tail" "$RESOLV_CONF"; then
-        log "[critical] /etc/resolv.conf does not contain 'search lan' or 'nameserver 127.0.0.1' entries"
+    if grep -E "^nameserver\s+([0-9]{1,3}\.){3}[0-9]{1,3}" "$RESOLV_CONF" | grep -vqE "127\.0\.0\.1|0\.0\.0\.0"; then
+        log "[critical] /etc/resolv.conf contains an external nameserver"
     fi
 
     migration
