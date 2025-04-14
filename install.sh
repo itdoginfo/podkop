@@ -160,13 +160,13 @@ add_tunnel() {
             ;;
 
         3)
-            opkg install opkg install openvpn-openssl luci-app-openvpn
+            opkg install openvpn-openssl luci-app-openvpn
             printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openvpn-na-openwrt/\e[0m\n"
             break
             ;;
 
         4)
-            opkg install opkg install openconnect luci-proto-openconnect
+            opkg install openconnect luci-proto-openconnect
             printf "\e[1;32mUse these instructions to configure https://itdog.info/nastrojka-klienta-openconnect-na-openwrt/\e[0m\n"
             break
             ;;
