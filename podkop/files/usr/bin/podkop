@@ -77,6 +77,8 @@ start() {
 
     mkdir -p /tmp/podkop
 
+    update_subscriptions
+
     # base
     route_table_rule_mark
     create_nft_table
@@ -93,7 +95,7 @@ start() {
     process_socks5
 
     # sing-box outbounds and rules
-    config_foreach sing_box_outdound
+    config_foreach sing_box_outbound
     config_foreach process_domains_for_section
     config_foreach sing_box_rule_preset
     config_foreach process_domains_list_local
@@ -107,13 +109,13 @@ start() {
     echo $! > /var/run/podkop_list_update.pid
 
     # Future: exclude at the fakeip?
-    config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" "0"
+    config_get_bool exclude_from_ip_enabled "default" "exclude_from_ip_enabled" "0"
     if [ "$exclude_from_ip_enabled" -eq 1 ]; then
         log "Adding an IP for exclusion"
-        config_list_foreach main exclude_traffic_ip sing_box_rules_source_ip_cidr $exclude_traffic_ip direct-out
+        config_list_foreach "default" exclude_traffic_ip sing_box_rules_source_ip_cidr $exclude_traffic_ip direct-out
     fi
 
-    config_get_bool yacd "main" "yacd" "0"
+    config_get_bool yacd "default" "yacd" "0"
     if [ "$yacd" -eq 1 ]; then
         log "Yacd enable"
         jq '.experimental.clash_api = {
@@ -122,13 +124,13 @@ start() {
         }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
     fi
 
-    config_get_bool exclude_ntp "main" "exclude_ntp" "0"
+    config_get_bool exclude_ntp "default" "exclude_ntp" "0"
     if [ "$exclude_ntp" -eq 1 ]; then
         log "NTP traffic exclude for proxy"
         nft insert rule inet PodkopTable mangle udp dport 123 return
     fi
 
-    config_get_bool quic_disable "main" "quic_disable" "0"
+    config_get_bool quic_disable "default" "quic_disable" "0"
     if [ "$quic_disable" -eq 1 ]; then
         log "Rule for disable QUIC"
         sing_box_quic_reject
@@ -138,12 +140,13 @@ start() {
     /etc/init.d/sing-box start
     /etc/init.d/sing-box enable
 
-    config_get proxy_string "main" "proxy_string"
-    config_get interface "main" "interface"
-    config_get outbound_json "main" "outbound_json"
+    config_get proxy_string "default" "proxy_string"
+    config_get interface "default" "interface"
+    config_get outbound_json "default" "outbound_json"
+    config_get selected_server "default" "selected_server"
 
-    if [ -n "$proxy_string" ] || [ -n "$interface" ] || [ -n "$outbound_json" ]; then
-        config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" "0"
+    if [ -n "$proxy_string" ] || [ -n "$interface" ] || [ -n "$outbound_json" ] || [ -n "$selected_server" ]; then
+        config_get_bool dont_touch_dhcp "default" "dont_touch_dhcp" "0"
         if [ "$dont_touch_dhcp" -eq 0 ]; then
             dnsmasq_add_resolver
         fi
@@ -502,6 +505,9 @@ remove_cron_job() {
 }
 
 prepare_custom_ruleset() {
+    local section="$1"
+    [ "$section" = "main" ] && return 0
+
     config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
     config_get custom_download_subnets_list_enabled "$section" "custom_download_subnets_list_enabled"
     if [ "$custom_download_domains_list_enabled" -eq 1 ] || [ "$custom_download_subnets_list_enabled" -eq 1 ]; then
@@ -567,6 +573,8 @@ list_update() {
     config_foreach process_remote_ruleset_subnet
     config_foreach process_domains_list_url
     config_foreach process_subnet_for_section_remote
+    
+    update_subscriptions
 }
 
 find_working_resolver() {
@@ -772,7 +780,7 @@ sing_box_create_bypass_ruleset() {
     .route.rules += [{
         "inbound": ["tproxy-in"],
         "rule_set": ["bypass"],
-        "outbound": "main",
+        "outbound": "default",
         "action": "route"
     }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
     
@@ -797,23 +805,23 @@ sing_box_dns_rule_fakeip() {
     --arg ttl "$rewrite_ttl" \
     '.dns += {
         "rules": [
-              {
-            "query_type": [
-                "HTTPS"
-            ],
-            "action": "reject"
-            },
             {
-            "domain_suffix": [
-                "use-application-dns.net"
-            ],
+                "query_type": [
+                    "HTTPS"
+                ],
                 "action": "reject"
             },
             {
-            "server": "fakeip-server",
-            "domain": "",
-            "rewrite_ttl": ($ttl | tonumber),
-            "rule_set": []
+                "domain_suffix": [
+                    "use-application-dns.net"
+                ],
+                "action": "reject"
+            },
+            {
+                "server": "fakeip-server",
+                "domain": "",
+                "rewrite_ttl": ($ttl | tonumber),
+                "rule_set": []
             }
         ]
     }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
@@ -822,6 +830,9 @@ sing_box_dns_rule_fakeip() {
 sing_box_dns_rule_fakeip_section() {
     local rule_set=$1
     echo $rule_set
+
+    [ "$section" = "main" ] && return 0
+
     log "Adding section to fakeip route rules in sing-box"
 
     jq \
@@ -855,8 +866,9 @@ sing_box_cache_file() {
     }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
 }
 
-sing_box_outdound() {
+sing_box_outbound() {
     local section="$1"
+    [ "$section" = "main" ] && return 0
 
     config_get mode "$section" "mode"
     case "$mode" in
@@ -883,6 +895,48 @@ sing_box_outdound() {
                 sing_box_config_outbound_json "$outbound_json" "$section"
             else
                 log "Missing outbound JSON configuration"
+                return
+            fi
+        elif [ "$proxy_config_type" = "server" ]; then
+            log "Using saved server configuration"
+            config_get selected_server $section "selected_server"
+            if [ -n "$selected_server" ]; then
+                # Check if this is a saved server or subscription server
+                local is_saved=0
+                config_get saved_servers "main" "server"
+                for server in $saved_servers; do
+                    if [ "$server" = "$selected_server" ]; then
+                        is_saved=1
+                        break
+                    fi
+                done
+
+                # If not in saved servers, check subscriptions
+                if [ "$is_saved" -eq 0 ] && [ -d "/tmp/podkop/subscriptions" ]; then
+                    for file in /tmp/podkop/subscriptions/*.conf; do
+                        if [ -f "$file" ] && grep -Fxq "$selected_server" "$file"; then
+                            is_saved=1
+                            break
+                        fi
+                    done
+                fi
+
+                if [ "$is_saved" -eq 1 ]; then
+                    if [[ "$selected_server" =~ ^ss:// ]]; then
+                        config_get ss_uot $section "ss_uot"
+                        sing_box_config_shadowsocks "$section" "$selected_server" "$ss_uot"
+                    elif [[ "$selected_server" =~ ^vless:// ]]; then
+                        sing_box_config_vless "$section" "$selected_server"
+                    else
+                        log "Unsupported proxy type in saved server"
+                        return
+                    fi
+                else
+                    log "Selected server not found in saved servers or subscriptions"
+                    return
+                fi
+            else
+                log "No server selected"
                 return
             fi
         else
@@ -1321,6 +1375,7 @@ sing_box_ruleset_subnets_json() {
 
 process_domains_for_section() {
     local section="$1"
+    [ "$section" = "main" ] && return 0
 
     config_get custom_domains_list_type "$section" "custom_domains_list_type" "disabled"
 
@@ -1412,6 +1467,8 @@ sing_box_rules() {
     local rule_set="$1"
     local outbound="$2"
 
+    [ "$outbound" = "main" ] && return 0
+
     # Check if there is an outbound rule for "tproxy-in"
     local rule_exists=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .inbound == ["tproxy-in"])' "$SING_BOX_CONFIG")
 
@@ -1456,6 +1513,9 @@ sing_box_quic_reject() {
 }
 
 process_remote_ruleset_srs() {
+    local section="$1"
+    [ "$section" = "main" ] && return 0
+
     config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
     if [ "$domain_list_enabled" -eq 1 ]; then
         log "Adding a srs list for $section"
@@ -1513,6 +1573,7 @@ list_custom_local_domains_create() {
 
 process_domains_list_local() {
     local section="$1"
+    [ "$section" = "main" ] && return 0
 
     config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
     if [ "$custom_local_domains_list_enabled" -eq 1 ]; then
@@ -1546,6 +1607,7 @@ process_domains_list_url() {
 
 process_subnet_for_section() {
     local section="$1"
+    [ "$section" = "main" ] && return 0
 
     config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled" "disabled"
     if [ "$custom_subnets_list_enabled" != "disabled" ]; then
@@ -1587,6 +1649,7 @@ process_subnet_for_section_remote() {
 
 process_all_traffic_for_section() {
     local section="$1"
+    [ "$section" = "main" ] && return 0
 
     config_get all_traffic_from_ip_enabled "$section" "all_traffic_from_ip_enabled"
     if [ "$all_traffic_from_ip_enabled" -eq "1" ]; then
@@ -1950,6 +2013,9 @@ show_config() {
         -e 's/\(option outbound_json\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option second_proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option second_outbound_json\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option selected_server\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(list subscription_urls\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(list server\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(vless:\/\/[^@]*@\)/vless:\/\/MASKED@/g' \
         -e 's/\(ss:\/\/[^@]*@\)/ss:\/\/MASKED@/g' \
         -e 's/\(pbk=[^&]*\)/pbk=MASKED/g' \
@@ -2149,6 +2215,73 @@ sing_box_add_secure_dns_probe_domain() {
     log "DNS probe domain ${domain} configured with override to port ${override_port}"
 }
 
+update_subscriptions() {
+    log "Updating proxy server subscriptions"
+    mkdir -p /tmp/podkop/subscriptions
+
+    # Clear old subscription servers
+    rm -f /tmp/podkop/subscriptions/*.conf
+
+    # Get subscription URLs from main config
+    config_load "podkop"
+    local urls
+    config_get urls "main" "subscription_urls"
+
+    if [ -z "$urls" ]; then
+        log "No subscription URLs configured"
+        return 0
+    fi
+
+    for url in $urls; do
+        local filename=$(echo "$url" | md5sum | cut -d' ' -f1)
+        local tmpfile="/tmp/podkop/subscriptions/${filename}.conf"
+        
+        log "Downloading subscription from $url"
+        
+        # Download and decode base64 content
+        if curl -s "$url" | base64 -d > "$tmpfile.tmp" 2>/dev/null; then
+            # Validate and filter servers
+            while IFS= read -r line; do
+                if [[ "$line" =~ ^vless:// ]] || [[ "$line" =~ ^ss:// ]]; then
+                    echo "$line" >> "$tmpfile"
+                fi
+            done < "$tmpfile.tmp"
+            rm -f "$tmpfile.tmp"
+            
+            if [ -s "$tmpfile" ]; then
+                log "Successfully updated subscription from $url"
+            else
+                log "No valid servers found in subscription from $url"
+                rm -f "$tmpfile"
+            fi
+        else
+            log "Failed to download or decode subscription from $url"
+        fi
+    done
+}
+
+get_all_servers() {
+    # First get saved servers from UCI config
+    config_load "podkop"
+    local saved_servers
+    config_get saved_servers "main" "server"
+    
+    # Then add subscription servers
+    if [ -d "/tmp/podkop/subscriptions" ]; then
+        for file in /tmp/podkop/subscriptions/*.conf; do
+            if [ -f "$file" ]; then
+                while IFS= read -r line; do
+                    if [ -n "$line" ]; then
+                        saved_servers="$saved_servers $line"
+                    fi
+                done < "$file"
+            fi
+        done
+    fi
+    
+    echo "$saved_servers"
+}
+
 case "$1" in
     start)
         start
@@ -2217,8 +2350,14 @@ case "$1" in
     check_dns_available)
         check_dns_available
         ;;
+    update_subscriptions)
+        update_subscriptions
+        ;;
+    get_all_servers)
+        get_all_servers
+        ;;
     *)
-        echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available}"
+        echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available|update_subscriptions|get_all_servers}"
         exit 1
         ;;
-esac
+esac 

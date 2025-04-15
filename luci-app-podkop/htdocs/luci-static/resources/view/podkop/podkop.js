@@ -14,6 +14,17 @@ const STATUS_COLORS = {
 
 const ERROR_POLL_INTERVAL = 5000; // 5 seconds
 
+const REGIONAL_OPTIONS = ['russia_inside', 'russia_outside', 'ukraine_inside'];
+const RESTRICTED_WITH_RUSSIA_INSIDE = ['geoblock', 'block', 'porn', 'news', 'anime', 'youtube', 'hdrezka', 'tiktok'];
+
+const selectedDomainLists = {
+    main: new Set(),
+    extra: new Map() // Map of section_id -> Set of values
+};
+
+let globalServerList = [];
+let globalServerValues = new Map(); // Store shared values for all sections
+
 async function safeExec(command, args = [], timeout = 7000) {
     try {
         const controller = new AbortController();
@@ -65,6 +76,7 @@ function getNetworkInterfaces(o, section_id, excludeInterfaces = []) {
 function createConfigSection(section, map, network) {
     const s = section;
 
+    // Basic Settings Tab
     let o = s.tab('basic', _('Basic Settings'));
 
     o = s.taboption('basic', form.ListValue, 'mode', _('Connection Type'), _('Select between VPN and Proxy connection methods for traffic routing'));
@@ -75,15 +87,43 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.ListValue, 'proxy_config_type', _('Configuration Type'), _('Select how to configure the proxy'));
     o.value('url', _('Connection URL'));
     o.value('outbound', _('Outbound Config'));
+    o.value('server', _('Saved Server'));
     o.default = 'url';
     o.depends('mode', 'proxy');
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _(''));
+    // Server selection dropdown
+    o = s.taboption('basic', form.ListValue, 'selected_server', _('Saved Server'), _('Select a saved proxy server'));
+    o.depends('proxy_config_type', 'server');
+    o.ucisection = s.section;
+    o.rmempty = true;
+    o.load = function (section_id) {
+        this.keylist = [];
+        this.vallist = [];
+
+        // Add empty value first
+        this.value('', _('-- Please select --'));
+
+        if (globalServerValues.size === 0) {
+            globalServerList.forEach(server => {
+                if (server.url && server.label) {
+                    globalServerValues.set(server.url, server.label);
+                }
+            });
+        }
+
+        globalServerValues.forEach((label, url) => {
+            this.value(url, label);
+        });
+
+        return this.super('load', section_id);
+    };
+
+    // Original URL input field
+    o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'));
     o.depends('proxy_config_type', 'url');
     o.rows = 5;
     o.ucisection = s.section;
-    o.sectionDescriptions = new Map();
     o.placeholder = 'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt';
 
     o.renderWidget = function (section_id, option_index, cfgvalue) {
@@ -118,18 +158,16 @@ function createConfigSection(section, map, network) {
                 const descDiv = E('div', { 'class': 'cbi-value-description' }, _('Config without description'));
                 container.appendChild(descDiv);
             }
-        } else {
-            const defaultDesc = E('div', { 'class': 'cbi-value-description' },
-                _('Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs'));
-            container.appendChild(defaultDesc);
         }
-
+        const defaultDesc = E('div', { 'class': 'cbi-value-description' },
+            _('Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs'));
+        container.appendChild(defaultDesc);
         return container;
     };
 
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) {
-            return true;
+            return _('Proxy configuration URL cannot be empty when proxy mode is selected');
         }
 
         try {
@@ -234,12 +272,15 @@ function createConfigSection(section, map, network) {
         }
     };
 
+    // Outbound configuration
     o = s.taboption('basic', form.TextValue, 'outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
     o.depends('proxy_config_type', 'outbound');
     o.rows = 10;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
+        if (!value || value.length === 0) {
+            return _('Outbound configuration cannot be empty when proxy mode is selected');
+        }
         try {
             const parsed = JSON.parse(value);
             if (!parsed.type || !parsed.server || !parsed.server_port) {
@@ -292,6 +333,37 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
 
+    const originalLoad = o.load;
+
+    o.load = function (section_id) {
+        return Promise.all([
+            originalLoad.call(this, section_id),
+            uci.load('podkop')
+        ]).then(([result, config]) => {
+            const allValues = new Set();
+
+            if (this.keylist) {
+                this.keylist.forEach(value => allValues.add(value));
+            }
+
+            if (config.main && config.main.domain_list) {
+                config.main.domain_list.forEach(value => allValues.add(value));
+            }
+
+            Object.keys(config).forEach(section => {
+                if (section.startsWith('extra_') && config[section].domain_list) {
+                    config[section].domain_list.forEach(value => allValues.add(value));
+                }
+            });
+
+            // Update the keylist and vallist with all values
+            this.keylist = Array.from(allValues);
+            this.vallist = Array.from(allValues);
+
+            return result;
+        });
+    };
+
     let lastValues = [];
     let isProcessing = false;
 
@@ -304,13 +376,50 @@ function createConfigSection(section, map, network) {
             let newValues = [...values];
             let notifications = [];
 
-            const regionalOptions = ['russia_inside', 'russia_outside', 'ukraine_inside'];
-            const selectedRegionalOptions = regionalOptions.filter(opt => newValues.includes(opt));
+            const usedValues = new Set();
+
+            if (section_id !== 'main') {
+                selectedDomainLists.main.forEach(v => usedValues.add(v));
+            }
+
+            selectedDomainLists.extra.forEach((values, extraSectionId) => {
+                if (extraSectionId !== section_id) {
+                    values.forEach(v => usedValues.add(v));
+                }
+            });
+
+            const russiaInsideUsed = selectedDomainLists.main.has('russia_inside') ||
+                Array.from(selectedDomainLists.extra.values()).some(set => set.has('russia_inside'));
+
+            if (russiaInsideUsed || newValues.includes('russia_inside')) {
+                const restrictedServices = newValues.filter(v => RESTRICTED_WITH_RUSSIA_INSIDE.includes(v));
+                if (restrictedServices.length > 0) {
+                    newValues = newValues.filter(v => !RESTRICTED_WITH_RUSSIA_INSIDE.includes(v));
+                    notifications.push(E('p', { class: 'alert-message warning' }, [
+                        E('strong', {}, _('Russia inside restrictions')), E('br'),
+                        _('Warning: Russia inside contains %s, so these options have been removed.')
+                            .format(restrictedServices.join(', '))
+                    ]));
+                }
+            }
+
+            const duplicates = newValues.filter(v => usedValues.has(v));
+
+            if (duplicates.length > 0) {
+                newValues = newValues.filter(v => !duplicates.includes(v));
+                notifications.push(E('p', { class: 'alert-message warning' }, [
+                    E('strong', {}, _('Duplicate values found')), E('br'),
+                    _('Warning: %s already used and have been removed from selection.')
+                        .format(duplicates.join(', '))
+                ]));
+            }
+
+            const selectedRegionalOptions = REGIONAL_OPTIONS.filter(opt => newValues.includes(opt));
 
             if (selectedRegionalOptions.length > 1) {
                 const lastSelected = selectedRegionalOptions[selectedRegionalOptions.length - 1];
                 const removedRegions = selectedRegionalOptions.slice(0, -1);
-                newValues = newValues.filter(v => v === lastSelected || !regionalOptions.includes(v));
+                newValues = newValues.filter(v => v === lastSelected || !REGIONAL_OPTIONS.includes(v));
                 notifications.push(E('p', { class: 'alert-message warning' }, [
                     E('strong', {}, _('Regional options cannot be used together')), E('br'),
                     _('Warning: %s cannot be used together with %s. Previous selections have been removed.')
@@ -318,21 +427,14 @@ function createConfigSection(section, map, network) {
                 ]));
             }
 
-            if (newValues.includes('russia_inside')) {
-                const allowedWithRussiaInside = ['russia_inside', 'meta', 'twitter', 'discord', 'telegram'];
-                const removedServices = newValues.filter(v => !allowedWithRussiaInside.includes(v));
-                if (removedServices.length > 0) {
-                    newValues = newValues.filter(v => allowedWithRussiaInside.includes(v));
-                    notifications.push(E('p', { class: 'alert-message warning' }, [
-                        E('strong', {}, _('Russia inside restrictions')), E('br'),
-                        _('Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection.')
-                            .format(removedServices.join(', '))
-                    ]));
-                }
-            }
-
             if (JSON.stringify(newValues.sort()) !== JSON.stringify(values.sort())) {
                 this.getUIElement(section_id).setValue(newValues);
+            }
+
+            if (section_id === 'main') {
+                selectedDomainLists.main = new Set(newValues);
+            } else {
+                selectedDomainLists.extra.set(section_id, new Set(newValues));
             }
 
             notifications.forEach(notification => ui.addNotification(null, notification));
@@ -544,6 +646,10 @@ function createConfigSection(section, map, network) {
         }
         return true;
     };
+
+    o = s.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
+    o.default = '0';
+    o.rmempty = false;
 }
 
 // Utility functions
@@ -930,6 +1036,60 @@ function stopErrorPolling() {
     }
 }
 
+// Add this helper function before the render() function
+function createCollapsibleSection(title, content, defaultOpen = false) {
+    const contentDiv = E('div', {
+        'class': 'collapsible-content',
+        'style': defaultOpen ? 'display:block' : 'display:none'
+    }, content);
+
+    return E('div', { 'class': 'cbi-section' }, [
+        E('h4', {
+            'class': 'collapsible-header',
+            'click': ev => {
+                const content = ev.target.nextElementSibling;
+                const isHidden = content.style.display === 'none';
+                content.style.display = isHidden ? 'block' : 'none';
+                ev.target.classList.toggle('open', isHidden);
+            },
+            'style': 'cursor:pointer; position:relative; padding-right:20px;'
+        }, [
+            title,
+            E('span', {
+                'class': 'cbi-button-arrow',
+                'style': `position:absolute; right:10px; top:50%; transform:translateY(-50%) rotate(${defaultOpen ? '180' : '0'}deg);`
+            }, '▼')
+        ]),
+        contentDiv
+    ]);
+}
+
+// Add this CSS to the render() function, right after the first style block
+document.head.insertAdjacentHTML('beforeend', `
+    <style>
+        .collapsible-header {
+            margin: 0;
+            padding: 4px 10px;
+            line-height: 1.2;
+            background: var(--background-color-primary);
+            border: 1px solid var(--border-color-medium);
+            border-radius: var(--border-radius);
+        }
+        .collapsible-header:hover {
+            background: var(--background-color-secondary);
+        }
+        .collapsible-header.open .cbi-button-arrow {
+            transform: translateY(-50%) rotate(180deg) !important;
+        }
+        .collapsible-content {
+            padding: 10px;
+            border: 1px solid var(--border-color-medium);
+            border-top: none;
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+        }
+    </style>
+`);
+
 return view.extend({
     async render() {
         document.head.insertAdjacentHTML('beforeend', `
@@ -958,28 +1118,144 @@ return view.extend({
 
         const m = new form.Map('podkop', _(''), null, ['main', 'extra']);
 
+        try {
+            await uci.load('podkop');
+
+            // Clear global values before initialization
+            globalServerList = [];
+            globalServerValues.clear();
+
+            // Load servers once at initialization
+            const serverResult = await safeExec('/usr/bin/podkop', ['get_all_servers']);
+            const allServers = serverResult.stdout.trim().split(/\s+/).filter(Boolean);
+            globalServerList = allServers.map(server => {
+                if (server.includes('#')) {
+                    const [url, label] = server.split('#');
+                    if (url && label) {
+                        return {
+                            url: server,
+                            label: decodeURIComponent(label)
+                        };
+                    }
+                }
+                return null;
+            }).filter(Boolean);
+
+            // Initialize global server values
+            globalServerList.forEach(server => {
+                if (server.url && server.label) {
+                    globalServerValues.set(server.url, server.label);
+                }
+            });
+
+            selectedDomainLists.main = new Set();
+            selectedDomainLists.extra = new Map();
+
+            const mainDomainList = uci.get('podkop', 'main', 'domain_list');
+            if (mainDomainList) {
+                const mainValues = Array.isArray(mainDomainList) ?
+                    mainDomainList :
+                    [mainDomainList];
+                mainValues.forEach(v => selectedDomainLists.main.add(v));
+            }
+
+            const sections = uci.sections('podkop');
+            sections.forEach(section => {
+                if (section['.type'] === 'extra' && section.domain_list) {
+                    const extraValues = Array.isArray(section.domain_list) ?
+                        section.domain_list :
+                        [section.domain_list];
+                    selectedDomainLists.extra.set(section['.name'], new Set(extraValues));
+                }
+            });
+        } catch (e) {
+            console.error('Error initializing selectedDomainLists:', e);
+        }
+
         // Main Section
         const mainSection = m.section(form.TypedSection, 'main');
         mainSection.anonymous = true;
-        createConfigSection(mainSection, m, network);
 
-        // Additional Settings Tab (main section)
-        let o = mainSection.tab('additional', _('Additional Settings'));
+        // Basic Settings Tab
+        let o = mainSection.tab('basic', _('Basic Settings'));
+
+        // Add subscription URLs list
+        const subscriptionUrlsOption = mainSection.taboption('basic', form.DynamicList, 'subscription_urls');
+        subscriptionUrlsOption.placeholder = 'https://example.com/sub/...';
+        subscriptionUrlsOption.rmempty = true;
+        subscriptionUrlsOption.validate = function (section_id, value) {
+            if (!value) return true;
+
+            try {
+                const url = new URL(value);
+                if (!url.protocol.match(/^https?:$/)) {
+                    return _('URL must use HTTP or HTTPS protocol');
+                }
+                return true;
+            } catch (e) {
+                return _('Invalid URL format');
+            }
+        };
+        subscriptionUrlsOption.renderWidget = function (section_id, option_index, cfgvalue) {
+            const original = form.DynamicList.prototype.renderWidget.apply(this, [section_id, option_index, cfgvalue]);
+            return createCollapsibleSection(
+                _('Subscription URLs'),
+                [
+                    E('div', { 'class': 'cbi-value-description' },
+                        _('Add VLESS subscription URLs. Servers from subscriptions will be available in the selection dropdown.')),
+                    original
+                ]
+            );
+        };
+
+        // Server List
+        const serverListOption = mainSection.taboption('basic', form.DynamicList, 'server');
+        serverListOption.placeholder = 'vless://...#My Server Description';
+        serverListOption.rmempty = true;
+        serverListOption.validate = function (section_id, value) {
+            if (!value) return true;
+
+            if (!value.includes('#')) {
+                return _('Each server must have a label after #');
+            }
+
+            const [url, label] = value.split('#');
+            if (!url.startsWith('vless://') && !url.startsWith('ss://')) {
+                return _('URL must start with vless:// or ss://');
+            }
+
+            if (!label || label.trim().length === 0) {
+                return _('Label after # cannot be empty');
+            }
+
+            return true;
+        };
+        serverListOption.renderWidget = function (section_id, option_index, cfgvalue) {
+            const original = form.DynamicList.prototype.renderWidget.apply(this, [section_id, option_index, cfgvalue]);
+            return createCollapsibleSection(
+                _('Server List'),
+                [
+                    E('div', { 'class': 'cbi-value-description' },
+                        _('Add your proxy servers here. Format: config_string#label')),
+                    original
+                ]
+            );
+        };
+
+        // Additional Settings Tab
+        o = mainSection.tab('additional', _('Additional Settings'));
 
         o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>'));
         o.default = '0';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
         o.default = '0';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.Flag, 'quic_disable', _('QUIC disable'), _('For issues with the video stream'));
         o.default = '0';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.ListValue, 'update_interval', _('List Update Frequency'), _('Select how often the lists will be updated'));
         o.value('1h', _('Every hour'));
@@ -989,7 +1265,6 @@ return view.extend({
         o.value('3d', _('Every 3 days'));
         o.default = '1d';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.ListValue, 'dns_type', _('DNS Protocol Type'), _('Select DNS protocol to use'));
         o.value('doh', _('DNS over HTTPS (DoH)'));
@@ -997,7 +1272,6 @@ return view.extend({
         o.value('udp', _('UDP (Unprotected DNS)'));
         o.default = 'doh';
         o.rmempty = false;
-        o.ucisection = 'main';
 
         o = mainSection.taboption('additional', form.Value, 'dns_server', _('DNS Server'), _('Select or enter DNS server address'));
         o.value('1.1.1.1', 'Cloudflare (1.1.1.1)');
@@ -1008,7 +1282,6 @@ return view.extend({
         o.value('family.adguard-dns.com', 'AdGuard Family (family.adguard-dns.com)');
         o.default = '8.8.8.8';
         o.rmempty = false;
-        o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value) {
                 return _('DNS server address cannot be empty');
@@ -1037,7 +1310,6 @@ return view.extend({
         o = mainSection.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 600)'));
         o.default = '60';
         o.rmempty = false;
-        o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value) {
                 return _('TTL value cannot be empty');
@@ -1056,7 +1328,6 @@ return view.extend({
         o.value('/usr/share/sing-box/cache.db', 'Flash (/usr/share/sing-box/cache.db)');
         o.default = '/tmp/cache.db';
         o.rmempty = false;
-        o.ucisection = 'main';
         o.validate = function (section_id, value) {
             if (!value) {
                 return _('Cache file path cannot be empty');
@@ -1079,7 +1350,6 @@ return view.extend({
         };
 
         o = mainSection.taboption('additional', form.MultiValue, 'iface', _('Source Network Interface'), _('Select the network interface from which the traffic will originate'));
-        o.ucisection = 'main';
         o.default = 'br-lan';
         o.load = function (section_id) {
             return getNetworkInterfaces(this, section_id, ['wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan']).then(() => {
@@ -1087,35 +1357,7 @@ return view.extend({
             });
         };
 
-        // Extra IPs and exclusions (main section)
-        o = mainSection.taboption('basic', form.Flag, 'exclude_from_ip_enabled', _('IP for exclusion'), _('Specify local IP addresses that will never use the configured route'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        o = mainSection.taboption('basic', form.DynamicList, 'exclude_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
-        o.placeholder = 'IP';
-        o.depends('exclude_from_ip_enabled', '1');
-        o.rmempty = false;
-        o.ucisection = 'main';
-        o.validate = function (section_id, value) {
-            if (!value || value.length === 0) return true;
-            const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-            if (!ipRegex.test(value)) return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
-            const ipParts = value.split('.');
-            for (const part of ipParts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) return _('IP address parts must be between 0 and 255');
-            }
-            return true;
-        };
-
-        o = mainSection.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
-        o.default = '0';
-        o.rmempty = false;
-        o.ucisection = 'main';
-
-        // Diagnostics Tab (main section)
+        // Diagnostics Tab
         o = mainSection.tab('diagnostics', _('Diagnostics'));
 
         o = mainSection.taboption('diagnostics', form.DummyValue, '_status');
@@ -1124,6 +1366,28 @@ return view.extend({
             id: 'diagnostics-status',
             'style': 'cursor: pointer;'
         }, _('Click to load diagnostics...'));
+
+
+        // Default Section
+        const defaultSection = m.section(form.TypedSection, 'default', _('Default configuration'));
+        defaultSection.anonymous = true;
+        defaultSection.addremove = false;
+        createConfigSection(defaultSection, m, network);
+
+        // Extra Section
+        const extraSection = m.section(form.TypedSection, 'extra', _('Extra configurations'));
+        extraSection.anonymous = false;
+        extraSection.addremove = true;
+        extraSection.addbtntitle = _('Add Section');
+        extraSection.multiple = true;
+        createConfigSection(extraSection, m, network);
+
+        // Add a separator section
+        const separatorSection = m.section(form.TypedSection, 'separator');
+        separatorSection.anonymous = true;
+        separatorSection.render = function () {
+            return E('div', { 'class': 'cbi-section' }, E('hr'));
+        };
 
         let diagnosticsUpdateTimer = null;
 
@@ -1340,23 +1604,33 @@ return view.extend({
                 let configName = _('Main config');
                 try {
                     const data = await uci.load('podkop');
-                    const proxyString = uci.get('podkop', 'main', 'proxy_string');
+                    const extraSections = uci.sections('podkop', 'default');
 
-                    if (proxyString) {
-                        const activeConfig = proxyString.split('\n')
-                            .map(line => line.trim())
-                            .find(line => line && !line.startsWith('//'));
+                    if (extraSections.length > 0) {
+                        const firstExtraSection = extraSections[0];
+                        const configType = firstExtraSection.proxy_config_type;
 
-                        if (activeConfig) {
-                            if (activeConfig.includes('#')) {
-                                const label = activeConfig.split('#').pop();
+                        let configString = null;
+
+                        if (configType === 'server') {
+                            configString = firstExtraSection.selected_server;
+                        } else if (configType === 'url') {
+                            configString = firstExtraSection.proxy_string;
+                            if (configString) {
+                                // For proxy_string, find the first non-commented line
+                                const activeConfig = configString.split('\n')
+                                    .map(line => line.trim())
+                                    .find(line => line && !line.startsWith('//'));
+                                configString = activeConfig;
+                            }
+                        }
+
+                        if (configString) {
+                            if (configString.includes('#')) {
+                                const label = configString.split('#').pop();
                                 if (label && label.trim()) {
                                     configName = _('Config: ') + decodeURIComponent(label);
-                                } else {
-                                    configName = _('Main config');
                                 }
-                            } else {
-                                configName = _('Main config');
                             }
                         }
                     }
@@ -1411,14 +1685,6 @@ return view.extend({
                 }
             }
         }
-
-        // Extra Section
-        const extraSection = m.section(form.TypedSection, 'extra', _('Extra configurations'));
-        extraSection.anonymous = false;
-        extraSection.addremove = true;
-        extraSection.addbtntitle = _('Add Section');
-        extraSection.multiple = true;
-        createConfigSection(extraSection, m, network);
 
         const map_promise = m.render().then(node => {
             const titleDiv = E('h2', { 'class': 'cbi-map-title' }, _('Podkop'));

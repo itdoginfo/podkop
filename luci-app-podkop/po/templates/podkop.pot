@@ -274,6 +274,9 @@ msgstr ""
 msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
+msgid "Warning: Russia inside contains %s, so these options have been removed."
+msgstr "Warning: Russia inside contains %s, so these options have been removed."
+
 msgid "Russia inside restrictions"
 msgstr ""
 
@@ -1169,4 +1172,31 @@ msgid "available"
 msgstr ""
 
 msgid "unavailable"
+msgstr ""
+
+msgid "Proxy configuration URL cannot be empty when proxy mode is selected"
+msgstr ""
+
+msgid "Outbound configuration cannot be empty when proxy mode is selected"
+msgstr ""
+
+msgid "Duplicate values found"
+msgstr ""
+
+msgid "Warning: %s already used and have been removed from selection."
+msgstr ""
+
+msgid "Proxy Servers"
+msgstr ""
+
+msgid "Server List"
+msgstr ""
+
+msgid "Add your proxy servers here. Format: name url description"
+msgstr ""
+
+msgid "Each server must have at least a name and URL"
+msgstr ""
+
+msgid "Select proxy server from the list"
 msgstr ""
