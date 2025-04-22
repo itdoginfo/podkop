@@ -1,0 +1,821 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Podkop configuration"
+msgstr "Налаштування Podkop"
+
+msgid "Basic Settings"
+msgstr "Основні налаштування"
+
+msgid "Additional Settings"
+msgstr "Додаткові налаштування"
+
+msgid "Secondary Config"
+msgstr "Другий маршрут"
+
+msgid "Secondary VPN/Proxy Enable"
+msgstr "Увімкнути другий VPN/Proxy"
+
+msgid "Enable secondary VPN/Proxy configuration"
+msgstr "Увімкнути конфігурацію другого VPN/Proxy"
+
+msgid "Connection Type"
+msgstr "Тип підключення"
+
+msgid "Select between VPN and Proxy connection methods for traffic routing"
+msgstr "Виберіть між методами підключення VPN і Proxy для маршрутизації трафіку"
+
+msgid "Configuration Type"
+msgstr "Тип конфігурації"
+
+msgid "Select how to configure the proxy"
+msgstr "Виберіть спосіб налаштування проксі"
+
+msgid "Connection URL"
+msgstr "URL підключення"
+
+msgid "Outbound Config"
+msgstr "Конфігурація вихідного з’єднання"
+
+msgid "Proxy Configuration URL"
+msgstr "URL конфігурації проксі"
+
+msgid "Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for saving other configs"
+msgstr "Введіть рядок підключення, що починається з vless:// або ss:// для налаштування проксі. Додавайте коментарі з // для збереження інших конфігурацій"
+
+msgid "Outbound Configuration"
+msgstr "Конфігурація вихідного з’єднання"
+
+msgid "Enter complete outbound configuration in JSON format"
+msgstr "Введіть повну конфігурацію вихідного з’єднання у форматі JSON"
+
+msgid "Network Interface"
+msgstr "Мережевий інтерфейс"
+
+msgid "Select network interface for VPN connection"
+msgstr "Виберіть мережевий інтерфейс для VPN-підключення"
+
+msgid "Community Lists"
+msgstr "Попередньо встановлені списки"
+
+msgid "Service List"
+msgstr "Список сервісів"
+
+msgid "Select predefined service for routing"
+msgstr "Виберіть попередньо встановлені сервіси для маршрутизації"
+
+msgid "User Domain List Type"
+msgstr "Тип списку користувацьких доменів"
+
+msgid "Select how to add your custom domains"
+msgstr "Виберіть спосіб додавання користувацьких доменів"
+
+msgid "Disabled"
+msgstr "Вимкнено"
+
+msgid "Dynamic List"
+msgstr "Динамічний список"
+
+msgid "Text List"
+msgstr "Текстовий список"
+
+msgid "User Domains"
+msgstr "Користувацькі домени"
+
+msgid "Enter domain names without protocols (example: sub.example.com or example.com)"
+msgstr "Введіть імена доменів без протоколів (наприклад: sub.example.com або example.com)"
+
+msgid "User Domains List"
+msgstr "Список користувацьких доменів"
+
+msgid "Enter domain names separated by comma, space or newline. You can add comments after //"
+msgstr "Введіть імена доменів, розділяючи їх комою, пробілом або новим рядком. Ви можете додавати коментарі після //"
+
+msgid "Local Domain Lists"
+msgstr "Локальні списки доменів"
+
+msgid "Use the list from the router filesystem"
+msgstr "Використовувати список із файлової системи роутера"
+
+msgid "Local Domain Lists Path"
+msgstr "Шлях до локальних списків доменів"
+
+msgid "Enter to the list file path"
+msgstr "Введіть шлях до файлу списку"
+
+msgid "Remote Domain Lists"
+msgstr "Віддалені списки доменів"
+
+msgid "Download and use domain lists from remote URLs"
+msgstr "Завантаження та використання списків доменів із віддалених URL"
+
+msgid "Remote Domain URLs"
+msgstr "URL віддалених доменів"
+
+msgid "Enter full URLs starting with http:// or https://"
+msgstr "Введіть повні URL, що починаються з http:// або https://"
+
+msgid "User Subnet List Type"
+msgstr "Тип списку користувацьких підмереж"
+
+msgid "Select how to add your custom subnets"
+msgstr "Виберіть спосіб додавання користувацьких підмереж"
+
+msgid "Text List (comma/space/newline separated)"
+msgstr "Текстовий список (розділений комами/пробілами/новими рядками)"
+
+msgid "User Subnets"
+msgstr "Користувацькі підмережі"
+
+msgid "Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses"
+msgstr "Введіть підмережі в нотації CIDR (наприклад: 103.21.244.0/22) або окремі IP-адреси"
+
+msgid "User Subnets List"
+msgstr "Список користувацьких підмереж"
+
+msgid "Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline"
+msgstr "Введіть підмережі в нотації CIDR або окремі IP-адреси через кому, пробіл або новий рядок"
+
+msgid "Remote Subnet Lists"
+msgstr "Віддалені списки підмереж"
+
+msgid "Download and use subnet lists from remote URLs"
+msgstr "Завантаження та використання списків підмереж із віддалених URL"
+
+msgid "Remote Subnet URLs"
+msgstr "URL віддалених підмереж"
+
+msgid "IP for full redirection"
+msgstr "Примусові проксі IP"
+
+msgid "Specify local IP addresses whose traffic will always use the configured route"
+msgstr "Вкажіть локальні IP-адреси, трафік яких завжди використовуватиме налаштований маршрут"
+
+msgid "Local IPs"
+msgstr "Локальні IP"
+
+msgid "Enter valid IPv4 addresses"
+msgstr "Введіть дійсні IPv4-адреси"
+
+msgid "IP for exclusion"
+msgstr "Виключення проксі IP"
+
+msgid "Specify local IP addresses that will never use the configured route"
+msgstr "Вкажіть локальні IP-адреси, які ніколи не використовуватимуть налаштований маршрут"
+
+msgid "Mixed enable"
+msgstr "Увімкнути змішаний режим"
+
+msgid "Browser port: 2080"
+msgstr "Порт браузера: 2080"
+
+msgid "Yacd enable"
+msgstr "Увімкнути Yacd"
+
+msgid "Exclude NTP"
+msgstr "Виключити NTP"
+
+msgid "For issues with open connections sing-box"
+msgstr "Для проблем із відкритими з’єднаннями sing-box"
+
+msgid "QUIC disable"
+msgstr "Вимкнути QUIC"
+
+msgid "For issues with the video stream"
+msgstr "Для проблем із відеопотоком"
+
+msgid "List Update Frequency"
+msgstr "Частота оновлення списків"
+
+msgid "Select how often the lists will be updated"
+msgstr "Виберіть, як часто оновлюватимуться списки"
+
+msgid "Every hour"
+msgstr "Щогодини"
+
+msgid "Every 2 hours"
+msgstr "Кожні 2 години"
+
+msgid "Every 3 hours"
+msgstr "Кожні 3 години"
+
+msgid "Every 4 hours"
+msgstr "Кожні 4 години"
+
+msgid "Every 6 hours"
+msgstr "Кожні 6 годин"
+
+msgid "Every 12 hours"
+msgstr "Кожні 12 годин"
+
+msgid "Every day"
+msgstr "Щодня"
+
+msgid "Every 3 days"
+msgstr "Кожні 3 дні"
+
+msgid "Once a day at 04:00"
+msgstr "Раз на день о 04:00"
+
+msgid "Once a week on Sunday at 04:00"
+msgstr "Раз на тиждень у неділю о 04:00"
+
+msgid "Invalid domain format. Enter domain without protocol (example: sub.example.com)"
+msgstr "Невірний формат домену. Введіть домен без протоколу (наприклад: sub.example.com)"
+
+msgid "URL must use http:// or https:// protocol"
+msgstr "URL має використовувати протокол http:// або https://"
+
+msgid "Invalid URL format. URL must start with http:// or https://"
+msgstr "Невірний формат URL. URL має починатися з http:// або https://"
+
+msgid "Invalid format. Use format: X.X.X.X or X.X.X.X/Y"
+msgstr "Невірний формат. Використовуйте формат: X.X.X.X або X.X.X.X/Y"
+
+msgid "IP address parts must be between 0 and 255"
+msgstr "Частини IP-адреси мають бути між 0 і 255"
+
+msgid "CIDR must be between 0 and 32"
+msgstr "CIDR має бути між 0 і 32"
+
+msgid "Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)"
+msgstr "Невірний формат IP. Використовуйте формат: X.X.X.X (наприклад: 192.168.1.1)"
+
+msgid "Invalid domain format: %s. Enter domain without protocol"
+msgstr "Невірний формат домену: %s. Введіть домен без протоколу"
+
+msgid "Invalid format: %s. Use format: X.X.X.X or X.X.X.X/Y"
+msgstr "Невірний формат: %s. Використовуйте формат: X.X.X.X або X.X.X.X/Y"
+
+msgid "IP parts must be between 0 and 255 in: %s"
+msgstr "Частини IP-адреси мають бути між 0 і 255 у: %s"
+
+msgid "CIDR must be between 0 and 32 in: %s"
+msgstr "CIDR має бути між 0 і 32 у: %s"
+
+msgid "Invalid path format. Path must start with \"/\" and contain only valid characters (letters, numbers, \"-\", \"_\", \"/\", \".\")"
+msgstr "Невірний формат шляху. Шлях має починатися з \"/\" і містити лише допустимі символи (літери, цифри, \"-\", \"_\", \"/\", \".\")"
+
+msgid "Invalid path format"
+msgstr "Невірний формат шляху"
+
+msgid "JSON must contain at least type, server and server_port fields"
+msgstr "JSON має містити принаймні поля type, server і server_port"
+
+msgid "Invalid JSON format"
+msgstr "Невірний формат JSON"
+
+msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
+msgstr "Попередження: %s не можна використовувати разом із %s. Попередні вибори було видалено."
+
+msgid "Regional options cannot be used together"
+msgstr "Регіональні опції не можна використовувати разом"
+
+msgid "Warning: Russia inside can only be used with Meta, Twitter, Discord, and Telegram. %s already in Russia inside and have been removed from selection."
+msgstr "Увага: Russia inside можна використовувати лише з Meta, Twitter, Discord і Telegram. %s уже в Russia inside і було видалено з вибору."
+
+msgid "Russia inside restrictions"
+msgstr "Обмеження Russia inside"
+
+msgid "URL must start with vless:// or ss://"
+msgstr "URL має починатися з vless:// або ss://"
+
+msgid "Invalid Shadowsocks URL format: missing method and password separator \":\""
+msgstr "Невірний формат URL Shadowsocks: відсутній розділювач методу і пароля \":\""
+
+msgid "Invalid Shadowsocks URL format"
+msgstr "Невірний формат URL Shadowsocks"
+
+msgid "Invalid Shadowsocks URL: missing server address"
+msgstr "Невірний URL Shadowsocks: відсутня адреса сервера"
+
+msgid "Invalid Shadowsocks URL: missing server"
+msgstr "Невірний URL Shadowsocks: відсутній сервер"
+
+msgid "Invalid Shadowsocks URL: missing port"
+msgstr "Невірний URL Shadowsocks: відсутній порт"
+
+msgid "Invalid port number. Must be between 1 and 65535"
+msgstr "Невірний номер порту. Має бути між 1 і 65535"
+
+msgid "Invalid Shadowsocks URL: missing or invalid server/port format"
+msgstr "Невірний URL Shadowsocks: відсутній або невірний формат сервера/порту"
+
+msgid "Invalid VLESS URL: missing UUID"
+msgstr "Невірний URL VLESS: відсутній UUID"
+
+msgid "Invalid VLESS URL: missing server address"
+msgstr "Невірний URL VLESS: відсутня адреса сервера"
+
+msgid "Invalid VLESS URL: missing server"
+msgstr "Невірний URL VLESS: відсутній сервер"
+
+msgid "Invalid VLESS URL: missing port"
+msgstr "Невірний URL VLESS: відсутній порт"
+
+msgid "Invalid VLESS URL: missing or invalid server/port format"
+msgstr "Невірний URL VLESS: відсутній або невірний формат сервера/порту"
+
+msgid "Invalid VLESS URL: missing query parameters"
+msgstr "Невірний URL VLESS: відсутні параметри запиту"
+
+msgid "Invalid VLESS URL: missing type parameter"
+msgstr "Невірний URL VLESS: відсутній параметр type"
+
+msgid "Invalid VLESS URL: missing security parameter"
+msgstr "Невірний URL VLESS: відсутній параметр security"
+
+msgid "Invalid VLESS URL: missing pbk parameter for reality security"
+msgstr "Невірний URL VLESS: відсутній параметр pbk для security reality"
+
+msgid "Invalid VLESS URL: missing fp parameter for reality security"
+msgstr "Невірний URL VLESS: відсутній параметр fp для security reality"
+
+msgid "Invalid VLESS URL: missing sni parameter for tls security"
+msgstr "Невірний URL VLESS: відсутній параметр sni для security tls"
+
+msgid "Invalid URL format: %s"
+msgstr "Невірний формат URL: %s"
+
+msgid "Remote Domain Lists URL"
+msgstr "URL віддалених списків доменів"
+
+msgid "Enter URL to download domain list"
+msgstr "Введіть URL для завантаження списку доменів"
+
+msgid "Update Interval"
+msgstr "Інтервал оновлення"
+
+msgid "Select how often to update the lists"
+msgstr "Виберіть, як часто оновлювати списки"
+
+msgid "Last Update"
+msgstr "Останнє оновлення"
+
+msgid "Last update time"
+msgstr "Час останнього оновлення"
+
+msgid "Next Update"
+msgstr "Наступне оновлення"
+
+msgid "Next scheduled update time"
+msgstr "Час наступного запланованого оновлення"
+
+msgid "Version"
+msgstr "Версія"
+
+msgid "Component version"
+msgstr "Версія компонента"
+
+msgid "Installed"
+msgstr "Встановлено"
+
+msgid "Not installed"
+msgstr "Не встановлено"
+
+msgid "Unknown version"
+msgstr "Невідома версія"
+
+msgid "Error parsing version"
+msgstr "Помилка аналізу версії"
+
+msgid "Error parsing status"
+msgstr "Помилка аналізу статусу"
+
+msgid "Service is running"
+msgstr "Сервіс запущено"
+
+msgid "Service is stopped"
+msgstr "Сервіс зупинено"
+
+msgid "Service is enabled"
+msgstr "Сервіс увімкнено"
+
+msgid "Service is disabled"
+msgstr "Сервіс вимкнено"
+
+msgid "Service Status"
+msgstr "Статус сервісу"
+
+msgid "working"
+msgstr "працює"
+
+msgid "not working"
+msgstr "не працює"
+
+msgid "check error"
+msgstr "помилка перевірки"
+
+msgid "Diagnostic check in progress..."
+msgstr "Триває діагностична перевірка..."
+
+msgid "Diagnostic check completed"
+msgstr "Діагностичну перевірку завершено"
+
+msgid "Diagnostic check failed"
+msgstr "Діагностична перевірка не вдалася"
+
+msgid "Update in progress..."
+msgstr "Триває оновлення..."
+
+msgid "Update completed"
+msgstr "Оновлення завершено"
+
+msgid "Update failed"
+msgstr "Оновлення не вдалося"
+
+msgid "Check in progress..."
+msgstr "Триває перевірка..."
+
+msgid "Check completed"
+msgstr "Перевірку завершено"
+
+msgid "Check failed"
+msgstr "Перевірка не вдалася"
+
+msgid "Version Information"
+msgstr "Інформація про версію"
+
+msgid "Copied!"
+msgstr "Скопійовано!"
+
+msgid "Podkop Status"
+msgstr "Статус Podkop"
+
+msgid "Start Podkop"
+msgstr "Запустити Podkop"
+
+msgid "Stop Podkop"
+msgstr "Зупинити Podkop"
+
+msgid "Restart Podkop"
+msgstr "Перезапустити Podkop"
+
+msgid "Enable Podkop"
+msgstr "Увімкнути Podkop"
+
+msgid "Disable Podkop"
+msgstr "Вимкнути Podkop"
+
+msgid "Loading diagnostics..."
+msgstr "Завантаження діагностики..."
+
+msgid "Error loading diagnostics"
+msgstr "Помилка завантаження діагностики"
+
+msgid "Sing-box Status"
+msgstr "Статус Sing-box"
+
+msgid "Diagnostic Tools"
+msgstr "Інструменти діагностики"
+
+msgid "Unknown"
+msgstr "Невідомо"
+
+msgid "Device Model: "
+msgstr "Модель пристрою: "
+
+msgid "OpenWrt Version: "
+msgstr "Версія OpenWrt: "
+
+msgid "Sing-box: "
+msgstr "Sing-box: "
+
+msgid "LuCI App: "
+msgstr "LuCI App: "
+
+msgid "Podkop: "
+msgstr "Podkop: "
+
+msgid "Check NFT Rules"
+msgstr "Перевірити правила NFT"
+
+msgid "Update Lists"
+msgstr "Оновити списки"
+
+msgid "Lists Update Results"
+msgstr "Результати оновлення списків"
+
+msgid "DNS Protocol Type"
+msgstr "Тип протоколу DNS"
+
+msgid "Select DNS protocol to use"
+msgstr "Виберіть протокол DNS"
+
+msgid "DNS over HTTPS (DoH)"
+msgstr "DNS через HTTPS (DoH)"
+
+msgid "DNS over TLS (DoT)"
+msgstr "DNS через TLS (DoT)"
+
+msgid "UDP (Unprotected DNS)"
+msgstr "UDP (Незашифрований DNS)"
+
+msgid "DNS Server"
+msgstr "DNS-сервер"
+
+msgid "Select or enter DNS server address"
+msgstr "Виберіть або введіть адресу DNS-сервера"
+
+msgid "DNS server address cannot be empty"
+msgstr "Адреса DNS-сервера не може бути порожньою"
+
+msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com"
+msgstr "Невірний формат DNS-сервера. Приклади: 8.8.8.8 або dns.example.com"
+
+msgid "DNS Rewrite TTL"
+msgstr "Перезапис TTL для DNS"
+
+msgid "Time in seconds for DNS record caching (default: 600)"
+msgstr "Час у секундах для кешування DNS-записів (за замовчуванням: 600)"
+
+msgid "TTL value cannot be empty"
+msgstr "Значення TTL не може бути порожнім"
+
+msgid "TTL must be a positive number"
+msgstr "TTL має бути додатним числом"
+
+msgid "Cache File Path"
+msgstr "Шлях до файлу кешу"
+
+msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
+msgstr "Виберіть або введіть шлях до файлу кешу sing-box. Змінюйте ТІЛЬКИ, якщо знаєте, що робите"
+
+msgid "Cache file path cannot be empty"
+msgstr "Шлях до файлу кешу не може бути порожнім"
+
+msgid "Path must be absolute (start with /)"
+msgstr "Шлях має бути абсолютним (починатися з /)"
+
+msgid "Path must end with cache.db"
+msgstr "Шлях має закінчуватися на cache.db"
+
+msgid "Path must contain at least one directory (like /tmp/cache.db)"
+msgstr "Шлях має містити принаймні одну директорію (наприклад, /tmp/cache.db)"
+
+msgid "Invalid path format. Must be like /tmp/cache.db"
+msgstr "Невірний формат шляху. Приклад: /tmp/cache.db"
+
+msgid "Select the network interface from which the traffic will originate"
+msgstr "Виберіть мережевий інтерфейс, з якого надходитиме трафік"
+
+msgid "Copy to Clipboard"
+msgstr "Копіювати в буфер обміну"
+
+msgid "Close"
+msgstr "Закрити"
+
+msgid "Loading..."
+msgstr "Завантаження..."
+
+msgid "Loading version information..."
+msgstr "Завантаження інформації про версію..."
+
+msgid "Checking FakeIP..."
+msgstr "Перевірка FakeIP..."
+
+msgid "timeout"
+msgstr "таймаут"
+
+msgid "Current config: "
+msgstr "Поточна конфігурація: "
+
+msgid "Invalid VLESS URL: type must be one of tcp, udp, grpc, http"
+msgstr "Невірний URL VLESS: тип має бути одним із tcp, udp, grpc, http"
+
+msgid "Invalid VLESS URL: security must be one of tls, reality, none"
+msgstr "Невірний URL VLESS: security має бути одним із tls, reality, none"
+
+msgid "Podkop"
+msgstr "Podkop"
+
+msgid "Proxy"
+msgstr "Проксі"
+
+msgid "VPN"
+msgstr "VPN"
+
+msgid "http://openwrt.lan:9090/ui"
+msgstr "http://openwrt.lan:9090/ui"
+
+msgid "Podkop Configuration"
+msgstr "Конфігурація Podkop"
+
+msgid "Active Connections"
+msgstr "Активні з’єднання"
+
+msgid "DNSMasq Configuration"
+msgstr "Конфігурація DNSMasq"
+
+msgid "Sing-box Configuration"
+msgstr "Конфігурація Sing-box"
+
+msgid "Extra configurations"
+msgstr "Додаткові конфігурації"
+
+msgid "Add Section"
+msgstr "Додати розділ"
+
+msgid "No output"
+msgstr "Немає виводу"
+
+msgid "Failed to copy: "
+msgstr "Не вдалося скопіювати: "
+
+msgid "Show Config"
+msgstr "Показати конфігурацію"
+
+msgid "View Logs"
+msgstr "Перегляд логів"
+
+msgid "Check Connections"
+msgstr "Перевірити з’єднання"
+
+msgid "FakeIP Status"
+msgstr "Статус FakeIP"
+
+msgid "Device Model: "
+msgstr "Модель пристрою: "
+
+msgid "OpenWrt Version: "
+msgstr "Версія OpenWrt: "
+
+msgid "Check DNSMasq"
+msgstr "Перевірити DNSMasq"
+
+msgid "Check NFT Rules"
+msgstr "Перевірити правила NFT"
+
+msgid "Update Lists"
+msgstr "Оновити списки"
+
+msgid "Lists Update Results"
+msgstr "Результати оновлення списків"
+
+msgid "NFT Rules"
+msgstr "Правила NFT"
+
+msgid "GitHub Connectivity"
+msgstr "Підключення до GitHub"
+
+msgid "Check GitHub"
+msgstr "Перевірити GitHub"
+
+msgid "GitHub Connectivity Results"
+msgstr "Результати перевірки підключення до GitHub"
+
+msgid "Sing-Box Logs"
+msgstr "Логи Sing-Box"
+
+msgid "View recent sing-box logs from system journal"
+msgstr "Перегляд останніх логів sing-box із системного журналу"
+
+msgid "View Sing-Box Logs"
+msgstr "Перегляд логів Sing-Box"
+
+msgid "Podkop Logs"
+msgstr "Логи Podkop"
+
+msgid "View recent podkop logs from system journal"
+msgstr "Перегляд останніх логів podkop із системного журналу"
+
+msgid "View Podkop Logs"
+msgstr "Перегляд логів Podkop"
+
+msgid "Active Connections"
+msgstr "Активні з’єднання"
+
+msgid "View active sing-box network connections"
+msgstr "Перегляд активних мережевих з’єднань sing-box"
+
+msgid "DNSMasq Configuration"
+msgstr "Конфігурація DNSMasq"
+
+msgid "View current DNSMasq configuration settings"
+msgstr "Перегляд поточних налаштувань конфігурації DNSMasq"
+
+msgid "Sing-Box Configuration"
+msgstr "Конфігурація Sing-Box"
+
+msgid "Show current sing-box configuration"
+msgstr "Показати поточну конфігурацію sing-box"
+
+msgid "Show Sing-Box Config"
+msgstr "Показати конфігурацію Sing-Box"
+
+msgid "Diagnostic Tools"
+msgstr "Інструменти діагностики"
+
+msgid "Unknown"
+msgstr "Невідомо"
+
+msgid "sing-box not running"
+msgstr "sing-box не запущено"
+
+msgid "DNS not configured"
+msgstr "DNS не налаштовано"
+
+msgid "running & enabled"
+msgstr "запущено та активовано"
+
+msgid "running but disabled"
+msgstr "запущено, але деактивовано"
+
+msgid "stopped but enabled"
+msgstr "зупинено, але активовано"
+
+msgid "stopped & disabled"
+msgstr "зупинено та деактивовано"
+
+msgid "works in browser"
+msgstr "працює в браузері"
+
+msgid "works on router"
+msgstr "працює на роутері"
+
+msgid "Check Router FakeIP"
+msgstr "Перевірити FakeIP на роутері"
+
+msgid "FakeIP Router Check"
+msgstr "Перевірка FakeIP на роутері"
+
+msgid "FakeIP CLI Check"
+msgstr "Перевірка FakeIP через CLI"
+
+msgid "FakeIP CLI Check Results"
+msgstr "Результати перевірки FakeIP через CLI"
+
+msgid "not works in browser"
+msgstr "не працює в браузері"
+
+msgid "not works on router"
+msgstr "не працює на роутері"
+
+msgid "Diagnostics"
+msgstr "Діагностика"
+
+msgid "DNS Status"
+msgstr "Статус DNS"
+
+msgid "Bypass Status"
+msgstr "Статус обходу"
+
+msgid "proxy working correctly"
+msgstr "проксі працює коректно"
+
+msgid "vpn working correctly"
+msgstr "vpn працює коректно"
+
+msgid "proxy not working"
+msgstr "проксі не працює"
+
+msgid "vpn not working"
+msgstr "vpn не працює"
+
+msgid "proxy not running"
+msgstr "проксі не запущено"
+
+msgid "vpn not running"
+msgstr "vpn не запущено"
+
+msgid "proxy routing incorrect"
+msgstr "маршрутизація проксі некоректна"
+
+msgid "vpn routing incorrect"
+msgstr "маршрутизація vpn некоректна"
+
+msgid "First endpoint check failed"
+msgstr "Перевірка першої кінцевої точки не вдалася"
+
+msgid "IP comparison failed"
+msgstr "Порівняння IP-адрес не вдалося"
+
+msgid "Bypass check error"
+msgstr "Помилка перевірки обходу"
+
+msgid "Main config"
+msgstr "Основна конфігурація"
+
+msgid "Config without description"
+msgstr "Конфігурація без опису"
+
+msgid "DNS working"
+msgstr "DNS працює"
+
+msgid "Router DNS working"
+msgstr "DNS роутера працює"
+
+msgid "Router DNS not working"
+msgstr "DNS роутера не працює"
+
+msgid "DNS check error"
+msgstr "Помилка перевірки DNS"
+
+msgid "available"
+msgstr "доступно"
+
+msgid "unavailable"
+msgstr "недоступно"
+
+msgid "Apply for SS2022"
+msgstr "Застосувати для SS2022"
