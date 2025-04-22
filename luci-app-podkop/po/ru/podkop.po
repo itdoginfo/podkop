@@ -88,8 +88,8 @@ msgstr "Введите имена доменов без протоколов (п
 msgid "User Domains List"
 msgstr "Список пользовательских доменов"
 
-msgid "Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)"
-msgstr "Введите имена доменов через запятую, пробел или новую строку (пример: sub.example.com, example.com или один домен на строку)"
+msgid "Enter domain names separated by comma, space or newline. You can add comments after //"
+msgstr "Введите имена доменов, разделяя их запятой, пробелом или с новой строки. Вы можете добавлять комментарии после //"
 
 msgid "Local Domain Lists"
 msgstr "Локальные списки доменов"
@@ -556,6 +556,9 @@ msgstr "Путь должен содержать хотя бы одну дире
 msgid "Invalid path format. Must be like /tmp/cache.db"
 msgstr "Неверный формат пути. Пример: /tmp/cache.db"
 
+msgid "Select the network interface from which the traffic will originate"
+msgstr "Выберите сетевой интерфейс, с которого будет исходить трафик"
+
 msgid "Copy to Clipboard"
 msgstr "Копировать в буфер обмена"
 
@@ -813,3 +816,6 @@ msgstr "доступен"
 
 msgid "unavailable"
 msgstr "недоступен"
+
+msgid "Apply for SS2022"
+msgstr "Применить для SS2022"
