@@ -272,7 +272,7 @@ function createConfigSection(section, map, network) {
     o.ucisection = s.section;
 
     o = s.taboption('basic', form.DynamicList, 'domain_list', _('Service List'), _('Select predefined service for routing') + ' <a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>');
-    o.placeholder = 'Service list';
+    o.placeholder = 'Service List';
     o.value('russia_inside', 'Russia inside');
     o.value('russia_outside', 'Russia outside');
     o.value('ukraine_inside', 'Ukraine');
