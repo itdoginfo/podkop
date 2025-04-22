@@ -509,7 +509,7 @@ msgid "DNS over TLS (DoT)"
 msgstr "DNS через TLS (DoT)"
 
 msgid "UDP (Unprotected DNS)"
-msgstr "UDP (Незашифрований DNS)"
+msgstr "UDP (Незахищений DNS)"
 
 msgid "DNS Server"
 msgstr "DNS-сервер"
