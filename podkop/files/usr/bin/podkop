@@ -45,7 +45,7 @@ nolog() {
     echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
 }
 
-start() {
+start_main() {
     log "Starting podkop"
 
     # checking
@@ -136,7 +136,12 @@ start() {
 
     sing_box_config_check
     /etc/init.d/sing-box start
-    /etc/init.d/sing-box enable
+    #/etc/init.d/sing-box enable
+    log "Nice"
+}
+
+start() {
+    start_main
 
     config_get proxy_string "main" "proxy_string"
     config_get interface "main" "interface"
@@ -150,7 +155,7 @@ start() {
     fi
 }
 
-stop() {
+stop_main() {
     log "Stopping the podkop"
 
     if [ -f /var/run/podkop_list_update.pid ]; then
@@ -163,11 +168,6 @@ stop() {
     fi
 
     remove_cron_job
-
-    config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" "0"
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dnsmasq_restore
-    fi 
 
     rm -rf /tmp/podkop/*.lst
 
@@ -188,8 +188,22 @@ stop() {
 
     log "Stop sing-box"
     /etc/init.d/sing-box stop
-    /etc/init.d/sing-box disable
+    #/etc/init.d/sing-box disable
+}
 
+stop() {
+    config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" "0"
+    if [ "$dont_touch_dhcp" -eq 0 ]; then
+        dnsmasq_restore
+    fi
+
+    stop_main
+}
+
+reload() {
+    log "Podkop reload"
+    stop_main
+    start_main
 }
 
 # Migrations and validation funcs
@@ -592,10 +606,12 @@ sing_box_uci() {
         log "Change sing-box UCI config"
     fi
 
-    if grep -q '#\s*list ifaces' "$config"; then
-        sed -i '/ifaces/s/#//g' $config
-        log "Uncommented list ifaces"
-    fi
+    [ -f /etc/rc.d/S99sing-box ] && log "Disable sing-box" && /etc/init.d/sing-box disable
+
+    # if grep -q '#\s*list ifaces' "$config"; then
+    #     sed -i '/ifaces/s/#//g' $config
+    #     log "Uncommented list ifaces"
+    # fi
 }
 
 add_socks5_for_section() {
@@ -2156,9 +2172,8 @@ case "$1" in
     stop)
         stop
         ;;
-    restart)
-        stop
-        start
+    reload)
+        reload
         ;;
     main)
         main
@@ -2218,7 +2233,7 @@ case "$1" in
         check_dns_available
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available}"
+        echo "Usage: $0 {start|stop|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available}"
         exit 1
         ;;
 esac

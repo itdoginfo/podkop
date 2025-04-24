@@ -6,13 +6,15 @@ USE_PROCD=1
 script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
-RESOLV_CONF="/etc/resolv.conf"
 
 start_service() {
     echo "Start podkop"
 
+	config_get restart_ifaces "main" "restart_ifaces"
+
 	procd_open_instance
-	procd_set_param command /bin/sh -c "/usr/bin/podkop start"
+	procd_set_param command /usr/bin/podkop start
+	[ -z "$restart_ifaces" ] || procd_set_param netdev $restart_ifaces
 	procd_set_param stdout 1
 	procd_set_param stderr 1
 	procd_close_instance
@@ -22,17 +24,19 @@ stop_service() {
     /usr/bin/podkop stop
 }
 
-restart_service() {
-    stop
-    start
-}
-
 reload_service() {
-    stop
-    start
+    /usr/bin/podkop reload > /dev/null 2>&1
 }
 
 service_triggers() {
     echo "service_triggers start"
-    procd_add_config_trigger "config.change" "$NAME" "$initscript" reload 'on_config_change'
+
+    config_get restart_ifaces "main" "restart_ifaces"
+	procd_open_trigger
+		procd_add_config_trigger "config.change" "$NAME" "$initscript" reload 'on_config_change'
+
+		for iface in $restart_ifaces; do
+			procd_add_reload_interface_trigger $iface
+		done
+	procd_close_trigger
 }

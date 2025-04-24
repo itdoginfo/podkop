@@ -62,6 +62,23 @@ function getNetworkInterfaces(o, section_id, excludeInterfaces = []) {
     });
 }
 
+function getNetworkNetworks(o, section_id, excludeInterfaces = []) {
+	return network.getNetworks().then(networks => {
+		o.keylist = [];
+		o.vallist = [];
+
+		networks.forEach(net => {
+			const name = net.getName();
+			const ifname = net.getIfname();
+			if (name && !excludeInterfaces.includes(name)) {
+				o.value(name, ifname ? `${name} (${ifname})` : name);
+			}
+		});
+	}).catch(error => {
+		console.error('Failed to get networks:', error);
+	});
+}
+
 function createConfigSection(section, map, network) {
     const s = section;
 
@@ -1086,6 +1103,20 @@ return view.extend({
                 return this.super('load', section_id);
             });
         };
+
+        o = mainSection.taboption('additional', form.MultiValue, 'restart_ifaces', _('Interface for monitoring'), _('Select the WAN interfaces to be monitored'));
+        o.ucisection = 'main';
+        o.default = 'wan';
+        o.load = function (section_id) {
+            return getNetworkNetworks(this, section_id, ['lan', 'loopback']).then(() => {
+                return this.super('load', section_id);
+            });
+        };
+
+        o = mainSection.taboption('additional', form.Flag, 'dont_touch_dhcp', _('Dont touch my DHCP!'), _('Podkop will not change the DHCP config'));
+        o.default = '0';
+        o.rmempty = false;
+        o.ucisection = 'main';
 
         // Extra IPs and exclusions (main section)
         o = mainSection.taboption('basic', form.Flag, 'exclude_from_ip_enabled', _('IP for exclusion'), _('Specify local IP addresses that will never use the configured route'));
