@@ -99,6 +99,7 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), _(''));
     o.depends('proxy_config_type', 'url');
     o.rows = 5;
+    o.rmempty = false;
     o.ucisection = s.section;
     o.sectionDescriptions = new Map();
     o.placeholder = 'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt';
@@ -278,7 +279,7 @@ function createConfigSection(section, map, network) {
     o.depends('mode', 'vpn');
     o.ucisection = s.section;
     o.load = function (section_id) {
-        return getNetworkInterfaces(this, section_id, ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan']).then(() => {
+        return getNetworkInterfaces(this, section_id, ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan', 'lan']).then(() => {
             return this.super('load', section_id);
         });
     };
