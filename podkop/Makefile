@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=podkop
-PKG_VERSION:=0.3.36
+PKG_VERSION:=0.3.37
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=ITDog <podkop@itdog.info>
@@ -13,6 +13,7 @@ define Package/podkop
 	SECTION:=net
 	CATEGORY:=Network
 	DEPENDS:=+sing-box +curl +jq +kmod-nft-tproxy +coreutils-base64
+	CONFLICTS:=https-dns-proxy
 	TITLE:=Domain routing app
 	URL:=https://itdog.info
 	PKGARCH:=all
