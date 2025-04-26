@@ -224,9 +224,9 @@ function createConfigSection(section, map, network) {
 
                 let params = new URLSearchParams(queryString.split('#')[0]);
                 let type = params.get('type');
-                const validTypes = ['tcp', 'udp', 'grpc', 'http'];
+                const validTypes = ['tcp', 'raw', 'udp', 'grpc', 'http'];
                 if (!type || !validTypes.includes(type)) {
-                    return _('Invalid VLESS URL: type must be one of tcp, udp, grpc, http');
+                    return _('Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http');
                 }
 
                 let security = params.get('security');
@@ -1044,9 +1044,9 @@ return view.extend({
                 return true;
             }
 
-            const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
+            const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/[^\s]*)?$/;
             if (!domainRegex.test(value)) {
-                return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com');
+                return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
             }
 
             return true;
@@ -1105,9 +1105,14 @@ return view.extend({
             });
         };
 
+        o = mainSection.taboption('additional', form.Flag, 'mon_restart_ifaces', _('Interface monitoring'), _('Interface monitoring for bad WAN'));
+        o.default = '0';
+        o.rmempty = false;
+        o.ucisection = 'main';
+
         o = mainSection.taboption('additional', form.MultiValue, 'restart_ifaces', _('Interface for monitoring'), _('Select the WAN interfaces to be monitored'));
         o.ucisection = 'main';
-        o.default = 'wan';
+        o.depends('mon_restart_ifaces', '1');
         o.load = function (section_id) {
             return getNetworkNetworks(this, section_id, ['lan', 'loopback']).then(() => {
                 return this.super('load', section_id);
