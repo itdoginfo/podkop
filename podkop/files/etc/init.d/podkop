@@ -36,7 +36,7 @@ service_triggers() {
 	config_get restart_ifaces "main" "restart_ifaces"
 
 	procd_open_trigger
-		procd_add_config_trigger "config.change" "$NAME" "$initscript" reload 'on_config_change'
+		procd_add_config_trigger "config.change" "$NAME" "$initscript" restart 'on_config_change'
 
         if [ "$mon_restart_ifaces" = "1" ]; then
 			for iface in $restart_ifaces; do
