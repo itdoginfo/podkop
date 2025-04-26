@@ -161,7 +161,7 @@ stop_main() {
     if [ -f /var/run/podkop_list_update.pid ]; then
         pid=$(cat /var/run/podkop_list_update.pid)
         if kill -0 "$pid"; then
-            kill "$pid"
+            kill "$pid" 2>/dev/null
             log "Stopped list_update"
         fi
         rm -f /var/run/podkop_list_update.pid
@@ -375,7 +375,8 @@ dnsmasq_add_resolver() {
     uci -q delete dhcp.@dnsmasq[0].podkop_server
     for server in $(uci get dhcp.@dnsmasq[0].server 2>/dev/null); do
         if [[ "$server" == "127.0.0.42" ]]; then
-            log "Dnsmasq save config error: server=127.0.0.42"
+            log "Dnsmasq save config error: server=127.0.0.42 is already configured. Skip editing DHCP"
+            return
         else
             uci add_list dhcp.@dnsmasq[0].podkop_server="$server"
         fi
