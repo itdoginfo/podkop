@@ -2086,6 +2086,9 @@ check_dns_available() {
     if echo "$dns_server" | grep -q "\.dns\.nextdns\.io$"; then
         local nextdns_id=$(echo "$dns_server" | cut -d'.' -f1)
         display_dns_server="$(echo "$nextdns_id" | sed 's/./*/g').dns.nextdns.io"
+    elif echo "$dns_server" | grep -q "^dns\.nextdns\.io/"; then
+        local masked_path=$(echo "$dns_server" | cut -d'/' -f2- | sed 's/./*/g')
+        display_dns_server="dns.nextdns.io/$masked_path"
     fi
 
     if [ "$dns_type" = "doh" ]; then
@@ -2164,34 +2167,33 @@ sing_box_add_secure_dns_probe_domain() {
 }
 
 global_check() {
-    nolog "Global check run!"
+    nolog "📡 Global check run!"
+
+    nolog "Podkop $(opkg info podkop | grep -m 1 "Version:" | cut -d' ' -f2)"
+    nolog "LuCi App $(opkg info luci-app-podkop | grep -m 1 "Version:" | cut -d' ' -f2)"
+    nolog "Sing-box $(opkg info sing-box | grep -m 1 "Version:" | cut -d' ' -f2)"
+    nolog "$(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)"
+    nolog "Device: $(cat /tmp/sysinfo/model)"
+
     printf "\n"
     show_config
-    printf "\n\n"
+    printf "\n"
 
     nolog "Checking fakeip functionality..."
         
-    nolog "Testing DNS resolution with default DNS server"
-    echo "=== Testing with default DNS server ==="
+    nolog "➡️ DNS resolution: system DNS server"
     nslookup -timeout=2 $TEST_DOMAIN
-    printf "\n"
     
-    nolog "Finding a working DNS resolver..."
     local working_resolver=$(find_working_resolver)
     if [ -z "$working_resolver" ]; then
-        nolog "No working resolver found, skipping resolver check"
-    else
-        nolog "Using resolver: $working_resolver"
-        
-        nolog "Testing DNS resolution with working resolver ($working_resolver)"
-        echo "=== Testing with working resolver ($working_resolver) ==="
+        nolog "❌ No working resolver found, skipping resolver check"
+    else      
+        nolog "➡️ DNS resolution: external resolver ($working_resolver)"
         nslookup -timeout=2 $TEST_DOMAIN $working_resolver
-        printf "\n"
     fi
     
     # Main FakeIP check
-    nolog "Testing DNS resolution for $TEST_DOMAIN using 127.0.0.42"
-    echo "=== Testing with FakeIP DNS (127.0.0.42) ==="
+    nolog "➡️ DNS resolution: sing-box DNS server (127.0.0.42)"
     local result=$(nslookup -timeout=2 $TEST_DOMAIN 127.0.0.42 2>&1)
     echo "$result"
     
@@ -2231,7 +2233,6 @@ global_check() {
         nolog "✅ /etc/resolv.conf OK"
     fi
 
-    nolog "Checking dnsmasq configuration..."
     cachesize="$(uci get dhcp.@dnsmasq[0].cachesize 2>/dev/null)"
     noresolv="$(uci get dhcp.@dnsmasq[0].noresolv 2>/dev/null)"
     server="$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)"
@@ -2249,15 +2250,7 @@ global_check() {
         nolog "✅ sing-box is running"
     fi
 
-
-        if ! command -v nft >/dev/null 2>&1; then
-        nolog "nft is not installed"
-        return 1
-    fi
-
     nolog "📄 NFT Table Podkop"
-    
-    # Check if table exists
     if ! nft list table inet PodkopTable >/dev/null 2>&1; then
         nolog "PodkopTable not found"
     else
