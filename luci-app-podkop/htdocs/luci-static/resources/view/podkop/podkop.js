@@ -806,7 +806,12 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                             bypassStatus.message
                         ])
                     ])
-                ])
+                ]),
+                ButtonFactory.createModalButton({
+                    label: _('Global check'),
+                    command: 'global_check',
+                    title: _('Click here for all the info')
+                })
             ]),
 
             // Version Information Panel

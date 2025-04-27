@@ -65,10 +65,6 @@ start_main() {
         log "[critical] Detected https-dns-proxy. Disable or uninstall it for correct functionality."
     fi
 
-    if grep -E "^nameserver\s+([0-9]{1,3}\.){3}[0-9]{1,3}" "$RESOLV_CONF" | grep -vqE "127\.0\.0\.1|0\.0\.0\.0"; then
-        log "[critical] /etc/resolv.conf contains an external nameserver"
-    fi
-
     migration
 
     config_foreach process_validate_service
@@ -1831,6 +1827,7 @@ check_sing_box_logs() {
 }
 
 check_fakeip() {
+    # Not used
     nolog "Checking fakeip functionality..."
     
     if ! command -v nslookup >/dev/null 2>&1; then
@@ -1953,7 +1950,7 @@ show_sing_box_config() {
 }
 
 show_config() {
-    nolog "Current podkop configuration:"
+    nolog "📄 Current podkop configuration:"
     
     if [ ! -f /etc/config/podkop ]; then
         nolog "Configuration file not found"
@@ -2166,6 +2163,108 @@ sing_box_add_secure_dns_probe_domain() {
     log "DNS probe domain ${domain} configured with override to port ${override_port}"
 }
 
+global_check() {
+    nolog "Global check run!"
+    printf "\n"
+    show_config
+    printf "\n\n"
+
+    nolog "Checking fakeip functionality..."
+        
+    nolog "Testing DNS resolution with default DNS server"
+    echo "=== Testing with default DNS server ==="
+    nslookup -timeout=2 $TEST_DOMAIN
+    printf "\n"
+    
+    nolog "Finding a working DNS resolver..."
+    local working_resolver=$(find_working_resolver)
+    if [ -z "$working_resolver" ]; then
+        nolog "No working resolver found, skipping resolver check"
+    else
+        nolog "Using resolver: $working_resolver"
+        
+        nolog "Testing DNS resolution with working resolver ($working_resolver)"
+        echo "=== Testing with working resolver ($working_resolver) ==="
+        nslookup -timeout=2 $TEST_DOMAIN $working_resolver
+        printf "\n"
+    fi
+    
+    # Main FakeIP check
+    nolog "Testing DNS resolution for $TEST_DOMAIN using 127.0.0.42"
+    echo "=== Testing with FakeIP DNS (127.0.0.42) ==="
+    local result=$(nslookup -timeout=2 $TEST_DOMAIN 127.0.0.42 2>&1)
+    echo "$result"
+    
+    if echo "$result" | grep -q "198.18"; then
+        nolog "✅ FakeIP is working correctly! Domain resolved to FakeIP range (198.18.x.x)"
+    else
+        nolog "❌ FakeIP test failed. Domain did not resolve to FakeIP range"
+        nolog "Checking if sing-box is running..."
+        
+        if ! pgrep -f "sing-box" >/dev/null; then
+            nolog "sing-box is not running"
+        else
+            nolog "sing-box is running, but FakeIP might not be configured correctly"
+            nolog "Checking DNS configuration in sing-box..."
+            
+            if [ -f "$SING_BOX_CONFIG" ]; then
+                local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$SING_BOX_CONFIG")
+                local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$SING_BOX_CONFIG")
+                
+                nolog "FakeIP enabled: $fakeip_enabled"
+                nolog "FakeIP range: $fakeip_range"
+                
+                local dns_rules=$(jq -r '.dns.rules[] | select(.server == "fakeip-server") | .domain' "$SING_BOX_CONFIG")
+                nolog "FakeIP domain: $dns_rules"
+            else
+                nolog "sing-box config file not found"
+            fi
+        fi
+    fi
+    printf "\n"
+
+    if grep -E "^nameserver\s+([0-9]{1,3}\.){3}[0-9]{1,3}" "$RESOLV_CONF" | grep -vqE "127\.0\.0\.1|0\.0\.0\.0"; then
+        nolog "❌ /etc/resolv.conf contains an external nameserver:"
+        cat /etc/resolv.conf
+        echo ""
+    else
+        nolog "✅ /etc/resolv.conf OK"
+    fi
+
+    nolog "Checking dnsmasq configuration..."
+    cachesize="$(uci get dhcp.@dnsmasq[0].cachesize 2>/dev/null)"
+    noresolv="$(uci get dhcp.@dnsmasq[0].noresolv 2>/dev/null)"
+    server="$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)"
+
+    if [ "$cachesize" != "0" ] || [ "$noresolv" != "1" ] || [ "$server" != "127.0.0.42" ]; then
+        nolog "❌ The configuration differs from the template. 📄 DHCP config:"
+        awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
+    else
+        nolog "✅ /etc/config/dhcp"
+    fi
+
+    if ! pgrep -f "sing-box" >/dev/null; then
+        nolog "❌ sing-box is not running"
+    else
+        nolog "✅ sing-box is running"
+    fi
+
+
+        if ! command -v nft >/dev/null 2>&1; then
+        nolog "nft is not installed"
+        return 1
+    fi
+
+    nolog "📄 NFT Table Podkop"
+    
+    # Check if table exists
+    if ! nft list table inet PodkopTable >/dev/null 2>&1; then
+        nolog "PodkopTable not found"
+    else
+        nft list table inet PodkopTable
+    fi
+}
+
 case "$1" in
     start)
         start
@@ -2233,8 +2332,11 @@ case "$1" in
     check_dns_available)
         check_dns_available
         ;;
+    global_check)
+        global_check
+        ;;
     *)
-        echo "Usage: $0 {start|stop|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available}"
+        echo "Usage: $0 {start|stop|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available|global_check}"
         exit 1
         ;;
 esac
