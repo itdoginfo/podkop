@@ -433,7 +433,7 @@ check_system() {
                 case $DNSPROXY in
 
                 yes|y|Y|yes)
-                    opkg remove luci-app-https-dns-proxy https-dns-proxy
+                    opkg remove --force-depends luci-app-https-dns-proxy https-dns-proxy
                     break
                     ;;
                 *)
