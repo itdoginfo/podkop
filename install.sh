@@ -425,6 +425,25 @@ check_system() {
         exit 1
     fi
 
+    if opkg list-installed | grep -q https-dns-proxy; then
+        printf "\033[31;1mСonflicting package detected: https-dns-proxy. Remove? yes/no\033[0m\n"
+
+        while true; do
+                read -r -p '' DNSPROXY
+                case $DNSPROXY in
+
+                yes|y|Y|yes)
+                    opkg remove luci-app-https-dns-proxy https-dns-proxy
+                    break
+                    ;;
+                *)
+                    echo "Exit"
+                    exit 1
+                    ;;
+        esac
+    done
+    fi
+
     if opkg list-installed | grep -qE "iptables|kmod-iptab"; then
         printf "\033[31;1mFound incompatible iptables packages. If you're using FriendlyWrt: https://t.me/itdogchat/44512/181082\033[0m\n"
     fi
