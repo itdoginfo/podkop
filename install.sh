@@ -5,9 +5,16 @@ REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
 IS_SHOULD_RESTART_NETWORK=
 DOWNLOAD_DIR="/tmp/podkop"
 COUNT=3
+UPGRADE=0
 
 rm -rf "$DOWNLOAD_DIR"
 mkdir -p "$DOWNLOAD_DIR"
+
+for arg in "$@"; do
+    if [ "$arg" = "--upgrade" ]; then
+        UPGRADE=1
+    fi
+done
 
 main() {
     check_system
@@ -16,28 +23,33 @@ main() {
     opkg update
   
     if [ -f "/etc/init.d/podkop" ]; then
-        printf "\033[32;1mPodkop is already installed. Just upgrade it? (y/n)\033[0m\n"
-        printf "\033[32;1my - Only upgrade podkop\033[0m\n"
-        printf "\033[32;1mn - Upgrade and install tunnels (WG, AWG, OpenVPN, OC)\033[0m\n"
+        if [ "$UPGRADE" -eq 1 ]; then
+            echo "Upgraded podkop with flag..."
+        else
+            printf "\033[32;1mPodkop is already installed. Just upgrade it?\033[0m\n"
+            printf "\033[32;1my - Only upgrade podkop\033[0m\n"
+            printf "\033[32;1mn - Upgrade and install tunnels (WG, AWG, OpenVPN, OC)\033[0m\n"
 
-        while true; do
-            read -r -p '' UPDATE
-            case $UPDATE in
-            y)
-                echo "Upgraded podkop..."
-                break
-                ;;
+            while true; do
+                printf "\033[32;1mEnter (y/n): \033[0m"
+                read -r '' UPDATE
+                case $UPDATE in
+                y)
+                    echo "Upgraded podkop..."
+                    break
+                    ;;
 
-            n)
-                add_tunnel
-                break
-                ;;
+                n)
+                    add_tunnel
+                    break
+                    ;;
 
-            *)
-                echo "Please enter y or n"
-                ;;
-            esac
-        done
+                *)
+                    echo "Please enter y or n"
+                    ;;
+                esac
+            done
+        fi
     else
         echo "Installed podkop..."
         add_tunnel
