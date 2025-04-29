@@ -108,7 +108,7 @@ Luci: Services/podkop
 ```
 	option noresolv '1'
 	option cachesize '0'
-    list server '/itdog.info/1.1.1.1'
+	list server '/itdog.info/1.1.1.1'
 	list server '127.0.0.42'
 ```
 
