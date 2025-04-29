@@ -39,9 +39,9 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 Скачать пакеты `podkop_*.ipk` и `luci-app-podkop_*.ipk` из релиза. `opkg install` сначала первый, потом второй.
 
 # Обновление
-Та же самая команда, что для установки. Скрипт обнаружит уже установленный podkop и предложит обновиться.
+Та же самая команда, что для установки. Но с флагом **upgrade** сразу передёт к обновлению.
 ```
-sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
+sh <(wget -qO- https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh) --upgrade
 ```
 
 # Удаление
