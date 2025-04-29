@@ -15,9 +15,10 @@ SUBNETS_TWITTER="${GITHUB_RAW_URL}/Subnets/IPv4/twitter.lst"
 SUBNETS_META="${GITHUB_RAW_URL}/Subnets/IPv4/meta.lst"
 SUBNETS_DISCORD="${GITHUB_RAW_URL}/Subnets/IPv4/discord.lst"
 SUBNETS_TELERAM="${GITHUB_RAW_URL}/Subnets/IPv4/telegram.lst"
+SUBNETS_CLOUDFLARE="${GITHUB_RAW_URL}/Subnets/IPv4/cloudflare.lst"
 SING_BOX_CONFIG="/etc/sing-box/config.json"
 FAKEIP="198.18.0.0/15"
-VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram"
+VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram cloudflare"
 DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.140.15.15 208.67.220.220 208.67.222.222 77.88.8.1 77.88.8.8"
 TEST_DOMAIN="fakeip.tech-domain.club"
 INTERFACES_LIST=""
@@ -62,7 +63,7 @@ start_main() {
     fi
 
     if grep -qE 'doh_backup_noresolv|doh_backup_server|doh_server' /etc/config/dhcp; then
-        log "[critical] Detected https-dns-proxy. Disable or uninstall it for correct functionality."
+        log "[critical] Detected https-dns-proxy in dhcp config. Edit /etc/config/dhcp"
     fi
 
     migration
@@ -1398,6 +1399,9 @@ list_subnets_download() {
         "telegram")
             URL=$SUBNETS_TELERAM
             ;;
+        "cloudflare")
+            URL=$SUBNETS_CLOUDFLARE
+            ;;
         "discord")
             URL=$SUBNETS_DISCORD
             nft add set inet $table podkop_discord_subnets { type ipv4_addr\; flags interval\; auto-merge\; }
@@ -2266,15 +2270,21 @@ global_check() {
         awk '
             /^config / {
                 p = ($2 == "interface" && $3 == "'\''wan'\''")
+                proto = ""
             }
             p {
-                if ($1 == "option" && ($2 == "username" || $2 == "password")) {
+                if ($1 == "option" && $2 == "proto") {
+                    proto = $3
+                    print
+                } else if (proto == "'\''static'\''" && $1 == "option" && ($2 == "ipaddr" || $2 == "netmask" || $2 == "gateway")) {
+                    print "        option", $2, "'\''******'\''"
+                } else if (proto == "'\''pppoe'\''" && $1 == "option" && ($2 == "username" || $2 == "password")) {
                     print "        option", $2, "'\''******'\''"
                 } else {
                     print
                 }
             }
-            ' /etc/config/network
+        ' /etc/config/network
     else
         nolog "WAN not exists"
     fi
