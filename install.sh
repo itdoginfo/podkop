@@ -25,6 +25,7 @@ main() {
     if [ -f "/etc/init.d/podkop" ]; then
         if [ "$UPGRADE" -eq 1 ]; then
             echo "Upgraded podkop with flag..."
+            break
         else
             printf "\033[32;1mPodkop is already installed. Just upgrade it?\033[0m\n"
             printf "\033[32;1my - Only upgrade podkop\033[0m\n"
