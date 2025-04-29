@@ -1969,6 +1969,7 @@ show_config() {
         -e 's/\(pbk=[^&]*\)/pbk=MASKED/g' \
         -e 's/\(sid=[^&]*\)/sid=MASKED/g' \
         -e 's/\(option dns_server '\''[^'\'']*\.dns\.nextdns\.io'\''\)/option dns_server '\''MASKED.dns.nextdns.io'\''/g' \
+        -e "s|\(option dns_server 'dns\.nextdns\.io\)/[^']*|\1/MASKED|"
         > "$tmp_config"
 
     cat "$tmp_config"
@@ -1976,17 +1977,17 @@ show_config() {
 }
 
 show_version() {
-    local version=$(opkg info podkop | grep -m 1 "Version:" | cut -d' ' -f2)
+    local version=$(opkg list-installed podkop | awk '{print $3}')
     echo "$version"
 }
 
 show_luci_version() {
-    local version=$(opkg info luci-app-podkop | grep -m 1 "Version:" | cut -d' ' -f2)
+    local version=$(opkg list-installed luci-app-podkop | awk '{print $3}')
     echo "$version"
 }
 
 show_sing_box_version() {
-    local version=$(opkg info sing-box | grep -m 1 "Version:" | cut -d' ' -f2)
+    local version=$(sing-box version | head -n 1 | awk '{print $3}')
     echo "$version"
 }
 
@@ -2169,9 +2170,9 @@ sing_box_add_secure_dns_probe_domain() {
 global_check() {
     nolog "📡 Global check run!"
 
-    nolog "Podkop $(opkg info podkop | grep -m 1 "Version:" | cut -d' ' -f2)"
-    nolog "LuCi App $(opkg info luci-app-podkop | grep -m 1 "Version:" | cut -d' ' -f2)"
-    nolog "Sing-box $(opkg info sing-box | grep -m 1 "Version:" | cut -d' ' -f2)"
+    nolog "Podkop $(opkg list-installed podkop | awk '{print $3}')"
+    nolog "LuCi App $(opkg list-installed luci-app-podkop | awk '{print $3}')"
+    nolog "Sing-box $(sing-box version | head -n 1 | awk '{print $3}')"
     nolog "$(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)"
     nolog "Device: $(cat /tmp/sysinfo/model)"
 
@@ -2240,6 +2241,9 @@ global_check() {
     if [ "$cachesize" != "0" ] || [ "$noresolv" != "1" ] || [ "$server" != "127.0.0.42" ]; then
         nolog "❌ The configuration differs from the template. 📄 DHCP config:"
         awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
+    elif [ "$(uci get podkop.main.dont_touch_dhcp 2>/dev/null)" = "1" ]; then
+        nolog "⚠️ Enable dont_touch_dhcp. 📄 DHCP config:"
+        awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
     else
         nolog "✅ /etc/config/dhcp"
     fi
@@ -2255,6 +2259,42 @@ global_check() {
         nolog "PodkopTable not found"
     else
         nft list table inet PodkopTable
+    fi
+
+    nolog "📄 WAN config"
+    if uci show network.wan >/dev/null 2>&1; then
+        awk '
+            /^config / {
+                p = ($2 == "interface" && $3 == "'\''wan'\''")
+            }
+            p {
+                if ($1 == "option" && ($2 == "username" || $2 == "password")) {
+                    print "        option", $2, "'\''******'\''"
+                } else {
+                    print
+                }
+            }
+            ' /etc/config/network
+    else
+        nolog "WAN not exists"
+    fi
+
+    CLOUDFLARE_OCTETS="103.21 103.22 103.31 104.16 104.17 104.18 104.19 104.20 104.21 104.22 104.23 \
+     104.24 104.25 104.26 104.27 104.28 108.162 131.0 141.101 162.158 162.159 172.64 172.65 172.66 \ 
+     172.67 172.68 172.69 172.70 172.71 173.245 188.114 190.93 197.234 198.41"
+
+    if uci show network | grep -q endpoint_host; then
+        uci show network | grep endpoint_host | cut -d'=' -f2 | tr -d "'\" " | while read -r host; do
+            if [ "$host" = "engage.cloudflareclient.com" ]; then
+                nolog "⚠️ WARP detected ($host)"
+                continue
+            fi
+
+            ip_prefix=$(echo "$host" | cut -d'.' -f1,2)
+            if echo "$CLOUDFLARE_OCTETS" | grep -wq "$ip_prefix"; then
+                nolog "⚠️ WARP detected ($host)"
+            fi
+        done
     fi
 }
 
