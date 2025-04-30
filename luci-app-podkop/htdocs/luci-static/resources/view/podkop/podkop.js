@@ -224,9 +224,9 @@ function createConfigSection(section, map, network) {
 
                 let params = new URLSearchParams(queryString.split('#')[0]);
                 let type = params.get('type');
-                const validTypes = ['tcp', 'raw', 'udp', 'grpc', 'http'];
+                const validTypes = ['tcp', 'raw', 'udp', 'grpc', 'http', 'ws'];
                 if (!type || !validTypes.includes(type)) {
-                    return _('Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http');
+                    return _('Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws');
                 }
 
                 let security = params.get('security');
