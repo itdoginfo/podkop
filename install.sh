@@ -33,7 +33,7 @@ main() {
 
             while true; do
                 printf "\033[32;1mEnter (y/n): \033[0m"
-                read -r '' UPDATE
+                read -r -p '' UPDATE
                 case $UPDATE in
                 y)
                     echo "Upgraded podkop..."
