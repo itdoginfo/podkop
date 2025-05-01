@@ -1170,3 +1170,27 @@ msgstr ""
 
 msgid "unavailable"
 msgstr ""
+
+msgid "PODKOP CONFIGURATION"
+msgstr ""
+
+msgid "FAKEIP ROUTER TEST"
+msgstr ""
+
+msgid "FAKEIP BROWSER TEST"
+msgstr ""
+
+msgid "FakeIP is working correctly on router (198.18.x.x)"
+msgstr ""
+
+msgid "Click here for all the info"
+msgstr ""
+
+msgid "Check DNS server on current device (PC, phone)"
+msgstr ""
+
+msgid "Its must be router!"
+msgstr ""
+
+msgid "Global check"
+msgstr ""
