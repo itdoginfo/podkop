@@ -24,6 +24,7 @@ TEST_DOMAIN="fakeip.tech-domain.club"
 INTERFACES_LIST=""
 SRC_INTERFACE=""
 RESOLV_CONF="/etc/resolv.conf"
+CLOUDFLARE_OCTETS="103.21 103.22 103.31 104.16 104.17 104.18 104.19 104.20 104.21 104.22 104.23 104.24 104.25 104.26 104.27 104.28 108.162 131.0 141.101 162.158 162.159 172.64 172.65 172.66 172.67 172.68 172.69 172.70 172.71 173.245 188.114 190.93 197.234 198.41"
 
 log() {
     local message="$1"
@@ -2157,26 +2158,20 @@ print_global() {
 }
 
 global_check() {
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "                   SYSTEM INFO"
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "      ➡️ SYSTEM INFO"
     print_global "📦 Podkop:     $(opkg list-installed podkop | awk '{print $3}')"
     print_global "📦 LuCI App:   $(opkg list-installed luci-app-podkop | awk '{print $3}')"
     print_global "📦 Sing-box:   $(sing-box version | head -n 1 | awk '{print $3}')"
     print_global "🔧 OpenWrt:    $(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)"
     print_global "💻 Device:     $(cat /tmp/sysinfo/model)"
-    print_global ""
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "               PODKOP CONFIGURATION"
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "     ➡️ CONFIGURATION"
     show_config
-    print_global ""
 
-    print_global ""
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "                  SYSTEM CHECKS"
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "     ➡️ SYSTEM CHECKS"
 
     if grep -E "^nameserver\s+([0-9]{1,3}\.){3}[0-9]{1,3}" "$RESOLV_CONF" | grep -vqE "127\.0\.0\.1|0\.0\.0\.0"; then
         print_global "❌ /etc/resolv.conf contains external nameserver:"
@@ -2206,20 +2201,16 @@ global_check() {
         print_global "✅ sing-box process - running"
     fi
 
-    print_global ""
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "                   NFT RULES"
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "      ➡️ NFT RULES"
     if ! nft list table inet PodkopTable >/dev/null 2>&1; then
         print_global "❌ PodkopTable not found"
     else
         nft list table inet PodkopTable | sed 's/^/   /'
     fi
 
-    print_global ""
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "                  WAN CONFIG"
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "      ➡️ WAN CONFIG"
     if uci show network.wan >/dev/null 2>&1; then
         awk '
             /^config / {
@@ -2243,15 +2234,6 @@ global_check() {
         print_global "❌ WAN configuration not found"
     fi
 
-    print_global ""
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "                 WARP DETECTION"
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-    CLOUDFLARE_OCTETS="103.21 103.22 103.31 104.16 104.17 104.18 104.19 104.20 104.21 104.22 104.23 \
-     104.24 104.25 104.26 104.27 104.28 108.162 131.0 141.101 162.158 162.159 172.64 172.65 172.66 \ 
-     172.67 172.68 172.69 172.70 172.71 173.245 188.114 190.93 197.234 198.41"
-
     local warp_found=0
     if uci show network | grep -q endpoint_host; then
         uci show network | grep endpoint_host | cut -d'=' -f2 | tr -d "'\" " | while read -r host; do
@@ -2263,19 +2245,16 @@ global_check() {
 
             ip_prefix=$(echo "$host" | cut -d'.' -f1,2)
             if echo "$CLOUDFLARE_OCTETS" | grep -wq "$ip_prefix"; then
+                print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                print_global "     ⚡ WARP DETECTION"
                 print_global "⚠️ WARP detected: $host"
                 warp_found=1
             fi
         done
     fi
-    
-    if [ "$warp_found" -eq 0 ]; then
-        print_global "✅ No WARP configurations detected"
-    fi
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "                FAKEIP ROUTER TEST"
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "   ➡️ FAKEIP ROUTER TEST"
         
     print_global "🔍 Testing system DNS resolver..."
     nslookup -timeout=2 $TEST_DOMAIN
@@ -2297,20 +2276,20 @@ global_check() {
     else
         print_global "❌ FakeIP test failed - domain did not resolve to FakeIP range"
         if ! pgrep -f "sing-box" >/dev/null; then
-            print_global "   └─ sing-box is not running"
+            print_global " └─ sing-box is not running"
         else
-            print_global "   └─ sing-box is running, checking configuration..."
+            print_global " └─ sing-box is running, checking configuration..."
             
             if [ -f "$SING_BOX_CONFIG" ]; then
                 local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$SING_BOX_CONFIG")
                 local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$SING_BOX_CONFIG")
                 local dns_rules=$(jq -r '.dns.rules[] | select(.server == "fakeip-server") | .domain' "$SING_BOX_CONFIG")
                 
-                print_global "      ├─ FakeIP enabled: $fakeip_enabled"
-                print_global "      ├─ FakeIP range: $fakeip_range"
-                print_global "      └─ FakeIP domain: $dns_rules"
+                print_global "    ├─ FakeIP enabled: $fakeip_enabled"
+                print_global "    ├─ FakeIP range: $fakeip_range"
+                print_global "    └─ FakeIP domain: $dns_rules"
             else
-                print_global "      └─ sing-box config file not found"
+                print_global "    └─ sing-box config file not found"
             fi
         fi
     fi

@@ -634,9 +634,8 @@ const showConfigModal = async (command, title) => {
             const data = await response.json();
             clearTimeout(timeoutId);
 
-            formattedOutput += '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-            formattedOutput += '               ' + _('FAKEIP BROWSER TEST') + '\n';
-            formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+            formattedOutput += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+            formattedOutput += '   ➡️ ' + _('FAKEIP BROWSER TEST') + '\n';
 
             if (data.fakeip === true) {
                 formattedOutput += '✅ ' + _('FakeIP is working in browser!') + '\n';
