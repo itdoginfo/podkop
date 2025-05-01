@@ -702,20 +702,6 @@ get_doh_url() {
         fi
     fi
 
-    # Try standard DoH path first (most common)
-    url="https://$dns_server/dns-query"
-    if curl --connect-timeout 3 -s -o /dev/null -w "%{http_code}" -H "accept: application/dns-json" "$url?name=example.com&type=A" 2>/dev/null | grep -q "200"; then
-        echo "$url"
-        return 0
-    fi
-
-    # Try alternative path
-    url="https://$dns_server/resolve"
-    if curl --connect-timeout 3 -s -o /dev/null -w "%{http_code}" -H "accept: application/dns-json" "$url?name=example.com&type=A" 2>/dev/null | grep -q "200"; then
-        echo "$url"
-        return 0
-    fi
-
     # Try root path
     url="https://$dns_server"
     if curl --connect-timeout 3 -s -o /dev/null -w "%{http_code}" -H "accept: application/dns-json" "$url?name=example.com&type=A" 2>/dev/null | grep -q "200"; then
@@ -723,9 +709,10 @@ get_doh_url() {
         return 0
     fi
 
-    # If no paths worked, return error
-    echo "error: no working DoH endpoint found for $dns_server"
-    return 1
+    # Try standard DoH path first (most common)
+    url="https://$dns_server/dns-query"
+    echo "$url"
+    return 0
 }
 
 sing_box_dns() {
@@ -755,10 +742,6 @@ sing_box_dns() {
     local dns_address=""
     if [ "$dns_type" = "doh" ]; then
         dns_address=$(get_doh_url "$dns_server")
-        if [ $? -ne 0 ] || [ "${dns_address#error:}" != "$dns_address" ]; then
-            log "[critical] Failed to get working DoH URL for $dns_server"
-            exit 1
-        fi
     elif [ "$dns_type" = "dot" ]; then
         dns_address="tls://$dns_server"
     else
