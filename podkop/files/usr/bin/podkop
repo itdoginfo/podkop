@@ -2234,21 +2234,18 @@ global_check() {
         print_global "❌ WAN configuration not found"
     fi
 
-    local warp_found=0
     if uci show network | grep -q endpoint_host; then
         uci show network | grep endpoint_host | cut -d'=' -f2 | tr -d "'\" " | while read -r host; do
             if [ "$host" = "engage.cloudflareclient.com" ]; then
                 print_global "⚠️ WARP detected: $host"
-                warp_found=1
                 continue
             fi
 
             ip_prefix=$(echo "$host" | cut -d'.' -f1,2)
             if echo "$CLOUDFLARE_OCTETS" | grep -wq "$ip_prefix"; then
                 print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                print_global "     ⚡ WARP DETECTION"
+                print_global "     ➡️ WARP DETECTION"
                 print_global "⚠️ WARP detected: $host"
-                warp_found=1
             fi
         done
     fi
