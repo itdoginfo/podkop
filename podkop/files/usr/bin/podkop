@@ -2175,7 +2175,7 @@ global_check() {
 
     if grep -E "^nameserver\s+([0-9]{1,3}\.){3}[0-9]{1,3}" "$RESOLV_CONF" | grep -vqE "127\.0\.0\.1|0\.0\.0\.0"; then
         print_global "❌ /etc/resolv.conf contains external nameserver:"
-        cat /etc/resolv.conf | sed 's/^/   /'
+        cat /etc/resolv.conf
         echo ""
     else
         print_global "✅ /etc/resolv.conf - OK"
@@ -2187,18 +2187,18 @@ global_check() {
 
     if [ "$cachesize" != "0" ] || [ "$noresolv" != "1" ] || [ "$server" != "127.0.0.42" ]; then
         print_global "❌ DHCP configuration differs from template:"
-        awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp | sed 's/^/   /'
+        awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
     elif [ "$(uci get podkop.main.dont_touch_dhcp 2>/dev/null)" = "1" ]; then
         print_global "⚠️ dont_touch_dhcp is enabled:"
-        awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp | sed 's/^/   /'
+        awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
     else
         print_global "✅ DHCP configuration - OK"
     fi
 
     if ! pgrep -f "sing-box" >/dev/null; then
-        print_global "❌ sing-box process - not running"
+        print_global "❌ sing-box is not running"
     else
-        print_global "✅ sing-box process - running"
+        print_global "✅ sing-box is running"
     fi
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -2206,7 +2206,7 @@ global_check() {
     if ! nft list table inet PodkopTable >/dev/null 2>&1; then
         print_global "❌ PodkopTable not found"
     else
-        nft list table inet PodkopTable | sed 's/^/   /'
+        nft list table inet PodkopTable
     fi
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -2229,7 +2229,7 @@ global_check() {
                     print
                 }
             }
-        ' /etc/config/network | sed 's/^/   /'
+        ' /etc/config/network
     else
         print_global "❌ WAN configuration not found"
     fi
