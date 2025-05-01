@@ -63,20 +63,20 @@ function getNetworkInterfaces(o, section_id, excludeInterfaces = []) {
 }
 
 function getNetworkNetworks(o, section_id, excludeInterfaces = []) {
-	return network.getNetworks().then(networks => {
-		o.keylist = [];
-		o.vallist = [];
+    return network.getNetworks().then(networks => {
+        o.keylist = [];
+        o.vallist = [];
 
-		networks.forEach(net => {
-			const name = net.getName();
-			const ifname = net.getIfname();
-			if (name && !excludeInterfaces.includes(name)) {
-				o.value(name, ifname ? `${name} (${ifname})` : name);
-			}
-		});
-	}).catch(error => {
-		console.error('Failed to get networks:', error);
-	});
+        networks.forEach(net => {
+            const name = net.getName();
+            const ifname = net.getIfname();
+            if (name && !excludeInterfaces.includes(name)) {
+                o.value(name, ifname ? `${name} (${ifname})` : name);
+            }
+        });
+    }).catch(error => {
+        console.error('Failed to get networks:', error);
+    });
 }
 
 function createConfigSection(section, map, network) {
@@ -623,7 +623,33 @@ const createModalContent = (title, content) => {
 
 const showConfigModal = async (command, title) => {
     const res = await safeExec('/usr/bin/podkop', [command]);
-    const formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+    let formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+
+    if (command === 'global_check') {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            const response = await fetch('https://fakeip.tech-domain.club/check', { signal: controller.signal });
+            const data = await response.json();
+            clearTimeout(timeoutId);
+
+            formattedOutput += '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+            formattedOutput += '               ' + _('FAKEIP BROWSER TEST') + '\n';
+            formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+            if (data.fakeip === true) {
+                formattedOutput += '✅ ' + _('FakeIP is working in browser!') + '\n';
+            } else {
+                formattedOutput += '❌ ' + _('FakeIP is not working in browser') + '\n';
+                formattedOutput += _('Check DNS server on current device (PC, phone)') + '\n';
+                formattedOutput += _('Its must be router!') + '\n';
+            }
+        } catch (error) {
+            formattedOutput += '\n❌ ' + _('Check failed: ') + (error.name === 'AbortError' ? _('timeout') : error.message) + '\n';
+        }
+    }
+
     ui.showModal(_(title), createModalContent(_(title), formattedOutput));
 };
 
@@ -672,11 +698,18 @@ const createStatusPanel = (title, status, buttons) => {
         E('strong', {}, _(title)),
         status && E('br'),
         status && E('span', {
-            'style': `color: ${status.running ? STATUS_COLORS.SUCCESS : STATUS_COLORS.ERROR}`
+            'style': `color: ${title === 'Sing-box Status' ?
+                (status.running && !status.enabled ? STATUS_COLORS.SUCCESS : STATUS_COLORS.ERROR) :
+                title === 'Podkop Status' ?
+                    (status.enabled ? STATUS_COLORS.SUCCESS : STATUS_COLORS.ERROR) :
+                    (status.running ? STATUS_COLORS.SUCCESS : STATUS_COLORS.ERROR)
+                }`
         }, [
-            status.running ? '✔' : '✘',
-            ' ',
-            status.status
+            title === 'Sing-box Status' ?
+                (status.running && !status.enabled ? '✔ running' : '✘ ' + status.status) :
+                title === 'Podkop Status' ?
+                    (status.enabled ? '✔ enabled' : '✘ disabled') :
+                    (status.running ? '✔' : '✘') + ' ' + status.status
         ])
     ].filter(Boolean);
 
@@ -688,7 +721,80 @@ const createStatusPanel = (title, status, buttons) => {
         E('div', {
             'class': 'panel-body',
             'style': 'display: flex; flex-direction: column; gap: 8px;'
-        }, buttons)
+        }, title === 'Podkop Status' ? [
+            ButtonFactory.createActionButton({
+                label: 'Restart Podkop',
+                type: 'apply',
+                action: 'restart',
+                reload: true
+            }),
+            ButtonFactory.createInitActionButton({
+                label: status.enabled ? 'Disable Podkop' : 'Enable Podkop',
+                type: status.enabled ? 'remove' : 'apply',
+                action: status.enabled ? 'disable' : 'enable',
+                reload: true
+            }),
+            ButtonFactory.createModalButton({
+                label: _('Global check'),
+                command: 'global_check',
+                title: _('Click here for all the info')
+            }),
+            ButtonFactory.createModalButton({
+                label: 'View Logs',
+                command: 'check_logs',
+                title: 'Podkop Logs'
+            }),
+            ButtonFactory.createModalButton({
+                label: _('Update Lists'),
+                command: 'list_update',
+                title: _('Lists Update Results')
+            })
+        ] : title === 'FakeIP Status' ? [
+            E('div', { style: 'margin-bottom: 10px;' }, [
+                E('div', { style: 'margin-bottom: 5px;' }, [
+                    E('span', { style: `color: ${fakeipStatus.color}` }, [
+                        fakeipStatus.state === 'working' ? '✔' : fakeipStatus.state === 'not_working' ? '✘' : '!',
+                        ' ',
+                        fakeipStatus.state === 'working' ? _('works in browser') : _('not works in browser')
+                    ])
+                ]),
+                E('div', {}, [
+                    E('span', { style: `color: ${fakeipCLIStatus.color}` }, [
+                        fakeipCLIStatus.state === 'working' ? '✔' : fakeipCLIStatus.state === 'not_working' ? '✘' : '!',
+                        ' ',
+                        fakeipCLIStatus.state === 'working' ? _('works on router') : _('not works on router')
+                    ])
+                ])
+            ]),
+            E('div', { style: 'margin-bottom: 10px;' }, [
+                E('div', { style: 'margin-bottom: 5px;' }, [
+                    E('strong', {}, _('DNS Status')),
+                    E('br'),
+                    E('span', { style: `color: ${dnsStatus.remote.color}` }, [
+                        dnsStatus.remote.state === 'available' ? '✔' : dnsStatus.remote.state === 'unavailable' ? '✘' : '!',
+                        ' ',
+                        dnsStatus.remote.message
+                    ]),
+                    E('br'),
+                    E('span', { style: `color: ${dnsStatus.local.color}` }, [
+                        dnsStatus.local.state === 'available' ? '✔' : dnsStatus.local.state === 'unavailable' ? '✘' : '!',
+                        ' ',
+                        dnsStatus.local.message
+                    ])
+                ])
+            ]),
+            E('div', { style: 'margin-bottom: 10px;' }, [
+                E('div', { style: 'margin-bottom: 5px;' }, [
+                    E('strong', {}, configName),
+                    E('br'),
+                    E('span', { style: `color: ${bypassStatus.color}` }, [
+                        bypassStatus.state === 'working' ? '✔' : bypassStatus.state === 'not_working' ? '✘' : '!',
+                        ' ',
+                        bypassStatus.message
+                    ])
+                ])
+            ])
+        ] : buttons)
     ]);
 };
 
@@ -717,9 +823,9 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                     reload: true
                 }),
                 ButtonFactory.createModalButton({
-                    label: 'Show Config',
-                    command: 'show_config',
-                    title: 'Podkop Configuration'
+                    label: _('Global check'),
+                    command: 'global_check',
+                    title: _('Click here for all the info')
                 }),
                 ButtonFactory.createModalButton({
                     label: 'View Logs',
@@ -807,12 +913,7 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                             bypassStatus.message
                         ])
                     ])
-                ]),
-                ButtonFactory.createModalButton({
-                    label: _('Global check'),
-                    command: 'global_check',
-                    title: _('Click here for all the info')
-                })
+                ])
             ]),
 
             // Version Information Panel
@@ -1350,32 +1451,67 @@ return view.extend({
 
         async function updateDiagnostics() {
             try {
-                const [
-                    podkopStatus,
-                    singboxStatus,
-                    podkop,
-                    luci,
-                    singbox,
-                    system,
-                    fakeipStatus,
-                    fakeipCLIStatus,
-                    dnsStatus,
-                    bypassStatus
-                ] = await Promise.all([
-                    safeExec('/usr/bin/podkop', ['get_status']),
-                    safeExec('/usr/bin/podkop', ['get_sing_box_status']),
-                    safeExec('/usr/bin/podkop', ['show_version']),
-                    safeExec('/usr/bin/podkop', ['show_luci_version']),
-                    safeExec('/usr/bin/podkop', ['show_sing_box_version']),
-                    safeExec('/usr/bin/podkop', ['show_system_info']),
-                    checkFakeIP(),
-                    checkFakeIPCLI(),
-                    checkDNSAvailability(),
-                    checkBypass()
-                ]);
+                const results = {
+                    podkopStatus: null,
+                    singboxStatus: null,
+                    podkop: null,
+                    luci: null,
+                    singbox: null,
+                    system: null,
+                    fakeipStatus: null,
+                    fakeipCLIStatus: null,
+                    dnsStatus: null,
+                    bypassStatus: null
+                };
 
-                const parsedPodkopStatus = JSON.parse(podkopStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
-                const parsedSingboxStatus = JSON.parse(singboxStatus.stdout || '{"running":0,"enabled":0,"status":"unknown"}');
+                // Выполняем все проверки независимо друг от друга
+                const checks = [
+                    safeExec('/usr/bin/podkop', ['get_status'])
+                        .then(result => results.podkopStatus = result)
+                        .catch(() => results.podkopStatus = { stdout: '{"enabled":0,"status":"error"}' }),
+
+                    safeExec('/usr/bin/podkop', ['get_sing_box_status'])
+                        .then(result => results.singboxStatus = result)
+                        .catch(() => results.singboxStatus = { stdout: '{"running":0,"enabled":0,"status":"error"}' }),
+
+                    safeExec('/usr/bin/podkop', ['show_version'])
+                        .then(result => results.podkop = result)
+                        .catch(() => results.podkop = { stdout: 'error' }),
+
+                    safeExec('/usr/bin/podkop', ['show_luci_version'])
+                        .then(result => results.luci = result)
+                        .catch(() => results.luci = { stdout: 'error' }),
+
+                    safeExec('/usr/bin/podkop', ['show_sing_box_version'])
+                        .then(result => results.singbox = result)
+                        .catch(() => results.singbox = { stdout: 'error' }),
+
+                    safeExec('/usr/bin/podkop', ['show_system_info'])
+                        .then(result => results.system = result)
+                        .catch(() => results.system = { stdout: 'error' }),
+
+                    checkFakeIP()
+                        .then(result => results.fakeipStatus = result)
+                        .catch(() => results.fakeipStatus = { state: 'error', message: 'check error', color: STATUS_COLORS.WARNING }),
+
+                    checkFakeIPCLI()
+                        .then(result => results.fakeipCLIStatus = result)
+                        .catch(() => results.fakeipCLIStatus = { state: 'error', message: 'check error', color: STATUS_COLORS.WARNING }),
+
+                    checkDNSAvailability()
+                        .then(result => results.dnsStatus = result)
+                        .catch(() => results.dnsStatus = {
+                            remote: { state: 'error', message: 'check error', color: STATUS_COLORS.WARNING },
+                            local: { state: 'error', message: 'check error', color: STATUS_COLORS.WARNING }
+                        }),
+
+                    checkBypass()
+                        .then(result => results.bypassStatus = result)
+                        .catch(() => results.bypassStatus = { state: 'error', message: 'check error', color: STATUS_COLORS.WARNING })
+                ];
+
+                // Ждем завершения всех проверок
+                await Promise.allSettled(checks);
 
                 const container = document.getElementById('diagnostics-status');
                 if (!container) return;
@@ -1395,11 +1531,7 @@ return view.extend({
                                 const label = activeConfig.split('#').pop();
                                 if (label && label.trim()) {
                                     configName = _('Config: ') + decodeURIComponent(label);
-                                } else {
-                                    configName = _('Main config');
                                 }
-                            } else {
-                                configName = _('Main config');
                             }
                         }
                     }
@@ -1407,42 +1539,62 @@ return view.extend({
                     console.error('Error getting config name from UCI:', e);
                 }
 
-                // Create a modified statusSection function with the configName
-                const statusSection = createStatusSection(parsedPodkopStatus, parsedSingboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus, dnsStatus, bypassStatus, configName);
+                const parsedPodkopStatus = JSON.parse(results.podkopStatus.stdout || '{"enabled":0,"status":"error"}');
+                const parsedSingboxStatus = JSON.parse(results.singboxStatus.stdout || '{"running":0,"enabled":0,"status":"error"}');
+
+                const statusSection = createStatusSection(
+                    parsedPodkopStatus,
+                    parsedSingboxStatus,
+                    results.podkop,
+                    results.luci,
+                    results.singbox,
+                    results.system,
+                    results.fakeipStatus,
+                    results.fakeipCLIStatus,
+                    results.dnsStatus,
+                    results.bypassStatus,
+                    configName
+                );
+
                 container.innerHTML = '';
                 container.appendChild(statusSection);
 
-                const fakeipElement = document.getElementById('fakeip-status');
-                if (fakeipElement) {
-                    fakeipElement.innerHTML = E('span', { 'style': `color: ${fakeipStatus.color}` }, [
-                        fakeipStatus.state === 'working' ? '✔ ' : fakeipStatus.state === 'not_working' ? '✘ ' : '! ',
-                        fakeipStatus.message
-                    ]).outerHTML;
-                }
+                // Обновляем отдельные элементы статуса
+                const updateStatusElement = (elementId, status, template) => {
+                    const element = document.getElementById(elementId);
+                    if (element) {
+                        element.innerHTML = template(status);
+                    }
+                };
 
-                const fakeipCLIElement = document.getElementById('fakeip-cli-status');
-                if (fakeipCLIElement) {
-                    fakeipCLIElement.innerHTML = E('span', { 'style': `color: ${fakeipCLIStatus.color}` }, [
-                        fakeipCLIStatus.state === 'working' ? '✔ ' : fakeipCLIStatus.state === 'not_working' ? '✘ ' : '! ',
-                        fakeipCLIStatus.message
-                    ]).outerHTML;
-                }
+                updateStatusElement('fakeip-status', results.fakeipStatus,
+                    status => E('span', { 'style': `color: ${status.color}` }, [
+                        status.state === 'working' ? '✔ ' : status.state === 'not_working' ? '✘ ' : '! ',
+                        status.message
+                    ]).outerHTML
+                );
 
-                const dnsRemoteElement = document.getElementById('dns-remote-status');
-                if (dnsRemoteElement) {
-                    dnsRemoteElement.innerHTML = E('span', { 'style': `color: ${dnsStatus.remote.color}` }, [
-                        dnsStatus.remote.state === 'available' ? '✔ ' : dnsStatus.remote.state === 'unavailable' ? '✘ ' : '! ',
-                        dnsStatus.remote.message
-                    ]).outerHTML;
-                }
+                updateStatusElement('fakeip-cli-status', results.fakeipCLIStatus,
+                    status => E('span', { 'style': `color: ${status.color}` }, [
+                        status.state === 'working' ? '✔ ' : status.state === 'not_working' ? '✘ ' : '! ',
+                        status.message
+                    ]).outerHTML
+                );
 
-                const dnsLocalElement = document.getElementById('dns-local-status');
-                if (dnsLocalElement) {
-                    dnsLocalElement.innerHTML = E('span', { 'style': `color: ${dnsStatus.local.color}` }, [
-                        dnsStatus.local.state === 'available' ? '✔ ' : dnsStatus.local.state === 'unavailable' ? '✘ ' : '! ',
-                        dnsStatus.local.message
-                    ]).outerHTML;
-                }
+                updateStatusElement('dns-remote-status', results.dnsStatus.remote,
+                    status => E('span', { 'style': `color: ${status.color}` }, [
+                        status.state === 'available' ? '✔ ' : status.state === 'unavailable' ? '✘ ' : '! ',
+                        status.message
+                    ]).outerHTML
+                );
+
+                updateStatusElement('dns-local-status', results.dnsStatus.local,
+                    status => E('span', { 'style': `color: ${status.color}` }, [
+                        status.state === 'available' ? '✔ ' : status.state === 'unavailable' ? '✘ ' : '! ',
+                        status.message
+                    ]).outerHTML
+                );
+
             } catch (e) {
                 const container = document.getElementById('diagnostics-status');
                 if (container) {

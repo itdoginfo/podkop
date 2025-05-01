@@ -819,3 +819,27 @@ msgstr "недоступен"
 
 msgid "Apply for SS2022"
 msgstr "Применить для SS2022"
+
+msgid "PODKOP CONFIGURATION"
+msgstr "КОНФИГУРАЦИЯ PODKOP"
+
+msgid "FAKEIP ROUTER TEST"
+msgstr "ПРОВЕРКА FAKEIP НА РОУТЕРЕ"
+
+msgid "FAKEIP BROWSER TEST"
+msgstr "ПРОВЕРКА FAKEIP В БРАУЗЕРЕ"
+
+msgid "FakeIP is working correctly on router (198.18.x.x)"
+msgstr "FakeIP работает корректно на роутере (198.18.x.x)"
+
+msgid "Click here for all the info"
+msgstr "Нажмите для просмотра всей информации"
+
+msgid "Check DNS server on current device (PC, phone)"
+msgstr "Проверьте DNS сервер на текущем устройстве (ПК, телефон)"
+
+msgid "Its must be router!"
+msgstr "Это должен быть роутер!"
+
+msgid "Global check"
+msgstr "Глобальная проверка"
