@@ -1463,7 +1463,7 @@ return view.extend({
                     bypassStatus: null
                 };
 
-                // Выполняем все проверки независимо друг от друга
+                // Perform all checks independently of each other
                 const checks = [
                     safeExec('/usr/bin/podkop', ['get_status'])
                         .then(result => results.podkopStatus = result)
@@ -1509,7 +1509,7 @@ return view.extend({
                         .catch(() => results.bypassStatus = { state: 'error', message: 'check error', color: STATUS_COLORS.WARNING })
                 ];
 
-                // Ждем завершения всех проверок
+                // Waiting for all the checks to be completed
                 await Promise.allSettled(checks);
 
                 const container = document.getElementById('diagnostics-status');
@@ -1558,7 +1558,7 @@ return view.extend({
                 container.innerHTML = '';
                 container.appendChild(statusSection);
 
-                // Обновляем отдельные элементы статуса
+                // Updating individual status items
                 const updateStatusElement = (elementId, status, template) => {
                     const element = document.getElementById(elementId);
                     if (element) {
