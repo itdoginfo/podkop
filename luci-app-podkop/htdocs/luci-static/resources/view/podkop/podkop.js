@@ -634,11 +634,9 @@ const showConfigModal = async (command, title) => {
             const data = await response.json();
             clearTimeout(timeoutId);
 
-            formattedOutput += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-            formattedOutput += '   ➡️ ' + _('FAKEIP BROWSER TEST') + '\n';
 
             if (data.fakeip === true) {
-                formattedOutput += '✅ ' + _('FakeIP is working in browser!') + '\n';
+                formattedOutput += '\n✅ ' + _('FakeIP is working in browser!') + '\n';
             } else {
                 formattedOutput += '❌ ' + _('FakeIP is not working in browser') + '\n';
                 formattedOutput += _('Check DNS server on current device (PC, phone)') + '\n';
