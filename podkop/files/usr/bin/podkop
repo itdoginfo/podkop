@@ -2251,6 +2251,14 @@ global_check() {
     fi
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "➡️ DNS status"
+    dns_info=$(check_dns_available)
+    dns_type=$(echo "$dns_info" | jq -r '.dns_type')
+    dns_server=$(echo "$dns_info" | jq -r '.dns_server')
+    status=$(echo "$dns_info" | jq -r '.status')
+    print_global "$dns_type ($dns_server) is $status"
+
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🔁 FakeIP"
         
     print_global "➡️ DNS resolution: system DNS server"

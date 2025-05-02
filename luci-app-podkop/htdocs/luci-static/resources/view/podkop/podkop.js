@@ -621,6 +621,14 @@ const createModalContent = (title, content) => {
     ];
 };
 
+// Add IP masking function before showConfigModal
+const maskIP = (ip) => {
+    if (!ip) return '';
+    const parts = ip.split('.');
+    if (parts.length !== 4) return ip;
+    return ['XX', 'XX', 'XX', parts[3]].join('.');
+};
+
 const showConfigModal = async (command, title) => {
     const res = await safeExec('/usr/bin/podkop', [command]);
     let formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
@@ -642,6 +650,27 @@ const showConfigModal = async (command, title) => {
                 formattedOutput += _('Check DNS server on current device (PC, phone)') + '\n';
                 formattedOutput += _('Its must be router!') + '\n';
             }
+
+            // Bypass check
+            const bypassResponse = await fetch('https://fakeip.tech-domain.club/check', { signal: controller.signal });
+            const bypassData = await bypassResponse.json();
+            const bypassResponse2 = await fetch('https://ip.tech-domain.club/check', { signal: controller.signal });
+            const bypassData2 = await bypassResponse2.json();
+
+            formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+
+            if (bypassData.IP && bypassData2.IP && bypassData.IP !== bypassData2.IP) {
+                formattedOutput += '✅ ' + _('Proxy working correctly') + '\n';
+                formattedOutput += _('Direct IP: ') + maskIP(bypassData.IP) + '\n';
+                formattedOutput += _('Proxy IP: ') + maskIP(bypassData2.IP) + '\n';
+            } else if (bypassData.IP === bypassData2.IP) {
+                formattedOutput += '❌ ' + _('Proxy is not working - same IP for both domains') + '\n';
+                formattedOutput += _('IP: ') + maskIP(bypassData.IP) + '\n';
+            } else {
+                formattedOutput += '❌ ' + _('Proxy check failed') + '\n';
+            }
+
+
         } catch (error) {
             formattedOutput += '\n❌ ' + _('Check failed: ') + (error.name === 'AbortError' ? _('timeout') : error.message) + '\n';
         }
