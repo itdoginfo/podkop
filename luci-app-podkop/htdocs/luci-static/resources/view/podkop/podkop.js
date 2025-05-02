@@ -692,7 +692,7 @@ const ButtonFactory = {
 };
 
 // Status Panel Factory
-const createStatusPanel = (title, status, buttons) => {
+const createStatusPanel = (title, status, buttons, extraData = {}) => {
     const headerContent = [
         E('strong', {}, _(title)),
         status && E('br'),
@@ -748,20 +748,20 @@ const createStatusPanel = (title, status, buttons) => {
                 command: 'list_update',
                 title: _('Lists Update Results')
             })
-        ] : title === 'FakeIP Status' ? [
+        ] : title === _('FakeIP Status') ? [
             E('div', { style: 'margin-bottom: 10px;' }, [
                 E('div', { style: 'margin-bottom: 5px;' }, [
-                    E('span', { style: `color: ${fakeipStatus.color}` }, [
-                        fakeipStatus.state === 'working' ? '✔' : fakeipStatus.state === 'not_working' ? '✘' : '!',
+                    E('span', { style: `color: ${extraData.fakeipStatus?.color}` }, [
+                        extraData.fakeipStatus?.state === 'working' ? '✔' : extraData.fakeipStatus?.state === 'not_working' ? '✘' : '!',
                         ' ',
-                        fakeipStatus.state === 'working' ? _('works in browser') : _('not works in browser')
+                        extraData.fakeipStatus?.state === 'working' ? _('works in browser') : _('not works in browser')
                     ])
                 ]),
                 E('div', {}, [
-                    E('span', { style: `color: ${fakeipCLIStatus.color}` }, [
-                        fakeipCLIStatus.state === 'working' ? '✔' : fakeipCLIStatus.state === 'not_working' ? '✘' : '!',
+                    E('span', { style: `color: ${extraData.fakeipCLIStatus?.color}` }, [
+                        extraData.fakeipCLIStatus?.state === 'working' ? '✔' : extraData.fakeipCLIStatus?.state === 'not_working' ? '✘' : '!',
                         ' ',
-                        fakeipCLIStatus.state === 'working' ? _('works on router') : _('not works on router')
+                        extraData.fakeipCLIStatus?.state === 'working' ? _('works on router') : _('not works on router')
                     ])
                 ])
             ]),
@@ -769,27 +769,27 @@ const createStatusPanel = (title, status, buttons) => {
                 E('div', { style: 'margin-bottom: 5px;' }, [
                     E('strong', {}, _('DNS Status')),
                     E('br'),
-                    E('span', { style: `color: ${dnsStatus.remote.color}` }, [
-                        dnsStatus.remote.state === 'available' ? '✔' : dnsStatus.remote.state === 'unavailable' ? '✘' : '!',
+                    E('span', { style: `color: ${extraData.dnsStatus?.remote?.color}` }, [
+                        extraData.dnsStatus?.remote?.state === 'available' ? '✔' : extraData.dnsStatus?.remote?.state === 'unavailable' ? '✘' : '!',
                         ' ',
-                        dnsStatus.remote.message
+                        extraData.dnsStatus?.remote?.message
                     ]),
                     E('br'),
-                    E('span', { style: `color: ${dnsStatus.local.color}` }, [
-                        dnsStatus.local.state === 'available' ? '✔' : dnsStatus.local.state === 'unavailable' ? '✘' : '!',
+                    E('span', { style: `color: ${extraData.dnsStatus?.local?.color}` }, [
+                        extraData.dnsStatus?.local?.state === 'available' ? '✔' : extraData.dnsStatus?.local?.state === 'unavailable' ? '✘' : '!',
                         ' ',
-                        dnsStatus.local.message
+                        extraData.dnsStatus?.local?.message
                     ])
                 ])
             ]),
             E('div', { style: 'margin-bottom: 10px;' }, [
                 E('div', { style: 'margin-bottom: 5px;' }, [
-                    E('strong', {}, configName),
+                    E('strong', {}, extraData.configName),
                     E('br'),
-                    E('span', { style: `color: ${bypassStatus.color}` }, [
-                        bypassStatus.state === 'working' ? '✔' : bypassStatus.state === 'not_working' ? '✘' : '!',
+                    E('span', { style: `color: ${extraData.bypassStatus?.color}` }, [
+                        extraData.bypassStatus?.state === 'working' ? '✔' : extraData.bypassStatus?.state === 'not_working' ? '✘' : '!',
                         ' ',
-                        bypassStatus.message
+                        extraData.bypassStatus?.message
                     ])
                 ])
             ])
@@ -803,12 +803,6 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
         E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
             // Podkop Status Panel
             createStatusPanel('Podkop Status', podkopStatus, [
-                ButtonFactory.createActionButton({
-                    label: podkopStatus.running ? 'Stop Podkop' : 'Start Podkop',
-                    type: podkopStatus.running ? 'remove' : 'apply',
-                    action: podkopStatus.running ? 'stop' : 'start',
-                    reload: true
-                }),
                 ButtonFactory.createActionButton({
                     label: 'Restart Podkop',
                     type: 'apply',
@@ -867,53 +861,14 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                 })
             ]),
 
-            // FakeIP Status Panel with both browser and router checks
-            createStatusPanel(_('FakeIP Status'), null, [
-                E('div', { style: 'margin-bottom: 10px;' }, [
-                    E('div', { style: 'margin-bottom: 5px;' }, [
-                        E('span', { style: `color: ${fakeipStatus.color}` }, [
-                            fakeipStatus.state === 'working' ? '✔' : fakeipStatus.state === 'not_working' ? '✘' : '!',
-                            ' ',
-                            fakeipStatus.state === 'working' ? _('works in browser') : _('not works in browser')
-                        ])
-                    ]),
-                    E('div', {}, [
-                        E('span', { style: `color: ${fakeipCLIStatus.color}` }, [
-                            fakeipCLIStatus.state === 'working' ? '✔' : fakeipCLIStatus.state === 'not_working' ? '✘' : '!',
-                            ' ',
-                            fakeipCLIStatus.state === 'working' ? _('works on router') : _('not works on router')
-                        ])
-                    ])
-                ]),
-                E('div', { style: 'margin-bottom: 10px;' }, [
-                    E('div', { style: 'margin-bottom: 5px;' }, [
-                        E('strong', {}, _('DNS Status')),
-                        E('br'),
-                        E('span', { style: `color: ${dnsStatus.remote.color}` }, [
-                            dnsStatus.remote.state === 'available' ? '✔' : dnsStatus.remote.state === 'unavailable' ? '✘' : '!',
-                            ' ',
-                            dnsStatus.remote.message
-                        ]),
-                        E('br'),
-                        E('span', { style: `color: ${dnsStatus.local.color}` }, [
-                            dnsStatus.local.state === 'available' ? '✔' : dnsStatus.local.state === 'unavailable' ? '✘' : '!',
-                            ' ',
-                            dnsStatus.local.message
-                        ])
-                    ])
-                ]),
-                E('div', { style: 'margin-bottom: 10px;' }, [
-                    E('div', { style: 'margin-bottom: 5px;' }, [
-                        E('strong', {}, configName),
-                        E('br'),
-                        E('span', { style: `color: ${bypassStatus.color}` }, [
-                            bypassStatus.state === 'working' ? '✔' : bypassStatus.state === 'not_working' ? '✘' : '!',
-                            ' ',
-                            bypassStatus.message
-                        ])
-                    ])
-                ])
-            ]),
+            // FakeIP Status Panel
+            createStatusPanel(_('FakeIP Status'), null, null, {
+                fakeipStatus,
+                fakeipCLIStatus,
+                dnsStatus,
+                bypassStatus,
+                configName
+            }),
 
             // Version Information Panel
             createStatusPanel(_('Version Information'), null, [
