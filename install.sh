@@ -457,7 +457,7 @@ check_system() {
     done
     fi
 
-    if opkg list-installed | grep -qE "iptables|kmod-iptab"; then
+    if opkg list-installed | grep -q "iptables-mod-extra"; then
         printf "\033[31;1mFound incompatible iptables packages. If you're using FriendlyWrt: https://t.me/itdogchat/44512/181082\033[0m\n"
     fi
 }
