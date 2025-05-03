@@ -1140,7 +1140,7 @@ return view.extend({
             return true;
         };
 
-        o = mainSection.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 600)'));
+        o = mainSection.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 60)'));
         o.default = '60';
         o.rmempty = false;
         o.ucisection = 'main';
