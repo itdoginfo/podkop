@@ -132,6 +132,12 @@ start_main() {
         sing_box_quic_reject
     fi
 
+    config_get_bool detour "main" "detour" "0"
+    if [ "$detour" -eq 1 ]; then
+        log "Detour mixed enable"
+        detour_mixed
+    fi
+
     sing_box_config_check
     /etc/init.d/sing-box start
     #/etc/init.d/sing-box enable
@@ -564,10 +570,19 @@ list_update() {
     fi
 
     for i in $(seq 1 60); do
-        if curl -s -m 3 https://github.com >/dev/null; then
-            log "GitHub is available"
-            break
+        config_get_bool detour "main" "detour" "0"
+        if [ "$detour" -eq 1 ]; then
+            if http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" curl -s -m 3 https://github.com >/dev/null; then
+                log "GitHub is available"
+                break
+            fi
+        else
+            if curl -s -m 3 https://github.com >/dev/null; then
+                log "GitHub is available"
+                break
+            fi
         fi
+
         log "GitHub is unavailable [$i/60]"
         sleep 3
     done
@@ -1012,7 +1027,7 @@ sing_box_config_outbound_json() {
     if [ $? -eq 0 ]; then
         log "Outbound config updated successfully"
     else
-        log "Error: Invalid JSON config generated"
+        log "Error: Outbound invalid JSON config generated"
         return 1
     fi
 }
@@ -1073,9 +1088,9 @@ sing_box_config_shadowsocks() {
       )' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
 
     if [ $? -eq 0 ]; then
-        log "Config updated successfully"
+        log "Config Shadowsocks updated successfully"
     else
-        log "Error: Invalid JSON config generated"
+        log "Error: Shadowsocks invalid JSON config generated"
         return 1
     fi
 }
@@ -1200,9 +1215,9 @@ sing_box_config_vless() {
 
 
     if [ $? -eq 0 ]; then
-        log "Config created successfully"
+        log "Config VLESS created successfully"
     else
-        log "Error: Invalid JSON config generated"
+        log "Error: VLESS invalid JSON config generated"
         return 1
     fi
 }
@@ -1356,6 +1371,7 @@ sing_box_ruleset_remote() {
     local tag=$1
     local type=$2
     local update_interval=$3
+    local detour=$4
 
     url="$SRS_MAIN_URL/$tag.srs"
 
@@ -1371,15 +1387,19 @@ sing_box_ruleset_remote() {
         --arg type "$type" \
         --arg url "$url" \
         --arg update_interval "$update_interval" \
+        --arg detour "$detour" \
         '
         .route.rule_set += [
-            {
-                "tag": $tag,
-                "type": $type,
-                "format": "binary",
-                "url": $url,
-                "update_interval": $update_interval
-            }
+            (
+                {
+                    "tag": $tag,
+                    "type": $type,
+                    "format": "binary",
+                    "url": $url,
+                    "update_interval": $update_interval
+                } +
+                    (if $detour == "1" then {"download_detour": "main"} else {} end)
+            )
         ]' "$SING_BOX_CONFIG" > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
 
         log "Added new ruleset with tag $tag"
@@ -1414,7 +1434,13 @@ list_subnets_download() {
     esac
 
     local filename=$(basename "$URL")
-    wget -O "/tmp/podkop/$filename" "$URL"
+
+    config_get_bool detour "main" "detour" "0"
+    if [ "$detour" -eq 1 ]; then
+        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "/tmp/podkop/$filename" "$URL"
+    else
+        wget -O "/tmp/podkop/$filename" "$URL"
+    fi
 
     while IFS= read -r subnet; do
         if [ "$service" = "discord" ]; then
@@ -1476,8 +1502,9 @@ sing_box_quic_reject() {
 process_remote_ruleset_srs() {
     config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
     if [ "$domain_list_enabled" -eq 1 ]; then
+        config_get_bool detour "main" "detour" "0"
         log "Adding a srs list for $section"
-        config_list_foreach "$section" domain_list "sing_box_ruleset_remote" "remote" "1d"
+        config_list_foreach "$section" domain_list "sing_box_ruleset_remote" "remote" "1d" "$detour"
     fi
 }
 
@@ -1544,7 +1571,12 @@ list_custom_url_domains_create() {
     local URL="$1"
     local filename=$(basename "$URL")
 
-    wget -q -O "/tmp/podkop/${filename}" "$URL"
+    config_get_bool detour "main" "detour" "0"
+    if [ "$detour" -eq 1 ]; then
+        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "/tmp/podkop/${filename}" "$URL"
+    else
+        wget -O "/tmp/podkop/${filename}" "$URL"
+    fi
 
     while IFS= read -r domain; do
         log "From downloaded file: $domain"
@@ -1584,7 +1616,12 @@ list_custom_url_subnets_create() {
     local URL="$1"
     local filename=$(basename "$URL")
 
-    wget -q -O "/tmp/podkop/${filename}" "$URL"
+    config_get_bool detour "main" "detour" "0"
+    if [ "$detour" -eq 1 ]; then
+        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "/tmp/podkop/${filename}" "$URL"
+    else
+        wget -O "/tmp/podkop/${filename}" "$URL"
+    fi
 
     while IFS= read -r subnet; do
         log "From local file: $subnet"
@@ -1641,6 +1678,31 @@ sing_box_rules_source_ip_cidr() {
             }
         ] + .route.rules' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
     fi
+}
+
+detour_mixed() {
+    local section="main"
+    local port="4534"
+    local tag="detour"
+    
+    log "Adding detour Socks5 for $section on port $port"
+    
+    jq \
+    --arg tag "$tag" \
+    --arg port "$port" \
+    --arg section "$section" \
+    '.inbounds += [{
+        "tag": $tag,
+        "type": "mixed",
+        "listen": "127.0.0.1",
+        "listen_port": ($port|tonumber),
+        "set_system_proxy": false
+    }] | 
+    .route.rules += [{
+        "inbound": [$tag],
+        "outbound": $section,
+        "action": "route"
+    }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
 }
 
 ## nftables
@@ -1777,7 +1839,14 @@ check_github() {
     for url in "$DOMAINS_RU_INSIDE" "$DOMAINS_RU_OUTSIDE" "$DOMAINS_UA" "$DOMAINS_YOUTUBE" \
               "$SUBNETS_TWITTER" "$SUBNETS_META" "$SUBNETS_DISCORD"; do
         local list_name=$(basename "$url")
-        wget -q -O /dev/null "$url"
+
+        config_get_bool detour "main" "detour" "0"
+        if [ "$detour" -eq 1 ]; then
+            http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -q -O /dev/null "$url"
+        else
+            wget -q -O /dev/null "$url"
+        fi
+
         if [ $? -eq 0 ]; then
             nolog "- $list_name: available"
         else

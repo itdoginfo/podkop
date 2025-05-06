@@ -1212,6 +1212,11 @@ return view.extend({
         o.rmempty = false;
         o.ucisection = 'main';
 
+        o = mainSection.taboption('additional', form.Flag, 'detour', _('Proxy download of lists'), _('Downloading all lists via main Proxy/VPN'));
+        o.default = '0';
+        o.rmempty = false;
+        o.ucisection = 'main';
+
         // Extra IPs and exclusions (main section)
         o = mainSection.taboption('basic', form.Flag, 'exclude_from_ip_enabled', _('IP for exclusion'), _('Specify local IP addresses that will never use the configured route'));
         o.default = '0';
