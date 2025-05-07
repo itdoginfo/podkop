@@ -20,7 +20,7 @@ SING_BOX_CONFIG="/etc/sing-box/config.json"
 FAKEIP="198.18.0.0/15"
 VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram cloudflare"
 DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.140.15.15 208.67.220.220 208.67.222.222 77.88.8.1 77.88.8.8"
-TEST_DOMAIN="fakeip.tech-domain.club"
+TEST_DOMAIN="fakeip.podkop.net"
 INTERFACES_LIST=""
 SRC_INTERFACE=""
 RESOLV_CONF="/etc/resolv.conf"
@@ -29,11 +29,7 @@ CLOUDFLARE_OCTETS="103.21 103.22 103.31 104.16 104.17 104.18 104.19 104.20 104.2
 log() {
     local message="$1"
     local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-    local CYAN="\033[0;36m"
-    local GREEN="\033[0;32m"
-    local RESET="\033[0m"
 
-    echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
     logger -t "podkop" "$timestamp $message"
 }
 
@@ -208,6 +204,12 @@ reload() {
     log "Podkop reload"
     stop_main
     start_main
+}
+
+restart() {
+    log "Podkop restart"
+    stop
+    start
 }
 
 # Migrations and validation funcs
@@ -791,7 +793,7 @@ sing_box_create_bypass_ruleset() {
         "rules": [
             {
                 "domain_suffix": [
-                    "ip.tech-domain.club"
+                    "ip.podkop.net"
                 ]
             }
         ]
@@ -2379,6 +2381,9 @@ case "$1" in
     reload)
         reload
         ;;
+    restart)
+        restart
+        ;;
     main)
         main
         ;;
@@ -2440,7 +2445,7 @@ case "$1" in
         global_check
         ;;
     *)
-        echo "Usage: $0 {start|stop|reload|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available|global_check}"
+        echo "Usage: $0 {start|stop|reload|restart|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available|global_check}"
         exit 1
         ;;
 esac
