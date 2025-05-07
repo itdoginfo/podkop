@@ -638,7 +638,7 @@ const showConfigModal = async (command, title) => {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-            const response = await fetch('https://fakeip.tech-domain.club/check', { signal: controller.signal });
+            const response = await fetch('https://fakeip.podkop.net/check', { signal: controller.signal });
             const data = await response.json();
             clearTimeout(timeoutId);
 
@@ -646,15 +646,15 @@ const showConfigModal = async (command, title) => {
             if (data.fakeip === true) {
                 formattedOutput += '\n✅ ' + _('FakeIP is working in browser!') + '\n';
             } else {
-                formattedOutput += '❌ ' + _('FakeIP is not working in browser') + '\n';
+                formattedOutput += '\n❌ ' + _('FakeIP is not working in browser') + '\n';
                 formattedOutput += _('Check DNS server on current device (PC, phone)') + '\n';
                 formattedOutput += _('Its must be router!') + '\n';
             }
 
             // Bypass check
-            const bypassResponse = await fetch('https://fakeip.tech-domain.club/check', { signal: controller.signal });
+            const bypassResponse = await fetch('https://fakeip.podkop.net/check', { signal: controller.signal });
             const bypassData = await bypassResponse.json();
-            const bypassResponse2 = await fetch('https://ip.tech-domain.club/check', { signal: controller.signal });
+            const bypassResponse2 = await fetch('https://ip.podkop.net/check', { signal: controller.signal });
             const bypassData2 = await bypassResponse2.json();
 
             formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
@@ -734,7 +734,7 @@ const createStatusPanel = (title, status, buttons, extraData = {}) => {
             title === 'Sing-box Status' ?
                 (status.running && !status.enabled ? '✔ running' : '✘ ' + status.status) :
                 title === 'Podkop Status' ?
-                    (status.enabled ? '✔ enabled' : '✘ disabled') :
+                    (status.enabled ? '✔ Autostart enabled' : '✘ Autostart disabled') :
                     (status.running ? '✔' : '✘') + ' ' + status.status
         ])
     ].filter(Boolean);
@@ -754,14 +754,20 @@ const createStatusPanel = (title, status, buttons, extraData = {}) => {
                 action: 'restart',
                 reload: true
             }),
+            ButtonFactory.createActionButton({
+                label: 'Stop Podkop',
+                type: 'apply',
+                action: 'stop',
+                reload: true
+            }),
             ButtonFactory.createInitActionButton({
-                label: status.enabled ? 'Disable Podkop' : 'Enable Podkop',
+                label: status.enabled ? 'Disable Autostart' : 'Enable Autostart',
                 type: status.enabled ? 'remove' : 'apply',
                 action: status.enabled ? 'disable' : 'enable',
                 reload: true
             }),
             ButtonFactory.createModalButton({
-                label: _('Global check'),
+                label: E('strong', _('Global check')),
                 command: 'global_check',
                 title: _('Click here for all the info')
             }),
@@ -1307,7 +1313,7 @@ return view.extend({
                     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
                     try {
-                        const response = await fetch('https://fakeip.tech-domain.club/check', { signal: controller.signal });
+                        const response = await fetch('https://fakeip.podkop.net/check', { signal: controller.signal });
                         const data = await response.json();
                         clearTimeout(timeoutId);
 
@@ -1346,7 +1352,7 @@ return view.extend({
                         return resolve(createStatus('not_working', 'DNS not configured', 'ERROR'));
                     }
 
-                    const result = await safeExec('nslookup', ['-timeout=2', 'fakeip.tech-domain.club', '127.0.0.42']);
+                    const result = await safeExec('nslookup', ['-timeout=2', 'fakeip.podkop.net', '127.0.0.42']);
 
                     if (result.stdout && result.stdout.includes('198.18')) {
                         return resolve(createStatus('working', 'working on router', 'SUCCESS'));
@@ -1395,7 +1401,7 @@ return view.extend({
                         const controller1 = new AbortController();
                         const timeoutId1 = setTimeout(() => controller1.abort(), 10000);
 
-                        const response1 = await fetch('https://fakeip.tech-domain.club/check', { signal: controller1.signal });
+                        const response1 = await fetch('https://fakeip.podkop.net/check', { signal: controller1.signal });
                         const data1 = await response1.json();
                         clearTimeout(timeoutId1);
 
@@ -1410,7 +1416,7 @@ return view.extend({
                         const controller2 = new AbortController();
                         const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
 
-                        const response2 = await fetch('https://ip.tech-domain.club/check', { signal: controller2.signal });
+                        const response2 = await fetch('https://ip.podkop.net/check', { signal: controller2.signal });
                         const data2 = await response2.json();
                         clearTimeout(timeoutId2);
 
