@@ -942,6 +942,9 @@ sing_box_outdound() {
             fi
         fi
         ;;
+    "block")
+        log "Block mode"
+        ;;
     *)
         log "Requires *vpn* or *proxy* value"
         return
@@ -1461,27 +1464,54 @@ sing_box_rules() {
     local rule_set="$1"
     local outbound="$2"
 
-    # Check if there is an outbound rule for "tproxy-in"
-    local rule_exists=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .inbound == ["tproxy-in"])' "$SING_BOX_CONFIG")
+    config_get mode "$section" "mode"
 
-    if [[ -n "$rule_exists" ]]; then
-        # If a rule for tproxy-in exists, add a new rule_set to the existing rule
-        jq \
-        --arg rule_set "$rule_set" \
-        --arg outbound "$outbound" \
-        '(.route.rules[] | select(.outbound == $outbound and .inbound == ["tproxy-in"]) .rule_set) += [$rule_set]' \
-        "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+    if [[ "$mode" == "block" ]]; then
+        # Action reject
+        # Check if there is an rule with reject"
+        local rule_exists=$(jq -r '.route.rules[] | select(.inbound == ["tproxy-in"] and .action == "reject")' "$SING_BOX_CONFIG")
+
+        if [[ -n "$rule_exists" ]]; then
+            # If a rule for rejectexists, add a new rule_set to the existing rule
+            jq \
+            --arg rule_set "$rule_set" \
+            '(.route.rules[] | select(.inbound == ["tproxy-in"] and .action == "reject") .rule_set) += [$rule_set]' \
+            "$SING_BOX_CONFIG" > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+        else
+            # If there is no rule for reject, create a new one with rule_set
+            jq \
+            --arg rule_set "$rule_set" \
+            '.route.rules += [{
+                "inbound": ["tproxy-in"],
+                "rule_set": [$rule_set],
+                "action": "reject"
+            }]' "$SING_BOX_CONFIG" > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+        fi
+        return
     else
-        # If there is no rule for tproxy-in, create a new one with rule_set
-        jq \
-        --arg rule_set "$rule_set" \
-        --arg outbound "$outbound" \
-        '.route.rules += [{
-            "inbound": ["tproxy-in"],
-            "rule_set": [$rule_set],
-            "outbound": $outbound,
-            "action": "route"
-        }]' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+        # Action route
+        # Check if there is an outbound rule for "tproxy-in"
+        local rule_exists=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .inbound == ["tproxy-in"])' "$SING_BOX_CONFIG")
+
+        if [[ -n "$rule_exists" ]]; then
+            # If a rule for tproxy-in exists, add a new rule_set to the existing rule
+            jq \
+            --arg rule_set "$rule_set" \
+            --arg outbound "$outbound" \
+            '(.route.rules[] | select(.outbound == $outbound and .inbound == ["tproxy-in"]) .rule_set) += [$rule_set]' \
+            "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+        else
+            # If there is no rule for tproxy-in, create a new one with rule_set
+            jq \
+            --arg rule_set "$rule_set" \
+            --arg outbound "$outbound" \
+            '.route.rules += [{
+                "inbound": ["tproxy-in"],
+                "rule_set": [$rule_set],
+                "outbound": $outbound,
+                "action": "route"
+            }]' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+        fi
     fi
 }
 

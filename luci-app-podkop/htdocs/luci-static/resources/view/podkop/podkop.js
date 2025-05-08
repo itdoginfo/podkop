@@ -87,6 +87,7 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.ListValue, 'mode', _('Connection Type'), _('Select between VPN and Proxy connection methods for traffic routing'));
     o.value('proxy', ('Proxy'));
     o.value('vpn', ('VPN'));
+    o.value('block', ('Block'));
     o.ucisection = s.section;
 
     o = s.taboption('basic', form.ListValue, 'proxy_config_type', _('Configuration Type'), _('Select how to configure the proxy'));

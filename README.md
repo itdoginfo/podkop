@@ -37,7 +37,5 @@ sh <(wget -qO- https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 - [ ] IPv6. Только после наполнения Wiki
 
 Рефактор
-- [ ] Handle для sing-box
-- [ ] Handle для dnsmasq
 - [ ] Unit тесты (BATS)
 - [ ] Интеграционые тесты бекенда (OpenWrt rootfs + BATS)
