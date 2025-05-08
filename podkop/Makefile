@@ -15,7 +15,7 @@ define Package/podkop
 	DEPENDS:=+sing-box +curl +jq +kmod-nft-tproxy +coreutils-base64
 	CONFLICTS:=https-dns-proxy
 	TITLE:=Domain routing app
-	URL:=https://itdog.info
+	URL:=https://podkop.net
 	PKGARCH:=all
 endef
 

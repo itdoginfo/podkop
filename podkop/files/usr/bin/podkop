@@ -67,7 +67,10 @@ start_main() {
 
     config_foreach process_validate_service
 
-    sleep 3
+    # Sync time for DoH/DoT
+    /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
+
+    sleep 2
 
     mkdir -p /tmp/podkop
 
