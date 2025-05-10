@@ -422,11 +422,11 @@ dnsmasq_restore() {
 
     local server=$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)
     if [[ "$server" == "127.0.0.42" ]]; then
-        uci -q delete dhcp.@dnsmasq[0].server
+        uci -q delete dhcp.@dnsmasq[0].server 2>/dev/null
         for server in $(uci get dhcp.@dnsmasq[0].podkop_server 2>/dev/null); do
             uci add_list dhcp.@dnsmasq[0].server="$server"
         done
-        uci delete dhcp.@dnsmasq[0].podkop_server
+        uci delete dhcp.@dnsmasq[0].podkop_server 2>/dev/null
     fi
 
     uci delete dhcp.@dnsmasq[0].podkop_cachesize
@@ -1606,18 +1606,24 @@ list_custom_url_domains_create() {
     local section="$2"
     local URL="$1"
     local filename=$(basename "$URL")
+    local filepath="/tmp/podkop/${filename}"
 
     config_get_bool detour "main" "detour" "0"
     if [ "$detour" -eq 1 ]; then
-        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "/tmp/podkop/${filename}" "$URL"
+        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "$filepath" "$URL"
     else
-        wget -O "/tmp/podkop/${filename}" "$URL"
+        wget -O "$filepath" "$URL"
+    fi
+
+    if grep -q $'\r' "$filepath"; then
+        log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
+        sed -i 's/\r$//' "$filepath"
     fi
 
     while IFS= read -r domain; do
         log "From downloaded file: $domain"
         sing_box_ruleset_domains_json $domain $section
-    done <"/tmp/podkop/$filename"
+    done <"$filepath"
 }
 
 process_domains_list_url() {
@@ -1651,19 +1657,25 @@ list_custom_url_subnets_create() {
     local section="$2"
     local URL="$1"
     local filename=$(basename "$URL")
+    local filepath="/tmp/podkop/${filename}"
 
     config_get_bool detour "main" "detour" "0"
     if [ "$detour" -eq 1 ]; then
-        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "/tmp/podkop/${filename}" "$URL"
+        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "$filepath" "$URL"
     else
-        wget -O "/tmp/podkop/${filename}" "$URL"
+        wget -O "$filepath" "$URL"
+    fi
+
+    if grep -q $'\r' "$filepath"; then
+        log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
+        sed -i 's/\r$//' "$filepath"
     fi
 
     while IFS= read -r subnet; do
         log "From local file: $subnet"
         sing_box_ruleset_subnets_json $subnet $section
         nft add element inet PodkopTable podkop_subnets { $subnet }
-    done <"/tmp/podkop/$filename"
+    done <"$filepath"
 }
 
 process_subnet_for_section_remote() {
