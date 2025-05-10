@@ -163,7 +163,7 @@ stop_main() {
 
     if [ -f /var/run/podkop_list_update.pid ]; then
         pid=$(cat /var/run/podkop_list_update.pid)
-        if kill -0 "$pid"; then
+        if kill -0 "$pid" 2>/dev/null; then
             kill "$pid" 2>/dev/null
             log "Stopped list_update"
         fi
@@ -378,8 +378,6 @@ save_dnsmasq_config() {
 
 dnsmasq_add_resolver() {
     log "Save dnsmasq config"
-    save_dnsmasq_config "dhcp.@dnsmasq[0].noresolv" "dhcp.@dnsmasq[0].podkop_noresolv"
-    save_dnsmasq_config "dhcp.@dnsmasq[0].cachesize" "dhcp.@dnsmasq[0].podkop_cachesize"
 
     uci -q delete dhcp.@dnsmasq[0].podkop_server
     for server in $(uci get dhcp.@dnsmasq[0].server 2>/dev/null); do
@@ -390,6 +388,9 @@ dnsmasq_add_resolver() {
             uci add_list dhcp.@dnsmasq[0].podkop_server="$server"
         fi
     done
+
+    save_dnsmasq_config "dhcp.@dnsmasq[0].noresolv" "dhcp.@dnsmasq[0].podkop_noresolv"
+    save_dnsmasq_config "dhcp.@dnsmasq[0].cachesize" "dhcp.@dnsmasq[0].podkop_cachesize"
 
     log "Configure dnsmasq for sing-box"
     uci set dhcp.@dnsmasq[0].noresolv="1"
@@ -1225,8 +1226,8 @@ sing_box_config_vless() {
     if [ $? -eq 0 ]; then
         log "Config VLESS created successfully"
     else
-        log "Error: VLESS invalid JSON config generated"
-        return 1
+        log "[critical] Error: VLESS invalid JSON config generated"
+        exit 1
     fi
 }
 
