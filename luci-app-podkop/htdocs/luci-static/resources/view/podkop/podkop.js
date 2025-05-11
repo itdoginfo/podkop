@@ -855,8 +855,8 @@ const createStatusPanel = (title, status, buttons, extraData = {}) => {
                 title: _('Lists Update Results')
             })
         ] : title === _('FakeIP Status') ? [
-            E('div', { style: 'margin-bottom: 10px;' }, [
-                E('div', { style: 'margin-bottom: 5px;' }, [
+            E('div', { style: 'margin-bottom: 5px;' }, [
+                E('div', {}, [
                     E('span', { style: `color: ${extraData.fakeipStatus?.color}` }, [
                         extraData.fakeipStatus?.state === 'working' ? '✔' : extraData.fakeipStatus?.state === 'not_working' ? '✘' : '!',
                         ' ',
@@ -871,8 +871,8 @@ const createStatusPanel = (title, status, buttons, extraData = {}) => {
                     ])
                 ])
             ]),
-            E('div', { style: 'margin-bottom: 10px;' }, [
-                E('div', { style: 'margin-bottom: 5px;' }, [
+            E('div', { style: 'margin-bottom: 5px;' }, [
+                E('div', {}, [
                     E('strong', {}, _('DNS Status')),
                     E('br'),
                     E('span', { style: `color: ${extraData.dnsStatus?.remote?.color}` }, [
@@ -888,8 +888,8 @@ const createStatusPanel = (title, status, buttons, extraData = {}) => {
                     ])
                 ])
             ]),
-            E('div', { style: 'margin-bottom: 10px;' }, [
-                E('div', { style: 'margin-bottom: 5px;' }, [
+            E('div', { style: 'margin-bottom: 5px;' }, [
+                E('div', {}, [
                     E('strong', {}, extraData.configName),
                     E('br'),
                     E('span', { style: `color: ${extraData.bypassStatus?.color}` }, [
