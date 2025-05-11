@@ -2209,8 +2209,10 @@ check_dns_available() {
     fi
 
     if [ "$dns_type" = "doh" ]; then
-        # Create DNS wire format query for google.com A record
-        local dns_query="q80BAAABAAAAAAAAA3d3dwZnb29nbGUDY29tAAABAAE="
+        # Generate random DNS query ID (2 bytes)
+        local random_id=$(head -c2 /dev/urandom | hexdump -ve '1/1 "%.2x"')
+        # Create DNS wire format query for google.com A record with random ID
+        local dns_query=$(printf "\x${random_id:0:2}\x${random_id:2:2}\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03www\x06google\x03com\x00\x00\x01\x00\x01" | base64)
         
         # Try POST method first (RFC 8484 compliant)
         local result=$(echo "$dns_query" | base64 -d | curl -H "Content-Type: application/dns-message" \
