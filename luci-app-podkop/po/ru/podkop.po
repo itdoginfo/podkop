@@ -843,3 +843,33 @@ msgstr "Это должен быть роутер!"
 
 msgid "Global check"
 msgstr "Глобальная проверка"
+
+msgid "Starting lists update..."
+msgstr "Начало обновления списков..."
+
+msgid "DNS check passed"
+msgstr "Проверка DNS пройдена"
+
+msgid "DNS check failed after 60 attempts"
+msgstr "Проверка DNS не удалась после 60 попыток"
+
+msgid "GitHub connection check passed"
+msgstr "Проверка подключения к GitHub пройдена"
+
+msgid "GitHub connection check passed (via proxy)"
+msgstr "Проверка подключения к GitHub пройдена (через прокси)"
+
+msgid "GitHub connection check failed after 60 attempts"
+msgstr "Проверка подключения к GitHub не удалась после 60 попыток"
+
+msgid "Downloading and processing lists..."
+msgstr "Загрузка и обработка списков..."
+
+msgid "Lists update completed successfully"
+msgstr "Обновление списков успешно завершено"
+
+msgid "Lists update failed"
+msgstr "Обновление списков не удалось"
+
+msgid "Error: "
+msgstr "Ошибка: "

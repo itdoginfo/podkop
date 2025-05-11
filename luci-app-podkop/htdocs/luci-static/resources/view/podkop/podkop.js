@@ -12,9 +12,14 @@ const STATUS_COLORS = {
     WARNING: '#ff9800'
 };
 
-const ERROR_POLL_INTERVAL = 5000; // 5 seconds
+const DIAGNOSTICS_UPDATE_INTERVAL = 10000; // 10 seconds
+const ERROR_POLL_INTERVAL = 10000; // 10 seconds
+const COMMAND_TIMEOUT = 10000; // 10 seconds
+const FETCH_TIMEOUT = 10000; // 10 seconds
+const BUTTON_FEEDBACK_TIMEOUT = 1000; // 1 second
+const DIAGNOSTICS_INITIAL_DELAY = 100; // 100 milliseconds
 
-async function safeExec(command, args = [], timeout = 7000) {
+async function safeExec(command, args = [], timeout = COMMAND_TIMEOUT) {
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -397,13 +402,17 @@ function createConfigSection(section, map, network) {
 
         const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*(\.[A-Za-z]{2,})?$/;
         const lines = value.split(/\n/).map(line => line.trim());
+        let hasValidDomain = false;
 
         for (const line of lines) {
-            // Skip empty lines or lines that start with //
-            if (!line || line.startsWith('//')) continue;
+            // Skip empty lines
+            if (!line) continue;
 
             // Extract domain part (before any //)
             const domainPart = line.split('//')[0].trim();
+
+            // Skip if line is empty after removing comments
+            if (!domainPart) continue;
 
             // Process each domain in the line (separated by comma or space)
             const domains = domainPart.split(/[,\s]+/).map(d => d.trim()).filter(d => d.length > 0);
@@ -412,8 +421,14 @@ function createConfigSection(section, map, network) {
                 if (!domainRegex.test(domain)) {
                     return _('Invalid domain format: %s. Enter domain without protocol').format(domain);
                 }
+                hasValidDomain = true;
             }
         }
+
+        if (!hasValidDomain) {
+            return _('At least one valid domain must be specified. Comments-only content is not allowed.');
+        }
+
         return true;
     };
 
@@ -492,13 +507,17 @@ function createConfigSection(section, map, network) {
 
         const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
         const lines = value.split(/\n/).map(line => line.trim());
+        let hasValidSubnet = false;
 
         for (const line of lines) {
-            // Skip empty lines or lines that start with //
-            if (!line || line.startsWith('//')) continue;
+            // Skip empty lines
+            if (!line) continue;
 
             // Extract subnet part (before any //)
             const subnetPart = line.split('//')[0].trim();
+
+            // Skip if line is empty after removing comments
+            if (!subnetPart) continue;
 
             // Process each subnet in the line (separated by comma or space)
             const subnets = subnetPart.split(/[,\s]+/).map(s => s.trim()).filter(s => s.length > 0);
@@ -523,8 +542,14 @@ function createConfigSection(section, map, network) {
                         return _('CIDR must be between 0 and 32 in: %s').format(subnet);
                     }
                 }
+                hasValidSubnet = true;
             }
         }
+
+        if (!hasValidSubnet) {
+            return _('At least one valid subnet or IP must be specified. Comments-only content is not allowed.');
+        }
+
         return true;
     };
 
@@ -576,7 +601,7 @@ const copyToClipboard = (text, button) => {
         document.execCommand('copy');
         const originalText = button.textContent;
         button.textContent = _('Copied!');
-        setTimeout(() => button.textContent = originalText, 1000);
+        setTimeout(() => button.textContent = originalText, BUTTON_FEEDBACK_TIMEOUT);
     } catch (err) {
         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
     }
@@ -631,53 +656,100 @@ const maskIP = (ip) => {
 };
 
 const showConfigModal = async (command, title) => {
-    const res = await safeExec('/usr/bin/podkop', [command]);
-    let formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+    // Create and show modal immediately with loading state
+    const modalContent = E('div', { 'class': 'panel-body' }, [
+        E('div', {
+            'class': 'panel-body',
+            style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; ' +
+                'font-family: monospace; white-space: pre-wrap; word-wrap: break-word; ' +
+                'line-height: 1.5; font-size: 14px;'
+        }, [
+            E('pre', {
+                'id': 'modal-content-pre',
+                style: 'margin: 0;'
+            }, _('Loading...'))
+        ]),
+        E('div', {
+            'class': 'right',
+            style: 'margin-top: 1em;'
+        }, [
+            E('button', {
+                'class': 'btn',
+                'id': 'copy-button',
+                'click': ev => copyToClipboard(document.getElementById('modal-content-pre').innerText, ev.target)
+            }, _('Copy to Clipboard')),
+            E('button', {
+                'class': 'btn',
+                'click': ui.hideModal
+            }, _('Close'))
+        ])
+    ]);
 
-    if (command === 'global_check') {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+    ui.showModal(_(title), modalContent);
 
-            const response = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
-            const data = await response.json();
-            clearTimeout(timeoutId);
-
-
-            if (data.fakeip === true) {
-                formattedOutput += '\n✅ ' + _('FakeIP is working in browser!') + '\n';
-            } else {
-                formattedOutput += '\n❌ ' + _('FakeIP is not working in browser') + '\n';
-                formattedOutput += _('Check DNS server on current device (PC, phone)') + '\n';
-                formattedOutput += _('Its must be router!') + '\n';
-            }
-
-            // Bypass check
-            const bypassResponse = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
-            const bypassData = await bypassResponse.json();
-            const bypassResponse2 = await fetch('https://ip.podkop.fyi/check', { signal: controller.signal });
-            const bypassData2 = await bypassResponse2.json();
-
-            formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-
-            if (bypassData.IP && bypassData2.IP && bypassData.IP !== bypassData2.IP) {
-                formattedOutput += '✅ ' + _('Proxy working correctly') + '\n';
-                formattedOutput += _('Direct IP: ') + maskIP(bypassData.IP) + '\n';
-                formattedOutput += _('Proxy IP: ') + maskIP(bypassData2.IP) + '\n';
-            } else if (bypassData.IP === bypassData2.IP) {
-                formattedOutput += '❌ ' + _('Proxy is not working - same IP for both domains') + '\n';
-                formattedOutput += _('IP: ') + maskIP(bypassData.IP) + '\n';
-            } else {
-                formattedOutput += '❌ ' + _('Proxy check failed') + '\n';
-            }
-
-
-        } catch (error) {
-            formattedOutput += '\n❌ ' + _('Check failed: ') + (error.name === 'AbortError' ? _('timeout') : error.message) + '\n';
+    // Function to update modal content
+    const updateModalContent = (content) => {
+        const pre = document.getElementById('modal-content-pre');
+        if (pre) {
+            pre.textContent = content;
         }
-    }
+    };
 
-    ui.showModal(_(title), createModalContent(_(title), formattedOutput));
+    try {
+        let formattedOutput = '';
+
+        if (command === 'global_check') {
+            const res = await safeExec('/usr/bin/podkop', [command]);
+            formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+                const response = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
+                const data = await response.json();
+                clearTimeout(timeoutId);
+
+                if (data.fakeip === true) {
+                    formattedOutput += '\n✅ ' + _('FakeIP is working in browser!') + '\n';
+                } else {
+                    formattedOutput += '\n❌ ' + _('FakeIP is not working in browser') + '\n';
+                    formattedOutput += _('Check DNS server on current device (PC, phone)') + '\n';
+                    formattedOutput += _('Its must be router!') + '\n';
+                }
+
+                // Bypass check
+                const bypassResponse = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
+                const bypassData = await bypassResponse.json();
+                const bypassResponse2 = await fetch('https://ip.podkop.fyi/check', { signal: controller.signal });
+                const bypassData2 = await bypassResponse2.json();
+
+                formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+
+                if (bypassData.IP && bypassData2.IP && bypassData.IP !== bypassData2.IP) {
+                    formattedOutput += '✅ ' + _('Proxy working correctly') + '\n';
+                    formattedOutput += _('Direct IP: ') + maskIP(bypassData.IP) + '\n';
+                    formattedOutput += _('Proxy IP: ') + maskIP(bypassData2.IP) + '\n';
+                } else if (bypassData.IP === bypassData2.IP) {
+                    formattedOutput += '❌ ' + _('Proxy is not working - same IP for both domains') + '\n';
+                    formattedOutput += _('IP: ') + maskIP(bypassData.IP) + '\n';
+                } else {
+                    formattedOutput += '❌ ' + _('Proxy check failed') + '\n';
+                }
+
+                updateModalContent(formattedOutput);
+            } catch (error) {
+                formattedOutput += '\n❌ ' + _('Check failed: ') + (error.name === 'AbortError' ? _('timeout') : error.message) + '\n';
+                updateModalContent(formattedOutput);
+            }
+        } else {
+            const res = await safeExec('/usr/bin/podkop', [command]);
+            formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+            updateModalContent(formattedOutput);
+        }
+    } catch (error) {
+        updateModalContent(_('Error: ') + error.message);
+    }
 };
 
 // Button Factory
@@ -843,8 +915,14 @@ let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, s
                     action: 'restart',
                     reload: true
                 }),
+                ButtonFactory.createActionButton({
+                    label: 'Stop Podkop',
+                    type: 'apply',
+                    action: 'stop',
+                    reload: true
+                }),
                 ButtonFactory.createInitActionButton({
-                    label: podkopStatus.enabled ? 'Disable Podkop' : 'Enable Podkop',
+                    label: podkopStatus.enabled ? 'Disable Autostart' : 'Enable Autostart',
                     type: podkopStatus.enabled ? 'remove' : 'apply',
                     action: podkopStatus.enabled ? 'disable' : 'enable',
                     reload: true
@@ -1275,7 +1353,7 @@ return view.extend({
             }
 
             updateDiagnostics();
-            diagnosticsUpdateTimer = setInterval(updateDiagnostics, 10000);
+            diagnosticsUpdateTimer = setInterval(updateDiagnostics, DIAGNOSTICS_UPDATE_INTERVAL);
         }
 
         function stopDiagnosticsUpdates() {
@@ -1311,7 +1389,7 @@ return view.extend({
                     }
 
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+                    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
                     try {
                         const response = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
@@ -1400,7 +1478,7 @@ return view.extend({
                     let ip1 = null;
                     try {
                         const controller1 = new AbortController();
-                        const timeoutId1 = setTimeout(() => controller1.abort(), 10000);
+                        const timeoutId1 = setTimeout(() => controller1.abort(), FETCH_TIMEOUT);
 
                         const response1 = await fetch('https://fakeip.podkop.fyi/check', { signal: controller1.signal });
                         const data1 = await response1.json();
@@ -1415,7 +1493,7 @@ return view.extend({
                     let ip2 = null;
                     try {
                         const controller2 = new AbortController();
-                        const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
+                        const timeoutId2 = setTimeout(() => controller2.abort(), FETCH_TIMEOUT);
 
                         const response2 = await fetch('https://ip.podkop.fyi/check', { signal: controller2.signal });
                         const data2 = await response2.json();
@@ -1494,8 +1572,8 @@ return view.extend({
                     checkDNSAvailability()
                         .then(result => results.dnsStatus = result)
                         .catch(() => results.dnsStatus = {
-                            remote: { state: 'error', message: 'check error', color: STATUS_COLORS.WARNING },
-                            local: { state: 'error', message: 'check error', color: STATUS_COLORS.WARNING }
+                            remote: createStatus('error', 'DNS check error', 'WARNING'),
+                            local: createStatus('error', 'DNS check error', 'WARNING')
                         }),
 
                     checkBypass()
@@ -1665,7 +1743,7 @@ return view.extend({
                         }
                     }
                 }
-            }, 100);
+            }, DIAGNOSTICS_INITIAL_DELAY);
 
             node.classList.add('fade-in');
             return node;

@@ -558,12 +558,14 @@ prepare_custom_ruleset() {
 
 list_update() {
     log "Update remote lists"
+    nolog "🔄 Starting lists update..."
 
     local i
 
     for i in $(seq 1 60); do
         if nslookup -timeout=1 openwrt.org >/dev/null 2>&1; then
             log "DNS is available"
+            nolog "✅ DNS check passed"
             break
         fi
         log "DNS is unavailable [$i/60]"
@@ -572,6 +574,7 @@ list_update() {
 
     if [ "$i" -eq 60 ]; then
         log "Error: DNS check failed after 10 attempts"
+        nolog "❌ DNS check failed after 60 attempts"
         return 1
     fi
 
@@ -580,11 +583,13 @@ list_update() {
         if [ "$detour" -eq 1 ]; then
             if http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" curl -s -m 3 https://github.com >/dev/null; then
                 log "GitHub is available"
+                nolog "✅ GitHub connection check passed (via proxy)"
                 break
             fi
         else
             if curl -s -m 3 https://github.com >/dev/null; then
                 log "GitHub is available"
+                nolog "✅ GitHub connection check passed"
                 break
             fi
         fi
@@ -595,12 +600,21 @@ list_update() {
 
     if [ "$i" -eq 60 ]; then
         log "Error: Cannot connect to GitHub after 10 attempts"
+        nolog "❌ GitHub connection check failed after 60 attempts"
         return 1
     fi
 
+    nolog "📥 Downloading and processing lists..."
+    
     config_foreach process_remote_ruleset_subnet
     config_foreach process_domains_list_url
     config_foreach process_subnet_for_section_remote
+
+    if [ $? -eq 0 ]; then
+        nolog "✅ Lists update completed successfully"
+    else
+        nolog "❌ Lists update failed"
+    fi
 }
 
 find_working_resolver() {
@@ -2195,24 +2209,31 @@ check_dns_available() {
     fi
 
     if [ "$dns_type" = "doh" ]; then
-        local result=""
+        # Create DNS wire format query for google.com A record
+        local dns_query="q80BAAABAAAAAAAAA3d3dwZnb29nbGUDY29tAAABAAE="
         
-        if echo "$dns_server" | grep -q "quad9.net" || \
-           echo "$dns_server" | grep -qE "^9\.9\.9\.(9|10|11)$|^149\.112\.112\.(112|10|11)$|^2620:fe::(fe|9|10|11)$|^2620:fe::fe:(10|11)$"; then
-            result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server:5053/dns-query?name=itdog.info&type=A")
-        else
-            result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server/dns-query?name=itdog.info&type=A")
-            if [ $? -eq 0 ] && echo "$result" | grep -q "data"; then
-                is_available=1
-                status="available"
-            else
-                result=$(curl --connect-timeout 5 -s -H "accept: application/dns-json" "https://$dns_server/resolve?name=itdog.info&type=A")
-            fi
-        fi
+        # Try POST method first (RFC 8484 compliant)
+        local result=$(echo "$dns_query" | base64 -d | curl -H "Content-Type: application/dns-message" \
+            -H "Accept: application/dns-message" \
+            --data-binary @- \
+            --connect-timeout 5 -s -w "%{size_download}" \
+            -o /dev/null \
+            "https://$dns_server/dns-query" 2>/dev/null)
         
-        if [ $? -eq 0 ] && echo "$result" | grep -q "data"; then
+        if [ $? -eq 0 ] && [ -n "$result" ] && [ "$result" -ge 40 ] && [ "$result" -le 100 ]; then
             is_available=1
             status="available"
+        else
+            # Try GET method as fallback
+            result=$(curl -H "accept: application/dns-message" \
+                --connect-timeout 5 -s -w "%{size_download}" \
+                -o /dev/null \
+                "https://$dns_server/dns-query?dns=$(echo "$dns_query" | tr -d '\n')" 2>/dev/null)
+            
+            if [ $? -eq 0 ] && [ -n "$result" ] && [ "$result" -ge 40 ] && [ "$result" -le 100 ]; then
+                is_available=1
+                status="available"
+            fi
         fi
     elif [ "$dns_type" = "dot" ]; then
         (nc "$dns_server" 853 </dev/null >/dev/null 2>&1) & pid=$!
