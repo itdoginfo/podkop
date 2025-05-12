@@ -2220,21 +2220,20 @@ check_dns_available() {
         local result=$(echo "$dns_query" | base64 -d | curl -H "Content-Type: application/dns-message" \
             -H "Accept: application/dns-message" \
             --data-binary @- \
-            --connect-timeout 5 -s -w "%{size_download}" \
-            -o /dev/null \
+            --connect-timeout 5 -s \
             "https://$dns_server/dns-query" 2>/dev/null)
         
-        if [ $? -eq 0 ] && [ -n "$result" ] && [ "$result" -ge 40 ] && [ "$result" -le 100 ]; then
+        if [ $? -eq 0 ] && [ -n "$result" ]; then
             is_available=1
             status="available"
         else
-            # Try GET method as fallback
+            # Try GET method as fallback, remove padding from base64
+            local dns_query_no_padding=$(echo "$dns_query" | tr -d '=')
             result=$(curl -H "accept: application/dns-message" \
-                --connect-timeout 5 -s -w "%{size_download}" \
-                -o /dev/null \
-                "https://$dns_server/dns-query?dns=$(echo "$dns_query" | tr -d '\n')" 2>/dev/null)
+                --connect-timeout 5 -s \
+                "https://$dns_server/dns-query?dns=$dns_query_no_padding" 2>/dev/null)
             
-            if [ $? -eq 0 ] && [ -n "$result" ] && [ "$result" -ge 40 ] && [ "$result" -le 100 ]; then
+            if [ $? -eq 0 ] && [ -n "$result" ]; then
                 is_available=1
                 status="available"
             fi
