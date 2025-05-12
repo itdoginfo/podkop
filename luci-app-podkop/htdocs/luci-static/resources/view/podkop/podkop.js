@@ -300,7 +300,7 @@ function createConfigSection(section, map, network) {
     o.value('russia_inside', 'Russia inside');
     o.value('russia_outside', 'Russia outside');
     o.value('ukraine_inside', 'Ukraine');
-    o.value('geoblock', 'GEO Block');
+    o.value('geoblock', 'Geo Block');
     o.value('block', 'Block');
     o.value('porn', 'Porn');
     o.value('news', 'News');
@@ -313,6 +313,11 @@ function createConfigSection(section, map, network) {
     o.value('tiktok', 'Tik-Tok');
     o.value('telegram', 'Telegram');
     o.value('cloudflare', 'Cloudflare');
+    o.value('google_ai', 'Google AI');
+    o.value('google_play', 'Google Play');
+    o.value('hetzner', 'Hetzner ASN');
+    o.value('ovh', 'OVH ASN');
+
     o.depends('domain_list_enabled', '1');
     o.rmempty = false;
     o.ucisection = s.section;
@@ -344,13 +349,13 @@ function createConfigSection(section, map, network) {
             }
 
             if (newValues.includes('russia_inside')) {
-                const allowedWithRussiaInside = ['russia_inside', 'meta', 'twitter', 'discord', 'telegram', 'cloudflare'];
+                const allowedWithRussiaInside = ['russia_inside', 'meta', 'twitter', 'discord', 'telegram', 'cloudflare', 'google_ai', 'google_play', 'hetzner', 'ovh'];
                 const removedServices = newValues.filter(v => !allowedWithRussiaInside.includes(v));
                 if (removedServices.length > 0) {
                     newValues = newValues.filter(v => allowedWithRussiaInside.includes(v));
                     notifications.push(E('p', { class: 'alert-message warning' }, [
                         E('strong', {}, _('Russia inside restrictions')), E('br'),
-                        _('Warning: Russia inside can only be used with Meta, Twitter, Discord, Cloudflare and Telegram. %s already in Russia inside and have been removed from selection.')
+                        _('Warning: Russia inside can only be used with Meta, Twitter, Discord, Cloudflare, Google AI, Google Play, Hetzner, OVH and Telegram. %s already in Russia inside and have been removed from selection.')
                             .format(removedServices.join(', '))
                     ]));
                 }
