@@ -26,21 +26,39 @@ SRC_INTERFACE=""
 RESOLV_CONF="/etc/resolv.conf"
 CLOUDFLARE_OCTETS="103.21 103.22 103.31 104.16 104.17 104.18 104.19 104.20 104.21 104.22 104.23 104.24 104.25 104.26 104.27 104.28 108.162 131.0 141.101 162.158 162.159 172.64 172.65 172.66 172.67 172.68 172.69 172.70 172.71 173.245 188.114 190.93 197.234 198.41"
 
-log() {
+# Color constants
+COLOR_CYAN="\033[0;36m"
+COLOR_GREEN="\033[0;32m"
+COLOR_RESET="\033[0m"
+
+# Logging functions
+_log_message() {
     local message="$1"
     local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local use_syslog="${2:-1}"
+    local use_stdout="${3:-0}"
 
-    logger -t "podkop" "$timestamp $message"
+    # Log to syslog if requested
+    if [ "$use_syslog" -eq 1 ]; then
+        logger -t "podkop" "$timestamp $message"
+    fi
+
+    # Print to stdout with colors if requested
+    if [ "$use_stdout" -eq 1 ]; then
+        echo -e "${COLOR_CYAN}[$timestamp]${COLOR_RESET} ${COLOR_GREEN}$message${COLOR_RESET}"
+    fi
+}
+
+log() {
+    _log_message "$1" 1 0
 }
 
 nolog() {
-    local message="$1"
-    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-    local CYAN="\033[0;36m"
-    local GREEN="\033[0;32m"
-    local RESET="\033[0m"
+    _log_message "$1" 0 1
+}
 
-    echo -e "${CYAN}[$timestamp]${RESET} ${GREEN}$message${RESET}"
+echolog() {
+    _log_message "$1" 1 1
 }
 
 start_main() {
@@ -557,15 +575,13 @@ prepare_custom_ruleset() {
 }
 
 list_update() {
-    log "Update remote lists"
-    nolog "🔄 Starting lists update..."
+    echolog "🔄 Starting lists update..."
 
     local i
 
     for i in $(seq 1 60); do
         if nslookup -timeout=1 openwrt.org >/dev/null 2>&1; then
-            log "DNS is available"
-            nolog "✅ DNS check passed"
+            echolog "✅ DNS check passed"
             break
         fi
         log "DNS is unavailable [$i/60]"
@@ -573,8 +589,7 @@ list_update() {
     done
 
     if [ "$i" -eq 60 ]; then
-        log "Error: DNS check failed after 10 attempts"
-        nolog "❌ DNS check failed after 60 attempts"
+        echolog "❌ DNS check failed after 60 attempts"
         return 1
     fi
 
@@ -582,38 +597,35 @@ list_update() {
         config_get_bool detour "main" "detour" "0"
         if [ "$detour" -eq 1 ]; then
             if http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" curl -s -m 3 https://github.com >/dev/null; then
-                log "GitHub is available"
-                nolog "✅ GitHub connection check passed (via proxy)"
+                echolog "✅ GitHub connection check passed (via proxy)"
                 break
             fi
         else
             if curl -s -m 3 https://github.com >/dev/null; then
-                log "GitHub is available"
-                nolog "✅ GitHub connection check passed"
+                echolog "✅ GitHub connection check passed"
                 break
             fi
         fi
 
-        log "GitHub is unavailable [$i/60]"
+        echolog "GitHub is unavailable [$i/60]"
         sleep 3
     done
 
     if [ "$i" -eq 60 ]; then
-        log "Error: Cannot connect to GitHub after 10 attempts"
-        nolog "❌ GitHub connection check failed after 60 attempts"
+        echolog "❌ GitHub connection check failed after 60 attempts"
         return 1
     fi
 
-    nolog "📥 Downloading and processing lists..."
+    echolog "📥 Downloading and processing lists..."
     
     config_foreach process_remote_ruleset_subnet
     config_foreach process_domains_list_url
     config_foreach process_subnet_for_section_remote
 
     if [ $? -eq 0 ]; then
-        nolog "✅ Lists update completed successfully"
+        echolog "✅ Lists update completed successfully"
     else
-        nolog "❌ Lists update failed"
+        echolog "❌ Lists update failed"
     fi
 }
 
