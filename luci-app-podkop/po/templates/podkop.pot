@@ -1194,3 +1194,36 @@ msgstr ""
 
 msgid "Global check"
 msgstr ""
+
+msgid "Starting lists update..."
+msgstr ""
+
+msgid "DNS check passed"
+msgstr ""
+
+msgid "DNS check failed after 60 attempts"
+msgstr ""
+
+msgid "GitHub connection check passed"
+msgstr ""
+
+msgid "GitHub connection check passed (via proxy)"
+msgstr ""
+
+msgid "GitHub connection check failed after 60 attempts"
+msgstr ""
+
+msgid "Downloading and processing lists..."
+msgstr ""
+
+msgid "Lists update completed successfully"
+msgstr ""
+
+msgid "Lists update failed"
+msgstr ""
+
+msgid "Loading..."
+msgstr ""
+
+msgid "Error: "
+msgstr ""
