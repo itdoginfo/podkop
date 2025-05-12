@@ -46,8 +46,9 @@ nolog() {
 }
 
 echolog() {
-    nolog "$1"
-    log "$1"
+    local message="$1"
+    log "$message"
+    nolog "$message"
 }
 
 start_main() {
