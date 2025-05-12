@@ -46,11 +46,8 @@ nolog() {
 }
 
 echolog() {
-    local message="$1"
-    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-
-    logger -t "podkop" "$timestamp $message"
-    echo -e "${COLOR_CYAN}[$timestamp]${COLOR_RESET} ${COLOR_GREEN}$message${COLOR_RESET}"
+    nolog "$1"
+    log "$1"
 }
 
 start_main() {
