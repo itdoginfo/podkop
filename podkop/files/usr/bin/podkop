@@ -31,34 +31,26 @@ COLOR_CYAN="\033[0;36m"
 COLOR_GREEN="\033[0;32m"
 COLOR_RESET="\033[0m"
 
-# Logging functions
-_log_message() {
+log() {
     local message="$1"
     local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-    local use_syslog="${2:-1}"
-    local use_stdout="${3:-0}"
 
-    # Log to syslog if requested
-    if [ "$use_syslog" -eq 1 ]; then
-        logger -t "podkop" "$timestamp $message"
-    fi
-
-    # Print to stdout with colors if requested
-    if [ "$use_stdout" -eq 1 ]; then
-        echo -e "${COLOR_CYAN}[$timestamp]${COLOR_RESET} ${COLOR_GREEN}$message${COLOR_RESET}"
-    fi
-}
-
-log() {
-    _log_message "$1" 1 0
+    logger -t "podkop" "$timestamp $message"
 }
 
 nolog() {
-    _log_message "$1" 0 1
+    local message="$1"
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+
+    echo -e "${COLOR_CYAN}[$timestamp]${COLOR_RESET} ${COLOR_GREEN}$message${COLOR_RESET}"
 }
 
 echolog() {
-    _log_message "$1" 1 1
+    local message="$1"
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+
+    logger -t "podkop" "$timestamp $message"
+    echo -e "${COLOR_CYAN}[$timestamp]${COLOR_RESET} ${COLOR_GREEN}$message${COLOR_RESET}"
 }
 
 start_main() {
