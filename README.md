@@ -38,10 +38,10 @@ sh <(wget -qO- https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 
 ## Списки
 - [ ] Speedtest
-- [ ] Google AI
-- [ ] Google PlayMarket. Здесь уточнить, что точно не работает через корректную настройку FakeIP, а не dnsmasq+nft.
-- [ ] Hetzner ASN (AS24940)
-- [ ] OVH ASN (AS16276)
+- [x] Google AI
+- [x] Google PlayMarket. Здесь уточнить, что точно не работает через корректную настройку FakeIP, а не dnsmasq+nft.
+- [x] Hetzner ASN (AS24940)
+- [x] OVH ASN (AS16276)
 
 ## Будущее
 - [ ] После наполнения вики про туннели, убрать всё что связано с их установкой из скрипта. Только с AWG что-то решить, лучше чтоб был скрипт в сторонем репозитории. 
