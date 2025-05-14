@@ -676,7 +676,7 @@ const showConfigModal = async (command, title) => {
             E('button', {
                 'class': 'btn',
                 'id': 'copy-button',
-                'click': ev => copyToClipboard(document.getElementById('modal-content-pre').innerText, ev.target)
+                'click': ev => copyToClipboard('```txt\n' + document.getElementById('modal-content-pre').innerText + '\n```', ev.target)
             }, _('Copy to Clipboard')),
             E('button', {
                 'class': 'btn',
@@ -842,7 +842,7 @@ const createStatusPanel = (title, status, buttons, extraData = {}) => {
             ButtonFactory.createModalButton({
                 label: E('strong', _('Global check')),
                 command: 'global_check',
-                title: _('Click here for all the info')
+                title: _('Global check')
             }),
             ButtonFactory.createModalButton({
                 label: 'View Logs',
