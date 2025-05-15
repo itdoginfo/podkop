@@ -1134,27 +1134,6 @@ async function checkFakeIP() {
     });
 
     try {
-        const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
-        const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
-
-        if (!singboxStatus.running) {
-            return createStatus('not_working', 'sing-box not running', 'ERROR');
-        }
-
-        // Load UCI config to check dont_touch_dhcp
-        let dontTouchDhcp = false;
-        try {
-            const data = await uci.load('podkop');
-            dontTouchDhcp = uci.get('podkop', 'main', 'dont_touch_dhcp') === '1';
-        } catch (e) {
-            console.error('Error loading UCI config:', e);
-        }
-
-        // If dont_touch_dhcp is enabled, we don't check dns_configured
-        if (!dontTouchDhcp && !singboxStatus.dns_configured) {
-            return createStatus('not_working', 'DNS not configured', 'ERROR');
-        }
-
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
@@ -1191,20 +1170,6 @@ async function checkFakeIPCLI() {
 
         if (!singboxStatus.running) {
             return createStatus('not_working', 'sing-box not running', 'ERROR');
-        }
-
-        // Load UCI config to check dont_touch_dhcp
-        let dontTouchDhcp = false;
-        try {
-            const data = await uci.load('podkop');
-            dontTouchDhcp = uci.get('podkop', 'main', 'dont_touch_dhcp') === '1';
-        } catch (e) {
-            console.error('Error loading UCI config:', e);
-        }
-
-        // If dont_touch_dhcp is enabled, we don't check dns_configured
-        if (!dontTouchDhcp && !singboxStatus.dns_configured) {
-            return createStatus('not_working', 'DNS not configured', 'ERROR');
         }
 
         const result = await safeExec('nslookup', ['-timeout=2', 'fakeip.podkop.fyi', '127.0.0.42']);
