@@ -1126,6 +1126,64 @@ function stopErrorPolling() {
     }
 }
 
+async function checkFakeIP() {
+    const createStatus = (state, message, color) => ({
+        state,
+        message: _(message),
+        color: STATUS_COLORS[color]
+    });
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+        try {
+            const response = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
+            const data = await response.json();
+            clearTimeout(timeoutId);
+
+            if (data.fakeip === true) {
+                return createStatus('working', 'working', 'SUCCESS');
+            } else {
+                return createStatus('not_working', 'not working', 'ERROR');
+            }
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+            const message = fetchError.name === 'AbortError' ? 'timeout' : 'check error';
+            return createStatus('error', message, 'WARNING');
+        }
+    } catch (error) {
+        return createStatus('error', 'check error', 'WARNING');
+    }
+}
+
+async function checkFakeIPCLI() {
+    const createStatus = (state, message, color) => ({
+        state,
+        message: _(message),
+        color: STATUS_COLORS[color]
+    });
+
+    try {
+        const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
+        const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
+
+        if (!singboxStatus.running) {
+            return createStatus('not_working', 'sing-box not running', 'ERROR');
+        }
+
+        const result = await safeExec('nslookup', ['-timeout=2', 'fakeip.podkop.fyi', '127.0.0.42']);
+
+        if (result.stdout && result.stdout.includes('198.18')) {
+            return createStatus('working', 'working on router', 'SUCCESS');
+        } else {
+            return createStatus('not_working', 'not working on router', 'ERROR');
+        }
+    } catch (error) {
+        return createStatus('error', 'CLI check error', 'WARNING');
+    }
+}
+
 return view.extend({
     async render() {
         document.head.insertAdjacentHTML('beforeend', `
@@ -1372,81 +1430,6 @@ return view.extend({
             if (container) {
                 container.removeAttribute('data-loading');
             }
-        }
-
-        function checkFakeIP() {
-            const createStatus = (state, message, color) => ({
-                state,
-                message: _(message),
-                color: STATUS_COLORS[color]
-            });
-
-            return new Promise(async (resolve) => {
-                try {
-                    const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
-                    const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
-
-                    if (!singboxStatus.running) {
-                        return resolve(createStatus('not_working', 'sing-box not running', 'ERROR'));
-                    }
-                    if (!singboxStatus.dns_configured) {
-                        return resolve(createStatus('not_working', 'DNS not configured', 'ERROR'));
-                    }
-
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-
-                    try {
-                        const response = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
-                        const data = await response.json();
-                        clearTimeout(timeoutId);
-
-                        if (data.fakeip === true) {
-                            return resolve(createStatus('working', 'working', 'SUCCESS'));
-                        } else {
-                            return resolve(createStatus('not_working', 'not working', 'ERROR'));
-                        }
-                    } catch (fetchError) {
-                        clearTimeout(timeoutId);
-                        const message = fetchError.name === 'AbortError' ? 'timeout' : 'check error';
-                        return resolve(createStatus('error', message, 'WARNING'));
-                    }
-                } catch (error) {
-                    return resolve(createStatus('error', 'check error', 'WARNING'));
-                }
-            });
-        }
-
-        function checkFakeIPCLI() {
-            const createStatus = (state, message, color) => ({
-                state,
-                message: _(message),
-                color: STATUS_COLORS[color]
-            });
-
-            return new Promise(async (resolve) => {
-                try {
-                    const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
-                    const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
-
-                    if (!singboxStatus.running) {
-                        return resolve(createStatus('not_working', 'sing-box not running', 'ERROR'));
-                    }
-                    if (!singboxStatus.dns_configured) {
-                        return resolve(createStatus('not_working', 'DNS not configured', 'ERROR'));
-                    }
-
-                    const result = await safeExec('nslookup', ['-timeout=2', 'fakeip.podkop.fyi', '127.0.0.42']);
-
-                    if (result.stdout && result.stdout.includes('198.18')) {
-                        return resolve(createStatus('working', 'working on router', 'SUCCESS'));
-                    } else {
-                        return resolve(createStatus('not_working', 'not working on router', 'ERROR'));
-                    }
-                } catch (error) {
-                    return resolve(createStatus('error', 'CLI check error', 'WARNING'));
-                }
-            });
         }
 
         function checkBypass() {

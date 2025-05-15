@@ -2464,6 +2464,40 @@ global_check() {
     fi
 }
 
+show_help() {
+    cat << EOF
+Usage: $0 COMMAND
+
+Available commands:
+    start                   Start podkop service
+    stop                    Stop podkop service
+    reload                  Reload podkop configuration
+    restart                 Restart podkop service
+    enable                  Enable podkop autostart
+    disable                 Disable podkop autostart
+    main                    Run main podkop process
+    list_update             Update domain lists
+    check_proxy             Check proxy connectivity
+    check_nft               Check NFT rules
+    check_github            Check GitHub connectivity
+    check_logs              Show podkop logs from system journal
+    check_sing_box_connections  Show active sing-box connections
+    check_sing_box_logs     Show sing-box logs
+    check_fakeip            Check FakeIP DNS functionality
+    check_dnsmasq           Check DNSMasq configuration
+    show_config             Display current podkop configuration
+    show_version            Show podkop version
+    show_sing_box_config    Show sing-box configuration
+    show_luci_version       Show LuCI app version
+    show_sing_box_version   Show sing-box version
+    show_system_info        Show system information
+    get_status              Get podkop service status
+    get_sing_box_status     Get sing-box service status
+    check_dns_available     Check DNS server availability
+    global_check            Run global system check
+EOF
+}
+
 case "$1" in
     start)
         start
@@ -2538,7 +2572,7 @@ case "$1" in
         global_check
         ;;
     *)
-        echo "Usage: $0 {start|stop|reload|restart|enable|disable|main|list_update|check_proxy|check_nft|check_github|check_logs|check_sing_box_connections|check_sing_box_logs|check_fakeip|check_dnsmasq|show_config|show_version|show_sing_box_config|show_luci_version|show_sing_box_version|show_system_info|get_status|get_sing_box_status|check_dns_available|global_check}"
+        show_help
         exit 1
         ;;
 esac
