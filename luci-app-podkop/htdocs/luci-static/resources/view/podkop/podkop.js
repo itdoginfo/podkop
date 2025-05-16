@@ -12,6 +12,46 @@ const STATUS_COLORS = {
     WARNING: '#ff9800'
 };
 
+const FAKEIP_CHECK_DOMAIN = 'fakeip.podkop.fyi';
+const IP_CHECK_DOMAIN = 'ip.podkop.fyi';
+
+const REGIONAL_OPTIONS = ['russia_inside', 'russia_outside', 'ukraine_inside'];
+const ALLOWED_WITH_RUSSIA_INSIDE = [
+    'russia_inside',
+    'meta',
+    'twitter',
+    'discord',
+    'telegram',
+    'cloudflare',
+    'google_ai',
+    'google_play',
+    'hetzner',
+    'ovh'
+];
+
+const DOMAIN_LIST_OPTIONS = {
+    russia_inside: 'Russia inside',
+    russia_outside: 'Russia outside',
+    ukraine_inside: 'Ukraine',
+    geoblock: 'Geo Block',
+    block: 'Block',
+    porn: 'Porn',
+    news: 'News',
+    anime: 'Anime',
+    youtube: 'Youtube',
+    discord: 'Discord',
+    meta: 'Meta',
+    twitter: 'Twitter (X)',
+    hdrezka: 'HDRezka',
+    tiktok: 'Tik-Tok',
+    telegram: 'Telegram',
+    cloudflare: 'Cloudflare',
+    google_ai: 'Google AI',
+    google_play: 'Google Play',
+    hetzner: 'Hetzner ASN',
+    ovh: 'OVH ASN'
+};
+
 const DIAGNOSTICS_UPDATE_INTERVAL = 10000; // 10 seconds
 const ERROR_POLL_INTERVAL = 10000; // 10 seconds
 const COMMAND_TIMEOUT = 10000; // 10 seconds
@@ -297,26 +337,9 @@ function createConfigSection(section, map, network) {
 
     o = s.taboption('basic', form.DynamicList, 'domain_list', _('Service List'), _('Select predefined service for routing') + ' <a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>');
     o.placeholder = 'Service list';
-    o.value('russia_inside', 'Russia inside');
-    o.value('russia_outside', 'Russia outside');
-    o.value('ukraine_inside', 'Ukraine');
-    o.value('geoblock', 'Geo Block');
-    o.value('block', 'Block');
-    o.value('porn', 'Porn');
-    o.value('news', 'News');
-    o.value('anime', 'Anime');
-    o.value('youtube', 'Youtube');
-    o.value('discord', 'Discord');
-    o.value('meta', 'Meta');
-    o.value('twitter', 'Twitter (X)');
-    o.value('hdrezka', 'HDRezka');
-    o.value('tiktok', 'Tik-Tok');
-    o.value('telegram', 'Telegram');
-    o.value('cloudflare', 'Cloudflare');
-    o.value('google_ai', 'Google AI');
-    o.value('google_play', 'Google Play');
-    o.value('hetzner', 'Hetzner ASN');
-    o.value('ovh', 'OVH ASN');
+    Object.entries(DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
+        o.value(key, _(label));
+    });
 
     o.depends('domain_list_enabled', '1');
     o.rmempty = false;
@@ -334,13 +357,12 @@ function createConfigSection(section, map, network) {
             let newValues = [...values];
             let notifications = [];
 
-            const regionalOptions = ['russia_inside', 'russia_outside', 'ukraine_inside'];
-            const selectedRegionalOptions = regionalOptions.filter(opt => newValues.includes(opt));
+            const selectedRegionalOptions = REGIONAL_OPTIONS.filter(opt => newValues.includes(opt));
 
             if (selectedRegionalOptions.length > 1) {
                 const lastSelected = selectedRegionalOptions[selectedRegionalOptions.length - 1];
                 const removedRegions = selectedRegionalOptions.slice(0, -1);
-                newValues = newValues.filter(v => v === lastSelected || !regionalOptions.includes(v));
+                newValues = newValues.filter(v => v === lastSelected || !REGIONAL_OPTIONS.includes(v));
                 notifications.push(E('p', { class: 'alert-message warning' }, [
                     E('strong', {}, _('Regional options cannot be used together')), E('br'),
                     _('Warning: %s cannot be used together with %s. Previous selections have been removed.')
@@ -349,14 +371,16 @@ function createConfigSection(section, map, network) {
             }
 
             if (newValues.includes('russia_inside')) {
-                const allowedWithRussiaInside = ['russia_inside', 'meta', 'twitter', 'discord', 'telegram', 'cloudflare', 'google_ai', 'google_play', 'hetzner', 'ovh'];
-                const removedServices = newValues.filter(v => !allowedWithRussiaInside.includes(v));
+                const removedServices = newValues.filter(v => !ALLOWED_WITH_RUSSIA_INSIDE.includes(v));
                 if (removedServices.length > 0) {
-                    newValues = newValues.filter(v => allowedWithRussiaInside.includes(v));
+                    newValues = newValues.filter(v => ALLOWED_WITH_RUSSIA_INSIDE.includes(v));
                     notifications.push(E('p', { class: 'alert-message warning' }, [
                         E('strong', {}, _('Russia inside restrictions')), E('br'),
-                        _('Warning: Russia inside can only be used with Meta, Twitter, Discord, Cloudflare, Google AI, Google Play, Hetzner, OVH and Telegram. %s already in Russia inside and have been removed from selection.')
-                            .format(removedServices.join(', '))
+                        _('Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection.')
+                            .format(
+                                ALLOWED_WITH_RUSSIA_INSIDE.map(key => DOMAIN_LIST_OPTIONS[key]).filter(label => label !== 'Russia inside').join(', '),
+                                removedServices.join(', ')
+                            )
                     ]));
                 }
             }
@@ -711,7 +735,7 @@ const showConfigModal = async (command, title) => {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
-                const response = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
+                const response = await fetch(`https://${FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
                 const data = await response.json();
                 clearTimeout(timeoutId);
 
@@ -724,9 +748,9 @@ const showConfigModal = async (command, title) => {
                 }
 
                 // Bypass check
-                const bypassResponse = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
+                const bypassResponse = await fetch(`https://${FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
                 const bypassData = await bypassResponse.json();
-                const bypassResponse2 = await fetch('https://ip.podkop.fyi/check', { signal: controller.signal });
+                const bypassResponse2 = await fetch(`https://${IP_CHECK_DOMAIN}/check`, { signal: controller.signal });
                 const bypassData2 = await bypassResponse2.json();
 
                 formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
@@ -1138,7 +1162,7 @@ async function checkFakeIP() {
         const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
         try {
-            const response = await fetch('https://fakeip.podkop.fyi/check', { signal: controller.signal });
+            const response = await fetch(`https://${FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
             const data = await response.json();
             clearTimeout(timeoutId);
 
@@ -1172,7 +1196,7 @@ async function checkFakeIPCLI() {
             return createStatus('not_working', 'sing-box not running', 'ERROR');
         }
 
-        const result = await safeExec('nslookup', ['-timeout=2', 'fakeip.podkop.fyi', '127.0.0.42']);
+        const result = await safeExec('nslookup', ['-timeout=2', FAKEIP_CHECK_DOMAIN, '127.0.0.42']);
 
         if (result.stdout && result.stdout.includes('198.18')) {
             return createStatus('working', 'working on router', 'SUCCESS');
@@ -1468,7 +1492,7 @@ return view.extend({
                         const controller1 = new AbortController();
                         const timeoutId1 = setTimeout(() => controller1.abort(), FETCH_TIMEOUT);
 
-                        const response1 = await fetch('https://fakeip.podkop.fyi/check', { signal: controller1.signal });
+                        const response1 = await fetch(`https://${FAKEIP_CHECK_DOMAIN}/check`, { signal: controller1.signal });
                         const data1 = await response1.json();
                         clearTimeout(timeoutId1);
 
@@ -1483,7 +1507,7 @@ return view.extend({
                         const controller2 = new AbortController();
                         const timeoutId2 = setTimeout(() => controller2.abort(), FETCH_TIMEOUT);
 
-                        const response2 = await fetch('https://ip.podkop.fyi/check', { signal: controller2.signal });
+                        const response2 = await fetch(`https://${IP_CHECK_DOMAIN}/check`, { signal: controller2.signal });
                         const data2 = await response2.json();
                         clearTimeout(timeoutId2);
 
