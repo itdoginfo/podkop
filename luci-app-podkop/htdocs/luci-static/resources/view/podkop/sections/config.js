@@ -4,8 +4,19 @@
 'require ui';
 'require network';
 'require view.podkop.constants as constants';
-'require view.podkop.networkUtils as networkUtils';
 'require tools.widgets as widgets';
+
+function validateUrl(url, protocols = ['http:', 'https:']) {
+    try {
+        const parsedUrl = new URL(url);
+        if (!protocols.includes(parsedUrl.protocol)) {
+            return _('URL must use one of the following protocols: ') + protocols.join(', ');
+        }
+        return true;
+    } catch (e) {
+        return _('Invalid URL format');
+    }
+}
 
 function createConfigSection(section, map, network) {
     const s = section;
@@ -389,7 +400,7 @@ function createConfigSection(section, map, network) {
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
-        return networkUtils.validateUrl(value);
+        return validateUrl(value);
     };
 
     o = s.taboption('basic', form.ListValue, 'custom_subnets_list_enabled', _('User Subnet List Type'), _('Select how to add your custom subnets'));
@@ -491,7 +502,7 @@ function createConfigSection(section, map, network) {
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
-        return networkUtils.validateUrl(value);
+        return validateUrl(value);
     };
 
     o = s.taboption('basic', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'), _('Specify local IP addresses whose traffic will always use the configured route'));

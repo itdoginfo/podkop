@@ -2,7 +2,6 @@
 'require form';
 'require baseclass';
 'require view.podkop.constants as constants';
-'require view.podkop.networkUtils as networkUtils';
 'require tools.widgets as widgets';
 
 function createAdditionalSection(mainSection, network) {
