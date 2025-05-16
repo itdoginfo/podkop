@@ -2,7 +2,6 @@
 'require view';
 'require form';
 'require network';
-'require view.podkop.networkUtils as networkUtils';
 'require view.podkop.sections.config as configSection';
 'require view.podkop.sections.diagnostic as diagnosticSection';
 'require view.podkop.sections.additional as additionalSection';
