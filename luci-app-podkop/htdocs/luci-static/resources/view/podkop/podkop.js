@@ -3,9 +3,9 @@
 'require form';
 'require network';
 'require view.podkop.networkUtils as networkUtils';
-'require view.podkop.configSection as config';
-'require view.podkop.diagnosticSection as diagnostic';
-'require view.podkop.additionalSection as additional';
+'require view.podkop.sections.config as config';
+'require view.podkop.sections.diagnostic as diagnostic';
+'require view.podkop.sections.additional as additional';
 
 return view.extend({
     async render() {

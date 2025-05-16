@@ -7,6 +7,14 @@
 'require view.podkop.constants as constants';
 
 // Helper Functions
+// Common status object creator
+function createStatus(state, message, color) {
+    return {
+        state,
+        message: _(message),
+        color: constants.STATUS_COLORS[color]
+    };
+}
 function formatDiagnosticOutput(output) {
     if (typeof output !== 'string') return '';
     return output.trim()
@@ -63,12 +71,6 @@ async function safeExec(command, args = [], timeout = constants.COMMAND_TIMEOUT)
 
 // Status Check Functions
 async function checkFakeIP() {
-    const createStatus = (state, message, color) => ({
-        state,
-        message: _(message),
-        color: constants.STATUS_COLORS[color]
-    });
-
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), constants.FETCH_TIMEOUT);
@@ -94,12 +96,6 @@ async function checkFakeIP() {
 }
 
 async function checkFakeIPCLI() {
-    const createStatus = (state, message, color) => ({
-        state,
-        message: _(message),
-        color: constants.STATUS_COLORS[color]
-    });
-
     try {
         const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
         const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
@@ -121,12 +117,6 @@ async function checkFakeIPCLI() {
 }
 
 function checkDNSAvailability() {
-    const createStatus = (state, message, color) => ({
-        state,
-        message: _(message),
-        color: constants.STATUS_COLORS[color]
-    });
-
     return new Promise(async (resolve) => {
         try {
             const dnsStatusResult = await safeExec('/usr/bin/podkop', ['check_dns_available']);
@@ -168,12 +158,6 @@ function checkDNSAvailability() {
 }
 
 async function checkBypass() {
-    const createStatus = (state, message, color) => ({
-        state,
-        message: _(message),
-        color: constants.STATUS_COLORS[color]
-    });
-
     return new Promise(async (resolve) => {
         try {
             let configMode = 'proxy'; // Default fallback
