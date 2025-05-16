@@ -3,9 +3,9 @@
 'require form';
 'require network';
 'require view.podkop.networkUtils as networkUtils';
-'require view.podkop.sections.config as config';
-'require view.podkop.sections.diagnostic as diagnostic';
-'require view.podkop.sections.additional as additional';
+'require view.podkop.sections.config as configSection';
+'require view.podkop.sections.diagnostic as diagnosticSection';
+'require view.podkop.sections.additional as additionalSection';
 
 return view.extend({
     async render() {
@@ -38,7 +38,14 @@ return view.extend({
         // Main Section
         const mainSection = m.section(form.TypedSection, 'main');
         mainSection.anonymous = true;
-        config.createConfigSection(mainSection, m, network);
+        configSection.createConfigSection(mainSection, m, network);
+
+        // Additional Settings Tab (main section)
+        additionalSection.createAdditionalSection(mainSection, network);
+
+        // Diagnostics Tab (main section)
+        diagnosticSection.createDiagnosticsSection(mainSection);
+        const map_promise = m.render().then(node => diagnosticSection.setupDiagnosticsEventHandlers(node));
 
         // Extra Section
         const extraSection = m.section(form.TypedSection, 'extra', _('Extra configurations'));
@@ -46,15 +53,7 @@ return view.extend({
         extraSection.addremove = true;
         extraSection.addbtntitle = _('Add Section');
         extraSection.multiple = true;
-        config.createConfigSection(extraSection, m, network);
-
-        // Additional Settings Tab (main section)
-        additional.createAdditionalSection(mainSection, network);
-
-        // Diagnostics Tab (main section)
-        diagnostic.createDiagnosticsSection(mainSection);
-
-        const map_promise = m.render().then(node => diagnostic.setupDiagnosticsEventHandlers(node));
+        configSection.createConfigSection(extraSection, m, network);
 
         return map_promise;
     }
