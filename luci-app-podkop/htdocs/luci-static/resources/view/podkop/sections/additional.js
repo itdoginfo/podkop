@@ -3,6 +3,7 @@
 'require baseclass';
 'require view.podkop.constants as constants';
 'require view.podkop.networkUtils as networkUtils';
+'require tools.widgets as widgets';
 
 function createAdditionalSection(mainSection, network) {
     let o = mainSection.tab('additional', _('Additional Settings'));
@@ -114,13 +115,28 @@ function createAdditionalSection(mainSection, network) {
         return true;
     };
 
-    o = mainSection.taboption('additional', form.MultiValue, 'iface', _('Source Network Interface'), _('Select the network interface from which the traffic will originate'));
+    o = mainSection.taboption('additional', widgets.DeviceSelect, 'iface', _('Source Network Interface'), _('Select the network interface from which the traffic will originate'));
     o.ucisection = 'main';
     o.default = 'br-lan';
-    o.load = function (section_id) {
-        return networkUtils.getNetworkInterfaces(this, section_id, ['wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan']).then(() => {
-            return this.super('load', section_id);
-        });
+    o.noaliases = true;
+    o.nobridges = false;
+    o.noinactive = false;
+    o.multiple = true;
+    o.filter = function (section_id, value) {
+        if (['wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan'].indexOf(value) !== -1) {
+            return false;
+        }
+
+        var device = this.devices.filter(function (dev) {
+            return dev.getName() === value;
+        })[0];
+
+        if (device) {
+            var type = device.getType();
+            return type !== 'wifi' && type !== 'wireless' && !type.includes('wlan');
+        }
+
+        return true;
     };
 
     o = mainSection.taboption('additional', form.Flag, 'mon_restart_ifaces', _('Interface monitoring'), _('Interface monitoring for bad WAN'));
@@ -128,13 +144,12 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
 
-    o = mainSection.taboption('additional', form.MultiValue, 'restart_ifaces', _('Interface for monitoring'), _('Select the WAN interfaces to be monitored'));
+    o = mainSection.taboption('additional', widgets.NetworkSelect, 'restart_ifaces', _('Interface for monitoring'), _('Select the WAN interfaces to be monitored'));
     o.ucisection = 'main';
     o.depends('mon_restart_ifaces', '1');
-    o.load = function (section_id) {
-        return networkUtils.getNetworkNetworks(this, section_id, ['lan', 'loopback']).then(() => {
-            return this.super('load', section_id);
-        });
+    o.multiple = true;
+    o.filter = function (section_id, value) {
+        return ['lan', 'loopback'].indexOf(value) === -1 && !value.startsWith('@');
     };
 
     o = mainSection.taboption('additional', form.Flag, 'dont_touch_dhcp', _('Dont touch my DHCP!'), _('Podkop will not change the DHCP config'));

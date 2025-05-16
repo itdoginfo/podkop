@@ -5,6 +5,7 @@
 'require network';
 'require view.podkop.constants as constants';
 'require view.podkop.networkUtils as networkUtils';
+'require tools.widgets as widgets';
 
 function createConfigSection(section, map, network) {
     const s = section;
@@ -203,13 +204,27 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = 'main';
 
-    o = s.taboption('basic', form.ListValue, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
+    o = s.taboption('basic', widgets.DeviceSelect, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
     o.depends('mode', 'vpn');
     o.ucisection = s.section;
-    o.load = function (section_id) {
-        return networkUtils.getNetworkInterfaces(this, section_id, ['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan', 'lan']).then(() => {
-            return this.super('load', section_id);
-        });
+    o.noaliases = true;
+    o.nobridges = false;
+    o.noinactive = false;
+    o.filter = function (section_id, value) {
+        if (['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan', 'lan'].indexOf(value) !== -1) {
+            return false;
+        }
+
+        var device = this.devices.filter(function (dev) {
+            return dev.getName() === value;
+        })[0];
+
+        if (device) {
+            var type = device.getType();
+            return type !== 'wifi' && type !== 'wireless' && !type.includes('wlan');
+        }
+
+        return true;
     };
 
     o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Community Lists'));
