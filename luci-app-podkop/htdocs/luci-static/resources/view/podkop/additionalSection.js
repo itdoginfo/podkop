@@ -4,7 +4,7 @@
 'require view.podkop.constants as constants';
 'require view.podkop.networkUtils as networkUtils';
 
-function createAdditionalSection(mainSection, section, network) {
+function createAdditionalSection(mainSection, network) {
     let o = mainSection.tab('additional', _('Additional Settings'));
 
     o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>'));
