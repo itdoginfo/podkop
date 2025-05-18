@@ -2,9 +2,9 @@
 'require view';
 'require form';
 'require network';
-'require view.podkop.sections.config as configSection';
-'require view.podkop.sections.diagnostic as diagnosticSection';
-'require view.podkop.sections.additional as additionalSection';
+'require view.podkop.configSection as configSection';
+'require view.podkop.diagnosticTab as diagnosticTab';
+'require view.podkop.additionalTab as additionalTab';
 
 return view.extend({
     async render() {
@@ -40,11 +40,11 @@ return view.extend({
         configSection.createConfigSection(mainSection, m, network);
 
         // Additional Settings Tab (main section)
-        additionalSection.createAdditionalSection(mainSection, network);
+        additionalTab.createAdditionalSection(mainSection, network);
 
         // Diagnostics Tab (main section)
-        diagnosticSection.createDiagnosticsSection(mainSection);
-        const map_promise = m.render().then(node => diagnosticSection.setupDiagnosticsEventHandlers(node));
+        diagnosticTab.createDiagnosticsSection(mainSection);
+        const map_promise = m.render().then(node => diagnosticTab.setupDiagnosticsEventHandlers(node));
 
         // Extra Section
         const extraSection = m.section(form.TypedSection, 'extra', _('Extra configurations'));

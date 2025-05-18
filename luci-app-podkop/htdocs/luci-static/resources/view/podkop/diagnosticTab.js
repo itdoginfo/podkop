@@ -15,6 +15,7 @@ function createStatus(state, message, color) {
         color: constants.STATUS_COLORS[color]
     };
 }
+
 function formatDiagnosticOutput(output) {
     if (typeof output !== 'string') return '';
     return output.trim()
