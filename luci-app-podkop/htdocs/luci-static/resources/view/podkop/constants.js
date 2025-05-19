@@ -65,11 +65,27 @@ const DNS_SERVER_OPTIONS = {
 };
 
 const DIAGNOSTICS_UPDATE_INTERVAL = 10000; // 10 seconds
+const CACHE_TIMEOUT = DIAGNOSTICS_UPDATE_INTERVAL - 1000; // 9 seconds
 const ERROR_POLL_INTERVAL = 10000; // 10 seconds
 const COMMAND_TIMEOUT = 10000; // 10 seconds
 const FETCH_TIMEOUT = 10000; // 10 seconds
 const BUTTON_FEEDBACK_TIMEOUT = 1000; // 1 second
 const DIAGNOSTICS_INITIAL_DELAY = 100; // 100 milliseconds
+
+// Массив задержек для приоритетов выполнения команд в диагностике (в миллисекундах)
+const RUN_PRIORITY = [
+    0,      // Приоритет 0 - Критический (выполняется немедленно)
+    100,    // Приоритет 1 - Очень высокий
+    300,    // Приоритет 2 - Высокий
+    500,    // Приоритет 3 - Выше среднего
+    700,    // Приоритет 4 - Средний
+    900,    // Приоритет 5 - Ниже среднего
+    1100,   // Приоритет 6 - Низкий
+    1300,   // Приоритет 7 - Очень низкий
+    1500,   // Приоритет 8 - Фоновый
+    1700,   // Приоритет 9 - Отложенный
+    1900    // Приоритет 10 - Наименее важный
+];
 
 return baseclass.extend({
     STATUS_COLORS,
@@ -85,5 +101,7 @@ return baseclass.extend({
     COMMAND_TIMEOUT,
     FETCH_TIMEOUT,
     BUTTON_FEEDBACK_TIMEOUT,
-    DIAGNOSTICS_INITIAL_DELAY
+    DIAGNOSTICS_INITIAL_DELAY,
+    RUN_PRIORITY,
+    CACHE_TIMEOUT
 });

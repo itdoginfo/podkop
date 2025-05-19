@@ -6,6 +6,36 @@
 'require fs';
 'require view.podkop.constants as constants';
 
+// Cache system for network requests
+const fetchCache = {};
+
+// Helper function to fetch with cache
+async function cachedFetch(url, options = {}) {
+    const cacheKey = url;
+    const currentTime = Date.now();
+
+    // If we have a valid cached response, return it
+    if (fetchCache[cacheKey] && currentTime - fetchCache[cacheKey].timestamp < constants.CACHE_TIMEOUT) {
+        console.log(`Using cached response for ${url}`);
+        return Promise.resolve(fetchCache[cacheKey].response.clone());
+    }
+
+    // Otherwise, make a new request
+    try {
+        const response = await fetch(url, options);
+
+        // Cache the response
+        fetchCache[cacheKey] = {
+            response: response.clone(),
+            timestamp: currentTime
+        };
+
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
 // Helper Functions
 // Common status object creator
 function createStatus(state, message, color) {
@@ -77,7 +107,7 @@ async function checkFakeIP() {
         const timeoutId = setTimeout(() => controller.abort(), constants.FETCH_TIMEOUT);
 
         try {
-            const response = await fetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
+            const response = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
             const data = await response.json();
             clearTimeout(timeoutId);
 
@@ -183,7 +213,7 @@ async function checkBypass() {
                 const controller1 = new AbortController();
                 const timeoutId1 = setTimeout(() => controller1.abort(), constants.FETCH_TIMEOUT);
 
-                const response1 = await fetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller1.signal });
+                const response1 = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller1.signal });
                 const data1 = await response1.json();
                 clearTimeout(timeoutId1);
 
@@ -198,7 +228,7 @@ async function checkBypass() {
                 const controller2 = new AbortController();
                 const timeoutId2 = setTimeout(() => controller2.abort(), constants.FETCH_TIMEOUT);
 
-                const response2 = await fetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller2.signal });
+                const response2 = await cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller2.signal });
                 const data2 = await response2.json();
                 clearTimeout(timeoutId2);
 
@@ -328,7 +358,7 @@ const showConfigModal = async (command, title) => {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), constants.FETCH_TIMEOUT);
 
-                const response = await fetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
+                const response = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
                 const data = await response.json();
                 clearTimeout(timeoutId);
 
@@ -341,9 +371,9 @@ const showConfigModal = async (command, title) => {
                 }
 
                 // Bypass check
-                const bypassResponse = await fetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
+                const bypassResponse = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
                 const bypassData = await bypassResponse.json();
-                const bypassResponse2 = await fetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller.signal });
+                const bypassResponse2 = await cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller.signal });
                 const bypassData2 = await bypassResponse2.json();
 
                 formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
@@ -413,205 +443,154 @@ const ButtonFactory = {
     }
 };
 
-// Status Panel Factory
-const createStatusPanel = (title, status, buttons, extraData = {}) => {
-    const headerContent = [
-        E('strong', {}, _(title)),
-        status && E('br'),
-        status && E('span', {
-            'style': `color: ${title === 'Sing-box Status' ?
-                (status.running && !status.enabled ? constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR) :
-                title === 'Podkop Status' ?
-                    (status.enabled ? constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR) :
-                    (status.running ? constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR)
-                }`
-        }, [
-            title === 'Sing-box Status' ?
-                (status.running && !status.enabled ? '✔ running' : '✘ ' + status.status) :
-                title === 'Podkop Status' ?
-                    (status.enabled ? '✔ Autostart enabled' : '✘ Autostart disabled') :
-                    (status.running ? '✔' : '✘') + ' ' + status.status
-        ])
-    ].filter(Boolean);
+// Create a loading placeholder for status text
+function createLoadingStatusText() {
+    return E('span', { 'class': 'loading-indicator' }, _('Loading...'));
+}
 
-    return E('div', {
-        'class': 'panel',
-        'style': 'flex: 1; padding: 15px;'
-    }, [
-        E('div', { 'class': 'panel-heading' }, headerContent),
-        E('div', {
-            'class': 'panel-body',
-            'style': 'display: flex; flex-direction: column; gap: 8px;'
-        }, title === 'Podkop Status' ? [
-            ButtonFactory.createActionButton({
-                label: 'Restart Podkop',
-                type: 'apply',
-                action: 'restart',
-                reload: true
-            }),
-            ButtonFactory.createActionButton({
-                label: 'Stop Podkop',
-                type: 'apply',
-                action: 'stop',
-                reload: true
-            }),
-            ButtonFactory.createInitActionButton({
-                label: status.enabled ? 'Disable Autostart' : 'Enable Autostart',
-                type: status.enabled ? 'remove' : 'apply',
-                action: status.enabled ? 'disable' : 'enable',
-                reload: true
-            }),
-            ButtonFactory.createModalButton({
-                label: E('strong', _('Global check')),
-                command: 'global_check',
-                title: _('Global check')
-            }),
-            ButtonFactory.createModalButton({
-                label: 'View Logs',
-                command: 'check_logs',
-                title: 'Podkop Logs'
-            }),
-            ButtonFactory.createModalButton({
-                label: _('Update Lists'),
-                command: 'list_update',
-                title: _('Lists Update Results')
-            })
-        ] : title === _('FakeIP Status') ? [
-            E('div', { style: 'margin-bottom: 5px;' }, [
-                E('div', {}, [
-                    E('span', { style: `color: ${extraData.fakeipStatus?.color}` }, [
-                        extraData.fakeipStatus?.state === 'working' ? '✔' : extraData.fakeipStatus?.state === 'not_working' ? '✘' : '!',
-                        ' ',
-                        extraData.fakeipStatus?.state === 'working' ? _('works in browser') : _('not works in browser')
-                    ])
-                ]),
-                E('div', {}, [
-                    E('span', { style: `color: ${extraData.fakeipCLIStatus?.color}` }, [
-                        extraData.fakeipCLIStatus?.state === 'working' ? '✔' : extraData.fakeipCLIStatus?.state === 'not_working' ? '✘' : '!',
-                        ' ',
-                        extraData.fakeipCLIStatus?.state === 'working' ? _('works on router') : _('not works on router')
-                    ])
-                ])
-            ]),
-            E('div', { style: 'margin-bottom: 5px;' }, [
-                E('div', {}, [
-                    E('strong', {}, _('DNS Status')),
-                    E('br'),
-                    E('span', { style: `color: ${extraData.dnsStatus?.remote?.color}` }, [
-                        extraData.dnsStatus?.remote?.state === 'available' ? '✔' : extraData.dnsStatus?.remote?.state === 'unavailable' ? '✘' : '!',
-                        ' ',
-                        extraData.dnsStatus?.remote?.message
-                    ]),
-                    E('br'),
-                    E('span', { style: `color: ${extraData.dnsStatus?.local?.color}` }, [
-                        extraData.dnsStatus?.local?.state === 'available' ? '✔' : extraData.dnsStatus?.local?.state === 'unavailable' ? '✘' : '!',
-                        ' ',
-                        extraData.dnsStatus?.local?.message
-                    ])
-                ])
-            ]),
-            E('div', { style: 'margin-bottom: 5px;' }, [
-                E('div', {}, [
-                    E('strong', {}, extraData.configName),
-                    E('br'),
-                    E('span', { style: `color: ${extraData.bypassStatus?.color}` }, [
-                        extraData.bypassStatus?.state === 'working' ? '✔' : extraData.bypassStatus?.state === 'not_working' ? '✘' : '!',
-                        ' ',
-                        extraData.bypassStatus?.message
-                    ])
-                ])
-            ])
-        ] : buttons)
-    ]);
-};
+// Create the status section with buttons loaded immediately but status indicators loading asynchronously
+let createStatusSection = async function () {
+    // Get initial podkop status
+    let initialPodkopStatus = { enabled: false };
+    try {
+        const result = await fs.exec('/usr/bin/podkop', ['get_status']);
+        if (result && result.stdout) {
+            const status = JSON.parse(result.stdout);
+            initialPodkopStatus.enabled = status.enabled === 1;
+        }
+    } catch (e) {
+        console.error('Error getting initial podkop status:', e);
+    }
 
-// Create the status section
-let createStatusSection = function (podkopStatus, singboxStatus, podkop, luci, singbox, system, fakeipStatus, fakeipCLIStatus, dnsStatus, bypassStatus, configName) {
     return E('div', { 'class': 'cbi-section' }, [
         E('div', { 'class': 'table', style: 'display: flex; gap: 20px;' }, [
             // Podkop Status Panel
-            createStatusPanel('Podkop Status', podkopStatus, [
-                ButtonFactory.createActionButton({
-                    label: 'Restart Podkop',
-                    type: 'apply',
-                    action: 'restart',
-                    reload: true
-                }),
-                ButtonFactory.createActionButton({
-                    label: 'Stop Podkop',
-                    type: 'apply',
-                    action: 'stop',
-                    reload: true
-                }),
-                ButtonFactory.createInitActionButton({
-                    label: podkopStatus.enabled ? 'Disable Autostart' : 'Enable Autostart',
-                    type: podkopStatus.enabled ? 'remove' : 'apply',
-                    action: podkopStatus.enabled ? 'disable' : 'enable',
-                    reload: true
-                }),
-                ButtonFactory.createModalButton({
-                    label: _('Global check'),
-                    command: 'global_check',
-                    title: _('Click here for all the info')
-                }),
-                ButtonFactory.createModalButton({
-                    label: 'View Logs',
-                    command: 'check_logs',
-                    title: 'Podkop Logs'
-                }),
-                ButtonFactory.createModalButton({
-                    label: _('Update Lists'),
-                    command: 'list_update',
-                    title: _('Lists Update Results')
-                })
+            E('div', { 'id': 'podkop-status-panel', 'class': 'panel', 'style': 'flex: 1; padding: 15px;' }, [
+                E('div', { 'class': 'panel-heading' }, [
+                    E('strong', {}, _('Podkop Status')),
+                    E('br'),
+                    E('span', { 'id': 'podkop-status-text' }, createLoadingStatusText())
+                ]),
+                E('div', { 'class': 'panel-body', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
+                    ButtonFactory.createActionButton({
+                        label: 'Restart Podkop',
+                        type: 'apply',
+                        action: 'restart',
+                        reload: true
+                    }),
+                    ButtonFactory.createActionButton({
+                        label: 'Stop Podkop',
+                        type: 'apply',
+                        action: 'stop',
+                        reload: true
+                    }),
+                    // Autostart button - create with initial state
+                    ButtonFactory.createInitActionButton({
+                        label: initialPodkopStatus.enabled ? 'Disable Autostart' : 'Enable Autostart',
+                        type: initialPodkopStatus.enabled ? 'remove' : 'apply',
+                        action: initialPodkopStatus.enabled ? 'disable' : 'enable',
+                        reload: true
+                    }),
+                    ButtonFactory.createModalButton({
+                        label: _('Global check'),
+                        command: 'global_check',
+                        title: _('Click here for all the info')
+                    }),
+                    ButtonFactory.createModalButton({
+                        label: 'View Logs',
+                        command: 'check_logs',
+                        title: 'Podkop Logs'
+                    }),
+                    ButtonFactory.createModalButton({
+                        label: _('Update Lists'),
+                        command: 'list_update',
+                        title: _('Lists Update Results')
+                    })
+                ])
             ]),
 
             // Sing-box Status Panel
-            createStatusPanel('Sing-box Status', singboxStatus, [
-                ButtonFactory.createModalButton({
-                    label: 'Show Config',
-                    command: 'show_sing_box_config',
-                    title: 'Sing-box Configuration'
-                }),
-                ButtonFactory.createModalButton({
-                    label: 'View Logs',
-                    command: 'check_sing_box_logs',
-                    title: 'Sing-box Logs'
-                }),
-                ButtonFactory.createModalButton({
-                    label: 'Check Connections',
-                    command: 'check_sing_box_connections',
-                    title: 'Active Connections'
-                }),
-                ButtonFactory.createModalButton({
-                    label: _('Check NFT Rules'),
-                    command: 'check_nft',
-                    title: _('NFT Rules')
-                }),
-                ButtonFactory.createModalButton({
-                    label: _('Check DNSMasq'),
-                    command: 'check_dnsmasq',
-                    title: _('DNSMasq Configuration')
-                })
+            E('div', { 'id': 'singbox-status-panel', 'class': 'panel', 'style': 'flex: 1; padding: 15px;' }, [
+                E('div', { 'class': 'panel-heading' }, [
+                    E('strong', {}, _('Sing-box Status')),
+                    E('br'),
+                    E('span', { 'id': 'singbox-status-text' }, createLoadingStatusText())
+                ]),
+                E('div', { 'class': 'panel-body', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
+                    ButtonFactory.createModalButton({
+                        label: 'Show Config',
+                        command: 'show_sing_box_config',
+                        title: 'Sing-box Configuration'
+                    }),
+                    ButtonFactory.createModalButton({
+                        label: 'View Logs',
+                        command: 'check_sing_box_logs',
+                        title: 'Sing-box Logs'
+                    }),
+                    ButtonFactory.createModalButton({
+                        label: 'Check Connections',
+                        command: 'check_sing_box_connections',
+                        title: 'Active Connections'
+                    }),
+                    ButtonFactory.createModalButton({
+                        label: _('Check NFT Rules'),
+                        command: 'check_nft',
+                        title: _('NFT Rules')
+                    }),
+                    ButtonFactory.createModalButton({
+                        label: _('Check DNSMasq'),
+                        command: 'check_dnsmasq',
+                        title: _('DNSMasq Configuration')
+                    })
+                ])
             ]),
 
             // FakeIP Status Panel
-            createStatusPanel(_('FakeIP Status'), null, null, {
-                fakeipStatus,
-                fakeipCLIStatus,
-                dnsStatus,
-                bypassStatus,
-                configName
-            }),
+            E('div', { 'id': 'fakeip-status-panel', 'class': 'panel', 'style': 'flex: 1; padding: 15px;' }, [
+                E('div', { 'class': 'panel-heading' }, [
+                    E('strong', {}, _('FakeIP Status'))
+                ]),
+                E('div', { 'class': 'panel-body', 'style': 'display: flex; flex-direction: column; gap: 8px;' }, [
+                    E('div', { style: 'margin-bottom: 5px;' }, [
+                        E('div', {}, [
+                            E('span', { 'id': 'fakeip-browser-status' }, createLoadingStatusText())
+                        ]),
+                        E('div', {}, [
+                            E('span', { 'id': 'fakeip-router-status' }, createLoadingStatusText())
+                        ])
+                    ]),
+                    E('div', { style: 'margin-bottom: 5px;' }, [
+                        E('div', {}, [
+                            E('strong', {}, _('DNS Status')),
+                            E('br'),
+                            E('span', { 'id': 'dns-remote-status' }, createLoadingStatusText()),
+                            E('br'),
+                            E('span', { 'id': 'dns-local-status' }, createLoadingStatusText())
+                        ])
+                    ]),
+                    E('div', { style: 'margin-bottom: 5px;' }, [
+                        E('div', {}, [
+                            E('strong', { 'id': 'config-name-text' }, _('Main config')),
+                            E('br'),
+                            E('span', { 'id': 'bypass-status' }, createLoadingStatusText())
+                        ])
+                    ])
+                ])
+            ]),
 
             // Version Information Panel
-            createStatusPanel(_('Version Information'), null, [
-                E('div', { 'style': 'margin-top: 10px; font-family: monospace; white-space: pre-wrap;' }, [
-                    E('strong', {}, _('Podkop: ')), podkop.stdout ? podkop.stdout.trim() : _('Unknown'), '\n',
-                    E('strong', {}, _('LuCI App: ')), luci.stdout ? luci.stdout.trim() : _('Unknown'), '\n',
-                    E('strong', {}, _('Sing-box: ')), singbox.stdout ? singbox.stdout.trim() : _('Unknown'), '\n',
-                    E('strong', {}, _('OpenWrt Version: ')), system.stdout ? system.stdout.split('\n')[1].trim() : _('Unknown'), '\n',
-                    E('strong', {}, _('Device Model: ')), system.stdout ? system.stdout.split('\n')[4].trim() : _('Unknown')
+            E('div', { 'id': 'version-info-panel', 'class': 'panel', 'style': 'flex: 1; padding: 15px;' }, [
+                E('div', { 'class': 'panel-heading' }, [
+                    E('strong', {}, _('Version Information'))
+                ]),
+                E('div', { 'class': 'panel-body' }, [
+                    E('div', { 'style': 'margin-top: 10px; font-family: monospace; white-space: pre-wrap;' }, [
+                        E('strong', {}, _('Podkop: ')), E('span', { 'id': 'podkop-version' }, _('Loading...')), '\n',
+                        E('strong', {}, _('LuCI App: ')), E('span', { 'id': 'luci-version' }, _('Loading...')), '\n',
+                        E('strong', {}, _('Sing-box: ')), E('span', { 'id': 'singbox-version' }, _('Loading...')), '\n',
+                        E('strong', {}, _('OpenWrt Version: ')), E('span', { 'id': 'openwrt-version' }, _('Loading...')), '\n',
+                        E('strong', {}, _('Device Model: ')), E('span', { 'id': 'device-model' }, _('Loading...'))
+                    ])
                 ])
             ])
         ])
@@ -627,11 +606,6 @@ let isInitialCheck = true;
 function startDiagnosticsUpdates() {
     if (diagnosticsUpdateTimer) {
         clearInterval(diagnosticsUpdateTimer);
-    }
-
-    const container = document.getElementById('diagnostics-status');
-    if (container) {
-        container.innerHTML = _('Loading diagnostics...');
     }
 
     updateDiagnostics();
@@ -651,121 +625,212 @@ function stopDiagnosticsUpdates() {
     }
 }
 
-function startErrorPolling() {
-    if (errorPollTimer) {
-        clearInterval(errorPollTimer);
-    }
-
-    async function checkErrors() {
-        const result = await safeExec('/usr/bin/podkop', ['check_logs']);
-        if (!result || !result.stdout) return;
-
-        const logs = result.stdout;
-
-        const errorLines = logs.split('\n').filter(line =>
-            line.includes('[critical]')
-        );
-
-        if (errorLines.length > 0) {
-            const currentErrors = new Set(errorLines);
-
-            if (isInitialCheck) {
-                if (errorLines.length > 0) {
-                    showErrorNotification(errorLines.join('\n'), true);
-                }
-                isInitialCheck = false;
-            } else {
-                const newErrors = [...currentErrors].filter(error => !lastErrorsSet.has(error));
-
-                newErrors.forEach(error => {
-                    showErrorNotification(error, false);
-                });
-            }
-            lastErrorsSet = currentErrors;
-        }
-    }
-
-    checkErrors();
-
-    errorPollTimer = setInterval(checkErrors, constants.ERROR_POLL_INTERVAL);
-}
-
-function stopErrorPolling() {
-    if (errorPollTimer) {
-        clearInterval(errorPollTimer);
-        errorPollTimer = null;
+// Update individual text element with new content
+function updateTextElement(elementId, content) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.innerHTML = '';
+        element.appendChild(content);
     }
 }
 
 async function updateDiagnostics() {
-    try {
-        const results = {
-            podkopStatus: null,
-            singboxStatus: null,
-            podkop: null,
-            luci: null,
-            singbox: null,
-            system: null,
-            fakeipStatus: null,
-            fakeipCLIStatus: null,
-            dnsStatus: null,
-            bypassStatus: null
-        };
+    setTimeout(() => {
+        safeExec('/usr/bin/podkop', ['get_status'])
+            .then(result => {
+                const parsedPodkopStatus = JSON.parse(result.stdout || '{"enabled":0,"status":"error"}');
 
-        // Perform all checks independently of each other
-        const checks = [
-            safeExec('/usr/bin/podkop', ['get_status'])
-                .then(result => results.podkopStatus = result)
-                .catch(() => results.podkopStatus = { stdout: '{"enabled":0,"status":"error"}' }),
+                // Update Podkop status text
+                updateTextElement('podkop-status-text',
+                    E('span', {
+                        'style': `color: ${parsedPodkopStatus.enabled ? constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR}`
+                    }, [
+                        parsedPodkopStatus.enabled ? '✔ Autostart enabled' : '✘ Autostart disabled'
+                    ])
+                );
 
-            safeExec('/usr/bin/podkop', ['get_sing_box_status'])
-                .then(result => results.singboxStatus = result)
-                .catch(() => results.singboxStatus = { stdout: '{"running":0,"enabled":0,"status":"error"}' }),
+                // Update autostart button
+                const autostartButton = parsedPodkopStatus.enabled ?
+                    ButtonFactory.createInitActionButton({
+                        label: 'Disable Autostart',
+                        type: 'remove',
+                        action: 'disable',
+                        reload: true
+                    }) :
+                    ButtonFactory.createInitActionButton({
+                        label: 'Enable Autostart',
+                        type: 'apply',
+                        action: 'enable',
+                        reload: true
+                    });
 
-            safeExec('/usr/bin/podkop', ['show_version'])
-                .then(result => results.podkop = result)
-                .catch(() => results.podkop = { stdout: 'error' }),
+                // Find the autostart button and replace it
+                const panel = document.getElementById('podkop-status-panel');
+                if (panel) {
+                    const buttons = panel.querySelectorAll('.cbi-button');
+                    if (buttons.length >= 3) {
+                        buttons[2].parentNode.replaceChild(autostartButton, buttons[2]);
+                    }
+                }
+            })
+            .catch(() => {
+                updateTextElement('podkop-status-text',
+                    E('span', { 'style': `color: ${constants.STATUS_COLORS.ERROR}` }, '✘ Error')
+                );
+            });
+    }, constants.RUN_PRIORITY[0]);
 
-            safeExec('/usr/bin/podkop', ['show_luci_version'])
-                .then(result => results.luci = result)
-                .catch(() => results.luci = { stdout: 'error' }),
+    setTimeout(() => {
+        safeExec('/usr/bin/podkop', ['get_sing_box_status'])
+            .then(result => {
+                const parsedSingboxStatus = JSON.parse(result.stdout || '{"running":0,"enabled":0,"status":"error"}');
 
-            safeExec('/usr/bin/podkop', ['show_sing_box_version'])
-                .then(result => results.singbox = result)
-                .catch(() => results.singbox = { stdout: 'error' }),
+                // Update Sing-box status text
+                updateTextElement('singbox-status-text',
+                    E('span', {
+                        'style': `color: ${parsedSingboxStatus.running && !parsedSingboxStatus.enabled ?
+                            constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR}`
+                    }, [
+                        parsedSingboxStatus.running && !parsedSingboxStatus.enabled ?
+                            '✔ running' : '✘ ' + parsedSingboxStatus.status
+                    ])
+                );
+            })
+            .catch(() => {
+                updateTextElement('singbox-status-text',
+                    E('span', { 'style': `color: ${constants.STATUS_COLORS.ERROR}` }, '✘ Error')
+                );
+            });
+    }, constants.RUN_PRIORITY[0]);
 
-            safeExec('/usr/bin/podkop', ['show_system_info'])
-                .then(result => results.system = result)
-                .catch(() => results.system = { stdout: 'error' }),
+    setTimeout(() => {
+        safeExec('/usr/bin/podkop', ['show_version'])
+            .then(result => {
+                updateTextElement('podkop-version', document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown')));
+            })
+            .catch(() => {
+                updateTextElement('podkop-version', document.createTextNode(_('Error')));
+            });
+    }, constants.RUN_PRIORITY[2]);
 
-            checkFakeIP()
-                .then(result => results.fakeipStatus = result)
-                .catch(() => results.fakeipStatus = { state: 'error', message: 'check error', color: constants.STATUS_COLORS.WARNING }),
+    setTimeout(() => {
+        safeExec('/usr/bin/podkop', ['show_luci_version'])
+            .then(result => {
+                updateTextElement('luci-version', document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown')));
+            })
+            .catch(() => {
+                updateTextElement('luci-version', document.createTextNode(_('Error')));
+            });
+    }, constants.RUN_PRIORITY[2]);
 
-            checkFakeIPCLI()
-                .then(result => results.fakeipCLIStatus = result)
-                .catch(() => results.fakeipCLIStatus = { state: 'error', message: 'check error', color: constants.STATUS_COLORS.WARNING }),
+    setTimeout(() => {
+        safeExec('/usr/bin/podkop', ['show_sing_box_version'])
+            .then(result => {
+                updateTextElement('singbox-version', document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown')));
+            })
+            .catch(() => {
+                updateTextElement('singbox-version', document.createTextNode(_('Error')));
+            });
+    }, constants.RUN_PRIORITY[2]);
 
-            checkDNSAvailability()
-                .then(result => results.dnsStatus = result)
-                .catch(() => results.dnsStatus = {
-                    remote: { state: 'error', message: 'DNS check error', color: constants.STATUS_COLORS.WARNING },
-                    local: { state: 'error', message: 'DNS check error', color: constants.STATUS_COLORS.WARNING }
-                }),
+    setTimeout(() => {
+        safeExec('/usr/bin/podkop', ['show_system_info'])
+            .then(result => {
+                if (result.stdout) {
+                    updateTextElement('openwrt-version', document.createTextNode(result.stdout.split('\n')[1].trim()));
+                    updateTextElement('device-model', document.createTextNode(result.stdout.split('\n')[4].trim()));
+                } else {
+                    updateTextElement('openwrt-version', document.createTextNode(_('Unknown')));
+                    updateTextElement('device-model', document.createTextNode(_('Unknown')));
+                }
+            })
+            .catch(() => {
+                updateTextElement('openwrt-version', document.createTextNode(_('Error')));
+                updateTextElement('device-model', document.createTextNode(_('Error')));
+            });
+    }, constants.RUN_PRIORITY[2]);
 
-            checkBypass()
-                .then(result => results.bypassStatus = result)
-                .catch(() => results.bypassStatus = { state: 'error', message: 'check error', color: constants.STATUS_COLORS.WARNING })
-        ];
+    setTimeout(() => {
+        checkFakeIP()
+            .then(result => {
+                updateTextElement('fakeip-browser-status',
+                    E('span', { style: `color: ${result.color}` }, [
+                        result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
+                        result.state === 'working' ? _('works in browser') : _('not works in browser')
+                    ])
+                );
+            })
+            .catch(() => {
+                updateTextElement('fakeip-browser-status',
+                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! check error')
+                );
+            });
+    }, constants.RUN_PRIORITY[3]);
 
-        // Waiting for all the checks to be completed
-        await Promise.allSettled(checks);
+    setTimeout(() => {
+        checkFakeIPCLI()
+            .then(result => {
+                updateTextElement('fakeip-router-status',
+                    E('span', { style: `color: ${result.color}` }, [
+                        result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
+                        result.state === 'working' ? _('works on router') : _('not works on router')
+                    ])
+                );
+            })
+            .catch(() => {
+                updateTextElement('fakeip-router-status',
+                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! check error')
+                );
+            });
+    }, constants.RUN_PRIORITY[3]);
 
-        const container = document.getElementById('diagnostics-status');
-        if (!container) return;
+    setTimeout(() => {
+        checkDNSAvailability()
+            .then(result => {
+                updateTextElement('dns-remote-status',
+                    E('span', { style: `color: ${result.remote.color}` }, [
+                        result.remote.state === 'available' ? '✔ ' : result.remote.state === 'unavailable' ? '✘ ' : '! ',
+                        result.remote.message
+                    ])
+                );
 
-        let configName = _('Main config');
+                updateTextElement('dns-local-status',
+                    E('span', { style: `color: ${result.local.color}` }, [
+                        result.local.state === 'available' ? '✔ ' : result.local.state === 'unavailable' ? '✘ ' : '! ',
+                        result.local.message
+                    ])
+                );
+            })
+            .catch(() => {
+                updateTextElement('dns-remote-status',
+                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! DNS check error')
+                );
+                updateTextElement('dns-local-status',
+                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! DNS check error')
+                );
+            });
+    }, constants.RUN_PRIORITY[4]);
+
+    setTimeout(() => {
+        checkBypass()
+            .then(result => {
+                updateTextElement('bypass-status',
+                    E('span', { style: `color: ${result.color}` }, [
+                        result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
+                        result.message
+                    ])
+                );
+            })
+            .catch(() => {
+                updateTextElement('bypass-status',
+                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! check error')
+                );
+            });
+    }, constants.RUN_PRIORITY[1]);
+
+    setTimeout(async () => {
         try {
+            let configName = _('Main config');
             const data = await uci.load('podkop');
             const proxyString = uci.get('podkop', 'main', 'proxy_string');
 
@@ -783,76 +848,12 @@ async function updateDiagnostics() {
                     }
                 }
             }
+
+            updateTextElement('config-name-text', document.createTextNode(configName));
         } catch (e) {
             console.error('Error getting config name from UCI:', e);
         }
-
-        const parsedPodkopStatus = JSON.parse(results.podkopStatus.stdout || '{"enabled":0,"status":"error"}');
-        const parsedSingboxStatus = JSON.parse(results.singboxStatus.stdout || '{"running":0,"enabled":0,"status":"error"}');
-
-        const statusSection = createStatusSection(
-            parsedPodkopStatus,
-            parsedSingboxStatus,
-            results.podkop,
-            results.luci,
-            results.singbox,
-            results.system,
-            results.fakeipStatus,
-            results.fakeipCLIStatus,
-            results.dnsStatus,
-            results.bypassStatus,
-            configName
-        );
-
-        container.innerHTML = '';
-        container.appendChild(statusSection);
-
-        // Updating individual status items
-        const updateStatusElement = (elementId, status, template) => {
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.innerHTML = template(status);
-            }
-        };
-
-        updateStatusElement('fakeip-status', results.fakeipStatus,
-            status => E('span', { 'style': `color: ${status.color}` }, [
-                status.state === 'working' ? '✔ ' : status.state === 'not_working' ? '✘ ' : '! ',
-                status.message
-            ]).outerHTML
-        );
-
-        updateStatusElement('fakeip-cli-status', results.fakeipCLIStatus,
-            status => E('span', { 'style': `color: ${status.color}` }, [
-                status.state === 'working' ? '✔ ' : status.state === 'not_working' ? '✘ ' : '! ',
-                status.message
-            ]).outerHTML
-        );
-
-        updateStatusElement('dns-remote-status', results.dnsStatus.remote,
-            status => E('span', { 'style': `color: ${status.color}` }, [
-                status.state === 'available' ? '✔ ' : status.state === 'unavailable' ? '✘ ' : '! ',
-                status.message
-            ]).outerHTML
-        );
-
-        updateStatusElement('dns-local-status', results.dnsStatus.local,
-            status => E('span', { 'style': `color: ${status.color}` }, [
-                status.state === 'available' ? '✔ ' : status.state === 'unavailable' ? '✘ ' : '! ',
-                status.message
-            ]).outerHTML
-        );
-
-    } catch (e) {
-        const container = document.getElementById('diagnostics-status');
-        if (container) {
-            container.innerHTML = E('div', { 'class': 'alert-message warning' }, [
-                E('strong', {}, _('Error loading diagnostics')),
-                E('br'),
-                E('pre', {}, e.toString())
-            ]).outerHTML;
-        }
-    }
+    }, constants.RUN_PRIORITY[1]);
 }
 
 function createDiagnosticsSection(mainSection) {
@@ -887,8 +888,14 @@ function setupDiagnosticsEventHandlers(node) {
             diagnosticsContainer.addEventListener('click', function () {
                 if (!this.hasAttribute('data-loading')) {
                     this.setAttribute('data-loading', 'true');
-                    startDiagnosticsUpdates();
-                    startErrorPolling();
+
+                    // Render UI structure immediately
+                    this.innerHTML = '';
+                    createStatusSection().then(section => {
+                        this.appendChild(section);
+                        startDiagnosticsUpdates();
+                        startErrorPolling();
+                    });
                 }
             });
         }
@@ -903,8 +910,14 @@ function setupDiagnosticsEventHandlers(node) {
                         const container = document.getElementById('diagnostics-status');
                         if (container && !container.hasAttribute('data-loading')) {
                             container.setAttribute('data-loading', 'true');
-                            startDiagnosticsUpdates();
-                            startErrorPolling();
+
+                            // Render UI structure immediately
+                            container.innerHTML = '';
+                            createStatusSection().then(section => {
+                                container.appendChild(section);
+                                startDiagnosticsUpdates();
+                                startErrorPolling();
+                            });
                         }
                     } else {
                         stopDiagnosticsUpdates();
@@ -918,8 +931,14 @@ function setupDiagnosticsEventHandlers(node) {
                 const container = document.getElementById('diagnostics-status');
                 if (container && !container.hasAttribute('data-loading')) {
                     container.setAttribute('data-loading', 'true');
-                    startDiagnosticsUpdates();
-                    startErrorPolling();
+
+                    // Render UI structure immediately
+                    container.innerHTML = '';
+                    createStatusSection().then(section => {
+                        container.appendChild(section);
+                        startDiagnosticsUpdates();
+                        startErrorPolling();
+                    });
                 }
             }
         }
