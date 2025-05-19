@@ -36,8 +36,91 @@ async function cachedFetch(url, options = {}) {
     }
 }
 
-// Helper Functions
-// Common status object creator
+// Helper functions for command execution with prioritization
+function safeExec(command, args, priority, callback, timeout = constants.COMMAND_TIMEOUT) {
+    priority = (typeof priority === 'number') ? priority : 0;
+
+    const executeCommand = async () => {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+            const result = await Promise.race([
+                fs.exec(command, args),
+                new Promise((_, reject) => {
+                    controller.signal.addEventListener('abort', () => {
+                        reject(new Error('Command execution timed out'));
+                    });
+                })
+            ]);
+
+            clearTimeout(timeoutId);
+
+            if (callback && typeof callback === 'function') {
+                callback(result);
+            }
+
+            return result;
+        } catch (error) {
+            console.warn(`Command execution failed or timed out: ${command} ${args.join(' ')}`);
+            const errorResult = { stdout: '', stderr: error.message, error: error };
+
+            if (callback && typeof callback === 'function') {
+                callback(errorResult);
+            }
+
+            return errorResult;
+        }
+    };
+
+    if (callback && typeof callback === 'function') {
+        setTimeout(executeCommand, constants.RUN_PRIORITY[priority]);
+        return;
+    }
+    else {
+        return executeCommand();
+    }
+}
+
+function runCheck(checkFunction, priority, callback) {
+    priority = (typeof priority === 'number') ? priority : 0;
+
+    const executeCheck = async () => {
+        try {
+            const result = await checkFunction();
+            if (callback && typeof callback === 'function') {
+                callback(result);
+            }
+            return result;
+        } catch (error) {
+            if (callback && typeof callback === 'function') {
+                callback({ error });
+            }
+            return { error };
+        }
+    };
+
+    if (callback && typeof callback === 'function') {
+        setTimeout(executeCheck, constants.RUN_PRIORITY[priority]);
+        return;
+    } else {
+        return executeCheck();
+    }
+}
+
+function runAsyncTask(taskFunction, priority) {
+    priority = (typeof priority === 'number') ? priority : 0;
+
+    setTimeout(async () => {
+        try {
+            await taskFunction();
+        } catch (error) {
+            console.error('Async task error:', error);
+        }
+    }, constants.RUN_PRIORITY[priority]);
+}
+
+// Helper Functions for UI and formatting
 function createStatus(state, message, color) {
     return {
         state,
@@ -54,7 +137,7 @@ function formatDiagnosticOutput(output) {
         .replace(/\r/g, '\n');
 }
 
-const copyToClipboard = (text, button) => {
+function copyToClipboard(text, button) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
     document.body.appendChild(textarea);
@@ -68,36 +151,14 @@ const copyToClipboard = (text, button) => {
         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
     }
     document.body.removeChild(textarea);
-};
+}
 
 // IP masking function
-const maskIP = (ip) => {
+function maskIP(ip) {
     if (!ip) return '';
     const parts = ip.split('.');
     if (parts.length !== 4) return ip;
     return ['XX', 'XX', 'XX', parts[3]].join('.');
-};
-
-async function safeExec(command, args = [], timeout = constants.COMMAND_TIMEOUT) {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-        const result = await Promise.race([
-            fs.exec(command, args),
-            new Promise((_, reject) => {
-                controller.signal.addEventListener('abort', () => {
-                    reject(new Error('Command execution timed out'));
-                });
-            })
-        ]);
-
-        clearTimeout(timeoutId);
-        return result;
-    } catch (error) {
-        console.warn(`Command execution failed or timed out: ${command} ${args.join(' ')}`);
-        return { stdout: '', stderr: error.message };
-    }
 }
 
 // Status Check Functions
@@ -128,20 +189,24 @@ async function checkFakeIP() {
 
 async function checkFakeIPCLI() {
     try {
-        const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
-        const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
+        return new Promise((resolve) => {
+            safeExec('/usr/bin/podkop', ['get_sing_box_status'], 0, singboxStatusResult => {
+                const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
 
-        if (!singboxStatus.running) {
-            return createStatus('not_working', 'sing-box not running', 'ERROR');
-        }
+                if (!singboxStatus.running) {
+                    resolve(createStatus('not_working', 'sing-box not running', 'ERROR'));
+                    return;
+                }
 
-        const result = await safeExec('nslookup', ['-timeout=2', constants.FAKEIP_CHECK_DOMAIN, '127.0.0.42']);
-
-        if (result.stdout && result.stdout.includes('198.18')) {
-            return createStatus('working', 'working on router', 'SUCCESS');
-        } else {
-            return createStatus('not_working', 'not working on router', 'ERROR');
-        }
+                safeExec('nslookup', ['-timeout=2', constants.FAKEIP_CHECK_DOMAIN, '127.0.0.42'], 0, result => {
+                    if (result.stdout && result.stdout.includes('198.18')) {
+                        resolve(createStatus('working', 'working on router', 'SUCCESS'));
+                    } else {
+                        resolve(createStatus('not_working', 'not working on router', 'ERROR'));
+                    }
+                });
+            });
+        });
     } catch (error) {
         return createStatus('error', 'CLI check error', 'WARNING');
     }
@@ -150,35 +215,36 @@ async function checkFakeIPCLI() {
 function checkDNSAvailability() {
     return new Promise(async (resolve) => {
         try {
-            const dnsStatusResult = await safeExec('/usr/bin/podkop', ['check_dns_available']);
-            if (!dnsStatusResult || !dnsStatusResult.stdout) {
-                return resolve({
-                    remote: createStatus('error', 'DNS check timeout', 'WARNING'),
-                    local: createStatus('error', 'DNS check timeout', 'WARNING')
-                });
-            }
+            safeExec('/usr/bin/podkop', ['check_dns_available'], 0, dnsStatusResult => {
+                if (!dnsStatusResult || !dnsStatusResult.stdout) {
+                    return resolve({
+                        remote: createStatus('error', 'DNS check timeout', 'WARNING'),
+                        local: createStatus('error', 'DNS check timeout', 'WARNING')
+                    });
+                }
 
-            try {
-                const dnsStatus = JSON.parse(dnsStatusResult.stdout);
+                try {
+                    const dnsStatus = JSON.parse(dnsStatusResult.stdout);
 
-                const remoteStatus = dnsStatus.is_available ?
-                    createStatus('available', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) available`, 'SUCCESS') :
-                    createStatus('unavailable', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) unavailable`, 'ERROR');
+                    const remoteStatus = dnsStatus.is_available ?
+                        createStatus('available', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) available`, 'SUCCESS') :
+                        createStatus('unavailable', `${dnsStatus.dns_type.toUpperCase()} (${dnsStatus.dns_server}) unavailable`, 'ERROR');
 
-                const localStatus = dnsStatus.local_dns_working ?
-                    createStatus('available', 'Router DNS working', 'SUCCESS') :
-                    createStatus('unavailable', 'Router DNS not working', 'ERROR');
+                    const localStatus = dnsStatus.local_dns_working ?
+                        createStatus('available', 'Router DNS working', 'SUCCESS') :
+                        createStatus('unavailable', 'Router DNS not working', 'ERROR');
 
-                return resolve({
-                    remote: remoteStatus,
-                    local: localStatus
-                });
-            } catch (parseError) {
-                return resolve({
-                    remote: createStatus('error', 'DNS check parse error', 'WARNING'),
-                    local: createStatus('error', 'DNS check parse error', 'WARNING')
-                });
-            }
+                    return resolve({
+                        remote: remoteStatus,
+                        local: localStatus
+                    });
+                } catch (parseError) {
+                    return resolve({
+                        remote: createStatus('error', 'DNS check parse error', 'WARNING'),
+                        local: createStatus('error', 'DNS check parse error', 'WARNING')
+                    });
+                }
+            });
         } catch (error) {
             return resolve({
                 remote: createStatus('error', 'DNS check error', 'WARNING'),
@@ -199,54 +265,57 @@ async function checkBypass() {
                 console.error('Error getting mode from UCI:', e);
             }
 
-            // Check if sing-box is running
-            const singboxStatusResult = await safeExec('/usr/bin/podkop', ['get_sing_box_status']);
-            const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
+            safeExec('/usr/bin/podkop', ['get_sing_box_status'], 0, singboxStatusResult => {
+                const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
 
-            if (!singboxStatus.running) {
-                return resolve(createStatus('not_working', `${configMode} not running`, 'ERROR'));
-            }
-
-            // Fetch IP from first endpoint
-            let ip1 = null;
-            try {
-                const controller1 = new AbortController();
-                const timeoutId1 = setTimeout(() => controller1.abort(), constants.FETCH_TIMEOUT);
-
-                const response1 = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller1.signal });
-                const data1 = await response1.json();
-                clearTimeout(timeoutId1);
-
-                ip1 = data1.IP;
-            } catch (error) {
-                return resolve(createStatus('error', 'First endpoint check failed', 'WARNING'));
-            }
-
-            // Fetch IP from second endpoint
-            let ip2 = null;
-            try {
-                const controller2 = new AbortController();
-                const timeoutId2 = setTimeout(() => controller2.abort(), constants.FETCH_TIMEOUT);
-
-                const response2 = await cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller2.signal });
-                const data2 = await response2.json();
-                clearTimeout(timeoutId2);
-
-                ip2 = data2.IP;
-            } catch (error) {
-                return resolve(createStatus('not_working', `${configMode} not working`, 'ERROR'));
-            }
-
-            // Compare IPs
-            if (ip1 && ip2) {
-                if (ip1 !== ip2) {
-                    return resolve(createStatus('working', `${configMode} working correctly`, 'SUCCESS'));
-                } else {
-                    return resolve(createStatus('not_working', `${configMode} routing incorrect`, 'ERROR'));
+                if (!singboxStatus.running) {
+                    return resolve(createStatus('not_working', `${configMode} not running`, 'ERROR'));
                 }
-            } else {
-                return resolve(createStatus('error', 'IP comparison failed', 'WARNING'));
-            }
+
+                // Fetch IP from first endpoint
+                let ip1 = null;
+                try {
+                    const controller1 = new AbortController();
+                    const timeoutId1 = setTimeout(() => controller1.abort(), constants.FETCH_TIMEOUT);
+
+                    cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller1.signal })
+                        .then(response1 => response1.json())
+                        .then(data1 => {
+                            clearTimeout(timeoutId1);
+                            ip1 = data1.IP;
+
+                            // Fetch IP from second endpoint
+                            const controller2 = new AbortController();
+                            const timeoutId2 = setTimeout(() => controller2.abort(), constants.FETCH_TIMEOUT);
+
+                            cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller2.signal })
+                                .then(response2 => response2.json())
+                                .then(data2 => {
+                                    clearTimeout(timeoutId2);
+                                    const ip2 = data2.IP;
+
+                                    // Compare IPs
+                                    if (ip1 && ip2) {
+                                        if (ip1 !== ip2) {
+                                            return resolve(createStatus('working', `${configMode} working correctly`, 'SUCCESS'));
+                                        } else {
+                                            return resolve(createStatus('not_working', `${configMode} routing incorrect`, 'ERROR'));
+                                        }
+                                    } else {
+                                        return resolve(createStatus('error', 'IP comparison failed', 'WARNING'));
+                                    }
+                                })
+                                .catch(error => {
+                                    return resolve(createStatus('not_working', `${configMode} not working`, 'ERROR'));
+                                });
+                        })
+                        .catch(error => {
+                            return resolve(createStatus('error', 'First endpoint check failed', 'WARNING'));
+                        });
+                } catch (error) {
+                    return resolve(createStatus('error', 'Bypass check error', 'WARNING'));
+                }
+            });
         } catch (error) {
             return resolve(createStatus('error', 'Bypass check error', 'WARNING'));
         }
@@ -255,21 +324,19 @@ async function checkBypass() {
 
 // Error Handling
 async function getPodkopErrors() {
-    try {
-        const result = await safeExec('/usr/bin/podkop', ['check_logs']);
-        if (!result || !result.stdout) return [];
+    return new Promise(resolve => {
+        safeExec('/usr/bin/podkop', ['check_logs'], 0, result => {
+            if (!result || !result.stdout) return resolve([]);
 
-        const logs = result.stdout.split('\n');
-        const errors = logs.filter(log =>
-            log.includes('[critical]')
-        );
+            const logs = result.stdout.split('\n');
+            const errors = logs.filter(log =>
+                log.includes('[critical]')
+            );
 
-        console.log('Found errors:', errors);
-        return errors;
-    } catch (error) {
-        console.error('Error getting podkop logs:', error);
-        return [];
-    }
+            console.log('Found errors:', errors);
+            resolve(errors);
+        });
+    });
 }
 
 function showErrorNotification(error, isMultiple = false) {
@@ -281,7 +348,7 @@ function showErrorNotification(error, isMultiple = false) {
 }
 
 // Modal Functions
-const createModalContent = (title, content) => {
+function createModalContent(title, content) {
     return [
         E('div', {
             'class': 'panel-body',
@@ -305,9 +372,9 @@ const createModalContent = (title, content) => {
             }, _('Close'))
         ])
     ];
-};
+}
 
-const showConfigModal = async (command, title) => {
+function showConfigModal(command, title) {
     // Create and show modal immediately with loading state
     const modalContent = E('div', { 'class': 'panel-body' }, [
         E('div', {
@@ -351,58 +418,77 @@ const showConfigModal = async (command, title) => {
         let formattedOutput = '';
 
         if (command === 'global_check') {
-            const res = await safeExec('/usr/bin/podkop', [command]);
-            formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+            safeExec('/usr/bin/podkop', [command], 0, res => {
+                formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
 
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), constants.FETCH_TIMEOUT);
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), constants.FETCH_TIMEOUT);
 
-                const response = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
-                const data = await response.json();
-                clearTimeout(timeoutId);
+                    cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal })
+                        .then(response => response.json())
+                        .then(data => {
+                            clearTimeout(timeoutId);
 
-                if (data.fakeip === true) {
-                    formattedOutput += '\n✅ ' + _('FakeIP is working in browser!') + '\n';
-                } else {
-                    formattedOutput += '\n❌ ' + _('FakeIP is not working in browser') + '\n';
-                    formattedOutput += _('Check DNS server on current device (PC, phone)') + '\n';
-                    formattedOutput += _('Its must be router!') + '\n';
+                            if (data.fakeip === true) {
+                                formattedOutput += '\n✅ ' + _('FakeIP is working in browser!') + '\n';
+                            } else {
+                                formattedOutput += '\n❌ ' + _('FakeIP is not working in browser') + '\n';
+                                formattedOutput += _('Check DNS server on current device (PC, phone)') + '\n';
+                                formattedOutput += _('Its must be router!') + '\n';
+                            }
+
+                            // Bypass check
+                            cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal })
+                                .then(bypassResponse => bypassResponse.json())
+                                .then(bypassData => {
+                                    cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller.signal })
+                                        .then(bypassResponse2 => bypassResponse2.json())
+                                        .then(bypassData2 => {
+                                            formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+
+                                            if (bypassData.IP && bypassData2.IP && bypassData.IP !== bypassData2.IP) {
+                                                formattedOutput += '✅ ' + _('Proxy working correctly') + '\n';
+                                                formattedOutput += _('Direct IP: ') + maskIP(bypassData.IP) + '\n';
+                                                formattedOutput += _('Proxy IP: ') + maskIP(bypassData2.IP) + '\n';
+                                            } else if (bypassData.IP === bypassData2.IP) {
+                                                formattedOutput += '❌ ' + _('Proxy is not working - same IP for both domains') + '\n';
+                                                formattedOutput += _('IP: ') + maskIP(bypassData.IP) + '\n';
+                                            } else {
+                                                formattedOutput += '❌ ' + _('Proxy check failed') + '\n';
+                                            }
+
+                                            updateModalContent(formattedOutput);
+                                        })
+                                        .catch(error => {
+                                            formattedOutput += '\n❌ ' + _('Check failed: ') + (error.name === 'AbortError' ? _('timeout') : error.message) + '\n';
+                                            updateModalContent(formattedOutput);
+                                        });
+                                })
+                                .catch(error => {
+                                    formattedOutput += '\n❌ ' + _('Check failed: ') + (error.name === 'AbortError' ? _('timeout') : error.message) + '\n';
+                                    updateModalContent(formattedOutput);
+                                });
+                        })
+                        .catch(error => {
+                            formattedOutput += '\n❌ ' + _('Check failed: ') + (error.name === 'AbortError' ? _('timeout') : error.message) + '\n';
+                            updateModalContent(formattedOutput);
+                        });
+                } catch (error) {
+                    formattedOutput += '\n❌ ' + _('Check failed: ') + error.message + '\n';
+                    updateModalContent(formattedOutput);
                 }
-
-                // Bypass check
-                const bypassResponse = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
-                const bypassData = await bypassResponse.json();
-                const bypassResponse2 = await cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller.signal });
-                const bypassData2 = await bypassResponse2.json();
-
-                formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-
-                if (bypassData.IP && bypassData2.IP && bypassData.IP !== bypassData2.IP) {
-                    formattedOutput += '✅ ' + _('Proxy working correctly') + '\n';
-                    formattedOutput += _('Direct IP: ') + maskIP(bypassData.IP) + '\n';
-                    formattedOutput += _('Proxy IP: ') + maskIP(bypassData2.IP) + '\n';
-                } else if (bypassData.IP === bypassData2.IP) {
-                    formattedOutput += '❌ ' + _('Proxy is not working - same IP for both domains') + '\n';
-                    formattedOutput += _('IP: ') + maskIP(bypassData.IP) + '\n';
-                } else {
-                    formattedOutput += '❌ ' + _('Proxy check failed') + '\n';
-                }
-
-                updateModalContent(formattedOutput);
-            } catch (error) {
-                formattedOutput += '\n❌ ' + _('Check failed: ') + (error.name === 'AbortError' ? _('timeout') : error.message) + '\n';
-                updateModalContent(formattedOutput);
-            }
+            });
         } else {
-            const res = await safeExec('/usr/bin/podkop', [command]);
-            formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
-            updateModalContent(formattedOutput);
+            safeExec('/usr/bin/podkop', [command], 0, res => {
+                formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
+                updateModalContent(formattedOutput);
+            });
         }
     } catch (error) {
         updateModalContent(_('Error: ') + error.message);
     }
-};
+}
 
 // Button Factory
 const ButtonFactory = {
@@ -635,200 +721,160 @@ function updateTextElement(elementId, content) {
 }
 
 async function updateDiagnostics() {
-    setTimeout(() => {
-        safeExec('/usr/bin/podkop', ['get_status'])
-            .then(result => {
-                const parsedPodkopStatus = JSON.parse(result.stdout || '{"enabled":0,"status":"error"}');
+    // Podkop Status check
+    safeExec('/usr/bin/podkop', ['get_status'], 0, result => {
+        try {
+            const parsedPodkopStatus = JSON.parse(result.stdout || '{"enabled":0,"status":"error"}');
 
-                // Update Podkop status text
-                updateTextElement('podkop-status-text',
-                    E('span', {
-                        'style': `color: ${parsedPodkopStatus.enabled ? constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR}`
-                    }, [
-                        parsedPodkopStatus.enabled ? '✔ Autostart enabled' : '✘ Autostart disabled'
-                    ])
-                );
+            // Update Podkop status text
+            updateTextElement('podkop-status-text',
+                E('span', {
+                    'style': `color: ${parsedPodkopStatus.enabled ? constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR}`
+                }, [
+                    parsedPodkopStatus.enabled ? '✔ Autostart enabled' : '✘ Autostart disabled'
+                ])
+            );
 
-                // Update autostart button
-                const autostartButton = parsedPodkopStatus.enabled ?
-                    ButtonFactory.createInitActionButton({
-                        label: 'Disable Autostart',
-                        type: 'remove',
-                        action: 'disable',
-                        reload: true
-                    }) :
-                    ButtonFactory.createInitActionButton({
-                        label: 'Enable Autostart',
-                        type: 'apply',
-                        action: 'enable',
-                        reload: true
-                    });
+            // Update autostart button
+            const autostartButton = parsedPodkopStatus.enabled ?
+                ButtonFactory.createInitActionButton({
+                    label: 'Disable Autostart',
+                    type: 'remove',
+                    action: 'disable',
+                    reload: true
+                }) :
+                ButtonFactory.createInitActionButton({
+                    label: 'Enable Autostart',
+                    type: 'apply',
+                    action: 'enable',
+                    reload: true
+                });
 
-                // Find the autostart button and replace it
-                const panel = document.getElementById('podkop-status-panel');
-                if (panel) {
-                    const buttons = panel.querySelectorAll('.cbi-button');
-                    if (buttons.length >= 3) {
-                        buttons[2].parentNode.replaceChild(autostartButton, buttons[2]);
-                    }
+            // Find the autostart button and replace it
+            const panel = document.getElementById('podkop-status-panel');
+            if (panel) {
+                const buttons = panel.querySelectorAll('.cbi-button');
+                if (buttons.length >= 3) {
+                    buttons[2].parentNode.replaceChild(autostartButton, buttons[2]);
                 }
-            })
-            .catch(() => {
-                updateTextElement('podkop-status-text',
-                    E('span', { 'style': `color: ${constants.STATUS_COLORS.ERROR}` }, '✘ Error')
-                );
-            });
-    }, constants.RUN_PRIORITY[0]);
+            }
+        } catch (error) {
+            updateTextElement('podkop-status-text',
+                E('span', { 'style': `color: ${constants.STATUS_COLORS.ERROR}` }, '✘ Error')
+            );
+        }
+    });
 
-    setTimeout(() => {
-        safeExec('/usr/bin/podkop', ['get_sing_box_status'])
-            .then(result => {
-                const parsedSingboxStatus = JSON.parse(result.stdout || '{"running":0,"enabled":0,"status":"error"}');
+    // Sing-box Status check
+    safeExec('/usr/bin/podkop', ['get_sing_box_status'], 0, result => {
+        try {
+            const parsedSingboxStatus = JSON.parse(result.stdout || '{"running":0,"enabled":0,"status":"error"}');
 
-                // Update Sing-box status text
-                updateTextElement('singbox-status-text',
-                    E('span', {
-                        'style': `color: ${parsedSingboxStatus.running && !parsedSingboxStatus.enabled ?
-                            constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR}`
-                    }, [
-                        parsedSingboxStatus.running && !parsedSingboxStatus.enabled ?
-                            '✔ running' : '✘ ' + parsedSingboxStatus.status
-                    ])
-                );
-            })
-            .catch(() => {
-                updateTextElement('singbox-status-text',
-                    E('span', { 'style': `color: ${constants.STATUS_COLORS.ERROR}` }, '✘ Error')
-                );
-            });
-    }, constants.RUN_PRIORITY[0]);
+            // Update Sing-box status text
+            updateTextElement('singbox-status-text',
+                E('span', {
+                    'style': `color: ${parsedSingboxStatus.running && !parsedSingboxStatus.enabled ?
+                        constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR}`
+                }, [
+                    parsedSingboxStatus.running && !parsedSingboxStatus.enabled ?
+                        '✔ running' : '✘ ' + parsedSingboxStatus.status
+                ])
+            );
+        } catch (error) {
+            updateTextElement('singbox-status-text',
+                E('span', { 'style': `color: ${constants.STATUS_COLORS.ERROR}` }, '✘ Error')
+            );
+        }
+    });
 
-    setTimeout(() => {
-        safeExec('/usr/bin/podkop', ['show_version'])
-            .then(result => {
-                updateTextElement('podkop-version', document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown')));
-            })
-            .catch(() => {
-                updateTextElement('podkop-version', document.createTextNode(_('Error')));
-            });
-    }, constants.RUN_PRIORITY[2]);
+    // Version Information checks
+    safeExec('/usr/bin/podkop', ['show_version'], 2, result => {
+        updateTextElement('podkop-version',
+            document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown'))
+        );
+    });
 
-    setTimeout(() => {
-        safeExec('/usr/bin/podkop', ['show_luci_version'])
-            .then(result => {
-                updateTextElement('luci-version', document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown')));
-            })
-            .catch(() => {
-                updateTextElement('luci-version', document.createTextNode(_('Error')));
-            });
-    }, constants.RUN_PRIORITY[2]);
+    safeExec('/usr/bin/podkop', ['show_luci_version'], 2, result => {
+        updateTextElement('luci-version',
+            document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown'))
+        );
+    });
 
-    setTimeout(() => {
-        safeExec('/usr/bin/podkop', ['show_sing_box_version'])
-            .then(result => {
-                updateTextElement('singbox-version', document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown')));
-            })
-            .catch(() => {
-                updateTextElement('singbox-version', document.createTextNode(_('Error')));
-            });
-    }, constants.RUN_PRIORITY[2]);
+    safeExec('/usr/bin/podkop', ['show_sing_box_version'], 2, result => {
+        updateTextElement('singbox-version',
+            document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown'))
+        );
+    });
 
-    setTimeout(() => {
-        safeExec('/usr/bin/podkop', ['show_system_info'])
-            .then(result => {
-                if (result.stdout) {
-                    updateTextElement('openwrt-version', document.createTextNode(result.stdout.split('\n')[1].trim()));
-                    updateTextElement('device-model', document.createTextNode(result.stdout.split('\n')[4].trim()));
-                } else {
-                    updateTextElement('openwrt-version', document.createTextNode(_('Unknown')));
-                    updateTextElement('device-model', document.createTextNode(_('Unknown')));
-                }
-            })
-            .catch(() => {
-                updateTextElement('openwrt-version', document.createTextNode(_('Error')));
-                updateTextElement('device-model', document.createTextNode(_('Error')));
-            });
-    }, constants.RUN_PRIORITY[2]);
+    safeExec('/usr/bin/podkop', ['show_system_info'], 2, result => {
+        if (result.stdout) {
+            updateTextElement('openwrt-version',
+                document.createTextNode(result.stdout.split('\n')[1].trim())
+            );
+            updateTextElement('device-model',
+                document.createTextNode(result.stdout.split('\n')[4].trim())
+            );
+        } else {
+            updateTextElement('openwrt-version', document.createTextNode(_('Unknown')));
+            updateTextElement('device-model', document.createTextNode(_('Unknown')));
+        }
+    });
 
-    setTimeout(() => {
-        checkFakeIP()
-            .then(result => {
-                updateTextElement('fakeip-browser-status',
-                    E('span', { style: `color: ${result.color}` }, [
-                        result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
-                        result.state === 'working' ? _('works in browser') : _('not works in browser')
-                    ])
-                );
-            })
-            .catch(() => {
-                updateTextElement('fakeip-browser-status',
-                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! check error')
-                );
-            });
-    }, constants.RUN_PRIORITY[3]);
+    // FakeIP and DNS status checks
+    runCheck(checkFakeIP, 3, result => {
+        updateTextElement('fakeip-browser-status',
+            E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
+                result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
+                result.error ? 'check error' : result.state === 'working' ? _('works in browser') : _('not works in browser')
+            ])
+        );
+    });
 
-    setTimeout(() => {
-        checkFakeIPCLI()
-            .then(result => {
-                updateTextElement('fakeip-router-status',
-                    E('span', { style: `color: ${result.color}` }, [
-                        result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
-                        result.state === 'working' ? _('works on router') : _('not works on router')
-                    ])
-                );
-            })
-            .catch(() => {
-                updateTextElement('fakeip-router-status',
-                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! check error')
-                );
-            });
-    }, constants.RUN_PRIORITY[3]);
+    runCheck(checkFakeIPCLI, 3, result => {
+        updateTextElement('fakeip-router-status',
+            E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
+                result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
+                result.error ? 'check error' : result.state === 'working' ? _('works on router') : _('not works on router')
+            ])
+        );
+    });
 
-    setTimeout(() => {
-        checkDNSAvailability()
-            .then(result => {
-                updateTextElement('dns-remote-status',
-                    E('span', { style: `color: ${result.remote.color}` }, [
-                        result.remote.state === 'available' ? '✔ ' : result.remote.state === 'unavailable' ? '✘ ' : '! ',
-                        result.remote.message
-                    ])
-                );
+    runCheck(checkDNSAvailability, 4, result => {
+        if (result.error) {
+            updateTextElement('dns-remote-status',
+                E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! DNS check error')
+            );
+            updateTextElement('dns-local-status',
+                E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! DNS check error')
+            );
+        } else {
+            updateTextElement('dns-remote-status',
+                E('span', { style: `color: ${result.remote.color}` }, [
+                    result.remote.state === 'available' ? '✔ ' : result.remote.state === 'unavailable' ? '✘ ' : '! ',
+                    result.remote.message
+                ])
+            );
 
-                updateTextElement('dns-local-status',
-                    E('span', { style: `color: ${result.local.color}` }, [
-                        result.local.state === 'available' ? '✔ ' : result.local.state === 'unavailable' ? '✘ ' : '! ',
-                        result.local.message
-                    ])
-                );
-            })
-            .catch(() => {
-                updateTextElement('dns-remote-status',
-                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! DNS check error')
-                );
-                updateTextElement('dns-local-status',
-                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! DNS check error')
-                );
-            });
-    }, constants.RUN_PRIORITY[4]);
+            updateTextElement('dns-local-status',
+                E('span', { style: `color: ${result.local.color}` }, [
+                    result.local.state === 'available' ? '✔ ' : result.local.state === 'unavailable' ? '✘ ' : '! ',
+                    result.local.message
+                ])
+            );
+        }
+    });
 
-    setTimeout(() => {
-        checkBypass()
-            .then(result => {
-                updateTextElement('bypass-status',
-                    E('span', { style: `color: ${result.color}` }, [
-                        result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
-                        result.message
-                    ])
-                );
-            })
-            .catch(() => {
-                updateTextElement('bypass-status',
-                    E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! check error')
-                );
-            });
-    }, constants.RUN_PRIORITY[1]);
+    runCheck(checkBypass, 1, result => {
+        updateTextElement('bypass-status',
+            E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
+                result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
+                result.error ? 'check error' : result.message
+            ])
+        );
+    });
 
-    setTimeout(async () => {
+    // Config name
+    runAsyncTask(async () => {
         try {
             let configName = _('Main config');
             const data = await uci.load('podkop');
@@ -853,7 +899,7 @@ async function updateDiagnostics() {
         } catch (e) {
             console.error('Error getting config name from UCI:', e);
         }
-    }, constants.RUN_PRIORITY[1]);
+    }, 1);
 }
 
 function createDiagnosticsSection(mainSection) {
@@ -863,8 +909,8 @@ function createDiagnosticsSection(mainSection) {
     o.rawhtml = true;
     o.cfgvalue = () => E('div', {
         id: 'diagnostics-status',
-        'style': 'cursor: pointer;'
-    }, _('Click to load diagnostics...'));
+        'data-loading': 'true'
+    });
 }
 
 function setupDiagnosticsEventHandlers(node) {
@@ -885,19 +931,15 @@ function setupDiagnosticsEventHandlers(node) {
     setTimeout(() => {
         const diagnosticsContainer = document.getElementById('diagnostics-status');
         if (diagnosticsContainer) {
-            diagnosticsContainer.addEventListener('click', function () {
-                if (!this.hasAttribute('data-loading')) {
-                    this.setAttribute('data-loading', 'true');
-
-                    // Render UI structure immediately
-                    this.innerHTML = '';
-                    createStatusSection().then(section => {
-                        this.appendChild(section);
-                        startDiagnosticsUpdates();
-                        startErrorPolling();
-                    });
-                }
-            });
+            if (diagnosticsContainer.hasAttribute('data-loading')) {
+                diagnosticsContainer.innerHTML = '';
+                showConfigModal.busy = false;
+                createStatusSection().then(section => {
+                    diagnosticsContainer.appendChild(section);
+                    startDiagnosticsUpdates();
+                    startErrorPolling();
+                });
+            }
         }
 
         const tabs = node.querySelectorAll('.cbi-tabmenu');
