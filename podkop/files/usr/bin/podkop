@@ -1916,7 +1916,7 @@ check_nft() {
     # Clean up
     rm -f "$tmp_file"
     
-    nolog "\nNFT check completed"
+    nolog "NFT check completed"
 }
 
 check_github() {
