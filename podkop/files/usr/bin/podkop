@@ -2392,7 +2392,7 @@ global_check() {
     if ! nft list table inet PodkopTable >/dev/null 2>&1; then
         print_global "❌ PodkopTable not found"
     else
-        nft list table inet PodkopTable
+        check_nft
     fi
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
