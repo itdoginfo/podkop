@@ -1889,12 +1889,33 @@ check_nft() {
         nolog "PodkopTable not found"
         return 1
     fi
+    
+    # List of possible sets
+    local sets="podkop_subnets podkop_domains interfaces podkop_discord_subnets localv4"
+    
+    echo "Sets statistics:"
+    for set_name in $sets; do
+        if nft list set inet PodkopTable $set_name >/dev/null 2>&1; then
+            # Count elements using grep to count commas and add 1 (last element has no comma)
+            local count=$(nft list set inet PodkopTable $set_name 2>/dev/null | grep -o ',\|{' | wc -l)
+            echo "- $set_name: $count elements"
+        fi
+    done
 
-    # Get all sets
-    nolog "\nSets configuration:"
-
-    nft list table inet PodkopTable
-
+    echo ""
+    echo "Chain configurations:"
+    
+    # Create a temporary file for processing
+    local tmp_file=$(mktemp)
+    nft list table inet PodkopTable > "$tmp_file"
+    
+    # Extract chain configurations without element listings
+    sed -n '/chain mangle {/,/}/p' "$tmp_file" | grep -v "elements" | grep -v "^[[:space:]]*[0-9]"
+    sed -n '/chain proxy {/,/}/p' "$tmp_file" | grep -v "elements" | grep -v "^[[:space:]]*[0-9]"
+    
+    # Clean up
+    rm -f "$tmp_file"
+    
     nolog "\nNFT check completed"
 }
 
