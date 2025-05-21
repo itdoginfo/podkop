@@ -1889,13 +1889,63 @@ check_nft() {
         nolog "PodkopTable not found"
         return 1
     fi
+    
+    local found_hetzner=0
+    local found_ovh=0
+    
+    check_domain_list_contains() {
+        local section="$1"
+        
+        config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
+        if [ "$domain_list_enabled" -eq 1 ]; then
+            config_list_foreach "$section" "domain_list" check_domain_value
+        fi
+    }
+    
+    check_domain_value() {
+        local domain_value="$1"
+        
+        if [ "$domain_value" = "hetzner" ]; then
+            found_hetzner=1
+        elif [ "$domain_value" = "ovh" ]; then
+            found_ovh=1
+        fi
+    }
+    
+    config_foreach check_domain_list_contains
+    
+    if [ "$found_hetzner" -eq 1 ] || [ "$found_ovh" -eq 1 ]; then
 
-    # Get all sets
-    nolog "\nSets configuration:"
+        local sets="podkop_subnets podkop_domains interfaces podkop_discord_subnets localv4"
+        
+        nolog "Sets statistics:"
+        for set_name in $sets; do
+            if nft list set inet PodkopTable $set_name >/dev/null 2>&1; then
+                # Count elements using grep to count commas and add 1 (last element has no comma)
+                local count=$(nft list set inet PodkopTable $set_name 2>/dev/null | grep -o ',\|{' | wc -l)
+                echo "- $set_name: $count elements"
+            fi
+        done
 
-    nft list table inet PodkopTable
-
-    nolog "\nNFT check completed"
+        nolog "Chain configurations:"
+        
+        # Create a temporary file for processing
+        local tmp_file=$(mktemp)
+        nft list table inet PodkopTable > "$tmp_file"
+        
+        # Extract chain configurations without element listings
+        sed -n '/chain mangle {/,/}/p' "$tmp_file" | grep -v "elements" | grep -v "^[[:space:]]*[0-9]"
+        sed -n '/chain proxy {/,/}/p' "$tmp_file" | grep -v "elements" | grep -v "^[[:space:]]*[0-9]"
+        
+        # Clean up
+        rm -f "$tmp_file"
+    else
+        # Simple view as originally implemented
+        nolog "Sets configuration:"
+        nft list table inet PodkopTable
+    fi
+    
+    nolog "NFT check completed"
 }
 
 check_github() {
@@ -2368,11 +2418,7 @@ global_check() {
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🧱 NFT table"
-    if ! nft list table inet PodkopTable >/dev/null 2>&1; then
-        print_global "❌ PodkopTable not found"
-    else
-        nft list table inet PodkopTable
-    fi
+    check_nft
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "📄 WAN config"
