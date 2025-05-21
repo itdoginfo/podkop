@@ -5,6 +5,7 @@
 'require view.podkop.configSection as configSection';
 'require view.podkop.diagnosticTab as diagnosticTab';
 'require view.podkop.additionalTab as additionalTab';
+'require view.podkop.utils as utils';
 
 return view.extend({
     async render() {
@@ -44,7 +45,36 @@ return view.extend({
 
         // Diagnostics Tab (main section)
         diagnosticTab.createDiagnosticsSection(mainSection);
-        const map_promise = m.render().then(node => diagnosticTab.setupDiagnosticsEventHandlers(node));
+        const map_promise = m.render().then(node => {
+            // Set up diagnostics event handlers
+            diagnosticTab.setupDiagnosticsEventHandlers(node);
+
+            // Start critical error polling for all tabs
+            utils.startErrorPolling();
+
+            // Add event listener to keep error polling active when switching tabs
+            const tabs = node.querySelectorAll('.cbi-tabmenu');
+            if (tabs.length > 0) {
+                tabs[0].addEventListener('click', function (e) {
+                    const tab = e.target.closest('.cbi-tab');
+                    if (tab) {
+                        // Ensure error polling continues when switching tabs
+                        utils.startErrorPolling();
+                    }
+                });
+            }
+
+            // Add visibility change handler to manage error polling
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) {
+                    utils.stopErrorPolling();
+                } else {
+                    utils.startErrorPolling();
+                }
+            });
+
+            return node;
+        });
 
         // Extra Section
         const extraSection = m.section(form.TypedSection, 'extra', _('Extra configurations'));
