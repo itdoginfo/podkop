@@ -1886,7 +1886,7 @@ check_nft() {
     
     # Check if table exists
     if ! nft list table inet PodkopTable >/dev/null 2>&1; then
-        nolog "PodkopTable not found"
+        nolog "❌ PodkopTable not found"
         return 1
     fi
     
