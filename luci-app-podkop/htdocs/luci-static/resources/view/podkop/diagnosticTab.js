@@ -5,6 +5,7 @@
 'require uci';
 'require fs';
 'require view.podkop.constants as constants';
+'require view.podkop.utils as utils';
 
 // Cache system for network requests
 const fetchCache = {};
@@ -36,52 +37,12 @@ async function cachedFetch(url, options = {}) {
     }
 }
 
-// Helper functions for command execution with prioritization
+// Helper functions for command execution with prioritization - Using from utils.js now
 function safeExec(command, args, priority, callback, timeout = constants.COMMAND_TIMEOUT) {
-    priority = (typeof priority === 'number') ? priority : 0;
-
-    const executeCommand = async () => {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-            const result = await Promise.race([
-                fs.exec(command, args),
-                new Promise((_, reject) => {
-                    controller.signal.addEventListener('abort', () => {
-                        reject(new Error('Command execution timed out'));
-                    });
-                })
-            ]);
-
-            clearTimeout(timeoutId);
-
-            if (callback && typeof callback === 'function') {
-                callback(result);
-            }
-
-            return result;
-        } catch (error) {
-            console.warn(`Command execution failed or timed out: ${command} ${args.join(' ')}`);
-            const errorResult = { stdout: '', stderr: error.message, error: error };
-
-            if (callback && typeof callback === 'function') {
-                callback(errorResult);
-            }
-
-            return errorResult;
-        }
-    };
-
-    if (callback && typeof callback === 'function') {
-        setTimeout(executeCommand, constants.RUN_PRIORITY[priority]);
-        return;
-    }
-    else {
-        return executeCommand();
-    }
+    return utils.safeExec(command, args, priority, callback, timeout);
 }
 
+// Helper functions for handling checks
 function runCheck(checkFunction, priority, callback) {
     priority = (typeof priority === 'number') ? priority : 0;
 
@@ -255,95 +216,36 @@ function checkDNSAvailability() {
 }
 
 async function checkBypass() {
-    return new Promise(async (resolve) => {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), constants.FETCH_TIMEOUT);
+
         try {
-            let configMode = 'proxy'; // Default fallback
-            try {
-                const data = await uci.load('podkop');
-                configMode = uci.get('podkop', 'main', 'mode') || 'proxy';
-            } catch (e) {
-                console.error('Error getting mode from UCI:', e);
+            const response1 = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
+            const data1 = await response1.json();
+
+            const response2 = await cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller.signal });
+            const data2 = await response2.json();
+
+            clearTimeout(timeoutId);
+
+            if (data1.IP && data2.IP) {
+                if (data1.IP !== data2.IP) {
+                    return createStatus('working', 'working', 'SUCCESS');
+                } else {
+                    return createStatus('not_working', 'same IP for both domains', 'ERROR');
+                }
+            } else {
+                return createStatus('error', 'check error (no IP)', 'WARNING');
             }
-
-            safeExec('/usr/bin/podkop', ['get_sing_box_status'], 0, singboxStatusResult => {
-                const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
-
-                if (!singboxStatus.running) {
-                    return resolve(createStatus('not_working', `${configMode} not running`, 'ERROR'));
-                }
-
-                // Fetch IP from first endpoint
-                let ip1 = null;
-                try {
-                    const controller1 = new AbortController();
-                    const timeoutId1 = setTimeout(() => controller1.abort(), constants.FETCH_TIMEOUT);
-
-                    cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller1.signal })
-                        .then(response1 => response1.json())
-                        .then(data1 => {
-                            clearTimeout(timeoutId1);
-                            ip1 = data1.IP;
-
-                            // Fetch IP from second endpoint
-                            const controller2 = new AbortController();
-                            const timeoutId2 = setTimeout(() => controller2.abort(), constants.FETCH_TIMEOUT);
-
-                            cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller2.signal })
-                                .then(response2 => response2.json())
-                                .then(data2 => {
-                                    clearTimeout(timeoutId2);
-                                    const ip2 = data2.IP;
-
-                                    // Compare IPs
-                                    if (ip1 && ip2) {
-                                        if (ip1 !== ip2) {
-                                            return resolve(createStatus('working', `${configMode} working correctly`, 'SUCCESS'));
-                                        } else {
-                                            return resolve(createStatus('not_working', `${configMode} routing incorrect`, 'ERROR'));
-                                        }
-                                    } else {
-                                        return resolve(createStatus('error', 'IP comparison failed', 'WARNING'));
-                                    }
-                                })
-                                .catch(error => {
-                                    return resolve(createStatus('not_working', `${configMode} not working`, 'ERROR'));
-                                });
-                        })
-                        .catch(error => {
-                            return resolve(createStatus('error', 'First endpoint check failed', 'WARNING'));
-                        });
-                } catch (error) {
-                    return resolve(createStatus('error', 'Bypass check error', 'WARNING'));
-                }
-            });
-        } catch (error) {
-            return resolve(createStatus('error', 'Bypass check error', 'WARNING'));
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+            const message = fetchError.name === 'AbortError' ? 'timeout' : 'check error';
+            return createStatus('error', message, 'WARNING');
         }
-    });
-}
-
-// Error Handling
-async function getPodkopErrors() {
-    return new Promise(resolve => {
-        safeExec('/usr/bin/podkop', ['check_logs'], 0, result => {
-            if (!result || !result.stdout) return resolve([]);
-
-            const logs = result.stdout.split('\n');
-            const errors = logs.filter(log =>
-                log.includes('[critical]')
-            );
-
-            resolve(errors);
-        });
-    });
-}
-
-function showErrorNotification(error, isMultiple = false) {
-    const notificationContent = E('div', { 'class': 'alert-message error' }, [
-        E('pre', { 'class': 'error-log' }, error)
-    ]);
-
-    ui.addNotification(null, notificationContent);
+    } catch (error) {
+        return createStatus('error', 'check error', 'WARNING');
+    }
 }
 
 // Modal Functions
@@ -523,6 +425,7 @@ const ButtonFactory = {
         return this.createButton({
             label: config.label,
             onClick: () => showConfigModal(config.command, config.title),
+            additionalClass: `cbi-button-${config.type || ''}`,
             style: config.style
         });
     }
@@ -682,18 +585,20 @@ let createStatusSection = async function () {
     ]);
 };
 
-// Diagnostics Update Functions
+// Global variables for tracking state
 let diagnosticsUpdateTimer = null;
-let errorPollTimer = null;
-let lastErrorsSet = new Set();
 let isInitialCheck = true;
+showConfigModal.busy = false;
 
 function startDiagnosticsUpdates() {
     if (diagnosticsUpdateTimer) {
         clearInterval(diagnosticsUpdateTimer);
     }
 
+    // Immediately update when started
     updateDiagnostics();
+
+    // Then set up periodic updates
     diagnosticsUpdateTimer = setInterval(updateDiagnostics, constants.DIAGNOSTICS_UPDATE_INTERVAL);
 }
 
@@ -701,64 +606,6 @@ function stopDiagnosticsUpdates() {
     if (diagnosticsUpdateTimer) {
         clearInterval(diagnosticsUpdateTimer);
         diagnosticsUpdateTimer = null;
-    }
-
-    // Reset the loading state when stopping updates
-    const container = document.getElementById('diagnostics-status');
-    if (container) {
-        container.removeAttribute('data-loading');
-    }
-}
-
-// Error polling functions
-function startErrorPolling() {
-    if (errorPollTimer) {
-        clearInterval(errorPollTimer);
-    }
-
-    // Reset initial check flag to make sure we show errors
-    isInitialCheck = false;
-
-    // Immediately check for errors on start
-    checkForCriticalErrors();
-
-    // Then set up periodic checks
-    errorPollTimer = setInterval(checkForCriticalErrors, constants.ERROR_POLL_INTERVAL);
-}
-
-function stopErrorPolling() {
-    if (errorPollTimer) {
-        clearInterval(errorPollTimer);
-        errorPollTimer = null;
-    }
-}
-
-async function checkForCriticalErrors() {
-    try {
-        const errors = await getPodkopErrors();
-
-        if (errors && errors.length > 0) {
-            // Filter out errors we've already seen
-            const newErrors = errors.filter(error => !lastErrorsSet.has(error));
-
-            if (newErrors.length > 0) {
-                // On initial check, just store errors without showing notifications
-                if (!isInitialCheck) {
-                    // Show each new error as a notification
-                    newErrors.forEach(error => {
-                        showErrorNotification(error, newErrors.length > 1);
-                    });
-                }
-
-                // Add new errors to our set of seen errors
-                newErrors.forEach(error => lastErrorsSet.add(error));
-            }
-        }
-
-        // After first check, mark as no longer initial
-        isInitialCheck = false;
-    } catch (error) {
-        console.error('Error checking for critical messages:', error);
     }
 }
 
@@ -968,29 +815,44 @@ function setupDiagnosticsEventHandlers(node) {
     const titleDiv = E('h2', { 'class': 'cbi-map-title' }, _('Podkop'));
     node.insertBefore(titleDiv, node.firstChild);
 
+    // Function to initialize diagnostics
+    function initDiagnostics(container) {
+        if (container && container.hasAttribute('data-loading')) {
+            container.innerHTML = '';
+            showConfigModal.busy = false;
+            createStatusSection().then(section => {
+                container.appendChild(section);
+                startDiagnosticsUpdates();
+                // Start error polling when diagnostics tab is active
+                utils.startErrorPolling();
+            });
+        }
+    }
+
     document.addEventListener('visibilitychange', function () {
         const diagnosticsContainer = document.getElementById('diagnostics-status');
-        if (document.hidden) {
+        const diagnosticsTab = document.querySelector('.cbi-tab[data-tab="diagnostics"]');
+
+        if (document.hidden || !diagnosticsTab || !diagnosticsTab.classList.contains('cbi-tab-active')) {
             stopDiagnosticsUpdates();
-            stopErrorPolling();
+            // Don't stop error polling here - it's managed in podkop.js for all tabs
         } else if (diagnosticsContainer && diagnosticsContainer.hasAttribute('data-loading')) {
             startDiagnosticsUpdates();
-            startErrorPolling();
+            // Ensure error polling is running when diagnostics tab is active
+            utils.startErrorPolling();
         }
     });
 
     setTimeout(() => {
         const diagnosticsContainer = document.getElementById('diagnostics-status');
-        if (diagnosticsContainer) {
-            if (diagnosticsContainer.hasAttribute('data-loading')) {
-                diagnosticsContainer.innerHTML = '';
-                showConfigModal.busy = false;
-                createStatusSection().then(section => {
-                    diagnosticsContainer.appendChild(section);
-                    startDiagnosticsUpdates();
-                    startErrorPolling();
-                });
-            }
+        const diagnosticsTab = document.querySelector('.cbi-tab[data-tab="diagnostics"]');
+        const otherTabs = document.querySelectorAll('.cbi-tab:not([data-tab="diagnostics"])');
+
+        // Check for direct page load case
+        const noActiveTabsExist = !Array.from(otherTabs).some(tab => tab.classList.contains('cbi-tab-active'));
+
+        if (diagnosticsContainer && diagnosticsTab && (diagnosticsTab.classList.contains('cbi-tab-active') || noActiveTabsExist)) {
+            initDiagnostics(diagnosticsContainer);
         }
 
         const tabs = node.querySelectorAll('.cbi-tabmenu');
@@ -1001,39 +863,14 @@ function setupDiagnosticsEventHandlers(node) {
                     const tabName = tab.getAttribute('data-tab');
                     if (tabName === 'diagnostics') {
                         const container = document.getElementById('diagnostics-status');
-                        if (container && !container.hasAttribute('data-loading')) {
-                            container.setAttribute('data-loading', 'true');
-
-                            // Render UI structure immediately
-                            container.innerHTML = '';
-                            createStatusSection().then(section => {
-                                container.appendChild(section);
-                                startDiagnosticsUpdates();
-                                startErrorPolling();
-                            });
-                        }
+                        container.setAttribute('data-loading', 'true');
+                        initDiagnostics(container);
                     } else {
                         stopDiagnosticsUpdates();
-                        stopErrorPolling();
+                        // Don't stop error polling - it should continue on all tabs
                     }
                 }
             });
-
-            const activeTab = tabs[0].querySelector('.cbi-tab[data-tab="diagnostics"]');
-            if (activeTab) {
-                const container = document.getElementById('diagnostics-status');
-                if (container && !container.hasAttribute('data-loading')) {
-                    container.setAttribute('data-loading', 'true');
-
-                    // Render UI structure immediately
-                    container.innerHTML = '';
-                    createStatusSection().then(section => {
-                        container.appendChild(section);
-                        startDiagnosticsUpdates();
-                        startErrorPolling();
-                    });
-                }
-            }
         }
     }, constants.DIAGNOSTICS_INITIAL_DELAY);
 
