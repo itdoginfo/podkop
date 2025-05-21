@@ -326,14 +326,23 @@ async function checkBypass() {
 async function getPodkopErrors() {
     return new Promise(resolve => {
         safeExec('/usr/bin/podkop', ['check_logs'], 0, result => {
-            if (!result || !result.stdout) return resolve([]);
+            if (!result || !result.stdout) {
+                console.error('No logs received from check_logs command');
+                return resolve([]);
+            }
 
             const logs = result.stdout.split('\n');
-            const errors = logs.filter(log =>
-                log.includes('[critical]')
-            );
+            console.log('Got logs from check_logs command, total lines:', logs.length);
 
-            console.log('Found errors:', errors);
+            const errors = logs.filter(log => {
+                const hasCritical = log.includes('[critical]');
+                if (hasCritical) {
+                    console.log('Found critical log:', log);
+                }
+                return hasCritical;
+            });
+
+            console.log('Found errors:', errors.length, errors);
             resolve(errors);
         });
     });
@@ -708,6 +717,73 @@ function stopDiagnosticsUpdates() {
     const container = document.getElementById('diagnostics-status');
     if (container) {
         container.removeAttribute('data-loading');
+    }
+}
+
+// Error polling functions
+function startErrorPolling() {
+    console.log('Starting error polling');
+    if (errorPollTimer) {
+        console.log('Clearing existing error poll timer');
+        clearInterval(errorPollTimer);
+    }
+
+    // Reset initial check flag to make sure we show errors
+    isInitialCheck = false;
+
+    // Immediately check for errors on start
+    console.log('Running immediate check for errors');
+    checkForCriticalErrors();
+
+    // Then set up periodic checks
+    console.log('Setting up periodic error checks with interval:', constants.ERROR_POLL_INTERVAL);
+    errorPollTimer = setInterval(checkForCriticalErrors, constants.ERROR_POLL_INTERVAL);
+}
+
+function stopErrorPolling() {
+    if (errorPollTimer) {
+        clearInterval(errorPollTimer);
+        errorPollTimer = null;
+    }
+}
+
+async function checkForCriticalErrors() {
+    try {
+        console.log('Checking for critical errors, isInitialCheck =', isInitialCheck);
+        const errors = await getPodkopErrors();
+        console.log('Got errors from getPodkopErrors:', errors.length);
+
+        if (errors && errors.length > 0) {
+            // Filter out errors we've already seen
+            const newErrors = errors.filter(error => !lastErrorsSet.has(error));
+            console.log('New errors not seen before:', newErrors.length);
+
+            if (newErrors.length > 0) {
+                // On initial check, just store errors without showing notifications
+                if (!isInitialCheck) {
+                    console.log('Showing notifications for errors:', newErrors.length);
+                    // Show each new error as a notification
+                    newErrors.forEach(error => {
+                        console.log('Showing notification for error:', error);
+                        showErrorNotification(error, newErrors.length > 1);
+                    });
+                } else {
+                    console.log('Initial check, not showing notifications');
+                }
+
+                // Add new errors to our set of seen errors
+                newErrors.forEach(error => lastErrorsSet.add(error));
+                console.log('Updated lastErrorsSet, size =', lastErrorsSet.size);
+            }
+        }
+
+        // After first check, mark as no longer initial
+        if (isInitialCheck) {
+            console.log('Setting isInitialCheck to false');
+            isInitialCheck = false;
+        }
+    } catch (error) {
+        console.error('Error checking for critical messages:', error);
     }
 }
 
