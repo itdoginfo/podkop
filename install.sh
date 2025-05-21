@@ -111,6 +111,7 @@ main() {
             read -r -p '' RUS
             case $RUS in
             y)
+                opkg remove luci-i18n-podkop*
                 opkg install "$DOWNLOAD_DIR/$ru"
                 break
                 ;;
