@@ -44,7 +44,13 @@ function safeExec(command, args, priority, callback, timeout = constants.COMMAND
 
 // Helper functions for handling checks
 function runCheck(checkFunction, priority, callback) {
-    priority = (typeof priority === 'number') ? priority : 0;
+    // Default to highest priority execution if priority is not provided or invalid
+    let schedulingDelay = constants.COMMAND_SCHEDULING.P0_PRIORITY;
+
+    // If priority is a string, try to get the corresponding delay value
+    if (typeof priority === 'string' && constants.COMMAND_SCHEDULING[priority] !== undefined) {
+        schedulingDelay = constants.COMMAND_SCHEDULING[priority];
+    }
 
     const executeCheck = async () => {
         try {
@@ -62,7 +68,7 @@ function runCheck(checkFunction, priority, callback) {
     };
 
     if (callback && typeof callback === 'function') {
-        setTimeout(executeCheck, constants.RUN_PRIORITY[priority]);
+        setTimeout(executeCheck, schedulingDelay);
         return;
     } else {
         return executeCheck();
@@ -70,7 +76,13 @@ function runCheck(checkFunction, priority, callback) {
 }
 
 function runAsyncTask(taskFunction, priority) {
-    priority = (typeof priority === 'number') ? priority : 0;
+    // Default to highest priority execution if priority is not provided or invalid
+    let schedulingDelay = constants.COMMAND_SCHEDULING.P0_PRIORITY;
+
+    // If priority is a string, try to get the corresponding delay value
+    if (typeof priority === 'string' && constants.COMMAND_SCHEDULING[priority] !== undefined) {
+        schedulingDelay = constants.COMMAND_SCHEDULING[priority];
+    }
 
     setTimeout(async () => {
         try {
@@ -78,7 +90,7 @@ function runAsyncTask(taskFunction, priority) {
         } catch (error) {
             console.error('Async task error:', error);
         }
-    }, constants.RUN_PRIORITY[priority]);
+    }, schedulingDelay);
 }
 
 // Helper Functions for UI and formatting
@@ -151,21 +163,12 @@ async function checkFakeIP() {
 async function checkFakeIPCLI() {
     try {
         return new Promise((resolve) => {
-            safeExec('/usr/bin/podkop', ['get_sing_box_status'], 0, singboxStatusResult => {
-                const singboxStatus = JSON.parse(singboxStatusResult.stdout || '{"running":0,"dns_configured":0}');
-
-                if (!singboxStatus.running) {
-                    resolve(createStatus('not_working', 'sing-box not running', 'ERROR'));
-                    return;
+            safeExec('nslookup', ['-timeout=2', constants.FAKEIP_CHECK_DOMAIN, '127.0.0.42'], 'P0_PRIORITY', result => {
+                if (result.stdout && result.stdout.includes('198.18')) {
+                    resolve(createStatus('working', 'working on router', 'SUCCESS'));
+                } else {
+                    resolve(createStatus('not_working', 'not working on router', 'ERROR'));
                 }
-
-                safeExec('nslookup', ['-timeout=2', constants.FAKEIP_CHECK_DOMAIN, '127.0.0.42'], 0, result => {
-                    if (result.stdout && result.stdout.includes('198.18')) {
-                        resolve(createStatus('working', 'working on router', 'SUCCESS'));
-                    } else {
-                        resolve(createStatus('not_working', 'not working on router', 'ERROR'));
-                    }
-                });
             });
         });
     } catch (error) {
@@ -176,7 +179,7 @@ async function checkFakeIPCLI() {
 function checkDNSAvailability() {
     return new Promise(async (resolve) => {
         try {
-            safeExec('/usr/bin/podkop', ['check_dns_available'], 0, dnsStatusResult => {
+            safeExec('/usr/bin/podkop', ['check_dns_available'], 'P0_PRIORITY', dnsStatusResult => {
                 if (!dnsStatusResult || !dnsStatusResult.stdout) {
                     return resolve({
                         remote: createStatus('error', 'DNS check timeout', 'WARNING'),
@@ -319,7 +322,7 @@ function showConfigModal(command, title) {
         let formattedOutput = '';
 
         if (command === 'global_check') {
-            safeExec('/usr/bin/podkop', [command], 0, res => {
+            safeExec('/usr/bin/podkop', [command], 'P0_PRIORITY', res => {
                 formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
 
                 try {
@@ -381,7 +384,7 @@ function showConfigModal(command, title) {
                 }
             });
         } else {
-            safeExec('/usr/bin/podkop', [command], 0, res => {
+            safeExec('/usr/bin/podkop', [command], 'P0_PRIORITY', res => {
                 formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
                 updateModalContent(formattedOutput);
             });
@@ -405,7 +408,7 @@ const ButtonFactory = {
         return this.createButton({
             label: config.label,
             additionalClass: `cbi-button-${config.type || ''}`,
-            onClick: () => safeExec('/usr/bin/podkop', [config.action])
+            onClick: () => safeExec('/usr/bin/podkop', [config.action], 'P0_PRIORITY')
                 .then(() => config.reload && location.reload()),
             style: config.style
         });
@@ -415,7 +418,7 @@ const ButtonFactory = {
         return this.createButton({
             label: config.label,
             additionalClass: `cbi-button-${config.type || ''}`,
-            onClick: () => safeExec('/etc/init.d/podkop', [config.action])
+            onClick: () => safeExec('/etc/init.d/podkop', [config.action], 'P0_PRIORITY')
                 .then(() => config.reload && location.reload()),
             style: config.style
         });
@@ -620,7 +623,7 @@ function updateTextElement(elementId, content) {
 
 async function updateDiagnostics() {
     // Podkop Status check
-    safeExec('/usr/bin/podkop', ['get_status'], 0, result => {
+    safeExec('/usr/bin/podkop', ['get_status'], 'P0_PRIORITY', result => {
         try {
             const parsedPodkopStatus = JSON.parse(result.stdout || '{"enabled":0,"status":"error"}');
 
@@ -664,7 +667,7 @@ async function updateDiagnostics() {
     });
 
     // Sing-box Status check
-    safeExec('/usr/bin/podkop', ['get_sing_box_status'], 0, result => {
+    safeExec('/usr/bin/podkop', ['get_sing_box_status'], 'P0_PRIORITY', result => {
         try {
             const parsedSingboxStatus = JSON.parse(result.stdout || '{"running":0,"enabled":0,"status":"error"}');
 
@@ -686,25 +689,25 @@ async function updateDiagnostics() {
     });
 
     // Version Information checks
-    safeExec('/usr/bin/podkop', ['show_version'], 2, result => {
+    safeExec('/usr/bin/podkop', ['show_version'], 'P2_PRIORITY', result => {
         updateTextElement('podkop-version',
             document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown'))
         );
     });
 
-    safeExec('/usr/bin/podkop', ['show_luci_version'], 2, result => {
+    safeExec('/usr/bin/podkop', ['show_luci_version'], 'P2_PRIORITY', result => {
         updateTextElement('luci-version',
             document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown'))
         );
     });
 
-    safeExec('/usr/bin/podkop', ['show_sing_box_version'], 2, result => {
+    safeExec('/usr/bin/podkop', ['show_sing_box_version'], 'P2_PRIORITY', result => {
         updateTextElement('singbox-version',
             document.createTextNode(result.stdout ? result.stdout.trim() : _('Unknown'))
         );
     });
 
-    safeExec('/usr/bin/podkop', ['show_system_info'], 2, result => {
+    safeExec('/usr/bin/podkop', ['show_system_info'], 'P2_PRIORITY', result => {
         if (result.stdout) {
             updateTextElement('openwrt-version',
                 document.createTextNode(result.stdout.split('\n')[1].trim())
@@ -719,7 +722,7 @@ async function updateDiagnostics() {
     });
 
     // FakeIP and DNS status checks
-    runCheck(checkFakeIP, 3, result => {
+    runCheck(checkFakeIP, 'P3_PRIORITY', result => {
         updateTextElement('fakeip-browser-status',
             E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
                 result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
@@ -728,7 +731,7 @@ async function updateDiagnostics() {
         );
     });
 
-    runCheck(checkFakeIPCLI, 3, result => {
+    runCheck(checkFakeIPCLI, 'P8_PRIORITY', result => {
         updateTextElement('fakeip-router-status',
             E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
                 result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
@@ -737,7 +740,7 @@ async function updateDiagnostics() {
         );
     });
 
-    runCheck(checkDNSAvailability, 4, result => {
+    runCheck(checkDNSAvailability, 'P4_PRIORITY', result => {
         if (result.error) {
             updateTextElement('dns-remote-status',
                 E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! DNS check error')
@@ -762,14 +765,14 @@ async function updateDiagnostics() {
         }
     });
 
-    runCheck(checkBypass, 1, result => {
+    runCheck(checkBypass, 'P1_PRIORITY', result => {
         updateTextElement('bypass-status',
             E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
                 result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
                 result.error ? 'check error' : result.message
             ])
         );
-    });
+    }, 'P1_PRIORITY');
 
     // Config name
     runAsyncTask(async () => {
@@ -797,7 +800,7 @@ async function updateDiagnostics() {
         } catch (e) {
             console.error('Error getting config name from UCI:', e);
         }
-    }, 1);
+    }, 'P1_PRIORITY');
 }
 
 function createDiagnosticsSection(mainSection) {

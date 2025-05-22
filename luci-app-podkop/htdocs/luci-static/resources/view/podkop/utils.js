@@ -16,7 +16,7 @@ let errorPollTimer = null;
 // Helper function to fetch errors from the podkop command
 async function getPodkopErrors() {
     return new Promise(resolve => {
-        safeExec('/usr/bin/podkop', ['check_logs'], 0, result => {
+        safeExec('/usr/bin/podkop', ['check_logs'], 'P0_PRIORITY', result => {
             if (!result || !result.stdout) return resolve([]);
 
             const logs = result.stdout.split('\n');
@@ -40,7 +40,13 @@ function showErrorNotification(error, isMultiple = false) {
 
 // Helper function for command execution with prioritization
 function safeExec(command, args, priority, callback, timeout = constants.COMMAND_TIMEOUT) {
-    priority = (typeof priority === 'number') ? priority : 0;
+    // Default to highest priority execution if priority is not provided or invalid
+    let schedulingDelay = constants.COMMAND_SCHEDULING.P0_PRIORITY;
+
+    // If priority is a string, try to get the corresponding delay value
+    if (typeof priority === 'string' && constants.COMMAND_SCHEDULING[priority] !== undefined) {
+        schedulingDelay = constants.COMMAND_SCHEDULING[priority];
+    }
 
     const executeCommand = async () => {
         try {
@@ -76,7 +82,7 @@ function safeExec(command, args, priority, callback, timeout = constants.COMMAND
     };
 
     if (callback && typeof callback === 'function') {
-        setTimeout(executeCommand, constants.RUN_PRIORITY[priority]);
+        setTimeout(executeCommand, schedulingDelay);
         return;
     }
     else {
