@@ -17,14 +17,9 @@ https://podkop.net/
 # Установка Podkop
 Полная информация в [документации](https://podkop.net/docs/install/)
 
-Вкратце, достаточно одного скрипта для установки:
+Вкратце, достаточно одного скрипта для установки и обновления:
 ```
 sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
-```
-
-Для обновления:
-```
-sh <(wget -qO- https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh) --upgrade
 ```
 
 # ToDo
