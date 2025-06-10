@@ -205,6 +205,7 @@ function createConfigSection(section, map, network) {
     o.placeholder = '60';
     o.datatype = 'uinteger';
     o.rmempty = true;
+    o.depends('mode', 'proxy'); 
     o.depends('proxy_selector_mode', 'urltest');
     o.depends('proxy_config_type', 'url');
     o.ucisection = s.section;
@@ -214,6 +215,7 @@ function createConfigSection(section, map, network) {
     o.placeholder = '0';
     o.datatype = 'uinteger';
     o.rmempty = true;
+    o.depends('mode', 'proxy'); 
     o.depends('proxy_selector_mode', 'urltest');
     o.depends('proxy_config_type', 'url');
     o.ucisection = s.section;
