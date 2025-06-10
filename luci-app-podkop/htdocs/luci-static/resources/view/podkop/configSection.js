@@ -196,8 +196,7 @@ function createConfigSection(section, map, network) {
     o.value('default', _('Default (use first proxy in list)'));
     o.value('urltest', _('Best (auto test, use fastest proxy)'));
     o.default = 'default';
-    o.depends('mode', 'proxy');
-    o.depends('proxy_config_type', 'url');
+    o.depends({ mode: 'proxy', proxy_config_type: 'url' });
     o.ucisection = s.section;
 
     // Proxy urltest interval (seconds)
@@ -205,9 +204,7 @@ function createConfigSection(section, map, network) {
     o.placeholder = '60';
     o.datatype = 'uinteger';
     o.rmempty = true;
-    o.depends('mode', 'proxy'); 
-    o.depends('proxy_selector_mode', 'urltest');
-    o.depends('proxy_config_type', 'url');
+    o.depends({ mode: 'proxy', proxy_config_type: 'url', proxy_selector_mode: 'urltest' });
     o.ucisection = s.section;
 
     // Proxy urltest tolerance
@@ -215,9 +212,7 @@ function createConfigSection(section, map, network) {
     o.placeholder = '0';
     o.datatype = 'uinteger';
     o.rmempty = true;
-    o.depends('mode', 'proxy'); 
-    o.depends('proxy_selector_mode', 'urltest');
-    o.depends('proxy_config_type', 'url');
+    o.depends({ mode: 'proxy', proxy_config_type: 'url', proxy_selector_mode: 'urltest' });
     o.ucisection = s.section;
     
     o = s.taboption('basic', form.TextValue, 'outbound_json', _('Outbound Configuration'), _('Enter complete outbound configuration in JSON format'));
