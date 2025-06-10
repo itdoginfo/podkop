@@ -5,6 +5,12 @@
 
 config_load "/etc/config/podkop"
 
+config_get urltest_interval "main" "urltest_interval" ""
+config_get urltest_tolerance "main" "urltest_tolerance" ""
+
+[ -z "$urltest_interval" ] && urltest_interval="60"
+[ -z "$urltest_tolerance" ] && urltest_tolerance="0"
+
 GITHUB_RAW_URL="https://raw.githubusercontent.com/itdoginfo/allow-domains/main"
 SRS_MAIN_URL="https://github.com/itdoginfo/allow-domains/releases/latest/download"
 DOMAINS_RU_INSIDE="${GITHUB_RAW_URL}/Russia/inside-dnsmasq-nfset.lst"
@@ -929,37 +935,56 @@ sing_box_outdound() {
         ;;
     "proxy")
         log "Proxy mode"
-        config_get proxy_config_type "$section" "proxy_config_type"
-
-        if [ "$proxy_config_type" = "outbound" ]; then
-            config_get outbound_json $section "outbound_json"
-            if [ -n "$outbound_json" ]; then
-                log "Using JSON outbound configuration"
-                sing_box_config_outbound_json "$outbound_json" "$section"
-            else
-                log "Missing outbound JSON configuration"
-                return
+        config_get proxy_selector_mode "$section" "proxy_selector_mode" "default"
+        config_get proxy_string $section "proxy_string"
+        PROXY_LIST=""
+        while IFS= read -r line; do
+            line=$(echo "$line" | sed 's/^[ \t]*//;s/[ \t]*$//')
+            [ -n "$line" ] && ! echo "$line" | grep -q "^[[:space:]]*\/\/" && PROXY_LIST="${PROXY_LIST}${line}"$'\n'
+        done <<EOF
+$proxy_string
+EOF
+        proxy_tags=""
+        i=0
+        for proxy_string in $PROXY_LIST; do
+            [ -z "$proxy_string" ] && continue
+            tag="${section}-proxy-$i"
+            [ -n "$proxy_tags" ] && proxy_tags="$proxy_tags, "
+            proxy_tags="$proxy_tags\"$tag\""
+            config_get ss_uot $section "ss_uot" "0"
+            if echo "$proxy_string" | grep -q '^ss://'; then
+                sing_box_config_shadowsocks "$tag" "$proxy_string" "$ss_uot"
+            elif echo "$proxy_string" | grep -q '^vless://'; then
+                sing_box_config_vless "$tag" "$proxy_string"
+            fi
+            i=$((i+1))
+        done
+        if [ "$proxy_selector_mode" = "urltest" ]; then
+    log "Using urltest for proxy group"
+    jq --arg section "$section" \
+       --argjson proxies "[$proxy_tags]" \
+       --arg interval "${urltest_interval}s" \
+       --argjson tolerance "$urltest_tolerance" \
+       '.outbounds |= (map(select(.tag!=$section)) + [{
+           "tag": $section,
+           "type": "urltest",
+           "outbounds": $proxies,
+           "interval": $interval,
+           "tolerance": $tolerance
+       }])' \
+             $SING_BOX_CONFIG > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+        elif [ "$proxy_selector_mode" = "default" ]; then
+            log "Using default proxy mode (first proxy)"
+            proxy_string="$(echo "$PROXY_LIST" | head -n 1)"
+            config_get ss_uot $section "ss_uot" "0"
+            if echo "$proxy_string" | grep -q '^ss://'; then
+                sing_box_config_shadowsocks "$section" "$proxy_string" "$ss_uot"
+            elif echo "$proxy_string" | grep -q '^vless://'; then
+                sing_box_config_vless "$section" "$proxy_string"
             fi
         else
-            config_get proxy_string $section "proxy_string"
-            
-            # Extract the first non-comment line as the active configuration
-            active_proxy_string=$(echo "$proxy_string" | grep -v "^[[:space:]]*\/\/" | head -n 1)
-            
-            if [ -z "$active_proxy_string" ]; then
-                log "[critical] Proxy string is not set. Exit"
-                exit 1
-            fi
-            
-            if [[ "$active_proxy_string" =~ ^ss:// ]]; then
-                config_get ss_uot $section "ss_uot"
-                sing_box_config_shadowsocks "$section" "$active_proxy_string" "$ss_uot"
-            elif [[ "$active_proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_vless "$section" "$active_proxy_string"
-            else
-                log "Unsupported proxy type or missing configuration"
-                return
-            fi
+            log "[critical] Unknown proxy_selector_mode: $proxy_selector_mode"
+            exit 1
         fi
         ;;
     "block")
