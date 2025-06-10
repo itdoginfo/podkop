@@ -1,4 +1,3 @@
-
 'use strict';
 'require baseclass';
 'require form';
