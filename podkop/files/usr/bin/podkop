@@ -5,8 +5,8 @@
 
 config_load "/etc/config/podkop"
 
-config_get urltest_interval "main" "urltest_interval" ""
-config_get urltest_tolerance "main" "urltest_tolerance" ""
+config_get urltest_interval "$section" "urltest_interval" ""
+config_get urltest_tolerance "$section" "urltest_tolerance" ""
 
 [ -z "$urltest_interval" ] && urltest_interval="60"
 [ -z "$urltest_tolerance" ] && urltest_tolerance="0"
