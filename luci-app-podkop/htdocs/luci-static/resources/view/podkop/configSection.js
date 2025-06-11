@@ -85,103 +85,105 @@ function createConfigSection(section, map, network) {
         return container;
     };
 
-    o.validate = function (section_id, value) {
+o.validate = function (section_id, value) {
         if (!value || value.length === 0) {
             return true;
         }
 
         try {
-            const activeConfig = value.split('\n')
+            const activeConfigs = value.split('\n')
                 .map(line => line.trim())
-                .find(line => line && !line.startsWith('//'));
+                .filter(line => line && !line.startsWith('//'));
 
-            if (!activeConfig) {
+            if (activeConfigs.length === 0) {
                 return _('No active configuration found. At least one non-commented line is required.');
             }
 
-            if (!activeConfig.startsWith('vless://') && !activeConfig.startsWith('ss://')) {
-                return _('URL must start with vless:// or ss://');
-            }
+            for (const activeConfig of activeConfigs) {
+                if (!activeConfig.startsWith('vless://') && !activeConfig.startsWith('ss://')) {
+                    return _('URL must start with vless:// or ss://');
+                }
 
-            if (activeConfig.startsWith('ss://')) {
-                let encrypted_part;
-                try {
-                    let mainPart = activeConfig.includes('?') ? activeConfig.split('?')[0] : activeConfig.split('#')[0];
-                    encrypted_part = mainPart.split('/')[2].split('@')[0];
+                if (activeConfig.startsWith('ss://')) {
+                    let encrypted_part;
                     try {
-                        let decoded = atob(encrypted_part);
-                        if (!decoded.includes(':')) {
+                        let mainPart = activeConfig.includes('?') ? activeConfig.split('?')[0] : activeConfig.split('#')[0];
+                        encrypted_part = mainPart.split('/')[2].split('@')[0];
+                        try {
+                            let decoded = atob(encrypted_part);
+                            if (!decoded.includes(':')) {
+                                if (!encrypted_part.includes(':') && !encrypted_part.includes('-')) {
+                                    return _('Invalid Shadowsocks URL format: missing method and password separator ":"');
+                                }
+                            }
+                        } catch (e) {
                             if (!encrypted_part.includes(':') && !encrypted_part.includes('-')) {
                                 return _('Invalid Shadowsocks URL format: missing method and password separator ":"');
                             }
                         }
                     } catch (e) {
-                        if (!encrypted_part.includes(':') && !encrypted_part.includes('-')) {
-                            return _('Invalid Shadowsocks URL format: missing method and password separator ":"');
+                        return _('Invalid Shadowsocks URL format');
+                    }
+
+                    try {
+                        let serverPart = activeConfig.split('@')[1];
+                        if (!serverPart) return _('Invalid Shadowsocks URL: missing server address');
+                        let [server, portAndRest] = serverPart.split(':');
+                        if (!server) return _('Invalid Shadowsocks URL: missing server');
+                        let port = portAndRest ? portAndRest.split(/[?#]/)[0] : null;
+                        if (!port) return _('Invalid Shadowsocks URL: missing port');
+                        let portNum = parseInt(port);
+                        if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+                            return _('Invalid port number. Must be between 1 and 65535');
                         }
+                    } catch (e) {
+                        return _('Invalid Shadowsocks URL: missing or invalid server/port format');
                     }
-                } catch (e) {
-                    return _('Invalid Shadowsocks URL format');
                 }
 
-                try {
-                    let serverPart = activeConfig.split('@')[1];
-                    if (!serverPart) return _('Invalid Shadowsocks URL: missing server address');
-                    let [server, portAndRest] = serverPart.split(':');
-                    if (!server) return _('Invalid Shadowsocks URL: missing server');
-                    let port = portAndRest ? portAndRest.split(/[?#]/)[0] : null;
-                    if (!port) return _('Invalid Shadowsocks URL: missing port');
-                    let portNum = parseInt(port);
-                    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-                        return _('Invalid port number. Must be between 1 and 65535');
+                if (activeConfig.startsWith('vless://')) {
+                    let uuid = activeConfig.split('/')[2].split('@')[0];
+                    if (!uuid || uuid.length === 0) return _('Invalid VLESS URL: missing UUID');
+
+                    try {
+                        let serverPart = activeConfig.split('@')[1];
+                        if (!serverPart) return _('Invalid VLESS URL: missing server address');
+                        let [server, portAndRest] = serverPart.split(':');
+                        if (!server) return _('Invalid VLESS URL: missing server');
+                        let port = portAndRest ? portAndRest.split(/[/?#]/)[0] : null;
+                        if (!port) return _('Invalid VLESS URL: missing port');
+                        let portNum = parseInt(port);
+                        if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+                            return _('Invalid port number. Must be between 1 and 65535');
+                        }
+                    } catch (e) {
+                        return _('Invalid VLESS URL: missing or invalid server/port format');
                     }
-                } catch (e) {
-                    return _('Invalid Shadowsocks URL: missing or invalid server/port format');
-                }
-            }
 
-            if (activeConfig.startsWith('vless://')) {
-                let uuid = activeConfig.split('/')[2].split('@')[0];
-                if (!uuid || uuid.length === 0) return _('Invalid VLESS URL: missing UUID');
+                    let queryString = activeConfig.split('?')[1];
+                    if (!queryString) return _('Invalid VLESS URL: missing query parameters');
 
-                try {
-                    let serverPart = activeConfig.split('@')[1];
-                    if (!serverPart) return _('Invalid VLESS URL: missing server address');
-                    let [server, portAndRest] = serverPart.split(':');
-                    if (!server) return _('Invalid VLESS URL: missing server');
-                    let port = portAndRest ? portAndRest.split(/[/?#]/)[0] : null;
-                    if (!port) return _('Invalid VLESS URL: missing port');
-                    let portNum = parseInt(port);
-                    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-                        return _('Invalid port number. Must be between 1 and 65535');
+                    let params = new URLSearchParams(queryString.split('#')[0]);
+                    let type = params.get('type');
+                    const validTypes = ['tcp', 'raw', 'udp', 'grpc', 'http', 'ws'];
+                    if (!type || !validTypes.includes(type)) {
+                        return _('Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws');
                     }
-                } catch (e) {
-                    return _('Invalid VLESS URL: missing or invalid server/port format');
-                }
 
-                let queryString = activeConfig.split('?')[1];
-                if (!queryString) return _('Invalid VLESS URL: missing query parameters');
+                    let security = params.get('security');
+                    const validSecurities = ['tls', 'reality', 'none'];
+                    if (!security || !validSecurities.includes(security)) {
+                        return _('Invalid VLESS URL: security must be one of tls, reality, none');
+                    }
 
-                let params = new URLSearchParams(queryString.split('#')[0]);
-                let type = params.get('type');
-                const validTypes = ['tcp', 'raw', 'udp', 'grpc', 'http', 'ws'];
-                if (!type || !validTypes.includes(type)) {
-                    return _('Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws');
-                }
+                    if (security === 'reality') {
+                        if (!params.get('pbk')) return _('Invalid VLESS URL: missing pbk parameter for reality security');
+                        if (!params.get('fp')) return _('Invalid VLESS URL: missing fp parameter for reality security');
+                    }
 
-                let security = params.get('security');
-                const validSecurities = ['tls', 'reality', 'none'];
-                if (!security || !validSecurities.includes(security)) {
-                    return _('Invalid VLESS URL: security must be one of tls, reality, none');
-                }
-
-                if (security === 'reality') {
-                    if (!params.get('pbk')) return _('Invalid VLESS URL: missing pbk parameter for reality security');
-                    if (!params.get('fp')) return _('Invalid VLESS URL: missing fp parameter for reality security');
-                }
-
-                if (security === 'tls' && type !== 'tcp' && !params.get('sni')) {
-                    return _('Invalid VLESS URL: missing sni parameter for tls security');
+                    if (security === 'tls' && type !== 'tcp' && !params.get('sni')) {
+                        return _('Invalid VLESS URL: missing sni parameter for tls security');
+                    }
                 }
             }
 
