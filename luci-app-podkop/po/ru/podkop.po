@@ -873,3 +873,24 @@ msgstr "Обновление списков не удалось"
 
 msgid "Error: "
 msgstr "Ошибка: "
+
+msgid "Proxy selection mode"
+msgstr "Режим выбора прокси"
+
+msgid "Default (use first proxy in list)"
+msgstr "Первый прокси из списка"
+
+msgid "Best (auto test, use fastest proxy)"
+msgstr "Cамый быстрый прокси"
+
+msgid "Proxy test interval (seconds)"
+msgstr "Интервал проверки прокси (секунды)"
+
+msgid "How often to test proxy latency. Default is 60 seconds."
+msgstr "Как часто проверять задержку прокси. По умолчанию 60 секунд."
+
+msgid "Proxy test tolerance (ms)"
+msgstr "Допустимая разница между прокси (мс)"
+
+msgid "Tolerance for proxy latency (ms). Default is 0."
+msgstr "Допустимое отличие между прокси (мс). Помогает избежать частых смен прокси. По умолчанию 0."
