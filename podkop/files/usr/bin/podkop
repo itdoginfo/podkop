@@ -5,12 +5,6 @@
 
 config_load "/etc/config/podkop"
 
-config_get urltest_interval "$section" "urltest_interval" ""
-config_get urltest_tolerance "$section" "urltest_tolerance" ""
-
-[ -z "$urltest_interval" ] && urltest_interval="60"
-[ -z "$urltest_tolerance" ] && urltest_tolerance="0"
-
 GITHUB_RAW_URL="https://raw.githubusercontent.com/itdoginfo/allow-domains/main"
 SRS_MAIN_URL="https://github.com/itdoginfo/allow-domains/releases/latest/download"
 DOMAINS_RU_INSIDE="${GITHUB_RAW_URL}/Russia/inside-dnsmasq-nfset.lst"
@@ -960,19 +954,21 @@ EOF
             i=$((i+1))
         done
         if [ "$proxy_selector_mode" = "urltest" ]; then
-    log "Using urltest for proxy group"
-    jq --arg section "$section" \
-       --argjson proxies "[$proxy_tags]" \
-       --arg interval "${urltest_interval}s" \
-       --argjson tolerance "$urltest_tolerance" \
-       '.outbounds |= (map(select(.tag!=$section)) + [{
-           "tag": $section,
-           "type": "urltest",
-           "outbounds": $proxies,
-           "interval": $interval,
-           "tolerance": $tolerance
-       }])' \
-             $SING_BOX_CONFIG > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+            config_get urltest_interval "$section" "urltest_interval" "60"
+            config_get urltest_tolerance "$section" "urltest_tolerance" "0"
+            log "Using urltest for proxy group"
+            jq --arg section "$section" \
+            --argjson proxies "[$proxy_tags]" \
+            --arg interval "${urltest_interval}s" \
+            --argjson tolerance "$urltest_tolerance" \
+            '.outbounds |= (map(select(.tag!=$section)) + [{
+                "tag": $section,
+                "type": "urltest",
+                "outbounds": $proxies,
+                "interval": $interval,
+                "tolerance": $tolerance
+            }])' \
+            $SING_BOX_CONFIG > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
         elif [ "$proxy_selector_mode" = "default" ]; then
             log "Using default proxy mode (first proxy)"
             proxy_string="$(echo "$PROXY_LIST" | head -n 1)"
