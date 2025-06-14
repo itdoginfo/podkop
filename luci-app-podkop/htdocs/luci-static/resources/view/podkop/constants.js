@@ -21,7 +21,8 @@ const ALLOWED_WITH_RUSSIA_INSIDE = [
     'google_ai',
     'google_play',
     'hetzner',
-    'ovh'
+    'ovh',
+    'amazon'
 ];
 
 const DOMAIN_LIST_OPTIONS = {
@@ -44,7 +45,8 @@ const DOMAIN_LIST_OPTIONS = {
     google_ai: 'Google AI',
     google_play: 'Google Play',
     hetzner: 'Hetzner ASN',
-    ovh: 'OVH ASN'
+    ovh: 'OVH ASN',
+    amazon: 'Amazon'
 };
 
 const UPDATE_INTERVAL_OPTIONS = {
