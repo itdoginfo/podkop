@@ -18,9 +18,10 @@ SUBNETS_TELERAM="${GITHUB_RAW_URL}/Subnets/IPv4/telegram.lst"
 SUBNETS_CLOUDFLARE="${GITHUB_RAW_URL}/Subnets/IPv4/cloudflare.lst"
 SUBNETS_HETZNER="${GITHUB_RAW_URL}/Subnets/IPv4/hetzner.lst"
 SUBNETS_OVH="${GITHUB_RAW_URL}/Subnets/IPv4/ovh.lst"
+SUBNETS_AMAZON="${GITHUB_RAW_URL}/Subnets/IPv4/amazon.lst"
 SING_BOX_CONFIG="/etc/sing-box/config.json"
 FAKEIP="198.18.0.0/15"
-VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram cloudflare google_ai google_play hetzner ovh"
+VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram cloudflare google_ai google_play hetzner ovh amazon"
 DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.140.15.15 208.67.220.220 208.67.222.222 77.88.8.1 77.88.8.8"
 TEST_DOMAIN="fakeip.podkop.fyi"
 INTERFACES_LIST=""
@@ -1457,6 +1458,9 @@ list_subnets_download() {
         "ovh")
             URL=$SUBNETS_OVH
             ;;
+        "amazon")
+            URL=$SUBNETS_AMAZON
+            ;;
         "discord")
             URL=$SUBNETS_DISCORD
             nft add set inet $table podkop_discord_subnets { type ipv4_addr\; flags interval\; auto-merge\; }
@@ -1893,6 +1897,7 @@ check_nft() {
     
     local found_hetzner=0
     local found_ovh=0
+    local found_amazon=0
     
     check_domain_list_contains() {
         local section="$1"
@@ -1910,12 +1915,14 @@ check_nft() {
             found_hetzner=1
         elif [ "$domain_value" = "ovh" ]; then
             found_ovh=1
+        elif [ "$domain_value" = "amazon" ]; then
+            found_amazon=1
         fi
     }
     
     config_foreach check_domain_list_contains
     
-    if [ "$found_hetzner" -eq 1 ] || [ "$found_ovh" -eq 1 ]; then
+    if [ "$found_hetzner" -eq 1 ] || [ "$found_ovh" -eq 1 ] || [ "$found_amazon" -eq 1 ]; then
 
         local sets="podkop_subnets podkop_domains interfaces podkop_discord_subnets localv4"
         
