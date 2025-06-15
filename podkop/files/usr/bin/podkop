@@ -1480,13 +1480,20 @@ list_subnets_download() {
         wget -O "/tmp/podkop/$filename" "$URL"
     fi
 
-    while IFS= read -r subnet; do
-        if [ "$service" = "discord" ]; then
-            nft add element inet $table podkop_discord_subnets { $subnet }
-        else
-            nft add element inet $table podkop_subnets { $subnet }
-        fi
-    done <"/tmp/podkop/$filename"
+    if [ ! -f "/tmp/podkop/podkop_subnets.nft" ]; then
+        echo -e "#!/usr/sbin/nft -f\nflush set inet $table podkop_subnets\nflush set inet $table podkop_discord_subnets" > /tmp/podkop/podkop_subnets.nft
+    fi
+    {
+        while read -r subnet; do
+            [ -z "$subnet" ] && continue
+            if [ "$service" = "discord" ]; then
+                echo "add element inet $table podkop_discord_subnets { $subnet }"
+            else
+                echo "add element inet $table podkop_subnets { $subnet }"
+            fi
+        done < "/tmp/podkop/$filename"
+        rm "/tmp/podkop/$filename"
+    } >> "/tmp/podkop/podkop_subnets.nft"
 }
 
 sing_box_rules() {
@@ -1579,6 +1586,8 @@ process_remote_ruleset_subnet() {
         log "Adding a srs list for $section"
         config_list_foreach "$section" domain_list "list_subnets_download" "$section" "$domain_list"
     fi
+    nft -f "/tmp/podkop/podkop_subnets.nft"
+    mv "/tmp/podkop/podkop_subnets.nft" "/tmp/podkop/podkop_subnets.backup.nft"
 }
 
 sing_box_rule_preset() {
