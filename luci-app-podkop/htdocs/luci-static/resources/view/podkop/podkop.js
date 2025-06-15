@@ -30,6 +30,10 @@ return view.extend({
                     background: var(--background-color-primary);
                     border-color: var(--border-color-medium);
                 }
+
+                #cbi-podkop:has(.cbi-tab-disabled[data-tab="basic"]) #cbi-podkop-extra {
+                    display: none;
+                }
             </style>
         `);
 
