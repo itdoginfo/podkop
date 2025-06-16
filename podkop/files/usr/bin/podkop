@@ -28,7 +28,9 @@ INTERFACES_LIST=""
 SRC_INTERFACE=""
 RESOLV_CONF="/etc/resolv.conf"
 CLOUDFLARE_OCTETS="103.21 103.22 103.31 104.16 104.17 104.18 104.19 104.20 104.21 104.22 104.23 104.24 104.25 104.26 104.27 104.28 108.162 131.0 141.101 162.158 162.159 172.64 172.65 172.66 172.67 172.68 172.69 172.70 172.71 173.245 188.114 190.93 197.234 198.41"
-
+NFTABLES_SUBNET_FILE="/tmp/podkop/podkop_subnets.nft"
+SUBNETS_RULES_FILES_PATH="/tmp/podkop/subnets/"
+SUBNETS_RULES_OLD_FILES_PATH="/tmp/podkop/subnets_old/"
 # Color constants
 COLOR_CYAN="\033[0;36m"
 COLOR_GREEN="\033[0;32m"
@@ -111,7 +113,7 @@ start_main() {
     config_foreach add_cron_job
 
     config_foreach prepare_custom_ruleset
-    list_update &
+    list_update true &
     echo $! > /var/run/podkop_list_update.pid
 
     # Future: exclude at the fakeip?
@@ -183,7 +185,10 @@ stop_main() {
 
     remove_cron_job
 
+    rm -rf ${SUBNETS_RULES_OLD_FILES_PATH}*
+    rm -rf ${SUBNETS_RULES_FILES_PATH}*
     rm -rf /tmp/podkop/*.lst
+    rm -rf /tmp/podkop/*.nft
 
     log "Flush nft"
     if nft list table inet PodkopTable >/dev/null 2>&1; then
@@ -569,7 +574,7 @@ prepare_custom_ruleset() {
 
 list_update() {
     echolog "🔄 Starting lists update..."
-
+    local force_update="${1:-false}"
     local i
 
     for i in $(seq 1 60); do
@@ -611,9 +616,16 @@ list_update() {
 
     echolog "📥 Downloading and processing lists..."
     
+    if [ ! -d "$SUBNETS_RULES_FILES_PATH" ]; then mkdir -p "$SUBNETS_RULES_FILES_PATH"; fi
+    if [ ! -d "$SUBNETS_RULES_OLD_FILES_PATH" ]; then mkdir -p "$SUBNETS_RULES_OLD_FILES_PATH"; fi
+
+    local need_update_nft="$force_update"
+
     config_foreach process_remote_ruleset_subnet
     config_foreach process_domains_list_url
     config_foreach process_subnet_for_section_remote
+    
+    update_list_subnets_nft
 
     if [ $? -eq 0 ]; then
         echolog "✅ Lists update completed successfully"
@@ -1435,9 +1447,80 @@ sing_box_ruleset_remote() {
     fi
 }
 
+update_list_subnets_nft() {
+    local table="PodkopTable"
+    rm ${SUBNETS_RULES_OLD_FILES_PATH}* &>/dev/null
+    if [ "$need_update_nft" = true ]; then
+        echolog "Update NFTables is running...";
+        {
+            echo "#!/usr/sbin/nft -f"
+            echo "flush set inet $table podkop_subnets"
+        } > "$NFTABLES_SUBNET_FILE"
+        
+        for filepath in $SUBNETS_RULES_FILES_PATH/*.lst; do
+            if [ -f "$filepath" ]; then
+                local set_name="podkop_subnets"
+                local filename=$(basename "$filepath")
+                {
+                    if [[ "$filename" == discord* ]]; then 
+                        {
+                            echo "add set inet $table podkop_discord_subnets { type ipv4_addr; flags interval; auto-merge; }"
+                            echo "add rule inet $table mangle iifname \"$SRC_INTERFACE\" ip daddr @podkop_discord_subnets udp dport { 50000-65535 } meta mark set 0x105 counter"
+                        } >> "$NFTABLES_SUBNET_FILE"
+                        set_name="podkop_discord_subnets"
+                    fi
+                    while read -r subnet; do
+                        [ -z "$subnet" ] && continue
+                        echo "add element inet $table $set_name { $subnet }"
+                    done < "$filepath"
+                } >> "${NFTABLES_SUBNET_FILE}"
+            fi
+        done
+        nft -f "$NFTABLES_SUBNET_FILE"
+    fi
+    mv ${SUBNETS_RULES_FILES_PATH}* ${SUBNETS_RULES_OLD_FILES_PATH} &>/dev/null
+}
+
+download_list_by_url() {
+    local service="$1"
+    local URL="$2"
+    local file_path="${3:-$SUBNETS_RULES_FILES_PATH}"
+    local old_file_path="${3:-$SUBNETS_RULES_OLD_FILES_PATH}"
+    local update_nft="${4:-true}"
+    local file_ext='lst'
+
+    config_get_bool detour "main" "detour" "0"
+
+    if [ "$detour" -eq 1 ]; then
+        local filehash=$(curl -sI --proxy="http://127.0.0.1:4534" "$URL" | grep -i -E "Etag|Content-Length" | head -n1 | awk '{print $2}' | tr -d '"')
+    else
+        local filehash=$(curl -sI "$URL" | grep -i -E "Etag|Content-Length" | head -n1 | awk '{print $2}' | tr -d '"')
+    fi
+
+    local filename="${service}_${filehash}.${file_ext}"
+    local filepath_old="${old_file_path}${filename}"
+    local filepath="${file_path}${filename}"
+    
+    if [ -f "$filepath_old" ]; then 
+        if [[ "$filepath_old" != "$filepath" ]]; then mv $filepath_old $filepath; fi
+        return 1
+    fi
+    
+    rm ${old_file_path}${service}_*.${file_ext} &>/dev/null
+    
+    if [ "$update_nft" = true ]; then echolog "New rules in $service, filename: $filename"; need_update_nft=true; fi
+
+    if [ "$detour" -eq 1 ]; then
+        curl -x "http://127.0.0.1:4534" -o "$filepath" "$URL"
+    else
+        curl -o "$filepath" "$URL"
+    fi
+    
+    return 0
+}
+
 list_subnets_download() {
     local service="$1"
-    local table="PodkopTable"
 
     case "$service" in
         "twitter")
@@ -1463,37 +1546,13 @@ list_subnets_download() {
             ;;
         "discord")
             URL=$SUBNETS_DISCORD
-            nft add set inet $table podkop_discord_subnets { type ipv4_addr\; flags interval\; auto-merge\; }
-            nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr @podkop_discord_subnets udp dport { 50000-65535 } meta mark set 0x105 counter
             ;;
         *)
             return
             ;;
     esac
-
-    local filename=$(basename "$URL")
-
-    config_get_bool detour "main" "detour" "0"
-    if [ "$detour" -eq 1 ]; then
-        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "/tmp/podkop/$filename" "$URL"
-    else
-        wget -O "/tmp/podkop/$filename" "$URL"
-    fi
-
-    if [ ! -f "/tmp/podkop/podkop_subnets.nft" ]; then
-        echo -e "#!/usr/sbin/nft -f\nflush set inet $table podkop_subnets\nflush set inet $table podkop_discord_subnets" > /tmp/podkop/podkop_subnets.nft
-    fi
-    {
-        while read -r subnet; do
-            [ -z "$subnet" ] && continue
-            if [ "$service" = "discord" ]; then
-                echo "add element inet $table podkop_discord_subnets { $subnet }"
-            else
-                echo "add element inet $table podkop_subnets { $subnet }"
-            fi
-        done < "/tmp/podkop/$filename"
-        rm "/tmp/podkop/$filename"
-    } >> "/tmp/podkop/podkop_subnets.nft"
+    
+    download_list_by_url "$service" "$URL"
 }
 
 sing_box_rules() {
@@ -1586,8 +1645,6 @@ process_remote_ruleset_subnet() {
         log "Adding a srs list for $section"
         config_list_foreach "$section" domain_list "list_subnets_download" "$section" "$domain_list"
     fi
-    nft -f "/tmp/podkop/podkop_subnets.nft"
-    mv "/tmp/podkop/podkop_subnets.nft" "/tmp/podkop/podkop_subnets.backup.nft"
 }
 
 sing_box_rule_preset() {
@@ -1643,19 +1700,18 @@ process_domains_list_local() {
 list_custom_url_domains_create() {
     local section="$2"
     local URL="$1"
-    local filename=$(basename "$URL")
-    local filepath="/tmp/podkop/${filename}"
 
-    config_get_bool detour "main" "detour" "0"
-    if [ "$detour" -eq 1 ]; then
-        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "$filepath" "$URL"
-    else
-        wget -O "$filepath" "$URL"
-    fi
+    download_list_by_url "domains_${section}" "$URL" "/tmp/podkop/" false
+    local list_update=$?
 
-    if grep -q $'\r' "$filepath"; then
-        log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
-        sed -i 's/\r$//' "$filepath"
+    local filepath=$(find "/tmp/podkop/" -name "domains_${section}*.lst" -print -quit 2>/dev/null)
+    local filename=$(basename "$filepath")
+
+    if [[ "$list_update" -eq 0 ]]; then
+        if grep -q $'\r' "$filepath"; then
+            log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
+            sed -i 's/\r$//' "$filepath"
+        fi
     fi
 
     while IFS= read -r domain; do
@@ -1694,25 +1750,23 @@ process_subnet_for_section() {
 list_custom_url_subnets_create() {
     local section="$2"
     local URL="$1"
-    local filename=$(basename "$URL")
-    local filepath="/tmp/podkop/${filename}"
 
-    config_get_bool detour "main" "detour" "0"
-    if [ "$detour" -eq 1 ]; then
-        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "$filepath" "$URL"
-    else
-        wget -O "$filepath" "$URL"
+    download_list_by_url "custom_$section" "$URL"
+    local list_update=$?
+
+    local filepath=$(find "$SUBNETS_RULES_FILES_PATH" -name "custom_${section}*.lst" -print -quit 2>/dev/null)
+    local filename=$(basename "$filepath")
+
+    if [[ "$list_update" -eq 0 ]]; then
+        if grep -q $'\r' "$filepath"; then
+            log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
+            sed -i 's/\r$//' "$filepath"
+        fi
     fi
-
-    if grep -q $'\r' "$filepath"; then
-        log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
-        sed -i 's/\r$//' "$filepath"
-    fi
-
+    
     while IFS= read -r subnet; do
         log "From local file: $subnet"
         sing_box_ruleset_subnets_json $subnet $section
-        nft add element inet PodkopTable podkop_subnets { $subnet }
     done <"$filepath"
 }
 
