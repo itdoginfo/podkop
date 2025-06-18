@@ -185,10 +185,10 @@ stop_main() {
 
     remove_cron_job
 
-    rm -rf ${SUBNETS_RULES_OLD_FILES_PATH}*
-    rm -rf ${SUBNETS_RULES_FILES_PATH}*
-    rm -rf /tmp/podkop/*.lst
-    rm -rf /tmp/podkop/*.nft
+    rm -rf ${SUBNETS_RULES_OLD_FILES_PATH}* &>/dev/null
+    rm -rf ${SUBNETS_RULES_FILES_PATH}* &>/dev/null
+    rm -rf /tmp/podkop/*.lst &>/dev/null
+    rm -rf /tmp/podkop/*.nft &>/dev/null
 
     log "Flush nft"
     if nft list table inet PodkopTable >/dev/null 2>&1; then
@@ -1454,26 +1454,23 @@ update_list_subnets_nft() {
         echolog "Update NFTables is running...";
         {
             echo "#!/usr/sbin/nft -f"
-            echo "flush set inet $table podkop_subnets"
         } > "$NFTABLES_SUBNET_FILE"
         
         for filepath in $SUBNETS_RULES_FILES_PATH/*.lst; do
             if [ -f "$filepath" ]; then
                 local set_name="podkop_subnets"
                 local filename=$(basename "$filepath")
-                {
-                    if [[ "$filename" == discord* ]]; then 
-                        {
-                            echo "add set inet $table podkop_discord_subnets { type ipv4_addr; flags interval; auto-merge; }"
-                            echo "add rule inet $table mangle iifname \"$SRC_INTERFACE\" ip daddr @podkop_discord_subnets udp dport { 50000-65535 } meta mark set 0x105 counter"
-                        } >> "$NFTABLES_SUBNET_FILE"
-                        set_name="podkop_discord_subnets"
-                    fi
-                    while read -r subnet; do
-                        [ -z "$subnet" ] && continue
-                        echo "add element inet $table $set_name { $subnet }"
-                    done < "$filepath"
-                } >> "${NFTABLES_SUBNET_FILE}"
+                if [[ "$filename" == discord* ]]; then 
+                    {
+                        echo "add set inet $table podkop_discord_subnets { type ipv4_addr; flags interval; auto-merge; }"
+                        echo "add rule inet $table mangle iifname $SRC_INTERFACE ip daddr @podkop_discord_subnets udp dport { 50000-65535 } meta mark set 0x105 counter"
+                    } >> "$NFTABLES_SUBNET_FILE"
+                    set_name="podkop_discord_subnets"
+                fi
+                while read -r subnet; do
+                    [ -z "$subnet" ] && continue
+                        echo "add element inet $table $set_name { $subnet }" >> "${NFTABLES_SUBNET_FILE}"
+                done < "$filepath"
             fi
         done
         nft -f "$NFTABLES_SUBNET_FILE"
