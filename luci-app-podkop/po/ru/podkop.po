@@ -745,10 +745,10 @@ msgstr "Проверка FakeIP через CLI"
 msgid "FakeIP CLI Check Results"
 msgstr "Результаты проверки FakeIP через CLI"
 
-msgid "not works in browser"
+msgid "does not work in browser"
 msgstr "не работает в браузере"
 
-msgid "not works on router"
+msgid "does not work on router"
 msgstr "не работает на роутере"
 
 msgid "Diagnostics"
