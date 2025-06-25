@@ -53,6 +53,10 @@ echolog() {
     nolog "$message"
 }
 
+build_sing_box_config() {
+    cat > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+}
+
 start_main() {
     log "Starting podkop"
 
@@ -80,7 +84,7 @@ start_main() {
     # Sync time for DoH/DoT
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
 
-    sleep 2
+    sleep 1
 
     mkdir -p /tmp/podkop
 
@@ -126,7 +130,7 @@ start_main() {
         jq '.experimental.clash_api = {
             "external_ui": "ui",
             "external_controller": "0.0.0.0:9090"
-        }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+        }' "$SING_BOX_CONFIG" | build_sing_box_config
     fi
 
     config_get_bool exclude_ntp "main" "exclude_ntp" "0"
@@ -149,7 +153,6 @@ start_main() {
 
     sing_box_config_check
     /etc/init.d/sing-box start
-    #/etc/init.d/sing-box enable
     log "Nice"
 }
 
@@ -557,7 +560,7 @@ prepare_custom_ruleset() {
             "type": "local",
             "format": "source",
             "path": $file
-        }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+        }]' "$SING_BOX_CONFIG" | build_sing_box_config
 
         sing_box_rules $tag $section
         sing_box_dns_rule_fakeip_section $tag $tag
@@ -674,7 +677,7 @@ add_socks5_for_section() {
         "inbound": [$tag],
         "outbound": $section,
         "action": "route"
-    }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    }]' "$SING_BOX_CONFIG" | build_sing_box_config
 }
 
 process_socks5() {
@@ -731,10 +734,14 @@ sing_box_dns() {
     local dns_type
     local dns_server
     local resolver_tag="resolver"
+    local split_resolver_tag="split-resolver"
 
     config_get dns_type "main" "dns_type" "doh"
     config_get dns_server "main" "dns_server" "1.1.1.1"
-    
+    config_get split_dns_enabled "main" "split_dns_enabled" "0"
+    config_get split_dns_type "main" "split_dns_type" "udp"
+    config_get split_dns_server "main" "split_dns_server" "1.1.1.1"
+
     local server_json
     local is_ip=$(echo "$dns_server" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' && echo "1" || echo "0")
     
@@ -790,20 +797,79 @@ sing_box_dns() {
             }]')
     fi
     
+    if [ "$split_dns_enabled" = "1" ]; then
+        local split_is_ip=$(echo "$split_dns_server" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' && echo "1" || echo "0")
+        if [ "$split_is_ip" = "0" ]; then
+            log "Finding working resolver for split DNS"
+            local split_dns_resolver=$(find_working_resolver)
+            if [ -z "$split_dns_resolver" ]; then
+                log "No working resolver found for split DNS, using default"
+                split_dns_resolver="1.1.1.1"
+            else
+                log "Found working resolver for split DNS: $split_dns_resolver"
+            fi
+        fi
+
+        server_json=$(echo "$server_json" | jq \
+            --arg type "$split_dns_type" \
+            --arg server "$split_dns_server" \
+            --arg split_is_ip "$split_is_ip" \
+            --arg split_resolver_tag "$split_resolver_tag" \
+            ' .servers += [
+                {
+                    "tag": "split-dns-server",
+                    "address": (
+                        if $type == "doh" then
+                            "https://" + $server + "/dns-query"
+                        elif $type == "dot" then
+                            "tls://" + $server
+                        else
+                            $server
+                        end
+                    ),
+                    "detour": "main"
+                } + (
+                    if $split_is_ip == "0" then
+                        {"address_resolver": $split_resolver_tag}
+                    else
+                        {}
+                    end
+                )
+            ]')
+
+        if [ "$split_is_ip" = "0" ]; then
+            server_json=$(echo "$server_json" | jq \
+                --arg split_resolver_tag "$split_resolver_tag" \
+                --arg split_dns_resolver "$split_dns_resolver" \
+                '.servers += [{
+                    "tag": $split_resolver_tag,
+                    "address": $split_dns_resolver
+                }]')
+        fi
+    fi
+
     server_json=$(echo "$server_json" | jq '.servers += [{"tag": "fakeip-server", "address": "fakeip"}]')
     
     jq \
         --argjson dns_config "$server_json" \
         --arg fakeip "$FAKEIP" \
+        --argjson split_dns_enabled "$split_dns_enabled" \
         '.dns = {
             "strategy": "ipv4_only",
             "independent_cache": true,
+            "final": (
+                if $split_dns_enabled == 1 then
+                    "split-dns-server"
+                else
+                    "dns-server"
+                end
+                ),
             "fakeip": {
                 "enabled": true,
                 "inet4_range": $fakeip
             },
             "servers": $dns_config.servers
-        }' $SING_BOX_CONFIG > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+        }' "$SING_BOX_CONFIG" | build_sing_box_config
 }
 
 sing_box_create_bypass_ruleset() {
@@ -820,7 +886,7 @@ sing_box_create_bypass_ruleset() {
                 ]
             }
         ]
-    }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    }]' "$SING_BOX_CONFIG" | build_sing_box_config
     
     # Add a rule to route bypass domains to direct-out outbound
     jq '
@@ -829,49 +895,64 @@ sing_box_create_bypass_ruleset() {
         "rule_set": ["bypass"],
         "outbound": "main",
         "action": "route"
-    }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    }]' "$SING_BOX_CONFIG" | build_sing_box_config
     
     # Make sure the bypass ruleset is in the fakeip DNS rule
     jq '
     .dns.rules = (.dns.rules | map(
-        if .server == "fakeip-server" then 
-            .rule_set += ["bypass"] 
-        else 
-            . 
+        if (.server == "fakeip-server" or (.server == "dns-server" and .invert == true)) then 
+            if any(.rule_set[]?; . == "bypass") then
+                .
+            else
+                .rule_set += ["bypass"]
+            end
+        else
+            .
         end
-    ))' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    ))' "$SING_BOX_CONFIG" | build_sing_box_config
 }
 
 sing_box_dns_rule_fakeip() {
     local rewrite_ttl
-    config_get rewrite_ttl "main" "dns_rewrite_ttl" "600"
-    
+    config_get rewrite_ttl "main" "dns_rewrite_ttl" "60"
+    config_get split_dns_enabled "main" "split_dns_enabled" "0"
+
     log "Configure fakeip route in sing-box and set TTL to $rewrite_ttl seconds"
     
     jq \
     --arg ttl "$rewrite_ttl" \
-    '.dns += {
-        "rules": [
-              {
-            "query_type": [
-                "HTTPS"
-            ],
-            "action": "reject"
-            },
+    --argjson split_dns_enabled "$split_dns_enabled" \
+    '.dns.rules = [
             {
-            "domain_suffix": [
-                "use-application-dns.net"
-            ],
+                "query_type": [
+                    "HTTPS"
+                ],
                 "action": "reject"
             },
             {
-            "server": "fakeip-server",
-            "domain": "",
-            "rewrite_ttl": ($ttl | tonumber),
-            "rule_set": []
+                "domain_suffix": [
+                    "use-application-dns.net"
+                ],
+                    "action": "reject"
+            },
+            {
+                "server": "fakeip-server",
+                "domain": "",
+                "rewrite_ttl": ($ttl | tonumber),
+                "rule_set": []
             }
         ]
-    }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+        + (
+            if $split_dns_enabled == 1 then
+                [{
+                    "server": "dns-server",
+                    "domain": "",
+                    "invert": true,
+                    "rule_set": []
+                }]
+            else []
+            end
+    )' "$SING_BOX_CONFIG" | build_sing_box_config
 }
 
 sing_box_dns_rule_fakeip_section() {
@@ -882,16 +963,16 @@ sing_box_dns_rule_fakeip_section() {
     jq \
     --arg rule_set "$rule_set" \
     '.dns.rules |= map(
-        if .server == "fakeip-server" then 
+        if (.server == "fakeip-server" or (.server == "dns-server" and .invert == true)) then 
             if any(.rule_set[]?; . == $rule_set) then 
                 .
-            else 
+            else
                 .rule_set += [$rule_set] 
             end
-        else 
-            . 
+        else
+            .
         end
-    )' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+    )' "$SING_BOX_CONFIG" | build_sing_box_config
 }
 
 sing_box_cache_file() {
@@ -907,7 +988,7 @@ sing_box_cache_file() {
         "store_fakeip": true,
         "path": $cache_file
         }
-    }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    }' "$SING_BOX_CONFIG" | build_sing_box_config
 }
 
 sing_box_outdound() {
@@ -990,7 +1071,7 @@ sing_box_outbound_interface() {
                 [{"tag": $section, "type": "direct", "bind_interface": $interface}]
               else [] end
             )
-          )' "$SING_BOX_CONFIG" > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+          )' "$SING_BOX_CONFIG" | build_sing_box_config
 
     if [ $? -eq 0 ]; then
         log "Config updated successfully"
@@ -1018,7 +1099,7 @@ sing_box_rule_dns() {
         }
         ],
         "auto_detect_interface": true
-    }' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    }' "$SING_BOX_CONFIG" | build_sing_box_config
 }
 
 sing_box_config_check() {
@@ -1050,7 +1131,7 @@ sing_box_config_outbound_json() {
                 [$outbound]
               else [] end
             )
-          )' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+          )' "$SING_BOX_CONFIG" | build_sing_box_config
 
     if [ $? -eq 0 ]; then
         log "Outbound config updated successfully"
@@ -1113,7 +1194,7 @@ sing_box_config_shadowsocks() {
             } + (if $ss_uot == 1 then { "udp_over_tcp": { "enabled": true, "version": 2 } } else {} end)]
           else [] end
         )
-      )' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+      )' "$SING_BOX_CONFIG" | build_sing_box_config
 
     if [ $? -eq 0 ]; then
         log "Config Shadowsocks updated successfully"
@@ -1239,7 +1320,7 @@ sing_box_config_vless() {
             else . end
           else . end
         )
-      else . end' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+      else . end' "$SING_BOX_CONFIG" | build_sing_box_config
 
 
     if [ $? -eq 0 ]; then
@@ -1275,7 +1356,7 @@ sing_box_ruleset_domains() {
         else
             .
         end
-        ' /etc/sing-box/config.json > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json /etc/sing-box/config.json
+        ' "$SING_BOX_CONFIG" | build_sing_box_config
 
         log "$domain added to the list for tag $tag"
     else
@@ -1294,7 +1375,7 @@ sing_box_ruleset_domains() {
                     }
                 ]
             }
-        ]' /etc/sing-box/config.json > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json /etc/sing-box/config.json
+        ]' "$SING_BOX_CONFIG" | build_sing_box_config
 
         log "$domain added as a new rule set for tag $tag"
     fi
@@ -1326,7 +1407,7 @@ sing_box_ruleset_subnets() {
         else
             .
         end
-        ' /etc/sing-box/config.json > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json /etc/sing-box/config.json
+        ' "$SING_BOX_CONFIG" | build_sing_box_config
 
         log "$subnet added to the list for tag $tag"
     else
@@ -1345,7 +1426,7 @@ sing_box_ruleset_subnets() {
                     }
                 ]
             }
-        ]' /etc/sing-box/config.json > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json /etc/sing-box/config.json
+        ]' "$SING_BOX_CONFIG" | build_sing_box_config
 
         log "$subnet added as a new rule set for tag $tag"
     fi
@@ -1428,7 +1509,7 @@ sing_box_ruleset_remote() {
                 } +
                     (if $detour == "1" then {"download_detour": "main"} else {} end)
             )
-        ]' "$SING_BOX_CONFIG" > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+        ]' "$SING_BOX_CONFIG" | build_sing_box_config
 
         log "Added new ruleset with tag $tag"
     fi
@@ -1502,7 +1583,7 @@ sing_box_rules() {
             jq \
             --arg rule_set "$rule_set" \
             '(.route.rules[] | select(.inbound == ["tproxy-in"] and .action == "reject") .rule_set) += [$rule_set]' \
-            "$SING_BOX_CONFIG" > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+            "$SING_BOX_CONFIG" | build_sing_box_config
         else
             # If there is no rule for reject, create a new one with rule_set
             jq \
@@ -1511,7 +1592,7 @@ sing_box_rules() {
                 "inbound": ["tproxy-in"],
                 "rule_set": [$rule_set],
                 "action": "reject"
-            }]' "$SING_BOX_CONFIG" > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+            }]' "$SING_BOX_CONFIG" | build_sing_box_config
         fi
         return
     else
@@ -1525,7 +1606,7 @@ sing_box_rules() {
             --arg rule_set "$rule_set" \
             --arg outbound "$outbound" \
             '(.route.rules[] | select(.outbound == $outbound and .inbound == ["tproxy-in"]) .rule_set) += [$rule_set]' \
-            "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+            "$SING_BOX_CONFIG" | build_sing_box_config
         else
             # If there is no rule for tproxy-in, create a new one with rule_set
             jq \
@@ -1536,7 +1617,7 @@ sing_box_rules() {
                 "rule_set": [$rule_set],
                 "outbound": $outbound,
                 "action": "route"
-            }]' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+            }]' "$SING_BOX_CONFIG" | build_sing_box_config
         fi
     fi
 }
@@ -1554,7 +1635,7 @@ sing_box_quic_reject() {
                     . + [$rule]
                 end
             )
-        )' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+        )' "$SING_BOX_CONFIG" | build_sing_box_config
 
         log "QUIC reject rule added successfully"
     fi
@@ -1737,7 +1818,7 @@ sing_box_rules_source_ip_cidr() {
         --arg source_ip_cidr "$source_ip_cidr" \
         --arg outbound "$outbound" \
         '(.route.rules[] | select(.outbound == $outbound and .action == "route" and (.rule_set | not)) | .source_ip_cidr) += [$source_ip_cidr]' \
-        $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+        "$SING_BOX_CONFIG" | build_sing_box_config
     else
         jq \
         --arg source_ip_cidr "$source_ip_cidr" \
@@ -1749,7 +1830,7 @@ sing_box_rules_source_ip_cidr() {
                 "outbound": $outbound,
                 "action": "route"
             }
-        ] + .route.rules' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+        ] + .route.rules' "$SING_BOX_CONFIG" | build_sing_box_config
     fi
 }
 
@@ -1775,7 +1856,7 @@ detour_mixed() {
         "inbound": [$tag],
         "outbound": $section,
         "action": "route"
-    }]' $SING_BOX_CONFIG >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    }]' "$SING_BOX_CONFIG" | build_sing_box_config
 }
 
 ## nftables
@@ -2348,7 +2429,7 @@ sing_box_add_secure_dns_probe_domain() {
     --arg domain "$domain" \
     --argjson override_port "$override_port" \
     '.dns.rules |= map(
-        if .server == "fakeip-server" then
+        if (.server == "fakeip-server" or (.server == "dns-server" and .invert == true)) then
             . + {
                 "domain": $domain
             }
@@ -2362,7 +2443,7 @@ sing_box_add_secure_dns_probe_domain() {
             "action": "route-options",
             "override_port": $override_port
         }
-    ]' "$SING_BOX_CONFIG" >/tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+    ]' "$SING_BOX_CONFIG" | build_sing_box_config
 
     log "DNS probe domain ${domain} configured with override to port ${override_port}"
 }
@@ -2459,6 +2540,11 @@ global_check() {
                 print_global "⚠️ WARP detected: $host"
             fi
         done
+    fi
+
+    if [ -d "/etc/init.d/zapret" ]; then
+        print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        print_global "⚠️ Zapret detected"
     fi
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"

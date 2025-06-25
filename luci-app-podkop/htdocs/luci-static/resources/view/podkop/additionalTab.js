@@ -34,7 +34,7 @@ function createAdditionalSection(mainSection, network) {
     o.value('doh', _('DNS over HTTPS (DoH)'));
     o.value('dot', _('DNS over TLS (DoT)'));
     o.value('udp', _('UDP (Unprotected DNS)'));
-    o.default = 'doh';
+    o.default = 'udp';
     o.rmempty = false;
     o.ucisection = 'main';
 
@@ -44,6 +44,53 @@ function createAdditionalSection(mainSection, network) {
     });
     o.default = '8.8.8.8';
     o.rmempty = false;
+    o.ucisection = 'main';
+    o.validate = function (section_id, value) {
+        if (!value) {
+            return _('DNS server address cannot be empty');
+        }
+
+        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+        if (ipRegex.test(value)) {
+            const parts = value.split('.');
+            for (const part of parts) {
+                const num = parseInt(part);
+                if (num < 0 || num > 255) {
+                    return _('IP address parts must be between 0 and 255');
+                }
+            }
+            return true;
+        }
+
+        const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/[^\s]*)?$/;
+        if (!domainRegex.test(value)) {
+            return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
+        }
+
+        return true;
+    };
+
+    o = mainSection.taboption('additional', form.Flag, 'split_dns_enabled', _('Split DNS'), _('DNS for the list via proxy'));
+    o.default = '1';
+    o.rmempty = false;
+    o.ucisection = 'main';
+
+    o = mainSection.taboption('additional', form.ListValue, 'split_dns_type', _('Split DNS Protocol Type'), _('Select DNS protocol for split'));
+    o.value('doh', _('DNS over HTTPS (DoH)'));
+    o.value('dot', _('DNS over TLS (DoT)'));
+    o.value('udp', _('UDP (Unprotected DNS)'));
+    o.default = 'udp';
+    o.rmempty = false;
+    o.depends('split_dns_enabled', '1');
+    o.ucisection = 'main';
+
+    o = mainSection.taboption('additional', form.Value, 'split_dns_server', _('Split DNS Server'), _('Select or enter DNS server address'));
+    Object.entries(constants.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
+        o.value(key, _(label));
+    });
+    o.default = '1.1.1.1';
+    o.rmempty = false;
+    o.depends('split_dns_enabled', '1');
     o.ucisection = 'main';
     o.validate = function (section_id, value) {
         if (!value) {
