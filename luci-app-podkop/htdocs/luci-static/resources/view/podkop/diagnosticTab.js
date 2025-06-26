@@ -726,7 +726,7 @@ async function updateDiagnostics() {
         updateTextElement('fakeip-browser-status',
             E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
                 result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
-                result.error ? 'check error' : result.state === 'working' ? _('works in browser') : _('not works in browser')
+                result.error ? 'check error' : result.state === 'working' ? _('works in browser') : _('does not work in browser')
             ])
         );
     });
@@ -735,7 +735,7 @@ async function updateDiagnostics() {
         updateTextElement('fakeip-router-status',
             E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
                 result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
-                result.error ? 'check error' : result.state === 'working' ? _('works on router') : _('not works on router')
+                result.error ? 'check error' : result.state === 'working' ? _('works on router') : _('does not work on router')
             ])
         );
     });
