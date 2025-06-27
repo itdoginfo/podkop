@@ -35,12 +35,14 @@ service_triggers() {
 	config_get mon_restart_ifaces "main" "mon_restart_ifaces"
 	config_get restart_ifaces "main" "restart_ifaces"
 
+    PROCD_RELOAD_DELAY=2000
+
 	procd_open_trigger
 		procd_add_config_trigger "config.change" "$NAME" "$initscript" restart 'on_config_change'
 
         if [ "$mon_restart_ifaces" = "1" ]; then
 			for iface in $restart_ifaces; do
-				procd_add_reload_interface_trigger $iface
+            	procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/podkop reload
 			done
 		fi
 	procd_close_trigger
