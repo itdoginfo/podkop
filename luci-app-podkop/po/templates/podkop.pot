@@ -1096,10 +1096,10 @@ msgstr ""
 msgid "FakeIP CLI Check Results"
 msgstr ""
 
-msgid "not works in browser"
+msgid "does not work in browser"
 msgstr ""
 
-msgid "not works on router"
+msgid "does not work on router"
 msgstr ""
 
 msgid "Diagnostics"
