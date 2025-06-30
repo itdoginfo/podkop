@@ -142,10 +142,6 @@ check_system() {
         esac
     done
     fi
-
-    if opkg list-installed | grep -q "iptables-mod-extra"; then
-        msg "Found incompatible iptables packages. If you're using FriendlyWrt: https://t.me/itdogchat/44512/181082"
-    fi
 }
 
 sing_box() {

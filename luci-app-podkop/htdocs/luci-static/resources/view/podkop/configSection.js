@@ -179,7 +179,6 @@ function createConfigSection(section, map, network) {
                     if (!params.get('pbk')) return _('Invalid VLESS URL: missing pbk parameter for reality security');
                     if (!params.get('fp')) return _('Invalid VLESS URL: missing fp parameter for reality security');
                 }
-
             }
 
             return true;
