@@ -69,10 +69,6 @@ start_main() {
         exit 1
     fi
 
-    if opkg list-installed | grep -q iptables-mod-extra; then
-        log "[critical] Conflicting package detected: iptables-mod-extra"
-    fi
-
     if grep -qE 'doh_backup_noresolv|doh_backup_server|doh_server' /etc/config/dhcp; then
         log "[critical] Detected https-dns-proxy in dhcp config. Edit /etc/config/dhcp"
     fi
@@ -80,6 +76,8 @@ start_main() {
     migration
 
     config_foreach process_validate_service
+    
+    br_netfilter_disable
 
     # Sync time for DoH/DoT
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
@@ -302,6 +300,14 @@ process_validate_service() {
     fi
 }
 
+br_netfilter_disable() {
+    if lsmod | grep -q br_netfilter && [ "$(sysctl -n net.bridge.bridge-nf-call-iptables 2>/dev/null)" = "1" ]; then
+        log "br_netfilter enabled detected. Disabling"
+        sysctl -w net.bridge.bridge-nf-call-iptables=0
+        sysctl -w net.bridge.bridge-nf-call-ip6tables=0
+	fi
+}
+
 # Main funcs
 
 route_table_rule_mark() {
@@ -419,8 +425,9 @@ dnsmasq_restore() {
     log "Removing configuration for dnsmasq"
 
     local cachesize=$(uci get dhcp.@dnsmasq[0].podkop_cachesize 2>/dev/null)
-    if [ -z "$cachesize" ]; then
+    if [[ "$cachesize" == "unset" ]]; then
         log "dnsmasq revert: cachesize is unset"
+        uci -q delete dhcp.@dnsmasq[0].cachesize
     else
         uci set dhcp.@dnsmasq[0].cachesize="$cachesize"
     fi
@@ -1810,15 +1817,13 @@ sing_box_rules_source_ip_cidr() {
     local source_ip_cidr="$1"
     local outbound="$2"
 
-    local current_source_ip_cidr=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .action == "route" and (.rule_set | not))' $SING_BOX_CONFIG)
-
+    local current_source_ip_cidr=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .action == "route" and .source_ip_cidr and (.inbound // [] | contains(["tproxy-in"])))' $SING_BOX_CONFIG)
 
     if [[ -n "$current_source_ip_cidr" ]]; then
         jq \
         --arg source_ip_cidr "$source_ip_cidr" \
         --arg outbound "$outbound" \
-        '(.route.rules[] | select(.outbound == $outbound and .action == "route" and (.rule_set | not)) | .source_ip_cidr) += [$source_ip_cidr]' \
-        "$SING_BOX_CONFIG" | build_sing_box_config
+        '(.route.rules[] | select(.outbound == $outbound and .action == "route" and .source_ip_cidr and (.inbound // [] | contains(["tproxy-in"]))) | .source_ip_cidr) += [$source_ip_cidr]' "$SING_BOX_CONFIG" | build_sing_box_config
     else
         jq \
         --arg source_ip_cidr "$source_ip_cidr" \
