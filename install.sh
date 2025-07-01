@@ -4,8 +4,19 @@ REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
 DOWNLOAD_DIR="/tmp/podkop"
 COUNT=3
 
-rm -rf "$DOWNLOAD_DIR"
-mkdir -p "$DOWNLOAD_DIR"
+INSTALL_RUS=2  # 0 - не устанавливать, 1 - устанавливать, 2 - спрашивать
+
+# Обработка аргументов
+for arg in "$@"; do
+    case $arg in
+        --rus=y)
+            INSTALL_RUS=1
+            ;;
+        --rus=n)
+            INSTALL_RUS=0
+            ;;
+    esac
+done
 
 msg() {
     printf "\033[32;1m%s\033[0m\n" "$1"
@@ -27,12 +38,14 @@ main() {
     
     if command -v curl &> /dev/null; then
         check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
-
         if echo "$check_response" | grep -q 'API rate limit '; then
             msg "You've reached rate limit from GitHub. Repeat in five minutes."
             exit 1
         fi
     fi
+
+    rm -rf "$DOWNLOAD_DIR"
+    mkdir -p "$DOWNLOAD_DIR"
 
     download_success=0
     while read -r url; do
@@ -75,28 +88,36 @@ main() {
 
     ru=$(ls "$DOWNLOAD_DIR" | grep "luci-i18n-podkop-ru" | head -n 1)
     if [ -n "$ru" ]; then
-        if opkg list-installed | grep -q luci-i18n-podkop-ru; then
+        if [ "$INSTALL_RUS" -eq 1 ]; then
+            msg "Устанавливаем русский перевод автоматически..."
+            opkg remove luci-i18n-podkop* 2>/dev/null
+            opkg install "$DOWNLOAD_DIR/$ru"
+        elif [ "$INSTALL_RUS" -eq 0 ]; then
+            msg "Русский перевод не устанавливается по флагу."
+        else
+            if opkg list-installed | grep -q luci-i18n-podkop-ru; then
                 msg "Upgraded ru translation..."
                 opkg remove luci-i18n-podkop*
                 opkg install "$DOWNLOAD_DIR/$ru"
-        else
-            msg "Русский язык интерфейса ставим? y/n (Need a Russian translation?)"
-            while true; do
-                read -r -p '' RUS
-                case $RUS in
-                y)
-                    opkg remove luci-i18n-podkop*
-                    opkg install "$DOWNLOAD_DIR/$ru"
-                    break
-                    ;;
-                n)
-                    break
-                    ;;
-                *)
-                    echo "Введите y или n"
-                    ;;
-                esac
-            done
+            else
+                msg "Русский язык интерфейса ставим? y/n"
+                while true; do
+                    read -r -p '' RUS
+                    case $RUS in
+                        y)
+                            opkg remove luci-i18n-podkop* 2>/dev/null
+                            opkg install "$DOWNLOAD_DIR/$ru"
+                            break
+                            ;;
+                        n)
+                            break
+                            ;;
+                        *)
+                            echo "Введите y или n"
+                            ;;
+                    esac
+                done
+            fi
         fi
     fi
 
@@ -128,9 +149,8 @@ check_system() {
         msg "Сonflicting package detected: https-dns-proxy. Remove?"
 
         while true; do
-                read -r -p '' DNSPROXY
-                case $DNSPROXY in
-
+            read -r -p '' DNSPROXY
+            case $DNSPROXY in
                 yes|y|Y|yes)
                     opkg remove --force-depends luci-app-https-dns-proxy https-dns-proxy luci-i18n-https-dns-proxy*
                     break
@@ -139,8 +159,8 @@ check_system() {
                     msg "Exit"
                     exit 1
                     ;;
-        esac
-    done
+            esac
+        done
     fi
 }
 
@@ -159,4 +179,4 @@ sing_box() {
     fi
 }
 
-main
+main "$@"
