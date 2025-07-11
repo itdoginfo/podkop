@@ -232,6 +232,9 @@ msgstr ""
 msgid "Invalid format. Use format: X.X.X.X or X.X.X.X/Y"
 msgstr ""
 
+msgid "IP address 0.0.0.0 is not allowed"
+msgstr ""
+
 msgid "IP address parts must be between 0 and 255"
 msgstr ""
 
