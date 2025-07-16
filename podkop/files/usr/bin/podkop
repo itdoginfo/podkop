@@ -79,6 +79,8 @@ start_main() {
     
     br_netfilter_disable
 
+    sync_firewall_rules
+
     # Sync time for DoH/DoT
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
 
@@ -171,6 +173,17 @@ start() {
 
 stop_main() {
     log "Stopping the podkop"
+
+    local existing_rules section
+    existing_rules=$(uci show firewall | grep "name='Podkop helper for" | cut -d. -f2)
+    if [ -n "$existing_rules" ]; then
+        log "Deleting Podkop firewall helper rules..."
+        for section in $existing_rules; do
+            uci delete firewall."${section}"
+        done
+        uci commit firewall
+        /etc/init.d/firewall reload
+    fi
 
     if [ -f /var/run/podkop_list_update.pid ]; then
         pid=$(cat /var/run/podkop_list_update.pid)
@@ -2634,6 +2647,59 @@ Available commands:
     check_dns_available     Check DNS server availability
     global_check            Run global system check
 EOF
+}
+
+get_zone_by_iface() {
+    local iface="$1"
+    local network_cfg zone_cfg
+
+    network_cfg=$(uci show network | grep -E "device(=| )'${iface}'" | cut -d. -f2 | head -n 1)
+
+    if [ -n "$network_cfg" ]; then
+        zone_cfg=$(uci show firewall | grep "network='${network_cfg}'" | cut -d. -f2 | head -n 1)
+        
+        if [ -n "$zone_cfg" ]; then
+            uci get firewall."${zone_cfg}".name
+        fi
+    fi
+}
+
+sync_firewall_rules() {
+    local required_ifaces existing_rules before_sync after_sync
+    local iface zone_name section_name
+    
+    before_sync=$(uci show firewall)
+
+    config_load podkop
+    config_get required_ifaces "main" "iface"
+
+    existing_rules=$(echo "$before_sync" | grep "name='Podkop helper for" | cut -d. -f2)
+    for section in $existing_rules; do
+        uci delete firewall."$section"
+    done
+
+    for iface in $required_ifaces; do
+        zone_name=$(get_zone_by_iface "$iface")
+        if [ -n "$zone_name" ]; then
+            section_name="podkop_$(echo "$iface" | tr -d '.-')"
+            
+            uci set firewall."${section_name}"=rule
+            uci set firewall."${section_name}".name="Podkop helper for $iface"
+            uci set firewall."${section_name}".src="$zone_name"
+            uci set firewall."${section_name}".device="$iface"
+            uci set firewall."${section_name}".family='ipv4'
+            uci set firewall."${section_name}".target='ACCEPT'
+            uci set firewall."${section_name}".mark='0x105'
+        fi
+    done
+
+    after_sync=$(uci show firewall)
+
+    if [ "$before_sync" != "$after_sync" ]; then
+        log "Firewall helper rules updated. Committing and reloading."
+        uci commit firewall
+        /etc/init.d/firewall reload
+    fi
 }
 
 case "$1" in
