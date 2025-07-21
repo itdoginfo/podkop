@@ -323,6 +323,25 @@ function createConfigSection(section, map, network) {
         }
         return true;
     };
+        // Включение/выключение родительского контроля
+    o = s.taboption('basic', form.Flag, 'parentstatus', _('Включить родительский контроль'), _('Enable or disable parental control'));
+    o.default = '0';
+    o.rmempty = false;
+    o.ucisection = s.section;
+
+    // Время начала родительского контроля
+    o = s.taboption('basic', form.Value, 'pcstart_time', _('Время включения'), _('Set parental control start time, HH:MM'));
+    o.default = '22:00';      // пример значения по умолчанию
+    o.datatype = 'time';
+    o.rmempty = false;
+    o.ucisection = s.section;
+
+    // Время окончания родительского контроля
+    o = s.taboption('basic', form.Value, 'pcend_time', _('Время отключения'), _('Set parental control end time, HH:MM'));
+    o.default = '06:00';      // пример значения по умолчанию
+    o.datatype = 'time';
+    o.rmempty = false;
+    o.ucisection = s.section;
 
     o = s.taboption('basic', form.TextValue, 'custom_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline. You can add comments after //'));
     o.placeholder = 'example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains';
