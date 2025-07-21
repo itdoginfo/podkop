@@ -154,9 +154,65 @@ start_main() {
     log "Nice"
 }
 
+apply_parental_control() {
+    log "Applying parental control rules..."
+    config_get_bool parentstatus "control" "parentstatus" "0"
+    if [ "$enabled" -ne 1 ]; then
+        log "Parental control is disabled. Skipping."
+        return
+    fi
+    config_list_foreach "control" "restricted_ips" add_parental_control_rule
+}
+add_cron_job_parental_control() {
+    cron_job="*/5 * * * * /usr/bin/podkop apply_parental_control"
+    (crontab -l | grep -v "/usr/bin/podkop apply_parental_control"; echo "$cron_job") | crontab -
+    log "Parental control cron job added: $cron_job"
+}
+add_parental_control_rule() {
+    local ip="$1"
+    local start_time end_time current_time
+    config_get start_time "control" "start_time"
+    config_get end_time "control" "end_time"
+    start_time=$(date -d "$start_time" +%s)
+    end_time=$(date -d "$end_time" +%s)
+    current_time=$(date +%s)
+    if [ "$start_time" -lt "$end_time" ]; then
+        if [ "$current_time" -ge "$start_time" ] && [ "$current_time" -lt "$end_time" ]; then
+            block_ip "$ip"
+        else
+            unblock_ip "$ip"
+        fi
+    else
+        if [ "$current_time" -ge "$start_time" ] || [ "$current_time" -lt "$end_time" ]; then
+            block_ip "$ip"
+        else
+            unblock_ip "$ip"
+        fi
+    fi
+}
+
+block_ip() {
+    local ip="$1"
+    local table="PodkopTable"
+    if ! nft list ruleset | grep -q "ip saddr $ip drop"; then
+        log "Blocking IP: $ip"
+        nft add rule inet $table mangle ip saddr $ip drop
+    fi
+}
+
+unblock_ip() {
+    local ip="$1"
+    local table="PodkopTable"
+    if nft list ruleset | grep -q "ip saddr $ip drop"; then
+        log "Unblocking IP: $ip"
+        nft delete rule inet $table mangle handle $(nft list chain inet $table mangle | grep -B 1 "ip saddr $ip drop" | head -n 1 | awk '{print $NF}')
+    fi
+}
+
 start() {
     start_main
-
+    apply_parental_control
+    add_cron_job_parental_control
     config_get proxy_string "main" "proxy_string"
     config_get interface "main" "interface"
     config_get outbound_json "main" "outbound_json"
@@ -218,12 +274,14 @@ reload() {
     log "Podkop reload"
     stop_main
     start_main
+    apply_parental_control
 }
 
 restart() {
     log "Podkop restart"
     stop
     start
+    apply_parental_control
 }
 
 # Migrations and validation funcs
