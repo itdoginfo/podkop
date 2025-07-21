@@ -156,7 +156,7 @@ start_main() {
 
 apply_parental_control() {
     log "Applying parental control rules..."
-    config_get_bool parentstatus "control" "parentstatus" "0"
+    config_get_bool parentstatus "main" "parentstatus" "0"
     if [ "$enabled" -ne 1 ]; then
         log "Parental control is disabled. Skipping."
         return
@@ -171,8 +171,8 @@ add_cron_job_parental_control() {
 add_parental_control_rule() {
     local ip="$1"
     local start_time end_time current_time
-    config_get start_time "control" "start_time"
-    config_get end_time "control" "end_time"
+    config_get start_time "main" "pcstart_time"
+    config_get end_time "main" "pcend_time"
     start_time=$(date -d "$start_time" +%s)
     end_time=$(date -d "$end_time" +%s)
     current_time=$(date +%s)
