@@ -13,7 +13,7 @@ define Package/podkop
 	SECTION:=net
 	CATEGORY:=Network
 	DEPENDS:=+sing-box +curl +jq +kmod-nft-tproxy +coreutils-base64
-	CONFLICTS:=https-dns-proxy
+	CONFLICTS:=https-dns-proxy nextdns luci-app-passwall luci-app-passwall2
 	TITLE:=Domain routing app
 	URL:=https://podkop.net
 	PKGARCH:=all
