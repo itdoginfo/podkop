@@ -69,6 +69,11 @@ start_main() {
         exit 1
     fi
 
+    if opkg list-installed | grep -qw nextdns; then
+        log "[critical] Detected nextdns installed. Remove this package: opkg remove nextdns"
+        exit 1
+    fi
+
     if opkg list-installed | grep -qw luci-app-passwall; then
         log "[critical] Detected luci-app-passwall installed. Remove this package: opkg remove luci-app-passwall"
         exit 1
