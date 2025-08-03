@@ -10,15 +10,15 @@ config_load "$NAME"
 start_service() {
     echo "Start podkop"
 
-	config_get mon_restart_ifaces "main" "mon_restart_ifaces"
-	config_get restart_ifaces "main" "restart_ifaces"
+    config_get mon_restart_ifaces "main" "mon_restart_ifaces"
+    config_get restart_ifaces "main" "restart_ifaces"
 
-	procd_open_instance
-	procd_set_param command /usr/bin/podkop start
-	[ "$mon_restart_ifaces" = "1" ] && [ -n "$restart_ifaces" ] && procd_set_param netdev $restart_ifaces
-	procd_set_param stdout 1
-	procd_set_param stderr 1
-	procd_close_instance
+    procd_open_instance
+    procd_set_param command /usr/bin/podkop start
+    [ "$mon_restart_ifaces" = "1" ] && [ -n "$restart_ifaces" ] && procd_set_param netdev $restart_ifaces
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
 }
 
 stop_service() {
@@ -32,18 +32,18 @@ reload_service() {
 service_triggers() {
     echo "service_triggers start"
 
-	config_get mon_restart_ifaces "main" "mon_restart_ifaces"
-	config_get restart_ifaces "main" "restart_ifaces"
+    config_get mon_restart_ifaces "main" "mon_restart_ifaces"
+    config_get restart_ifaces "main" "restart_ifaces"
 
     PROCD_RELOAD_DELAY=2000
 
-	procd_open_trigger
-		procd_add_config_trigger "config.change" "$NAME" "$initscript" restart 'on_config_change'
+    procd_open_trigger
+        procd_add_config_trigger "config.change" "$NAME" "$initscript" restart 'on_config_change'
 
         if [ "$mon_restart_ifaces" = "1" ]; then
-			for iface in $restart_ifaces; do
-            	procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/podkop reload
-			done
-		fi
-	procd_close_trigger
+            for iface in $restart_ifaces; do
+                procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/podkop reload
+            done
+        fi
+    procd_close_trigger
 }

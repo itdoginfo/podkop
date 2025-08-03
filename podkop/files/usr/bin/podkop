@@ -305,7 +305,7 @@ br_netfilter_disable() {
         log "br_netfilter enabled detected. Disabling"
         sysctl -w net.bridge.bridge-nf-call-iptables=0
         sysctl -w net.bridge.bridge-nf-call-ip6tables=0
-	fi
+    fi
 }
 
 # Main funcs
