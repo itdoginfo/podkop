@@ -10,17 +10,17 @@ PKG_LICENSE:=GPL-2.0-or-later
 include $(INCLUDE_DIR)/package.mk
 
 define Package/podkop
-    SECTION:=net
-    CATEGORY:=Network
-    DEPENDS:=+sing-box +curl +jq +kmod-nft-tproxy +coreutils-base64
-    CONFLICTS:=https-dns-proxy
-    TITLE:=Domain routing app
-    URL:=https://podkop.net
-    PKGARCH:=all
+	SECTION:=net
+	CATEGORY:=Network
+	DEPENDS:=+sing-box +curl +jq +kmod-nft-tproxy +coreutils-base64
+	CONFLICTS:=https-dns-proxy
+	TITLE:=Domain routing app
+	URL:=https://podkop.net
+	PKGARCH:=all
 endef
 
 define Package/podkop/description
-    Domain routing. Use of VLESS, Shadowsocks technologies
+	Domain routing. Use of VLESS, Shadowsocks technologies
 endef
 
 define Build/Configure
@@ -44,15 +44,15 @@ define Package/podkop/conffiles
 endef
 
 define Package/podkop/install
-    $(INSTALL_DIR) $(1)/etc/init.d
-    $(INSTALL_BIN) ./files/etc/init.d/podkop $(1)/etc/init.d/podkop
-    sed -i "s/VERSION_FROM_MAKEFILE/$(PKG_VERSION)/g" $(1)/etc/init.d/podkop
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./files/etc/init.d/podkop $(1)/etc/init.d/podkop
+	sed -i "s/VERSION_FROM_MAKEFILE/$(PKG_VERSION)/g" $(1)/etc/init.d/podkop
 
-    $(INSTALL_DIR) $(1)/etc/config
-    $(INSTALL_CONF) ./files/etc/config/podkop $(1)/etc/config/podkop
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_CONF) ./files/etc/config/podkop $(1)/etc/config/podkop
 
-    $(INSTALL_DIR) $(1)/usr/bin
-    $(INSTALL_BIN) ./files/usr/bin/podkop $(1)/usr/bin/podkop
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/podkop $(1)/usr/bin/podkop
 endef
 
 $(eval $(call BuildPackage,podkop))
