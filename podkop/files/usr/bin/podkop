@@ -57,6 +57,15 @@ build_sing_box_config() {
     cat > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
 }
 
+if command -v opkg >/dev/null 2>&1; then
+    PKGMGR="opkg"
+elif command -v apk >/dev/null 2>&1; then
+    PKGMGR="apk"
+else
+    echo "No supported package manager found (opkg/apk)"
+    exit 1
+fi
+
 start_main() {
     log "Starting podkop"
 
@@ -65,7 +74,13 @@ start_main() {
     required_version="1.11.1"
 
     if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
-        log "[critical] The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box"
+        if [ "$PKGMGR" = "opkg" ]; then
+            update_cmd="opkg update && opkg remove sing-box && opkg install sing-box"
+        else
+            update_cmd="apk update && apk del sing-box && apk add sing-box"
+        fi
+
+        log "[critical] The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: $update_cmd"
         exit 1
     fi
 
@@ -2258,12 +2273,22 @@ show_config() {
 }
 
 show_version() {
-    local version=$(opkg list-installed podkop | awk '{print $3}')
+    local version
+    if [ "$PKGMGR" = "opkg" ]; then
+        version=$(opkg list-installed podkop | awk '{print $3}')
+    else
+        version=$(apk info -v podkop 2>/dev/null | head -n 1 | sed 's/^[^ ]*-\([0-9].*\)/\1/')
+    fi
     echo "$version"
 }
 
 show_luci_version() {
-    local version=$(opkg list-installed luci-app-podkop | awk '{print $3}')
+    local version
+    if [ "$PKGMGR" = "opkg" ]; then
+        version=$(opkg list-installed luci-app-podkop | awk '{print $3}')
+    else
+        version=$(apk info -v luci-app-podkop 2>/dev/null | head -n 1 | sed 's/^[^ ]*-\([0-9].*\)/\1/')
+    fi
     echo "$version"
 }
 
@@ -2462,8 +2487,8 @@ global_check() {
     print_global "📡 Global check run!"
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🛠️ System info"
-    print_global "🕳️ Podkop:     $(opkg list-installed podkop | awk '{print $3}')"
-    print_global "🕳️ LuCI App:   $(opkg list-installed luci-app-podkop | awk '{print $3}')"
+    print_global "🕳️ Podkop:     $(get_version podkop)"
+    print_global "🕳️ LuCI App:   $(get_version luci-app-podkop)"
     print_global "📦 Sing-box:   $(sing-box version | head -n 1 | awk '{print $3}')"
     print_global "🛜 OpenWrt:    $(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)"
     print_global "🛜 Device:     $(cat /tmp/sysinfo/model)"
