@@ -250,7 +250,7 @@ migration() {
     if grep -q "list subnets" $CONFIG; then
         log "Depricated second section found"
         sed -i '/list subnets/d' $CONFIG
-    fi 
+    fi
 
     # second remove
     if grep -q "config second 'second'" $CONFIG; then
@@ -473,7 +473,7 @@ process_domains_text() {
             sing_box_ruleset_domains "$domain" "$name"
         fi
     done
-    
+
     rm -f "$tmp_file" "${tmp_file}.filtered"
 }
 
@@ -483,10 +483,10 @@ process_subnets_text() {
     
     local tmp_file=$(mktemp)
     echo "$text" > "$tmp_file"
-    
+
     # First filter out full comment lines and remove comments after subnets
     grep -v "^[[:space:]]*\/\/" "$tmp_file" | sed 's/\/\/.*$//' > "${tmp_file}.filtered"
-    
+
     sed 's/[, ]\+/\n/g' "${tmp_file}.filtered" | while IFS= read -r subnet; do
         subnet=$(echo "$subnet" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         if [ -n "$subnet" ]; then
@@ -496,7 +496,7 @@ process_subnets_text() {
             sing_box_ruleset_subnets "$subnet" "$name"
         fi
     done
-    
+
     rm -f "$tmp_file" "${tmp_file}.filtered"
 }
 
@@ -619,7 +619,7 @@ list_update() {
     fi
 
     echolog "📥 Downloading and processing lists..."
-    
+
     config_foreach process_remote_ruleset_subnet
     config_foreach process_domains_list_url
     config_foreach process_subnet_for_section_remote
@@ -666,9 +666,9 @@ add_socks5_for_section() {
     local section="$1"
     local port="$2"
     local tag="$section-mixed-in"
-    
+
     log "Adding Socks5 for $section on port $port"
-    
+
     jq \
     --arg tag "$tag" \
     --arg port "$port" \
@@ -762,9 +762,9 @@ sing_box_dns() {
             log "Found working resolver: $dns_resolver"
         fi
     fi
-    
+
     log "Configure DNS in sing-box"
-    
+
     server_json=$(jq -n \
         --arg type "$dns_type" \
         --arg server "$dns_server" \
@@ -793,7 +793,7 @@ sing_box_dns() {
                 )
             ]
         }')
-    
+
     if [ "$is_ip" = "0" ]; then
         server_json=$(echo "$server_json" | jq \
             --arg resolver "$resolver_tag" \
@@ -803,7 +803,7 @@ sing_box_dns() {
                 "address": $address
             }]')
     fi
-    
+
     if [ "$split_dns_enabled" = "1" ]; then
         local split_is_ip=$(echo "$split_dns_server" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' && echo "1" || echo "0")
         if [ "$split_is_ip" = "0" ]; then
@@ -856,7 +856,7 @@ sing_box_dns() {
     fi
 
     server_json=$(echo "$server_json" | jq '.servers += [{"tag": "fakeip-server", "address": "fakeip"}]')
-    
+
     jq \
         --argjson dns_config "$server_json" \
         --arg fakeip "$FAKEIP" \
@@ -881,7 +881,7 @@ sing_box_dns() {
 
 sing_box_create_bypass_ruleset() {
     log "Creating bypass ruleset for direct access"
-    
+
     jq '
     .route.rule_set += [{
         "tag": "bypass",
@@ -894,7 +894,7 @@ sing_box_create_bypass_ruleset() {
             }
         ]
     }]' "$SING_BOX_CONFIG" | build_sing_box_config
-    
+
     # Add a rule to route bypass domains to direct-out outbound
     jq '
     .route.rules += [{
@@ -903,7 +903,7 @@ sing_box_create_bypass_ruleset() {
         "outbound": "main",
         "action": "route"
     }]' "$SING_BOX_CONFIG" | build_sing_box_config
-    
+
     # Make sure the bypass ruleset is in the fakeip DNS rule
     jq '
     .dns.rules = (.dns.rules | map(
@@ -925,7 +925,7 @@ sing_box_dns_rule_fakeip() {
     config_get split_dns_enabled "main" "split_dns_enabled" "0"
 
     log "Configure fakeip route in sing-box and set TTL to $rewrite_ttl seconds"
-    
+
     jq \
     --arg ttl "$rewrite_ttl" \
     --argjson split_dns_enabled "$split_dns_enabled" \
@@ -1119,11 +1119,11 @@ sing_box_config_check() {
 sing_box_config_outbound_json() {
     local json_config="$1"
     local section="$2"
-    
+
     # Create new object with tag first, then merge with the rest of the config
     local modified_config=$(echo "$json_config" | jq --arg section "$section" \
         'del(.tag) | {"tag": $section} + .')
-    
+
     jq --argjson outbound "$modified_config" \
        --arg section "$section" \
        '. |
@@ -1686,7 +1686,7 @@ sing_box_rule_preset() {
     if [ "$domain_list_enabled" -eq 1 ]; then
         config_list_foreach $section domain_list sing_box_rules $section
         config_list_foreach $section domain_list sing_box_dns_rule_fakeip_section domain_list
-    fi 
+    fi
 }
 
 list_custom_local_domains_create() {
@@ -1843,9 +1843,9 @@ detour_mixed() {
     local section="main"
     local port="4534"
     local tag="detour"
-    
+
     log "Adding detour Socks5 for $section on port $port"
-    
+
     jq \
     --arg tag "$tag" \
     --arg port "$port" \
@@ -1937,30 +1937,30 @@ check_proxy() {
     nolog "Checking proxy connection..."
 
 
-   for attempt in `seq 1 5`; do
-       response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
-       if echo "$response" | grep -q "^<html\|403 Forbidden"; then
-           continue
-       fi
-       if [[ $response =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-           ip=$(echo "$response" | sed -n 's/^[0-9]\+\.[0-9]\+\.[0-9]\+\.\([0-9]\+\)$/X.X.X.\1/p')
-           nolog "$ip - should match proxy IP"
-           return 0
-       elif echo "$response" | grep -q "^[0-9a-fA-F:]*::[0-9a-fA-F:]*$\|^[0-9a-fA-F:]\+$"; then
-           ip=$(echo "$response" | sed 's/\([0-9a-fA-F]\+:[0-9a-fA-F]\+:[0-9a-fA-F]\+\):.*/\1:XXXX:XXXX:XXXX/')
-           nolog "$ip - should match proxy IP"
-           return 0
-       fi
-       if [ $attempt -eq 5 ]; then
-           nolog "Failed to get valid IP address after 5 attempts"
-           if [ -z "$response" ]; then
-               nolog "Error: Empty response"
-           else
-               nolog "Error response: $response"
-           fi
-           return 1
-       fi
-   done
+    for attempt in `seq 1 5`; do
+        response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
+        if echo "$response" | grep -q "^<html\|403 Forbidden"; then
+            continue
+        fi
+        if [[ $response =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            ip=$(echo "$response" | sed -n 's/^[0-9]\+\.[0-9]\+\.[0-9]\+\.\([0-9]\+\)$/X.X.X.\1/p')
+            nolog "$ip - should match proxy IP"
+            return 0
+        elif echo "$response" | grep -q "^[0-9a-fA-F:]*::[0-9a-fA-F:]*$\|^[0-9a-fA-F:]\+$"; then
+            ip=$(echo "$response" | sed 's/\([0-9a-fA-F]\+:[0-9a-fA-F]\+:[0-9a-fA-F]\+\):.*/\1:XXXX:XXXX:XXXX/')
+            nolog "$ip - should match proxy IP"
+            return 0
+        fi
+        if [ $attempt -eq 5 ]; then
+            nolog "Failed to get valid IP address after 5 attempts"
+            if [ -z "$response" ]; then
+                nolog "Error: Empty response"
+            else
+                nolog "Error response: $response"
+            fi
+            return 1
+        fi
+    done
 }
 
 check_nft() {
@@ -1970,16 +1970,16 @@ check_nft() {
     fi
 
     nolog "Checking PodkopTable rules..."
-    
+
     # Check if table exists
     if ! nft list table inet PodkopTable >/dev/null 2>&1; then
         nolog "❌ PodkopTable not found"
         return 1
     fi
-    
+
     local found_hetzner=0
     local found_ovh=0
-    
+
     check_domain_list_contains() {
         local section="$1"
         
@@ -1988,7 +1988,7 @@ check_nft() {
             config_list_foreach "$section" "domain_list" check_domain_value
         fi
     }
-    
+
     check_domain_value() {
         local domain_value="$1"
         
@@ -1998,9 +1998,9 @@ check_nft() {
             found_ovh=1
         fi
     }
-    
+
     config_foreach check_domain_list_contains
-    
+
     if [ "$found_hetzner" -eq 1 ] || [ "$found_ovh" -eq 1 ]; then
 
         local sets="podkop_subnets podkop_domains interfaces podkop_discord_subnets localv4"
@@ -2015,15 +2015,15 @@ check_nft() {
         done
 
         nolog "Chain configurations:"
-        
+
         # Create a temporary file for processing
         local tmp_file=$(mktemp)
         nft list table inet PodkopTable > "$tmp_file"
-        
+
         # Extract chain configurations without element listings
         sed -n '/chain mangle {/,/}/p' "$tmp_file" | grep -v "elements" | grep -v "^[[:space:]]*[0-9]"
         sed -n '/chain proxy {/,/}/p' "$tmp_file" | grep -v "elements" | grep -v "^[[:space:]]*[0-9]"
-        
+
         # Clean up
         rm -f "$tmp_file"
     else
@@ -2031,19 +2031,19 @@ check_nft() {
         nolog "Sets configuration:"
         nft list table inet PodkopTable
     fi
-    
+
     nolog "NFT check completed"
 }
 
 check_github() {
     nolog "Checking GitHub connectivity..."
-    
+
     if ! curl -m 3 github.com; then
         nolog "Error: Cannot connect to GitHub"
         return 1
     fi
     nolog "GitHub is accessible"
-    
+
     nolog "Checking lists availability:"
     for url in "$DOMAINS_RU_INSIDE" "$DOMAINS_RU_OUTSIDE" "$DOMAINS_UA" "$DOMAINS_YOUTUBE" \
               "$SUBNETS_TWITTER" "$SUBNETS_META" "$SUBNETS_DISCORD"; do
@@ -2080,7 +2080,7 @@ check_dnsmasq() {
 
 check_sing_box_connections() {
     nolog "Checking sing-box connections..."
-    
+
     if ! command -v netstat >/dev/null 2>&1; then
         nolog "netstat is not installed"
         return 1
@@ -2112,19 +2112,19 @@ check_sing_box_logs() {
 check_fakeip() {
     # Not used
     nolog "Checking fakeip functionality..."
-    
+
     if ! command -v nslookup >/dev/null 2>&1; then
         nolog "nslookup is not installed"
         return 1
     fi
-    
+
     local test_domain="$TEST_DOMAIN"
-    
+
     nolog "Testing DNS resolution with default DNS server"
     echo "=== Testing with default DNS server ==="
     nslookup -timeout=2 $test_domain
     echo ""
-    
+
     nolog "Finding a working DNS resolver..."
     local working_resolver=$(find_working_resolver)
     if [ -z "$working_resolver" ]; then
@@ -2137,13 +2137,13 @@ check_fakeip() {
         nslookup -timeout=2 $test_domain $working_resolver
         echo ""
     fi
-    
+
     # Main FakeIP check
     nolog "Testing DNS resolution for $test_domain using 127.0.0.42"
     echo "=== Testing with FakeIP DNS (127.0.0.42) ==="
     local result=$(nslookup -timeout=2 $test_domain 127.0.0.42 2>&1)
     echo "$result"
-    
+
     if echo "$result" | grep -q "198.18"; then
         nolog "✅ FakeIP is working correctly! Domain resolved to FakeIP range (198.18.x.x)"
         return 0
@@ -2170,14 +2170,14 @@ check_fakeip() {
                 nolog "sing-box config file not found"
             fi
         fi
-        
+
         return 1
     fi
 }
 
 check_logs() {
     nolog "Showing podkop logs from system journal..."
-    
+
     if ! command -v logread >/dev/null 2>&1; then
         nolog "Error: logread command not found"
         return 1
@@ -2185,15 +2185,15 @@ check_logs() {
 
     # Get all logs first
     local all_logs=$(logread)
-    
+
     # Find the last occurrence of "Starting podkop"
     local start_line=$(echo "$all_logs" | grep -n "podkop.*Starting podkop" | tail -n 1 | cut -d: -f1)
-    
+
     if [ -z "$start_line" ]; then
         nolog "No 'Starting podkop' message found in logs"
         return 1
     fi
-    
+
     # Output all logs from the last start
     echo "$all_logs" | tail -n +"$start_line"
 }
@@ -2232,14 +2232,14 @@ show_sing_box_config() {
     )' "$SING_BOX_CONFIG"
 }
 
-show_config() {    
+show_config() {
     if [ ! -f /etc/config/podkop ]; then
         nolog "Configuration file not found"
         return 1
     fi
 
     tmp_config=$(mktemp)
-    
+
     cat /etc/config/podkop | sed \
         -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option outbound_json\).*/\1 '\''MASKED'\''/g' \
@@ -2344,7 +2344,7 @@ check_dns_available() {
     local status="unavailable"
     local local_dns_working=0
     local local_dns_status="unavailable"
-    
+
     # Mask NextDNS ID if present
     local display_dns_server="$dns_server"
     if echo "$dns_server" | grep -q "\.dns\.nextdns\.io$"; then
@@ -2414,13 +2414,13 @@ check_dns_available() {
             status="available"
         fi
     fi
-    
+
     # Check if local DNS resolver is working
     if nslookup -timeout=2 $TEST_DOMAIN 127.0.0.1 >/dev/null 2>&1; then
         local_dns_working=1
         local_dns_status="available"
     fi
-    
+
     echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"is_available\":$is_available,\"status\":\"$status\",\"local_dns_working\":$local_dns_working,\"local_dns_status\":\"$local_dns_status\"}"
 }
 
@@ -2562,22 +2562,22 @@ global_check() {
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🔁 FakeIP"
-        
+
     print_global "➡️ DNS resolution: system DNS server"
     nslookup -timeout=2 $TEST_DOMAIN
-    
+
     local working_resolver=$(find_working_resolver)
     if [ -z "$working_resolver" ]; then
         print_global "❌ No working external resolver found"
-    else      
+    else
         print_global "➡️ DNS resolution: external resolver ($working_resolver)"
         nslookup -timeout=2 $TEST_DOMAIN $working_resolver
     fi
-    
+
     print_global "➡️ DNS resolution: sing-box DNS server (127.0.0.42)"
     local result=$(nslookup -timeout=2 $TEST_DOMAIN 127.0.0.42 2>&1)
     echo "$result"
-    
+
     if echo "$result" | grep -q "198.18"; then
         print_global "✅ FakeIP is working correctly on router (198.18.x.x)"
     else
@@ -2586,7 +2586,7 @@ global_check() {
             print_global " ❌ sing-box is not running"
         else
             print_global " 🤔 sing-box is running, checking configuration"
-            
+
             if [ -f "$SING_BOX_CONFIG" ]; then
                 local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$SING_BOX_CONFIG")
                 local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$SING_BOX_CONFIG")
