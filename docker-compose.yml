@@ -1,6 +1,6 @@
- services:
+services:
   stable-builder:
-    image: tokKurumi/openwrt-sdk-cached:latest
+    image: podkop/openwrt-sdk-stable-cached:latest
     container_name: stable-builder
     volumes:
         - ./podkop:/builder/package/feeds/utilities/podkop
@@ -22,7 +22,7 @@
         "
 
   snapshot-builder:
-    image: tokKurumi/openwrt-sdk-snapshot-cached:latest
+    image: podkop/openwrt-sdk-snapshot-cached:latest
     container_name: snapshot-builder
     volumes:
         - ./podkop:/builder/package/feeds/utilities/podkop
