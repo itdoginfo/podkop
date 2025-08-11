@@ -18,7 +18,7 @@ main() {
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
 
     opkg update || { echo "opkg update failed"; exit 1; }
-  
+
     if [ -f "/etc/init.d/podkop" ]; then
         msg "Podkop is already installed. Upgraded..."
     else
@@ -63,7 +63,7 @@ main() {
         msg "No packages were downloaded successfully"
         exit 1
     fi
-    
+
     for pkg in podkop luci-app-podkop; do
         file=$(ls "$DOWNLOAD_DIR" | grep "^$pkg" | head -n 1)
         if [ -n "$file" ]; then

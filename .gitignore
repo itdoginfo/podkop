@@ -1,0 +1,4 @@
+output/stable/*
+!output/stable/.gitkeep
+output/snapshot/*
+!output/snapshot/.gitkeep

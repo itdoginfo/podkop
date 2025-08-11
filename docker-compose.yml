@@ -1,0 +1,41 @@
+services:
+  stable-builder:
+    image: podkop/openwrt-sdk-stable-cached:latest
+    container_name: stable-builder
+    volumes:
+        - ./podkop:/builder/package/feeds/utilities/podkop
+        - ./luci-app-podkop:/builder/package/feeds/luci/luci-app-podkop
+        - ./output/stable:/output
+    working_dir: /builder
+    command: >
+        /bin/bash -c "
+        rm -f bin/packages/x86_64/luci/luci-i18n-podkop-ru_*.ipk &&
+        make defconfig && \
+        make package/podkop/compile V=s -j2 && \
+        make package/luci-app-podkop/compile V=s -j2 && \
+        for f in bin/packages/x86_64/utilities/podkop_*.ipk bin/packages/x86_64/luci/luci-app-podkop_*.ipk bin/packages/x86_64/luci/luci-i18n-podkop-ru_*.ipk; do \
+            [ -e \"$$f\" ] || continue; \
+            base=$$(basename \"$$f\"); \
+            newname=\"$${base/_/-}\"; \
+            cp \"$$f\" \"/output/$$newname\"; \
+        done
+        "
+
+  snapshot-builder:
+    image: podkop/openwrt-sdk-snapshot-cached:latest
+    container_name: snapshot-builder
+    volumes:
+        - ./podkop:/builder/package/feeds/utilities/podkop
+        - ./luci-app-podkop:/builder/package/feeds/luci/luci-app-podkop
+        - ./output/snapshot:/output
+    working_dir: /builder
+    command: >
+        /bin/bash -c "
+        rm -f bin/packages/x86_64/luci/luci-i18n-podkop-ru-*.apk &&
+        make defconfig &&
+        make package/podkop/compile V=s -j2 &&
+        make package/luci-app-podkop/compile V=s -j2 &&
+        cp bin/packages/x86_64/utilities/podkop-*.apk /output/ &&
+        cp bin/packages/x86_64/luci/luci-app-podkop-*.apk /output/ &&
+        cp bin/packages/x86_64/luci/luci-i18n-podkop-ru-*.apk /output/
+        "
