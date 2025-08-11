@@ -19,14 +19,16 @@
 # Сборка образа для OpenWrt SDK (stable)
 docker buildx build \
   -t podkop/openwrt-sdk-stable-cached:latest \
-  -f sdk/Dockerfile-openwrt-sdk-stable-cached \
-  sdk/
+  -f ./sdk/Dockerfile-openwrt-sdk-stable-cached \
+  ./sdk \
+  --load
 
 # Сборка образа для OpenWrt SDK (snapshot)
 docker buildx build \
   -t podkop/openwrt-sdk-snapshot-cached:latest \
-  -f sdk/Dockerfile-openwrt-sdk-snapshot-cached \
-  sdk/
+  -f ./sdk/Dockerfile-openwrt-sdk-snapshot-cached \
+  ./sdk \
+  --load
 ```
 
 2. Запуск compose для сборки пакетов
