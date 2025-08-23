@@ -1987,7 +1987,7 @@ import_subnets_from_remote_lst_file() {
 import_subnets_from_remote_json_file() {
     local url="$1"
 
-    download_to_stream "$url" | jq -r '.rules[].ip_cidr[]' | while read -r subnet; do
+    download_to_stream "$url" | jq -r '.rules[].ip_cidr[]?' | while read -r subnet; do
         nft_add_podkop_subnet "$subnet"
     done
 }
