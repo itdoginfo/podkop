@@ -2840,7 +2840,7 @@ download_to_stream() {
 
     config_get_bool detour "main" "detour" "0"
     if [ "$detour" -eq 1 ]; then
-        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -qO- "$filepath" "$url" | sed 's/\r$//'
+        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -qO- "$url" | sed 's/\r$//'
     else
         wget -qO- "$url" | sed 's/\r$//'
     fi
