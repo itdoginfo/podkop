@@ -575,8 +575,7 @@ prepare_custom_ruleset() {
         sing_box_rules $tag $section
         sing_box_dns_rule_fakeip_section $tag $tag
 
-        # TODO(ampetelin): Who is 'test' rule_set? (need fix)
-        log "Added 'test' rule_set to sing-box config"
+        log "Added $tag rule_set to sing-box config"
     fi
 }
 
