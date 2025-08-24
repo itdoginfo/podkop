@@ -2780,6 +2780,16 @@ global_check() {
         done
     fi
 
+    if uci show network | grep -q route_allowed_ips; then
+        uci show network | grep route_allowed_ips | cut -d"'" -f2 | while read -r value; do
+            if [ "$value" = "1" ]; then
+                print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                print_global "⚠️ WG Route allowed IP enabled"
+                continue
+            fi
+        done
+    fi
+
     if [ -f "/etc/init.d/zapret" ]; then
         print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         print_global "⚠️ Zapret detected"
