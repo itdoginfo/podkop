@@ -57,6 +57,11 @@ vless://uuid@server:443?security=tls&sni=server&fp=chrome&type=ws&path=/websocke
 vless://33333@example.com:443/?type=ws&encryption=none&path=%2Fwebsocket&security=tls&sni=example.com&fp=chrome#vless-tls-ws-4
 ```
 
+7.
+```
+vless://id@sub.domain.example:443?type=ws&path=%2Fdir%2Fpath&host=sub.domain.example&security=tls#configname
+```
+
 ## No security
 ```
 vless://8b60389a-7a01-4365-9244-c87f12bb98cf@example.com:443?type=tcp&security=none#vless-tls-no-encrypt
