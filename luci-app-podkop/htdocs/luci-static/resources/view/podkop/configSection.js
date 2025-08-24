@@ -417,6 +417,9 @@ function createConfigSection(section, map, network) {
         const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
         if (!subnetRegex.test(value)) return _('Invalid format. Use format: X.X.X.X or X.X.X.X/Y');
         const [ip, cidr] = value.split('/');
+        if (ip === "0.0.0.0") {
+             return _('IP address 0.0.0.0 is not allowed');
+        }
         const ipParts = ip.split('.');
         for (const part of ipParts) {
             const num = parseInt(part);
@@ -526,4 +529,4 @@ function createConfigSection(section, map, network) {
 
 return baseclass.extend({
     createConfigSection
-}); 
+});
