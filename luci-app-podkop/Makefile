@@ -1,7 +1,9 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-podkop
-PKG_VERSION:=0.4.7
+
+PKG_VERSION := $(shell git describe --tags --exact-match 2>/dev/null || echo "dev_$(shell date +%d%m%Y)")
+
 PKG_RELEASE:=1
 
 LUCI_TITLE:=LuCI podkop app
