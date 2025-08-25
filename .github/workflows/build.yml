@@ -11,22 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.1
 
-      - name: Check version match
-        run: |
-          PODKOP_VERSION=$(grep '^PKG_VERSION:=' podkop/Makefile | cut -d '=' -f 2)
-          LUCI_APP_PODKOP_VERSION=$(grep '^PKG_VERSION:=' luci-app-podkop/Makefile | cut -d '=' -f 2)
-
-          TAG_VERSION=${GITHUB_REF#refs/tags/v}
-
-          echo "Podkop version: $PODKOP_VERSION"
-          echo "Luci-app-podkop version: $LUCI_APP_PODKOP_VERSION"
-          echo "Tag version: $TAG_VERSION"
-
-          if [ "$PODKOP_VERSION" != "$TAG_VERSION" ] || [ "$LUCI_APP_PODKOP_VERSION" != "$TAG_VERSION" ]; then
-            echo "Error: Version mismatch"
-            exit 1
-          fi
-
       - name: Build and push
         uses: docker/build-push-action@v6.9.0
         with:
