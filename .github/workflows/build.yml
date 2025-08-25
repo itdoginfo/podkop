@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.1
-        fetch-depth: '0'
+        with:
+          fetch-depth: '0'
 
       - name: Build and push
         uses: docker/build-push-action@v6.9.0
