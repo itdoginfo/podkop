@@ -373,8 +373,26 @@ create_nft_table() {
 
     nft_interfaces
 
+    log "Create localv4 set"
+    nft add set inet $table localv4 { type ipv4_addr\; flags interval\; }
+    nft add element inet $table localv4 { \
+        0.0.0.0/8, \
+        10.0.0.0/8, \
+        127.0.0.0/8, \
+        169.254.0.0/16, \
+        172.16.0.0/12, \
+        192.0.0.0/24, \
+        192.0.2.0/24, \
+        192.88.99.0/24, \
+        192.168.0.0/16, \
+        198.51.100.0/24, \
+        203.0.113.0/24, \
+        224.0.0.0/4, \
+        240.0.0.0-255.255.255.255 }
+
     log "Create nft rules"
     nft add chain inet $table mangle { type filter hook prerouting priority -150 \; policy accept \;}
+    nft add chain inet $table mangle_output { type route hook output priority -150 \; policy accept\; }
     nft add chain inet $table proxy { type filter hook prerouting priority -100 \; policy accept \;}
 
     nft add set inet $table podkop_subnets { type ipv4_addr\; flags interval\; auto-merge\; }
@@ -386,6 +404,12 @@ create_nft_table() {
 
     nft add rule inet $table proxy meta mark 0x105 meta l4proto tcp tproxy ip to :1602 counter
     nft add rule inet $table proxy meta mark 0x105 meta l4proto udp tproxy ip to :1602 counter
+
+    nft add rule inet $table mangle_output ip daddr @localv4 return
+    nft add rule inet $table mangle_output ip daddr @podkop_subnets meta l4proto tcp meta mark set 0x00000105 counter
+    nft add rule inet $table mangle_output ip daddr @podkop_subnets meta l4proto udp meta mark set 0x00000105 counter
+    nft add rule inet $table mangle_output ip daddr 198.18.0.0/15 meta l4proto tcp meta mark set 0x00000105 counter
+    nft add rule inet $table mangle_output ip daddr 198.18.0.0/15 meta l4proto udp meta mark set 0x00000105 counter
 }
 
 save_dnsmasq_config() {
@@ -2080,21 +2104,6 @@ nft_list_all_traffic_from_ip() {
     local table="PodkopTable"
 
     if ! nft list chain inet $table mangle | grep -q "ip saddr $ip"; then
-        nft add set inet $table localv4 { type ipv4_addr\; flags interval\; }
-        nft add element inet $table localv4 { \
-            0.0.0.0/8, \
-            10.0.0.0/8, \
-            127.0.0.0/8, \
-            169.254.0.0/16, \
-            172.16.0.0/12, \
-            192.0.0.0/24, \
-            192.0.2.0/24, \
-            192.88.99.0/24, \
-            192.168.0.0/16, \
-            198.51.100.0/24, \
-            203.0.113.0/24, \
-            224.0.0.0/4, \
-            240.0.0.0-255.255.255.255 }
         nft insert rule inet $table mangle iifname "$SRC_INTERFACE" ip saddr $ip meta l4proto { tcp, udp } meta mark set 0x105 counter
         nft insert rule inet $table mangle ip saddr $ip ip daddr @localv4 return
     fi
