@@ -11,13 +11,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.1
         with:
-          fetch-depth: '0'
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "dev_$(date +%d%m%Y)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v6.9.0
         with:
           context: .
           tags: podkop:ci
+          build-args: |
+            PKG_VERSION=${{ steps.version.outputs.version }}
 
       - name: Create Docker container
         run: docker create --name podkop podkop:ci
