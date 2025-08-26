@@ -1763,16 +1763,12 @@ configure_remote_domain_list_handler() {
     local file_extension
     file_extension=$(get_url_file_extension "$url")
     case "$file_extension" in
-        lst)
-            log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
-            ;;
         json|srs)
             log "Detected file extension: .$file_extension → proceeding with processing"
             sing_box_add_remote_ruleset_and_rules "$url" "$section" "domains"
             ;;
         *)
-            log "Detected file extension: .$file_extension → unsupported, skipping"
-            return 1
+            log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
             ;;
     esac
 }
@@ -1796,17 +1792,13 @@ configure_remote_subnet_list_handler() {
     local file_extension
     file_extension=$(get_url_file_extension "$url")
     case "$file_extension" in
-        lst)
-            log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
-            ;;
         json|srs)
             log "Detected file extension: .$file_extension → proceeding with processing"
             sing_box_add_remote_ruleset_and_rules "$url" "$section" "subnets"
             ;;
         *)
-            log "Detected file extension: .$file_extension → unsupported, skipping"
-            return 1
-            ;;
+            log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
+            ;;          
     esac
 }
 
@@ -1899,16 +1891,12 @@ import_domains_from_remote_domain_list_handler() {
     local file_extension
     file_extension=$(get_url_file_extension "$url")
     case "$file_extension" in
-        lst)
-            log "Detected file extension: .$file_extension → proceeding with processing"
-            import_domains_from_remote_lst_file "$url" "$section"
-            ;;
         json|srs)
             log "Detected file extension: .$file_extension → no update needed, sing-box manages updates"
             ;;
         *)
-            log "Detected file extension: .$file_extension → unsupported, skipping"
-            return 1
+            log "Detected file extension: .$file_extension → proceeding with processing"
+            import_domains_from_remote_lst_file "$url" "$section"
             ;;
     esac
 }
