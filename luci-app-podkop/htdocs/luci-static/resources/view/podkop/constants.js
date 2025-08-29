@@ -21,7 +21,10 @@ const ALLOWED_WITH_RUSSIA_INSIDE = [
     'google_ai',
     'google_play',
     'hetzner',
-    'ovh'
+    'ovh',
+    'hodca',
+    'digitalocean',
+    'cloudfront'
 ];
 
 const DOMAIN_LIST_OPTIONS = {
@@ -43,8 +46,11 @@ const DOMAIN_LIST_OPTIONS = {
     cloudflare: 'Cloudflare',
     google_ai: 'Google AI',
     google_play: 'Google Play',
+    hodca: 'H.O.D.C.A',
     hetzner: 'Hetzner ASN',
-    ovh: 'OVH ASN'
+    ovh: 'OVH ASN',
+    digitalocean: 'Digital Ocean ASN',
+    cloudfront: 'CloudFront ASN'
 };
 
 const UPDATE_INTERVAL_OPTIONS = {
