@@ -20,11 +20,11 @@ ss://MjAyMi1ibGFrZTMtYWVzLTEyOC1nY206Y21lZklCdDhwMTJaZm1QWUplMnNCNThRd3R3NXNKeVp
 
 ## Reality
 ```
-vless://eb445f4b-ddb4-4c79-86d5-0833fc674379@example.com:443?type=tcp&security=reality&pbk=ARQzddtXPJZHinwkPbgVpah9uwPTuzdjU9GpbUkQJkc&fp=chrome&sni=yahoo.com&sid=6cabf01472a3&spx=%2F&flow=xtls-rprx-vision#vless-reality
+vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?type=tcp&security=reality&pbk=ARQzddtXPJZHinwkPbgVpah9uwPTuzdjU9GpbUkQJkc&fp=chrome&sni=sni.server.com&sid=6cabf01472a3&spx=%2F&flow=xtls-rprx-vision#vless-reality
 ```
 
 ```
-vless://UUID@IP:2082?security=reality&sni=dash.cloudflare.com&alpn=h2,http/1.1&allowInsecure=1&fp=chrome&pbk=pukkey&sid=id&type=grpc&encryption=none#vless-reality-strange
+vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@123.123.123.123:2082?security=reality&sni=sni.server.com&alpn=h2,http/1.1&allowInsecure=1&fp=chrome&pbk=ARQzddtXPJZHinwkPbgVpah9uwPTuzdjU9GpbUkQJkc&sid=6cabf01472a3&type=grpc&encryption=none#vless-reality-strange
 ```
 
 ## TLS
@@ -35,34 +35,34 @@ vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?type=tcp&security=t
 
 2.
 ```
-vless://8b60389a-7a01-4365-9244-c87f12bb98cf@example.com:443?security=tls&sni=SITE&fp=chrome&type=tcp&flow=xtls-rprx-vision&encryption=none#vless-tls-withot-alpn
+vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?security=tls&sni=sni.server.com&fp=chrome&type=tcp&flow=xtls-rprx-vision&encryption=none#vless-tls-withot-alpn
 ```
 3. 
 ```
-vless://8b60389a-7a01-4365-9244-c87f12bb98cf@example.com:443/?type=ws&encryption=none&path=%2Fwebsocket&security=tls&sni=sni.server.com&fp=chrome#vless-tls-ws
+vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443/?type=ws&encryption=none&path=%2Fwebsocket&security=tls&sni=sni.server.com&fp=chrome#vless-tls-ws
 ```
 
 4.
 ```
-vless://[someid]@[someserver]?security=tls&sni=[somesni]&type=ws&path=/?ed%3D2560&host=[somesni]&encryption=none#vless-tls-ws-2
+vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?security=tls&sni=sni.server.com&type=ws&path=/?ed%3D2560&host=sni.server.com&encryption=none#vless-tls-ws-2
 ```
 
 5.
 ```
-vless://uuid@server:443?security=tls&sni=server&fp=chrome&type=ws&path=/websocket&encryption=none#vless-tls-ws-3
+vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?security=tls&sni=sni.server.com&fp=chrome&type=ws&path=/websocket&encryption=none#vless-tls-ws-3
 ```
 
 6.
 ```
-vless://33333@example.com:443/?type=ws&encryption=none&path=%2Fwebsocket&security=tls&sni=example.com&fp=chrome#vless-tls-ws-4
+vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443/?type=ws&encryption=none&path=%2Fwebsocket&security=tls&sni=sni.server.com&fp=chrome#vless-tls-ws-4
 ```
 
 7.
 ```
-vless://id@sub.domain.example:443?type=ws&path=%2Fdir%2Fpath&host=sub.domain.example&security=tls#configname
+vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@sub.example.com:443?type=ws&path=%2Fdir%2Fpath&host=sub.example.com&security=tls#configname
 ```
 
 ## No security
 ```
-vless://8b60389a-7a01-4365-9244-c87f12bb98cf@example.com:443?type=tcp&security=none#vless-tls-no-encrypt
+vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?type=tcp&security=none#vless-tls-no-encrypt
 ```
