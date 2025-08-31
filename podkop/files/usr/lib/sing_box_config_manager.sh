@@ -97,17 +97,22 @@ sing_box_cm_add_udp_dns_server() {
     local tag="$2"
     local server_address="$3"
     local server_port="$4"
+    local domain_resolver="$5"
 
     echo "$config" | jq \
         --arg tag "$tag" \
         --arg server_address "$server_address" \
         --arg server_port "$server_port" \
-        '.dns.servers += [{
-			type: "udp",
-			tag: $tag,
-			server: $server_address,
-			server_port: ($server_port | tonumber)
-		}]'
+        --arg domain_resolver "$domain_resolver" \
+        '.dns.servers += [(
+            {
+                type: "udp",
+                tag: $tag,
+                server: $server_address,
+                server_port: ($server_port | tonumber)
+		    }
+		    + (if $domain_resolver != "" then { domain_resolver: $domain_resolver } else {} end)
+		)]'
 }
 
 #######################################
@@ -127,17 +132,22 @@ sing_box_cm_add_tls_dns_server() {
     local tag="$2"
     local server_address="$3"
     local server_port="$4"
+    local domain_resolver="$5"
 
     echo "$config" | jq \
         --arg tag "$tag" \
         --arg server_address "$server_address" \
         --arg server_port "$server_port" \
-        '.dns.servers += [{
-			type: "tls",
-			tag: $tag,
-			server: $server_address,
-			server_port: ($server_port | tonumber)
-		}]'
+        --arg domain_resolver "$domain_resolver" \
+        '.dns.servers += [(
+            {
+			    type: "tls",
+			    tag: $tag,
+			    server: $server_address,
+			    server_port: ($server_port | tonumber)
+		    }
+		    + (if $domain_resolver != "" then { domain_resolver: $domain_resolver } else {} end)
+		)]'
 }
 
 #######################################
@@ -161,6 +171,7 @@ sing_box_cm_add_https_dns_server() {
     local server_port="$4"
     local path="$5"
     local headers="$6"
+    local domain_resolver="$7"
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -168,6 +179,7 @@ sing_box_cm_add_https_dns_server() {
         --arg server_port "$server_port" \
         --arg path "$path" \
         --arg headers "$headers" \
+        --arg domain_resolver "$domain_resolver" \
         '.dns.servers += [(
 			{
 				type: "https",
@@ -177,6 +189,7 @@ sing_box_cm_add_https_dns_server() {
 			}
 			+ (if $path != "" then { path: $path } else {} end)
 			+ (if $headers != "" then { headers: $headers } else {} end)
+			+ (if $domain_resolver != "" then { domain_resolver: $domain_resolver } else {} end)
 		)]'
 }
 
