@@ -184,7 +184,7 @@ sing_box_cm_add_https_dns_server() {
     local path="$5"
     local headers="$6"
     local domain_resolver="$7"
-    local detour="$6"
+    local detour="$8"
 
     echo "$config" | jq \
         --arg tag "$tag" \
