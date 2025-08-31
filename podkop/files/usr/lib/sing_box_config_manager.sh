@@ -87,6 +87,8 @@ sing_box_cm_configure_dns() {
 #   tag: string, identifier for the DNS server
 #   server_address: string, IP address or hostname of the DNS server
 #   server_port: string or number, port of the DNS server
+#   domain_resolver: string, domain resolver to use for resolving domain names
+#   detour: string, tag of the upstream outbound
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -97,17 +99,25 @@ sing_box_cm_add_udp_dns_server() {
     local tag="$2"
     local server_address="$3"
     local server_port="$4"
+    local domain_resolver="$5"
+    local detour="$6"
 
     echo "$config" | jq \
         --arg tag "$tag" \
         --arg server_address "$server_address" \
         --arg server_port "$server_port" \
-        '.dns.servers += [{
-			type: "udp",
-			tag: $tag,
-			server: $server_address,
-			server_port: ($server_port | tonumber)
-		}]'
+        --arg domain_resolver "$domain_resolver" \
+        --arg detour "$detour" \
+        '.dns.servers += [(
+            {
+                type: "udp",
+                tag: $tag,
+                server: $server_address,
+                server_port: ($server_port | tonumber)
+		    }
+            + (if $detour != "" then { detour: $detour } else {} end)
+		    + (if $domain_resolver != "" then { domain_resolver: $domain_resolver } else {} end)
+		)]'
 }
 
 #######################################
@@ -117,6 +127,8 @@ sing_box_cm_add_udp_dns_server() {
 #   tag: string, identifier for the DNS server
 #   server_address: string, IP address or hostname of the DNS server
 #   server_port: string or number, port of the DNS server
+#   domain_resolver: string, domain resolver to use for resolving domain names
+#   detour: string, tag of the upstream outbound
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -127,17 +139,25 @@ sing_box_cm_add_tls_dns_server() {
     local tag="$2"
     local server_address="$3"
     local server_port="$4"
+    local domain_resolver="$5"
+    local detour="$6"
 
     echo "$config" | jq \
         --arg tag "$tag" \
         --arg server_address "$server_address" \
         --arg server_port "$server_port" \
-        '.dns.servers += [{
-			type: "tls",
-			tag: $tag,
-			server: $server_address,
-			server_port: ($server_port | tonumber)
-		}]'
+        --arg domain_resolver "$domain_resolver" \
+        --arg detour "$detour" \
+        '.dns.servers += [(
+            {
+			    type: "tls",
+			    tag: $tag,
+			    server: $server_address,
+			    server_port: ($server_port | tonumber)
+		    }
+            + (if $detour != "" then { detour: $detour } else {} end)
+		    + (if $domain_resolver != "" then { domain_resolver: $domain_resolver } else {} end)
+		)]'
 }
 
 #######################################
@@ -149,6 +169,8 @@ sing_box_cm_add_tls_dns_server() {
 #   server_port: string or number, port of the DNS server
 #   path: string, optional URL path for HTTPS DNS requests
 #   headers: string, optional additional headers for HTTPS DNS requests
+#   domain_resolver: string, domain resolver to use for resolving domain names
+#   detour: string, tag of the upstream outbound
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -161,6 +183,8 @@ sing_box_cm_add_https_dns_server() {
     local server_port="$4"
     local path="$5"
     local headers="$6"
+    local domain_resolver="$7"
+    local detour="$6"
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -168,6 +192,8 @@ sing_box_cm_add_https_dns_server() {
         --arg server_port "$server_port" \
         --arg path "$path" \
         --arg headers "$headers" \
+        --arg domain_resolver "$domain_resolver" \
+        --arg detour "$detour" \
         '.dns.servers += [(
 			{
 				type: "https",
@@ -177,6 +203,8 @@ sing_box_cm_add_https_dns_server() {
 			}
 			+ (if $path != "" then { path: $path } else {} end)
 			+ (if $headers != "" then { headers: $headers } else {} end)
+            + (if $detour != "" then { detour: $detour } else {} end)
+			+ (if $domain_resolver != "" then { domain_resolver: $domain_resolver } else {} end)
 		)]'
 }
 
