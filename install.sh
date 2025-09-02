@@ -60,8 +60,10 @@ main() {
         fi
     done < <(wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk')
 
+    # Todo: move from inbuild incomplete wget to curl in future for better server header detection
     if [ $download_success -eq 0 ]; then
         msg "No packages were downloaded successfully"
+        msg "Most likely you've reached rate limit from GitHub. Repeat in five minutes."
         exit 1
     fi
 
