@@ -18,13 +18,14 @@ main() {
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
 
     opkg update || { echo "opkg update failed"; exit 1; }
-  
+
     if [ -f "/etc/init.d/podkop" ]; then
         msg "Podkop is already installed. Upgraded..."
     else
         msg "Installed podkop..."
     fi
-    
+
+    # ToDo: move install.sh wget to curl and use proper headers to check rate limit
     if command -v curl &> /dev/null; then
         check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
 
@@ -38,7 +39,7 @@ main() {
     while read -r url; do
         filename=$(basename "$url")
         filepath="$DOWNLOAD_DIR/$filename"
-               
+
         attempt=0
         while [ $attempt -lt $COUNT ]; do
             msg "Download $filename (count $((attempt+1)))..."
@@ -53,17 +54,17 @@ main() {
             rm -f "$filepath"
             attempt=$((attempt+1))
         done
-        
+
         if [ $attempt -eq $COUNT ]; then
             msg "Failed to download $filename after $COUNT attempts"
         fi
     done < <(wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk')
-    
+
     if [ $download_success -eq 0 ]; then
         msg "No packages were downloaded successfully"
         exit 1
     fi
-    
+
     for pkg in podkop luci-app-podkop; do
         file=$(ls "$DOWNLOAD_DIR" | grep "^$pkg" | head -n 1)
         if [ -n "$file" ]; then
