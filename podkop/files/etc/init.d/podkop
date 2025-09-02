@@ -34,9 +34,9 @@ service_triggers() {
 
 	config_get mon_restart_ifaces "main" "mon_restart_ifaces"
 	config_get restart_ifaces "main" "restart_ifaces"
+	config_get procd_reload_delay "main" "procd_reload_delay" "2000"
 
-	# Test without delay
-    #PROCD_RELOAD_DELAY=2000
+    PROCD_RELOAD_DELAY=$procd_reload_delay
 
 	procd_open_trigger
 		procd_add_config_trigger "config.change" "$NAME" "$initscript" restart 'on_config_change'

@@ -876,3 +876,24 @@ msgstr "Обновление списков не удалось"
 
 msgid "Error: "
 msgstr "Ошибка: "
+
+msgid "Interface monitoring"
+msgstr "Мониторинг интерфейсов"
+
+msgid "Interface monitoring for bad WAN"
+msgstr "Мониторинг интерфейсов для плохого WAN"
+
+msgid "Interface for monitoring"
+msgstr "Интерфейс для мониторинга"
+
+msgid "Select the WAN interfaces to be monitored"
+msgstr "Выберите WAN интерфейсы для мониторинга"
+
+msgid "Interface Monitoring Delay"
+msgstr "Задержка при мониторинге интерфейсов"
+
+msgid "Delay in milliseconds before reloading podkop after interface UP"
+msgstr "Задержка в миллисекундах перед перезагрузкой podkop после поднятия интерфейса"
+
+msgid "Delay value cannot be empty"
+msgstr "Значение не может быть пустым"
