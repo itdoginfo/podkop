@@ -285,6 +285,12 @@ migration() {
         sed -i '/use-application-dns/d' "/etc/config/dhcp"
     fi
 
+    if ! grep -q "yacd_prefix" $CONFIG; then
+        log "yacd_prefix is missing. Default value will be applied"
+        config_set main yacd_prefix 'ui'
+        config_commit podkop
+    fi
+
     # corntab init.d
     (crontab -l | grep -v "/etc/init.d/podkop list_update") | crontab -
 }
