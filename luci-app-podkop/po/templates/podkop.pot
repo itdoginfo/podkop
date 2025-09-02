@@ -172,6 +172,12 @@ msgstr ""
 msgid "Yacd enable"
 msgstr ""
 
+msgid "Desired Yacd path"
+msgstr ""
+
+msgid "Yacd path"
+msgstr ""
+
 msgid "Exclude NTP"
 msgstr ""
 
