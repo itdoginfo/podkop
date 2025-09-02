@@ -12,6 +12,16 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
 
+    o = mainSection.taboption('additional', form.Flag, 'yacd_prefix', _('Yacd prefix'), _('<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>'));
+    o.depends('yacd', '1');
+    o.default = 'ui';
+    o.datatype = "string";
+    o.rmempty = false;
+    o.ucisection = 'main';
+    o.validate = function (section_id, value) {
+        return value.length > 0 && /^[a-z]+$/.test(str);
+    }
+
     o = mainSection.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
     o.default = '0';
     o.rmempty = false;
@@ -251,4 +261,4 @@ function createAdditionalSection(mainSection, network) {
 
 return baseclass.extend({
     createAdditionalSection
-}); 
+});

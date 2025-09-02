@@ -130,10 +130,12 @@ start_main() {
     fi
 
     config_get_bool yacd "main" "yacd" "0"
+    config_get yacd_prefix "main" "yacd_prefix" "ui"
+
     if [ "$yacd" -eq 1 ]; then
         log "Yacd enable"
-        jq '.experimental.clash_api = {
-            "external_ui": "ui",
+        jq --arg prefix "$yacd_prefix" '.experimental.clash_api = {
+            "external_ui": $prefix,
             "external_controller": "0.0.0.0:9090"
         }' "$SING_BOX_CONFIG" | build_sing_box_config
     fi
@@ -1499,7 +1501,7 @@ sing_box_ruleset_subnets_json() {
 #######################################
 # Adds a new remote ruleset to the sing-box configuration.
 # https://sing-box.sagernet.org/configuration/rule-set/#__tabbed_1_3
-# 
+#
 # Arguments:
 #   tag: unique identifier for the ruleset.
 #   format: format of the ruleset (e.g., "source" or "binary").
@@ -1766,13 +1768,13 @@ configure_community_list_handler() {
     local update_interval="1d"
     config_get_bool detour "main" "detour" "0"
     local url="$SRS_MAIN_URL/$tag.srs"
-    
+
     sing_box_config_add_remote_ruleset "$tag" "$format" "$url" "$update_interval" "$detour"
 }
 
 configure_remote_domain_lists() {
     local section="$1"
-    
+
     config_get custom_download_domains_list_enabled "$section" custom_download_domains_list_enabled
     if [ "$custom_download_domains_list_enabled" -eq 1 ]; then
         log "Configuring remote domain lists for $section section"
@@ -1783,7 +1785,7 @@ configure_remote_domain_lists() {
 configure_remote_domain_list_handler() {
     local url="$1"
     local section="$2"
-    
+
     log "Configuring remote domain list from URL: $url"
 
     local file_extension
@@ -1824,7 +1826,7 @@ configure_remote_subnet_list_handler() {
             ;;
         *)
             log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
-            ;;          
+            ;;
     esac
 }
 
@@ -1917,7 +1919,7 @@ import_domains_from_remote_domain_lists() {
 import_domains_from_remote_domain_list_handler() {
     local url="$1"
     local section="$2"
-    
+
     log "Importing domains from URL: $url"
 
     local file_extension
@@ -2016,12 +2018,12 @@ import_subnets_from_remote_json_file() {
 
 import_subnets_from_remote_srs_file() {
     local url="$1"
-    
+
     local filename
     filename=$(basename "$url")
     local binary_filepath="/tmp/podkop/${filename}"
     local json_filepath="/tmp/podkop/decompiled-${filename%%.*}.json"
-    
+
     download_to_tempfile "$url" "$binary_filepath"
 
     if ! decompile_srs_file "$binary_filepath" "$json_filepath"; then
