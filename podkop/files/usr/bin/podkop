@@ -134,8 +134,8 @@ start_main() {
 
     if [ "$yacd" -eq 1 ]; then
         log "Yacd enable"
-        jq --arg prefix "$yacd_prefix" '.experimental.clash_api = {
-            "external_ui": $prefix,
+        jq --arg yacd_prefix "$yacd_prefix" '.experimental.clash_api = {
+            "external_ui": $yacd_prefix,
             "external_controller": "0.0.0.0:9090"
         }' "$SING_BOX_CONFIG" | build_sing_box_config
     fi
