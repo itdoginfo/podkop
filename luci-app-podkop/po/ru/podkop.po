@@ -172,6 +172,12 @@ msgstr "Порт браузера: 2080"
 msgid "Yacd enable"
 msgstr "Включить Yacd"
 
+msgid "Desired Yacd path"
+msgstr "Желаемый путь для доступа к Yacd"
+
+msgid "Yacd path"
+msgstr "Путь до Yacd"
+
 msgid "Exclude NTP"
 msgstr "Исключить NTP"
 

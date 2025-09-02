@@ -12,7 +12,7 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
 
-    o = mainSection.taboption('additional', form.Flag, 'yacd_prefix', _('Yacd prefix'), _('<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>'));
+    o = mainSection.taboption('additional', form.Flag, 'yacd_prefix', _('Yacd path'), _('Desired Yacd path'));
     o.depends('yacd', '1');
     o.default = 'ui';
     o.datatype = "string";
