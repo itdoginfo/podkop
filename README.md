@@ -21,6 +21,14 @@ https://podkop.net/
 ```
 sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
 ```
+Автоматическая установка русского языка:
+```
+sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/main/install.sh) --rus=y
+```
+Без установки русского языка:
+```
+sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/main/install.sh) --rus=n
+```
 
 # ToDo
 Этот раздел не означает задачи, которые нужно брать и делать. Это общий список хотелок. Если вы хотите помочь, пожалуйста, спросите сначала в телеграмме.
