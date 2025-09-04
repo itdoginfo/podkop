@@ -1230,3 +1230,24 @@ msgstr ""
 
 msgid "Error: "
 msgstr ""
+
+msgid "Interface monitoring"
+msgstr ""
+
+msgid "Interface monitoring for bad WAN"
+msgstr ""
+
+msgid "Interface for monitoring"
+msgstr ""
+
+msgid "Select the WAN interfaces to be monitored"
+msgstr ""
+
+msgid "Interface Monitoring Delay"
+msgstr ""
+
+msgid "Delay in milliseconds before reloading podkop after interface UP"
+msgstr ""
+
+msgid "Delay value cannot be empty"
+msgstr ""

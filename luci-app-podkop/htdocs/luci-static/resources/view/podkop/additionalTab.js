@@ -198,6 +198,18 @@ function createAdditionalSection(mainSection, network) {
         return ['lan', 'loopback'].indexOf(value) === -1 && !value.startsWith('@');
     };
 
+    o = mainSection.taboption('additional', form.Value, 'procd_reload_delay', _('Interface Monitoring Delay'), _('Delay in milliseconds before reloading podkop after interface UP'));
+    o.ucisection = 'main';
+    o.depends('mon_restart_ifaces', '1');
+    o.default = '2000';
+    o.rmempty = false;
+    o.validate = function (section_id, value) {
+        if (!value) {
+            return _('Delay value cannot be empty');
+        }
+        return true;
+    };
+
     o = mainSection.taboption('additional', form.Flag, 'dont_touch_dhcp', _('Dont touch my DHCP!'), _('Podkop will not change the DHCP config'));
     o.default = '0';
     o.rmempty = false;

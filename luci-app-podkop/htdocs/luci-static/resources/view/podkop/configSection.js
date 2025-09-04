@@ -209,7 +209,7 @@ function createConfigSection(section, map, network) {
     o.default = '0';
     o.depends('mode', 'proxy');
     o.rmempty = false;
-    o.ucisection = 'main';
+    o.ucisection = s.section;
 
     o = s.taboption('basic', widgets.DeviceSelect, 'interface', _('Network Interface'), _('Select network interface for VPN connection'));
     o.depends('mode', 'vpn');
