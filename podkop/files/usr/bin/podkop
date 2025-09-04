@@ -1,8 +1,12 @@
 #!/bin/ash
-# shellcheck shell=dash
 
 [ -r /lib/functions.sh ] && . /lib/functions.sh
 [ -r /lib/config/uci.sh ] && . /lib/config/uci.sh
+PODKOP_LIB="/usr/lib/podkop"
+. "$PODKOP_LIB/constants.sh"
+. "$PODKOP_LIB/helpers.sh"
+. "$PODKOP_LIB/sing_box_config_manager.sh"
+. "$PODKOP_LIB/sing_box_config_facade.sh"
 
 config_load "/etc/config/podkop"
 
@@ -21,10 +25,9 @@ SUBNETS_HETZNER="${GITHUB_RAW_URL}/Subnets/IPv4/hetzner.lst"
 SUBNETS_OVH="${GITHUB_RAW_URL}/Subnets/IPv4/ovh.lst"
 SUBNETS_DIGITALOCEAN="${GITHUB_RAW_URL}/Subnets/IPv4/digitalocean.lst"
 SUBNETS_CLOUDFRONT="${GITHUB_RAW_URL}/Subnets/IPv4/cloudfront.lst"
-SING_BOX_CONFIG="/etc/sing-box/config.json"
-FAKEIP="198.18.0.0/15"
 VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram cloudflare google_ai google_play hetzner ovh hodca digitalocean cloudfront"
 DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.140.15.15 208.67.220.220 208.67.222.222 77.88.8.1 77.88.8.8"
+CHECK_PROXY_IP_DOMAIN="ip.podkop.fyi"
 TEST_DOMAIN="fakeip.podkop.fyi"
 INTERFACES_LIST=""
 SRC_INTERFACE=""
@@ -40,26 +43,34 @@ COLOR_RESET="\033[0m"
 
 log() {
     local message="$1"
-    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local module="$2"
+    local level="$3"
 
-    logger -t "podkop" "$timestamp $message"
+    if [ "$level" == "" ]; then
+        level="info"
+    fi
+
+    logger -t "podkop" "[$level] [$module] $message"
 }
 
 nolog() {
     local message="$1"
-    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local timestamp
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
     echo -e "${COLOR_CYAN}[$timestamp]${COLOR_RESET} ${COLOR_GREEN}$message${COLOR_RESET}"
 }
 
 echolog() {
     local message="$1"
-    log "$message"
+    local module="$2"
+
+    log "$message" "$module"
     nolog "$message"
 }
 
 build_sing_box_config() {
-    cat > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SING_BOX_CONFIG"
+    cat > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SB_CONFIG"
 }
 
 start_main() {
@@ -70,12 +81,12 @@ start_main() {
     required_version="1.11.1"
 
     if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
-        log "[critical] The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box"
+        log "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box" "main" "critical"
         exit 1
     fi
 
     if grep -qE 'doh_backup_noresolv|doh_backup_server|doh_server' /etc/config/dhcp; then
-        log "[critical] Detected https-dns-proxy in dhcp config. Edit /etc/config/dhcp"
+        log "Detected https-dns-proxy in dhcp config. Edit /etc/config/dhcp" "main" "warn"
     fi
 
     migration
@@ -97,73 +108,48 @@ start_main() {
     sing_box_uci
 
     # sing-box
-    sing_box_inbound_proxy 1602
-    sing_box_dns
-    sing_box_dns_rule_fakeip
-    sing_box_rule_dns
-    sing_box_create_bypass_ruleset
-    sing_box_add_secure_dns_probe_domain
-    sing_box_cache_file
-    process_socks5
+    sing_box_init_config
+    sing_box_config_check
+    # TODO(ampetelin): refactoring is needed
+#    config_foreach add_cron_job # need refactoring
+    /etc/init.d/sing-box start
+    log "Nice" "main"
 
-    # sing-box outbounds and rules
-    config_foreach sing_box_outdound
-    config_foreach process_domains_for_section
-    config_foreach sing_box_rule_preset
-    config_foreach process_domains_list_local
-    config_foreach process_subnet_for_section
-    config_foreach configure_community_lists
-    config_foreach configure_remote_domain_lists
-    config_foreach configure_remote_subnet_lists
-    config_foreach process_all_traffic_for_section
-    config_foreach add_cron_job
-
-    config_foreach prepare_custom_ruleset
-    list_update &
-    echo $! > /var/run/podkop_list_update.pid
-
-    # Future: exclude at the fakeip?
-    config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" "0"
-    if [ "$exclude_from_ip_enabled" -eq 1 ]; then
-        log "Adding an IP for exclusion"
-        config_list_foreach main exclude_traffic_ip sing_box_rules_source_ip_cidr $exclude_traffic_ip direct-out
-    fi
-
-    config_get_bool yacd "main" "yacd" "0"
-    if [ "$yacd" -eq 1 ]; then
-        log "Yacd enable"
-        jq '.experimental.clash_api = {
-            "external_ui": "ui",
-            "external_controller": "0.0.0.0:9090"
-        }' "$SING_BOX_CONFIG" | build_sing_box_config
-    fi
-
+#    sing_box_inbound_proxy 1602             #refactored
+#    sing_box_dns                            #refactored
+#    sing_box_dns_rule_fakeip                #refactored
+#    sing_box_rule_dns                       #refactored
+#    sing_box_create_bypass_ruleset          #refactored
+#    sing_box_add_secure_dns_probe_domain    #refactored
+#    sing_box_cache_file                     #refactored
+#    process_socks5                          #refactored
+#
+#    # sing-box outbounds and rules
+#    config_foreach sing_box_outdound                #refactored
+#    config_foreach process_domains_for_section      #refactored, implementation is needed
+#    config_foreach sing_box_rule_preset             #refactored
+#    config_foreach process_domains_list_local       #refactored, implementation is needed
+#    config_foreach process_subnet_for_section       #refactored, implementation is needed
+#    config_foreach configure_community_lists        #refactored
+#    config_foreach configure_remote_domain_lists    #refactored
+#    config_foreach configure_remote_subnet_lists    #refactored
+#    config_foreach process_all_traffic_for_section  #refactored
+    local exclude_ntp
     config_get_bool exclude_ntp "main" "exclude_ntp" "0"
     if [ "$exclude_ntp" -eq 1 ]; then
         log "NTP traffic exclude for proxy"
         nft insert rule inet PodkopTable mangle udp dport 123 return
     fi
 
-    config_get_bool quic_disable "main" "quic_disable" "0"
-    if [ "$quic_disable" -eq 1 ]; then
-        log "Rule for disable QUIC"
-        sing_box_quic_reject
-    fi
-
-    config_get_bool detour "main" "detour" "0"
-    if [ "$detour" -eq 1 ]; then
-        log "Detour mixed enable"
-        detour_mixed
-    fi
-
-    sing_box_config_check
-    /etc/init.d/sing-box start
-    log "Nice"
+    # TODO(ampetelin): refactoring is needed
+#    list_update &
+#    echo $! > /var/run/podkop_list_update.pid
 }
 
 start() {
     start_main
 
+    local proxy_string interface outbound_json dont_touch_dhcp
     config_get proxy_string "main" "proxy_string"
     config_get interface "main" "interface"
     config_get outbound_json "main" "outbound_json"
@@ -213,6 +199,7 @@ stop_main() {
 }
 
 stop() {
+    local dont_touch_dhcp
     config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" "0"
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_restore
@@ -285,6 +272,26 @@ migration() {
 
     # corntab init.d
     (crontab -l | grep -v "/etc/init.d/podkop list_update") | crontab -
+
+    migrate_config_key "$CONFIG" "option" "domain_list_enabled" "community_list_enabled"
+    migrate_config_key "$CONFIG" "list" "domain_list" "community_list"
+
+    migrate_config_key "$CONFIG" "option" "custom_domains_list_type" "user_domains_list_type"
+    migrate_config_key "$CONFIG" "option" "custom_domains_text" "user_domains"
+    migrate_config_key "$CONFIG" "list" "custom_domains" "user_domains"
+
+    migrate_config_key "$CONFIG" "option" "custom_subnets_list_enabled" "user_subnets_list_type"
+    migrate_config_key "$CONFIG" "option" "custom_subnets_text" "user_subnets"
+    migrate_config_key "$CONFIG" "list" "custom_subnets" "user_subnets"
+
+    migrate_config_key "$CONFIG" "option" "custom_local_domains_list_enabled" "local_domains_list_enabled"
+    migrate_config_key "$CONFIG" "list" "custom_local_domains" "local_domains_list"
+
+    migrate_config_key "$CONFIG" "option" "custom_download_domains_list_enabled" "remote_domains_list_enabled"
+    migrate_config_key "$CONFIG" "list" "custom_download_domains" "remote_domains_list"
+
+    migrate_config_key "$CONFIG" "option" "custom_download_subnets_list_enabled" "remote_subnets_list_enabled"
+    migrate_config_key "$CONFIG" "list" "custom_download_subnets" "remote_subnets_list"
 }
 
 validate_service() {
@@ -301,7 +308,8 @@ validate_service() {
 }
 
 process_validate_service() {
-    config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
+    local domain_list_enabled
+    config_get_bool domain_list_enabled "$section" "domain_list_enabled" 0
     if [ "$domain_list_enabled" -eq 1 ]; then
         config_list_foreach "$section" domain_list validate_service
     fi
@@ -455,7 +463,8 @@ dnsmasq_add_resolver() {
 dnsmasq_restore() {
     log "Removing configuration for dnsmasq"
 
-    local cachesize=$(uci get dhcp.@dnsmasq[0].podkop_cachesize 2>/dev/null)
+    local cachesize noresolv server
+    cachesize=$(uci get dhcp.@dnsmasq[0].podkop_cachesize 2>/dev/null)
     if [[ "$cachesize" == "unset" ]]; then
         log "dnsmasq revert: cachesize is unset"
         uci -q delete dhcp.@dnsmasq[0].cachesize
@@ -463,7 +472,7 @@ dnsmasq_restore() {
         uci set dhcp.@dnsmasq[0].cachesize="$cachesize"
     fi
 
-    local noresolv=$(uci get dhcp.@dnsmasq[0].podkop_noresolv 2>/dev/null)
+    noresolv=$(uci get dhcp.@dnsmasq[0].podkop_noresolv 2>/dev/null)
     if [[ "$noresolv" == "unset" ]]; then
         log "dnsmasq revert: noresolv is unset"
         uci -q delete dhcp.@dnsmasq[0].noresolv
@@ -471,7 +480,7 @@ dnsmasq_restore() {
         uci set dhcp.@dnsmasq[0].noresolv="$noresolv"
     fi
 
-    local server=$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)
+    server=$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)
     if [[ "$server" == "127.0.0.42" ]]; then
         uci -q delete dhcp.@dnsmasq[0].server 2>/dev/null
         for server in $(uci get dhcp.@dnsmasq[0].podkop_server 2>/dev/null); do
@@ -488,49 +497,7 @@ dnsmasq_restore() {
     /etc/init.d/dnsmasq restart
 }
 
-process_domains_text() {
-    local text="$1"
-    local name="$2"
-
-    local tmp_file=$(mktemp)
-    echo "$text" > "$tmp_file"
-
-    # First filter out full comment lines and remove comments after domains
-    grep -v "^[[:space:]]*\/\/" "$tmp_file" | sed 's/\/\/.*$//' > "${tmp_file}.filtered"
-
-    sed 's/[, ]\+/\n/g' "${tmp_file}.filtered" | while IFS= read -r domain; do
-        domain=$(echo "$domain" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        if [ -n "$domain" ]; then
-            sing_box_ruleset_domains "$domain" "$name"
-        fi
-    done
-
-    rm -f "$tmp_file" "${tmp_file}.filtered"
-}
-
-process_subnets_text() {
-    local text="$1"
-    local name="$2"
-
-    local tmp_file=$(mktemp)
-    echo "$text" > "$tmp_file"
-
-    # First filter out full comment lines and remove comments after subnets
-    grep -v "^[[:space:]]*\/\/" "$tmp_file" | sed 's/\/\/.*$//' > "${tmp_file}.filtered"
-
-    sed 's/[, ]\+/\n/g' "${tmp_file}.filtered" | while IFS= read -r subnet; do
-        subnet=$(echo "$subnet" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        if [ -n "$subnet" ]; then
-            if ! echo "$subnet" | grep -q "/"; then
-                subnet="$subnet/32"
-            fi
-            sing_box_ruleset_subnets "$subnet" "$name"
-        fi
-    done
-
-    rm -f "$tmp_file" "${tmp_file}.filtered"
-}
-
+# TODO(ampetelin): refactoring is needed
 add_cron_job() {
     ## Future: make a check so that it doesn't recreate many times
     config_get domain_list_enabled "$section" "domain_list_enabled"
@@ -577,36 +544,7 @@ remove_cron_job() {
     log "The cron job removed"
 }
 
-prepare_custom_ruleset() {
-    config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
-    config_get custom_download_subnets_list_enabled "$section" "custom_download_subnets_list_enabled"
-    if [ "$custom_download_domains_list_enabled" -eq 1 ] || [ "$custom_download_subnets_list_enabled" -eq 1 ]; then
-        local file="/tmp/podkop/$section-custom-domains-subnets.json"
-        local tag="custom-$section"
-        rm -f  $file
-
-        jq -n '
-            {
-                "version": 3,
-                "rules": []
-            }' > $file
-
-        jq --arg tag "$tag" \
-            --arg file "$file" \
-        '.route.rule_set += [{
-            "tag": $tag,
-            "type": "local",
-            "format": "source",
-            "path": $file
-        }]' "$SING_BOX_CONFIG" | build_sing_box_config
-
-        sing_box_rules $tag $section
-        sing_box_dns_rule_fakeip_section $tag $tag
-
-        log "Added $tag rule_set to sing-box config"
-    fi
-}
-
+# TODO(ampetelin): refactoring is needed
 list_update() {
     echolog "🔄 Starting lists update..."
 
@@ -663,7 +601,6 @@ list_update() {
 }
 
 find_working_resolver() {
-    local resolver_found=""
     for resolver in $DNS_RESOLVERS; do
         if nslookup -timeout=2 $TEST_DOMAIN $resolver >/dev/null 2>&1; then
             echo "$resolver"
@@ -693,780 +630,444 @@ sing_box_uci() {
     # fi
 }
 
-add_socks5_for_section() {
-    local section="$1"
-    local port="$2"
-    local tag="$section-mixed-in"
+sing_box_init_config() {
+    local config='{"log":{},"dns":{},"ntp":{},"certificate":{},"endpoints":[],"inbounds":[],"outbounds":[],"route":{},"services":[],"experimental":{}}'
 
-    log "Adding Socks5 for $section on port $port"
+    sing_box_configure_log
+    sing_box_configure_inbounds
+    sing_box_configure_outbounds
+    sing_box_configure_dns
+    sing_box_configure_route
+    sing_box_configure_experimental
+    sing_box_additional_inbounds
 
-    jq \
-    --arg tag "$tag" \
-    --arg port "$port" \
-    --arg section "$section" \
-    '.inbounds += [{
-        "tag": $tag,
-        "type": "mixed",
-        "listen": "0.0.0.0",
-        "listen_port": ($port|tonumber),
-        "set_system_proxy": false
-    }] | 
-    .route.rules += [{
-        "inbound": [$tag],
-        "outbound": $section,
-        "action": "route"
-    }]' "$SING_BOX_CONFIG" | build_sing_box_config
+    # TODO: remove after refactoring
+    nolog "$config"
+
+    sing_box_cm_save_config_to_file "$config" "$SB_CONFIG"
 }
 
-process_socks5() {
-    config_get_bool main_socks5 "main" "socks5" "0"
-    if [ "$main_socks5" -eq 1 ]; then
-        add_socks5_for_section "main" "2080"
-    fi
+sing_box_configure_log() {
+    log "Configure the log section of a sing-box JSON configuration" "sing-box"
 
-    local port=2081
-    for section in $(uci show podkop | awk -F'[.=]' '/=extra/ {print $2}'); do
-        config_get_bool section_socks5 "$section" "socks5" "0"
-        if [ "$section_socks5" -eq 1 ]; then
-            add_socks5_for_section "$section" "$port"
-            port=$((port + 1))
-        fi
-    done
+    config=$(sing_box_cm_configure_log  "$config" false "$SB_DEFAULT_LOG_LEVEL" false)
 }
 
-sing_box_inbound_proxy() {
-    local listen_port="$1"
+sing_box_configure_inbounds() {
+    log "Configure the inbounds section of a sing-box JSON configuration" "sing-box"
 
-    jq -n \
-    --arg listen_port "$listen_port" \
-    '{
-        "log": {
-            "level": "warn"
-        },
-        "inbounds": [
-            {
-                "tag": "tproxy-in",
-                "type": "tproxy",
-                "listen": "::",
-                "listen_port": ($listen_port|tonumber),
-                "tcp_fast_open": true,
-                "udp_fragment": true
-            },
-            {
-                "tag": "dns-in",
-                "type": "direct",
-                "listen": "127.0.0.42",
-                "listen_port": 53
-            }
-        ],
-        "outbounds": [
-            {
-            "tag": "direct-out",
-            "type": "direct"
-            }
-        ]
-    }'  > $SING_BOX_CONFIG
+    config=$(
+        sing_box_cm_add_tproxy_inbound \
+        "$config" "$SB_TPROXY_INBOUND_TAG" "$SB_TPROXY_INBOUND_ADDRESS" "$SB_TPROXY_INBOUND_PORT" true true
+    )
+    config=$(
+        sing_box_cm_add_direct_inbound "$config" "$SB_DNS_INBOUND_TAG" "$SB_DNS_INBOUND_ADDRESS" "$SB_DNS_INBOUND_PORT"
+    )
 }
 
-sing_box_dns() {
-    local dns_type
-    local dns_server
-    local resolver_tag="resolver"
-    local split_resolver_tag="split-resolver"
+sing_box_configure_outbounds() {
+    log "Configure the outbounds section of a sing-box JSON configuration" "sing-box"
 
-    config_get dns_type "main" "dns_type" "doh"
-    config_get dns_server "main" "dns_server" "1.1.1.1"
-    config_get split_dns_enabled "main" "split_dns_enabled" "0"
-    config_get split_dns_type "main" "split_dns_type" "udp"
-    config_get split_dns_server "main" "split_dns_server" "1.1.1.1"
+    config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
-    local server_json
-    local is_ip=$(echo "$dns_server" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' && echo "1" || echo "0")
-
-    if [ "$is_ip" = "0" ]; then
-        log "Finding working DNS resolver"
-        local dns_resolver=$(find_working_resolver)
-        if [ -z "$dns_resolver" ]; then
-            log "No working resolver found, using default DNS server"
-            dns_resolver="1.1.1.1"
-        else
-            log "Found working resolver: $dns_resolver"
-        fi
-    fi
-
-    log "Configure DNS in sing-box"
-
-    server_json=$(jq -n \
-        --arg type "$dns_type" \
-        --arg server "$dns_server" \
-        --arg resolver "$resolver_tag" \
-        --arg is_ip "$is_ip" \
-        '{
-            "servers": [
-                {
-                    "tag": "dns-server",
-                    "address": (
-                        if $type == "doh" then
-                            "https://" + $server + "/dns-query"
-                        elif $type == "dot" then
-                            "tls://" + $server
-                        else
-                            $server
-                        end
-                    ),
-                    "detour": "direct-out"
-                } + (
-                    if $is_ip == "0" then
-                        {"address_resolver": $resolver}
-                    else
-                        {}
-                    end
-                )
-            ]
-        }')
-
-    if [ "$is_ip" = "0" ]; then
-        server_json=$(echo "$server_json" | jq \
-            --arg resolver "$resolver_tag" \
-            --arg address "$dns_resolver" \
-            '.servers += [{
-                "tag": $resolver,
-                "address": $address
-            }]')
-    fi
-
-    if [ "$split_dns_enabled" = "1" ]; then
-        local split_is_ip=$(echo "$split_dns_server" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' && echo "1" || echo "0")
-        if [ "$split_is_ip" = "0" ]; then
-            log "Finding working resolver for split DNS"
-            local split_dns_resolver=$(find_working_resolver)
-            if [ -z "$split_dns_resolver" ]; then
-                log "No working resolver found for split DNS, using default"
-                split_dns_resolver="1.1.1.1"
-            else
-                log "Found working resolver for split DNS: $split_dns_resolver"
-            fi
-        fi
-
-        server_json=$(echo "$server_json" | jq \
-            --arg type "$split_dns_type" \
-            --arg server "$split_dns_server" \
-            --arg split_is_ip "$split_is_ip" \
-            --arg split_resolver_tag "$split_resolver_tag" \
-            ' .servers += [
-                {
-                    "tag": "split-dns-server",
-                    "address": (
-                        if $type == "doh" then
-                            "https://" + $server + "/dns-query"
-                        elif $type == "dot" then
-                            "tls://" + $server
-                        else
-                            $server
-                        end
-                    ),
-                    "detour": "main"
-                } + (
-                    if $split_is_ip == "0" then
-                        {"address_resolver": $split_resolver_tag}
-                    else
-                        {}
-                    end
-                )
-            ]')
-
-        if [ "$split_is_ip" = "0" ]; then
-            server_json=$(echo "$server_json" | jq \
-                --arg split_resolver_tag "$split_resolver_tag" \
-                --arg split_dns_resolver "$split_dns_resolver" \
-                '.servers += [{
-                    "tag": $split_resolver_tag,
-                    "address": $split_dns_resolver
-                }]')
-        fi
-    fi
-
-    server_json=$(echo "$server_json" | jq '.servers += [{"tag": "fakeip-server", "address": "fakeip"}]')
-
-    jq \
-        --argjson dns_config "$server_json" \
-        --arg fakeip "$FAKEIP" \
-        --argjson split_dns_enabled "$split_dns_enabled" \
-        '.dns = {
-            "strategy": "ipv4_only",
-            "independent_cache": true,
-            "final": (
-                if $split_dns_enabled == 1 then
-                    "split-dns-server"
-                else
-                    "dns-server"
-                end
-                ),
-            "fakeip": {
-                "enabled": true,
-                "inet4_range": $fakeip
-            },
-            "servers": $dns_config.servers
-        }' "$SING_BOX_CONFIG" | build_sing_box_config
+    config_foreach configure_outbound_handler
 }
 
-sing_box_create_bypass_ruleset() {
-    log "Creating bypass ruleset for direct access"
-
-    jq '
-    .route.rule_set += [{
-        "tag": "bypass",
-        "type": "inline",
-        "rules": [
-            {
-                "domain_suffix": [
-                    "ip.podkop.fyi"
-                ]
-            }
-        ]
-    }]' "$SING_BOX_CONFIG" | build_sing_box_config
-
-    # Add a rule to route bypass domains to direct-out outbound
-    jq '
-    .route.rules += [{
-        "inbound": ["tproxy-in"],
-        "rule_set": ["bypass"],
-        "outbound": "main",
-        "action": "route"
-    }]' "$SING_BOX_CONFIG" | build_sing_box_config
-
-    # Make sure the bypass ruleset is in the fakeip DNS rule
-    jq '
-    .dns.rules = (.dns.rules | map(
-        if (.server == "fakeip-server" or (.server == "dns-server" and .invert == true)) then 
-            if any(.rule_set[]?; . == "bypass") then
-                .
-            else
-                .rule_set += ["bypass"]
-            end
-        else
-            .
-        end
-    ))' "$SING_BOX_CONFIG" | build_sing_box_config
-}
-
-sing_box_dns_rule_fakeip() {
-    local rewrite_ttl
-    config_get rewrite_ttl "main" "dns_rewrite_ttl" "60"
-    config_get split_dns_enabled "main" "split_dns_enabled" "0"
-
-    log "Configure fakeip route in sing-box and set TTL to $rewrite_ttl seconds"
-
-    jq \
-    --arg ttl "$rewrite_ttl" \
-    --argjson split_dns_enabled "$split_dns_enabled" \
-    '.dns.rules = [
-            {
-                "query_type": [
-                    "HTTPS"
-                ],
-                "action": "reject"
-            },
-            {
-                "domain_suffix": [
-                    "use-application-dns.net"
-                ],
-                    "action": "reject"
-            },
-            {
-                "server": "fakeip-server",
-                "domain": "",
-                "rewrite_ttl": ($ttl | tonumber),
-                "rule_set": []
-            }
-        ]
-        + (
-            if $split_dns_enabled == 1 then
-                [{
-                    "server": "dns-server",
-                    "domain": "",
-                    "invert": true,
-                    "rule_set": []
-                }]
-            else []
-            end
-    )' "$SING_BOX_CONFIG" | build_sing_box_config
-}
-
-sing_box_dns_rule_fakeip_section() {
-    local rule_set=$1
-
-    log "Adding section to fakeip route rules in sing-box"
-
-    jq \
-    --arg rule_set "$rule_set" \
-    '.dns.rules |= map(
-        if (.server == "fakeip-server" or (.server == "dns-server" and .invert == true)) then 
-            if any(.rule_set[]?; . == $rule_set) then 
-                .
-            else
-                .rule_set += [$rule_set] 
-            end
-        else
-            .
-        end
-    )' "$SING_BOX_CONFIG" | build_sing_box_config
-}
-
-sing_box_cache_file() {
-    config_get cache_file "main" "cache_file" "/tmp/cache.db"
-
-    log "Configure sing-box cache.db path"
-
-    jq \
-    --arg cache_file "$cache_file" \
-    '.experimental = {
-        "cache_file": {
-        "enabled": true,
-        "store_fakeip": true,
-        "path": $cache_file
-        }
-    }' "$SING_BOX_CONFIG" | build_sing_box_config
-}
-
-sing_box_outdound() {
+configure_outbound_handler() {
     local section="$1"
 
-    config_get mode "$section" "mode"
-    case "$mode" in
-    "vpn")
-        log "VPN mode"
-        log "You are using VPN mode, make sure you have installed all the necessary packages and configured."
-        config_get interface "$section" "interface"
-
-        if [ -z "$interface" ]; then
-            log "[critical] VPN interface is not set. Exit"
-            exit 1
-        fi
-
-        sing_box_outbound_interface $section $interface
-        ;;
-    "proxy")
-        log "Proxy mode"
+    local connection_mode
+    config_get connection_mode "$section" "mode"
+    case "$connection_mode" in
+    proxy)
+        log "Configuring outbound in proxy connection mode for the $section section" "sing-box"
+        local proxy_config_type
         config_get proxy_config_type "$section" "proxy_config_type"
 
-        if [ "$proxy_config_type" = "outbound" ]; then
-            config_get outbound_json $section "outbound_json"
-            if [ -n "$outbound_json" ]; then
-                log "Using JSON outbound configuration"
-                sing_box_config_outbound_json "$outbound_json" "$section"
-            else
-                log "Missing outbound JSON configuration"
-                return
-            fi
-        else
-            config_get proxy_string $section "proxy_string"
-
+        case "$proxy_config_type" in
+        url)
+            log "Detected proxy configuration type: url" "sing-box"
+            local proxy_string udp_over_tcp
+            config_get proxy_string "$section" "proxy_string"
+            config_get udp_over_tcp "$section" "ss_uot"
             # Extract the first non-comment line as the active configuration
             active_proxy_string=$(echo "$proxy_string" | grep -v "^[[:space:]]*\/\/" | head -n 1)
 
             if [ -z "$active_proxy_string" ]; then
-                log "[critical] Proxy string is not set. Exit"
+                log "Proxy string is not set. Aborted." "sing-box" "fatal"
                 exit 1
             fi
-
-            if [[ "$active_proxy_string" =~ ^ss:// ]]; then
-                config_get ss_uot $section "ss_uot"
-                sing_box_config_shadowsocks "$section" "$active_proxy_string" "$ss_uot"
-            elif [[ "$active_proxy_string" =~ ^vless:// ]]; then
-                sing_box_config_vless "$section" "$active_proxy_string"
-            else
-                log "Unsupported proxy type or missing configuration"
-                return
-            fi
-        fi
+            config=$(sing_box_cf_add_proxy_outbound "$config" "$section" "$active_proxy_string" "$udp_over_tcp")
+            ;;
+        outbound)
+            log "Detected proxy configuration type: outbound" "sing-box"
+            local json_outbound
+            config_get json_outbound "$section" "outbound_json"
+            config=$(sing_box_cf_add_json_outbound "$config" "$section" "$json_outbound")
+            ;;
+        *)
+            log "Unknown proxy configuration type: '$proxy_config_type'. Aborted." "sing-box" "fatal"
+            exit 1
+            ;;
+        esac
         ;;
-    "block")
-        log "Block mode"
+    vpn)
+        log "Configuring outbound in VPN connection mode for the $section section" "sing-box"
+        local interface_name
+        config_get interface_name "$section" "interface"
+
+        if [ -z "$interface_name" ]; then
+            log "VPN interface is not set. Aborted." "sing-box" "fatal"
+            exit 1
+        fi
+
+         config=$(sing_box_cf_add_interface_outbound "$config" "$section" "$interface_name")
+        ;;
+    block)
+        log "Connection mode 'block' detected for the $section section – no outbound will be created (handled via reject route rules)" "sing-box"
+        # TODO(ampetelin): Надо не забыть
         ;;
     *)
-        log "Requires *vpn* or *proxy* value"
-        return
+        log "Unknown connection mode '$connection_mode' for the $section section. Aborted." "sing-box" "fatal"
+        exit 1
         ;;
     esac
 }
 
-sing_box_outbound_interface() {
-    local section="$1"
-    local interface="$2"
-
-    jq --arg section "$section" \
-       --arg interface "$interface" \
-       '. |
-          .outbounds |= (
-            map(
-              if .tag == $section then
-                . + {"type": "direct", "bind_interface": $interface}
-              else . end
-            ) +
-            (
-              if (map(select(.tag == $section)) | length) == 0 then
-                [{"tag": $section, "type": "direct", "bind_interface": $interface}]
-              else [] end
-            )
-          )' "$SING_BOX_CONFIG" | build_sing_box_config
-
-    if [ $? -eq 0 ]; then
-        log "Config updated successfully"
+sing_box_configure_dns() {
+    log "Configure the DNS section of a sing-box JSON configuration" "sing-box"
+    local split_dns_enabled final_dns_server
+    config_get_bool split_dns_enabled "main" "split_dns_enabled" 0
+    if [ "$split_dns_enabled" -eq 1 ]; then
+        final_dns_server="$SB_SPLIT_DNS_SERVER_TAG"
     else
-        log "Error: Invalid JSON config generated"
-        return 1
+        final_dns_server="$SB_DNS_SERVER_TAG"
+    fi
+    config=$(sing_box_cm_configure_dns "$config" "$final_dns_server" "ipv4_only" true)
+
+    local dns_type dns_server split_dns_type split_dns_server
+    config_get dns_type "main" "dns_type" "doh"
+    config_get dns_server "main" "dns_server" "1.1.1.1"
+    config_get split_dns_type "main" "split_dns_type" "udp"
+    config_get split_dns_server "main" "split_dns_server" "1.1.1.1"
+
+    local need_dns_domain_resolver=0
+    if ! is_ipv4 "$dns_server" || ! is_ipv4 "$split_dns_server"; then
+        need_dns_domain_resolver=1
+    fi
+
+    log "Adding DNS Servers" "sing-box"
+    config=$(sing_box_cm_add_fakeip_dns_server "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$FAKEIP")
+
+    local dns_domain_resolver
+    if [ "$need_dns_domain_resolver" -eq 1 ]; then
+        log "One of the DNS server addresses is a domain. Searching for a working DNS server..." "sing-box"
+        dns_domain_resolver=$(find_working_resolver)
+        if [ -z "$dns_domain_resolver" ]; then
+            log "Working DNS server not found, using default DNS server" "sing-box"
+            dns_domain_resolver="1.1.1.1"
+        else
+            log "Working DNS server has been found: $dns_domain_resolver" "sing-box"
+        fi
+        config=$(sing_box_cm_add_udp_dns_server "$config" "$SB_DNS_DOMAIN_RESOLVER_TAG" "$dns_domain_resolver" 53)
+    fi
+
+    config=$(
+        sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "" "" \
+        "$SB_DNS_DOMAIN_RESOLVER_TAG" "$SB_DIRECT_OUTBOUND_TAG"
+    )
+
+    if [ "$split_dns_enabled" -eq 1 ]; then
+        config=$(
+            sing_box_cf_add_dns_server "$config" "$split_dns_type" "$SB_SPLIT_DNS_SERVER_TAG" "$split_dns_server" \
+            "" "" "$SB_DNS_DOMAIN_RESOLVER_TAG" "$SB_MAIN_OUTBOUND_TAG"
+        )
+    fi
+
+    log "Adding DNS Rules" "sing-box"
+    local rewrite_ttl service_domains
+    config_get rewrite_ttl "main" "dns_rewrite_ttl" "60"
+
+    config=$(sing_box_cm_add_dns_reject_rule "$config" "query_type" "HTTPS")
+    config=$(sing_box_cm_add_dns_reject_rule "$config" "domain_suffix" '"use-application-dns.net"')
+    config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_DNS_RULE_TAG")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
+    service_domains=$(comma_string_to_json_array "$TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
+    if [ "$split_dns_enabled" -eq 1 ]; then
+        config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_DNS_SERVER_TAG" "$SB_INVERT_FAKEIP_DNS_RULE_TAG")
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_INVERT_FAKEIP_DNS_RULE_TAG" "invert" true)
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_INVERT_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
     fi
 }
 
-sing_box_rule_dns() {
-    log "Configure rule dns in sing-box"
-    jq \
-    '.route += {
-        "rules": [
-        {
-            "inbound": [
-                "dns-in",
-                "tproxy-in"
-            ],
-            "action": "sniff"
-        },
-        {
-            "protocol": "dns",
-            "action": "hijack-dns"
-        }
-        ],
-        "auto_detect_interface": true
-    }' "$SING_BOX_CONFIG" | build_sing_box_config
+sing_box_configure_route() {
+    log "Configure the route section of a sing-box JSON configuration" "sing-box"
+
+    config=$(sing_box_cm_configure_route "$config" "$SB_DIRECT_OUTBOUND_TAG" true "$SB_DNS_SERVER_TAG")
+
+    local sniff_inbounds mixed_inbound_enabled
+    config_get_bool mixed_inbound_enabled "main" "socks5" 0
+    if [ "$mixed_inbound_enabled" -eq 1 ]; then
+        sniff_inbounds=$(comma_string_to_json_array "$SB_TPROXY_INBOUND_TAG,$SB_DNS_INBOUND_TAG,$SB_MIXED_INBOUND_TAG")
+    else
+        sniff_inbounds=$(comma_string_to_json_array "$SB_TPROXY_INBOUND_TAG,$SB_DNS_INBOUND_TAG")
+    fi
+    config=$(sing_box_cm_sniff_route_rule "$config" "inbound" "$sniff_inbounds")
+
+    config=$(sing_box_cm_add_hijack_dns_route_rule "$config" "protocol" "dns")
+
+    local quic_disable
+    config_get_bool quic_disable "main" "quic_disable" 0
+    if [ "$quic_disable" -eq 1 ]; then
+        config=$(sing_box_cm_add_reject_route_rule "$config" "protocol" "quic")
+    fi
+
+    config=$(
+        sing_box_cf_proxy_domain "$config" "$SB_TPROXY_INBOUND_TAG" "$CHECK_PROXY_IP_DOMAIN" "$SB_MAIN_OUTBOUND_TAG"
+    )
+    config=$(sing_box_cf_override_domain_port "$config" "$TEST_DOMAIN" 8443)
+
+    config_foreach include_source_ips_in_routing_handler
+
+    local exclude_from_ip_enabled
+    config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" 0
+    if [ "$exclude_from_ip_enabled" -eq 1 ]; then
+        rule_tag="$(gen_id)"
+        config=$(sing_box_cm_add_route_rule "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$SB_DIRECT_OUTBOUND_TAG")
+        config_list_foreach "main" "exclude_traffic_ip" exclude_source_ip_from_routing_handler "$rule_tag"
+    fi
+
+    config_foreach configure_routing_for_section_lists
+}
+
+include_source_ips_in_routing_handler() {
+    local section="$1"
+
+    local all_traffic_from_ip_enabled rule_tag
+    config_get all_traffic_from_ip_enabled "$section" "all_traffic_from_ip_enabled" 0
+    if [ "$all_traffic_from_ip_enabled" -eq 1 ]; then
+        rule_tag="$(gen_id)"
+        config=$(
+            sing_box_cm_add_route_rule \
+            "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$(get_outbound_tag_by_section "$section")"
+        )
+        config_list_foreach "$section" "all_traffic_ip" include_source_ip_in_routing_handler "$rule_tag"
+    fi
+}
+
+include_source_ip_in_routing_handler() {
+    local source_ip="$1"
+    local rule_tag="$2"
+    nft_list_all_traffic_from_ip "$source_ip"
+    config=$(sing_box_cm_patch_route_rule "$config" "$rule_tag" "source_ip_cidr" "$source_ip")
+}
+
+exclude_source_ip_from_routing_handler() {
+    local source_ip="$1"
+    local rule_tag="$2"
+
+    config=$(sing_box_cm_patch_route_rule "$config" "$rule_tag" "source_ip_cidr" "$source_ip")
+}
+
+configure_routing_for_section_lists() {
+    local section="$1"
+    local community_list_enabled local_domains_list_enabled remote_domains_list_enabled remote_subnets_list_enabled
+    local user_domains_list_type user_subnets_list_type route_rule_tag
+    config_get_bool community_list_enabled "$section" "community_list_enabled" 0
+    config_get user_domains_list_type "$section" "user_domains_list_type" "disabled"
+    config_get_bool local_domains_list_enabled "$section" "local_domains_list_enabled" 0
+    config_get_bool remote_domains_list_enabled "$section" "remote_domains_list_enabled" 0
+    config_get user_subnets_list_type "$section" "user_subnets_list_type" "disabled"
+    config_get_bool remote_subnets_list_enabled "$section" "remote_subnets_list_enabled" 0
+
+    if [ "$community_list_enabled" -eq 0 ] && \
+        [ "$user_domains_list_type" == "disabled" ] && \
+        [ "$local_domains_list_enabled" -eq 0 ] && \
+        [ "$remote_domains_list_enabled" -eq 0 ] && \
+        [ "$user_subnets_list_type" == "disabled" ] && \
+        [ "$remote_subnets_list_enabled" == 0 ] ; then
+        log "Section $section does not have any enabled list, skipping..." "sing-box" "warn"
+        return 0
+    fi
+
+    route_rule_tag="$(gen_id)"
+    outbound_tag=$(get_outbound_tag_by_section "$section")
+    config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
+
+    if [ "$community_list_enabled" -eq 1 ]; then
+        log "Processing community list routing rules for $section section" "sing-box"
+        config_list_foreach "$section" "community_list" configure_community_list_handler "$section" "$route_rule_tag"
+    fi
+
+    if [ "$user_domains_list_type" != "disabled" ]; then
+        log "Processing user domains routing rules for $section section" "sing-box"
+        # TODO(ampetelin): it is necessary to implement
+        # configure_user_domains_list_handler
+    fi
+
+    if [ "$local_domains_list_enabled" -eq 1 ]; then
+        log "Processing local domains routing rules for $section section" "sing-box"
+        # TODO(ampetelin): it is necessary to implement
+        # configure_local_domains_list_handler "$section" "$route_rule_tag"
+    fi
+
+    if [ "$remote_domains_list_enabled" -eq 1 ]; then
+        log "Processing local domains routing rules for $section section" "sing-box"
+        config_list_foreach "$section" "remote_domains_list" configure_remote_domains_or_subnets_list_handler \
+        "domains" "$section" "$route_rule_tag"
+    fi
+
+    if [ "$user_subnets_list_type" != "disabled" ]; then
+        log "Processing user subnets routing rules for $section section" "sing-box"
+        # TODO(ampetelin): it is necessary to implement
+        # configure_user_subnets_list_handler
+    fi
+
+    if [ "$remote_subnets_list_enabled" -eq 1 ]; then
+        log "Processing remote subnets routing rules for $section section" "sing-box"
+        config_list_foreach "$section" "remote_subnets_list" configure_remote_domains_or_subnets_list_handler \
+        "subnets" "$section" "$route_rule_tag"
+    fi
+}
+
+configure_community_list_handler() {
+    local tag="$1"
+    local section="$2"
+    local route_rule_tag="$3"
+
+    local rule_set_tag format url update_interval detour
+    rule_set_tag="$(get_rule_set_tag "$section" "$tag" "community")"
+    format="binary"
+    url="$SRS_MAIN_URL/$tag.srs"
+    detour="$(_get_download_detour_tag)"
+    config_get update_interval "main" "update_interval" "1d"
+
+    config=$(sing_box_cm_add_remote_ruleset "$config" "$rule_set_tag" "$format" "$url" "$detour" "$update_interval")
+    _add_rule_set_to_dns_rules "$rule_set_tag"
+    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$rule_set_tag")
+}
+
+configure_user_domains_list_handler() {
+    local section="$1"
+    # TODO(ampetelin): it is necessary to implement
+}
+
+configure_local_domains_list_handler() {
+    local section="$1"
+    # TODO(ampetelin): it is necessary to implement
+}
+
+configure_remote_domains_or_subnets_list_handler() {
+    local url="$1"
+    local type="$2"
+    local section="$3"
+    local route_rule_tag="$4"
+
+    local file_extension
+    file_extension=$(get_url_file_extension "$url")
+    case "$file_extension" in
+        json|srs)
+            log "Detected file extension: .$file_extension → proceeding with processing" "sing-box" "debug"
+
+            local basename rule_set_tag format detour update_interval
+            basename=$(url_get_basename "$url")
+            rule_set_tag=$(get_rule_set_tag "$section" "$basename" "remote-$type")
+            format="$(get_rule_set_format_by_file_extension "$file_extension")"
+            detour="$(_get_download_detour_tag)"
+            config_get update_interval "main" "update_interval" "1d"
+
+            config=$(sing_box_cm_add_remote_ruleset "$config" "$rule_set_tag" "$format" "$url" "$update_interval")
+            config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$rule_set_tag")
+
+            case "$type" in
+            domains) _add_rule_set_to_dns_rules "$rule_set_tag" "$route_rule_tag" ;;
+            subnets) ;;
+            *) log "Unsupported remote rule set type: $type" "sing-box" "warn" ;;
+            esac
+            ;;
+        *)
+            log "Detected file extension: .$file_extension → no processing needed, managed on list_update" "sing-box"
+            # TODO(ampetelin): create rule set here?
+            ;;
+    esac
+}
+
+configure_user_subnets_list_handler() {
+    local section="$1"
+    # TODO(ampetelin): it is necessary to implement
+}
+
+_get_download_detour_tag() {
+    config_get_bool detour "main" "detour" 0
+    if [ "${detour:-0}" -eq 1 ]; then
+        echo "$SB_MAIN_OUTBOUND_TAG"
+    else
+        echo ""
+    fi
+}
+
+_add_rule_set_to_dns_rules() {
+    local rule_set_tag="$1"
+
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$rule_set_tag")
+    local split_dns_enabled final_dns_server
+    config_get_bool split_dns_enabled "main" "split_dns_enabled" 0
+    if [ "$split_dns_enabled" -eq 1 ]; then
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_INVERT_FAKEIP_DNS_RULE_TAG" "rule_set" "$rule_set_tag")
+    fi
+}
+
+sing_box_configure_experimental() {
+    log "Configure the experimental section of a sing-box JSON configuration" "sing-box"
+
+    log "Configuring cache database" "sing-box"
+    local cache_file
+    config_get cache_file "main" "cache_file" "/tmp/cache.db"
+    config=$(sing_box_cm_configure_cache_file "$config" true "$cache_file" true)
+
+    local yacd_enabled
+    config_get_bool yacd_enabled "main" "yacd" 0
+    if [ "$yacd_enabled" -eq 1 ]; then
+        log "Configuring Clash API (yacd)" "sing-box"
+        local external_controller="0.0.0.0:9090"
+        local external_controller_ui="ui"
+        config=$(sing_box_cm_configure_clash_api "$config" "$external_controller" "$external_controller_ui")
+    else
+        log "Clash API (yacd) is disabled, skipping configuration." "sing-box"
+    fi
+}
+
+sing_box_additional_inbounds() {
+    log "Configure the additional inbounds of a sing-box JSON configuration" "sing-box"
+
+    local mixed_inbound_enabled
+    config_get_bool mixed_inbound_enabled "main" "socks5" 0
+    if [ "$mixed_inbound_enabled" -eq 1 ]; then
+        config=$(
+            sing_box_cf_add_mixed_inbound_and_route_rule \
+                "$config" \
+                "$SB_MIXED_INBOUND_TAG" \
+                "$SB_MIXED_INBOUND_ADDRESS" \
+                "$SB_MIXED_INBOUND_PORT" \
+                "$SB_MAIN_OUTBOUND_TAG"
+        )
+    fi
+
+    config=$(
+        sing_box_cf_add_mixed_inbound_and_route_rule \
+            "$config" \
+            "$SB_SERVICE_MIXED_INBOUND_TAG" \
+            "$SB_SERVICE_MIXED_INBOUND_ADDRESS" \
+            "$SB_SERVICE_MIXED_INBOUND_PORT" \
+            "$SB_MAIN_OUTBOUND_TAG"
+    )
 }
 
 sing_box_config_check() {
-    if ! sing-box -c $SING_BOX_CONFIG check >/dev/null 2>&1; then
-        log "[critical] Sing-box configuration is invalid"
+    if ! sing-box -c $SB_CONFIG check >/dev/null 2>&1; then
+        log "Sing-box configuration is invalid" "sing-box" "[fatal]"
         exit 1
-    fi
-}
-
-sing_box_config_outbound_json() {
-    local json_config="$1"
-    local section="$2"
-
-    # Create new object with tag first, then merge with the rest of the config
-    local modified_config=$(echo "$json_config" | jq --arg section "$section" \
-        'del(.tag) | {"tag": $section} + .')
-
-    jq --argjson outbound "$modified_config" \
-       --arg section "$section" \
-       '. |
-          .outbounds |= (
-            map(
-              if .tag == $section then
-                $outbound
-              else . end
-            ) +
-            (
-              if (map(select(.tag == $section)) | length) == 0 then
-                [$outbound]
-              else [] end
-            )
-          )' "$SING_BOX_CONFIG" | build_sing_box_config
-
-    if [ $? -eq 0 ]; then
-        log "Outbound config updated successfully"
-    else
-        log "Error: Outbound invalid JSON config generated"
-        return 1
-    fi
-}
-
-sing_box_config_shadowsocks() {
-    local section="$1"
-    local STRING="$2"
-    ss_uot="${3:-0}"
-
-    if echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 -d 2>/dev/null | grep -q ":"; then
-        local encrypted_part=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | base64 -d 2>/dev/null )
-        local method=$(echo "$encrypted_part" | cut -d':' -f1)
-        local password=$(echo "$encrypted_part" | cut -d':' -f2-)
-    else
-        local method_and_password=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1)
-        local method=$(echo "$method_and_password" | cut -d':' -f1)
-        local password=$(echo "$method_and_password" | cut -d':' -f2- | sed 's/%3D/=/g')
-        if echo "$method" | base64 -d ; then
-            method=$(echo "$method" | base64 -d)
-        fi
-    fi
-
-    local server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1)
-    local port=$(echo "$STRING" | sed -n 's|.*:\([0-9]\+\).*|\1|p')
-
-    jq \
-    --arg section "$section" \
-    --arg server "$server" \
-    --argjson port "$port" \
-    --arg method "$method" \
-    --arg password "$password" \
-    --argjson ss_uot "$ss_uot" \
-    '. |
-      .outbounds |= (
-        map(
-          if .tag == $section then
-            . + {
-              "type": "shadowsocks",
-              "server": $server,
-              "server_port": ($port | tonumber),
-              "method": $method,
-              "password": $password
-            } + (if $ss_uot == 1 then { "udp_over_tcp": { "enabled": true, "version": 2 } } else {} end)
-          else . end
-        ) +
-        (
-          if (map(select(.tag == $section)) | length) == 0 then
-            [{
-              "tag": $section,
-              "type": "shadowsocks",
-              "server": $server,
-              "server_port": ($port | tonumber),
-              "method": $method,
-              "password": $password
-            } + (if $ss_uot == 1 then { "udp_over_tcp": { "enabled": true, "version": 2 } } else {} end)]
-          else [] end
-        )
-      )' "$SING_BOX_CONFIG" | build_sing_box_config
-
-    if [ $? -eq 0 ]; then
-        log "Config Shadowsocks updated successfully"
-    else
-        log "Error: Shadowsocks invalid JSON config generated"
-        return 1
-    fi
-}
-
-sing_box_config_vless() {
-    local section="$1"
-    local STRING="$2"
-
-    get_param() {
-        local param="$1"
-        local value=$(echo "$STRING" | sed -n "s/.*[?&]$param=\([^&?#]*\).*/\1/p")
-        value=$(echo "$value" | sed 's/%2F/\//g; s/%2C/,/g; s/%3D/=/g; s/%2B/+/g; s/%20/ /g; s/%3B/;/g' | tr -d '\n' | tr -d '\r')
-        echo "$value"
-    }
-
-    uuid=$(echo "$STRING" | cut -d'/' -f3 | cut -d'@' -f1 | tr -d '\n' | tr -d '\r' | sed 's/False//g')
-    server=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f1 | tr -d '\n' | tr -d '\r' | sed 's/False//g')
-    port=$(echo "$STRING" | cut -d'@' -f2 | cut -d':' -f2 | cut -d'?' -f1 | cut -d'/' -f1 | cut -d'#' -f1 | tr -d '\n' | tr -d '\r' | sed 's/False//g')
-
-    jq \
-    --arg server      "$server" \
-    --argjson port    "$port" \
-    --arg uuid        "$uuid" \
-    --arg type        "$(get_param "type")" \
-    --arg flow        "$(get_param "flow")" \
-    --arg sni         "$(get_param "sni")" \
-    --arg fp          "$(get_param "fp")" \
-    --arg security    "$(get_param "security")" \
-    --arg pbk         "$(get_param "pbk")" \
-    --arg sid         "$(get_param "sid")" \
-    --arg alpn        "$(get_param "alpn")" \
-    --arg path        "$(get_param "path")" \
-    --arg host        "$(get_param "host")" \
-    --arg spx         "$(get_param "spx")" \
-    --arg insecure    "$(get_param "allowInsecure")" \
-    --arg section     "$section" \
-    '. |
-      # Updating an existing outbound by tag or adding a new one
-      .outbounds |= (
-        # If an element with the required tag is found, update it
-        map(
-          if .tag == $section then
-            . + {
-              "type": "vless",
-              "server": $server,
-              "server_port": ($port | tonumber),
-              "uuid": $uuid,
-              "packet_encoding": "",
-              "domain_strategy": "",
-              "flow": $flow
-            }
-          else . end
-        ) +
-        # Add a new outbound if the required tag is not present
-        (
-          if (map(select(.tag == $section)) | length) == 0 then
-            [{
-              "tag": $section,
-              "type": "vless",
-              "server": $server,
-              "server_port": ($port | tonumber),
-              "uuid": $uuid,
-              "packet_encoding": "",
-              "domain_strategy": "",
-              "flow": $flow
-            }]
-          else [] end
-        )
-      ) |
-      # Additional parameters such as transport and tls
-      if $flow != "" then
-        .outbounds |= map(
-          if .tag == $section then
-            .flow = $flow
-          else . end
-        )
-      else . end |
-      if $type == "ws" then
-        .outbounds |= map(
-          if .tag == $section then
-            .transport = {
-              "type": "ws",
-              "path": $path
-            } |
-            if $host != "" then
-              .transport.headers = { "Host": $host }
-            else . end
-          else . end
-        )
-      elif $type == "grpc" then
-        .outbounds |= map(
-          if .tag == $section then
-            .transport = { "type": "grpc" }
-          else . end
-        )
-      else . end |
-      if $security == "reality" or $security == "tls" then
-        .outbounds |= map(
-          if .tag == $section then
-            .tls = {
-              "enabled": true,
-              "server_name": $sni,
-              "utls": {
-                "enabled": true,
-                "fingerprint": $fp
-              },
-              "insecure": ($insecure == "1")
-            } |
-            if $alpn != "" then
-              .tls.alpn = ($alpn | split(","))
-            else . end |
-            if $security == "reality" then
-              .tls.reality = {
-                "enabled": true,
-                "public_key": $pbk,
-                "short_id": $sid
-              }
-            else . end
-          else . end
-        )
-      else . end' "$SING_BOX_CONFIG" | build_sing_box_config
-
-
-    if [ $? -eq 0 ]; then
-        log "Config VLESS created successfully"
-    else
-        log "[critical] Error: VLESS invalid JSON config generated"
-        exit 1
-    fi
-}
-
-# Process. Sing-box rules
-
-sing_box_ruleset_domains() {
-    log "Configure ruleset domains in sing-box"
-
-    local domain=$1
-    local tag=$2
-
-    # Check if there is a route.rule_set for the specified tag
-    local tag_exists=$(jq -r --arg tag "$tag" '
-        .route.rule_set[]? | select(.tag == $tag) | .tag
-    ' /etc/sing-box/config.json)
-
-    # If the tag exists, add the domain
-    if [[ -n "$tag_exists" ]]; then
-        jq \
-        --arg tag "$tag" \
-        --arg domain "$domain" \
-        '
-        .route.rule_set[] |= 
-        if .tag == $tag then
-            .rules[0].domain_suffix += [$domain]
-        else
-            .
-        end
-        ' "$SING_BOX_CONFIG" | build_sing_box_config
-
-        log "$domain added to the list for tag $tag"
-    else
-        # If tag does not exist, add a new set of rules
-        jq \
-        --arg tag "$tag" \
-        --arg domain "$domain" \
-        '
-        .route.rule_set += [
-            {
-                "tag": $tag,
-                "type": "inline",
-                "rules": [
-                    {
-                        "domain_suffix": [$domain]
-                    }
-                ]
-            }
-        ]' "$SING_BOX_CONFIG" | build_sing_box_config
-
-        log "$domain added as a new rule set for tag $tag"
-    fi
-}
-
-sing_box_ruleset_subnets() {
-    log "Configure ruleset domains in sing-box"
-
-    local subnet=$1
-    local tag=$2
-
-    # nft
-    nft add element inet PodkopTable podkop_subnets { $subnet }
-
-    # Check if there is a route.rule_set for the specified tag
-    local tag_exists=$(jq -r --arg tag "$tag" '
-        .route.rule_set[]? | select(.tag == $tag) | .tag
-    ' /etc/sing-box/config.json)
-
-    # If tag exists, add the domain
-    if [[ -n "$tag_exists" ]]; then
-        jq \
-        --arg tag "$tag" \
-        --arg subnet "$subnet" \
-        '
-        .route.rule_set[] |= 
-        if .tag == $tag then
-            .rules[0].ip_cidr += [$subnet]
-        else
-            .
-        end
-        ' "$SING_BOX_CONFIG" | build_sing_box_config
-
-        log "$subnet added to the list for tag $tag"
-    else
-        # If tag does not exist, add a new set of rules
-        jq \
-        --arg tag "$tag" \
-        --arg subnet "$subnet" \
-        '
-        .route.rule_set += [
-            {
-                "tag": $tag,
-                "type": "inline",
-                "rules": [
-                    {
-                        "ip_cidr": [$subnet]
-                    }
-                ]
-            }
-        ]' "$SING_BOX_CONFIG" | build_sing_box_config
-
-        log "$subnet added as a new rule set for tag $tag"
     fi
 }
 
@@ -1494,349 +1095,6 @@ sing_box_ruleset_subnets_json() {
     ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
 
     log "$subnet added to $section-custom-domains-subnets.json"
-}
-
-#######################################
-# Adds a new remote ruleset to the sing-box configuration.
-# https://sing-box.sagernet.org/configuration/rule-set/#__tabbed_1_3
-# 
-# Arguments:
-#   tag: unique identifier for the ruleset.
-#   format: format of the ruleset (e.g., "source" or "binary").
-#   url: URL from which the ruleset can be fetched.
-#   update_interval: update interval for the ruleset (e.g., "1d").
-#   detour: flag indicating whether to use a download detour ("1" or "0").
-#
-# Outputs:
-#   Modifies the sing-box configuration file by appending a new ruleset entry.
-#
-# Returns:
-#   None. Always returns 0. If a ruleset with the same tag exists, it is skipped.
-#######################################
-sing_box_config_add_remote_ruleset() {
-    local tag=$1
-    local format=$2
-    local url=$3
-    local update_interval=$4
-    local detour=$5
-
-    local tag_exists
-    tag_exists=$(jq -r --arg tag "$tag" '
-        .route.rule_set[]? | select(.tag == $tag) | .tag
-    ' "$SING_BOX_CONFIG")
-
-    if [[ -n "$tag_exists" ]]; then
-        log "Ruleset with tag $tag already exists. Skipping addition."
-    else
-        jq \
-        --arg tag "$tag" \
-        --arg format "$format" \
-        --arg url "$url" \
-        --arg update_interval "$update_interval" \
-        --arg detour "$detour" \
-        '
-        .route.rule_set += [
-            (
-                {
-                    "tag": $tag,
-                    "type": "remote",
-                    "format": $format,
-                    "url": $url,
-                    "update_interval": $update_interval
-                } +
-                    (if $detour == "1" then {"download_detour": "main"} else {} end)
-            )
-        ]' "$SING_BOX_CONFIG" | build_sing_box_config
-
-        log "Added new remote ruleset with tag $tag"
-    fi
-}
-
-#######################################
-# Adds a remote ruleset to the sing-box configuration and applies route and dns rules.
-#
-# Arguments:
-#   url: remote ruleset URL.
-#   section: configuration section where rules will be applied.
-#   ruleset_content_type: Type of ruleset content (e.g., "domains" or "subnets").
-#
-# Returns:
-#   0 on success, non-zero if the file extension is unsupported.
-#######################################
-sing_box_add_remote_ruleset_and_rules() {
-    local url="$1"
-    local section="$2"
-    local ruleset_content_type="$3"
-
-    local tag
-    local format
-    local update_interval='1d'
-    local detour
-
-    case "$(get_url_file_extension "$url")" in
-        json) format="source" ;;
-        srs)  format="binary" ;;
-        *)
-            log "Unsupported file extension: .$file_extension"
-            return 1
-            ;;
-    esac
-
-    tag=$(get_ruleset_tag_from_url "$url" "$section-remote-$ruleset_content_type")
-    config_get_bool detour "main" "detour" "0"
-
-    sing_box_config_add_remote_ruleset "$tag" "$format" "$url" "$update_interval" "$detour"
-    sing_box_rules "$tag" "$section"
-    if [[ "$ruleset_content_type" = "domains" ]]; then
-        sing_box_dns_rule_fakeip_section "$tag"
-    fi
-}
-
-process_domains_for_section() {
-    local section="$1"
-
-    config_get custom_domains_list_type "$section" "custom_domains_list_type" "disabled"
-
-    if [ "$custom_domains_list_type" != "disabled" ]; then
-        log "Adding a custom domains list for $section section"
-        if [ "$custom_domains_list_type" = "dynamic" ]; then
-            # Handle list domains from custom_domains
-            config_list_foreach "$section" custom_domains "sing_box_ruleset_domains" "$section"
-        elif [ "$custom_domains_list_type" = "text" ]; then
-            # Handle domains from text
-            config_get custom_domains_text "$section" "custom_domains_text"
-            process_domains_text "$custom_domains_text" "$section"
-        fi
-    fi
-}
-
-sing_box_rules() {
-    log "Configure rule in sing-box"
-    local rule_set="$1"
-    local outbound="$2"
-
-    config_get mode "$section" "mode"
-
-    if [[ "$mode" == "block" ]]; then
-        # Action reject
-        # Check if there is an rule with reject"
-        local rule_exists=$(jq -r '.route.rules[] | select(.inbound == ["tproxy-in"] and .action == "reject")' "$SING_BOX_CONFIG")
-
-        if [[ -n "$rule_exists" ]]; then
-            # If a rule for rejectexists, add a new rule_set to the existing rule
-            jq \
-            --arg rule_set "$rule_set" \
-            '(.route.rules[] | select(.inbound == ["tproxy-in"] and .action == "reject") .rule_set) += [$rule_set]' \
-            "$SING_BOX_CONFIG" | build_sing_box_config
-        else
-            # If there is no rule for reject, create a new one with rule_set
-            jq \
-            --arg rule_set "$rule_set" \
-            '.route.rules += [{
-                "inbound": ["tproxy-in"],
-                "rule_set": [$rule_set],
-                "action": "reject"
-            }]' "$SING_BOX_CONFIG" | build_sing_box_config
-        fi
-        return
-    else
-        # Action route
-        # Check if there is an outbound rule for "tproxy-in"
-        local rule_exists=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .inbound == ["tproxy-in"])' "$SING_BOX_CONFIG")
-
-        if [[ -n "$rule_exists" ]]; then
-            # If a rule for tproxy-in exists, add a new rule_set to the existing rule
-            jq \
-            --arg rule_set "$rule_set" \
-            --arg outbound "$outbound" \
-            '(.route.rules[] | select(.outbound == $outbound and .inbound == ["tproxy-in"]) .rule_set) += [$rule_set]' \
-            "$SING_BOX_CONFIG" | build_sing_box_config
-        else
-            # If there is no rule for tproxy-in, create a new one with rule_set
-            jq \
-            --arg rule_set "$rule_set" \
-            --arg outbound "$outbound" \
-            '.route.rules += [{
-                "inbound": ["tproxy-in"],
-                "rule_set": [$rule_set],
-                "outbound": $outbound,
-                "action": "route"
-            }]' "$SING_BOX_CONFIG" | build_sing_box_config
-        fi
-    fi
-}
-
-sing_box_quic_reject() {
-    local quic_rule_exists=$(jq -e '.route.rules[] | select(.protocol == "quic" and .action == "reject")' "$SING_BOX_CONFIG")
-
-    if [[ -z "$quic_rule_exists" ]]; then
-        jq '
-        .route.rules |= (
-            reduce .[] as $rule ([];
-                if $rule.protocol == "dns" and $rule.action == "hijack-dns" then
-                    . + [$rule, {"protocol": "quic", "action": "reject"}]
-                else
-                    . + [$rule]
-                end
-            )
-        )' "$SING_BOX_CONFIG" | build_sing_box_config
-
-        log "QUIC reject rule added successfully"
-    fi
-}
-
-# TODO(ampetelin): function needs refactoring
-sing_box_rule_preset() {
-    config_get custom_domains_list_type "$section" "custom_domains_list_type"
-    config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled"
-    config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
-
-    if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_subnets_list_enabled" != "disabled" ] ||
-        [ "$custom_local_domains_list_enabled" = "1" ]; then
-        sing_box_rules "$section" "$section"
-    fi
-
-    if [ "$custom_domains_list_type" != "disabled" ] || [ "$custom_local_domains_list_enabled" = "1" ]; then
-        sing_box_dns_rule_fakeip_section "$section" "$section"
-    fi
-
-    config_get domain_list_enabled "$section" "domain_list_enabled"
-    config_get domain_list "$section" "domain_list"
-    if [ "$domain_list_enabled" -eq 1 ]; then
-        config_list_foreach $section domain_list sing_box_rules $section
-        config_list_foreach $section domain_list sing_box_dns_rule_fakeip_section domain_list
-    fi
-}
-
-list_custom_local_domains_create() {
-    local section="$2"
-    local local_file="$1"
-    local filename=$(basename "$local_file" | cut -d. -f1)
-
-    while IFS= read -r domain; do
-        domain=$(echo "$domain" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        if [ -n "$domain" ] && echo "$domain" | grep -E -q '^([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,}$'; then
-            log "Added $domain from local file"
-            sing_box_ruleset_domains "$domain" "$section"
-        else
-            log "Invalid domain skipped: $domain"
-        fi
-    done <"$local_file"
-}
-
-process_domains_list_local() {
-    local section="$1"
-
-    config_get custom_local_domains_list_enabled "$section" "custom_local_domains_list_enabled"
-    if [ "$custom_local_domains_list_enabled" -eq 1 ]; then
-        log "Adding a custom domains list from file in $section"
-        config_list_foreach "$section" "custom_local_domains" list_custom_local_domains_create "$section"
-    fi
-}
-
-process_subnet_for_section() {
-    local section="$1"
-
-    config_get custom_subnets_list_enabled "$section" "custom_subnets_list_enabled" "disabled"
-    if [ "$custom_subnets_list_enabled" != "disabled" ]; then
-        log "Adding a custom subnet list for $section section"
-        if [ "$custom_subnets_list_enabled" = "dynamic" ]; then
-            # Handle list domains from custom_domains
-            config_list_foreach "$section" custom_subnets "sing_box_ruleset_subnets" "$section"
-        elif [ "$custom_subnets_list_enabled" = "text" ]; then
-            # Handle domains from text
-            config_get custom_subnets_text "$section" "custom_subnets_text"
-            process_subnets_text "$custom_subnets_text" "$section"
-        fi
-    fi
-}
-
-configure_community_lists() {
-    config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
-    if [ "$domain_list_enabled" -eq 1 ]; then
-        log "Configuring community lists for $section section"
-        config_list_foreach "$section" domain_list configure_community_list_handler
-    fi
-}
-
-configure_community_list_handler() {
-    local tag=$1
-
-    local format="binary"
-    local update_interval="1d"
-    config_get_bool detour "main" "detour" "0"
-    local url="$SRS_MAIN_URL/$tag.srs"
-    
-    sing_box_config_add_remote_ruleset "$tag" "$format" "$url" "$update_interval" "$detour"
-}
-
-configure_remote_domain_lists() {
-    local section="$1"
-    
-    config_get custom_download_domains_list_enabled "$section" custom_download_domains_list_enabled
-    if [ "$custom_download_domains_list_enabled" -eq 1 ]; then
-        log "Configuring remote domain lists for $section section"
-        config_list_foreach "$section" custom_download_domains configure_remote_domain_list_handler "$section"
-    fi
-}
-
-configure_remote_domain_list_handler() {
-    local url="$1"
-    local section="$2"
-    
-    log "Configuring remote domain list from URL: $url"
-
-    local file_extension
-    file_extension=$(get_url_file_extension "$url")
-    case "$file_extension" in
-        json|srs)
-            log "Detected file extension: .$file_extension → proceeding with processing"
-            sing_box_add_remote_ruleset_and_rules "$url" "$section" "domains"
-            ;;
-        *)
-            log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
-            ;;
-    esac
-}
-
-configure_remote_subnet_lists() {
-    local section="$1"
-
-    config_get custom_download_subnets_list_enabled "$section" custom_download_subnets_list_enabled disabled
-    if [ "$custom_download_subnets_list_enabled" -eq "1" ]; then
-        log "Configuring remote subnet lists for $section section"
-        config_list_foreach "$section" custom_download_subnets configure_remote_subnet_list_handler "$section"
-    fi
-}
-
-configure_remote_subnet_list_handler() {
-    local url="$1"
-    local section="$2"
-
-    log "Configuring remote subnet list from URL: $url"
-
-    local file_extension
-    file_extension=$(get_url_file_extension "$url")
-    case "$file_extension" in
-        json|srs)
-            log "Detected file extension: .$file_extension → proceeding with processing"
-            sing_box_add_remote_ruleset_and_rules "$url" "$section" "subnets"
-            ;;
-        *)
-            log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
-            ;;          
-    esac
-}
-
-process_all_traffic_for_section() {
-    local section="$1"
-
-    config_get all_traffic_from_ip_enabled "$section" "all_traffic_from_ip_enabled"
-    if [ "$all_traffic_from_ip_enabled" -eq "1" ]; then
-        log "Adding an IP to redirect all traffic"
-        config_list_foreach $section all_traffic_ip nft_list_all_traffic_from_ip
-        config_list_foreach $section all_traffic_ip sing_box_rules_source_ip_cidr $all_traffic_ip $section
-    fi
 }
 
 import_community_subnet_lists() {
@@ -2054,58 +1312,6 @@ decompile_srs_file() {
     fi
 }
 
-sing_box_rules_source_ip_cidr() {
-    log "Configure source_ip_cidr rule in sing-box"
-    local source_ip_cidr="$1"
-    local outbound="$2"
-
-    local current_source_ip_cidr=$(jq -r '.route.rules[] | select(.outbound == "'"$outbound"'" and .action == "route" and .source_ip_cidr and (.inbound // [] | contains(["tproxy-in"])))' $SING_BOX_CONFIG)
-
-    if [[ -n "$current_source_ip_cidr" ]]; then
-        jq \
-        --arg source_ip_cidr "$source_ip_cidr" \
-        --arg outbound "$outbound" \
-        '(.route.rules[] | select(.outbound == $outbound and .action == "route" and .source_ip_cidr and (.inbound // [] | contains(["tproxy-in"]))) | .source_ip_cidr) += [$source_ip_cidr]' "$SING_BOX_CONFIG" | build_sing_box_config
-    else
-        jq \
-        --arg source_ip_cidr "$source_ip_cidr" \
-        --arg outbound "$outbound" \
-        '.route.rules = [
-            {
-                "inbound": ["tproxy-in"],
-                "source_ip_cidr": [$source_ip_cidr],
-                "outbound": $outbound,
-                "action": "route"
-            }
-        ] + .route.rules' "$SING_BOX_CONFIG" | build_sing_box_config
-    fi
-}
-
-detour_mixed() {
-    local section="main"
-    local port="4534"
-    local tag="detour"
-
-    log "Adding detour Socks5 for $section on port $port"
-
-    jq \
-    --arg tag "$tag" \
-    --arg port "$port" \
-    --arg section "$section" \
-    '.inbounds += [{
-        "tag": $tag,
-        "type": "mixed",
-        "listen": "127.0.0.1",
-        "listen_port": ($port|tonumber),
-        "set_system_proxy": false
-    }] | 
-    .route.rules += [{
-        "inbound": [$tag],
-        "outbound": $section,
-        "action": "route"
-    }]' "$SING_BOX_CONFIG" | build_sing_box_config
-}
-
 ## nftables
 nft_list_all_traffic_from_ip() {
     local ip="$1"
@@ -2135,14 +1341,14 @@ check_proxy() {
         return 1
     fi
 
-    if [ ! -f $SING_BOX_CONFIG ]; then
+    if [ ! -f $SB_CONFIG ]; then
         nolog "Configuration file not found"
         return 1
     fi
 
     nolog "Checking sing-box configuration..."
 
-    if ! sing-box -c $SING_BOX_CONFIG check >/dev/null; then
+    if ! sing-box -c $SB_CONFIG check >/dev/null; then
         nolog "Invalid configuration"
         return 1
     fi
@@ -2170,7 +1376,7 @@ check_proxy() {
                 else . end
             )
         else . end
-    )' $SING_BOX_CONFIG
+    )' $SB_CONFIG
 
     nolog "Checking proxy connection..."
 
@@ -2347,6 +1553,7 @@ check_sing_box_logs() {
     echo "$logs"
 }
 
+# TODO(ampetelin): need fix after refactoring
 check_fakeip() {
     # Not used
     nolog "Checking fakeip functionality..."
@@ -2395,14 +1602,14 @@ check_fakeip() {
             nolog "sing-box is running, but FakeIP might not be configured correctly"
             nolog "Checking DNS configuration in sing-box..."
 
-            if [ -f "$SING_BOX_CONFIG" ]; then
-                local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$SING_BOX_CONFIG")
-                local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$SING_BOX_CONFIG")
+            if [ -f "$SB_CONFIG" ]; then
+                local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$SB_CONFIG")
+                local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$SB_CONFIG")
 
                 nolog "FakeIP enabled: $fakeip_enabled"
                 nolog "FakeIP range: $fakeip_range"
 
-                local dns_rules=$(jq -r '.dns.rules[] | select(.server == "fakeip-server") | .domain' "$SING_BOX_CONFIG")
+                local dns_rules=$(jq -r '.dns.rules[] | select(.server == "fakeip-server") | .domain' "$SB_CONFIG")
                 nolog "FakeIP domain: $dns_rules"
             else
                 nolog "sing-box config file not found"
@@ -2439,7 +1646,7 @@ check_logs() {
 show_sing_box_config() {
     nolog "Current sing-box configuration:"
 
-    if [ ! -f "$SING_BOX_CONFIG" ]; then
+    if [ ! -f "$SB_CONFIG" ]; then
         nolog "Configuration file not found"
         return 1
     fi
@@ -2467,7 +1674,7 @@ show_sing_box_config() {
                 else . end
             )
         else . end
-    )' "$SING_BOX_CONFIG"
+    )' "$SB_CONFIG"
 }
 
 show_config() {
@@ -2662,35 +1869,6 @@ check_dns_available() {
     echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"is_available\":$is_available,\"status\":\"$status\",\"local_dns_working\":$local_dns_working,\"local_dns_status\":\"$local_dns_status\"}"
 }
 
-sing_box_add_secure_dns_probe_domain() {
-    local domain="$TEST_DOMAIN"
-    local override_port=8443
-
-    log "Adding DNS probe domain ${domain} to fakeip-server configuration"
-
-    jq \
-    --arg domain "$domain" \
-    --argjson override_port "$override_port" \
-    '.dns.rules |= map(
-        if (.server == "fakeip-server" or (.server == "dns-server" and .invert == true)) then
-            . + {
-                "domain": $domain
-            }
-        else
-            .
-        end
-    ) |
-    .route.rules |= . + [
-        {
-            "domain": $domain,
-            "action": "route-options",
-            "override_port": $override_port
-        }
-    ]' "$SING_BOX_CONFIG" | build_sing_box_config
-
-    log "DNS probe domain ${domain} configured with override to port ${override_port}"
-}
-
 print_global() {
     local message="$1"
     echo "$message"
@@ -2835,10 +2013,10 @@ global_check() {
         else
             print_global " 🤔 sing-box is running, checking configuration"
 
-            if [ -f "$SING_BOX_CONFIG" ]; then
-                local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$SING_BOX_CONFIG")
-                local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$SING_BOX_CONFIG")
-                local dns_rules=$(jq -r '.dns.rules[] | select(.server == "fakeip-server") | .domain' "$SING_BOX_CONFIG")
+            if [ -f "$SB_CONFIG" ]; then
+                local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$SB_CONFIG")
+                local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$SB_CONFIG")
+                local dns_rules=$(jq -r '.dns.rules[] | select(.server == "fakeip-server") | .domain' "$SB_CONFIG")
 
                 print_global "    📦 FakeIP enabled: $fakeip_enabled"
                 print_global "    📦 FakeIP range: $fakeip_range"
@@ -2850,6 +2028,7 @@ global_check() {
     fi
 }
 
+# TODO: create helper functon
 # Download URL content directly
 download_to_stream() {
     local url="$1"
@@ -2862,6 +2041,7 @@ download_to_stream() {
     fi
 }
 
+# TODO: create helper functon
 # Download URL to temporary file
 download_to_tempfile() {
     local url="$1"
@@ -2878,57 +2058,6 @@ download_to_tempfile() {
         log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
         sed -i 's/\r$//' "$filepath"
     fi
-}
-
-# helper function
-
-# check if file exists
-file_exists() {
-  local filepath="$1"
-
-  if [[ -f "$filepath" ]]; then
-    return 0   # success
-  else
-    return 1   # failure
-  fi
-}
-
-# extracts file extension from URL
-get_url_file_extension() {
-    local url="$1"
-
-    local file_extension="${url##*.}"
-
-    echo "$file_extension"
-}
-
-# extracts file extension from URL
-get_ruleset_tag_from_url() {
-    local url="$1"
-    local prefix="${2:-}"
-    local postfix="${3:-}"
-
-    local filename="${url##*/}"
-    local basename="${filename%%.*}"
-
-    local tag="$basename"
-
-    if [ -n "$prefix" ]; then
-        tag="${prefix}-${tag}"
-    fi
-
-    if [ -n "$postfix" ]; then
-        tag="${tag}-${postfix}"
-    fi
-
-    echo "$tag"
-}
-
-# check if string is valid IPv4 with CIDR mask
-is_ipv4_cidr() {
-  local ip="$1"
-  local regex="^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(\/(3[0-2]|2[0-9]|1[0-9]|[0-9]))$"
-  [[ $ip =~ $regex ]]
 }
 
 show_help() {

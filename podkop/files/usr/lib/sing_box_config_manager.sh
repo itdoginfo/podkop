@@ -1,4 +1,3 @@
-#!/bin/ash
 #
 # Module: sing_box_config_manager.sh
 #
@@ -272,9 +271,9 @@ sing_box_cm_add_dns_route_rule() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_patch_dns_route_rule "$CONFIG" "fakeip-dns-rule-id" "rule_set" '"main"')
+#   CONFIG=$(sing_box_cm_patch_dns_route_rule "$CONFIG" "fakeip-dns-rule-id" "rule_set" "main")
 #   CONFIG=$(sing_box_cm_patch_dns_route_rule "$CONFIG" "fakeip-dns-rule-id" "rule_set" '["main","second"]')
-#   CONFIG=$(sing_box_cm_patch_dns_route_rule "$CONFIG" "fakeip-dns-rule-id" "domain" '"example.com"')
+#   CONFIG=$(sing_box_cm_patch_dns_route_rule "$CONFIG" "fakeip-dns-rule-id" "domain" "example.com")
 #######################################
 sing_box_cm_patch_dns_route_rule() {
     local config="$1"
@@ -282,12 +281,14 @@ sing_box_cm_patch_dns_route_rule() {
     local key="$3"
     local value="$4"
 
+    value=$(_normalize_arg "$value")
+
     echo "$config" | jq \
         --arg service_tag "$SERVICE_TAG" \
         --arg tag "$tag" \
         --arg key "$key" \
         --argjson value "$value" \
-        'import "helpers" as h;
+        'import "helpers" as h {"search": "/usr/lib/podkop"};
         .dns.rules |= map(
             if .[$service_tag] == $tag then
                 if has($key) then
@@ -310,12 +311,14 @@ sing_box_cm_patch_dns_route_rule() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_add_dns_reject_rule "$CONFIG" "query_type" '"HTTPS"')
+#   CONFIG=$(sing_box_cm_add_dns_reject_rule "$CONFIG" "query_type" "HTTPS")
 #######################################
 sing_box_cm_add_dns_reject_rule() {
     local config="$1"
     local key="$2"
     local value="$3"
+
+    value=$(_normalize_arg "$value")
 
     echo "$config" | jq \
         --arg key "$key" \
@@ -760,7 +763,7 @@ sing_box_cm_set_vless_tls() {
                         + (if $insecure == "true" then {insecure: true} else {} end)
                         + (if $alpn != null then {alpn: $alpn} else {} end)
                         + (if $utls_fingerprint != "" then {
-                            ults: {
+                            utls: {
                                 enabled: true,
                                 fingerprint: $utls_fingerprint
                             }
@@ -902,7 +905,7 @@ sing_box_cm_add_route_rule() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_patch_route_rule "$CONFIG" "main-route-rule" "rule_set" '"inline-ruleset"')
+#   CONFIG=$(sing_box_cm_patch_route_rule "$CONFIG" "main-route-rule" "rule_set" "inline-ruleset")
 #######################################
 sing_box_cm_patch_route_rule() {
     local config="$1"
@@ -910,12 +913,14 @@ sing_box_cm_patch_route_rule() {
     local key="$3"
     local value="$4"
 
+    value=$(_normalize_arg "$value")
+
     echo "$config" | jq \
         --arg service_tag "$SERVICE_TAG" \
         --arg tag "$tag" \
         --arg key "$key" \
         --argjson value "$value" \
-        'import "helpers" as h;
+        'import "helpers" as h {"search": "/usr/lib/podkop"};
         .route.rules |= map(
             if .[$service_tag] == $tag then
                 if has($key) then
@@ -938,12 +943,14 @@ sing_box_cm_patch_route_rule() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_add_reject_route_rule "$CONFIG" "protocol" '"quic"')
+#   CONFIG=$(sing_box_cm_add_reject_route_rule "$CONFIG" "protocol" "quic")
 #######################################
 sing_box_cm_add_reject_route_rule() {
     local config="$1"
     local key="$2"
     local value="$3"
+
+    value=$(_normalize_arg "$value")
 
     echo "$config" | jq \
         --arg key "$key" \
@@ -963,12 +970,14 @@ sing_box_cm_add_reject_route_rule() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_add_hijack_dns_route_rule "$CONFIG" "protocol" '"dns"')
+#   CONFIG=$(sing_box_cm_add_hijack_dns_route_rule "$CONFIG" "protocol" "dns")
 #######################################
 sing_box_cm_add_hijack_dns_route_rule() {
     local config="$1"
     local key="$2"
     local value="$3"
+
+    value=$(_normalize_arg "$value")
 
     echo "$config" | jq \
         --arg key "$key" \
@@ -1011,13 +1020,15 @@ sing_box_cm_add_options_route_rule() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_sniff_route_rule "$CONFIG" "inbound" '"tproxy-in"')
+#   CONFIG=$(sing_box_cm_sniff_route_rule "$CONFIG" "inbound" "tproxy-in")
 #   CONFIG=$(sing_box_cm_sniff_route_rule "$CONFIG" "inbound" '["tproxy-in","dns-in"]')
 #######################################
 sing_box_cm_sniff_route_rule() {
     local config="$1"
     local key="$2"
     local value="$3"
+
+    value=$(_normalize_arg "$value")
 
     echo "$config" | jq \
         --arg key "$key" \
@@ -1060,9 +1071,9 @@ sing_box_cm_add_inline_ruleset() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_add_inline_ruleset_rule "$CONFIG" "inline-ruleset" "domain_suffix" '"telegram.org"')
-#   CONFIG=$(sing_box_cm_add_inline_ruleset_rule "$CONFIG" "inline-ruleset" "domain_suffix" '"discord.com"')
-#   CONFIG=$(sing_box_cm_add_inline_ruleset_rule "$CONFIG" "inline-ruleset" "ip_cidr" '"111.111.111.111/32"')
+#   CONFIG=$(sing_box_cm_add_inline_ruleset_rule "$CONFIG" "inline-ruleset" "domain_suffix" "telegram.org")
+#   CONFIG=$(sing_box_cm_add_inline_ruleset_rule "$CONFIG" "inline-ruleset" "domain_suffix" "discord.com")
+#   CONFIG=$(sing_box_cm_add_inline_ruleset_rule "$CONFIG" "inline-ruleset" "ip_cidr" "111.111.111.111/32")
 #######################################
 sing_box_cm_add_inline_ruleset_rule() {
     local config="$1"
@@ -1070,11 +1081,13 @@ sing_box_cm_add_inline_ruleset_rule() {
     local key="$3"
     local value="$4"
 
-    echo "$config" | jq \
+    value=$(_normalize_arg "$value")
+
+    echo "$config" | jq -L /usr/lib/podkop \
         --arg tag "$tag" \
         --arg key "$key" \
         --argjson value "$value" \
-        'import "helpers" as h;
+        'import "helpers" as h {"search": "/usr/lib/podkop"};
         .route.rule_set |= map(
             if .tag == $tag then
                 if has($key) then
@@ -1232,4 +1245,13 @@ sing_box_cm_save_config_to_file() {
         --arg tag "$SERVICE_TAG" \
         'walk(if type == "object" then del(.[$tag]) else . end)' \
         > "$file_path"
+}
+
+_normalize_arg() {
+    local value="$1"
+    if echo "$value" | jq -e . > /dev/null 2>&1; then
+        printf '%s' "$value"
+    else
+        printf '%s' "$value" | jq -R .
+    fi
 }
