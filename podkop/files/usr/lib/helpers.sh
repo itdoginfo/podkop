@@ -176,3 +176,33 @@ migrate_config_key() {
         sed -i "s/$key_type $old_key_name/$key_type $new_key_name/g" "$config"
     fi
 }
+
+# Download URL content directly
+download_to_stream() {
+    local url="$1"
+    local http_proxy_url="${2}"
+
+    if [ -n "$http_proxy_url" ]; then
+        http_proxy="$http_proxy_url" https_proxy="$http_proxy_url" wget -qO- "$url" | sed 's/\r$//'
+    else
+        wget -qO- "$url" | sed 's/\r$//'
+    fi
+}
+
+# Download URL to temporary file
+download_to_tempfile() {
+    local url="$1"
+    local filepath="$2"
+    local http_proxy_url="${3}"
+
+    if [ -n "$http_proxy_url" ]; then
+        http_proxy="$http_proxy_url" https_proxy="$http_proxy_url" wget -O "$filepath" "$url"
+    else
+        wget -O "$filepath" "$url"
+    fi
+
+    if grep -q $'\r' "$filepath"; then
+        log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
+        sed -i 's/\r$//' "$filepath"
+    fi
+}

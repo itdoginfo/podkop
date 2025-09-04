@@ -2026,38 +2026,6 @@ global_check() {
     fi
 }
 
-# TODO: create helper functon
-# Download URL content directly
-download_to_stream() {
-    local url="$1"
-
-    config_get_bool detour "main" "detour" "0"
-    if [ "$detour" -eq 1 ]; then
-        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -qO- "$url" | sed 's/\r$//'
-    else
-        wget -qO- "$url" | sed 's/\r$//'
-    fi
-}
-
-# TODO: create helper functon
-# Download URL to temporary file
-download_to_tempfile() {
-    local url="$1"
-    local filepath="$2"
-
-    config_get_bool detour "main" "detour" "0"
-    if [ "$detour" -eq 1 ]; then
-        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "$filepath" "$url"
-    else
-        wget -O "$filepath" "$url"
-    fi
-
-    if grep -q $'\r' "$filepath"; then
-        log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
-        sed -i 's/\r$//' "$filepath"
-    fi
-}
-
 show_help() {
     cat << EOF
 Usage: $0 COMMAND
