@@ -977,7 +977,7 @@ configure_remote_domains_or_subnets_list_handler() {
             detour="$(_get_download_detour_tag)"
             config_get update_interval "main" "update_interval" "1d"
 
-            config=$(sing_box_cm_add_remote_ruleset "$config" "$rule_set_tag" "$format" "$url" "$update_interval")
+            config=$(sing_box_cm_add_remote_ruleset "$config" "$rule_set_tag" "$format" "$url" "$detour" "$update_interval")
             config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$rule_set_tag")
 
             case "$type" in
