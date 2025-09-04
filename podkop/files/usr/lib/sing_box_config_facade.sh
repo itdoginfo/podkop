@@ -26,7 +26,7 @@ sing_box_cf_add_dns_server() {
         )
         ;;
     *)
-        log "Unsupported DNS server type: $type" "sing-box"
+        log "Unsupported DNS server type: $type"
         exit 1
         ;;
     esac
@@ -84,7 +84,7 @@ sing_box_cf_add_proxy_outbound() {
             config=$(sing_box_cm_set_vless_grpc_transport "$config" "$tag")
             ;;
         *)
-            log "Unknown transport '$transport' detected." "sing-box" "error"
+            log "Unknown transport '$transport' detected." "error"
             ;;
         esac
 
@@ -114,7 +114,7 @@ sing_box_cf_add_proxy_outbound() {
             ;;
         none) ;;
         *)
-            log "Unknown security '$security' detected." "sing-box" "error"
+            log "Unknown security '$security' detected." "error"
             ;;
         esac
         ;;
@@ -145,7 +145,7 @@ sing_box_cf_add_proxy_outbound() {
         )
         ;;
     *)
-        log "Unsupported proxy $scheme type" "sing-box"
+        log "Unsupported proxy $scheme type"
         exit 1
         ;;
     esac

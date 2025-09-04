@@ -43,14 +43,13 @@ COLOR_RESET="\033[0m"
 
 log() {
     local message="$1"
-    local module="$2"
-    local level="$3"
+    local level="$2"
 
     if [ "$level" == "" ]; then
         level="info"
     fi
 
-    logger -t "podkop" "[$level] [$module] $message"
+    logger -t "podkop" "[$level] $message"
 }
 
 nolog() {
@@ -81,12 +80,12 @@ start_main() {
     required_version="1.11.1"
 
     if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
-        log "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box" "main" "critical"
+        log "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box" "critical"
         exit 1
     fi
 
     if grep -qE 'doh_backup_noresolv|doh_backup_server|doh_server' /etc/config/dhcp; then
-        log "Detected https-dns-proxy in dhcp config. Edit /etc/config/dhcp" "main" "warn"
+        log "Detected https-dns-proxy in dhcp config. Edit /etc/config/dhcp" "warn"
     fi
 
     migration
@@ -113,8 +112,6 @@ start_main() {
     # TODO(ampetelin): refactoring is needed
 #    config_foreach add_cron_job # need refactoring
     /etc/init.d/sing-box start
-    log "Nice" "main"
-
 #    sing_box_inbound_proxy 1602             #refactored
 #    sing_box_dns                            #refactored
 #    sing_box_dns_rule_fakeip                #refactored
@@ -144,6 +141,7 @@ start_main() {
     # TODO(ampetelin): refactoring is needed
 #    list_update &
 #    echo $! > /var/run/podkop_list_update.pid
+    log "Nice"
 }
 
 start() {
@@ -277,11 +275,11 @@ migration() {
     migrate_config_key "$CONFIG" "list" "domain_list" "community_list"
 
     migrate_config_key "$CONFIG" "option" "custom_domains_list_type" "user_domains_list_type"
-    migrate_config_key "$CONFIG" "option" "custom_domains_text" "user_domains"
+    migrate_config_key "$CONFIG" "option" "custom_domains_text" "user_domains_text"
     migrate_config_key "$CONFIG" "list" "custom_domains" "user_domains"
 
     migrate_config_key "$CONFIG" "option" "custom_subnets_list_enabled" "user_subnets_list_type"
-    migrate_config_key "$CONFIG" "option" "custom_subnets_text" "user_subnets"
+    migrate_config_key "$CONFIG" "option" "custom_subnets_text" "user_subnets_text"
     migrate_config_key "$CONFIG" "list" "custom_subnets" "user_subnets"
 
     migrate_config_key "$CONFIG" "option" "custom_local_domains_list_enabled" "local_domains_list_enabled"
@@ -648,13 +646,13 @@ sing_box_init_config() {
 }
 
 sing_box_configure_log() {
-    log "Configure the log section of a sing-box JSON configuration" "sing-box"
+    log "Configure the log section of a sing-box JSON configuration"
 
     config=$(sing_box_cm_configure_log  "$config" false "$SB_DEFAULT_LOG_LEVEL" false)
 }
 
 sing_box_configure_inbounds() {
-    log "Configure the inbounds section of a sing-box JSON configuration" "sing-box"
+    log "Configure the inbounds section of a sing-box JSON configuration"
 
     config=$(
         sing_box_cm_add_tproxy_inbound \
@@ -666,7 +664,7 @@ sing_box_configure_inbounds() {
 }
 
 sing_box_configure_outbounds() {
-    log "Configure the outbounds section of a sing-box JSON configuration" "sing-box"
+    log "Configure the outbounds section of a sing-box JSON configuration"
 
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
@@ -680,13 +678,13 @@ configure_outbound_handler() {
     config_get connection_mode "$section" "mode"
     case "$connection_mode" in
     proxy)
-        log "Configuring outbound in proxy connection mode for the $section section" "sing-box"
+        log "Configuring outbound in proxy connection mode for the $section section"
         local proxy_config_type
         config_get proxy_config_type "$section" "proxy_config_type"
 
         case "$proxy_config_type" in
         url)
-            log "Detected proxy configuration type: url" "sing-box"
+            log "Detected proxy configuration type: url"
             local proxy_string udp_over_tcp
             config_get proxy_string "$section" "proxy_string"
             config_get udp_over_tcp "$section" "ss_uot"
@@ -694,48 +692,48 @@ configure_outbound_handler() {
             active_proxy_string=$(echo "$proxy_string" | grep -v "^[[:space:]]*\/\/" | head -n 1)
 
             if [ -z "$active_proxy_string" ]; then
-                log "Proxy string is not set. Aborted." "sing-box" "fatal"
+                log "Proxy string is not set. Aborted." "fatal"
                 exit 1
             fi
             config=$(sing_box_cf_add_proxy_outbound "$config" "$section" "$active_proxy_string" "$udp_over_tcp")
             ;;
         outbound)
-            log "Detected proxy configuration type: outbound" "sing-box"
+            log "Detected proxy configuration type: outbound"
             local json_outbound
             config_get json_outbound "$section" "outbound_json"
             config=$(sing_box_cf_add_json_outbound "$config" "$section" "$json_outbound")
             ;;
         *)
-            log "Unknown proxy configuration type: '$proxy_config_type'. Aborted." "sing-box" "fatal"
+            log "Unknown proxy configuration type: '$proxy_config_type'. Aborted." "fatal"
             exit 1
             ;;
         esac
         ;;
     vpn)
-        log "Configuring outbound in VPN connection mode for the $section section" "sing-box"
+        log "Configuring outbound in VPN connection mode for the $section section"
         local interface_name
         config_get interface_name "$section" "interface"
 
         if [ -z "$interface_name" ]; then
-            log "VPN interface is not set. Aborted." "sing-box" "fatal"
+            log "VPN interface is not set. Aborted." "fatal"
             exit 1
         fi
 
          config=$(sing_box_cf_add_interface_outbound "$config" "$section" "$interface_name")
         ;;
     block)
-        log "Connection mode 'block' detected for the $section section – no outbound will be created (handled via reject route rules)" "sing-box"
+        log "Connection mode 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
         # TODO(ampetelin): Надо не забыть
         ;;
     *)
-        log "Unknown connection mode '$connection_mode' for the $section section. Aborted." "sing-box" "fatal"
+        log "Unknown connection mode '$connection_mode' for the $section section. Aborted." "fatal"
         exit 1
         ;;
     esac
 }
 
 sing_box_configure_dns() {
-    log "Configure the DNS section of a sing-box JSON configuration" "sing-box"
+    log "Configure the DNS section of a sing-box JSON configuration"
     local split_dns_enabled final_dns_server
     config_get_bool split_dns_enabled "main" "split_dns_enabled" 0
     if [ "$split_dns_enabled" -eq 1 ]; then
@@ -756,18 +754,18 @@ sing_box_configure_dns() {
         need_dns_domain_resolver=1
     fi
 
-    log "Adding DNS Servers" "sing-box"
+    log "Adding DNS Servers"
     config=$(sing_box_cm_add_fakeip_dns_server "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$FAKEIP")
 
     local dns_domain_resolver
     if [ "$need_dns_domain_resolver" -eq 1 ]; then
-        log "One of the DNS server addresses is a domain. Searching for a working DNS server..." "sing-box"
+        log "One of the DNS server addresses is a domain. Searching for a working DNS server..."
         dns_domain_resolver=$(find_working_resolver)
         if [ -z "$dns_domain_resolver" ]; then
-            log "Working DNS server not found, using default DNS server" "sing-box"
+            log "Working DNS server not found, using default DNS server"
             dns_domain_resolver="1.1.1.1"
         else
-            log "Working DNS server has been found: $dns_domain_resolver" "sing-box"
+            log "Working DNS server has been found: $dns_domain_resolver"
         fi
         config=$(sing_box_cm_add_udp_dns_server "$config" "$SB_DNS_DOMAIN_RESOLVER_TAG" "$dns_domain_resolver" 53)
     fi
@@ -784,7 +782,7 @@ sing_box_configure_dns() {
         )
     fi
 
-    log "Adding DNS Rules" "sing-box"
+    log "Adding DNS Rules"
     local rewrite_ttl service_domains
     config_get rewrite_ttl "main" "dns_rewrite_ttl" "60"
 
@@ -802,7 +800,7 @@ sing_box_configure_dns() {
 }
 
 sing_box_configure_route() {
-    log "Configure the route section of a sing-box JSON configuration" "sing-box"
+    log "Configure the route section of a sing-box JSON configuration"
 
     config=$(sing_box_cm_configure_route "$config" "$SB_DIRECT_OUTBOUND_TAG" true "$SB_DNS_SERVER_TAG")
 
@@ -887,7 +885,7 @@ configure_routing_for_section_lists() {
         [ "$remote_domains_list_enabled" -eq 0 ] && \
         [ "$user_subnets_list_type" == "disabled" ] && \
         [ "$remote_subnets_list_enabled" == 0 ] ; then
-        log "Section $section does not have any enabled list, skipping..." "sing-box" "warn"
+        log "Section $section does not have any enabled list, skipping..." "warn"
         return 0
     fi
 
@@ -896,36 +894,36 @@ configure_routing_for_section_lists() {
     config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
 
     if [ "$community_list_enabled" -eq 1 ]; then
-        log "Processing community list routing rules for $section section" "sing-box"
+        log "Processing community list routing rules for $section section"
         config_list_foreach "$section" "community_list" configure_community_list_handler "$section" "$route_rule_tag"
     fi
 
     if [ "$user_domains_list_type" != "disabled" ]; then
-        log "Processing user domains routing rules for $section section" "sing-box"
+        log "Processing user domains routing rules for $section section"
         # TODO(ampetelin): it is necessary to implement
         # configure_user_domains_list_handler
     fi
 
     if [ "$local_domains_list_enabled" -eq 1 ]; then
-        log "Processing local domains routing rules for $section section" "sing-box"
+        log "Processing local domains routing rules for $section section"
         # TODO(ampetelin): it is necessary to implement
         # configure_local_domains_list_handler "$section" "$route_rule_tag"
     fi
 
     if [ "$remote_domains_list_enabled" -eq 1 ]; then
-        log "Processing local domains routing rules for $section section" "sing-box"
+        log "Processing local domains routing rules for $section section"
         config_list_foreach "$section" "remote_domains_list" configure_remote_domains_or_subnets_list_handler \
         "domains" "$section" "$route_rule_tag"
     fi
 
     if [ "$user_subnets_list_type" != "disabled" ]; then
-        log "Processing user subnets routing rules for $section section" "sing-box"
+        log "Processing user subnets routing rules for $section section"
         # TODO(ampetelin): it is necessary to implement
         # configure_user_subnets_list_handler
     fi
 
     if [ "$remote_subnets_list_enabled" -eq 1 ]; then
-        log "Processing remote subnets routing rules for $section section" "sing-box"
+        log "Processing remote subnets routing rules for $section section"
         config_list_foreach "$section" "remote_subnets_list" configure_remote_domains_or_subnets_list_handler \
         "subnets" "$section" "$route_rule_tag"
     fi
@@ -968,7 +966,7 @@ configure_remote_domains_or_subnets_list_handler() {
     file_extension=$(get_url_file_extension "$url")
     case "$file_extension" in
         json|srs)
-            log "Detected file extension: .$file_extension → proceeding with processing" "sing-box" "debug"
+            log "Detected file extension: .$file_extension → proceeding with processing" "debug"
 
             local basename rule_set_tag format detour update_interval
             basename=$(url_get_basename "$url")
@@ -983,11 +981,11 @@ configure_remote_domains_or_subnets_list_handler() {
             case "$type" in
             domains) _add_rule_set_to_dns_rules "$rule_set_tag" "$route_rule_tag" ;;
             subnets) ;;
-            *) log "Unsupported remote rule set type: $type" "sing-box" "warn" ;;
+            *) log "Unsupported remote rule set type: $type" "warn" ;;
             esac
             ;;
         *)
-            log "Detected file extension: .$file_extension → no processing needed, managed on list_update" "sing-box"
+            log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
             # TODO(ampetelin): create rule set here?
             ;;
     esac
@@ -1019,9 +1017,9 @@ _add_rule_set_to_dns_rules() {
 }
 
 sing_box_configure_experimental() {
-    log "Configure the experimental section of a sing-box JSON configuration" "sing-box"
+    log "Configure the experimental section of a sing-box JSON configuration"
 
-    log "Configuring cache database" "sing-box"
+    log "Configuring cache database"
     local cache_file
     config_get cache_file "main" "cache_file" "/tmp/cache.db"
     config=$(sing_box_cm_configure_cache_file "$config" true "$cache_file" true)
@@ -1029,17 +1027,17 @@ sing_box_configure_experimental() {
     local yacd_enabled
     config_get_bool yacd_enabled "main" "yacd" 0
     if [ "$yacd_enabled" -eq 1 ]; then
-        log "Configuring Clash API (yacd)" "sing-box"
+        log "Configuring Clash API (yacd)"
         local external_controller="0.0.0.0:9090"
         local external_controller_ui="ui"
         config=$(sing_box_cm_configure_clash_api "$config" "$external_controller" "$external_controller_ui")
     else
-        log "Clash API (yacd) is disabled, skipping configuration." "sing-box"
+        log "Clash API (yacd) is disabled, skipping configuration."
     fi
 }
 
 sing_box_additional_inbounds() {
-    log "Configure the additional inbounds of a sing-box JSON configuration" "sing-box"
+    log "Configure the additional inbounds of a sing-box JSON configuration"
 
     local mixed_inbound_enabled
     config_get_bool mixed_inbound_enabled "main" "socks5" 0
@@ -1066,7 +1064,7 @@ sing_box_additional_inbounds() {
 
 sing_box_config_check() {
     if ! sing-box -c $SB_CONFIG check >/dev/null 2>&1; then
-        log "Sing-box configuration is invalid" "sing-box" "[fatal]"
+        log "Sing-box configuration is invalid" "[fatal]"
         exit 1
     fi
 }
