@@ -325,7 +325,7 @@ function createConfigSection(section, map, network) {
     };
 
     // TODO: Is it possible to save not as an option (but as a split list)?
-    o = s.taboption('basic', form.TextValue, 'user_domains', _('User Domains List'), _('Enter domain names separated by comma, space or newline. You can add comments after //'));
+    o = s.taboption('basic', form.TextValue, 'user_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline. You can add comments after //'));
     o.placeholder = 'example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains';
     o.depends('user_domains_list_type', 'text');
     o.rows = 8;
@@ -434,7 +434,7 @@ function createConfigSection(section, map, network) {
     };
 
     // TODO: Is it possible to save not as an option (but as a split list)?
-    o = s.taboption('basic', form.TextValue, 'user_subnets', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments after //'));
+    o = s.taboption('basic', form.TextValue, 'user_subnets_text', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments after //'));
     o.placeholder = '103.21.244.0/22\n// Google DNS\n8.8.8.8\n1.1.1.1/32, 9.9.9.9 // Cloudflare and Quad9';
     o.depends('user_subnets_list_type', 'text');
     o.rows = 10;
