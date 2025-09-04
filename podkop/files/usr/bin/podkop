@@ -495,13 +495,12 @@ dnsmasq_restore() {
     /etc/init.d/dnsmasq restart
 }
 
-# TODO(ampetelin): refactoring is needed
 add_cron_job() {
     ## Future: make a check so that it doesn't recreate many times
-    config_get domain_list_enabled "$section" "domain_list_enabled"
-    config_get subnets_list_enabled "$section" "subnets_list_enabled"
-    config_get custom_download_domains_list_enabled "$section" "custom_download_domains_list_enabled"
-    config_get custom_download_subnets_list_enabled "$section" "custom_download_subnets_list_enabled"
+    local community_list_enabled remote_domains_list_enabled remote_subnets_list_enabled update_interval
+    config_get community_list_enabled "$section" "community_list_enabled"
+    config_get remote_domains_list_enabled "$section" "remote_domains_list_enabled"
+    config_get remote_subnets_list_enabled "$section" "remote_subnets_list_enabled"
     config_get update_interval "main" "update_interval"
 
     case "$update_interval" in
@@ -526,8 +525,9 @@ add_cron_job() {
             ;;
     esac
 
-    if [ "$domain_list_enabled" -eq 1 ] || [ "$subnets_list_enabled" -eq 1 ] ||
-       [ "$custom_download_domains_list_enabled" -eq 1 ] || [ "$custom_download_subnets_list_enabled" -eq 1 ] ; then
+    if [ "$community_list_enabled" -eq 1 ] || \
+        [ "$remote_domains_list_enabled" -eq 1 ] || \
+        [ "$remote_subnets_list_enabled" -eq 1 ]; then
         remove_cron_job
         crontab -l | {
             cat
@@ -723,7 +723,6 @@ configure_outbound_handler() {
         ;;
     block)
         log "Connection mode 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
-        # TODO(ampetelin): Надо не забыть
         ;;
     *)
         log "Unknown connection mode '$connection_mode' for the $section section. Aborted." "fatal"
@@ -827,6 +826,8 @@ sing_box_configure_route() {
     config=$(sing_box_cf_override_domain_port "$config" "$TEST_DOMAIN" 8443)
 
     config_foreach include_source_ips_in_routing_handler
+    # TODO(ampetelin): Add block rules
+    config_foreach
 
     local exclude_from_ip_enabled
     config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" 0
@@ -986,7 +987,6 @@ configure_remote_domains_or_subnets_list_handler() {
             ;;
         *)
             log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
-            # TODO(ampetelin): create rule set here?
             ;;
     esac
 }
