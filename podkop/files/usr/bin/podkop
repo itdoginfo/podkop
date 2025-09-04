@@ -109,8 +109,7 @@ start_main() {
     # sing-box
     sing_box_init_config
     sing_box_config_check
-    # TODO(ampetelin): refactoring is needed
-#    config_foreach add_cron_job # need refactoring
+    config_foreach add_cron_job
     /etc/init.d/sing-box start
 #    sing_box_inbound_proxy 1602             #refactored
 #    sing_box_dns                            #refactored
