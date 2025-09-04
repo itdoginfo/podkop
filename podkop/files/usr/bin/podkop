@@ -774,7 +774,7 @@ sing_box_configure_dns() {
 
     config=$(
         sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "" "" \
-        "$SB_DNS_DOMAIN_RESOLVER_TAG" "$SB_DIRECT_OUTBOUND_TAG"
+        "$SB_DNS_DOMAIN_RESOLVER_TAG"
     )
 
     if [ "$split_dns_enabled" -eq 1 ]; then
