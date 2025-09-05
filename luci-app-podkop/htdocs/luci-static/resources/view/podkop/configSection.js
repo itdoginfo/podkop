@@ -370,7 +370,7 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.DynamicList, 'local_domain_lists', _('Local Domain Lists Path'), _('Enter the list file path'));
+    o = s.taboption('basic', form.DynamicList, 'local_domain_lists', _('Local Domain List Paths'), _('Enter the list file path'));
     o.placeholder = '/path/file.lst';
     o.depends('local_domain_lists_enabled', '1');
     o.rmempty = false;
@@ -397,6 +397,25 @@ function createConfigSection(section, map, network) {
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
         return validateUrl(value);
+    };
+
+    o = s.taboption('basic', form.Flag, 'local_subnet_lists_enabled', _('Local Subnet Lists'), _('Use the list from the router filesystem'));
+    o.default = '0';
+    o.rmempty = false;
+    o.ucisection = s.section;
+
+    o = s.taboption('basic', form.DynamicList, 'local_subnet_lists', _('Local Subnet List Paths'), _('Enter the list file path'));
+    o.placeholder = '/path/file.lst';
+    o.depends('local_subnet_lists_enabled', '1');
+    o.rmempty = false;
+    o.ucisection = s.section;
+    o.validate = function (section_id, value) {
+        if (!value || value.length === 0) return true;
+        const pathRegex = /^\/[a-zA-Z0-9_\-\/\.]+$/;
+        if (!pathRegex.test(value)) {
+            return _('Invalid path format. Path must start with "/" and contain valid characters');
+        }
+        return true;
     };
 
     o = s.taboption('basic', form.ListValue, 'user_subnet_list_type', _('User Subnet List Type'), _('Select how to add your custom subnets'));

@@ -12,11 +12,10 @@ is_ipv4_cidr() {
     [[ "$ip" =~ $regex ]]
 }
 
+# Check if string is valid domain
 is_domain() {
     local str="$1"
-    #local regex="^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$"
     echo "$str" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]))+$'
-    #[[ $str =~ $regex ]]
 }
 
 # Checks if the given string is a valid base64-encoded sequence

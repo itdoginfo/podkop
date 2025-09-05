@@ -870,13 +870,15 @@ exclude_source_ip_from_routing_handler() {
 
 configure_routing_for_section_lists() {
     local section="$1"
-    local community_lists_enabled local_domain_lists_enabled remote_domain_lists_enabled remote_subnet_lists_enabled
+    local community_lists_enabled local_domain_lists_enabled remote_domain_lists_enabled remote_subnet_lists_enabled \
+    local_subnet_lists_enabled
     local user_domain_list_type user_subnet_list_type route_rule_tag
     config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
     config_get_bool local_domain_lists_enabled "$section" "local_domain_lists_enabled" 0
     config_get_bool remote_domain_lists_enabled "$section" "remote_domain_lists_enabled" 0
     config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
+    config_get_bool local_subnet_lists_enabled "$section" "local_subnet_lists_enabled" 0
     config_get_bool remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled" 0
 
     if [ "$community_lists_enabled" -eq 0 ] && \
@@ -884,6 +886,7 @@ configure_routing_for_section_lists() {
         [ "$local_domain_lists_enabled" -eq 0 ] && \
         [ "$remote_domain_lists_enabled" -eq 0 ] && \
         [ "$user_subnet_list_type" == "disabled" ] && \
+        [ "$local_subnet_lists_enabled" -eq 0 ] && \
         [ "$remote_subnet_lists_enabled" == 0 ] ; then
         log "Section $section does not have any enabled list, skipping..." "warn"
         return 0
@@ -906,7 +909,7 @@ configure_routing_for_section_lists() {
 
     if [ "$local_domain_lists_enabled" -eq 1 ]; then
         log "Processing local domains routing rules for $section section"
-        configure_local_domain_lists "$section" "$route_rule_tag"
+        configure_local_domain_or_subnet_lists "$section" "domains" "$route_rule_tag"
     fi
 
     if [ "$remote_domain_lists_enabled" -eq 1 ]; then
@@ -919,6 +922,11 @@ configure_routing_for_section_lists() {
         log "Processing user subnets routing rules for $section section"
         # TODO(ampetelin): it is necessary to implement
         # configure_user_subnet_list_handler
+    fi
+
+    if [ "$local_subnet_lists_enabled" -eq 1 ]; then
+        log "Processing local subnets routing rules for $section section"
+        configure_local_domain_or_subnet_lists "$section" "subnets" "$route_rule_tag"
     fi
 
     if [ "$remote_subnet_lists_enabled" -eq 1 ]; then
@@ -950,58 +958,81 @@ configure_user_domain_list_handler() {
     # TODO(ampetelin): it is necessary to implement
 }
 
-configure_local_domain_lists() {
+configure_local_domain_or_subnet_lists() {
     local section="$1"
-    local route_rule_tag="$2"
+    local type="$2"
+    local route_rule_tag="$3"
 
     local ruleset_tag ruleset_filename ruleset_filepath
-    ruleset_tag="$(get_ruleset_tag "$section" "local" "domains")"
+    ruleset_tag="$(get_ruleset_tag "$section" "local" "$type")"
     ruleset_filename="$ruleset_tag.json"
     ruleset_filepath="$TMP_FOLDER/$ruleset_filename"
 
     sing_box_cm_create_local_source_ruleset "$ruleset_filepath"
     config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-    _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag"
 
-    config_list_foreach "$section" "local_domains_list" import_local_domain_list_to_ruleset "$section" "$ruleset_filepath"
+    case "$type" in
+    domains)
+        config_list_foreach "$section" "local_domain_lists" import_local_domain_or_subnet_list_to_ruleset "$type" \
+        "$section" "$ruleset_filepath"
+        _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
+    subnets)
+        config_list_foreach "$section" "local_subnet_lists" import_local_domain_or_subnet_list_to_ruleset "$type" \
+        "$section" "$ruleset_filepath";;
+    *) log "Unsupported local rule set type: $type" "warn" ;;
+    esac
 }
 
-import_local_domain_list_to_ruleset() {
+import_local_domain_or_subnet_list_to_ruleset() {
     local filepath="$1"
-    local section="$2"
-    local ruleset_filepath="$3"
+    local type="$2"
+    local section="$3"
+    local ruleset_filepath="$4"
 
     if ! file_exists "$filepath"; then
         log "File $filepath not found" "warn"
         return 1
     fi
 
-    local domains=""
-    while IFS= read -r domain; do
-        if [ -z "$domain" ]; then
+    local items=""
+    while IFS= read -r item; do
+        if [ -z "$item" ]; then
             continue
         fi
 
-        if  ! is_domain "$domain"; then
-            log "$domain is not domain" "debug"
-            continue
-        fi
+        case "$type" in
+        domains)
+            if  ! is_domain "$item"; then
+                log "$item is not domain" "debug"
+                continue
+            fi
+            ;;
+        subnets)
+            if  ! is_ipv4 "$item" && ! is_ipv4_cidr "$item"; then
+                log "$item is not IPv4 IP or CIDR" "debug"
+                continue
+            fi
+            ;;
+        esac
 
-        if [ -z "$domains" ]; then
-            domains="$domain"
+        if [ -z "$items" ]; then
+            items="$item"
         else
-            domains="$domains,$domain"
+            items="$items,$item"
         fi
     done < "$filepath"
 
-    if [ -z "$domains" ]; then
-        log "No valid domains found in $filepath"
+    if [ -z "$items" ]; then
+        log "No valid $type found in $filepath"
         return 0
     fi
 
-    domains="$(comma_string_to_json_array "$domains")"
-    sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$domains"
+    items="$(comma_string_to_json_array "$items")"
+    case "$type" in
+    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$items" ;;
+    subnets) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$items" ;;
+    esac
 }
 
 configure_remote_domain_or_subnet_list_handler() {
