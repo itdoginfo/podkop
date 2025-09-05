@@ -1227,6 +1227,28 @@ sing_box_cm_configure_clash_api() {
         }'
 }
 
+sing_box_cm_create_local_source_ruleset() {
+    local filepath="$1"
+
+    jq -n '{version: 3, rules: []}' > "$filepath"
+}
+
+sing_box_cm_patch_local_source_ruleset_rules() {
+    local filepath="$1"
+    local key="$2"
+    local value="$3"
+
+    value=$(_normalize_arg "$value")
+
+    local content
+    content="$(cat "$filepath")"
+
+    echo "$content" | jq \
+    --arg key "$key" \
+    --argjson value "$value" \
+    '.rules += [{($key): $value}]' > "$filepath"
+}
+
 #######################################
 # Save a sing-box JSON configuration to a file, removing service-specific tags.
 # Arguments:
@@ -1239,12 +1261,12 @@ sing_box_cm_configure_clash_api() {
 #######################################
 sing_box_cm_save_config_to_file() {
     local config="$1"
-    local file_path="$2"
+    local filepath="$2"
 
     echo "$config" | jq \
         --arg tag "$SERVICE_TAG" \
         'walk(if type == "object" then del(.[$tag]) else . end)' \
-        > "$file_path"
+        > "$filepath"
 }
 
 _normalize_arg() {

@@ -32,6 +32,7 @@ TEST_DOMAIN="fakeip.podkop.fyi"
 INTERFACES_LIST=""
 SRC_INTERFACE=""
 RESOLV_CONF="/etc/resolv.conf"
+TMP_FOLDER="/tmp/podkop"
 
 # Endpoints https://github.com/ampetelin/warp-endpoint-checker
 CLOUDFLARE_OCTETS="8.47 162.159 188.114"
@@ -62,9 +63,9 @@ nolog() {
 
 echolog() {
     local message="$1"
-    local module="$2"
+    local level="$2"
 
-    log "$message" "$module"
+    log "$message" "$level"
     nolog "$message"
 }
 
@@ -826,7 +827,6 @@ sing_box_configure_route() {
 
     config_foreach include_source_ips_in_routing_handler
     # TODO(ampetelin): Add block rules
-    config_foreach
 
     local exclude_from_ip_enabled
     config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" 0
@@ -906,12 +906,11 @@ configure_routing_for_section_lists() {
 
     if [ "$local_domains_list_enabled" -eq 1 ]; then
         log "Processing local domains routing rules for $section section"
-        # TODO(ampetelin): it is necessary to implement
-        # configure_local_domains_list_handler "$section" "$route_rule_tag"
+        configure_local_domains_lists "$section" "$route_rule_tag"
     fi
 
     if [ "$remote_domains_list_enabled" -eq 1 ]; then
-        log "Processing local domains routing rules for $section section"
+        log "Processing remote domains routing rules for $section section"
         config_list_foreach "$section" "remote_domains_list" configure_remote_domains_or_subnets_list_handler \
         "domains" "$section" "$route_rule_tag"
     fi
@@ -934,16 +933,16 @@ configure_community_list_handler() {
     local section="$2"
     local route_rule_tag="$3"
 
-    local rule_set_tag format url update_interval detour
-    rule_set_tag="$(get_rule_set_tag "$section" "$tag" "community")"
+    local ruleset_tag format url update_interval detour
+    ruleset_tag="$(get_ruleset_tag "$section" "$tag" "community")"
     format="binary"
     url="$SRS_MAIN_URL/$tag.srs"
     detour="$(_get_download_detour_tag)"
     config_get update_interval "main" "update_interval" "1d"
 
-    config=$(sing_box_cm_add_remote_ruleset "$config" "$rule_set_tag" "$format" "$url" "$detour" "$update_interval")
-    _add_rule_set_to_dns_rules "$rule_set_tag"
-    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$rule_set_tag")
+    config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
+    _add_ruleset_to_dns_rules "$ruleset_tag"
+    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
 }
 
 configure_user_domains_list_handler() {
@@ -951,9 +950,58 @@ configure_user_domains_list_handler() {
     # TODO(ampetelin): it is necessary to implement
 }
 
-configure_local_domains_list_handler() {
+configure_local_domains_lists() {
     local section="$1"
-    # TODO(ampetelin): it is necessary to implement
+    local route_rule_tag="$2"
+
+    local ruleset_tag ruleset_filename ruleset_filepath
+    ruleset_tag="$(get_ruleset_tag "$section" "local" "domains")"
+    ruleset_filename="$ruleset_tag.json"
+    ruleset_filepath="$TMP_FOLDER/$ruleset_filename"
+
+    sing_box_cm_create_local_source_ruleset "$ruleset_filepath"
+    config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
+    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+    _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag"
+
+    config_list_foreach "$section" "local_domains_list" import_local_domains_ruleset "$section" "$ruleset_filepath"
+}
+
+import_local_domains_ruleset() {
+    local filepath="$1"
+    local section="$2"
+    local ruleset_filepath="$3"
+
+    if ! file_exists "$filepath"; then
+        log "File $filepath not found" "warn"
+        return 1
+    fi
+
+    local domains=""
+    while IFS= read -r domain; do
+        if [ -z "$domain" ]; then
+            continue
+        fi
+
+        if  ! is_domain "$domain"; then
+            log "$domain is not domain" "debug"
+            continue
+        fi
+
+        if [ -z "$domains" ]; then
+            domains="$domain"
+        else
+            domains="$domains,$domain"
+        fi
+    done < "$filepath"
+
+    if [ -z "$domains" ]; then
+        log "No valid domains found in $filepath"
+        return 0
+    fi
+
+    domains="$(comma_string_to_json_array "$domains")"
+    sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$domains"
 }
 
 configure_remote_domains_or_subnets_list_handler() {
@@ -968,24 +1016,24 @@ configure_remote_domains_or_subnets_list_handler() {
         json|srs)
             log "Detected file extension: .$file_extension → proceeding with processing" "debug"
 
-            local basename rule_set_tag format detour update_interval
+            local basename ruleset_tag format detour update_interval
             basename=$(url_get_basename "$url")
-            rule_set_tag=$(get_rule_set_tag "$section" "$basename" "remote-$type")
-            format="$(get_rule_set_format_by_file_extension "$file_extension")"
+            ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
+            format="$(get_ruleset_format_by_file_extension "$file_extension")"
             detour="$(_get_download_detour_tag)"
             config_get update_interval "main" "update_interval" "1d"
 
-            config=$(sing_box_cm_add_remote_ruleset "$config" "$rule_set_tag" "$format" "$url" "$detour" "$update_interval")
-            config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$rule_set_tag")
+            config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
+            config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
 
             case "$type" in
-            domains) _add_rule_set_to_dns_rules "$rule_set_tag" "$route_rule_tag" ;;
+            domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
             subnets) ;;
             *) log "Unsupported remote rule set type: $type" "warn" ;;
             esac
             ;;
         *)
-            log "Detected file extension: .$file_extension → no processing needed, managed on list_update"
+            log "Detected file extension: .$file_extension → no processing needed, managed on list_update" "debug"
             ;;
     esac
 }
@@ -1004,14 +1052,14 @@ _get_download_detour_tag() {
     fi
 }
 
-_add_rule_set_to_dns_rules() {
-    local rule_set_tag="$1"
+_add_ruleset_to_dns_rules() {
+    local ruleset_tag="$1"
 
-    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$rule_set_tag")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
     local split_dns_enabled final_dns_server
     config_get_bool split_dns_enabled "main" "split_dns_enabled" 0
     if [ "$split_dns_enabled" -eq 1 ]; then
-        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_INVERT_FAKEIP_DNS_RULE_TAG" "rule_set" "$rule_set_tag")
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_INVERT_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
     fi
 }
 
@@ -1290,6 +1338,7 @@ import_subnets_from_remote_srs_file() {
     rm -f "$binary_filepath" "$json_filepath"
 }
 
+## Support functions
 # Decompiles a sing-box SRS binary file into a JSON ruleset file
 decompile_srs_file() {
     local binary_filepath="$1"

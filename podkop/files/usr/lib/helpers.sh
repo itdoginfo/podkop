@@ -2,21 +2,28 @@
 is_ipv4() {
     local ip="$1"
     local regex="^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$"
-    [[ $ip =~ $regex ]]
+    [[ "$ip" =~ $regex ]]
 }
 
 # Check if string is valid IPv4 with CIDR mask
 is_ipv4_cidr() {
     local ip="$1"
     local regex="^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(\/(3[0-2]|2[0-9]|1[0-9]|[0-9]))$"
-    [[ $ip =~ $regex ]]
+    [[ "$ip" =~ $regex ]]
+}
+
+is_domain() {
+    local str="$1"
+    #local regex="^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$"
+    echo "$str" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]))+$'
+    #[[ $str =~ $regex ]]
 }
 
 # Checks if the given string is a valid base64-encoded sequence
 is_base64() {
     local str="$1"
 
-    if echo "$str" | base64 -d > /dev/null 2>&1; then
+    if echo "$str" | base64 -d >/dev/null 2>&1; then
         return 0
     fi
     return 1
@@ -58,10 +65,10 @@ get_outbound_tag_by_section() {
 }
 
 # Constructs and returns a ruleset tag using section, name, optional type, and a fixed postfix
-get_rule_set_tag() {
+get_ruleset_tag() {
     local section="$1"
     local name="$2"
-    local type="${3:-}"
+    local type="$3"
     local postfix="ruleset"
 
     if [ -n "$type" ]; then
@@ -72,7 +79,7 @@ get_rule_set_tag() {
 }
 
 # Determines the ruleset format based on the file extension (json → source, srs → binary)
-get_rule_set_format_by_file_extension() {
+get_ruleset_format_by_file_extension() {
     local file_extension="$1"
 
     local format
@@ -154,7 +161,7 @@ base64_decode() {
     local str="$1"
     local decoded_url
 
-    decoded_url="$(echo "$str" | base64 -d 2> /dev/null)"
+    decoded_url="$(echo "$str" | base64 -d 2>/dev/null)"
 
     echo "$decoded_url"
 }
@@ -180,7 +187,7 @@ migrate_config_key() {
 # Download URL content directly
 download_to_stream() {
     local url="$1"
-    local http_proxy_url="${2}"
+    local http_proxy_url="$2"
 
     if [ -n "$http_proxy_url" ]; then
         http_proxy="$http_proxy_url" https_proxy="$http_proxy_url" wget -qO- "$url" | sed 's/\r$//'
@@ -193,7 +200,7 @@ download_to_stream() {
 download_to_tempfile() {
     local url="$1"
     local filepath="$2"
-    local http_proxy_url="${3}"
+    local http_proxy_url="$3"
 
     if [ -n "$http_proxy_url" ]; then
         http_proxy="$http_proxy_url" https_proxy="$http_proxy_url" wget -O "$filepath" "$url"
