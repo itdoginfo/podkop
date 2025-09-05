@@ -224,35 +224,35 @@ migration() {
     local CONFIG="/etc/config/podkop"
 
     if grep -q "ru_inside" $CONFIG; then
-        log "Depricated list found: ru_inside"
+        log "Deprecated list found: ru_inside"
         sed -i '/ru_inside/d' $CONFIG
     fi
 
     if grep -q "list domain_list 'ru_outside'" $CONFIG; then
-        log "Depricated list found: sru_outside"
+        log "Deprecated list found: sru_outside"
         sed -i '/ru_outside/d' $CONFIG
     fi
 
     if grep -q "list domain_list 'ua'" $CONFIG; then
-        log "Depricated list found: ua"
+        log "Deprecated list found: ua"
         sed -i '/ua/d' $CONFIG
     fi
 
     # Subnet list
     if grep -q "list subnets" $CONFIG; then
-        log "Depricated second section found"
+        log "Deprecated second section found"
         sed -i '/list subnets/d' $CONFIG
     fi
 
     # second remove
     if grep -q "config second 'second'" $CONFIG; then
-        log "Depricated second section found"
+        log "Deprecated second section found"
         sed -i '/second/d' $CONFIG
     fi
 
     # cron update
     if grep -qE "^\s*option update_interval '[0-9*/,-]+( [0-9*/,-]+){4}'" $CONFIG; then
-        log "Depricated update_interval"
+        log "Deprecated update_interval"
         sed -i "s|^\(\s*option update_interval\) '[0-9*/,-]\+\( [0-9*/,-]\+\)\{4\}'|\1 '1d'|" $CONFIG
     fi
 
@@ -271,25 +271,25 @@ migration() {
     # corntab init.d
     (crontab -l | grep -v "/etc/init.d/podkop list_update") | crontab -
 
-    migrate_config_key "$CONFIG" "option" "domain_list_enabled" "community_list_enabled"
-    migrate_config_key "$CONFIG" "list" "domain_list" "community_list"
+    migrate_config_key "$CONFIG" "option" "domain_list_enabled" "community_lists_enabled"
+    migrate_config_key "$CONFIG" "list" "domain_list" "community_lists"
 
-    migrate_config_key "$CONFIG" "option" "custom_domains_list_type" "user_domains_list_type"
+    migrate_config_key "$CONFIG" "option" "custom_domains_list_type" "user_domain_list_type"
     migrate_config_key "$CONFIG" "option" "custom_domains_text" "user_domains_text"
     migrate_config_key "$CONFIG" "list" "custom_domains" "user_domains"
 
-    migrate_config_key "$CONFIG" "option" "custom_subnets_list_enabled" "user_subnets_list_type"
+    migrate_config_key "$CONFIG" "option" "custom_subnets_list_enabled" "user_subnet_list_type"
     migrate_config_key "$CONFIG" "option" "custom_subnets_text" "user_subnets_text"
     migrate_config_key "$CONFIG" "list" "custom_subnets" "user_subnets"
 
-    migrate_config_key "$CONFIG" "option" "custom_local_domains_list_enabled" "local_domains_list_enabled"
-    migrate_config_key "$CONFIG" "list" "custom_local_domains" "local_domains_list"
+    migrate_config_key "$CONFIG" "option" "custom_local_domains_list_enabled" "local_domain_lists_enabled"
+    migrate_config_key "$CONFIG" "list" "custom_local_domains" "local_domain_lists"
 
-    migrate_config_key "$CONFIG" "option" "custom_download_domains_list_enabled" "remote_domains_list_enabled"
-    migrate_config_key "$CONFIG" "list" "custom_download_domains" "remote_domains_list"
+    migrate_config_key "$CONFIG" "option" "custom_download_domains_list_enabled" "remote_domain_lists_enabled"
+    migrate_config_key "$CONFIG" "list" "custom_download_domains" "remote_domain_lists"
 
-    migrate_config_key "$CONFIG" "option" "custom_download_subnets_list_enabled" "remote_subnets_list_enabled"
-    migrate_config_key "$CONFIG" "list" "custom_download_subnets" "remote_subnets_list"
+    migrate_config_key "$CONFIG" "option" "custom_download_subnets_list_enabled" "remote_subnet_lists_enabled"
+    migrate_config_key "$CONFIG" "list" "custom_download_subnets" "remote_subnet_lists"
 }
 
 validate_service() {
@@ -497,10 +497,10 @@ dnsmasq_restore() {
 
 add_cron_job() {
     ## Future: make a check so that it doesn't recreate many times
-    local community_list_enabled remote_domains_list_enabled remote_subnets_list_enabled update_interval
-    config_get community_list_enabled "$section" "community_list_enabled"
-    config_get remote_domains_list_enabled "$section" "remote_domains_list_enabled"
-    config_get remote_subnets_list_enabled "$section" "remote_subnets_list_enabled"
+    local community_lists_enabled remote_domain_lists_enabled remote_subnet_lists_enabled update_interval
+    config_get community_lists_enabled "$section" "community_lists_enabled"
+    config_get remote_domain_lists_enabled "$section" "remote_domain_lists_enabled"
+    config_get remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled"
     config_get update_interval "main" "update_interval"
 
     case "$update_interval" in
@@ -525,9 +525,9 @@ add_cron_job() {
             ;;
     esac
 
-    if [ "$community_list_enabled" -eq 1 ] || \
-        [ "$remote_domains_list_enabled" -eq 1 ] || \
-        [ "$remote_subnets_list_enabled" -eq 1 ]; then
+    if [ "$community_lists_enabled" -eq 1 ] || \
+        [ "$remote_domain_lists_enabled" -eq 1 ] || \
+        [ "$remote_subnet_lists_enabled" -eq 1 ]; then
         remove_cron_job
         crontab -l | {
             cat
@@ -870,21 +870,21 @@ exclude_source_ip_from_routing_handler() {
 
 configure_routing_for_section_lists() {
     local section="$1"
-    local community_list_enabled local_domains_list_enabled remote_domains_list_enabled remote_subnets_list_enabled
-    local user_domains_list_type user_subnets_list_type route_rule_tag
-    config_get_bool community_list_enabled "$section" "community_list_enabled" 0
-    config_get user_domains_list_type "$section" "user_domains_list_type" "disabled"
-    config_get_bool local_domains_list_enabled "$section" "local_domains_list_enabled" 0
-    config_get_bool remote_domains_list_enabled "$section" "remote_domains_list_enabled" 0
-    config_get user_subnets_list_type "$section" "user_subnets_list_type" "disabled"
-    config_get_bool remote_subnets_list_enabled "$section" "remote_subnets_list_enabled" 0
+    local community_lists_enabled local_domain_lists_enabled remote_domain_lists_enabled remote_subnet_lists_enabled
+    local user_domain_list_type user_subnet_list_type route_rule_tag
+    config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
+    config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
+    config_get_bool local_domain_lists_enabled "$section" "local_domain_lists_enabled" 0
+    config_get_bool remote_domain_lists_enabled "$section" "remote_domain_lists_enabled" 0
+    config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
+    config_get_bool remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled" 0
 
-    if [ "$community_list_enabled" -eq 0 ] && \
-        [ "$user_domains_list_type" == "disabled" ] && \
-        [ "$local_domains_list_enabled" -eq 0 ] && \
-        [ "$remote_domains_list_enabled" -eq 0 ] && \
-        [ "$user_subnets_list_type" == "disabled" ] && \
-        [ "$remote_subnets_list_enabled" == 0 ] ; then
+    if [ "$community_lists_enabled" -eq 0 ] && \
+        [ "$user_domain_list_type" == "disabled" ] && \
+        [ "$local_domain_lists_enabled" -eq 0 ] && \
+        [ "$remote_domain_lists_enabled" -eq 0 ] && \
+        [ "$user_subnet_list_type" == "disabled" ] && \
+        [ "$remote_subnet_lists_enabled" == 0 ] ; then
         log "Section $section does not have any enabled list, skipping..." "warn"
         return 0
     fi
@@ -893,37 +893,37 @@ configure_routing_for_section_lists() {
     outbound_tag=$(get_outbound_tag_by_section "$section")
     config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
 
-    if [ "$community_list_enabled" -eq 1 ]; then
+    if [ "$community_lists_enabled" -eq 1 ]; then
         log "Processing community list routing rules for $section section"
-        config_list_foreach "$section" "community_list" configure_community_list_handler "$section" "$route_rule_tag"
+        config_list_foreach "$section" "community_lists" configure_community_list_handler "$section" "$route_rule_tag"
     fi
 
-    if [ "$user_domains_list_type" != "disabled" ]; then
+    if [ "$user_domain_list_type" != "disabled" ]; then
         log "Processing user domains routing rules for $section section"
         # TODO(ampetelin): it is necessary to implement
-        # configure_user_domains_list_handler
+        # configure_user_domain_list_handler
     fi
 
-    if [ "$local_domains_list_enabled" -eq 1 ]; then
+    if [ "$local_domain_lists_enabled" -eq 1 ]; then
         log "Processing local domains routing rules for $section section"
-        configure_local_domains_lists "$section" "$route_rule_tag"
+        configure_local_domain_lists "$section" "$route_rule_tag"
     fi
 
-    if [ "$remote_domains_list_enabled" -eq 1 ]; then
+    if [ "$remote_domain_lists_enabled" -eq 1 ]; then
         log "Processing remote domains routing rules for $section section"
-        config_list_foreach "$section" "remote_domains_list" configure_remote_domains_or_subnets_list_handler \
+        config_list_foreach "$section" "remote_domain_lists" configure_remote_domain_or_subnet_list_handler \
         "domains" "$section" "$route_rule_tag"
     fi
 
-    if [ "$user_subnets_list_type" != "disabled" ]; then
+    if [ "$user_subnet_list_type" != "disabled" ]; then
         log "Processing user subnets routing rules for $section section"
         # TODO(ampetelin): it is necessary to implement
-        # configure_user_subnets_list_handler
+        # configure_user_subnet_list_handler
     fi
 
-    if [ "$remote_subnets_list_enabled" -eq 1 ]; then
+    if [ "$remote_subnet_lists_enabled" -eq 1 ]; then
         log "Processing remote subnets routing rules for $section section"
-        config_list_foreach "$section" "remote_subnets_list" configure_remote_domains_or_subnets_list_handler \
+        config_list_foreach "$section" "remote_subnet_lists" configure_remote_domain_or_subnet_list_handler \
         "subnets" "$section" "$route_rule_tag"
     fi
 }
@@ -945,12 +945,12 @@ configure_community_list_handler() {
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
 }
 
-configure_user_domains_list_handler() {
+configure_user_domain_list_handler() {
     local section="$1"
     # TODO(ampetelin): it is necessary to implement
 }
 
-configure_local_domains_lists() {
+configure_local_domain_lists() {
     local section="$1"
     local route_rule_tag="$2"
 
@@ -964,10 +964,10 @@ configure_local_domains_lists() {
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
     _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag"
 
-    config_list_foreach "$section" "local_domains_list" import_local_domains_ruleset "$section" "$ruleset_filepath"
+    config_list_foreach "$section" "local_domains_list" import_local_domain_list_to_ruleset "$section" "$ruleset_filepath"
 }
 
-import_local_domains_ruleset() {
+import_local_domain_list_to_ruleset() {
     local filepath="$1"
     local section="$2"
     local ruleset_filepath="$3"
@@ -1004,7 +1004,7 @@ import_local_domains_ruleset() {
     sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$domains"
 }
 
-configure_remote_domains_or_subnets_list_handler() {
+configure_remote_domain_or_subnet_list_handler() {
     local url="$1"
     local type="$2"
     local section="$3"
@@ -1038,7 +1038,7 @@ configure_remote_domains_or_subnets_list_handler() {
     esac
 }
 
-configure_user_subnets_list_handler() {
+configure_user_subnet_list_handler() {
     local section="$1"
     # TODO(ampetelin): it is necessary to implement
 }
