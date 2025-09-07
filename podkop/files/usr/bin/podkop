@@ -1151,10 +1151,24 @@ sing_box_additional_inbounds() {
 }
 
 sing_box_save_config() {
-    local sing_box_config_path
+    local sing_box_config_path temp_file_path current_config_hash temp_config_hash
     config_get sing_box_config_path "main" "config_path"
-    log "Save sing-box config to $sing_box_config_path"
-    sing_box_cm_save_config_to_file "$config" "$sing_box_config_path"
+    temp_file_path="$(mktemp)"
+
+    log "Save sing-box temporary config to $temp_file_path" "debug"
+    sing_box_cm_save_config_to_file "$config" "$temp_file_path"
+
+    current_config_hash=$(md5sum "$sing_box_config_path" 2>/dev/null | awk '{print $1}')
+    temp_config_hash=$(md5sum "$temp_file_path" | awk '{print $1}')
+    log "Current sing-box config hash: $current_config_hash" "debug"
+    log "Temporary sing-box config hash: $temp_config_hash" "debug"
+    if [ "$current_config_hash" != "$temp_config_hash" ]; then
+        log "sing-box configuration has changed and will be updated"
+        mv "$temp_file_path" "$sing_box_config_path"
+    else
+        log "sing-box configuration is unchanged"
+        rm "$temp_file_path"
+    fi
 }
 
 sing_box_config_check() {
