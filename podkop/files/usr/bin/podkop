@@ -69,10 +69,6 @@ echolog() {
     nolog "$message"
 }
 
-build_sing_box_config() {
-    cat > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json "$SB_CONFIG"
-}
-
 start_main() {
     log "Starting podkop"
 
@@ -1656,73 +1652,6 @@ check_sing_box_logs() {
     echo "$logs"
 }
 
-# TODO(ampetelin): need fix after refactoring
-check_fakeip() {
-    # Not used
-    nolog "Checking fakeip functionality..."
-
-    if ! command -v nslookup >/dev/null 2>&1; then
-        nolog "nslookup is not installed"
-        return 1
-    fi
-
-    local test_domain="$TEST_DOMAIN"
-
-    nolog "Testing DNS resolution with default DNS server"
-    echo "=== Testing with default DNS server ==="
-    nslookup -timeout=2 $test_domain
-    echo ""
-
-    nolog "Finding a working DNS resolver..."
-    local working_resolver=$(find_working_resolver)
-    if [ -z "$working_resolver" ]; then
-        nolog "No working resolver found, skipping resolver check"
-    else
-        nolog "Using resolver: $working_resolver"
-
-        nolog "Testing DNS resolution with working resolver ($working_resolver)"
-        echo "=== Testing with working resolver ($working_resolver) ==="
-        nslookup -timeout=2 $test_domain $working_resolver
-        echo ""
-    fi
-
-    # Main FakeIP check
-    nolog "Testing DNS resolution for $test_domain using 127.0.0.42"
-    echo "=== Testing with FakeIP DNS (127.0.0.42) ==="
-    local result=$(nslookup -timeout=2 $test_domain 127.0.0.42 2>&1)
-    echo "$result"
-
-    if echo "$result" | grep -q "198.18"; then
-        nolog "✅ FakeIP is working correctly! Domain resolved to FakeIP range (198.18.x.x)"
-        return 0
-    else
-        nolog "❌ FakeIP test failed. Domain did not resolve to FakeIP range"
-        nolog "Checking if sing-box is running..."
-
-        if ! pgrep -f "sing-box" >/dev/null; then
-            nolog "sing-box is not running"
-        else
-            nolog "sing-box is running, but FakeIP might not be configured correctly"
-            nolog "Checking DNS configuration in sing-box..."
-
-            if [ -f "$SB_CONFIG" ]; then
-                local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$SB_CONFIG")
-                local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$SB_CONFIG")
-
-                nolog "FakeIP enabled: $fakeip_enabled"
-                nolog "FakeIP range: $fakeip_range"
-
-                local dns_rules=$(jq -r '.dns.rules[] | select(.server == "fakeip-server") | .domain' "$SB_CONFIG")
-                nolog "FakeIP domain: $dns_rules"
-            else
-                nolog "sing-box config file not found"
-            fi
-        fi
-
-        return 1
-    fi
-}
-
 check_logs() {
     nolog "Showing podkop logs from system journal..."
 
@@ -2155,7 +2084,6 @@ Available commands:
     check_logs              Show podkop logs from system journal
     check_sing_box_connections  Show active sing-box connections
     check_sing_box_logs     Show sing-box logs
-    check_fakeip            Check FakeIP DNS functionality
     check_dnsmasq           Check DNSMasq configuration
     show_config             Display current podkop configuration
     show_version            Show podkop version
@@ -2206,9 +2134,6 @@ case "$1" in
         ;;
     check_sing_box_logs)
         check_sing_box_logs
-        ;;
-    check_fakeip)
-        check_fakeip
         ;;
     check_dnsmasq)
         check_dnsmasq
