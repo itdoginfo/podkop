@@ -903,3 +903,6 @@ msgstr "Локальные списки подсетей"
 
 msgid "Local Subnet List Paths"
 msgstr "Пути к локальным спискам доменов"
+
+msgid "Config File Path"
+msgstr "Путь к файлу конфигурации"

@@ -1257,3 +1257,6 @@ msgstr ""
 
 msgid "Local Subnet List Paths"
 msgstr ""
+
+msgid "Config File Path"
+msgstr ""

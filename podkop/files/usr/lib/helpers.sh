@@ -170,15 +170,34 @@ gen_id() {
     printf '%s%s' "$(date +%s)" "$RANDOM" | md5sum | cut -c1-16
 }
 
+# Adds a missing UCI option with the given value if it does not exist
+migration_add_new_option() {
+    local package="$1"
+    local section="$2"
+    local option="$3"
+    local value="$4"
+
+    local current
+    current="$(uci -q get "$package.$section.$option")"
+    if [ -z "$current" ]; then
+        log "Adding missing option '$option' with value '$value'"
+        uci set "$package.$section.$option=$value"
+        uci commit "$package"
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Migrates a configuration key in an OpenWrt config file from old_key_name to new_key_name
-migrate_config_key() {
+migration_rename_config_key() {
     local config="$1"
     local key_type="$2"
     local old_key_name="$3"
     local new_key_name="$4"
 
     if grep -q "$key_type $old_key_name" "$config"; then
-        log "Deprecated $key_type found: $old_key_name migrating to $new_key_name" "migration"
+        log "Deprecated $key_type found: $old_key_name migrating to $new_key_name"
         sed -i "s/$key_type $old_key_name/$key_type $new_key_name/g" "$config"
     fi
 }

@@ -1,6 +1,5 @@
-SB_CONFIG="/etc/sing-box/config.json"
 # Log
-SB_DEFAULT_LOG_LEVEL="info"
+SB_DEFAULT_LOG_LEVEL="warn"
 # DNS
 SB_DNS_SERVER_TAG="dns-server"
 SB_SPLIT_DNS_SERVER_TAG="split-dns-server"
