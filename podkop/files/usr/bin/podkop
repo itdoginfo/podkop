@@ -436,10 +436,7 @@ dnsmasq_add_resolver() {
 
     uci -q delete dhcp.@dnsmasq[0].podkop_server
     for server in $(uci get dhcp.@dnsmasq[0].server 2>/dev/null); do
-        if [[ "$server" == "127.0.0.42" ]]; then
-            log "Dnsmasq save config error: server=127.0.0.42 is already configured. Skip editing DHCP"
-            return
-        else
+        if ! [ "$server" == "$SB_DNS_INBOUND_ADDRESS" ]; then
             uci add_list dhcp.@dnsmasq[0].podkop_server="$server"
         fi
     done
@@ -448,46 +445,61 @@ dnsmasq_add_resolver() {
     save_dnsmasq_config "dhcp.@dnsmasq[0].cachesize" "dhcp.@dnsmasq[0].podkop_cachesize"
 
     log "Configure dnsmasq for sing-box"
+    uci -q delete dhcp.@dnsmasq[0].server
+    uci add_list dhcp.@dnsmasq[0].server="$SB_DNS_INBOUND_ADDRESS"
     uci set dhcp.@dnsmasq[0].noresolv="1"
     uci set dhcp.@dnsmasq[0].cachesize="0"
-    uci -q delete dhcp.@dnsmasq[0].server
-    uci add_list dhcp.@dnsmasq[0].server="127.0.0.42"
     uci commit dhcp
 
     /etc/init.d/dnsmasq restart
 }
 
 dnsmasq_restore() {
-    log "Removing configuration for dnsmasq"
+    log "Restoring the dnsmasq configuration"
 
-    local cachesize noresolv server
+    local cachesize noresolv current_servers backup_servers found_in_backup
     cachesize=$(uci get dhcp.@dnsmasq[0].podkop_cachesize 2>/dev/null)
     if [[ "$cachesize" == "unset" ]]; then
-        log "dnsmasq revert: cachesize is unset"
+        log "Cachesize is unset" "debug"
         uci -q delete dhcp.@dnsmasq[0].cachesize
     else
         uci set dhcp.@dnsmasq[0].cachesize="$cachesize"
     fi
+    uci delete dhcp.@dnsmasq[0].podkop_cachesize
 
     noresolv=$(uci get dhcp.@dnsmasq[0].podkop_noresolv 2>/dev/null)
     if [[ "$noresolv" == "unset" ]]; then
-        log "dnsmasq revert: noresolv is unset"
+        log "Noresolv is unset" "debug"
         uci -q delete dhcp.@dnsmasq[0].noresolv
     else
         uci set dhcp.@dnsmasq[0].noresolv="$noresolv"
     fi
-
-    server=$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)
-    if [[ "$server" == "127.0.0.42" ]]; then
-        uci -q delete dhcp.@dnsmasq[0].server 2>/dev/null
-        for server in $(uci get dhcp.@dnsmasq[0].podkop_server 2>/dev/null); do
-            uci add_list dhcp.@dnsmasq[0].server="$server"
-        done
-        uci delete dhcp.@dnsmasq[0].podkop_server 2>/dev/null
-    fi
-
-    uci delete dhcp.@dnsmasq[0].podkop_cachesize
     uci delete dhcp.@dnsmasq[0].podkop_noresolv
+
+    current_servers=$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)
+    backup_servers=$(uci get dhcp.@dnsmasq[0].podkop_server 2>/dev/null)
+    uci -q delete dhcp.@dnsmasq[0].server 2>/dev/null
+    for server in $current_servers; do
+        [ "$server" = "$SB_DNS_INBOUND_ADDRESS" ] && continue
+
+        found_in_backup=0
+        for backup_server in $backup_servers; do
+            if [ "$server" = "$backup_server" ]; then
+                found_in_backup=1
+                break
+            fi
+        done
+
+        [ "$found_in_backup" -eq 1 ] && continue
+
+        uci add_list dhcp.@dnsmasq[0].server="$server"
+    done
+
+    backup_servers=$(uci get dhcp.@dnsmasq[0].podkop_server 2>/dev/null)
+    for server in $backup_servers; do
+        uci add_list dhcp.@dnsmasq[0].server="$server"
+    done
+    uci delete dhcp.@dnsmasq[0].podkop_server 2>/dev/null
 
     uci commit dhcp
 
