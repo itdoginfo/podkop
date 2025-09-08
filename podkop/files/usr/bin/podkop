@@ -1121,7 +1121,7 @@ sing_box_configure_experimental() {
 
     log "Configuring cache database"
     local cache_file
-    config_get cache_file "main" "cache_file" "/tmp/cache.db"
+    config_get cache_file "main" "cache_path" "/tmp/sing-box/cache.db"
     config=$(sing_box_cm_configure_cache_file "$config" true "$cache_file" true)
 
     local yacd_enabled
