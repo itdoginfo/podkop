@@ -120,7 +120,6 @@ start_main() {
     fi
 
     log "Nice"
-    # TODO(ampetelin): refactoring is needed
     list_update &
     echo $! > /var/run/podkop_list_update.pid
 }
