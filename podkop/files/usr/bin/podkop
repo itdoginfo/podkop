@@ -4,6 +4,7 @@
 [ -r /lib/config/uci.sh ] && . /lib/config/uci.sh
 PODKOP_LIB="/usr/lib/podkop"
 . "$PODKOP_LIB/constants.sh"
+. "$PODKOP_LIB/nft.sh"
 . "$PODKOP_LIB/helpers.sh"
 . "$PODKOP_LIB/sing_box_config_manager.sh"
 . "$PODKOP_LIB/sing_box_config_facade.sh"
@@ -996,17 +997,17 @@ configure_local_domain_or_subnet_lists() {
 
     case "$type" in
     domains)
-        config_list_foreach "$section" "local_domain_lists" import_local_domain_or_subnet_list_to_ruleset "$type" \
+        config_list_foreach "$section" "local_domain_lists" import_local_domain_or_subnet_list "$type" \
         "$section" "$ruleset_filepath"
         _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
     subnets)
-        config_list_foreach "$section" "local_subnet_lists" import_local_domain_or_subnet_list_to_ruleset "$type" \
+        config_list_foreach "$section" "local_subnet_lists" import_local_domain_or_subnet_list "$type" \
         "$section" "$ruleset_filepath";;
     *) log "Unsupported local rule set type: $type" "warn" ;;
     esac
 }
 
-import_local_domain_or_subnet_list_to_ruleset() {
+import_local_domain_or_subnet_list() {
     local filepath="$1"
     local type="$2"
     local section="$3"
@@ -1050,10 +1051,13 @@ import_local_domain_or_subnet_list_to_ruleset() {
         return 0
     fi
 
-    items="$(comma_string_to_json_array "$items")"
+    items_json="$(comma_string_to_json_array "$items")"
     case "$type" in
-    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$items" ;;
-    subnets) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$items" ;;
+    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$items_json" ;;
+    subnets)
+        sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$items_json"
+        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$items"
+        ;;
     esac
 }
 

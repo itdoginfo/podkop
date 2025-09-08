@@ -1,3 +1,8 @@
+## nft
+NFT_TABLE_NAME="PodkopTable"
+NFT_GENERAL_SET_NAME="podkop_subnets"
+
+## sing-box
 # Log
 SB_DEFAULT_LOG_LEVEL="warn"
 # DNS
