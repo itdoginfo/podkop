@@ -970,7 +970,7 @@ configure_community_list_handler() {
     ruleset_tag="$(get_ruleset_tag "$section" "$tag" "community")"
     format="binary"
     url="$SRS_MAIN_URL/$tag.srs"
-    detour="$(_get_download_detour_tag)"
+    detour="$(get_download_detour_tag)"
     config_get update_interval "main" "update_interval" "1d"
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
@@ -1053,7 +1053,7 @@ configure_remote_domain_or_subnet_list_handler() {
             basename=$(url_get_basename "$url")
             ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
             format="$(get_ruleset_format_by_file_extension "$file_extension")"
-            detour="$(_get_download_detour_tag)"
+            detour="$(get_download_detour_tag)"
             config_get update_interval "main" "update_interval" "1d"
 
             config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
@@ -1074,15 +1074,6 @@ configure_remote_domain_or_subnet_list_handler() {
 configure_user_subnet_list_handler() {
     local section="$1"
     # TODO(ampetelin): it is necessary to implement
-}
-
-_get_download_detour_tag() {
-    config_get_bool detour "main" "detour" 0
-    if [ "${detour:-0}" -eq 1 ]; then
-        echo "$SB_MAIN_OUTBOUND_TAG"
-    else
-        echo ""
-    fi
 }
 
 _add_ruleset_to_dns_rules() {
@@ -1389,6 +1380,15 @@ get_service_proxy_address() {
     config_get_bool detour "main" "detour" 0
     if [ "$detour" -eq 1 ]; then
         echo "$SB_SERVICE_MIXED_INBOUND_TAG:$SB_SERVICE_MIXED_INBOUND_PORT"
+    else
+        echo ""
+    fi
+}
+
+get_download_detour_tag() {
+    config_get_bool detour "main" "detour" 0
+    if [ "${detour:-0}" -eq 1 ]; then
+        echo "$SB_MAIN_OUTBOUND_TAG"
     else
         echo ""
     fi
