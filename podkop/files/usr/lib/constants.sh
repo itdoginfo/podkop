@@ -1,6 +1,6 @@
 ## nft
 NFT_TABLE_NAME="PodkopTable"
-NFT_GENERAL_SET_NAME="podkop_subnets"
+NFT_COMMON_SET_NAME="podkop_subnets"
 NFT_DISCORD_SET_NAME="podkop_discord_subnets"
 
 ## sing-box

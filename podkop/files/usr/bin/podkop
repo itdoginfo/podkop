@@ -1032,7 +1032,7 @@ import_local_domain_or_subnet_list() {
     domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
     subnets)
         sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
-        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$items"
+        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$items"
         ;;
     esac
 }
@@ -1226,7 +1226,7 @@ import_community_service_subnet_list_handler() {
     if [ "$service" = "discord" ]; then
         nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME" "$subnets"
     else
-        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$subnets"
+        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$subnets"
     fi
 }
 
@@ -1325,7 +1325,7 @@ import_domains_or_subnets_from_remote_file() {
     domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array";;
     subnets)
         sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
-        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$items"
+        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$items"
         ;;
     esac
 }
@@ -1345,7 +1345,7 @@ import_subnets_from_remote_json_file() {
 
     subnets="$(parse_domain_or_subnet_file_to_comma_string "$tmpfile" "subnets")"
     rm -f "$tmpfile"
-    nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$subnets"
+    nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$subnets"
 }
 
 import_subnets_from_remote_srs_file() {
@@ -1372,7 +1372,7 @@ import_subnets_from_remote_srs_file() {
     jq -r '.rules[].ip_cidr[]' "$json_tmpfile" > "$subnets_tmpfile"
     subnets="$(parse_domain_or_subnet_file_to_comma_string "$subnets_tmpfile" "subnets")"
     rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
-    nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$subnets"
+    nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$subnets"
 }
 
 ## Support functions
