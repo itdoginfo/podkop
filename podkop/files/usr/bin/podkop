@@ -1333,10 +1333,11 @@ import_domains_or_subnets_from_remote_file() {
 
 import_subnets_from_remote_json_file() {
     local url="$1"
-    local tmpfile subnets
+    local tmpfile subnets http_proxy_address
     tmpfile="$(mktemp)"
+    http_proxy_address="$(get_service_proxy_address)"
 
-    download_to_stream "$url" | jq -r '.rules[].ip_cidr[]?' > "$tmpfile"
+    download_to_stream "$url" "$http_proxy_address" | jq -r '.rules[].ip_cidr[]?' > "$tmpfile"
 
     if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
         log "Download $url list failed" "error"
@@ -1351,12 +1352,13 @@ import_subnets_from_remote_json_file() {
 import_subnets_from_remote_srs_file() {
     local url="$1"
     
-    local binary_tmpfile json_tmpfile subnets_tmpfile subnets
+    local binary_tmpfile json_tmpfile subnets_tmpfile subnets http_proxy_address
     binary_tmpfile="$(mktemp)"
     json_tmpfile="$(mktemp)"
     subnets_tmpfile="$(mktemp)"
+    http_proxy_address="$(get_service_proxy_address)"
 
-    download_to_tempfile "$url" "$binary_tmpfile"
+    download_to_tempfile "$url" "$binary_tmpfile" "$http_proxy_address"
 
     if [ $? -ne 0 ] || [ ! -s "$binary_tmpfile" ]; then
         log "Download $url list failed" "error"
