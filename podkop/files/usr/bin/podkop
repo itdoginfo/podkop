@@ -33,7 +33,8 @@ TEST_DOMAIN="fakeip.podkop.fyi"
 INTERFACES_LIST=""
 SRC_INTERFACE=""
 RESOLV_CONF="/etc/resolv.conf"
-TMP_FOLDER="/tmp/podkop"
+TMP_SING_BOX_FOLDER="/tmp/sing-box"
+TMP_RULESET_FOLDER="$TMP_SING_BOX_FOLDER/rulesets"
 
 # Endpoints https://github.com/ampetelin/warp-endpoint-checker
 CLOUDFLARE_OCTETS="8.47 162.159 188.114"
@@ -97,8 +98,8 @@ start_main() {
 
     sleep 1
 
-    mkdir -p /tmp/podkop
-    mkdir -p /tmp/sing-box
+    mkdir -p "$TMP_SING_BOX_FOLDER"
+    mkdir -p "$TMP_RULESET_FOLDER"
 
     # base
     route_table_rule_mark
@@ -110,25 +111,7 @@ start_main() {
     sing_box_config_check
     config_foreach add_cron_job
     /etc/init.d/sing-box start
-#    sing_box_inbound_proxy 1602             #refactored
-#    sing_box_dns                            #refactored
-#    sing_box_dns_rule_fakeip                #refactored
-#    sing_box_rule_dns                       #refactored
-#    sing_box_create_bypass_ruleset          #refactored
-#    sing_box_add_secure_dns_probe_domain    #refactored
-#    sing_box_cache_file                     #refactored
-#    process_socks5                          #refactored
-#
-#    # sing-box outbounds and rules
-#    config_foreach sing_box_outdound                #refactored
-#    config_foreach process_domains_for_section      #refactored, implementation is needed
-#    config_foreach sing_box_rule_preset             #refactored
-#    config_foreach process_domains_list_local       #refactored, implementation is needed
-#    config_foreach process_subnet_for_section       #refactored, implementation is needed
-#    config_foreach configure_community_lists        #refactored
-#    config_foreach configure_remote_domain_lists    #refactored
-#    config_foreach configure_remote_subnet_lists    #refactored
-#    config_foreach process_all_traffic_for_section  #refactored
+
     local exclude_ntp
     config_get_bool exclude_ntp "main" "exclude_ntp" "0"
     if [ "$exclude_ntp" -eq 1 ]; then
@@ -136,10 +119,10 @@ start_main() {
         nft insert rule inet PodkopTable mangle udp dport 123 return
     fi
 
-    # TODO(ampetelin): refactoring is needed
-#    list_update &
-#    echo $! > /var/run/podkop_list_update.pid
     log "Nice"
+    # TODO(ampetelin): refactoring is needed
+    list_update &
+    echo $! > /var/run/podkop_list_update.pid
 }
 
 start() {
@@ -171,7 +154,7 @@ stop_main() {
 
     remove_cron_job
 
-    rm -rf /tmp/podkop/*.lst
+    rm "$TMP_RULESET_FOLDER"/*
 
     log "Flush nft"
     if nft list table inet PodkopTable >/dev/null 2>&1; then
@@ -190,7 +173,6 @@ stop_main() {
 
     log "Stop sing-box"
     /etc/init.d/sing-box stop
-    #/etc/init.d/sing-box disable
 }
 
 stop() {
@@ -554,7 +536,6 @@ remove_cron_job() {
     log "The cron job removed"
 }
 
-# TODO(ampetelin): refactoring is needed
 list_update() {
     echolog "🔄 Starting lists update..."
 
@@ -849,6 +830,7 @@ sing_box_configure_route() {
     config=$(sing_box_cf_override_domain_port "$config" "$TEST_DOMAIN" 8443)
 
     config_foreach include_source_ips_in_routing_handler
+
     # TODO(ampetelin): Add block rules
 
     local exclude_from_ip_enabled
@@ -937,6 +919,7 @@ configure_routing_for_section_lists() {
 
     if [ "$remote_domain_lists_enabled" -eq 1 ]; then
         log "Processing remote domains routing rules for $section section"
+        prepare_common_ruleset "$section" "domains" "route_rule_tag"
         config_list_foreach "$section" "remote_domain_lists" configure_remote_domain_or_subnet_list_handler \
         "domains" "$section" "$route_rule_tag"
     fi
@@ -954,8 +937,27 @@ configure_routing_for_section_lists() {
 
     if [ "$remote_subnet_lists_enabled" -eq 1 ]; then
         log "Processing remote subnets routing rules for $section section"
+        prepare_common_ruleset "$section" "subnets" "route_rule_tag"
         config_list_foreach "$section" "remote_subnet_lists" configure_remote_domain_or_subnet_list_handler \
         "subnets" "$section" "$route_rule_tag"
+    fi
+}
+
+prepare_common_ruleset() {
+    local section="$1"
+    local type="$2"
+    local route_rule_tag="$3"
+
+    log "Preparing a common $type ruleset for $section section" "debug"
+    ruleset_tag=$(get_ruleset_tag "$section" "common" "remote-$type")
+    ruleset_filename="$ruleset_tag.json"
+    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
+    if file_exists "$ruleset_filepath"; then
+        log "Ruleset $ruleset_filepath already exists. Skipping." "debug"
+    else
+        sing_box_cm_create_local_source_ruleset "$ruleset_filepath"
+        config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
+        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
     fi
 }
 
@@ -989,7 +991,7 @@ configure_local_domain_or_subnet_lists() {
     local ruleset_tag ruleset_filename ruleset_filepath
     ruleset_tag="$(get_ruleset_tag "$section" "local" "$type")"
     ruleset_filename="$ruleset_tag.json"
-    ruleset_filepath="$TMP_FOLDER/$ruleset_filename"
+    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
 
     sing_box_cm_create_local_source_ruleset "$ruleset_filepath"
     config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
@@ -1018,44 +1020,19 @@ import_local_domain_or_subnet_list() {
         return 1
     fi
 
-    local items=""
-    while IFS= read -r item; do
-        if [ -z "$item" ]; then
-            continue
-        fi
-
-        case "$type" in
-        domains)
-            if  ! is_domain "$item"; then
-                log "$item is not domain" "debug"
-                continue
-            fi
-            ;;
-        subnets)
-            if  ! is_ipv4 "$item" && ! is_ipv4_cidr "$item"; then
-                log "$item is not IPv4 IP or CIDR" "debug"
-                continue
-            fi
-            ;;
-        esac
-
-        if [ -z "$items" ]; then
-            items="$item"
-        else
-            items="$items,$item"
-        fi
-    done < "$filepath"
+    local items json_array
+    items="$(parse_domain_or_subnet_file_to_comma_string "$tmpfile" "domains")"
 
     if [ -z "$items" ]; then
         log "No valid $type found in $filepath"
         return 0
     fi
 
-    items_json="$(comma_string_to_json_array "$items")"
+    json_array="$(comma_string_to_json_array "$items")"
     case "$type" in
-    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$items_json" ;;
+    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
     subnets)
-        sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$items_json"
+        sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
         nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$items"
         ;;
     esac
@@ -1068,11 +1045,10 @@ configure_remote_domain_or_subnet_list_handler() {
     local route_rule_tag="$4"
 
     local file_extension
-    file_extension=$(get_url_file_extension "$url")
+    file_extension=$(url_get_file_extension "$url")
     case "$file_extension" in
         json|srs)
-            log "Detected file extension: .$file_extension → proceeding with processing" "debug"
-
+            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
             local basename ruleset_tag format detour update_interval
             basename=$(url_get_basename "$url")
             ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
@@ -1082,16 +1058,16 @@ configure_remote_domain_or_subnet_list_handler() {
 
             config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
             config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-
-            case "$type" in
-            domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
-            subnets) ;;
-            *) log "Unsupported remote rule set type: $type" "warn" ;;
-            esac
             ;;
         *)
-            log "Detected file extension: .$file_extension → no processing needed, managed on list_update" "debug"
+            log "Detected file extension: '$file_extension' → no processing needed, managed on list_update" "debug"
             ;;
+    esac
+
+    case "$type" in
+    domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
+    subnets) ;;
+    *) log "Unsupported remote rule set type: $type" "warn" ;;
     esac
 }
 
@@ -1191,48 +1167,23 @@ sing_box_config_check() {
     local sing_box_config_path
     config_get sing_box_config_path "main" "config_path"
     if ! sing-box -c "$sing_box_config_path" check >/dev/null 2>&1; then
-        log "Sing-box configuration is invalid" "[fatal]"
+        log "Sing-box configuration is invalid" "fatal"
         exit 1
     fi
 }
 
-sing_box_ruleset_domains_json() {
-    local domain="$1"
-    local section="$2"
-
-    local file="/tmp/podkop/$section-custom-domains-subnets.json"
-
-    jq --arg domain "$domain" '
-    .rules[0].domain_suffix += if .rules[0].domain_suffix | index($domain) then [] else [$domain] end
-    ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
-
-    log "$domain added to $section-custom-domains-subnets.json"
-}
-
-sing_box_ruleset_subnets_json() {
-    local subnet="$1"
-    local section="$2"
-
-    local file="/tmp/podkop/$section-custom-domains-subnets.json"
-
-    jq --arg subnet "$subnet" '
-    .rules[0].ip_cidr += if .rules[0].ip_cidr | index($subnet) then [] else [$subnet] end
-    ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
-
-    log "$subnet added to $section-custom-domains-subnets.json"
-}
-
 import_community_subnet_lists() {
-    config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
-    if [ "$domain_list_enabled" -eq 1 ]; then
+    local section="$1"
+    local community_lists_enabled
+    config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
+    if [ "$community_lists_enabled" -eq 1 ]; then
         log "Importing community subnet lists for $section section"
-        config_list_foreach "$section" domain_list import_community_service_subnet_list_handler
+        config_list_foreach "$section" "community_lists" import_community_service_subnet_list_handler
     fi
 }
 
 import_community_service_subnet_list_handler() {
     local service="$1"
-    local table="PodkopTable"
 
     case "$service" in
         "twitter")
@@ -1261,39 +1212,41 @@ import_community_service_subnet_list_handler() {
             ;;
         "discord")
             URL=$SUBNETS_DISCORD
-            nft add set inet $table podkop_discord_subnets { type ipv4_addr\; flags interval\; auto-merge\; }
-            nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr @podkop_discord_subnets udp dport { 50000-65535 } meta mark set 0x105 counter
+            nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
+            nft add rule inet "$NFT_TABLE_NAME" mangle iifname "$SRC_INTERFACE" ip daddr @podkop_discord_subnets \
+            udp dport '{ 50000-65535 }' meta mark set 0x105 counter
             ;;
-        *)
-            return
-            ;;
+        *) return 0 ;;
     esac
 
-    local filename=$(basename "$URL")
+    local tmpfile detour http_proxy_address subnets
+    tmpfile=$(mktemp)
+    http_proxy_address="$(get_service_proxy_address)"
 
-    config_get_bool detour "main" "detour" "0"
-    if [ "$detour" -eq 1 ]; then
-        http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -O "/tmp/podkop/$filename" "$URL"
-    else
-        wget -O "/tmp/podkop/$filename" "$URL"
+    download_to_tempfile "$URL" "$tmpfile" "$http_proxy_address"
+
+    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
+        log "Download $service list failed" "error"
+        return 1
     fi
 
-    while IFS= read -r subnet; do
-        if [ "$service" = "discord" ]; then
-            nft add element inet $table podkop_discord_subnets { $subnet }
-        else
-            nft add element inet $table podkop_subnets { $subnet }
-        fi
-    done <"/tmp/podkop/$filename"
+    subnets="$(parse_domain_or_subnet_file_to_comma_string "$tmpfile" "subnets")"
+    rm -f "$tmpfile"
+
+    if [ "$service" = "discord" ]; then
+        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME" "$subnets"
+    else
+        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$subnets"
+    fi
 }
 
 import_domains_from_remote_domain_lists() {
     local section="$1"
-
-    config_get custom_download_domains_list_enabled "$section" custom_download_domains_list_enabled
-    if [ "$custom_download_domains_list_enabled" -eq 1 ]; then
+    local remote_domain_lists_enabled
+    config_get remote_domain_lists_enabled "$section" "remote_domain_lists_enabled"
+    if [ "$remote_domain_lists_enabled" -eq 1 ]; then
         log "Importing domains from remote domain lists for $section section"
-        config_list_foreach "$section" custom_download_domains import_domains_from_remote_domain_list_handler "$section"
+        config_list_foreach "$section" "remote_domain_lists" import_domains_from_remote_domain_list_handler "$section"
     fi
 }
 
@@ -1304,42 +1257,25 @@ import_domains_from_remote_domain_list_handler() {
     log "Importing domains from URL: $url"
 
     local file_extension
-    file_extension=$(get_url_file_extension "$url")
+    file_extension=$(url_get_file_extension "$url")
     case "$file_extension" in
         json|srs)
-            log "Detected file extension: .$file_extension → no update needed, sing-box manages updates"
+            log "Detected file extension: '$file_extension' → no update needed, sing-box manages updates" "debug"
             ;;
         *)
-            log "Detected file extension: .$file_extension → proceeding with processing"
-            import_domains_from_remote_lst_file "$url" "$section"
+            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+            import_domains_or_subnets_from_remote_file "$url" "$section" "domains"
             ;;
     esac
-}
-
-import_domains_from_remote_lst_file() {
-    local url="$1"
-    local section="$2"
-
-    local filename
-    filename=$(basename "$url")
-    local filepath="/tmp/podkop/${filename}"
-
-    download_to_tempfile "$url" "$filepath"
-
-    while IFS= read -r domain; do
-        sing_box_ruleset_domains_json $domain $section
-    done <"$filepath"
-
-    rm -f "$filepath"
 }
 
 import_subnets_from_remote_subnet_lists() {
     local section="$1"
 
-    config_get custom_download_subnets_list_enabled "$section" custom_download_subnets_list_enabled disabled
-    if [ "$custom_download_subnets_list_enabled" -eq "1" ]; then
+    config_get remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled"
+    if [ "$remote_subnet_lists_enabled" -eq 1 ]; then
             log "Importing subnets from remote subnet lists for $section section"
-            config_list_foreach "$section" custom_download_subnets import_subnets_from_remote_subnet_list_handler "$section"
+            config_list_foreach "$section" "remote_subnet_lists" import_subnets_from_remote_subnet_list_handler "$section"
     fi
 }
 
@@ -1350,91 +1286,111 @@ import_subnets_from_remote_subnet_list_handler() {
     log "Importing subnets from URL: $url"
 
     local file_extension
-    file_extension=$(get_url_file_extension "$url")
+    file_extension="$(url_get_file_extension "$url")"
     case "$file_extension" in
-        lst)
-            log "Detected file extension: .$file_extension → proceeding with processing"
-            import_subnets_from_remote_lst_file "$url" "$section"
-            ;;
         json)
-            log "Detected file extension: .$file_extension → proceeding with processing"
+            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
             import_subnets_from_remote_json_file "$url"
             ;;
         srs)
-            log "Detected file extension: .$file_extension → proceeding with processing"
+            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
             import_subnets_from_remote_srs_file "$url"
             ;;
         *)
-            log "Detected file extension: .$file_extension → unsupported, skipping"
-            return 1
+            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+            import_domains_or_subnets_from_remote_file "$url" "$section" "subnets"
             ;;
     esac
 }
 
-import_subnets_from_remote_lst_file() {
+import_domains_or_subnets_from_remote_file() {
     local url="$1"
     local section="$2"
+    local type="$3"
 
-    local filename
-    filename=$(basename "$url")
-    local filepath="/tmp/podkop/${filename}"
+    local tmpfile http_proxy_address items json_array
+    tmpfile=$(mktemp)
+    http_proxy_address="$(get_service_proxy_address)"
 
-    download_to_tempfile "$url" "$filepath"
+    download_to_tempfile "$url" "$tmpfile" "$http_proxy_address"
 
-    while IFS= read -r subnet; do
-        sing_box_ruleset_subnets_json "$subnet" "$section"
-        nft_add_podkop_subnet "$subnet"
-    done <"$filepath"
+    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
+        log "Download $url list failed" "error"
+        return 1
+    fi
 
-    rm -f "$filepath"
+    items="$(parse_domain_or_subnet_file_to_comma_string "$tmpfile" "$type")"
+    rm -f "$tmpfile"
+
+    if [ -z "$items" ]; then
+        log "No valid $type found in $url"
+        return 0
+    fi
+
+    ruleset_tag=$(get_ruleset_tag "$section" "common" "remote-$type")
+    ruleset_filename="$ruleset_tag.json"
+    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
+    json_array="$(comma_string_to_json_array "$items")"
+    case "$type" in
+    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array";;
+    subnets)
+        sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
+        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$items"
+        ;;
+    esac
 }
 
 import_subnets_from_remote_json_file() {
     local url="$1"
+    local tmpfile subnets
+    tmpfile="$(mktemp)"
 
-    download_to_stream "$url" | jq -r '.rules[].ip_cidr[]?' | while read -r subnet; do
-        nft_add_podkop_subnet "$subnet"
-    done
+    download_to_stream "$url" | jq -r '.rules[].ip_cidr[]?' > "$tmpfile"
+
+    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
+        log "Download $url list failed" "error"
+        return 1
+    fi
+
+    subnets="$(parse_domain_or_subnet_file_to_comma_string "$tmpfile" "subnets")"
+    rm -f "$tmpfile"
+    nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$subnets"
 }
 
 import_subnets_from_remote_srs_file() {
     local url="$1"
     
-    local filename
-    filename=$(basename "$url")
-    local binary_filepath="/tmp/podkop/${filename}"
-    local json_filepath="/tmp/podkop/decompiled-${filename%%.*}.json"
-    
-    download_to_tempfile "$url" "$binary_filepath"
+    local binary_tmpfile json_tmpfile subnets_tmpfile subnets
+    binary_tmpfile="$(mktemp)"
+    json_tmpfile="$(mktemp)"
+    subnets_tmpfile="$(mktemp)"
 
-    if ! decompile_srs_file "$binary_filepath" "$json_filepath"; then
+    download_to_tempfile "$url" "$binary_tmpfile"
+
+    if [ $? -ne 0 ] || [ ! -s "$binary_tmpfile" ]; then
+        log "Download $url list failed" "error"
         return 1
     fi
 
-    jq -r '.rules[].ip_cidr[]' "$json_filepath" | while read -r subnet; do
-        nft_add_podkop_subnet "$subnet"
-    done
+    if ! decompile_srs_file "$binary_tmpfile" "$json_tmpfile"; then
+        log "Failed to decompile SRS file" "error"
+        return 1
+    fi
 
-    rm -f "$binary_filepath" "$json_filepath"
+    jq -r '.rules[].ip_cidr[]' "$json_tmpfile" > "$subnets_tmpfile"
+    subnets="$(parse_domain_or_subnet_file_to_comma_string "$subnets_tmpfile" "subnets")"
+    rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
+    nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_GENERAL_SET_NAME" "$subnets"
 }
 
 ## Support functions
-# Decompiles a sing-box SRS binary file into a JSON ruleset file
-decompile_srs_file() {
-    local binary_filepath="$1"
-    local output_filepath="$2"
-
-    log "Decompiling $binary_filepath to $output_filepath"
-
-    if ! file_exists "$binary_filepath"; then
-        log "File $binary_filepath not found"
-        return 1
-    fi
-
-    sing-box rule-set decompile "$binary_filepath" -o "$output_filepath"
-    if [[ $? -ne 0 ]]; then
-        log "Decompilation command failed for $binary_filepath"
-        return 1
+get_service_proxy_address() {
+    local detour
+    config_get_bool detour "main" "detour" 0
+    if [ "$detour" -eq 1 ]; then
+        echo "$SB_SERVICE_MIXED_INBOUND_TAG:$SB_SERVICE_MIXED_INBOUND_PORT"
+    else
+        echo ""
     fi
 }
 
@@ -1446,17 +1402,6 @@ nft_list_all_traffic_from_ip() {
     if ! nft list chain inet $table mangle | grep -q "ip saddr $ip"; then
         nft insert rule inet $table mangle iifname "$SRC_INTERFACE" ip saddr $ip meta l4proto { tcp, udp } meta mark set 0x105 counter
         nft insert rule inet $table mangle ip saddr $ip ip daddr @localv4 return
-    fi
-}
-
-# Adds an IPv4 subnet to nftables firewall set
-nft_add_podkop_subnet() {
-    local subnet="$1"
-
-    if is_ipv4_cidr "$subnet"; then
-        nft add element inet PodkopTable podkop_subnets { "$subnet" }
-    else
-        log "Invalid subnet format. $subnet is not a valid IPv4 CIDR"
     fi
 }
 

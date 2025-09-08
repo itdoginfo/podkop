@@ -12,6 +12,10 @@ is_ipv4_cidr() {
     [[ "$ip" =~ $regex ]]
 }
 
+is_ipv4_ip_or_ipv4_cidr() {
+    is_ipv4 "$1" || is_ipv4_cidr "$1"
+}
+
 # Check if string is valid domain
 is_domain() {
     local str="$1"
@@ -37,14 +41,6 @@ file_exists() {
     else
         return 1
     fi
-}
-
-# Extracts and returns the file extension from the given URL
-get_url_file_extension() {
-    local url="$1"
-    local file_extension="${url##*.}"
-
-    echo "$file_extension"
 }
 
 # Returns the inbound tag name by appending the postfix to the given section
@@ -155,6 +151,17 @@ url_get_basename() {
     echo "$basename"
 }
 
+# Extracts and returns the file extension from the given URL
+url_get_file_extension() {
+    local url="$1"
+
+    local basename="${url##*/}"
+    case "$basename" in
+        *.*) echo "${basename##*.}" ;;
+        *) echo "" ;;
+    esac
+}
+
 # Decodes and returns a base64-encoded string
 base64_decode() {
     local str="$1"
@@ -205,29 +212,108 @@ migration_rename_config_key() {
 # Download URL content directly
 download_to_stream() {
     local url="$1"
-    local http_proxy_url="$2"
+    local http_proxy_address="$2"
+    local retries="${3:-3}"
+    local wait="${4:-2}"
 
-    if [ -n "$http_proxy_url" ]; then
-        http_proxy="$http_proxy_url" https_proxy="$http_proxy_url" wget -qO- "$url" | sed 's/\r$//'
-    else
-        wget -qO- "$url" | sed 's/\r$//'
-    fi
+    for attempt in $(seq 1 "$retries"); do
+        if [ -n "$http_proxy_url" ]; then
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -qO- "$url" | sed 's/\r$//' && break
+        else
+            wget -qO- "$url" | sed 's/\r$//' && break
+        fi
+
+        log "Attempt $attempt/$retries to download $url failed" "warn"
+        sleep "$wait"
+    done
 }
 
 # Download URL to temporary file
 download_to_tempfile() {
     local url="$1"
     local filepath="$2"
-    local http_proxy_url="$3"
+    local http_proxy_address="$3"
+    local retries="${4:-3}"
+    local wait="${5:-2}"
 
-    if [ -n "$http_proxy_url" ]; then
-        http_proxy="$http_proxy_url" https_proxy="$http_proxy_url" wget -O "$filepath" "$url"
-    else
-        wget -O "$filepath" "$url"
-    fi
+    for attempt in $(seq 1 "$retries"); do
+        if [ -n "$http_proxy_url" ]; then
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_url" wget -O "$filepath" "$url" && break
+        else
+            wget -O "$filepath" "$url" && break
+        fi
+
+        log "Attempt $attempt/$retries to download $url failed" "warn"
+        sleep "$wait"
+    done
 
     if grep -q $'\r' "$filepath"; then
         log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
         sed -i 's/\r$//' "$filepath"
     fi
+}
+
+# Decompiles a sing-box SRS binary file into a JSON ruleset file
+decompile_srs_file() {
+    local binary_filepath="$1"
+    local output_filepath="$2"
+
+    log "Decompiling $binary_filepath to $output_filepath" "debug"
+
+    if ! file_exists "$binary_filepath"; then
+        log "File $binary_filepath not found" "error"
+        return 1
+    fi
+
+    sing-box rule-set decompile "$binary_filepath" -o "$output_filepath"
+    if [[ $? -ne 0 ]]; then
+        log "Decompilation command failed for $binary_filepath" "error"
+        return 1
+    fi
+}
+
+#######################################
+# Parses a file line by line, validates entries as either domains or subnets,
+# and returns a single comma-separated string of valid items.
+# Arguments:
+#   $1 - Path to the input file
+#   $2 - Type of validation ("domains" or "subnets")
+# Outputs:
+#   Comma-separated string of valid domains or subnets
+#######################################
+parse_domain_or_subnet_file_to_comma_string() {
+    local filepath="$1"
+    local type="$2"
+
+    local result
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+
+        case "$type" in
+            domains)
+                if ! is_domain "$line"; then
+                    log "'$line' is not a valid domain" "debug"
+                    continue
+                fi
+                ;;
+            subnets)
+                if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
+                    log "'$line' is not IPv4 or IPv4 CIDR" "debug"
+                    continue
+                fi
+                ;;
+            *)
+                log "Unknown type: $type" "error"
+                return 1
+                ;;
+        esac
+
+        if [ -z "$result" ]; then
+            result="$line"
+        else
+            result="$result,$line"
+        fi
+    done < "$filepath"
+
+    echo "$result"
 }
