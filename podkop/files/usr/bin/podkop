@@ -770,17 +770,18 @@ sing_box_configure_dns() {
             log "Working DNS server has been found: $dns_domain_resolver"
         fi
         config=$(sing_box_cm_add_udp_dns_server "$config" "$SB_DNS_DOMAIN_RESOLVER_TAG" "$dns_domain_resolver" 53)
+        dns_domain_resolver="$SB_DNS_DOMAIN_RESOLVER_TAG"
     fi
 
     config=$(
         sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "" "" \
-        "$SB_DNS_DOMAIN_RESOLVER_TAG"
+        "$dns_domain_resolver"
     )
 
     if [ "$split_dns_enabled" -eq 1 ]; then
         config=$(
             sing_box_cf_add_dns_server "$config" "$split_dns_type" "$SB_SPLIT_DNS_SERVER_TAG" "$split_dns_server" \
-            "" "" "$SB_DNS_DOMAIN_RESOLVER_TAG" "$SB_MAIN_OUTBOUND_TAG"
+            "" "" "$dns_domain_resolver" "$SB_MAIN_OUTBOUND_TAG"
         )
     fi
 
