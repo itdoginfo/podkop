@@ -153,7 +153,7 @@ stop_main() {
 
     remove_cron_job
 
-    rm "$TMP_RULESET_FOLDER"/*
+    rm -f "$TMP_RULESET_FOLDER"/*
 
     log "Flush nft"
     if nft list table inet PodkopTable >/dev/null 2>&1; then
@@ -820,7 +820,7 @@ sing_box_configure_route() {
     local quic_disable
     config_get_bool quic_disable "main" "quic_disable" 0
     if [ "$quic_disable" -eq 1 ]; then
-        config=$(sing_box_cm_add_reject_route_rule "$config" "protocol" "quic")
+        config=$(sing_box_cf_add_single_key_reject_rule "$config" "$SB_TPROXY_INBOUND_TAG" "protocol" "quic")
     fi
 
     config=$(
@@ -830,7 +830,7 @@ sing_box_configure_route() {
 
     config_foreach include_source_ips_in_routing_handler
 
-    # TODO(ampetelin): Add block rules
+    configure_common_reject_route_rule
 
     local exclude_from_ip_enabled
     config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" 0
@@ -858,6 +858,26 @@ include_source_ips_in_routing_handler() {
     fi
 }
 
+configure_common_reject_route_rule() {
+    local block_sections block_section_lists_enabled
+    block_sections="$(get_block_sections)"
+    block_section_lists_enabled=0
+
+    if [ -n "$block_sections" ]; then
+        for block_section in $block_sections; do
+            if section_has_enabled_lists "$block_section"; then
+                block_section_lists_enabled=1
+                break
+            fi
+        done
+        if [ "$block_section_lists_enabled" -eq 1 ]; then
+            config=$(sing_box_cm_add_reject_route_rule "$config" "$SB_REJECT_RULE_TAG" "$SB_TPROXY_INBOUND_TAG")
+        else
+            log "Block sections does not have any enabled list, reject rule is not required" "warn"
+        fi
+    fi
+}
+
 include_source_ip_in_routing_handler() {
     local source_ip="$1"
     local rule_tag="$2"
@@ -874,9 +894,14 @@ exclude_source_ip_from_routing_handler() {
 
 configure_routing_for_section_lists() {
     local section="$1"
-    local community_lists_enabled local_domain_lists_enabled remote_domain_lists_enabled remote_subnet_lists_enabled \
-    local_subnet_lists_enabled
-    local user_domain_list_type user_subnet_list_type route_rule_tag
+
+    if ! section_has_enabled_lists "$section"; then
+        log "Section '$section' does not have any enabled list, skipping..." "warn"
+        return 0
+    fi
+
+    local community_lists_enabled user_domain_list_type local_domain_lists_enabled remote_domain_lists_enabled \
+    user_subnet_list_type local_subnet_lists_enabled remote_subnet_lists_enabled section_mode_type route_rule_tag
     config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
     config_get_bool local_domain_lists_enabled "$section" "local_domain_lists_enabled" 0
@@ -884,59 +909,53 @@ configure_routing_for_section_lists() {
     config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
     config_get_bool local_subnet_lists_enabled "$section" "local_subnet_lists_enabled" 0
     config_get_bool remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled" 0
+    config_get section_mode_type "$section" "mode"
 
-    if [ "$community_lists_enabled" -eq 0 ] && \
-        [ "$user_domain_list_type" == "disabled" ] && \
-        [ "$local_domain_lists_enabled" -eq 0 ] && \
-        [ "$remote_domain_lists_enabled" -eq 0 ] && \
-        [ "$user_subnet_list_type" == "disabled" ] && \
-        [ "$local_subnet_lists_enabled" -eq 0 ] && \
-        [ "$remote_subnet_lists_enabled" == 0 ] ; then
-        log "Section $section does not have any enabled list, skipping..." "warn"
-        return 0
+    if [ "$section_mode_type" = "block" ]; then
+        route_rule_tag="$SB_REJECT_RULE_TAG"
+    else
+        route_rule_tag="$(gen_id)"
+        outbound_tag=$(get_outbound_tag_by_section "$section")
+        config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
     fi
 
-    route_rule_tag="$(gen_id)"
-    outbound_tag=$(get_outbound_tag_by_section "$section")
-    config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
-
     if [ "$community_lists_enabled" -eq 1 ]; then
-        log "Processing community list routing rules for $section section"
+        log "Processing community list routing rules for '$section' section"
         config_list_foreach "$section" "community_lists" configure_community_list_handler "$section" "$route_rule_tag"
     fi
 
     if [ "$user_domain_list_type" != "disabled" ]; then
-        log "Processing user domains routing rules for $section section"
+        log "Processing user domains routing rules for '$section' section"
         # TODO(ampetelin): it is necessary to implement
         # configure_user_domain_list_handler
     fi
 
     if [ "$local_domain_lists_enabled" -eq 1 ]; then
-        log "Processing local domains routing rules for $section section"
+        log "Processing local domains routing rules for '$section' section"
         configure_local_domain_or_subnet_lists "$section" "domains" "$route_rule_tag"
     fi
 
     if [ "$remote_domain_lists_enabled" -eq 1 ]; then
-        log "Processing remote domains routing rules for $section section"
-        prepare_common_ruleset "$section" "domains" "route_rule_tag"
+        log "Processing remote domains routing rules for '$section' section"
+        prepare_common_ruleset "$section" "domains" "$route_rule_tag"
         config_list_foreach "$section" "remote_domain_lists" configure_remote_domain_or_subnet_list_handler \
         "domains" "$section" "$route_rule_tag"
     fi
 
     if [ "$user_subnet_list_type" != "disabled" ]; then
-        log "Processing user subnets routing rules for $section section"
+        log "Processing user subnets routing rules for '$section' section"
         # TODO(ampetelin): it is necessary to implement
         # configure_user_subnet_list_handler
     fi
 
     if [ "$local_subnet_lists_enabled" -eq 1 ]; then
-        log "Processing local subnets routing rules for $section section"
+        log "Processing local subnets routing rules for '$section' section"
         configure_local_domain_or_subnet_lists "$section" "subnets" "$route_rule_tag"
     fi
 
     if [ "$remote_subnet_lists_enabled" -eq 1 ]; then
-        log "Processing remote subnets routing rules for $section section"
-        prepare_common_ruleset "$section" "subnets" "route_rule_tag"
+        log "Processing remote subnets routing rules for '$section' section"
+        prepare_common_ruleset "$section" "subnets" "$route_rule_tag"
         config_list_foreach "$section" "remote_subnet_lists" configure_remote_domain_or_subnet_list_handler \
         "subnets" "$section" "$route_rule_tag"
     fi
@@ -947,7 +966,7 @@ prepare_common_ruleset() {
     local type="$2"
     local route_rule_tag="$3"
 
-    log "Preparing a common $type ruleset for $section section" "debug"
+    log "Preparing a common $type ruleset for '$section' section" "debug"
     ruleset_tag=$(get_ruleset_tag "$section" "common" "remote-$type")
     ruleset_filename="$ruleset_tag.json"
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
@@ -1167,7 +1186,7 @@ import_community_subnet_lists() {
     local community_lists_enabled
     config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
     if [ "$community_lists_enabled" -eq 1 ]; then
-        log "Importing community subnet lists for $section section"
+        log "Importing community subnet lists for '$section' section"
         config_list_foreach "$section" "community_lists" import_community_service_subnet_list_handler
     fi
 }
@@ -1235,7 +1254,7 @@ import_domains_from_remote_domain_lists() {
     local remote_domain_lists_enabled
     config_get remote_domain_lists_enabled "$section" "remote_domain_lists_enabled"
     if [ "$remote_domain_lists_enabled" -eq 1 ]; then
-        log "Importing domains from remote domain lists for $section section"
+        log "Importing domains from remote domain lists for '$section' section"
         config_list_foreach "$section" "remote_domain_lists" import_domains_from_remote_domain_list_handler "$section"
     fi
 }
@@ -1264,7 +1283,7 @@ import_subnets_from_remote_subnet_lists() {
 
     config_get remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled"
     if [ "$remote_subnet_lists_enabled" -eq 1 ]; then
-            log "Importing subnets from remote subnet lists for $section section"
+            log "Importing subnets from remote subnet lists for '$section' section"
             config_list_foreach "$section" "remote_subnet_lists" import_subnets_from_remote_subnet_list_handler "$section"
     fi
 }
@@ -1392,6 +1411,44 @@ get_download_detour_tag() {
         echo "$SB_MAIN_OUTBOUND_TAG"
     else
         echo ""
+    fi
+}
+
+get_block_sections() {
+    uci show podkop | grep "\.mode='block'" | cut -d'.' -f2
+}
+
+block_section_exists() {
+    if uci show podkop | grep -q "\.mode='block'"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+section_has_enabled_lists() {
+    local section="$1"
+    local community_lists_enabled user_domain_list_type local_domain_lists_enabled remote_domain_lists_enabled \
+    user_subnet_list_type local_subnet_lists_enabled remote_subnet_lists_enabled
+
+    config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
+    config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
+    config_get_bool local_domain_lists_enabled "$section" "local_domain_lists_enabled" 0
+    config_get_bool remote_domain_lists_enabled "$section" "remote_domain_lists_enabled" 0
+    config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
+    config_get_bool local_subnet_lists_enabled "$section" "local_subnet_lists_enabled" 0
+    config_get_bool remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled" 0
+
+    if [ "$community_lists_enabled" -ne 0 ] || \
+       [ "$user_domain_list_type" != "disabled" ] || \
+       [ "$local_domain_lists_enabled" -ne 0 ] || \
+       [ "$remote_domain_lists_enabled" -ne 0 ] || \
+       [ "$user_subnet_list_type" != "disabled" ] || \
+       [ "$local_subnet_lists_enabled" -ne 0 ] || \
+       [ "$remote_subnet_lists_enabled" -ne 0 ]; then
+        return 0
+    else
+        return 1
     fi
 }
 

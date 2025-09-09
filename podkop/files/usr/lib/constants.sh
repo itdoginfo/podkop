@@ -30,3 +30,5 @@ SB_SERVICE_MIXED_INBOUND_PORT=4534
 # Outbounds
 SB_DIRECT_OUTBOUND_TAG="direct-out"
 SB_MAIN_OUTBOUND_TAG="main-out"
+# Route
+SB_REJECT_RULE_TAG="reject-rule-tag"

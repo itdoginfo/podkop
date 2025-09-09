@@ -943,21 +943,21 @@ sing_box_cm_patch_route_rule() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_add_reject_route_rule "$CONFIG" "protocol" "quic")
+#   CONFIG=$(sing_box_cm_add_reject_route_rule "$CONFIG" "reject-rule-tag")
 #######################################
 sing_box_cm_add_reject_route_rule() {
     local config="$1"
-    local key="$2"
-    local value="$3"
-
-    value=$(_normalize_arg "$value")
+    local tag="$2"
+    local inbound="$3"
 
     echo "$config" | jq \
-        --arg key "$key" \
-        --argjson value "$value" \
+        --arg service_tag "$SERVICE_TAG" \
+        --arg tag "$tag" \
+        --arg inbound "$inbound" \
         '.route.rules += [{
             action: "reject",
-            ($key): $value
+            inbound: $inbound,
+            $service_tag: $tag
         }]'
 }
 

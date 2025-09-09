@@ -205,6 +205,15 @@ sing_box_cf_override_domain_port() {
     echo "$config"
 }
 
-sing_box_cf_add_remote_ruleset_with_dns_and_route_rule() {
+sing_box_cf_add_single_key_reject_rule() {
     local config="$1"
+    local inbound="$2"
+    local key="$3"
+    local value="$4"
+
+    tag="$(gen_id)"
+    config=$(sing_box_cm_add_reject_route_rule "$config" "$tag" "$inbound")
+    config=$(sing_box_cm_patch_route_rule "$config" "$tag" "$key" "$value")
+
+    echo "$config"
 }
