@@ -1213,7 +1213,7 @@ import_community_service_subnet_list_handler() {
     tmpfile=$(mktemp)
     http_proxy_address="$(get_service_proxy_address)"
 
-    download_to_tempfile "$URL" "$tmpfile" "$http_proxy_address"
+    download_to_file "$URL" "$tmpfile" "$http_proxy_address"
 
     if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
         log "Download $service list failed" "error"
@@ -1302,7 +1302,7 @@ import_domains_or_subnets_from_remote_file() {
     tmpfile=$(mktemp)
     http_proxy_address="$(get_service_proxy_address)"
 
-    download_to_tempfile "$url" "$tmpfile" "$http_proxy_address"
+    download_to_file "$url" "$tmpfile" "$http_proxy_address"
 
     if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
         log "Download $url list failed" "error"
@@ -1357,7 +1357,7 @@ import_subnets_from_remote_srs_file() {
     subnets_tmpfile="$(mktemp)"
     http_proxy_address="$(get_service_proxy_address)"
 
-    download_to_tempfile "$url" "$binary_tmpfile" "$http_proxy_address"
+    download_to_file "$url" "$binary_tmpfile" "$http_proxy_address"
 
     if [ $? -ne 0 ] || [ ! -s "$binary_tmpfile" ]; then
         log "Download $url list failed" "error"

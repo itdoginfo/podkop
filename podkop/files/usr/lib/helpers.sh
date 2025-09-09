@@ -228,8 +228,8 @@ download_to_stream() {
     done
 }
 
-# Download URL to temporary file
-download_to_tempfile() {
+# Download URL to file
+download_to_file() {
     local url="$1"
     local filepath="$2"
     local http_proxy_address="$3"
