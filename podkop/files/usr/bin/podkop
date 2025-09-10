@@ -116,7 +116,7 @@ start_main() {
     config_get_bool exclude_ntp "main" "exclude_ntp" "0"
     if [ "$exclude_ntp" -eq 1 ]; then
         log "NTP traffic exclude for proxy"
-        nft insert rule inet PodkopTable mangle udp dport 123 return
+        nft insert rule inet "$NFT_TABLE_NAME" mangle udp dport 123 return
     fi
 
     log "Nice"
@@ -156,8 +156,8 @@ stop_main() {
     rm -f "$TMP_RULESET_FOLDER"/*
 
     log "Flush nft"
-    if nft list table inet PodkopTable >/dev/null 2>&1; then
-        nft delete table inet PodkopTable
+    if nft list table inet "$NFT_TABLE_NAME" >/dev/null 2>&1; then
+        nft delete table inet "$NFT_TABLE_NAME"
     fi
 
     log "Flush ip rule"
@@ -331,7 +331,7 @@ process_interfaces() {
 }
 
 nft_interfaces() {
-    local table=PodkopTable
+    local table="$NFT_TABLE_NAME"
     iface_flag=0
 
     config_list_foreach "main" "iface" "process_interfaces"
@@ -356,7 +356,7 @@ nft_interfaces() {
 }
 
 create_nft_table() {
-    local table="PodkopTable"
+    local table="$NFT_TABLE_NAME"
 
     nft add table inet $table
 
@@ -391,8 +391,7 @@ create_nft_table() {
     nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr "$FAKEIP" meta l4proto tcp meta mark set 0x105 counter
     nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr "$FAKEIP" meta l4proto udp meta mark set 0x105 counter
 
-    nft add rule inet $table proxy meta mark 0x105 meta l4proto tcp tproxy ip to :1602 counter
-    nft add rule inet $table proxy meta mark 0x105 meta l4proto udp tproxy ip to :1602 counter
+    nft add rule inet $table proxy meta mark 0x105 meta l4proto { tcp, udp } tproxy ip to 127.0.0.1:1602 counter
 
     nft add rule inet $table mangle_output ip daddr @localv4 return
     nft add rule inet $table mangle_output ip daddr @podkop_subnets meta l4proto tcp meta mark set 0x00000105 counter
@@ -1456,7 +1455,7 @@ section_has_enabled_lists() {
 ## nftables
 nft_list_all_traffic_from_ip() {
     local ip="$1"
-    local table="PodkopTable"
+    local table="$NFT_TABLE_NAME"
 
     if ! nft list chain inet $table mangle | grep -q "ip saddr $ip"; then
         nft insert rule inet $table mangle iifname "$SRC_INTERFACE" ip saddr $ip meta l4proto { tcp, udp } meta mark set 0x105 counter
@@ -1546,11 +1545,11 @@ check_nft() {
         return 1
     fi
 
-    nolog "Checking PodkopTable rules..."
+    nolog "Checking $NFT_TABLE_NAME rules..."
 
     # Check if table exists
-    if ! nft list table inet PodkopTable >/dev/null 2>&1; then
-        nolog "❌ PodkopTable not found"
+    if ! nft list table inet "$NFT_TABLE_NAME" >/dev/null 2>&1; then
+        nolog "❌ $NFT_TABLE_NAME not found"
         return 1
     fi
 
@@ -1584,9 +1583,9 @@ check_nft() {
 
         nolog "Sets statistics:"
         for set_name in $sets; do
-            if nft list set inet PodkopTable $set_name >/dev/null 2>&1; then
+            if nft list set inet "$NFT_TABLE_NAME" $set_name >/dev/null 2>&1; then
                 # Count elements using grep to count commas and add 1 (last element has no comma)
-                local count=$(nft list set inet PodkopTable $set_name 2>/dev/null | grep -o ',\|{' | wc -l)
+                local count=$(nft list set inet "$NFT_TABLE_NAME" $set_name 2>/dev/null | grep -o ',\|{' | wc -l)
                 echo "- $set_name: $count elements"
             fi
         done
@@ -1595,7 +1594,7 @@ check_nft() {
 
         # Create a temporary file for processing
         local tmp_file=$(mktemp)
-        nft list table inet PodkopTable > "$tmp_file"
+        nft list table inet "$NFT_TABLE_NAME" > "$tmp_file"
 
         # Extract chain configurations without element listings
         sed -n '/chain mangle {/,/}/p' "$tmp_file" | grep -v "elements" | grep -v "^[[:space:]]*[0-9]"
@@ -1606,7 +1605,7 @@ check_nft() {
     else
         # Simple view as originally implemented
         nolog "Sets configuration:"
-        nft list table inet PodkopTable
+        nft list table inet "$NFT_TABLE_NAME"
     fi
 
     nolog "NFT check completed"
