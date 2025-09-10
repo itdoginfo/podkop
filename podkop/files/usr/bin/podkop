@@ -2059,7 +2059,8 @@ global_check() {
     print_global "➡️ DNS resolution: system DNS server"
     nslookup -timeout=2 $TEST_DOMAIN
 
-    local working_resolver=$(find_working_resolver)
+    local working_resolver
+    working_resolver=$(find_working_resolver)
     if [ -z "$working_resolver" ]; then
         print_global "❌ No working external resolver found"
     else
@@ -2068,7 +2069,8 @@ global_check() {
     fi
 
     print_global "➡️ DNS resolution: sing-box DNS server (127.0.0.42)"
-    local result=$(nslookup -timeout=2 $TEST_DOMAIN 127.0.0.42 2>&1)
+    local result
+    result=$(nslookup -timeout=2 $TEST_DOMAIN 127.0.0.42 2>&1)
     echo "$result"
 
     if echo "$result" | grep -q "198.18"; then
@@ -2078,22 +2080,7 @@ global_check() {
         if ! pgrep -f "sing-box" >/dev/null; then
             print_global " ❌ sing-box is not running"
         else
-            print_global " 🤔 sing-box is running, checking configuration"
-
-            local sing_box_config_path
-            config_get sing_box_config_path "main" "config_path"
-            if [ -f "$sing_box_config_path" ]; then
-                # TODO(ampetelin): need fix jq after refactoring
-                local fakeip_enabled=$(jq -r '.dns.fakeip.enabled' "$sing_box_config_path")
-                local fakeip_range=$(jq -r '.dns.fakeip.inet4_range' "$sing_box_config_path")
-                local dns_rules=$(jq -r '.dns.rules[] | select(.server == "fakeip-server") | .domain' "$sing_box_config_path")
-
-                print_global "    📦 FakeIP enabled: $fakeip_enabled"
-                print_global "    📦 FakeIP range: $fakeip_range"
-                print_global "    📦 FakeIP domain: $dns_rules"
-            else
-                print_global "    ⛔ sing-box config file not found"
-            fi
+            print_global " 🤔 sing-box is running"
         fi
     fi
 }
