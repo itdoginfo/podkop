@@ -1,3 +1,19 @@
+# shellcheck disable=SC2034
+
+## Common
+PODKOP_CONFIG="/etc/config/podkop"
+RESOLV_CONF="/etc/resolv.conf"
+DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.140.15.15 208.67.220.220 208.67.222.222 77.88.8.1 77.88.8.8"
+CHECK_PROXY_IP_DOMAIN="ip.podkop.fyi"
+FAKEIP_TEST_DOMAIN="fakeip.podkop.fyi"
+TMP_SING_BOX_FOLDER="/tmp/sing-box"
+TMP_RULESET_FOLDER="$TMP_SING_BOX_FOLDER/rulesets"
+CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker
+# Color constants
+COLOR_CYAN="\033[0;36m"
+COLOR_GREEN="\033[0;32m"
+COLOR_RESET="\033[0m"
+
 ## nft
 NFT_TABLE_NAME="PodkopTable"
 NFT_LOCALV4_SET_NAME="localv4"
@@ -34,3 +50,21 @@ SB_DIRECT_OUTBOUND_TAG="direct-out"
 SB_MAIN_OUTBOUND_TAG="main-out"
 # Route
 SB_REJECT_RULE_TAG="reject-rule-tag"
+
+## Lists
+GITHUB_RAW_URL="https://raw.githubusercontent.com/itdoginfo/allow-domains/main"
+SRS_MAIN_URL="https://github.com/itdoginfo/allow-domains/releases/latest/download"
+DOMAINS_RU_INSIDE="${GITHUB_RAW_URL}/Russia/inside-dnsmasq-nfset.lst"
+DOMAINS_RU_OUTSIDE="${GITHUB_RAW_URL}/Russia/outside-dnsmasq-nfset.lst"
+DOMAINS_UA="${GITHUB_RAW_URL}/Ukraine/inside-dnsmasq-nfset.lst"
+DOMAINS_YOUTUBE="${GITHUB_RAW_URL}/Services/youtube.lst"
+SUBNETS_TWITTER="${GITHUB_RAW_URL}/Subnets/IPv4/twitter.lst"
+SUBNETS_META="${GITHUB_RAW_URL}/Subnets/IPv4/meta.lst"
+SUBNETS_DISCORD="${GITHUB_RAW_URL}/Subnets/IPv4/discord.lst"
+SUBNETS_TELERAM="${GITHUB_RAW_URL}/Subnets/IPv4/telegram.lst"
+SUBNETS_CLOUDFLARE="${GITHUB_RAW_URL}/Subnets/IPv4/cloudflare.lst"
+SUBNETS_HETZNER="${GITHUB_RAW_URL}/Subnets/IPv4/hetzner.lst"
+SUBNETS_OVH="${GITHUB_RAW_URL}/Subnets/IPv4/ovh.lst"
+SUBNETS_DIGITALOCEAN="${GITHUB_RAW_URL}/Subnets/IPv4/digitalocean.lst"
+SUBNETS_CLOUDFRONT="${GITHUB_RAW_URL}/Subnets/IPv4/cloudfront.lst"
+VALID_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube discord meta twitter hdrezka tiktok telegram cloudflare google_ai google_play hetzner ovh hodca digitalocean cloudfront"
