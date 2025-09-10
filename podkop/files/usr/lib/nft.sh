@@ -13,6 +13,13 @@ nft_create_ipv4_set() {
     nft add set inet "$table" "$name" '{ type ipv4_addr; flags interval; auto-merge; }'
 }
 
+nft_create_ifname_set() {
+    local table="$1"
+    local name="$2"
+
+    nft add set inet "$table" "$name" '{ type ifname; flags interval; }'
+}
+
 # Add one or more elements to a set
 nft_add_set_elements() {
     local table="$1"

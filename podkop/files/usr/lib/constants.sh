@@ -1,7 +1,9 @@
 ## nft
 NFT_TABLE_NAME="PodkopTable"
+NFT_LOCALV4_SET_NAME="localv4"
 NFT_COMMON_SET_NAME="podkop_subnets"
 NFT_DISCORD_SET_NAME="podkop_discord_subnets"
+NFT_INTERFACE_SET_NAME="interfaces"
 
 ## sing-box
 # Log
