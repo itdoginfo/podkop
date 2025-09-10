@@ -388,8 +388,8 @@ create_nft_table() {
 
     nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr @podkop_subnets meta l4proto tcp meta mark set 0x105 counter
     nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr @podkop_subnets meta l4proto udp meta mark set 0x105 counter
-    nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr "$FAKEIP" meta l4proto tcp meta mark set 0x105 counter
-    nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr "$FAKEIP" meta l4proto udp meta mark set 0x105 counter
+    nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set 0x105 counter
+    nft add rule inet $table mangle iifname "$SRC_INTERFACE" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set 0x105 counter
 
     nft add rule inet $table proxy meta mark 0x105 meta l4proto { tcp, udp } tproxy ip to 127.0.0.1:1602 counter
 
@@ -756,7 +756,7 @@ sing_box_configure_dns() {
     fi
 
     log "Adding DNS Servers"
-    config=$(sing_box_cm_add_fakeip_dns_server "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$FAKEIP")
+    config=$(sing_box_cm_add_fakeip_dns_server "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_INET4_RANGE")
 
     local dns_domain_resolver
     if [ "$need_dns_domain_resolver" -eq 1 ]; then
