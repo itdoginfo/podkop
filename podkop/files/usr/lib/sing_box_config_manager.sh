@@ -225,7 +225,6 @@ sing_box_cm_add_fakeip_dns_server() {
 
     echo "$config" | jq \
         --arg tag "$tag" \
-        --arg server_address "$server_address" \
         --arg inet4_range "$inet4_range" \
         '.dns.servers += [{
 			type: "fakeip",
