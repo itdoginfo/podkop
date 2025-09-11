@@ -217,7 +217,7 @@ download_to_stream() {
     local wait="${4:-2}"
 
     for attempt in $(seq 1 "$retries"); do
-        if [ -n "$http_proxy_url" ]; then
+        if [ -n "$http_proxy_address" ]; then
             http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -qO- "$url" | sed 's/\r$//' && break
         else
             wget -qO- "$url" | sed 's/\r$//' && break
@@ -237,8 +237,8 @@ download_to_file() {
     local wait="${5:-2}"
 
     for attempt in $(seq 1 "$retries"); do
-        if [ -n "$http_proxy_url" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_url" wget -O "$filepath" "$url" && break
+        if [ -n "$http_proxy_address" ]; then
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -O "$filepath" "$url" && break
         else
             wget -O "$filepath" "$url" && break
         fi
