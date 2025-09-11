@@ -902,7 +902,7 @@ msgid "Local Subnet Lists"
 msgstr "Локальные списки подсетей"
 
 msgid "Local Subnet List Paths"
-msgstr "Пути к локальным спискам доменов"
+msgstr "Пути к локальным спискам подсетей"
 
 msgid "Config File Path"
 msgstr "Путь к файлу конфигурации"
