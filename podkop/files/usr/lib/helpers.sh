@@ -248,7 +248,7 @@ download_to_file() {
     done
 
     if grep -q $'\r' "$filepath"; then
-        log "$filename has Windows line endings (CRLF). Converting to Unix (LF)"
+        log "Downloaded file has Windows line endings (CRLF). Converting to Unix (LF)"
         sed -i 's/\r$//' "$filepath"
     fi
 }
