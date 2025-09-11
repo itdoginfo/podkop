@@ -108,7 +108,7 @@ start() {
         dnsmasq_add_resolver
     fi
     uci_set "podkop" "main" "shutdown_correctly" 0
-    uci commit "podkop"
+    uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
 stop_main() {
@@ -154,7 +154,7 @@ stop() {
     fi
     stop_main
     uci_set "podkop" "main" "shutdown_correctly" 1
-    uci commit "podkop"
+    uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
 reload() {
