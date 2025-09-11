@@ -873,8 +873,8 @@ configure_routing_for_section_lists() {
 
     if [ "$user_domain_list_type" != "disabled" ]; then
         log "Processing user domains routing rules for '$section' section"
-        # TODO(ampetelin): it is necessary to implement
-        # configure_user_domain_list_handler
+        prepare_common_ruleset "$section" "domains" "$route_rule_tag"
+        configure_user_domain_or_subnets_list "$section" "domains" "$route_rule_tag"
     fi
 
     if [ "$local_domain_lists_enabled" -eq 1 ]; then
@@ -891,8 +891,8 @@ configure_routing_for_section_lists() {
 
     if [ "$user_subnet_list_type" != "disabled" ]; then
         log "Processing user subnets routing rules for '$section' section"
-        # TODO(ampetelin): it is necessary to implement
-        # configure_user_subnet_list_handler
+        prepare_common_ruleset "$section" "subnets" "$route_rule_tag"
+        configure_user_domain_or_subnets_list "$section" "subnets" "$route_rule_tag"
     fi
 
     if [ "$local_subnet_lists_enabled" -eq 1 ]; then
@@ -914,7 +914,7 @@ prepare_common_ruleset() {
     local route_rule_tag="$3"
 
     log "Preparing a common $type ruleset for '$section' section" "debug"
-    ruleset_tag=$(get_ruleset_tag "$section" "common" "remote-$type")
+    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
     ruleset_filename="$ruleset_tag.json"
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
     if file_exists "$ruleset_filepath"; then
@@ -923,6 +923,11 @@ prepare_common_ruleset() {
         sing_box_cm_create_local_source_ruleset "$ruleset_filepath"
         config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+        case "$type" in
+        domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
+        subnets) ;;
+        *) log "Unsupported remote rule set type: $type" "warn" ;;
+        esac
     fi
 }
 
@@ -943,9 +948,42 @@ configure_community_list_handler() {
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
 }
 
-configure_user_domain_list_handler() {
+configure_user_domain_or_subnets_list() {
     local section="$1"
-    # TODO(ampetelin): it is necessary to implement
+    local type="$2"
+
+    local items ruleset_tag ruleset_filename ruleset_filepath json_array
+    case "$type" in
+    domains)
+        local user_domain_list_type
+        config_get user_domain_list_type "$section" "user_domain_list_type"
+        case "$user_domain_list_type" in
+        dynamic) config_get items "$section" "user_domains" ;;
+        text) config_get items "$section" "user_domains_text" ;;
+        esac
+        ;;
+    subnets)
+        local user_subnet_list_type
+        config_get user_subnet_list_type "$section" "user_subnet_list_type"
+        case "$user_subnet_list_type" in
+        dynamic) config_get items "$section" "user_subnets" ;;
+        text) config_get items "$section" "user_subnets_text" ;;
+        esac
+        ;;
+    esac
+
+    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
+    ruleset_filename="$ruleset_tag.json"
+    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
+    items="$(parse_domain_or_subnet_string_to_commas_string "$items" "$type")"
+    json_array="$(comma_string_to_json_array "$items")"
+    case "$type" in
+    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
+    subnets)
+        sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
+        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$items"
+        ;;
+    esac
 }
 
 configure_local_domain_or_subnet_lists() {
@@ -1023,22 +1061,16 @@ configure_remote_domain_or_subnet_list_handler() {
 
             config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
             config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+            case "$type" in
+            domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
+            subnets) ;;
+            *) log "Unsupported remote rule set type: $type" "warn" ;;
+            esac
             ;;
         *)
             log "Detected file extension: '$file_extension' → no processing needed, managed on list_update" "debug"
             ;;
     esac
-
-    case "$type" in
-    domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
-    subnets) ;;
-    *) log "Unsupported remote rule set type: $type" "warn" ;;
-    esac
-}
-
-configure_user_subnet_list_handler() {
-    local section="$1"
-    # TODO(ampetelin): it is necessary to implement
 }
 
 _add_ruleset_to_dns_rules() {
@@ -1283,7 +1315,7 @@ import_domains_or_subnets_from_remote_file() {
         return 0
     fi
 
-    ruleset_tag=$(get_ruleset_tag "$section" "common" "remote-$type")
+    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
     ruleset_filename="$ruleset_tag.json"
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
     json_array="$(comma_string_to_json_array "$items")"

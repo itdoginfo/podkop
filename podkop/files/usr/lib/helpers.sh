@@ -273,6 +273,50 @@ decompile_srs_file() {
 }
 
 #######################################
+# Parses a whitespace-separated string, validates items as either domains
+# or IPv4 addresses/subnets, and returns a comma-separated string of valid items.
+# Arguments:
+#   $1 - Input string (space-separated list of items)
+#   $2 - Type of validation ("domains" or "subnets")
+# Outputs:
+#   Comma-separated string of valid domains or subnets
+#######################################
+parse_domain_or_subnet_string_to_commas_string() {
+    local string="$1"
+    local type="$2"
+
+    local result
+    for item in $string; do
+        case "$type" in
+            domains)
+                if ! is_domain "$item"; then
+                    log "'$item' is not a valid domain" "debug"
+                    continue
+                fi
+                ;;
+            subnets)
+                if ! is_ipv4_ip_or_ipv4_cidr "$item"; then
+                    log "'$item' is not IPv4 or IPv4 CIDR" "debug"
+                    continue
+                fi
+                ;;
+            *)
+                log "Unknown type: $type" "error"
+                return 1
+                ;;
+        esac
+
+        if [ -z "$result" ]; then
+            result="$item"
+        else
+            result="$result,$item"
+        fi
+    done
+
+    echo "$result"
+}
+
+#######################################
 # Parses a file line by line, validates entries as either domains or subnets,
 # and returns a single comma-separated string of valid items.
 # Arguments:
