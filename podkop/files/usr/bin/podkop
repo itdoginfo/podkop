@@ -116,8 +116,8 @@ stop_main() {
 
     if [ -f /var/run/podkop_list_update.pid ]; then
         pid=$(cat /var/run/podkop_list_update.pid)
-        if kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null
+        if kill -0 "$pid" 2> /dev/null; then
+            kill "$pid" 2> /dev/null
             log "Stopped list_update"
         fi
         rm -f /var/run/podkop_list_update.pid
@@ -128,7 +128,7 @@ stop_main() {
     rm -f "$TMP_RULESET_FOLDER"/*
 
     log "Flush nft"
-    if nft list table inet "$NFT_TABLE_NAME" >/dev/null 2>&1; then
+    if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
         nft delete table inet "$NFT_TABLE_NAME"
     fi
 
@@ -138,7 +138,7 @@ stop_main() {
     fi
 
     log "Flush ip route"
-    if ip route list table podkop >/dev/null 2>&1; then
+    if ip route list table podkop > /dev/null 2>&1; then
         ip route flush table podkop
     fi
 
@@ -268,11 +268,11 @@ process_validate_service() {
 }
 
 br_netfilter_disable() {
-    if lsmod | grep -q br_netfilter && [ "$(sysctl -n net.bridge.bridge-nf-call-iptables 2>/dev/null)" = "1" ]; then
+    if lsmod | grep -q br_netfilter && [ "$(sysctl -n net.bridge.bridge-nf-call-iptables 2> /dev/null)" = "1" ]; then
         log "br_netfilter enabled detected. Disabling"
         sysctl -w net.bridge.bridge-nf-call-iptables=0
         sysctl -w net.bridge.bridge-nf-call-ip6tables=0
-	fi
+    fi
 }
 
 # Main funcs
@@ -280,7 +280,7 @@ br_netfilter_disable() {
 route_table_rule_mark() {
     local table=podkop
 
-    grep -q "105 $table" /etc/iproute2/rt_tables || echo "105 $table" >>/etc/iproute2/rt_tables
+    grep -q "105 $table" /etc/iproute2/rt_tables || echo "105 $table" >> /etc/iproute2/rt_tables
 
     if ! ip route list table $table | grep -q "local default dev lo scope host"; then
         log "Added route for tproxy"
@@ -447,29 +447,29 @@ add_cron_job() {
     config_get update_interval "main" "update_interval"
 
     case "$update_interval" in
-        "1h")
-            cron_job="13 * * * * /usr/bin/podkop list_update"
-            ;;
-        "3h")
-            cron_job="13 */3 * * * /usr/bin/podkop list_update"
-            ;;
-        "12h")
-            cron_job="13 */12 * * * /usr/bin/podkop list_update"
-            ;;
-        "1d")
-            cron_job="13 9 * * * /usr/bin/podkop list_update"
-            ;;
-        "3d")
-            cron_job="13 9 */3 * * /usr/bin/podkop list_update"
-            ;;
-        *)
-            log "Invalid update_interval value: $update_interval"
-            return
-            ;;
+    "1h")
+        cron_job="13 * * * * /usr/bin/podkop list_update"
+        ;;
+    "3h")
+        cron_job="13 */3 * * * /usr/bin/podkop list_update"
+        ;;
+    "12h")
+        cron_job="13 */12 * * * /usr/bin/podkop list_update"
+        ;;
+    "1d")
+        cron_job="13 9 * * * /usr/bin/podkop list_update"
+        ;;
+    "3d")
+        cron_job="13 9 */3 * * /usr/bin/podkop list_update"
+        ;;
+    *)
+        log "Invalid update_interval value: $update_interval"
+        return
+        ;;
     esac
 
-    if [ "$community_lists_enabled" -eq 1 ] || \
-        [ "$remote_domain_lists_enabled" -eq 1 ] || \
+    if [ "$community_lists_enabled" -eq 1 ] ||
+        [ "$remote_domain_lists_enabled" -eq 1 ] ||
         [ "$remote_subnet_lists_enabled" -eq 1 ]; then
         remove_cron_job
         crontab -l | {
@@ -491,7 +491,7 @@ list_update() {
     local i
 
     for i in $(seq 1 60); do
-        if nslookup -timeout=1 openwrt.org >/dev/null 2>&1; then
+        if nslookup -timeout=1 openwrt.org > /dev/null 2>&1; then
             echolog "✅ DNS check passed"
             break
         fi
@@ -507,12 +507,12 @@ list_update() {
     for i in $(seq 1 60); do
         config_get_bool detour "main" "detour" "0"
         if [ "$detour" -eq 1 ]; then
-            if http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" curl -s -m 3 https://github.com >/dev/null; then
+            if http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" curl -s -m 3 https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed (via proxy)"
                 break
             fi
         else
-            if curl -s -m 3 https://github.com >/dev/null; then
+            if curl -s -m 3 https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed"
                 break
             fi
@@ -542,7 +542,7 @@ list_update() {
 
 find_working_resolver() {
     for resolver in $DNS_RESOLVERS; do
-        if nslookup -timeout=2 $FAKEIP_TEST_DOMAIN $resolver >/dev/null 2>&1; then
+        if nslookup -timeout=2 $FAKEIP_TEST_DOMAIN $resolver > /dev/null 2>&1; then
             echo "$resolver"
             return 0
         fi
@@ -597,7 +597,7 @@ sing_box_init_config() {
 sing_box_configure_log() {
     log "Configure the log section of a sing-box JSON configuration"
 
-    config=$(sing_box_cm_configure_log  "$config" false "$SB_DEFAULT_LOG_LEVEL" false)
+    config=$(sing_box_cm_configure_log "$config" false "$SB_DEFAULT_LOG_LEVEL" false)
 }
 
 sing_box_configure_inbounds() {
@@ -605,7 +605,7 @@ sing_box_configure_inbounds() {
 
     config=$(
         sing_box_cm_add_tproxy_inbound \
-        "$config" "$SB_TPROXY_INBOUND_TAG" "$SB_TPROXY_INBOUND_ADDRESS" "$SB_TPROXY_INBOUND_PORT" true true
+            "$config" "$SB_TPROXY_INBOUND_TAG" "$SB_TPROXY_INBOUND_ADDRESS" "$SB_TPROXY_INBOUND_PORT" true true
     )
     config=$(
         sing_box_cm_add_direct_inbound "$config" "$SB_DNS_INBOUND_TAG" "$SB_DNS_INBOUND_ADDRESS" "$SB_DNS_INBOUND_PORT"
@@ -668,7 +668,7 @@ configure_outbound_handler() {
             exit 1
         fi
 
-         config=$(sing_box_cf_add_interface_outbound "$config" "$section" "$interface_name")
+        config=$(sing_box_cf_add_interface_outbound "$config" "$section" "$interface_name")
         ;;
     block)
         log "Connection mode 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
@@ -721,13 +721,13 @@ sing_box_configure_dns() {
 
     config=$(
         sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "" "" \
-        "$dns_domain_resolver"
+            "$dns_domain_resolver"
     )
 
     if [ "$split_dns_enabled" -eq 1 ]; then
         config=$(
             sing_box_cf_add_dns_server "$config" "$split_dns_type" "$SB_SPLIT_DNS_SERVER_TAG" "$split_dns_server" \
-            "" "" "$dns_domain_resolver" "$SB_MAIN_OUTBOUND_TAG"
+                "" "" "$dns_domain_resolver" "$SB_MAIN_OUTBOUND_TAG"
         )
     fi
 
@@ -799,7 +799,7 @@ include_source_ips_in_routing_handler() {
         rule_tag="$(gen_id)"
         config=$(
             sing_box_cm_add_route_rule \
-            "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$(get_outbound_tag_by_section "$section")"
+                "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$(get_outbound_tag_by_section "$section")"
         )
         config_list_foreach "$section" "all_traffic_ip" include_source_ip_in_routing_handler "$rule_tag"
     fi
@@ -848,7 +848,7 @@ configure_routing_for_section_lists() {
     fi
 
     local community_lists_enabled user_domain_list_type local_domain_lists_enabled remote_domain_lists_enabled \
-    user_subnet_list_type local_subnet_lists_enabled remote_subnet_lists_enabled section_mode_type route_rule_tag
+        user_subnet_list_type local_subnet_lists_enabled remote_subnet_lists_enabled section_mode_type route_rule_tag
     config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
     config_get_bool local_domain_lists_enabled "$section" "local_domain_lists_enabled" 0
@@ -886,7 +886,7 @@ configure_routing_for_section_lists() {
         log "Processing remote domains routing rules for '$section' section"
         prepare_common_ruleset "$section" "domains" "$route_rule_tag"
         config_list_foreach "$section" "remote_domain_lists" configure_remote_domain_or_subnet_list_handler \
-        "domains" "$section" "$route_rule_tag"
+            "domains" "$section" "$route_rule_tag"
     fi
 
     if [ "$user_subnet_list_type" != "disabled" ]; then
@@ -904,7 +904,7 @@ configure_routing_for_section_lists() {
         log "Processing remote subnets routing rules for '$section' section"
         prepare_common_ruleset "$section" "subnets" "$route_rule_tag"
         config_list_foreach "$section" "remote_subnet_lists" configure_remote_domain_or_subnet_list_handler \
-        "subnets" "$section" "$route_rule_tag"
+            "subnets" "$section" "$route_rule_tag"
     fi
 }
 
@@ -1003,11 +1003,13 @@ configure_local_domain_or_subnet_lists() {
     case "$type" in
     domains)
         config_list_foreach "$section" "local_domain_lists" import_local_domain_or_subnet_list "$type" \
-        "$section" "$ruleset_filepath"
-        _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
+            "$section" "$ruleset_filepath"
+        _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag"
+        ;;
     subnets)
         config_list_foreach "$section" "local_subnet_lists" import_local_domain_or_subnet_list "$type" \
-        "$section" "$ruleset_filepath";;
+            "$section" "$ruleset_filepath"
+        ;;
     *) log "Unsupported local rule set type: $type" "warn" ;;
     esac
 }
@@ -1050,26 +1052,26 @@ configure_remote_domain_or_subnet_list_handler() {
     local file_extension
     file_extension=$(url_get_file_extension "$url")
     case "$file_extension" in
-        json|srs)
-            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
-            local basename ruleset_tag format detour update_interval
-            basename=$(url_get_basename "$url")
-            ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
-            format="$(get_ruleset_format_by_file_extension "$file_extension")"
-            detour="$(get_download_detour_tag)"
-            config_get update_interval "main" "update_interval" "1d"
+    json | srs)
+        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+        local basename ruleset_tag format detour update_interval
+        basename=$(url_get_basename "$url")
+        ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
+        format="$(get_ruleset_format_by_file_extension "$file_extension")"
+        detour="$(get_download_detour_tag)"
+        config_get update_interval "main" "update_interval" "1d"
 
-            config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
-            config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-            case "$type" in
-            domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
-            subnets) ;;
-            *) log "Unsupported remote rule set type: $type" "warn" ;;
-            esac
-            ;;
-        *)
-            log "Detected file extension: '$file_extension' → no processing needed, managed on list_update" "debug"
-            ;;
+        config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
+        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+        case "$type" in
+        domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
+        subnets) ;;
+        *) log "Unsupported remote rule set type: $type" "warn" ;;
+        esac
+        ;;
+    *)
+        log "Detected file extension: '$file_extension' → no processing needed, managed on list_update" "debug"
+        ;;
     esac
 }
 
@@ -1138,7 +1140,7 @@ sing_box_save_config() {
     log "Save sing-box temporary config to $temp_file_path" "debug"
     sing_box_cm_save_config_to_file "$config" "$temp_file_path"
 
-    current_config_hash=$(md5sum "$sing_box_config_path" 2>/dev/null | awk '{print $1}')
+    current_config_hash=$(md5sum "$sing_box_config_path" 2> /dev/null | awk '{print $1}')
     temp_config_hash=$(md5sum "$temp_file_path" | awk '{print $1}')
     log "Current sing-box config hash: $current_config_hash" "debug"
     log "Temporary sing-box config hash: $temp_config_hash" "debug"
@@ -1154,7 +1156,7 @@ sing_box_save_config() {
 sing_box_config_check() {
     local sing_box_config_path
     config_get sing_box_config_path "main" "config_path"
-    if ! sing-box -c "$sing_box_config_path" check >/dev/null 2>&1; then
+    if ! sing-box -c "$sing_box_config_path" check > /dev/null 2>&1; then
         log "Sing-box configuration is invalid" "fatal"
         exit 1
     fi
@@ -1174,37 +1176,37 @@ import_community_service_subnet_list_handler() {
     local service="$1"
 
     case "$service" in
-        "twitter")
-            URL=$SUBNETS_TWITTER
-            ;;
-        "meta")
-            URL=$SUBNETS_META
-            ;;
-        "telegram")
-            URL=$SUBNETS_TELERAM
-            ;;
-        "cloudflare")
-            URL=$SUBNETS_CLOUDFLARE
-            ;;
-        "hetzner")
-            URL=$SUBNETS_HETZNER
-            ;;
-        "ovh")
-            URL=$SUBNETS_OVH
-            ;;
-        "digitalocean")
-            URL=$SUBNETS_DIGITALOCEAN
-            ;;
-        "cloudfront")
-            URL=$SUBNETS_CLOUDFRONT
-            ;;
-        "discord")
-            URL=$SUBNETS_DISCORD
-            nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
-            nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr \
+    "twitter")
+        URL=$SUBNETS_TWITTER
+        ;;
+    "meta")
+        URL=$SUBNETS_META
+        ;;
+    "telegram")
+        URL=$SUBNETS_TELERAM
+        ;;
+    "cloudflare")
+        URL=$SUBNETS_CLOUDFLARE
+        ;;
+    "hetzner")
+        URL=$SUBNETS_HETZNER
+        ;;
+    "ovh")
+        URL=$SUBNETS_OVH
+        ;;
+    "digitalocean")
+        URL=$SUBNETS_DIGITALOCEAN
+        ;;
+    "cloudfront")
+        URL=$SUBNETS_CLOUDFRONT
+        ;;
+    "discord")
+        URL=$SUBNETS_DISCORD
+        nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
+        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr \
             "@$NFT_DISCORD_SET_NAME" udp dport '{ 50000-65535 }' meta mark set 0x105 counter
-            ;;
-        *) return 0 ;;
+        ;;
+    *) return 0 ;;
     esac
 
     local tmpfile detour http_proxy_address subnets
@@ -1241,19 +1243,19 @@ import_domains_from_remote_domain_lists() {
 import_domains_from_remote_domain_list_handler() {
     local url="$1"
     local section="$2"
-    
+
     log "Importing domains from URL: $url"
 
     local file_extension
     file_extension=$(url_get_file_extension "$url")
     case "$file_extension" in
-        json|srs)
-            log "Detected file extension: '$file_extension' → no update needed, sing-box manages updates" "debug"
-            ;;
-        *)
-            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
-            import_domains_or_subnets_from_remote_file "$url" "$section" "domains"
-            ;;
+    json | srs)
+        log "Detected file extension: '$file_extension' → no update needed, sing-box manages updates" "debug"
+        ;;
+    *)
+        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+        import_domains_or_subnets_from_remote_file "$url" "$section" "domains"
+        ;;
     esac
 }
 
@@ -1262,8 +1264,8 @@ import_subnets_from_remote_subnet_lists() {
 
     config_get remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled"
     if [ "$remote_subnet_lists_enabled" -eq 1 ]; then
-            log "Importing subnets from remote subnet lists for '$section' section"
-            config_list_foreach "$section" "remote_subnet_lists" import_subnets_from_remote_subnet_list_handler "$section"
+        log "Importing subnets from remote subnet lists for '$section' section"
+        config_list_foreach "$section" "remote_subnet_lists" import_subnets_from_remote_subnet_list_handler "$section"
     fi
 }
 
@@ -1276,18 +1278,18 @@ import_subnets_from_remote_subnet_list_handler() {
     local file_extension
     file_extension="$(url_get_file_extension "$url")"
     case "$file_extension" in
-        json)
-            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
-            import_subnets_from_remote_json_file "$url"
-            ;;
-        srs)
-            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
-            import_subnets_from_remote_srs_file "$url"
-            ;;
-        *)
-            log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
-            import_domains_or_subnets_from_remote_file "$url" "$section" "subnets"
-            ;;
+    json)
+        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+        import_subnets_from_remote_json_file "$url"
+        ;;
+    srs)
+        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+        import_subnets_from_remote_srs_file "$url"
+        ;;
+    *)
+        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+        import_domains_or_subnets_from_remote_file "$url" "$section" "subnets"
+        ;;
     esac
 }
 
@@ -1320,7 +1322,7 @@ import_domains_or_subnets_from_remote_file() {
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
     json_array="$(comma_string_to_json_array "$items")"
     case "$type" in
-    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array";;
+    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
     subnets)
         sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
         nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$items"
@@ -1348,7 +1350,7 @@ import_subnets_from_remote_json_file() {
 
 import_subnets_from_remote_srs_file() {
     local url="$1"
-    
+
     local binary_tmpfile json_tmpfile subnets_tmpfile subnets http_proxy_address
     binary_tmpfile="$(mktemp)"
     json_tmpfile="$(mktemp)"
@@ -1408,7 +1410,7 @@ block_section_exists() {
 section_has_enabled_lists() {
     local section="$1"
     local community_lists_enabled user_domain_list_type local_domain_lists_enabled remote_domain_lists_enabled \
-    user_subnet_list_type local_subnet_lists_enabled remote_subnet_lists_enabled
+        user_subnet_list_type local_subnet_lists_enabled remote_subnet_lists_enabled
 
     config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
@@ -1418,13 +1420,13 @@ section_has_enabled_lists() {
     config_get_bool local_subnet_lists_enabled "$section" "local_subnet_lists_enabled" 0
     config_get_bool remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled" 0
 
-    if [ "$community_lists_enabled" -ne 0 ] || \
-       [ "$user_domain_list_type" != "disabled" ] || \
-       [ "$local_domain_lists_enabled" -ne 0 ] || \
-       [ "$remote_domain_lists_enabled" -ne 0 ] || \
-       [ "$user_subnet_list_type" != "disabled" ] || \
-       [ "$local_subnet_lists_enabled" -ne 0 ] || \
-       [ "$remote_subnet_lists_enabled" -ne 0 ]; then
+    if [ "$community_lists_enabled" -ne 0 ] ||
+        [ "$user_domain_list_type" != "disabled" ] ||
+        [ "$local_domain_lists_enabled" -ne 0 ] ||
+        [ "$remote_domain_lists_enabled" -ne 0 ] ||
+        [ "$user_subnet_list_type" != "disabled" ] ||
+        [ "$local_subnet_lists_enabled" -ne 0 ] ||
+        [ "$remote_subnet_lists_enabled" -ne 0 ]; then
         return 0
     else
         return 1
@@ -1446,7 +1448,7 @@ check_proxy() {
     local sing_box_config_path
     config_get sing_box_config_path "main" "config_path"
 
-    if ! command -v sing-box >/dev/null 2>&1; then
+    if ! command -v sing-box > /dev/null 2>&1; then
         nolog "sing-box is not installed"
         return 1
     fi
@@ -1458,7 +1460,7 @@ check_proxy() {
 
     nolog "Checking sing-box configuration..."
 
-    if ! sing-box -c "$sing_box_config_path" check >/dev/null; then
+    if ! sing-box -c "$sing_box_config_path" check > /dev/null; then
         nolog "Invalid configuration"
         return 1
     fi
@@ -1490,35 +1492,34 @@ check_proxy() {
 
     nolog "Checking proxy connection..."
 
-
-   for attempt in `seq 1 5`; do
-       response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2>/dev/null)
-       if echo "$response" | grep -q "^<html\|403 Forbidden"; then
-           continue
-       fi
-       if [[ $response =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-           ip=$(echo "$response" | sed -n 's/^[0-9]\+\.[0-9]\+\.[0-9]\+\.\([0-9]\+\)$/X.X.X.\1/p')
-           nolog "$ip - should match proxy IP"
-           return 0
-       elif echo "$response" | grep -q "^[0-9a-fA-F:]*::[0-9a-fA-F:]*$\|^[0-9a-fA-F:]\+$"; then
-           ip=$(echo "$response" | sed 's/\([0-9a-fA-F]\+:[0-9a-fA-F]\+:[0-9a-fA-F]\+\):.*/\1:XXXX:XXXX:XXXX/')
-           nolog "$ip - should match proxy IP"
-           return 0
-       fi
-       if [ $attempt -eq 5 ]; then
-           nolog "Failed to get valid IP address after 5 attempts"
-           if [ -z "$response" ]; then
-               nolog "Error: Empty response"
-           else
-               nolog "Error response: $response"
-           fi
-           return 1
-       fi
-   done
+    for attempt in $(seq 1 5); do
+        response=$(sing-box tools fetch ifconfig.me -D /etc/sing-box 2> /dev/null)
+        if echo "$response" | grep -q "^<html\|403 Forbidden"; then
+            continue
+        fi
+        if [[ $response =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            ip=$(echo "$response" | sed -n 's/^[0-9]\+\.[0-9]\+\.[0-9]\+\.\([0-9]\+\)$/X.X.X.\1/p')
+            nolog "$ip - should match proxy IP"
+            return 0
+        elif echo "$response" | grep -q "^[0-9a-fA-F:]*::[0-9a-fA-F:]*$\|^[0-9a-fA-F:]\+$"; then
+            ip=$(echo "$response" | sed 's/\([0-9a-fA-F]\+:[0-9a-fA-F]\+:[0-9a-fA-F]\+\):.*/\1:XXXX:XXXX:XXXX/')
+            nolog "$ip - should match proxy IP"
+            return 0
+        fi
+        if [ $attempt -eq 5 ]; then
+            nolog "Failed to get valid IP address after 5 attempts"
+            if [ -z "$response" ]; then
+                nolog "Error: Empty response"
+            else
+                nolog "Error response: $response"
+            fi
+            return 1
+        fi
+    done
 }
 
 check_nft() {
-    if ! command -v nft >/dev/null 2>&1; then
+    if ! command -v nft > /dev/null 2>&1; then
         nolog "nft is not installed"
         return 1
     fi
@@ -1526,7 +1527,7 @@ check_nft() {
     nolog "Checking $NFT_TABLE_NAME rules..."
 
     # Check if table exists
-    if ! nft list table inet "$NFT_TABLE_NAME" >/dev/null 2>&1; then
+    if ! nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
         nolog "❌ $NFT_TABLE_NAME not found"
         return 1
     fi
@@ -1561,9 +1562,9 @@ check_nft() {
 
         nolog "Sets statistics:"
         for set_name in $sets; do
-            if nft list set inet "$NFT_TABLE_NAME" $set_name >/dev/null 2>&1; then
+            if nft list set inet "$NFT_TABLE_NAME" $set_name > /dev/null 2>&1; then
                 # Count elements using grep to count commas and add 1 (last element has no comma)
-                local count=$(nft list set inet "$NFT_TABLE_NAME" $set_name 2>/dev/null | grep -o ',\|{' | wc -l)
+                local count=$(nft list set inet "$NFT_TABLE_NAME" $set_name 2> /dev/null | grep -o ',\|{' | wc -l)
                 echo "- $set_name: $count elements"
             fi
         done
@@ -1600,7 +1601,7 @@ check_github() {
 
     nolog "Checking lists availability:"
     for url in "$DOMAINS_RU_INSIDE" "$DOMAINS_RU_OUTSIDE" "$DOMAINS_UA" "$DOMAINS_YOUTUBE" \
-              "$SUBNETS_TWITTER" "$SUBNETS_META" "$SUBNETS_DISCORD"; do
+        "$SUBNETS_TWITTER" "$SUBNETS_META" "$SUBNETS_DISCORD"; do
         local list_name=$(basename "$url")
 
         config_get_bool detour "main" "detour" "0"
@@ -1635,7 +1636,7 @@ check_dnsmasq() {
 check_sing_box_connections() {
     nolog "Checking sing-box connections..."
 
-    if ! command -v netstat >/dev/null 2>&1; then
+    if ! command -v netstat > /dev/null 2>&1; then
         nolog "netstat is not installed"
         return 1
     fi
@@ -1666,7 +1667,7 @@ check_sing_box_logs() {
 check_logs() {
     nolog "Showing podkop logs from system journal..."
 
-    if ! command -v logread >/dev/null 2>&1; then
+    if ! command -v logread > /dev/null 2>&1; then
         nolog "Error: logread command not found"
         return 1
     fi
@@ -1741,7 +1742,7 @@ show_config() {
         -e 's/\(sid=[^&]*\)/sid=MASKED/g' \
         -e 's/\(option dns_server '\''[^'\'']*\.dns\.nextdns\.io'\''\)/option dns_server '\''MASKED.dns.nextdns.io'\''/g' \
         -e "s|\(option dns_server 'dns\.nextdns\.io\)/[^']*|\1/MASKED|"
-        > "$tmp_config"
+    > "$tmp_config"
 
     cat "$tmp_config"
     rm -f "$tmp_config"
@@ -1783,13 +1784,13 @@ get_sing_box_status() {
     fi
 
     # Check if service is running
-    if pgrep -f "sing-box" >/dev/null; then
+    if pgrep -f "sing-box" > /dev/null; then
         running=1
         version=$(sing-box version | head -n 1 | awk '{print $3}')
     fi
 
     # Check DNS configuration
-    local dns_server=$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)
+    local dns_server=$(uci get dhcp.@dnsmasq[0].server 2> /dev/null)
     if [ "$dns_server" = "127.0.0.42" ]; then
         dns_configured=1
     fi
@@ -1828,8 +1829,8 @@ get_status() {
 }
 
 check_dns_available() {
-    local dns_type=$(uci get podkop.main.dns_type 2>/dev/null)
-    local dns_server=$(uci get podkop.main.dns_server 2>/dev/null)
+    local dns_type=$(uci get podkop.main.dns_type 2> /dev/null)
+    local dns_server=$(uci get podkop.main.dns_server 2> /dev/null)
     local is_available=0
     local status="unavailable"
     local local_dns_working=0
@@ -1847,37 +1848,37 @@ check_dns_available() {
 
     if [ "$dns_type" = "doh" ]; then
         # Generate random DNS query ID (2 bytes)
-        local random_id=$(head -c2 /dev/urandom | hexdump -ve '1/1 "%.2x"' 2>/dev/null)
+        local random_id=$(head -c2 /dev/urandom | hexdump -ve '1/1 "%.2x"' 2> /dev/null)
         if [ $? -ne 0 ]; then
             error_message="Failed to generate random ID"
             status="internal error"
         else
             # Create DNS wire format query for google.com A record with random ID
-            local dns_query=$(printf "\x${random_id:0:2}\x${random_id:2:2}\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03www\x06google\x03com\x00\x00\x01\x00\x01" | base64 2>/dev/null)
+            local dns_query=$(printf "\x${random_id:0:2}\x${random_id:2:2}\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03www\x06google\x03com\x00\x00\x01\x00\x01" | base64 2> /dev/null)
             if [ $? -ne 0 ]; then
                 error_message="Failed to generate DNS query"
                 status="internal error"
             else
                 # Try POST method first (RFC 8484 compliant) with shorter timeout
-                local result=$(echo "$dns_query" | base64 -d 2>/dev/null | curl -H "Content-Type: application/dns-message" \
+                local result=$(echo "$dns_query" | base64 -d 2> /dev/null | curl -H "Content-Type: application/dns-message" \
                     -H "Accept: application/dns-message" \
                     --data-binary @- \
                     --max-time 2 \
                     --connect-timeout 1 \
                     -s \
-                    "https://$dns_server/dns-query" 2>/dev/null)
+                    "https://$dns_server/dns-query" 2> /dev/null)
 
                 if [ $? -eq 0 ] && [ -n "$result" ]; then
                     is_available=1
                     status="available"
                 else
                     # Try GET method as fallback with shorter timeout
-                    local dns_query_no_padding=$(echo "$dns_query" | tr -d '=' 2>/dev/null)
+                    local dns_query_no_padding=$(echo "$dns_query" | tr -d '=' 2> /dev/null)
                     result=$(curl -H "accept: application/dns-message" \
                         --max-time 2 \
                         --connect-timeout 1 \
                         -s \
-                        "https://$dns_server/dns-query?dns=$dns_query_no_padding" 2>/dev/null)
+                        "https://$dns_server/dns-query?dns=$dns_query_no_padding" 2> /dev/null)
 
                     if [ $? -eq 0 ] && [ -n "$result" ]; then
                         is_available=1
@@ -1889,24 +1890,25 @@ check_dns_available() {
             fi
         fi
     elif [ "$dns_type" = "dot" ]; then
-        (nc "$dns_server" 853 </dev/null >/dev/null 2>&1) & pid=$!
+        (nc "$dns_server" 853 < /dev/null > /dev/null 2>&1) &
+        pid=$!
         sleep 2
-        if kill -0 $pid 2>/dev/null; then
-            kill $pid 2>/dev/null
-            wait $pid 2>/dev/null
+        if kill -0 $pid 2> /dev/null; then
+            kill $pid 2> /dev/null
+            wait $pid 2> /dev/null
         else
             is_available=1
             status="available"
         fi
     elif [ "$dns_type" = "udp" ]; then
-        if nslookup -timeout=2 itdog.info $dns_server >/dev/null 2>&1; then
+        if nslookup -timeout=2 itdog.info $dns_server > /dev/null 2>&1; then
             is_available=1
             status="available"
         fi
     fi
 
     # Check if local DNS resolver is working
-    if nslookup -timeout=2 $FAKEIP_TEST_DOMAIN 127.0.0.1 >/dev/null 2>&1; then
+    if nslookup -timeout=2 $FAKEIP_TEST_DOMAIN 127.0.0.1 > /dev/null 2>&1; then
         local_dns_working=1
         local_dns_status="available"
     fi
@@ -1944,21 +1946,21 @@ global_check() {
         print_global "✅ /etc/resolv.conf"
     fi
 
-    cachesize="$(uci get dhcp.@dnsmasq[0].cachesize 2>/dev/null)"
-    noresolv="$(uci get dhcp.@dnsmasq[0].noresolv 2>/dev/null)"
-    server="$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)"
+    cachesize="$(uci get dhcp.@dnsmasq[0].cachesize 2> /dev/null)"
+    noresolv="$(uci get dhcp.@dnsmasq[0].noresolv 2> /dev/null)"
+    server="$(uci get dhcp.@dnsmasq[0].server 2> /dev/null)"
 
     if [ "$cachesize" != "0" ] || [ "$noresolv" != "1" ] || [ "$server" != "127.0.0.42" ]; then
         print_global "❌ DHCP configuration differs from template. 📄 DHCP config:"
         awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
-    elif [ "$(uci get podkop.main.dont_touch_dhcp 2>/dev/null)" = "1" ]; then
+    elif [ "$(uci get podkop.main.dont_touch_dhcp 2> /dev/null)" = "1" ]; then
         print_global "⚠️ dont_touch_dhcp is enabled. 📄 DHCP config:"
         awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
     else
         print_global "✅ /etc/config/dhcp"
     fi
 
-    if ! pgrep -f "sing-box" >/dev/null; then
+    if ! pgrep -f "sing-box" > /dev/null; then
         print_global "❌ sing-box is not running"
     else
         print_global "✅ sing-box is running"
@@ -1970,7 +1972,7 @@ global_check() {
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "📄 WAN config"
-    if uci show network.wan >/dev/null 2>&1; then
+    if uci show network.wan > /dev/null 2>&1; then
         awk '
             /^config / {
                 p = ($2 == "interface" && $3 == "'\''wan'\''")
@@ -2055,7 +2057,7 @@ global_check() {
         print_global "✅ FakeIP is working correctly on router (198.18.x.x)"
     else
         print_global "❌ FakeIP test failed: Domain did not resolve to FakeIP range"
-        if ! pgrep -f "sing-box" >/dev/null; then
+        if ! pgrep -f "sing-box" > /dev/null; then
             print_global " ❌ sing-box is not running"
         else
             print_global " 🤔 sing-box is running"
@@ -2097,77 +2099,77 @@ EOF
 }
 
 case "$1" in
-    start)
-        start
-        ;;
-    stop)
-        stop
-        ;;
-    reload)
-        reload
-        ;;
-    restart)
-        restart
-        ;;
-    main)
-        main
-        ;;
-    list_update)
-        list_update
-        ;;
-    check_proxy)
-        check_proxy
-        ;;
-    check_nft)
-        check_nft
-        ;;
-    check_github)
-        check_github
-        ;;
-    check_logs)
-        check_logs
-        ;;
-    check_sing_box_connections)
-        check_sing_box_connections
-        ;;
-    check_sing_box_logs)
-        check_sing_box_logs
-        ;;
-    check_dnsmasq)
-        check_dnsmasq
-        ;;
-    show_config)
-        show_config
-        ;;
-    show_version)
-        show_version
-        ;;
-    show_sing_box_config)
-        show_sing_box_config
-        ;;
-    show_luci_version)
-        show_luci_version
-        ;;
-    show_sing_box_version)
-        show_sing_box_version
-        ;;
-    show_system_info)
-        show_system_info
-        ;;
-    get_status)
-        get_status
-        ;;
-    get_sing_box_status)
-        get_sing_box_status
-        ;;
-    check_dns_available)
-        check_dns_available
-        ;;
-    global_check)
-        global_check
-        ;;
-    *)
-        show_help
-        exit 1
-        ;;
+start)
+    start
+    ;;
+stop)
+    stop
+    ;;
+reload)
+    reload
+    ;;
+restart)
+    restart
+    ;;
+main)
+    main
+    ;;
+list_update)
+    list_update
+    ;;
+check_proxy)
+    check_proxy
+    ;;
+check_nft)
+    check_nft
+    ;;
+check_github)
+    check_github
+    ;;
+check_logs)
+    check_logs
+    ;;
+check_sing_box_connections)
+    check_sing_box_connections
+    ;;
+check_sing_box_logs)
+    check_sing_box_logs
+    ;;
+check_dnsmasq)
+    check_dnsmasq
+    ;;
+show_config)
+    show_config
+    ;;
+show_version)
+    show_version
+    ;;
+show_sing_box_config)
+    show_sing_box_config
+    ;;
+show_luci_version)
+    show_luci_version
+    ;;
+show_sing_box_version)
+    show_sing_box_version
+    ;;
+show_system_info)
+    show_system_info
+    ;;
+get_status)
+    get_status
+    ;;
+get_sing_box_status)
+    get_sing_box_status
+    ;;
+check_dns_available)
+    check_dns_available
+    ;;
+global_check)
+    global_check
+    ;;
+*)
+    show_help
+    exit 1
+    ;;
 esac
