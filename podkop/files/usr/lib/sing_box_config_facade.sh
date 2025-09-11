@@ -58,14 +58,15 @@ sing_box_cf_add_proxy_outbound() {
     local scheme="${url%%://*}"
     case "$scheme" in
     vless)
-        local tag host port uuid flow
+        local tag host port uuid flow packet_encoding
         tag=$(get_outbound_tag_by_section "$section")
         host=$(url_get_host "$url")
         port=$(url_get_port "$url")
         uuid=$(url_get_userinfo "$url")
         flow=$(url_get_query_param "$url" "flow")
+        packet_encoding=$(url_get_query_param "$url" "packetEncoding")
 
-        config=$(sing_box_cm_add_vless_outbound "$config" "$tag" "$host" "$port" "$uuid" "$flow")
+        config=$(sing_box_cm_add_vless_outbound "$config" "$tag" "$host" "$port" "$uuid" "$flow" "" "$packet_encoding")
 
         local transport
         transport=$(url_get_query_param "$url" "type")
