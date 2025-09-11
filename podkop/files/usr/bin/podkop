@@ -97,13 +97,18 @@ start() {
     config_get interface "main" "interface"
     config_get outbound_json "main" "outbound_json"
 
-    if [ -n "$proxy_string" ] || [ -n "$interface" ] || [ -n "$outbound_json" ]; then
-        start_main
-        config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" 0
-        if [ "$dont_touch_dhcp" -eq 0 ]; then
-            dnsmasq_add_resolver
-        fi
+    if [ -z "$proxy_string" ] && [ -z "$interface" ] && [ -z "$outbound_json" ]; then
+        log "Podkop start aborted: required options (proxy_string, interface, outbound_json) are missing in 'main' section"
+        exit 1
     fi
+
+    start_main
+    config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" 0
+    if [ "$dont_touch_dhcp" -eq 0 ]; then
+        dnsmasq_add_resolver
+    fi
+    uci_set "podkop" "main" "shutdown_correctly" 0
+    uci commit "podkop"
 }
 
 stop_main() {
@@ -143,12 +148,13 @@ stop_main() {
 
 stop() {
     local dont_touch_dhcp
-    config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" "0"
+    config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_restore
     fi
-
     stop_main
+    uci_set "podkop" "main" "shutdown_correctly" 1
+    uci commit "podkop"
 }
 
 reload() {
@@ -306,7 +312,7 @@ create_nft_table() {
     log "Create nft table"
     nft_create_table "$NFT_TABLE_NAME"
 
-    nft_interfaces
+    nft_init_interfaces_set
 
     log "Create localv4 set"
     nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_LOCALV4_SET_NAME"
@@ -347,89 +353,87 @@ create_nft_table() {
     nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto '{ tcp, udp }' meta mark set 0x105 counter
 }
 
-save_dnsmasq_config() {
+backup_dnsmasq_config_option() {
     local key="$1"
     local backup_key="$2"
-    value=$(uci get "$key" 2>/dev/null)
+    local value
+    value="$(uci_get "dhcp" "@dnsmasq[0]" "$key")"
 
-    if [ -z "$value" ]; then
-        uci set "$backup_key"="unset"
-    else
-        uci set "$backup_key"="$value"
+    if [ -n "$value" ]; then
+        uci_set "dhcp" "@dnsmasq[0]" "$backup_key" "$value"
     fi
 }
 
 dnsmasq_add_resolver() {
-    log "Save dnsmasq config"
+    local shutdown_correctly
+    config_get shutdown_correctly "main" "shutdown_correctly"
+    if [ "$shutdown_correctly" -eq 0 ]; then
+        log "Previous shutdown of podkop was not correct, reconfiguration of dnsmasq is not required"
+        return 0
+    fi
 
-    uci -q delete dhcp.@dnsmasq[0].podkop_server
-    for server in $(uci get dhcp.@dnsmasq[0].server 2>/dev/null); do
-        if ! [ "$server" == "$SB_DNS_INBOUND_ADDRESS" ]; then
-            uci add_list dhcp.@dnsmasq[0].podkop_server="$server"
-        fi
-    done
+    log "Backup dnsmasq configuration"
+    current_servers="$(uci_get "dhcp" "@dnsmasq[0]" "server")"
+    if [ -n "$current_servers" ]; then
+        for server in $(uci_get "dhcp" "@dnsmasq[0]" "server"); do
+            if ! [ "$server" == "$SB_DNS_INBOUND_ADDRESS" ]; then
+                uci_add_list "dhcp" "@dnsmasq[0]" "podkop_server" "$server"
+            fi
+        done
+        uci_remove "dhcp" "@dnsmasq[0]" "server"
+    fi
 
-    save_dnsmasq_config "dhcp.@dnsmasq[0].noresolv" "dhcp.@dnsmasq[0].podkop_noresolv"
-    save_dnsmasq_config "dhcp.@dnsmasq[0].cachesize" "dhcp.@dnsmasq[0].podkop_cachesize"
+    backup_dnsmasq_config_option "noresolv" "podkop_noresolv"
+    backup_dnsmasq_config_option "cachesize" "podkop_cachesize"
 
     log "Configure dnsmasq for sing-box"
-    uci -q delete dhcp.@dnsmasq[0].server
-    uci add_list dhcp.@dnsmasq[0].server="$SB_DNS_INBOUND_ADDRESS"
-    uci set dhcp.@dnsmasq[0].noresolv="1"
-    uci set dhcp.@dnsmasq[0].cachesize="0"
-    uci commit dhcp
+    uci_add_list "dhcp" "@dnsmasq[0]" "server" "$SB_DNS_INBOUND_ADDRESS"
+    uci_set "dhcp" "@dnsmasq[0]" "noresolv" 1
+    uci_set "dhcp" "@dnsmasq[0]" "cachesize" 0
+    uci_commit "dhcp"
 
     /etc/init.d/dnsmasq restart
 }
 
 dnsmasq_restore() {
     log "Restoring the dnsmasq configuration"
-
-    local cachesize noresolv current_servers backup_servers found_in_backup
-    cachesize=$(uci get dhcp.@dnsmasq[0].podkop_cachesize 2>/dev/null)
-    if [[ "$cachesize" == "unset" ]]; then
-        log "Cachesize is unset" "debug"
-        uci -q delete dhcp.@dnsmasq[0].cachesize
-    else
-        uci set dhcp.@dnsmasq[0].cachesize="$cachesize"
+    local shutdown_correctly
+    config_get shutdown_correctly "main" "shutdown_correctly"
+    if [ "$shutdown_correctly" -eq 1 ]; then
+        log "Previous shutdown of podkop was correct, reconfiguration of dnsmasq is not required"
+        return 0
     fi
-    uci delete dhcp.@dnsmasq[0].podkop_cachesize
 
-    noresolv=$(uci get dhcp.@dnsmasq[0].podkop_noresolv 2>/dev/null)
-    if [[ "$noresolv" == "unset" ]]; then
-        log "Noresolv is unset" "debug"
-        uci -q delete dhcp.@dnsmasq[0].noresolv
+    local cachesize noresolv backup_servers
+    log "Restoring cachesize" "debug"
+    cachesize="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_cachesize")"
+    if [ -z "$cachesize" ]; then
+        uci_remove "dhcp" "@dnsmasq[0]" "cachesize"
     else
-        uci set dhcp.@dnsmasq[0].noresolv="$noresolv"
+        uci_set "dhcp" "@dnsmasq[0]" "cachesize" "$cachesize"
+        uci_remove "dhcp" "@dnsmasq[0]" "podkop_cachesize"
     fi
-    uci delete dhcp.@dnsmasq[0].podkop_noresolv
 
-    current_servers=$(uci get dhcp.@dnsmasq[0].server 2>/dev/null)
-    backup_servers=$(uci get dhcp.@dnsmasq[0].podkop_server 2>/dev/null)
-    uci -q delete dhcp.@dnsmasq[0].server 2>/dev/null
-    for server in $current_servers; do
-        [ "$server" = "$SB_DNS_INBOUND_ADDRESS" ] && continue
+    log "Restoring noresolv" "debug"
+    noresolv="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_noresolv")"
+    if [ -z "$noresolv" ]; then
+        uci_remove "dhcp" "@dnsmasq[0]" "noresolv"
+    else
+        uci_set "dhcp" "@dnsmasq[0]" "noresolv" "$noresolv"
+        uci_remove "dhcp" "@dnsmasq[0]" "podkop_noresolv"
+    fi
 
-        found_in_backup=0
-        for backup_server in $backup_servers; do
-            if [ "$server" = "$backup_server" ]; then
-                found_in_backup=1
-                break
-            fi
+    log "Restoring DNS servers" "debug"
+    uci_remove "dhcp" "@dnsmasq[0]" "server"
+    backup_servers="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_server")"
+    if [ -n "$backup_servers" ]; then
+        for server in $backup_servers; do
+            uci_add_list "dhcp" "@dnsmasq[0]" "server" "$server"
         done
+        uci_remove "dhcp" "@dnsmasq[0]" "podkop_server"
+    fi
 
-        [ "$found_in_backup" -eq 1 ] && continue
-
-        uci add_list dhcp.@dnsmasq[0].server="$server"
-    done
-
-    backup_servers=$(uci get dhcp.@dnsmasq[0].podkop_server 2>/dev/null)
-    for server in $backup_servers; do
-        uci add_list dhcp.@dnsmasq[0].server="$server"
-    done
-    uci delete dhcp.@dnsmasq[0].podkop_server 2>/dev/null
-
-    uci commit dhcp
+    uci_commit "dhcp"
 
     /etc/init.d/dnsmasq restart
 }
@@ -587,10 +591,6 @@ sing_box_init_config() {
     sing_box_configure_route
     sing_box_configure_experimental
     sing_box_additional_inbounds
-
-    # TODO: remove after refactoring
-    nolog "$config"
-
     sing_box_save_config
 }
 
