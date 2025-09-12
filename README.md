@@ -28,7 +28,7 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 Основные задачи в issues.
 
 ## Рефактор
-- [x] Очевидные повторения в `/usr/bin/podkop` загнать в переменые
+- [ ] Очевидные повторения в `/usr/bin/podkop` загнать в переменые
 - [x] Возможно поменять структуру
 
 ## Списки
