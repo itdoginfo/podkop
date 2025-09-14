@@ -9,10 +9,6 @@ FAKEIP_TEST_DOMAIN="fakeip.podkop.fyi"
 TMP_SING_BOX_FOLDER="/tmp/sing-box"
 TMP_RULESET_FOLDER="$TMP_SING_BOX_FOLDER/rulesets"
 CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker
-# Color constants
-COLOR_CYAN="\033[0;36m"
-COLOR_GREEN="\033[0;32m"
-COLOR_RESET="\033[0m"
 
 ## nft
 NFT_TABLE_NAME="PodkopTable"
