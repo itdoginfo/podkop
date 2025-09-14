@@ -687,14 +687,16 @@ sing_box_configure_dns() {
     fi
     config=$(sing_box_cm_configure_dns "$config" "$final_dns_server" "ipv4_only" true)
 
-    local dns_type dns_server split_dns_type split_dns_server
+    local dns_type dns_server split_dns_type split_dns_server dns_server_address split_dns_server_address
     config_get dns_type "main" "dns_type" "doh"
     config_get dns_server "main" "dns_server" "1.1.1.1"
     config_get split_dns_type "main" "split_dns_type" "udp"
     config_get split_dns_server "main" "split_dns_server" "1.1.1.1"
+    dns_server_address=$(url_get_host "$dns_server")
+    split_dns_server_address=$(url_get_host "$split_dns_server")
 
     local need_dns_domain_resolver=0
-    if ! is_ipv4 "$dns_server" || ! is_ipv4 "$split_dns_server"; then
+    if ! is_ipv4 "$dns_server_address" || ! is_ipv4 "$split_dns_server_address"; then
         need_dns_domain_resolver=1
     fi
 
@@ -715,15 +717,12 @@ sing_box_configure_dns() {
         dns_domain_resolver="$SB_DNS_DOMAIN_RESOLVER_TAG"
     fi
 
-    config=$(
-        sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "" "" \
-            "$dns_domain_resolver"
-    )
+    config=$(sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "$dns_domain_resolver")
 
     if [ "$split_dns_enabled" -eq 1 ]; then
         config=$(
             sing_box_cf_add_dns_server "$config" "$split_dns_type" "$SB_SPLIT_DNS_SERVER_TAG" "$split_dns_server" \
-                "" "" "$dns_domain_resolver" "$SB_MAIN_OUTBOUND_TAG"
+                "$dns_domain_resolver" "$SB_MAIN_OUTBOUND_TAG"
         )
     fi
 

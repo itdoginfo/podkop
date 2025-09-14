@@ -50,20 +50,10 @@ function createAdditionalSection(mainSection, network) {
             return _('DNS server address cannot be empty');
         }
 
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (ipRegex.test(value)) {
-            const parts = value.split('.');
-            for (const part of parts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-            return true;
-        }
+        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
+        const domainRegex = /^(?:https:\/\/)?([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}(:[0-9]{1,5})?(\/[^?#\s]*)?$/;
 
-        const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/[^\s]*)?$/;
-        if (!domainRegex.test(value)) {
+        if (!ipRegex.test(value) && !domainRegex.test(value)) {
             return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
         }
 
@@ -97,20 +87,10 @@ function createAdditionalSection(mainSection, network) {
             return _('DNS server address cannot be empty');
         }
 
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (ipRegex.test(value)) {
-            const parts = value.split('.');
-            for (const part of parts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-            return true;
-        }
+        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
+        const domainRegex = /^(?:https:\/\/)?([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}(:[0-9]{1,5})?(\/[^?#\s]*)?$/;
 
-        const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/[^\s]*)?$/;
-        if (!domainRegex.test(value)) {
+        if (!ipRegex.test(value) && !domainRegex.test(value)) {
             return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
         }
 

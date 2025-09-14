@@ -26,7 +26,7 @@ is_domain() {
 is_base64() {
     local str="$1"
 
-    if echo "$str" | base64 -d >/dev/null 2>&1; then
+    if echo "$str" | base64 -d > /dev/null 2>&1; then
         return 0
     fi
     return 1
@@ -113,19 +113,25 @@ url_decode() {
 # Extracts the userinfo (username[:password]) part from a URL
 url_get_userinfo() {
     local url="$1"
-    echo "$url" | sed -n 's#^[^:]*://\([^@]*\)@.*#\1#p'
+    echo "$url" | sed -n -e 's#^[^:/?]*://##' -e '/@/!d' -e 's/@.*//p'
 }
 
 # Extracts the host part from a URL
 url_get_host() {
     local url="$1"
-    echo "$url" | sed -n 's#^[^:]*://[^@]*@\([^:/?#]*\).*#\1#p'
+    echo "$url" | sed -n -e 's#^[^:/?]*://##' -e 's#^[^/]*@##' -e 's#\([:/].*\|$\)##p'
 }
 
 # Extracts the port number from a URL
 url_get_port() {
     local url="$1"
-    echo "$url" | sed -n 's#^[^:]*://[^@]*@[^:/?#]*:\([0-9]*\).*#\1#p'
+    echo "$url" | sed -n -e 's#^[^:/?]*://##' -e 's#^[^/]*@##' -e 's#^[^/]*:\([0-9][0-9]*\).*#\1#p'
+}
+
+# Extracts the path from a URL (without query or fragment; returns "/" if empty)
+url_get_path() {
+    local url="$1"
+    echo "$url" | sed -n -e 's#^[^:/?]*://##' -e 's#^[^/]*##' -e 's#\([^?]*\).*#\1#p'
 }
 
 # Extracts the value of a specific query parameter from a URL
@@ -157,8 +163,8 @@ url_get_file_extension() {
 
     local basename="${url##*/}"
     case "$basename" in
-        *.*) echo "${basename##*.}" ;;
-        *) echo "" ;;
+    *.*) echo "${basename##*.}" ;;
+    *) echo "" ;;
     esac
 }
 
@@ -167,7 +173,7 @@ base64_decode() {
     local str="$1"
     local decoded_url
 
-    decoded_url="$(echo "$str" | base64 -d 2>/dev/null)"
+    decoded_url="$(echo "$str" | base64 -d 2 > /dev/null)"
 
     echo "$decoded_url"
 }
@@ -288,22 +294,22 @@ parse_domain_or_subnet_string_to_commas_string() {
     local result
     for item in $string; do
         case "$type" in
-            domains)
-                if ! is_domain "$item"; then
-                    log "'$item' is not a valid domain" "debug"
-                    continue
-                fi
-                ;;
-            subnets)
-                if ! is_ipv4_ip_or_ipv4_cidr "$item"; then
-                    log "'$item' is not IPv4 or IPv4 CIDR" "debug"
-                    continue
-                fi
-                ;;
-            *)
-                log "Unknown type: $type" "error"
-                return 1
-                ;;
+        domains)
+            if ! is_domain "$item"; then
+                log "'$item' is not a valid domain" "debug"
+                continue
+            fi
+            ;;
+        subnets)
+            if ! is_ipv4_ip_or_ipv4_cidr "$item"; then
+                log "'$item' is not IPv4 or IPv4 CIDR" "debug"
+                continue
+            fi
+            ;;
+        *)
+            log "Unknown type: $type" "error"
+            return 1
+            ;;
         esac
 
         if [ -z "$result" ]; then
@@ -334,22 +340,22 @@ parse_domain_or_subnet_file_to_comma_string() {
         [ -z "$line" ] && continue
 
         case "$type" in
-            domains)
-                if ! is_domain "$line"; then
-                    log "'$line' is not a valid domain" "debug"
-                    continue
-                fi
-                ;;
-            subnets)
-                if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
-                    log "'$line' is not IPv4 or IPv4 CIDR" "debug"
-                    continue
-                fi
-                ;;
-            *)
-                log "Unknown type: $type" "error"
-                return 1
-                ;;
+        domains)
+            if ! is_domain "$line"; then
+                log "'$line' is not a valid domain" "debug"
+                continue
+            fi
+            ;;
+        subnets)
+            if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
+                log "'$line' is not IPv4 or IPv4 CIDR" "debug"
+                continue
+            fi
+            ;;
+        *)
+            log "Unknown type: $type" "error"
+            return 1
+            ;;
         esac
 
         if [ -z "$result" ]; then

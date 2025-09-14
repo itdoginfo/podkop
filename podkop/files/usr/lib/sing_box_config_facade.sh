@@ -6,24 +6,32 @@ sing_box_cf_add_dns_server() {
     local config="$1"
     local type="$2"
     local tag="$3"
-    local server_address="$4"
-    local path="$5"
-    local headers="$6"
-    local domain_resolver="$7"
-    local detour="$8"
+    local server="$4"
+    local domain_resolver="$5"
+    local detour="$6"
+
+    local server_address server_port
+    server_address=$(url_get_host "$server")
+    server_port=$(url_get_port "$server")
 
     case "$type" in
     udp)
-        config=$(sing_box_cm_add_udp_dns_server "$config" "$tag" "$server_address" 53 "$domain_resolver" "$detour")
+        [ -z "$server_port" ] && server_port=53
+        config=$(sing_box_cm_add_udp_dns_server "$config" "$tag" "$server_address" "$server_port" "$domain_resolver" \
+            "$detour")
         ;;
     dot)
-        config=$(sing_box_cm_add_tls_dns_server "$config" "$tag" "$server_address" 853 "$domain_resolver" "$detour")
+        [ -z "$server_port" ] && server_port=853
+        config=$(sing_box_cm_add_tls_dns_server "$config" "$tag" "$server_address" "$server_port" "$domain_resolver" \
+            "$detour")
         ;;
     doh)
-        config=$(
-            sing_box_cm_add_https_dns_server "$config" "$tag" "$server_address" 443 "$path" "$headers" \
-                "$domain_resolver" "$detour"
-        )
+        [ -z "$server_port" ] && server_port=443
+        local path headers
+        path=$(url_get_path "$server")
+        headers="" # TODO(ampetelin): implement it if necessary
+        config=$(sing_box_cm_add_https_dns_server "$config" "$tag" "$server_address" "$server_port" "$path" "$headers" \
+            "$domain_resolver" "$detour")
         ;;
     *)
         log "Unsupported DNS server type: $type"
