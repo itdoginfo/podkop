@@ -1,8 +1,25 @@
 #!/bin/ash
 
-[ -r /lib/functions.sh ] && . /lib/functions.sh
-[ -r /lib/config/uci.sh ] && . /lib/config/uci.sh
+check_required_file() {
+    local file="$1"
+
+    if [ ! -r "$file" ]; then
+        echo "Error: required file '$file' is missing or not readable" >&2
+        exit 1
+    fi
+}
+
 PODKOP_LIB="/usr/lib/podkop"
+check_required_file /lib/functions.sh
+check_required_file /lib/config/uci.sh
+check_required_file "$PODKOP_LIB/constants.sh"
+check_required_file "$PODKOP_LIB/nft.sh"
+check_required_file "$PODKOP_LIB/helpers.sh"
+check_required_file "$PODKOP_LIB/sing_box_config_manager.sh"
+check_required_file "$PODKOP_LIB/sing_box_config_facade.sh"
+check_required_file "$PODKOP_LIB/logging.sh"
+. /lib/config/uci.sh
+. /lib/functions.sh
 . "$PODKOP_LIB/constants.sh"
 . "$PODKOP_LIB/nft.sh"
 . "$PODKOP_LIB/helpers.sh"
