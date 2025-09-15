@@ -234,18 +234,17 @@ function createConfigSection(section, map, network) {
         return true;
     };
 
-    o = s.taboption('basic', form.Flag, 'domain_list_enabled', _('Community Lists'));
+    o = s.taboption('basic', form.Flag, 'community_lists_enabled', _('Community Lists'));
     o.default = '0';
     o.rmempty = false;
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.DynamicList, 'domain_list', _('Service List'), _('Select predefined service for routing') + ' <a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>');
+    o = s.taboption('basic', form.DynamicList, 'community_lists', _('Service List'), _('Select predefined service for routing') + ' <a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>');
     o.placeholder = 'Service list';
     Object.entries(constants.DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
     });
-
-    o.depends('domain_list_enabled', '1');
+    o.depends('community_lists_enabled', '1');
     o.rmempty = false;
     o.ucisection = s.section;
 
@@ -302,7 +301,7 @@ function createConfigSection(section, map, network) {
         }
     };
 
-    o = s.taboption('basic', form.ListValue, 'custom_domains_list_type', _('User Domain List Type'), _('Select how to add your custom domains'));
+    o = s.taboption('basic', form.ListValue, 'user_domain_list_type', _('User Domain List Type'), _('Select how to add your custom domains'));
     o.value('disabled', _('Disabled'));
     o.value('dynamic', _('Dynamic List'));
     o.value('text', _('Text List'));
@@ -310,9 +309,9 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.DynamicList, 'custom_domains', _('User Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
+    o = s.taboption('basic', form.DynamicList, 'user_domains', _('User Domains'), _('Enter domain names without protocols (example: sub.example.com or example.com)'));
     o.placeholder = 'Domains list';
-    o.depends('custom_domains_list_type', 'dynamic');
+    o.depends('user_domain_list_type', 'dynamic');
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
@@ -324,9 +323,9 @@ function createConfigSection(section, map, network) {
         return true;
     };
 
-    o = s.taboption('basic', form.TextValue, 'custom_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline. You can add comments after //'));
+    o = s.taboption('basic', form.TextValue, 'user_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline. You can add comments after //'));
     o.placeholder = 'example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains';
-    o.depends('custom_domains_list_type', 'text');
+    o.depends('user_domain_list_type', 'text');
     o.rows = 8;
     o.rmempty = false;
     o.ucisection = s.section;
@@ -365,14 +364,14 @@ function createConfigSection(section, map, network) {
         return true;
     };
 
-    o = s.taboption('basic', form.Flag, 'custom_local_domains_list_enabled', _('Local Domain Lists'), _('Use the list from the router filesystem'));
+    o = s.taboption('basic', form.Flag, 'local_domain_lists_enabled', _('Local Domain Lists'), _('Use the list from the router filesystem'));
     o.default = '0';
     o.rmempty = false;
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.DynamicList, 'custom_local_domains', _('Local Domain Lists Path'), _('Enter the list file path'));
+    o = s.taboption('basic', form.DynamicList, 'local_domain_lists', _('Local Domain List Paths'), _('Enter the list file path'));
     o.placeholder = '/path/file.lst';
-    o.depends('custom_local_domains_list_enabled', '1');
+    o.depends('local_domain_lists_enabled', '1');
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
@@ -384,14 +383,14 @@ function createConfigSection(section, map, network) {
         return true;
     };
 
-    o = s.taboption('basic', form.Flag, 'custom_download_domains_list_enabled', _('Remote Domain Lists'), _('Download and use domain lists from remote URLs'));
+    o = s.taboption('basic', form.Flag, 'remote_domain_lists_enabled', _('Remote Domain Lists'), _('Download and use domain lists from remote URLs'));
     o.default = '0';
     o.rmempty = false;
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.DynamicList, 'custom_download_domains', _('Remote Domain URLs'), _('Enter full URLs starting with http:// or https://'));
+    o = s.taboption('basic', form.DynamicList, 'remote_domain_lists', _('Remote Domain URLs'), _('Enter full URLs starting with http:// or https://'));
     o.placeholder = 'URL';
-    o.depends('custom_download_domains_list_enabled', '1');
+    o.depends('remote_domain_lists_enabled', '1');
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
@@ -399,7 +398,26 @@ function createConfigSection(section, map, network) {
         return validateUrl(value);
     };
 
-    o = s.taboption('basic', form.ListValue, 'custom_subnets_list_enabled', _('User Subnet List Type'), _('Select how to add your custom subnets'));
+    o = s.taboption('basic', form.Flag, 'local_subnet_lists_enabled', _('Local Subnet Lists'), _('Use the list from the router filesystem'));
+    o.default = '0';
+    o.rmempty = false;
+    o.ucisection = s.section;
+
+    o = s.taboption('basic', form.DynamicList, 'local_subnet_lists', _('Local Subnet List Paths'), _('Enter the list file path'));
+    o.placeholder = '/path/file.lst';
+    o.depends('local_subnet_lists_enabled', '1');
+    o.rmempty = false;
+    o.ucisection = s.section;
+    o.validate = function (section_id, value) {
+        if (!value || value.length === 0) return true;
+        const pathRegex = /^\/[a-zA-Z0-9_\-\/\.]+$/;
+        if (!pathRegex.test(value)) {
+            return _('Invalid path format. Path must start with "/" and contain valid characters');
+        }
+        return true;
+    };
+
+    o = s.taboption('basic', form.ListValue, 'user_subnet_list_type', _('User Subnet List Type'), _('Select how to add your custom subnets'));
     o.value('disabled', _('Disabled'));
     o.value('dynamic', _('Dynamic List'));
     o.value('text', _('Text List (comma/space/newline separated)'));
@@ -407,9 +425,9 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.DynamicList, 'custom_subnets', _('User Subnets'), _('Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses'));
+    o = s.taboption('basic', form.DynamicList, 'user_subnets', _('User Subnets'), _('Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses'));
     o.placeholder = 'IP or subnet';
-    o.depends('custom_subnets_list_enabled', 'dynamic');
+    o.depends('user_subnet_list_type', 'dynamic');
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
@@ -432,9 +450,9 @@ function createConfigSection(section, map, network) {
         return true;
     };
 
-    o = s.taboption('basic', form.TextValue, 'custom_subnets_text', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments after //'));
+    o = s.taboption('basic', form.TextValue, 'user_subnets_text', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments after //'));
     o.placeholder = '103.21.244.0/22\n// Google DNS\n8.8.8.8\n1.1.1.1/32, 9.9.9.9 // Cloudflare and Quad9';
-    o.depends('custom_subnets_list_enabled', 'text');
+    o.depends('user_subnet_list_type', 'text');
     o.rows = 10;
     o.rmempty = false;
     o.ucisection = s.section;
@@ -489,14 +507,14 @@ function createConfigSection(section, map, network) {
         return true;
     };
 
-    o = s.taboption('basic', form.Flag, 'custom_download_subnets_list_enabled', _('Remote Subnet Lists'), _('Download and use subnet lists from remote URLs'));
+    o = s.taboption('basic', form.Flag, 'remote_subnet_lists_enabled', _('Remote Subnet Lists'), _('Download and use subnet lists from remote URLs'));
     o.default = '0';
     o.rmempty = false;
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.DynamicList, 'custom_download_subnets', _('Remote Subnet URLs'), _('Enter full URLs starting with http:// or https://'));
+    o = s.taboption('basic', form.DynamicList, 'remote_subnet_lists', _('Remote Subnet URLs'), _('Enter full URLs starting with http:// or https://'));
     o.placeholder = 'URL';
-    o.depends('custom_download_subnets_list_enabled', '1');
+    o.depends('remote_subnet_lists_enabled', '1');
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {

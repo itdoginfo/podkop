@@ -97,7 +97,7 @@ msgstr ""
 msgid "Use the list from the router filesystem"
 msgstr ""
 
-msgid "Local Domain Lists Path"
+msgid "Local Domain List Paths"
 msgstr ""
 
 msgid "Enter to the list file path"
@@ -1250,4 +1250,13 @@ msgid "Delay in milliseconds before reloading podkop after interface UP"
 msgstr ""
 
 msgid "Delay value cannot be empty"
+msgstr ""
+
+msgid "Local Subnet Lists"
+msgstr ""
+
+msgid "Local Subnet List Paths"
+msgstr ""
+
+msgid "Config File Path"
 msgstr ""

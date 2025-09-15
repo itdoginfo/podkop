@@ -97,8 +97,8 @@ msgstr "Локальные списки доменов"
 msgid "Use the list from the router filesystem"
 msgstr "Использовать список из файловой системы роутера"
 
-msgid "Local Domain Lists Path"
-msgstr "Путь к локальным спискам доменов"
+msgid "Local Domain List Paths"
+msgstr "Пути к локальным спискам доменов"
 
 msgid "Enter to the list file path"
 msgstr "Введите путь к файлу списка"
@@ -897,3 +897,12 @@ msgstr "Задержка в миллисекундах перед перезаг
 
 msgid "Delay value cannot be empty"
 msgstr "Значение не может быть пустым"
+
+msgid "Local Subnet Lists"
+msgstr "Локальные списки подсетей"
+
+msgid "Local Subnet List Paths"
+msgstr "Пути к локальным спискам подсетей"
+
+msgid "Config File Path"
+msgstr "Путь к файлу конфигурации"

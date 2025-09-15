@@ -55,6 +55,9 @@ define Package/podkop/install
 
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) ./files/usr/bin/podkop $(1)/usr/bin/podkop
+
+	$(INSTALL_DIR) $(1)/usr/lib/podkop
+	$(CP) ./files/usr/lib/* $(1)/usr/lib/podkop/
 endef
 
 $(eval $(call BuildPackage,podkop))

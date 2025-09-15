@@ -50,20 +50,10 @@ function createAdditionalSection(mainSection, network) {
             return _('DNS server address cannot be empty');
         }
 
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (ipRegex.test(value)) {
-            const parts = value.split('.');
-            for (const part of parts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-            return true;
-        }
+        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
+        const domainRegex = /^(?:https:\/\/)?([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}(:[0-9]{1,5})?(\/[^?#\s]*)?$/;
 
-        const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/[^\s]*)?$/;
-        if (!domainRegex.test(value)) {
+        if (!ipRegex.test(value) && !domainRegex.test(value)) {
             return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
         }
 
@@ -97,20 +87,10 @@ function createAdditionalSection(mainSection, network) {
             return _('DNS server address cannot be empty');
         }
 
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (ipRegex.test(value)) {
-            const parts = value.split('.');
-            for (const part of parts) {
-                const num = parseInt(part);
-                if (num < 0 || num > 255) {
-                    return _('IP address parts must be between 0 and 255');
-                }
-            }
-            return true;
-        }
+        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
+        const domainRegex = /^(?:https:\/\/)?([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}(:[0-9]{1,5})?(\/[^?#\s]*)?$/;
 
-        const domainRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/[^\s]*)?$/;
-        if (!domainRegex.test(value)) {
+        if (!ipRegex.test(value) && !domainRegex.test(value)) {
             return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
         }
 
@@ -134,10 +114,17 @@ function createAdditionalSection(mainSection, network) {
         return true;
     };
 
-    o = mainSection.taboption('additional', form.Value, 'cache_file', _('Cache File Path'), _('Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing'));
-    o.value('/tmp/cache.db', 'RAM (/tmp/cache.db)');
+    o = mainSection.taboption('additional', form.ListValue, 'config_path', _('Config File Path'), _('Select path for sing-box config file. Change this ONLY if you know what you are doing'));
+    o.value('/etc/sing-box/config.json', 'Flash (/etc/sing-box/config.json)');
+    o.value('/tmp/sing-box/config.json', 'RAM (/tmp/sing-box/config.json)');
+    o.default = '/etc/sing-box/config.json';
+    o.rmempty = false;
+    o.ucisection = 'main';
+
+    o = mainSection.taboption('additional', form.Value, 'cache_path', _('Cache File Path'), _('Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing'));
+    o.value('/tmp/sing-box/cache.db', 'RAM (/tmp/sing-box/cache.db)');
     o.value('/usr/share/sing-box/cache.db', 'Flash (/usr/share/sing-box/cache.db)');
-    o.default = '/tmp/cache.db';
+    o.default = '/tmp/sing-box/cache.db';
     o.rmempty = false;
     o.ucisection = 'main';
     o.validate = function (section_id, value) {
@@ -220,6 +207,7 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
 
+    // TODO(ampetelin): Can be moved to advanced settings in luci
     // Extra IPs and exclusions (main section)
     o = mainSection.taboption('basic', form.Flag, 'exclude_from_ip_enabled', _('IP for exclusion'), _('Specify local IP addresses that will never use the configured route'));
     o.default = '0';
