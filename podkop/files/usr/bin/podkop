@@ -1375,7 +1375,7 @@ get_service_proxy_address() {
     local detour
     config_get_bool detour "main" "detour" 0
     if [ "$detour" -eq 1 ]; then
-        echo "$SB_SERVICE_MIXED_INBOUND_TAG:$SB_SERVICE_MIXED_INBOUND_PORT"
+        echo "$SB_SERVICE_MIXED_INBOUND_ADDRESS:$SB_SERVICE_MIXED_INBOUND_PORT"
     else
         echo ""
     fi
