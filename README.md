@@ -51,3 +51,5 @@ sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/mai
 ## Тесты
 - [ ] Unit тесты (BATS)
 - [ ] Интеграционые тесты бекенда (OpenWrt rootfs + BATS)
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/itdoginfo/podkop)
