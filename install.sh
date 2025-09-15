@@ -108,6 +108,15 @@ check_system() {
     MODEL=$(cat /tmp/sysinfo/model)
     msg "Router model: $MODEL"
 
+    # Check OpenWrt version
+    openwrt_version=$(cat /etc/openwrt_release | grep DISTRIB_RELEASE | cut -d"'" -f2 | cut -d'.' -f1)
+    if [ "$openwrt_version" = "23" ]; then
+        msg "OpenWrt 23.05 не поддерживается начиная с podkop 0.5.0"
+        msg "Для OpenWrt 23.05 используйте podkop версии 0.4.11 или устанавливайте зависимости и podkop вручную"
+        msg "Подробности: https://podkop.net/docs/install/#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%ba%d0%b0-%d0%bd%d0%b0-2305"
+        exit 1
+    fi
+
     # Check available space
     AVAILABLE_SPACE=$(df /overlay | awk 'NR==2 {print $4}')
     REQUIRED_SPACE=15360 # 15MB in KB
@@ -150,7 +159,7 @@ sing_box() {
     fi
 
     sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
-    required_version="1.11.1"
+    required_version="1.12.4"
 
     if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than required $required_version"

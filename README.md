@@ -10,6 +10,7 @@
 - Информация здесь может быть устаревшей. Все изменения фиксируются в [телеграм-чате](https://t.me/itdogchat/81758/420321).
 - [Если у вас не что-то не работает.](https://podkop.net/docs/diagnostics/)
 - Если у вас установлен Getdomains, [его следует удалить](https://github.com/itdoginfo/domain-routing-openwrt?tab=readme-ov-file#%D1%81%D0%BA%D1%80%D0%B8%D0%BF%D1%82-%D0%B4%D0%BB%D1%8F-%D1%83%D0%B4%D0%B0%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F).
+- Требуется версия OpenWrt минимум 24.10.
 
 # Документация
 https://podkop.net/
