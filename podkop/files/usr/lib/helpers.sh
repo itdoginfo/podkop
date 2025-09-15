@@ -173,7 +173,7 @@ base64_decode() {
     local str="$1"
     local decoded_url
 
-    decoded_url="$(echo "$str" | base64 -d 2 > /dev/null)"
+    decoded_url="$(echo "$str" | base64 -d 2> /dev/null)"
 
     echo "$decoded_url"
 }
