@@ -66,7 +66,6 @@ start_main() {
 
     # sing-box
     sing_box_init_config
-    sing_box_config_check
     config_foreach add_cron_job
     /etc/init.d/sing-box start
 
@@ -1167,6 +1166,8 @@ sing_box_save_config() {
     log "Save sing-box temporary config to $temp_file_path" "debug"
     sing_box_cm_save_config_to_file "$config" "$temp_file_path"
 
+    sing_box_config_check "$temp_file_path"
+
     current_config_hash=$(md5sum "$sing_box_config_path" 2> /dev/null | awk '{print $1}')
     temp_config_hash=$(md5sum "$temp_file_path" | awk '{print $1}')
     log "Current sing-box config hash: $current_config_hash" "debug"
@@ -1181,10 +1182,10 @@ sing_box_save_config() {
 }
 
 sing_box_config_check() {
-    local sing_box_config_path
-    config_get sing_box_config_path "main" "config_path"
-    if ! sing-box -c "$sing_box_config_path" check > /dev/null 2>&1; then
-        log "Sing-box configuration is invalid" "fatal"
+    local config_path="$1"
+
+    if ! sing-box -c "$config_path" check > /dev/null 2>&1; then
+        log "Sing-box configuration $config_path is invalid" "fatal"
         exit 1
     fi
 }
