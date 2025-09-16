@@ -208,7 +208,7 @@ function createConfigSection(section, map, network) {
 
     o = s.taboption('basic', form.DynamicList, 'urltest_proxy_links', _('URLTest Proxy Links'));
     o.depends('proxy_config_type', 'urltest');
-    o.placeholder = 'vless:// or ss// link';
+    o.placeholder = 'vless:// or ss:// link';
     o.rmempty = false;
 
     o = s.taboption('basic', form.Flag, 'ss_uot', _('Shadowsocks UDP over TCP'), _('Apply for SS2022'));
