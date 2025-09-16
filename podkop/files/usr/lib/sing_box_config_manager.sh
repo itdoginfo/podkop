@@ -876,7 +876,7 @@ sing_box_cm_add_urltest_outbound() {
             + (if $interval != "" then {interval: $interval} else {} end)
             + (if $tolerance != "" then {tolerance: ($tolerance | tonumber)} else {} end)
             + (if $idle_timeout != "" then {idle_timeout: $idle_timeout} else {} end)
-            + (if $interrupt_exist_connections == "true" then {interrupt_exist_connections: $interrupt_exist_connections} else {} end)
+            + (if $interrupt_exist_connections == "true" then {interrupt_exist_connections: true} else {} end)
         ]'
 }
 
@@ -912,7 +912,7 @@ sing_box_cm_add_selector_outbound() {
                 outbounds: $outbounds,
                 default: $default
             }
-            + (if $interrupt_exist_connections == "true" then {interrupt_exist_connections: $interrupt_exist_connections} else {} end)
+            + (if $interrupt_exist_connections == "true" then {interrupt_exist_connections: true} else {} end)
         ]'
 }
 
