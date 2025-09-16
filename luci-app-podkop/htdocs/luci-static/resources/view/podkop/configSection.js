@@ -32,6 +32,7 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.ListValue, 'proxy_config_type', _('Configuration Type'), _('Select how to configure the proxy'));
     o.value('url', _('Connection URL'));
     o.value('outbound', _('Outbound Config'));
+    o.value('urltest', _('URLTest'));
     o.default = 'url';
     o.depends('mode', 'proxy');
     o.ucisection = s.section;
@@ -204,6 +205,11 @@ function createConfigSection(section, map, network) {
             return _('Invalid JSON format');
         }
     };
+
+    o = s.taboption('basic', form.DynamicList, 'urltest_proxy_links', _('URLTest Proxy Links'));
+    o.depends('proxy_config_type', 'urltest');
+    o.placeholder = 'vless:// or ss// link';
+    o.rmempty = false;
 
     o = s.taboption('basic', form.Flag, 'ss_uot', _('Shadowsocks UDP over TCP'), _('Apply for SS2022'));
     o.default = '0';
