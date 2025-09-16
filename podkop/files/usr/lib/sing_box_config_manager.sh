@@ -833,6 +833,90 @@ sing_box_cm_add_raw_outbound() {
 }
 
 #######################################
+# Add a URLTest outbound to the outbounds section of a sing-box JSON configuration.
+# Arguments:
+#   config: JSON configuration
+#   tag: string, identifier for the URLTest outbound
+#   outbounds: JSON array of outbound tags to test
+#   url: URL to probe (optional)
+#   interval: test interval (e.g., "10s") (optional)
+#   tolerance: max latency difference tolerated (optional)
+#   idle_timeout: idle timeout duration (optional)
+#   interrupt_exist_connections: flag to interrupt existing connections ("true"/"false") (optional)
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_urltest_outbound "$CONFIG" "auto-select" '["proxy1","proxy2"]')
+#######################################
+sing_box_cm_add_urltest_outbound() {
+    local config="$1"
+    local tag="$2"
+    local outbounds="$3"
+    local url="$4"
+    local interval="$5"
+    local tolerance="$6"
+    local idle_timeout="$7"
+    local interrupt_exist_connections="$8"
+
+    echo "$config" | jq \
+        --arg tag "$tag" \
+        --argjson outbounds "$outbounds" \
+        --arg url "$url" \
+        --arg interval "$interval" \
+        --arg tolerance "$tolerance" \
+        --arg idle_timeout "$idle_timeout" \
+        --arg interrupt_exist_connections "$interrupt_exist_connections" \
+        '.outbounds += [
+            {
+                type: "urltest",
+                tag: $tag,
+                outbounds: $outbounds
+            }
+            + (if $url != "" then {url: $url} else {} end)
+            + (if $interval != "" then {interval: $interval} else {} end)
+            + (if $tolerance != "" then {tolerance: ($tolerance | tonumber)} else {} end)
+            + (if $idle_timeout != "" then {idle_timeout: $idle_timeout} else {} end)
+            + (if $interrupt_exist_connections == "true" then {interrupt_exist_connections: $interrupt_exist_connections} else {} end)
+        ]'
+}
+
+#######################################
+# Add a Selector outbound to the outbounds section of a sing-box JSON configuration.
+# Arguments:
+#   config: JSON configuration
+#   tag: string, identifier for the Selector outbound
+#   outbounds: JSON array of outbound tags to choose from
+#   default: default outbound tag if none selected (optional)
+#   interrupt_exist_connections: flag to interrupt existing connections ("true"/"false") (optional)
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_selector_outbound "$CONFIG" "select-proxy" '["proxy1","proxy2"]')
+#######################################
+sing_box_cm_add_selector_outbound() {
+    local config="$1"
+    local tag="$2"
+    local outbounds="$3"
+    local default="$4"
+    local interrupt_exist_connections="$5"
+
+    echo "$config" | jq \
+        --arg tag "$tag" \
+        --argjson outbounds "$outbounds" \
+        --arg default "$default" \
+        --arg interrupt_exist_connections "$interrupt_exist_connections" \
+        '.outbounds += [
+            {
+                type: "selector",
+                tag: $tag,
+                outbounds: $outbounds,
+                default: $default
+            }
+            + (if $interrupt_exist_connections == "true" then {interrupt_exist_connections: $interrupt_exist_connections} else {} end)
+        ]'
+}
+
+#######################################
 # Configure the route section of a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)

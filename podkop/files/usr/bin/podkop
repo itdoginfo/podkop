@@ -83,13 +83,14 @@ start_main() {
 }
 
 start() {
-    local proxy_string interface outbound_json dont_touch_dhcp
+    local proxy_string interface outbound_json urltest_proxy_links dont_touch_dhcp
     config_get proxy_string "main" "proxy_string"
     config_get interface "main" "interface"
     config_get outbound_json "main" "outbound_json"
+    config_get urltest_proxy_links "main" "urltest_proxy_links"
 
-    if [ -z "$proxy_string" ] && [ -z "$interface" ] && [ -z "$outbound_json" ]; then
-        log "Podkop start aborted: required options (proxy_string, interface, outbound_json) are missing in 'main' section"
+    if [ -z "$proxy_string" ] && [ -z "$interface" ] && [ -z "$outbound_json" ] && [ -z "$urltest_proxy_links" ]; then
+        log "Required options (proxy_string, interface, outbound_json, urltest_proxy_links) are missing in 'main' section. Aborted." "fatal"
         exit 1
     fi
 
@@ -629,7 +630,7 @@ configure_outbound_handler() {
 
         case "$proxy_config_type" in
         url)
-            log "Detected proxy configuration type: url"
+            log "Detected proxy configuration type: url" "debug"
             local proxy_string udp_over_tcp
             config_get proxy_string "$section" "proxy_string"
             config_get udp_over_tcp "$section" "ss_uot"
@@ -643,10 +644,41 @@ configure_outbound_handler() {
             config=$(sing_box_cf_add_proxy_outbound "$config" "$section" "$active_proxy_string" "$udp_over_tcp")
             ;;
         outbound)
-            log "Detected proxy configuration type: outbound"
+            log "Detected proxy configuration type: outbound" "debug"
             local json_outbound
             config_get json_outbound "$section" "outbound_json"
             config=$(sing_box_cf_add_json_outbound "$config" "$section" "$json_outbound")
+            ;;
+        urltest)
+            log "Detected proxy configuration type: urltest" "debug"
+            local urltest_proxy_links udp_over_tcp i urltest_tag selector_tag outbound_tag outbound_tags \
+                urltest_outbounds selector_outbounds
+            config_get urltest_proxy_links "$section" "urltest_proxy_links"
+            config_get udp_over_tcp "$section" "ss_uot"
+
+            if [ -z "$urltest_proxy_links" ]; then
+                log "URLTest proxy links is not set. Aborted." "fatal"
+                exit 1
+            fi
+
+            i=1
+            for link in $urltest_proxy_links; do
+                config="$(sing_box_cf_add_proxy_outbound "$config" "$section-$i" "$link" "$udp_over_tcp")"
+                outbound_tag="$(get_outbound_tag_by_section "$section-$i")"
+                if [ -z "$outbound_tags" ]; then
+                    outbound_tags="$outbound_tag"
+                else
+                    outbound_tags="$outbound_tags,$outbound_tag"
+                fi
+                i=$((i+1))
+            done
+
+            urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
+            selector_tag="$(get_outbound_tag_by_section "$section")"
+            urltest_outbounds="$(comma_string_to_json_array "$outbound_tags")"
+            selector_outbounds="$(comma_string_to_json_array "$outbound_tags,$urltest_tag")"
+            config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds")"
+            config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag")"
             ;;
         *)
             log "Unknown proxy configuration type: '$proxy_config_type'. Aborted." "fatal"
