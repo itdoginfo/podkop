@@ -1752,15 +1752,14 @@ show_sing_box_config() {
 }
 
 show_config() {
-    if [ ! -f /etc/config/podkop ]; then
+    if [ ! -f "$PODKOP_CONFIG" ]; then
         nolog "Configuration file not found"
         return 1
     fi
 
     tmp_config=$(mktemp)
 
-    cat /etc/config/podkop | sed \
-        -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
+    sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option outbound_json\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option second_proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option second_outbound_json\).*/\1 '\''MASKED'\''/g' \
@@ -1769,8 +1768,9 @@ show_config() {
         -e 's/\(pbk=[^&]*\)/pbk=MASKED/g' \
         -e 's/\(sid=[^&]*\)/sid=MASKED/g' \
         -e 's/\(option dns_server '\''[^'\'']*\.dns\.nextdns\.io'\''\)/option dns_server '\''MASKED.dns.nextdns.io'\''/g' \
-        -e "s|\(option dns_server 'dns\.nextdns\.io\)/[^']*|\1/MASKED|"
-    > "$tmp_config"
+        -e "s|\(option dns_server 'dns\.nextdns\.io\)/[^']*|\1/MASKED|" \
+        -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
+        "$PODKOP_CONFIG" > "$tmp_config"
 
     cat "$tmp_config"
     rm -f "$tmp_config"
