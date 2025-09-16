@@ -16,10 +16,18 @@ is_ipv4_ip_or_ipv4_cidr() {
     is_ipv4 "$1" || is_ipv4_cidr "$1"
 }
 
-# Check if string is valid domain
 is_domain() {
     local str="$1"
-    echo "$str" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]))+$'
+    local regex='^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'
+
+    [[ "$str" =~ $regex ]]
+}
+
+is_domain_suffix() {
+    local str="$1"
+    local normalized="${str#.}"
+
+    is_domain "$normalized"
 }
 
 # Checks if the given string is a valid base64-encoded sequence
@@ -295,7 +303,7 @@ parse_domain_or_subnet_string_to_commas_string() {
     for item in $string; do
         case "$type" in
         domains)
-            if ! is_domain "$item"; then
+            if ! is_domain_suffix "$item"; then
                 log "'$item' is not a valid domain" "debug"
                 continue
             fi
@@ -341,7 +349,7 @@ parse_domain_or_subnet_file_to_comma_string() {
 
         case "$type" in
         domains)
-            if ! is_domain "$line"; then
+            if ! is_domain_suffix "$line"; then
                 log "'$line' is not a valid domain" "debug"
                 continue
             fi

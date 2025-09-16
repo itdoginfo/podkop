@@ -1021,7 +1021,7 @@ import_local_domain_or_subnet_list() {
     fi
 
     local items json_array
-    items="$(parse_domain_or_subnet_file_to_comma_string "$tmpfile" "domains")"
+    items="$(parse_domain_or_subnet_file_to_comma_string "$filepath" "$type")"
 
     if [ -z "$items" ]; then
         log "No valid $type found in $filepath"
