@@ -240,14 +240,8 @@ migration() {
 validate_service() {
     local service="$1"
 
-    for domain_service in $COMMUNITY_DOMAIN_SERVICES; do
-        if [ "$service" = "$domain_service" ]; then
-            return 0
-        fi
-    done
-
-    for subnet_service in $COMMUNITY_SUBNET_SERVICES; do
-        if [ "$service" = "$subnet_service" ]; then
+    for community_service in $COMMUNITY_SERVICES; do
+        if [ "$service" = "$community_service" ]; then
             return 0
         fi
     done
@@ -977,13 +971,7 @@ configure_community_list_handler() {
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-
-    for service in $COMMUNITY_DOMAIN_SERVICES; do
-        if [ "$tag" = "$service" ]; then
-            _add_ruleset_to_dns_rules "$ruleset_tag"
-            break
-        fi
-    done
+    _add_ruleset_to_dns_rules "$ruleset_tag"
 }
 
 configure_user_domain_or_subnets_list() {
