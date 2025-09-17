@@ -66,7 +66,6 @@ start_main() {
 
     # sing-box
     sing_box_init_config
-    sing_box_config_check
     config_foreach add_cron_job
     /etc/init.d/sing-box start
 
@@ -239,23 +238,29 @@ migration() {
 }
 
 validate_service() {
-    local domain="$1"
+    local service="$1"
 
-    for valid_service in $VALID_SERVICES; do
-        if [ "$domain" = "$valid_service" ]; then
+    for domain_service in $COMMUNITY_DOMAIN_SERVICES; do
+        if [ "$service" = "$domain_service" ]; then
             return 0
         fi
     done
 
-    log "Invalid service in domain_list: $domain. Exiting. Check config and LuCI cache"
+    for subnet_service in $COMMUNITY_SUBNET_SERVICES; do
+        if [ "$service" = "$subnet_service" ]; then
+            return 0
+        fi
+    done
+
+    log "Invalid service in community lists: $service. Check config and LuCI cache. Aborted." "fatal"
     exit 1
 }
 
 process_validate_service() {
-    local domain_list_enabled
-    config_get_bool domain_list_enabled "$section" "domain_list_enabled" 0
-    if [ "$domain_list_enabled" -eq 1 ]; then
-        config_list_foreach "$section" domain_list validate_service
+    local community_lists_enabled
+    config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
+    if [ "$community_lists_enabled" -eq 1 ]; then
+        config_list_foreach "$section" "community_lists" validate_service
     fi
 }
 
@@ -971,8 +976,14 @@ configure_community_list_handler() {
     config_get update_interval "main" "update_interval" "1d"
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
-    _add_ruleset_to_dns_rules "$ruleset_tag"
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+
+    for service in $COMMUNITY_DOMAIN_SERVICES; do
+        if [ "$tag" = "$service" ]; then
+            _add_ruleset_to_dns_rules "$ruleset_tag"
+            break
+        fi
+    done
 }
 
 configure_user_domain_or_subnets_list() {
@@ -1167,6 +1178,8 @@ sing_box_save_config() {
     log "Save sing-box temporary config to $temp_file_path" "debug"
     sing_box_cm_save_config_to_file "$config" "$temp_file_path"
 
+    sing_box_config_check "$temp_file_path"
+
     current_config_hash=$(md5sum "$sing_box_config_path" 2> /dev/null | awk '{print $1}')
     temp_config_hash=$(md5sum "$temp_file_path" | awk '{print $1}')
     log "Current sing-box config hash: $current_config_hash" "debug"
@@ -1181,10 +1194,10 @@ sing_box_save_config() {
 }
 
 sing_box_config_check() {
-    local sing_box_config_path
-    config_get sing_box_config_path "main" "config_path"
-    if ! sing-box -c "$sing_box_config_path" check > /dev/null 2>&1; then
-        log "Sing-box configuration is invalid" "fatal"
+    local config_path="$1"
+
+    if ! sing-box -c "$config_path" check > /dev/null 2>&1; then
+        log "Sing-box configuration $config_path is invalid" "fatal"
         exit 1
     fi
 }
@@ -1752,15 +1765,14 @@ show_sing_box_config() {
 }
 
 show_config() {
-    if [ ! -f /etc/config/podkop ]; then
+    if [ ! -f "$PODKOP_CONFIG" ]; then
         nolog "Configuration file not found"
         return 1
     fi
 
     tmp_config=$(mktemp)
 
-    cat /etc/config/podkop | sed \
-        -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
+    sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option outbound_json\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option second_proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(option second_outbound_json\).*/\1 '\''MASKED'\''/g' \
@@ -1769,8 +1781,9 @@ show_config() {
         -e 's/\(pbk=[^&]*\)/pbk=MASKED/g' \
         -e 's/\(sid=[^&]*\)/sid=MASKED/g' \
         -e 's/\(option dns_server '\''[^'\'']*\.dns\.nextdns\.io'\''\)/option dns_server '\''MASKED.dns.nextdns.io'\''/g' \
-        -e "s|\(option dns_server 'dns\.nextdns\.io\)/[^']*|\1/MASKED|"
-    > "$tmp_config"
+        -e "s|\(option dns_server 'dns\.nextdns\.io\)/[^']*|\1/MASKED|" \
+        -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
+        "$PODKOP_CONFIG" > "$tmp_config"
 
     cat "$tmp_config"
     rm -f "$tmp_config"
