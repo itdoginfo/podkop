@@ -40,6 +40,14 @@ is_base64() {
     return 1
 }
 
+# Checks if the given string looks like a Shadowsocks userinfo
+is_shadowsocks_userinfo_format() {
+    local str="$1"
+    local regex='^[^:]+:[^:]+(:[^:]+)?$'
+
+    [[ "$str" =~ $regex ]]
+}
+
 # Checks if the given file exists
 file_exists() {
     local filepath="$1"
