@@ -324,7 +324,7 @@ parse_domain_or_subnet_file_to_comma_string() {
     local result
     while IFS= read -r line; do
         line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        log "!!! $line"
+
         [ -z "$line" ] && continue
 
         case "$type" in

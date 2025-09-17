@@ -238,23 +238,29 @@ migration() {
 }
 
 validate_service() {
-    local domain="$1"
+    local service="$1"
 
-    for valid_service in $VALID_SERVICES; do
-        if [ "$domain" = "$valid_service" ]; then
+    for domain_service in $COMMUNITY_DOMAIN_SERVICES; do
+        if [ "$service" = "$domain_service" ]; then
             return 0
         fi
     done
 
-    log "Invalid service in domain_list: $domain. Exiting. Check config and LuCI cache"
+    for subnet_service in $COMMUNITY_SUBNET_SERVICES; do
+        if [ "$service" = "$subnet_service" ]; then
+            return 0
+        fi
+    done
+
+    log "Invalid service in community lists: $service. Check config and LuCI cache. Aborted." "fatal"
     exit 1
 }
 
 process_validate_service() {
-    local domain_list_enabled
-    config_get_bool domain_list_enabled "$section" "domain_list_enabled" 0
-    if [ "$domain_list_enabled" -eq 1 ]; then
-        config_list_foreach "$section" domain_list validate_service
+    local community_lists_enabled
+    config_get_bool community_lists_enabled "$section" "community_lists_enabled" 0
+    if [ "$community_lists_enabled" -eq 1 ]; then
+        config_list_foreach "$section" "community_lists" validate_service
     fi
 }
 
@@ -970,8 +976,14 @@ configure_community_list_handler() {
     config_get update_interval "main" "update_interval" "1d"
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
-    _add_ruleset_to_dns_rules "$ruleset_tag"
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+
+    for service in $COMMUNITY_DOMAIN_SERVICES; do
+        if [ "$tag" = "$service" ]; then
+            _add_ruleset_to_dns_rules "$ruleset_tag"
+            break
+        fi
+    done
 }
 
 configure_user_domain_or_subnets_list() {
