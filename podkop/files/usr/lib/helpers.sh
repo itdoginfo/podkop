@@ -299,33 +299,11 @@ parse_domain_or_subnet_string_to_commas_string() {
     local string="$1"
     local type="$2"
 
-    local result
-    for item in $string; do
-        case "$type" in
-        domains)
-            if ! is_domain_suffix "$item"; then
-                log "'$item' is not a valid domain" "debug"
-                continue
-            fi
-            ;;
-        subnets)
-            if ! is_ipv4_ip_or_ipv4_cidr "$item"; then
-                log "'$item' is not IPv4 or IPv4 CIDR" "debug"
-                continue
-            fi
-            ;;
-        *)
-            log "Unknown type: $type" "error"
-            return 1
-            ;;
-        esac
+    tmpfile=$(mktemp)
+    printf "%s\n" "$string" | sed 's/\/\/.*//' | tr ', ' '\n' | grep -v '^$' > "$tmpfile"
 
-        if [ -z "$result" ]; then
-            result="$item"
-        else
-            result="$result,$item"
-        fi
-    done
+    result="$(parse_domain_or_subnet_file_to_comma_string "$tmpfile" "$type")"
+    rm -f "$tmpfile"
 
     echo "$result"
 }
@@ -345,6 +323,8 @@ parse_domain_or_subnet_file_to_comma_string() {
 
     local result
     while IFS= read -r line; do
+        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        log "!!! $line"
         [ -z "$line" ] && continue
 
         case "$type" in
