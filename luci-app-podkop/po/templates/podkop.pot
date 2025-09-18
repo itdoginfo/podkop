@@ -175,7 +175,7 @@ msgstr ""
 msgid "Exclude NTP"
 msgstr ""
 
-msgid "For issues with open connections sing-box"
+msgid "Allows you to exclude NTP protocol traffic from the tunnel"
 msgstr ""
 
 msgid "QUIC disable"
