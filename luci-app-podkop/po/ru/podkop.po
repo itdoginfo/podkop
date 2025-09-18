@@ -176,7 +176,7 @@ msgid "Exclude NTP"
 msgstr "Исключить NTP"
 
 msgid "For issues with open connections sing-box"
-msgstr "Для проблем с открытыми соединениями sing-box"
+msgstr "Позволяет исключить направление трафика NTP-протокола в туннель"
 
 msgid "QUIC disable"
 msgstr "Отключить QUIC"
