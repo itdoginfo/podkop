@@ -62,6 +62,7 @@ sing_box_cf_add_proxy_outbound() {
     local udp_over_tcp="$4"
 
     url=$(url_decode "$url")
+    url=$(url_strip_fragment "$url")
 
     local scheme="${url%%://*}"
     case "$scheme" in

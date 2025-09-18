@@ -184,6 +184,13 @@ url_get_file_extension() {
     esac
 }
 
+# Remove url fragment (everything after the first '#')
+url_strip_fragment() {
+    local url="$1"
+
+    echo "${url%%#*}"
+}
+
 # Decodes and returns a base64-encoded string
 base64_decode() {
     local str="$1"
