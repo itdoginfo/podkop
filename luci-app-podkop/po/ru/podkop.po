@@ -906,3 +906,204 @@ msgstr "Пути к локальным спискам подсетей"
 
 msgid "Config File Path"
 msgstr "Путь к файлу конфигурации"
+
+msgid "Enter connection string starting with vless:// or ss:// for proxy configuration"
+msgstr "Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси-сервера"
+
+msgid "Enter domain names separated by comma, space or newline (example: sub.example.com, example.com or one domain per line)"
+msgstr "Введите доменные имена, разделенные запятой, пробелом или новой строкой (например: sub.example.com, example.com или один домен в строке)"
+
+msgid "Invalid Shadowsocks URL format: missing method and password separator \":\""
+msgstr "Недопустимый формат URL Shadowsocks: отсутствует разделитель метода и пароля \":\""
+
+msgid "Community Domain Lists"
+msgstr "Списки доменов сообщества"
+
+msgid "Domain List"
+msgstr "Список доменов"
+
+msgid "Select a list"
+msgstr "Выберите список"
+
+msgid "Community Subnet Lists"
+msgstr "Списки подсетей сообщества"
+
+msgid "Enable routing for popular services like Twitter, Meta, and Discord"
+msgstr "Включить маршрутизацию для популярных сервисов, таких как Twitter, Meta и Discord"
+
+msgid "Service Networks"
+msgstr "Сервисные сети"
+
+msgid "Select predefined service networks for routing"
+msgstr "Выберите предопределенные сервисные сети для маршрутизации"
+
+msgid "User Domain List"
+msgstr "Список доменов пользователя"
+
+msgid "Enable and manage your custom list of domains for selective routing"
+msgstr "Включение и управление пользовательским списком доменов для выборочной маршрутизации"
+
+msgid "Extra configuration"
+msgstr "Дополнительная конфигурация"
+
+msgid "Proxy Check"
+msgstr "Проверка прокси"
+
+msgid "Check if sing-box proxy works correctly"
+msgstr "Проверьте, правильно ли работает прокси-сервер sing-box"
+
+msgid "Check Proxy"
+msgstr "Проверить прокси"
+
+msgid "Proxy Check Results"
+msgstr "Результаты проверки прокси"
+
+msgid "Show current nftables rules and statistics"
+msgstr "Показать текущие правила и статистику nftables"
+
+msgid "Check Rules"
+msgstr "Проверить правила"
+
+msgid "Check GitHub connectivity and lists availability"
+msgstr "Проверьте подключение к GitHub и доступность списков"
+
+msgid "Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs"
+msgstr "Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси. Добавьте комментарии с // для резервных конфигураций"
+
+msgid "Warning"
+msgstr "Предупреждение"
+
+msgid "Success"
+msgstr "Успех"
+
+msgid "Info"
+msgstr "Информация"
+
+msgid "Error"
+msgstr "Ошибка"
+
+msgid "Debug"
+msgstr "Отладка"
+
+msgid "Trace"
+msgstr "Трассировка"
+
+msgid "Yes"
+msgstr "Да"
+
+msgid "No"
+msgstr "Нет"
+
+msgid "OK"
+msgstr "ОК"
+
+msgid "Cancel"
+msgstr "Отменить"
+
+msgid "Apply"
+msgstr "Применить"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Delete"
+msgstr "Удалить"
+
+msgid "Edit"
+msgstr "Редактировать"
+
+msgid "Add"
+msgstr "Добавить"
+
+msgid "Remove"
+msgstr "Удалить"
+
+msgid "Move Up"
+msgstr "Вверх"
+
+msgid "Move Down"
+msgstr "Вниз"
+
+msgid "Expand"
+msgstr "Развернуть"
+
+msgid "Collapse"
+msgstr "Свернуть"
+
+msgid "Show"
+msgstr "Показать"
+
+msgid "Hide"
+msgstr "Скрыть"
+
+msgid "Enable"
+msgstr "Включить"
+
+msgid "Disable"
+msgstr "Выключить"
+
+msgid "Start"
+msgstr "Запустить"
+
+msgid "Stop"
+msgstr "Остановить"
+
+msgid "Restart"
+msgstr "Перезапуск"
+
+msgid "Reset"
+msgstr "Сброс"
+
+msgid "Refresh"
+msgstr "Обновить"
+
+msgid "Update"
+msgstr "Обновление"
+
+msgid "Install"
+msgstr "Установить"
+
+msgid "Uninstall"
+msgstr "Удалить"
+
+msgid "Configure"
+msgstr "Настроить"
+
+msgid "Settings"
+msgstr "Настройки"
+
+msgid "Options"
+msgstr "Опции"
+
+msgid "Advanced"
+msgstr "Расширенные"
+
+msgid "Basic"
+msgstr "Базовые"
+
+msgid "General"
+msgstr "Общие"
+
+msgid "Details"
+msgstr "Детали"
+
+msgid "Status"
+msgstr "Статус"
+
+msgid "Information"
+msgstr "Информация"
+
+msgid "Configuration"
+msgstr "Конфигурация"
+
+msgid "Management"
+msgstr "Управление"
+
+msgid "System"
+msgstr "Система"
+
+msgid "Network"
+msgstr "Сеть"
+
+msgid "Services"
+msgstr "Сервисы"
