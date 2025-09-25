@@ -53,7 +53,9 @@ is_min_package_version() {
     local current="$1"
     local required="$2"
 
+    local lowest
     lowest="$(printf '%s\n' "$current" "$required" | sort -V | head -n1)"
+
     [ "$lowest" = "$required" ]
 }
 
@@ -130,7 +132,7 @@ get_ruleset_format_by_file_extension() {
 get_package_version() {
     local package="$1"
 
-    opkg status "$package" 2>/dev/null | awk '/^Version:/ {print $2}' | cut -d'-' -f1
+    opkg status "$package" 2> /dev/null | awk '/^Version:/ {print $2}' | cut -d'-' -f1
 }
 
 # Converts a comma-separated string into a JSON array string
