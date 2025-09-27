@@ -444,7 +444,7 @@ dnsmasq_restore() {
         return 0
     fi
 
-    local cachesize noresolv backup_servers
+    local cachesize noresolv backup_servers resolvfile
     log "Restoring cachesize" "debug"
     cachesize="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_cachesize")"
     if [ -z "$cachesize" ]; then
@@ -465,12 +465,18 @@ dnsmasq_restore() {
 
     log "Restoring DNS servers" "debug"
     uci_remove "dhcp" "@dnsmasq[0]" "server"
+    resolvfile="/tmp/resolv.conf.d/resolv.conf.auto"
     backup_servers="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_server")"
     if [ -n "$backup_servers" ]; then
         for server in $backup_servers; do
             uci_add_list "dhcp" "@dnsmasq[0]" "server" "$server"
         done
         uci_remove "dhcp" "@dnsmasq[0]" "podkop_server"
+    elif file_exists "$resolvfile"; then
+        log "Backup DNS servers not found, using default resolvfile" "debug"
+        uci_set "dhcp" "@dnsmasq[0]" "resolvfile" "$resolvfile"
+    else
+        log "Backup DNS servers and default resolvfile not found, possible resolving issues" "warn"
     fi
 
     uci_commit "dhcp"
