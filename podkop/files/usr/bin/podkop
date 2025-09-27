@@ -449,6 +449,7 @@ dnsmasq_restore() {
     cachesize="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_cachesize")"
     if [ -z "$cachesize" ]; then
         uci_remove "dhcp" "@dnsmasq[0]" "cachesize"
+        uci_set "dhcp" "@dnsmasq[0]" "cachesize" 150
     else
         uci_set "dhcp" "@dnsmasq[0]" "cachesize" "$cachesize"
         uci_remove "dhcp" "@dnsmasq[0]" "podkop_cachesize"
@@ -458,6 +459,7 @@ dnsmasq_restore() {
     noresolv="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_noresolv")"
     if [ -z "$noresolv" ]; then
         uci_remove "dhcp" "@dnsmasq[0]" "noresolv"
+        uci_set "dhcp" "@dnsmasq[0]" "noresolv" 0
     else
         uci_set "dhcp" "@dnsmasq[0]" "noresolv" "$noresolv"
         uci_remove "dhcp" "@dnsmasq[0]" "podkop_noresolv"
