@@ -32,12 +32,10 @@ config_load "$PODKOP_CONFIG"
 check_requirements() {
     log "Check Requirements"
 
-    local sing_box_version curl_version jq_version kmod_nft_tproxy_version coreutils_base64_version
-    sing_box_version="$(get_package_version "sing-box")"
-    curl_version="$(get_package_version "curl")"
-    jq_version="$(get_package_version "jq")"
-    kmod_nft_tproxy_version="$(get_package_version "kmod-nft-tproxy")"
-    coreutils_base64_version="$(get_package_version "coreutils-base64")"
+    local sing_box_version jq_version coreutils_base64_version
+    sing_box_version="$(sing-box version | head -n1 | awk '{print $3}')"
+    jq_version="$(jq --version | awk -F- '{print $2}')"
+    coreutils_base64_version="$(base64 --version | head -n1 | awk '{print $4}')"
 
     if [ -z "$sing_box_version" ]; then
         log "Package 'sing-box' is not installed." "error"
@@ -54,21 +52,11 @@ check_requirements() {
         fi
     fi
 
-    if [ -z "$curl_version" ]; then
-        log "Package 'curl' is not installed." "error"
-        exit 1
-    fi
-
     if [ -z "$jq_version" ]; then
         log "Package 'jq' is not installed." "error"
         exit 1
     elif ! is_min_package_version "$jq_version" "$JQ_REQUIRED_VERSION"; then
         log "Package 'jq' version ($jq_version) is lower than the required minimum ($JQ_REQUIRED_VERSION)." "error"
-        exit 1
-    fi
-
-    if [ -z "$kmod_nft_tproxy_version" ]; then
-        log "Package 'kmod-nft-tproxy' is not installed." "error"
         exit 1
     fi
 

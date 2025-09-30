@@ -128,13 +128,6 @@ get_ruleset_format_by_file_extension() {
     echo "$format"
 }
 
-# Retrieves the installed package version from opkg
-get_package_version() {
-    local package="$1"
-
-    opkg status "$package" 2> /dev/null | awk '/^Version:/ {print $2}' | cut -d'-' -f1
-}
-
 # Converts a comma-separated string into a JSON array string
 comma_string_to_json_array() {
     local input="$1"
