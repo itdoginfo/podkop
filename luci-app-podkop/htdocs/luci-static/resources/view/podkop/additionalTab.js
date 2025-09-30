@@ -12,7 +12,7 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
 
-    o = mainSection.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
+    o = mainSection.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('Allows you to exclude NTP protocol traffic from the tunnel'));
     o.default = '0';
     o.rmempty = false;
     o.ucisection = 'main';
