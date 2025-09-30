@@ -23,7 +23,7 @@ if [ -f "$POFILE" ]; then
 else
     echo "Creating new $POFILE using msginit"
     mkdir -p "$PODIR/$LANG"
-    msginit --no-translator --locale="$LANG" --input="$POTFILE" --output-file="$POFILE"
+    msginit --no-translator --locale="$LANG" --width=120 --input="$POTFILE" --output-file="$POFILE"
 fi
 
 echo "Translation file for $LANG updated."

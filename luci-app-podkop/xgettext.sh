@@ -17,6 +17,8 @@ xgettext --language=JavaScript \
          --keyword=_ \
          --from-code="$ENCODING" \
          --output="$OUT_POT" \
+         --width=120 \
+         --package-name="PODKOP" \
          "${FILES[@]}"
 
 echo "POT template generated: $OUT_POT"
