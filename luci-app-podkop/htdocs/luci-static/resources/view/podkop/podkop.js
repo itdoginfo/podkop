@@ -37,7 +37,7 @@ return view.extend({
             </style>
         `);
 
-        const m = new form.Map('podkop', _(''), null, ['main', 'extra']);
+        const m = new form.Map('podkop', '', null, ['main', 'extra']);
 
         // Main Section
         const mainSection = m.section(form.TypedSection, 'main');
