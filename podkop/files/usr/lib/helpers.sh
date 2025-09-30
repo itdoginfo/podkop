@@ -48,11 +48,33 @@ is_shadowsocks_userinfo_format() {
     [[ "$str" =~ $regex ]]
 }
 
+# Compares the current package version with the required minimum
+is_min_package_version() {
+    local current="$1"
+    local required="$2"
+
+    local lowest
+    lowest="$(printf '%s\n' "$current" "$required" | sort -V | head -n1)"
+
+    [ "$lowest" = "$required" ]
+}
+
 # Checks if the given file exists
 file_exists() {
     local filepath="$1"
 
     if [[ -f "$filepath" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Checks if a service script exists in /etc/init.d
+service_exists() {
+    local service="$1"
+
+    if [ -x "/etc/init.d/$service" ]; then
         return 0
     else
         return 1

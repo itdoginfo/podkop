@@ -29,21 +29,64 @@ check_required_file "$PODKOP_LIB/logging.sh"
 
 config_load "$PODKOP_CONFIG"
 
-start_main() {
-    log "Starting podkop"
+check_requirements() {
+    log "Check Requirements"
 
-    # checking
-    sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
-    required_version="1.12.0"
+    local sing_box_version jq_version coreutils_base64_version
+    sing_box_version="$(sing-box version | head -n1 | awk '{print $3}')"
+    jq_version="$(jq --version | awk -F- '{print $2}')"
+    coreutils_base64_version="$(base64 --version | head -n1 | awk '{print $4}')"
 
-    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
-        log "The version of sing-box ($sing_box_version) is lower than the minimum version. Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box" "critical"
+    if [ -z "$sing_box_version" ]; then
+        log "Package 'sing-box' is not installed." "error"
         exit 1
+    else
+        if ! is_min_package_version "$sing_box_version" "$SB_REQUIRED_VERSION"; then
+            log "Package 'sing-box' version ($sing_box_version) is lower than the required minimum ($SB_REQUIRED_VERSION). Update sing-box: opkg update && opkg remove sing-box && opkg install sing-box" "error"
+            exit 1
+        fi
+
+        if ! service_exists "sing-box"; then
+            log "Service 'sing-box' is missing. Please install the official package to ensure the service is available." "error"
+            exit 1
+        fi
+    fi
+
+    if [ -z "$jq_version" ]; then
+        log "Package 'jq' is not installed." "error"
+        exit 1
+    elif ! is_min_package_version "$jq_version" "$JQ_REQUIRED_VERSION"; then
+        log "Package 'jq' version ($jq_version) is lower than the required minimum ($JQ_REQUIRED_VERSION)." "error"
+        exit 1
+    fi
+
+    if [ -z "$coreutils_base64_version" ]; then
+        log "Package 'coreutils-base64' is not installed." "error"
+        exit 1
+    elif ! is_min_package_version "$coreutils_base64_version" "$COREUTILS_BASE64_REQUIRED_VERSION"; then
+        log "Package 'coreutils-base64' version ($coreutils_base64_version) is lower than the required minimum ($COREUTILS_BASE64_REQUIRED_VERSION). This may cause issues when decoding base64 streams with missing padding, as automatic padding support is not available in older versions." "warn"
     fi
 
     if grep -qE 'doh_backup_noresolv|doh_backup_server|doh_server' /etc/config/dhcp; then
         log "Detected https-dns-proxy in dhcp config. Edit /etc/config/dhcp" "warn"
     fi
+
+    local proxy_string interface outbound_json urltest_proxy_links dont_touch_dhcp
+    config_get proxy_string "main" "proxy_string"
+    config_get interface "main" "interface"
+    config_get outbound_json "main" "outbound_json"
+    config_get urltest_proxy_links "main" "urltest_proxy_links"
+
+    if [ -z "$proxy_string" ] && [ -z "$interface" ] && [ -z "$outbound_json" ] && [ -z "$urltest_proxy_links" ]; then
+        log "Required options (proxy_string, interface, outbound_json, urltest_proxy_links) are missing in 'main' section. Aborted." "error"
+        exit 1
+    fi
+}
+
+start_main() {
+    log "Starting podkop"
+
+    check_requirements
 
     migration
 
@@ -82,17 +125,6 @@ start_main() {
 }
 
 start() {
-    local proxy_string interface outbound_json urltest_proxy_links dont_touch_dhcp
-    config_get proxy_string "main" "proxy_string"
-    config_get interface "main" "interface"
-    config_get outbound_json "main" "outbound_json"
-    config_get urltest_proxy_links "main" "urltest_proxy_links"
-
-    if [ -z "$proxy_string" ] && [ -z "$interface" ] && [ -z "$outbound_json" ] && [ -z "$urltest_proxy_links" ]; then
-        log "Required options (proxy_string, interface, outbound_json, urltest_proxy_links) are missing in 'main' section. Aborted." "fatal"
-        exit 1
-    fi
-
     start_main
     config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
@@ -400,11 +432,12 @@ dnsmasq_restore() {
         return 0
     fi
 
-    local cachesize noresolv backup_servers
+    local cachesize noresolv backup_servers resolvfile
     log "Restoring cachesize" "debug"
     cachesize="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_cachesize")"
     if [ -z "$cachesize" ]; then
         uci_remove "dhcp" "@dnsmasq[0]" "cachesize"
+        uci_set "dhcp" "@dnsmasq[0]" "cachesize" 150
     else
         uci_set "dhcp" "@dnsmasq[0]" "cachesize" "$cachesize"
         uci_remove "dhcp" "@dnsmasq[0]" "podkop_cachesize"
@@ -414,6 +447,7 @@ dnsmasq_restore() {
     noresolv="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_noresolv")"
     if [ -z "$noresolv" ]; then
         uci_remove "dhcp" "@dnsmasq[0]" "noresolv"
+        uci_set "dhcp" "@dnsmasq[0]" "noresolv" 0
     else
         uci_set "dhcp" "@dnsmasq[0]" "noresolv" "$noresolv"
         uci_remove "dhcp" "@dnsmasq[0]" "podkop_noresolv"
@@ -421,12 +455,18 @@ dnsmasq_restore() {
 
     log "Restoring DNS servers" "debug"
     uci_remove "dhcp" "@dnsmasq[0]" "server"
+    resolvfile="/tmp/resolv.conf.d/resolv.conf.auto"
     backup_servers="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_server")"
     if [ -n "$backup_servers" ]; then
         for server in $backup_servers; do
             uci_add_list "dhcp" "@dnsmasq[0]" "server" "$server"
         done
         uci_remove "dhcp" "@dnsmasq[0]" "podkop_server"
+    elif file_exists "$resolvfile"; then
+        log "Backup DNS servers not found, using default resolvfile" "debug"
+        uci_set "dhcp" "@dnsmasq[0]" "resolvfile" "$resolvfile"
+    else
+        log "Backup DNS servers and default resolvfile not found, possible resolving issues" "warn"
     fi
 
     uci_commit "dhcp"

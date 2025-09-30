@@ -9,6 +9,8 @@ FAKEIP_TEST_DOMAIN="fakeip.podkop.fyi"
 TMP_SING_BOX_FOLDER="/tmp/sing-box"
 TMP_RULESET_FOLDER="$TMP_SING_BOX_FOLDER/rulesets"
 CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker
+JQ_REQUIRED_VERSION="1.7.1"
+COREUTILS_BASE64_REQUIRED_VERSION="9.7"
 
 ## nft
 NFT_TABLE_NAME="PodkopTable"
@@ -18,6 +20,7 @@ NFT_DISCORD_SET_NAME="podkop_discord_subnets"
 NFT_INTERFACE_SET_NAME="interfaces"
 
 ## sing-box
+SB_REQUIRED_VERSION="1.12.0"
 # Log
 SB_DEFAULT_LOG_LEVEL="warn"
 # DNS
