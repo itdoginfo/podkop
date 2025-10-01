@@ -19,4 +19,12 @@ LUCI_LANGUAGES:=en ru
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
+define Package/$(PKG_NAME)/install
+	# https://github.com/openwrt/luci/blob/master/luci.mk
+	$$(call Package/$(PKG_NAME))/install/default,$$(1))
+
+	$(SED) 's/__COMPILED_VERSION_VARIABLE__/$(PKG_VERSION)/g' \
+		$$(1)$$(HTDOCS)/luci-static/resources/view/podkop/constants.js
+endef
+
 # call BuildPackage - OpenWrt buildroot signature
