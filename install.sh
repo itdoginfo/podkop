@@ -164,6 +164,7 @@ sing_box() {
     if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than required $required_version"
         msg "Removing old version..."
+        service podkop stop
         opkg remove sing-box --force-depends
     fi
 }
