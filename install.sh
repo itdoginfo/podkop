@@ -81,6 +81,9 @@ main() {
         fi
     fi
 
+    local grep_url_pattern='https://[^"[:space:]]*\.ipk'
+    [ "$PKG_IS_APK" -eq 1 ] && grep_url_pattern='https://[^"[:space:]]*\.apk'
+
     download_success=0
     while read -r url; do
         filename=$(basename "$url")
@@ -104,7 +107,7 @@ main() {
         if [ $attempt -eq $COUNT ]; then
             msg "Failed to download $filename after $COUNT attempts"
         fi
-    done < <(wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk')
+    done < <(wget -qO- "$REPO" | grep -o "$grep_url_pattern")
 
     if [ $download_success -eq 0 ]; then
         msg "No packages were downloaded successfully"
