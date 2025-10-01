@@ -13,17 +13,14 @@ PODKOP_LIB="/usr/lib/podkop"
 check_required_file /lib/functions.sh
 check_required_file /lib/config/uci.sh
 check_required_file "$PODKOP_LIB/constants.sh"
-check_required_file "$PODKOP_LIB/pkg_manager.sh"
 check_required_file "$PODKOP_LIB/nft.sh"
 check_required_file "$PODKOP_LIB/helpers.sh"
 check_required_file "$PODKOP_LIB/sing_box_config_manager.sh"
 check_required_file "$PODKOP_LIB/sing_box_config_facade.sh"
 check_required_file "$PODKOP_LIB/logging.sh"
-
 . /lib/config/uci.sh
 . /lib/functions.sh
 . "$PODKOP_LIB/constants.sh"
-. "$PODKOP_LIB/pkg_manager.sh"
 . "$PODKOP_LIB/nft.sh"
 . "$PODKOP_LIB/helpers.sh"
 . "$PODKOP_LIB/sing_box_config_manager.sh"
