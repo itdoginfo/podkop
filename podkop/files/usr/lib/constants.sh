@@ -1,6 +1,7 @@
 # shellcheck disable=SC2034
 
 ## Common
+PODKOP_VERSION="__COMPILED_VERSION_VARIABLE__"
 PODKOP_CONFIG="/etc/config/podkop"
 RESOLV_CONF="/etc/resolv.conf"
 DNS_RESOLVERS="1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 9.9.9.11 94.140.14.14 94.140.15.15 208.67.220.220 208.67.222.222 77.88.8.1 77.88.8.8"
