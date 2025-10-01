@@ -59,7 +59,7 @@ define Package/podkop/install
 	$(INSTALL_DIR) $(1)/usr/lib/podkop
 	$(CP) ./files/usr/lib/* $(1)/usr/lib/podkop/
 
-	sed -i -e 's/__COMPILED_VERSION_VARIABLE__/$(PKG_VERSION)/g' $(1)/usr/lib/podkop/constant.sh
+	sed -i -e 's/__COMPILED_VERSION_VARIABLE__/$(PKG_VERSION)/g' $(1)/usr/lib/podkop/constants.sh
 endef
 
 $(eval $(call BuildPackage,podkop))
