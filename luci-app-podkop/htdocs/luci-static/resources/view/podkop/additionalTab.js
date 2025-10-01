@@ -7,12 +7,12 @@
 function createAdditionalSection(mainSection, network) {
     let o = mainSection.tab('additional', _('Additional Settings'));
 
-    o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), _('<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>'));
+    o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), '<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>');
     o.default = '0';
     o.rmempty = false;
     o.ucisection = 'main';
 
-    o = mainSection.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('For issues with open connections sing-box'));
+    o = mainSection.taboption('additional', form.Flag, 'exclude_ntp', _('Exclude NTP'), _('Allows you to exclude NTP protocol traffic from the tunnel'));
     o.default = '0';
     o.rmempty = false;
     o.ucisection = 'main';
