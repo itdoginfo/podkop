@@ -1784,12 +1784,12 @@ show_config() {
 }
 
 show_version() {
-    local version=$(pkg_get_version podkop | awk '{print $3}')
+    local version=$(opkg list-installed podkop | awk '{print $3}')
     echo "$version"
 }
 
 show_luci_version() {
-    local version=$(pkg_get_version luci-app-podkop | awk '{print $3}')
+    local version=$(opkg list-installed luci-app-podkop | awk '{print $3}')
     echo "$version"
 }
 
@@ -1970,8 +1970,8 @@ global_check() {
     print_global "📡 Global check run!"
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🛠️ System info"
-    print_global "🕳️ Podkop:     $(pkg_get_version podkop | awk '{print $3}')"
-    print_global "🕳️ LuCI App:   $(pkg_get_version luci-app-podkop | awk '{print $3}')"
+    print_global "🕳️ Podkop:     $(opkg list-installed podkop | awk '{print $3}')"
+    print_global "🕳️ LuCI App:   $(opkg list-installed luci-app-podkop | awk '{print $3}')"
     print_global "📦 Sing-box:   $(sing-box version | head -n 1 | awk '{print $3}')"
     print_global "🛜 OpenWrt:    $(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)"
     print_global "🛜 Device:     $(cat /tmp/sysinfo/model)"
