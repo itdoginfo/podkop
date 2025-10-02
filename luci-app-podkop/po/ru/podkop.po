@@ -158,11 +158,11 @@ msgstr "IP для исключения"
 msgid "Specify local IP addresses that will never use the configured route"
 msgstr "Укажите локальные IP-адреса, которые никогда не будут использовать настроенный маршрут"
 
-msgid "Local IPs"
-msgstr "Локальные IP адреса"
+msgid "Local IPs/IP-CIDRs"
+msgstr "Локальные IP или IP/CIDR адреса"
 
-msgid "Enter valid IPv4 addresses"
-msgstr "Введите действительные IPv4-адреса"
+msgid "Enter valid IPv4 or IPv4 CIDR addresses"
+msgstr "Введите действительные IPv4-адреса в формате IPv4 или IPv4/CIDR"
 
 msgid "Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)"
 msgstr "Неверный формат IP. Используйте формат: X.X.X.X (например: 192.168.1.1)"
@@ -479,8 +479,8 @@ msgstr "URL удаленных подсетей"
 msgid "IP for full redirection"
 msgstr "IP для полного перенаправления"
 
-msgid "Specify local IP addresses whose traffic will always use the configured route"
-msgstr "Укажите локальные IP-адреса, трафик которых всегда будет использовать настроенный маршрут"
+msgid "Specify local IP or IP/CIDR addresses whose traffic will always use the configured route"
+msgstr "Укажите локальные IP в формате IP или IP/CIDR, трафик которых всегда будет использовать настроенный маршрут"
 
 msgid "Copied!"
 msgstr "Скопировано!"

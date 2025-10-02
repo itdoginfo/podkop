@@ -566,24 +566,32 @@ function createConfigSection(section, map, network) {
         return validateUrl(value);
     };
 
-    o = s.taboption('basic', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'), _('Specify local IP addresses whose traffic will always use the configured route'));
+    o = s.taboption('basic', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'), _('Specify local IP or IP/CIDR addresses whose traffic will always use the configured route'));
     o.default = '0';
     o.rmempty = false;
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.DynamicList, 'all_traffic_ip', _('Local IPs'), _('Enter valid IPv4 addresses'));
+    o = s.taboption('basic', form.DynamicList, 'all_traffic_ip', _('Local IPs/IP-CIDRs'), _('Enter valid IPv4 or IPv4 CIDR addresses'));
     o.placeholder = 'IP';
     o.depends('all_traffic_from_ip_enabled', '1');
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
         if (!value || value.length === 0) return true;
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (!ipRegex.test(value)) return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
-        const ipParts = value.split('.');
+        const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+        if (!subnetRegex.test(value)) return _('Invalid format. Use format: X.X.X.X or X.X.X.X/Y');
+        const [ip, cidr] = value.split('/');
+        if (ip === "0.0.0.0") {
+             return _('IP address 0.0.0.0 is not allowed');
+        }
+        const ipParts = ip.split('.');
         for (const part of ipParts) {
             const num = parseInt(part);
             if (num < 0 || num > 255) return _('IP address parts must be between 0 and 255');
+        }
+        if (cidr !== undefined) {
+            const cidrNum = parseInt(cidr);
+            if (cidrNum < 0 || cidrNum > 32) return _('CIDR must be between 0 and 32');
         }
         return true;
     };
