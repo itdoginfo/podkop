@@ -254,18 +254,13 @@ function createConfigSection(section, map, network) {
     o.depends('domain_resolver_enabled', '1');
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value) {
-            return _('DNS server address cannot be empty');
+        const validation = main.validateDNS(value);
+
+        if (validation.valid) {
+            return true;
         }
 
-        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
-        const domainRegex = /^(?:https:\/\/)?([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}(:[0-9]{1,5})?(\/[^?#\s]*)?$/;
-
-        if (!ipRegex.test(value) && !domainRegex.test(value)) {
-            return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
-        }
-
-        return true;
+        return _(validation.message)
     };
 
     o = s.taboption('basic', form.Flag, 'community_lists_enabled', _('Community Lists'));
@@ -349,12 +344,18 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*(\.[A-Za-z]{2,})?$/;
-        if (!domainRegex.test(value)) {
-            return _('Invalid domain format. Enter domain without protocol (example: sub.example.com or ru)');
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
-        return true;
+
+        const validation = main.validateDomain(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
     };
 
     o = s.taboption('basic', form.TextValue, 'user_domains_text', _('User Domains List'), _('Enter domain names separated by comma, space or newline. You can add comments after //'));
@@ -433,7 +434,7 @@ function createConfigSection(section, map, network) {
             return true
         }
 
-        const validation = main.validateUrl(url);
+        const validation = main.validateUrl(value);
 
         if (validation.valid) {
             return true;
@@ -567,7 +568,7 @@ function createConfigSection(section, map, network) {
             return true
         }
 
-        const validation = main.validateUrl(url);
+        const validation = main.validateUrl(value);
 
         if (validation.valid) {
             return true;
@@ -587,15 +588,18 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (!ipRegex.test(value)) return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
-        const ipParts = value.split('.');
-        for (const part of ipParts) {
-            const num = parseInt(part);
-            if (num < 0 || num > 255) return _('IP address parts must be between 0 and 255');
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
-        return true;
+
+        const validation = main.validateIPV4(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
     };
 }
 
