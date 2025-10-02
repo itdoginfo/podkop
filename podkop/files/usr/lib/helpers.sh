@@ -97,6 +97,14 @@ get_outbound_tag_by_section() {
     echo "$section-$postfix"
 }
 
+# Constructs and returns a domain resolver tag by appending a fixed postfix to the given section
+get_domain_resolver_tag() {
+    local section="$1"
+    local postfix="domain-resolver"
+
+    echo "$section-$postfix"
+}
+
 # Constructs and returns a ruleset tag using section, name, optional type, and a fixed postfix
 get_ruleset_tag() {
     local section="$1"

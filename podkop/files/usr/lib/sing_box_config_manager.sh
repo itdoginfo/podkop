@@ -788,6 +788,7 @@ sing_box_cm_set_vless_tls() {
 #   config: JSON configuration (string)
 #   tag: string, identifier for the outbound
 #   interface: string, network interface to bind the outbound
+#   domain_resolver: string, tag of the domain resolver to be used for this outbound (optional)
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -797,15 +798,20 @@ sing_box_cm_add_interface_outbound() {
     local config="$1"
     local tag="$2"
     local interface="$3"
+    local domain_resolver="$4"
 
     echo "$config" | jq \
         --arg tag "$tag" \
         --arg interface "$interface" \
-        '.outbounds += [{
-            type: "direct",
-            tag: $tag,
-            bind_interface: $interface
-        }]'
+        --arg domain_resolver "$domain_resolver" \
+        '.outbounds += [
+            {
+                type: "direct",
+                tag: $tag,
+                bind_interface: $interface
+            }
+            + (if $domain_resolver != "" then {domain_resolver: $domain_resolver} else {} end)
+        ]'
 }
 
 #######################################

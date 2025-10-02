@@ -25,10 +25,9 @@ SB_REQUIRED_VERSION="1.12.0"
 SB_DEFAULT_LOG_LEVEL="warn"
 # DNS
 SB_DNS_SERVER_TAG="dns-server"
-SB_SPLIT_DNS_SERVER_TAG="split-dns-server"
 SB_FAKEIP_DNS_SERVER_TAG="fakeip-server"
 SB_FAKEIP_INET4_RANGE="198.18.0.0/15"
-SB_DNS_DOMAIN_RESOLVER_TAG="dns-domain-resolver"
+SB_BOOTSTRAP_SERVER_TAG="bootstrap-dns-server"
 SB_FAKEIP_DNS_RULE_TAG="fakeip-dns-rule-tag"
 SB_INVERT_FAKEIP_DNS_RULE_TAG="invert-fakeip-dns-rule-tag"
 # Inbounds
