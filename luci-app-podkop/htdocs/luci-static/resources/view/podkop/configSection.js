@@ -529,51 +529,33 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-
-        const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-        const lines = value.split(/\n/).map(line => line.trim());
-        let hasValidSubnet = false;
-
-        for (const line of lines) {
-            // Skip empty lines
-            if (!line) continue;
-
-            // Extract subnet part (before any //)
-            const subnetPart = line.split('//')[0].trim();
-
-            // Skip if line is empty after removing comments
-            if (!subnetPart) continue;
-
-            // Process each subnet in the line (separated by comma or space)
-            const subnets = subnetPart.split(/[,\s]+/).map(s => s.trim()).filter(s => s.length > 0);
-
-            for (const subnet of subnets) {
-                if (!subnetRegex.test(subnet)) {
-                    return _('Invalid format: %s. Use format: X.X.X.X or X.X.X.X/Y').format(subnet);
-                }
-
-                const [ip, cidr] = subnet.split('/');
-                const ipParts = ip.split('.');
-                for (const part of ipParts) {
-                    const num = parseInt(part);
-                    if (num < 0 || num > 255) {
-                        return _('IP parts must be between 0 and 255 in: %s').format(subnet);
-                    }
-                }
-
-                if (cidr !== undefined) {
-                    const cidrNum = parseInt(cidr);
-                    if (cidrNum < 0 || cidrNum > 32) {
-                        return _('CIDR must be between 0 and 32 in: %s').format(subnet);
-                    }
-                }
-                hasValidSubnet = true;
-            }
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
 
-        if (!hasValidSubnet) {
-            return _('At least one valid subnet or IP must be specified. Comments-only content is not allowed.');
+        const subnets = value
+            .split(/\n/) // Split to array by newline separator
+            .map(line => line.split('//')[0]) // Remove comments
+            .join(' ') // Build clean string
+            .split(/[,\s]+/) // Split to subnets array by comma and space
+            .map(s => s.trim()) // Remove extra spaces
+            .filter(Boolean);
+
+        if (!subnets.length) {
+            return _(
+                'At least one valid subnet or IP must be specified. Comments-only content is not allowed.'
+            );
+        }
+
+        const { valid, results } = main.bulkValidate(subnets, main.validateSubnet);
+
+        if (!valid) {
+            const errors = results
+                .filter(subnetValidation => !subnetValidation.valid) // Leave only failed validations
+                .map((subnetValidation) => _(`${subnetValidation.value}: ${subnetValidation.message}`)) // Collect validation errors
+
+            return [_('Validation errors:'), ...errors].join('\n');
         }
 
         return true;
