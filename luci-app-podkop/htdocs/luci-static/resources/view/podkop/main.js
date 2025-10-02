@@ -233,6 +233,11 @@ function getBaseUrl() {
   const { protocol, hostname } = window.location;
   return `${protocol}//${hostname}`;
 }
+
+// src/helpers/parseValueList.ts
+function parseValueList(value) {
+  return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+}
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
@@ -253,6 +258,7 @@ return baseclass.extend({
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
   getBaseUrl,
+  parseValueList,
   validateDNS,
   validateDomain,
   validateIPV4,
