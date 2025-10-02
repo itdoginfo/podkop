@@ -20,11 +20,11 @@ fi
 
 if [ -f "$POFILE" ]; then
     echo "Updating $POFILE"
-    msgmerge --update --width="$WIDTH" "$POFILE" "$POTFILE"
+    msgmerge --update --width="$WIDTH" --no-location "$POFILE" "$POTFILE"
 else
     echo "Creating new $POFILE using msginit"
     mkdir -p "$PODIR/$LANG"
-    msginit --no-translator --locale="$LANG" --width="$WIDTH" --input="$POTFILE" --output-file="$POFILE"
+    msginit --no-translator --no-location --locale="$LANG" --width="$WIDTH" --input="$POTFILE" --output-file="$POFILE"
 fi
 
 echo "Translation file for $LANG updated."
