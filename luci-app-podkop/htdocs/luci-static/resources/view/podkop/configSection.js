@@ -3,7 +3,6 @@
 'require form';
 'require ui';
 'require network';
-'require view.podkop.constants as constants';
 'require view.podkop.main as main';
 'require tools.widgets as widgets';
 
@@ -246,7 +245,7 @@ function createConfigSection(section, map, network) {
     o.ucisection = s.section;
 
     o = s.taboption('basic', form.Value, 'domain_resolver_dns_server', _('DNS Server'), _('Select or enter DNS server address'));
-    Object.entries(constants.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
+    Object.entries(main.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
     });
     o.default = '8.8.8.8';
@@ -270,7 +269,7 @@ function createConfigSection(section, map, network) {
 
     o = s.taboption('basic', form.DynamicList, 'community_lists', _('Service List'), _('Select predefined service for routing') + ' <a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>');
     o.placeholder = 'Service list';
-    Object.entries(constants.DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
+    Object.entries(main.DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
     });
     o.depends('community_lists_enabled', '1');
@@ -289,12 +288,12 @@ function createConfigSection(section, map, network) {
             let newValues = [...values];
             let notifications = [];
 
-            const selectedRegionalOptions = constants.REGIONAL_OPTIONS.filter(opt => newValues.includes(opt));
+            const selectedRegionalOptions = main.REGIONAL_OPTIONS.filter(opt => newValues.includes(opt));
 
             if (selectedRegionalOptions.length > 1) {
                 const lastSelected = selectedRegionalOptions[selectedRegionalOptions.length - 1];
                 const removedRegions = selectedRegionalOptions.slice(0, -1);
-                newValues = newValues.filter(v => v === lastSelected || !constants.REGIONAL_OPTIONS.includes(v));
+                newValues = newValues.filter(v => v === lastSelected || !main.REGIONAL_OPTIONS.includes(v));
                 notifications.push(E('p', { class: 'alert-message warning' }, [
                     E('strong', {}, _('Regional options cannot be used together')), E('br'),
                     _('Warning: %s cannot be used together with %s. Previous selections have been removed.')
@@ -303,14 +302,14 @@ function createConfigSection(section, map, network) {
             }
 
             if (newValues.includes('russia_inside')) {
-                const removedServices = newValues.filter(v => !constants.ALLOWED_WITH_RUSSIA_INSIDE.includes(v));
+                const removedServices = newValues.filter(v => !main.ALLOWED_WITH_RUSSIA_INSIDE.includes(v));
                 if (removedServices.length > 0) {
-                    newValues = newValues.filter(v => constants.ALLOWED_WITH_RUSSIA_INSIDE.includes(v));
+                    newValues = newValues.filter(v => main.ALLOWED_WITH_RUSSIA_INSIDE.includes(v));
                     notifications.push(E('p', { class: 'alert-message warning' }, [
                         E('strong', {}, _('Russia inside restrictions')), E('br'),
                         _('Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection.')
                             .format(
-                                constants.ALLOWED_WITH_RUSSIA_INSIDE.map(key => constants.DOMAIN_LIST_OPTIONS[key]).filter(label => label !== 'Russia inside').join(', '),
+                                main.ALLOWED_WITH_RUSSIA_INSIDE.map(key => main.DOMAIN_LIST_OPTIONS[key]).filter(label => label !== 'Russia inside').join(', '),
                                 removedServices.join(', ')
                             )
                     ]));

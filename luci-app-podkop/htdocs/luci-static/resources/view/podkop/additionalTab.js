@@ -1,7 +1,6 @@
 'use strict';
 'require form';
 'require baseclass';
-'require view.podkop.constants as constants';
 'require tools.widgets as widgets';
 'require view.podkop.main as main';
 
@@ -24,7 +23,7 @@ function createAdditionalSection(mainSection) {
     o.ucisection = 'main';
 
     o = mainSection.taboption('additional', form.ListValue, 'update_interval', _('List Update Frequency'), _('Select how often the lists will be updated'));
-    Object.entries(constants.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
+    Object.entries(main.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
     });
     o.default = '1d';
@@ -40,7 +39,7 @@ function createAdditionalSection(mainSection) {
     o.ucisection = 'main';
 
     o = mainSection.taboption('additional', form.Value, 'dns_server', _('DNS Server'), _('Select or enter DNS server address'));
-    Object.entries(constants.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
+    Object.entries(main.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
     });
     o.default = '8.8.8.8';

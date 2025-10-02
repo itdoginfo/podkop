@@ -4,8 +4,8 @@
 'require ui';
 'require uci';
 'require fs';
-'require view.podkop.constants as constants';
 'require view.podkop.utils as utils';
+'require view.podkop.main as main';
 
 // Cache system for network requests
 const fetchCache = {};
@@ -16,7 +16,7 @@ async function cachedFetch(url, options = {}) {
     const currentTime = Date.now();
 
     // If we have a valid cached response, return it
-    if (fetchCache[cacheKey] && currentTime - fetchCache[cacheKey].timestamp < constants.CACHE_TIMEOUT) {
+    if (fetchCache[cacheKey] && currentTime - fetchCache[cacheKey].timestamp < main.CACHE_TIMEOUT) {
         console.log(`Using cached response for ${url}`);
         return Promise.resolve(fetchCache[cacheKey].response.clone());
     }
@@ -38,18 +38,18 @@ async function cachedFetch(url, options = {}) {
 }
 
 // Helper functions for command execution with prioritization - Using from utils.js now
-function safeExec(command, args, priority, callback, timeout = constants.COMMAND_TIMEOUT) {
+function safeExec(command, args, priority, callback, timeout = main.COMMAND_TIMEOUT) {
     return utils.safeExec(command, args, priority, callback, timeout);
 }
 
 // Helper functions for handling checks
 function runCheck(checkFunction, priority, callback) {
     // Default to highest priority execution if priority is not provided or invalid
-    let schedulingDelay = constants.COMMAND_SCHEDULING.P0_PRIORITY;
+    let schedulingDelay = main.COMMAND_SCHEDULING.P0_PRIORITY;
 
     // If priority is a string, try to get the corresponding delay value
-    if (typeof priority === 'string' && constants.COMMAND_SCHEDULING[priority] !== undefined) {
-        schedulingDelay = constants.COMMAND_SCHEDULING[priority];
+    if (typeof priority === 'string' && main.COMMAND_SCHEDULING[priority] !== undefined) {
+        schedulingDelay = main.COMMAND_SCHEDULING[priority];
     }
 
     const executeCheck = async () => {
@@ -77,11 +77,11 @@ function runCheck(checkFunction, priority, callback) {
 
 function runAsyncTask(taskFunction, priority) {
     // Default to highest priority execution if priority is not provided or invalid
-    let schedulingDelay = constants.COMMAND_SCHEDULING.P0_PRIORITY;
+    let schedulingDelay = main.COMMAND_SCHEDULING.P0_PRIORITY;
 
     // If priority is a string, try to get the corresponding delay value
-    if (typeof priority === 'string' && constants.COMMAND_SCHEDULING[priority] !== undefined) {
-        schedulingDelay = constants.COMMAND_SCHEDULING[priority];
+    if (typeof priority === 'string' && main.COMMAND_SCHEDULING[priority] !== undefined) {
+        schedulingDelay = main.COMMAND_SCHEDULING[priority];
     }
 
     setTimeout(async () => {
@@ -98,7 +98,7 @@ function createStatus(state, message, color) {
     return {
         state,
         message: _(message),
-        color: constants.STATUS_COLORS[color]
+        color: main.STATUS_COLORS[color]
     };
 }
 
@@ -119,7 +119,7 @@ function copyToClipboard(text, button) {
         document.execCommand('copy');
         const originalText = button.textContent;
         button.textContent = _('Copied!');
-        setTimeout(() => button.textContent = originalText, constants.BUTTON_FEEDBACK_TIMEOUT);
+        setTimeout(() => button.textContent = originalText, main.BUTTON_FEEDBACK_TIMEOUT);
     } catch (err) {
         ui.addNotification(null, E('p', {}, _('Failed to copy: ') + err.message));
     }
@@ -138,10 +138,10 @@ function maskIP(ip) {
 async function checkFakeIP() {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), constants.FETCH_TIMEOUT);
+        const timeoutId = setTimeout(() => controller.abort(), main.FETCH_TIMEOUT);
 
         try {
-            const response = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
+            const response = await cachedFetch(`https://${main.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
             const data = await response.json();
             clearTimeout(timeoutId);
 
@@ -163,7 +163,7 @@ async function checkFakeIP() {
 async function checkFakeIPCLI() {
     try {
         return new Promise((resolve) => {
-            safeExec('nslookup', ['-timeout=2', constants.FAKEIP_CHECK_DOMAIN, '127.0.0.42'], 'P0_PRIORITY', result => {
+            safeExec('nslookup', ['-timeout=2', main.FAKEIP_CHECK_DOMAIN, '127.0.0.42'], 'P0_PRIORITY', result => {
                 if (result.stdout && result.stdout.includes('198.18')) {
                     resolve(createStatus('working', 'working on router', 'SUCCESS'));
                 } else {
@@ -221,13 +221,13 @@ function checkDNSAvailability() {
 async function checkBypass() {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), constants.FETCH_TIMEOUT);
+        const timeoutId = setTimeout(() => controller.abort(), main.FETCH_TIMEOUT);
 
         try {
-            const response1 = await cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
+            const response1 = await cachedFetch(`https://${main.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal });
             const data1 = await response1.json();
 
-            const response2 = await cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller.signal });
+            const response2 = await cachedFetch(`https://${main.IP_CHECK_DOMAIN}/check`, { signal: controller.signal });
             const data2 = await response2.json();
 
             clearTimeout(timeoutId);
@@ -327,9 +327,9 @@ function showConfigModal(command, title) {
 
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), constants.FETCH_TIMEOUT);
+                    const timeoutId = setTimeout(() => controller.abort(), main.FETCH_TIMEOUT);
 
-                    cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal })
+                    cachedFetch(`https://${main.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal })
                         .then(response => response.json())
                         .then(data => {
                             clearTimeout(timeoutId);
@@ -343,10 +343,10 @@ function showConfigModal(command, title) {
                             }
 
                             // Bypass check
-                            cachedFetch(`https://${constants.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal })
+                            cachedFetch(`https://${main.FAKEIP_CHECK_DOMAIN}/check`, { signal: controller.signal })
                                 .then(bypassResponse => bypassResponse.json())
                                 .then(bypassData => {
-                                    cachedFetch(`https://${constants.IP_CHECK_DOMAIN}/check`, { signal: controller.signal })
+                                    cachedFetch(`https://${main.IP_CHECK_DOMAIN}/check`, { signal: controller.signal })
                                         .then(bypassResponse2 => bypassResponse2.json())
                                         .then(bypassData2 => {
                                             formattedOutput += '━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
@@ -602,7 +602,7 @@ function startDiagnosticsUpdates() {
     updateDiagnostics();
 
     // Then set up periodic updates
-    diagnosticsUpdateTimer = setInterval(updateDiagnostics, constants.DIAGNOSTICS_UPDATE_INTERVAL);
+    diagnosticsUpdateTimer = setInterval(updateDiagnostics, main.DIAGNOSTICS_UPDATE_INTERVAL);
 }
 
 function stopDiagnosticsUpdates() {
@@ -630,7 +630,7 @@ async function updateDiagnostics() {
             // Update Podkop status text
             updateTextElement('podkop-status-text',
                 E('span', {
-                    'style': `color: ${parsedPodkopStatus.enabled ? constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR}`
+                    'style': `color: ${parsedPodkopStatus.enabled ? main.STATUS_COLORS.SUCCESS : main.STATUS_COLORS.ERROR}`
                 }, [
                     parsedPodkopStatus.enabled ? '✔ Autostart enabled' : '✘ Autostart disabled'
                 ])
@@ -661,7 +661,7 @@ async function updateDiagnostics() {
             }
         } catch (error) {
             updateTextElement('podkop-status-text',
-                E('span', { 'style': `color: ${constants.STATUS_COLORS.ERROR}` }, '✘ Error')
+                E('span', { 'style': `color: ${main.STATUS_COLORS.ERROR}` }, '✘ Error')
             );
         }
     });
@@ -675,7 +675,7 @@ async function updateDiagnostics() {
             updateTextElement('singbox-status-text',
                 E('span', {
                     'style': `color: ${parsedSingboxStatus.running && !parsedSingboxStatus.enabled ?
-                        constants.STATUS_COLORS.SUCCESS : constants.STATUS_COLORS.ERROR}`
+                        main.STATUS_COLORS.SUCCESS : main.STATUS_COLORS.ERROR}`
                 }, [
                     parsedSingboxStatus.running && !parsedSingboxStatus.enabled ?
                         '✔ running' : '✘ ' + parsedSingboxStatus.status
@@ -683,7 +683,7 @@ async function updateDiagnostics() {
             );
         } catch (error) {
             updateTextElement('singbox-status-text',
-                E('span', { 'style': `color: ${constants.STATUS_COLORS.ERROR}` }, '✘ Error')
+                E('span', { 'style': `color: ${main.STATUS_COLORS.ERROR}` }, '✘ Error')
             );
         }
     });
@@ -724,7 +724,7 @@ async function updateDiagnostics() {
     // FakeIP and DNS status checks
     runCheck(checkFakeIP, 'P3_PRIORITY', result => {
         updateTextElement('fakeip-browser-status',
-            E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
+            E('span', { style: `color: ${result.error ? main.STATUS_COLORS.WARNING : result.color}` }, [
                 result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
                 result.error ? 'check error' : result.state === 'working' ? _('works in browser') : _('does not work in browser')
             ])
@@ -733,7 +733,7 @@ async function updateDiagnostics() {
 
     runCheck(checkFakeIPCLI, 'P8_PRIORITY', result => {
         updateTextElement('fakeip-router-status',
-            E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
+            E('span', { style: `color: ${result.error ? main.STATUS_COLORS.WARNING : result.color}` }, [
                 result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
                 result.error ? 'check error' : result.state === 'working' ? _('works on router') : _('does not work on router')
             ])
@@ -743,10 +743,10 @@ async function updateDiagnostics() {
     runCheck(checkDNSAvailability, 'P4_PRIORITY', result => {
         if (result.error) {
             updateTextElement('dns-remote-status',
-                E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! DNS check error')
+                E('span', { style: `color: ${main.STATUS_COLORS.WARNING}` }, '! DNS check error')
             );
             updateTextElement('dns-local-status',
-                E('span', { style: `color: ${constants.STATUS_COLORS.WARNING}` }, '! DNS check error')
+                E('span', { style: `color: ${main.STATUS_COLORS.WARNING}` }, '! DNS check error')
             );
         } else {
             updateTextElement('dns-remote-status',
@@ -767,7 +767,7 @@ async function updateDiagnostics() {
 
     runCheck(checkBypass, 'P1_PRIORITY', result => {
         updateTextElement('bypass-status',
-            E('span', { style: `color: ${result.error ? constants.STATUS_COLORS.WARNING : result.color}` }, [
+            E('span', { style: `color: ${result.error ? main.STATUS_COLORS.WARNING : result.color}` }, [
                 result.error ? '! ' : result.state === 'working' ? '✔ ' : result.state === 'not_working' ? '✘ ' : '! ',
                 result.error ? 'check error' : result.message
             ])
@@ -875,7 +875,7 @@ function setupDiagnosticsEventHandlers(node) {
                 }
             });
         }
-    }, constants.DIAGNOSTICS_INITIAL_DELAY);
+    }, main.DIAGNOSTICS_INITIAL_DELAY);
 
     node.classList.add('fade-in');
     return node;
@@ -884,4 +884,4 @@ function setupDiagnosticsEventHandlers(node) {
 return baseclass.extend({
     createDiagnosticsSection,
     setupDiagnosticsEventHandlers
-}); 
+});
