@@ -80,6 +80,35 @@ function validatePath(value) {
   };
 }
 
+// src/validators/validateSubnet.ts
+function validateSubnet(value) {
+  const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?$/;
+  if (!subnetRegex.test(value)) {
+    return {
+      valid: false,
+      message: "Invalid format. Use X.X.X.X or X.X.X.X/Y"
+    };
+  }
+  const [ip, cidr] = value.split("/");
+  if (ip === "0.0.0.0") {
+    return { valid: false, message: "IP address 0.0.0.0 is not allowed" };
+  }
+  const ipCheck = validateIPV4(ip);
+  if (!ipCheck.valid) {
+    return ipCheck;
+  }
+  if (cidr) {
+    const cidrNum = parseInt(cidr, 10);
+    if (cidrNum < 0 || cidrNum > 32) {
+      return {
+        valid: false,
+        message: "CIDR must be between 0 and 32"
+      };
+    }
+  }
+  return { valid: true, message: "Valid" };
+}
+
 // src/constants.ts
 var STATUS_COLORS = {
   SUCCESS: "#4caf50",
@@ -218,5 +247,6 @@ return baseclass.extend({
   validateDomain,
   validateIPV4,
   validatePath,
+  validateSubnet,
   validateUrl
 });

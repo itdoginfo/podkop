@@ -508,23 +508,18 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-        if (!subnetRegex.test(value)) return _('Invalid format. Use format: X.X.X.X or X.X.X.X/Y');
-        const [ip, cidr] = value.split('/');
-        if (ip === "0.0.0.0") {
-             return _('IP address 0.0.0.0 is not allowed');
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
-        const ipParts = ip.split('.');
-        for (const part of ipParts) {
-            const num = parseInt(part);
-            if (num < 0 || num > 255) return _('IP address parts must be between 0 and 255');
+
+        const validation = main.validateSubnet(value);
+
+        if (validation.valid) {
+            return true;
         }
-        if (cidr !== undefined) {
-            const cidrNum = parseInt(cidr);
-            if (cidrNum < 0 || cidrNum > 32) return _('CIDR must be between 0 and 32');
-        }
-        return true;
+
+        return _(validation.message)
     };
 
     o = s.taboption('basic', form.TextValue, 'user_subnets_text', _('User Subnets List'), _('Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments after //'));
