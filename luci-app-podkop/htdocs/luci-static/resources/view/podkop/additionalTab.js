@@ -166,7 +166,18 @@ function createAdditionalSection(mainSection) {
     o.depends('mon_restart_ifaces', '1');
     o.multiple = true;
     o.filter = function (section_id, value) {
-        return ['lan', 'loopback'].indexOf(value) === -1 && !value.startsWith('@');
+        // Reject if the value is in the blocked list ['lan', 'loopback']
+        if (['lan', 'loopback'].includes(value)) {
+            return false;
+        }
+
+        // Reject if the value starts with '@' (means it's an alias/reference)
+        if (value.startsWith('@')) {
+            return false;
+        }
+
+        // Otherwise allow it
+        return true;
     };
 
     o = mainSection.taboption('additional', form.Value, 'procd_reload_delay', _('Interface Monitoring Delay'), _('Delay in milliseconds before reloading podkop after interface UP'));
