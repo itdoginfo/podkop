@@ -109,6 +109,15 @@ function validateSubnet(value) {
   return { valid: true, message: "Valid" };
 }
 
+// src/validators/bulkValidate.ts
+function bulkValidate(values, validate) {
+  const results = values.map((value) => ({ ...validate(value), value }));
+  return {
+    valid: results.every((r) => r.valid),
+    results
+  };
+}
+
 // src/constants.ts
 var STATUS_COLORS = {
   SUCCESS: "#4caf50",
@@ -242,6 +251,7 @@ return baseclass.extend({
   REGIONAL_OPTIONS,
   STATUS_COLORS,
   UPDATE_INTERVAL_OPTIONS,
+  bulkValidate,
   getBaseUrl,
   validateDNS,
   validateDomain,
