@@ -2,4 +2,4 @@
 'require baseclass';
 
 export * from './validators';
-export * from './constants'
+export * from './constants';

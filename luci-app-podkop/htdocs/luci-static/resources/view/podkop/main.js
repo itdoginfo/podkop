@@ -59,6 +59,27 @@ function validateUrl(url, protocols = ["http:", "https:"]) {
   }
 }
 
+// src/validators/validatePath.ts
+function validatePath(value) {
+  if (!value) {
+    return {
+      valid: false,
+      message: "Path cannot be empty"
+    };
+  }
+  const pathRegex = /^\/[a-zA-Z0-9_\-/.]+$/;
+  if (pathRegex.test(value)) {
+    return {
+      valid: true,
+      message: "Valid"
+    };
+  }
+  return {
+    valid: false,
+    message: 'Invalid path format. Path must start with "/" and contain valid characters'
+  };
+}
+
 // src/constants.ts
 var STATUS_COLORS = {
   SUCCESS: "#4caf50",
@@ -67,7 +88,11 @@ var STATUS_COLORS = {
 };
 var FAKEIP_CHECK_DOMAIN = "fakeip.podkop.fyi";
 var IP_CHECK_DOMAIN = "ip.podkop.fyi";
-var REGIONAL_OPTIONS = ["russia_inside", "russia_outside", "ukraine_inside"];
+var REGIONAL_OPTIONS = [
+  "russia_inside",
+  "russia_outside",
+  "ukraine_inside"
+];
 var ALLOWED_WITH_RUSSIA_INSIDE = [
   "russia_inside",
   "meta",
@@ -174,5 +199,6 @@ return baseclass.extend({
   validateDNS,
   validateDomain,
   validateIPV4,
+  validatePath,
   validateUrl
 });

@@ -409,12 +409,18 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        const pathRegex = /^\/[a-zA-Z0-9_\-\/\.]+$/;
-        if (!pathRegex.test(value)) {
-            return _('Invalid path format. Path must start with "/" and contain valid characters');
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
-        return true;
+
+        const validation = main.validatePath(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
     };
 
     o = s.taboption('basic', form.Flag, 'remote_domain_lists_enabled', _('Remote Domain Lists'), _('Download and use domain lists from remote URLs'));
@@ -453,12 +459,18 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        const pathRegex = /^\/[a-zA-Z0-9_\-\/\.]+$/;
-        if (!pathRegex.test(value)) {
-            return _('Invalid path format. Path must start with "/" and contain valid characters');
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
-        return true;
+
+        const validation = main.validatePath(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
     };
 
     o = s.taboption('basic', form.ListValue, 'user_subnet_list_type', _('User Subnet List Type'), _('Select how to add your custom subnets'));
