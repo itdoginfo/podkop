@@ -246,7 +246,7 @@ function createConfigSection(section, map, network) {
     o.depends('mode', 'vpn');
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.ListValue, 'domain_resolver_dns_type', _('Domain Resolver DNS Protocol Type'), _('Select DNS protocol for split'));
+    o = s.taboption('basic', form.ListValue, 'domain_resolver_dns_type', _('DNS Protocol Type'), _('Select the DNS protocol type for the domain resolver'));
     o.value('doh', _('DNS over HTTPS (DoH)'));
     o.value('dot', _('DNS over TLS (DoT)'));
     o.value('udp', _('UDP (Unprotected DNS)'));
@@ -255,7 +255,7 @@ function createConfigSection(section, map, network) {
     o.depends('domain_resolver_enabled', '1');
     o.ucisection = s.section;
 
-    o = s.taboption('basic', form.Value, 'domain_resolver_dns_server', _('Domain Resolver Server'), _('Select or enter DNS server address'));
+    o = s.taboption('basic', form.Value, 'domain_resolver_dns_server', _('DNS Server'), _('Select or enter DNS server address'));
     Object.entries(constants.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
     });
