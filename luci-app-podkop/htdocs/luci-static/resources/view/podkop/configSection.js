@@ -213,20 +213,39 @@ function createConfigSection(section, map, network) {
     o.nobridges = false;
     o.noinactive = false;
     o.filter = function (section_id, value) {
-        if (['br-lan', 'eth0', 'eth1', 'wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan', 'lan'].indexOf(value) !== -1) {
+        // Blocked interface names that should never be selectable
+        const blockedInterfaces = [
+            'br-lan',
+            'eth0',
+            'eth1',
+            'wan',
+            'phy0-ap0',
+            'phy1-ap0',
+            'pppoe-wan',
+            'lan',
+        ];
+
+        // Reject immediately if the value matches any blocked interface
+        if (blockedInterfaces.includes(value)) {
             return false;
         }
 
-        var device = this.devices.filter(function (dev) {
-            return dev.getName() === value;
-        })[0];
+        // Try to find the device object with the given name
+        const device = this.devices.find(dev => dev.getName() === value);
 
-        if (device) {
-            var type = device.getType();
-            return type !== 'wifi' && type !== 'wireless' && !type.includes('wlan');
+        // If no device is found, allow the value
+        if (!device) {
+            return true;
         }
 
-        return true;
+        // Get the device type (e.g., "wifi", "ethernet", etc.)
+        const type = device.getType();
+
+        // Reject wireless-related devices
+        const isWireless =
+            type === 'wifi' || type === 'wireless' || type.includes('wlan');
+
+        return !isWireless;
     };
 
     o = s.taboption('basic', form.Flag, 'domain_resolver_enabled', _('Domain Resolver'), _('Enable built-in DNS resolver for domains handled by this section'));
