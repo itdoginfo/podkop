@@ -3,8 +3,9 @@
 'require baseclass';
 'require view.podkop.constants as constants';
 'require tools.widgets as widgets';
+'require view.podkop.main as main';
 
-function createAdditionalSection(mainSection, network) {
+function createAdditionalSection(mainSection) {
     let o = mainSection.tab('additional', _('Additional Settings'));
 
     o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), '<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>');
@@ -46,18 +47,13 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
     o.validate = function (section_id, value) {
-        if (!value) {
-            return _('DNS server address cannot be empty');
+        const validation = main.validateDNS(value);
+
+        if (validation.valid) {
+            return true;
         }
 
-        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
-        const domainRegex = /^(?:https:\/\/)?([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}(:[0-9]{1,5})?(\/[^?#\s]*)?$/;
-
-        if (!ipRegex.test(value) && !domainRegex.test(value)) {
-            return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
-        }
-
-        return true;
+        return _(validation.message);
     };
 
     o = mainSection.taboption('additional', form.Value, 'bootstrap_dns_server', _('Bootstrap DNS server'), _('The DNS server used to look up the IP address of an upstream DNS server'));
@@ -73,17 +69,13 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
     o.validate = function (section_id, value) {
-        if (!value) {
-            return _('DNS server address cannot be empty');
+        const validation = main.validateDNS(value);
+
+        if (validation.valid) {
+            return true;
         }
 
-        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
-
-        if (!ipRegex.test(value)) {
-            return _('Invalid DNS server format. Example: 8.8.8.8');
-        }
-
-        return true;
+        return _(validation.message);
     };
 
     o = mainSection.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 60)'));
@@ -208,15 +200,18 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (!ipRegex.test(value)) return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
-        const ipParts = value.split('.');
-        for (const part of ipParts) {
-            const num = parseInt(part);
-            if (num < 0 || num > 255) return _('IP address parts must be between 0 and 255');
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
-        return true;
+
+        const validation = main.validateIPV4(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
     };
 
     o = mainSection.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
@@ -227,4 +222,4 @@ function createAdditionalSection(mainSection, network) {
 
 return baseclass.extend({
     createAdditionalSection
-}); 
+});
