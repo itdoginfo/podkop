@@ -56,14 +56,9 @@ function createAdditionalSection(mainSection) {
     };
 
     o = mainSection.taboption('additional', form.Value, 'bootstrap_dns_server', _('Bootstrap DNS server'), _('The DNS server used to look up the IP address of an upstream DNS server'));
-    o.value('77.88.8.8', '77.88.8.8 (Yandex DNS)');
-    o.value('77.88.8.1', '77.88.8.1 (Yandex DNS)');
-    o.value('1.1.1.1', '1.1.1.1 (Cloudflare DNS)');
-    o.value('1.0.0.1', '1.0.0.1 (Cloudflare DNS)');
-    o.value('8.8.8.8', '8.8.8.8 (Google DNS)');
-    o.value('8.8.4.4', '8.8.4.4 (Google DNS)');
-    o.value('9.9.9.9', '9.9.9.9 (Quad9 DNS)');
-    o.value('9.9.9.11', '9.9.9.11 (Quad9 DNS)');
+    Object.entries(main.BOOTSTRAP_DNS_SERVER_OPTIONS).forEach(([key, label]) => {
+        o.value(key, _(label));
+    });
     o.default = '77.88.8.8';
     o.rmempty = false;
     o.ucisection = 'main';
