@@ -62,12 +62,12 @@ const UPDATE_INTERVAL_OPTIONS = {
 };
 
 const DNS_SERVER_OPTIONS = {
-    '1.1.1.1': 'Cloudflare (1.1.1.1)',
-    '8.8.8.8': 'Google (8.8.8.8)',
-    '9.9.9.9': 'Quad9 (9.9.9.9)',
-    'dns.adguard-dns.com': 'AdGuard Default (dns.adguard-dns.com)',
-    'unfiltered.adguard-dns.com': 'AdGuard Unfiltered (unfiltered.adguard-dns.com)',
-    'family.adguard-dns.com': 'AdGuard Family (family.adguard-dns.com)'
+    '1.1.1.1': '1.1.1.1 (Cloudflare)',
+    '8.8.8.8': '8.8.8.8 (Google)',
+    '9.9.9.9': '9.9.9.9 (Quad9)',
+    'dns.adguard-dns.com': 'dns.adguard-dns.com (AdGuard Default)',
+    'unfiltered.adguard-dns.com': 'unfiltered.adguard-dns.com (AdGuard Unfiltered)',
+    'family.adguard-dns.com': 'family.adguard-dns.com (AdGuard Family)'
 };
 
 const DIAGNOSTICS_UPDATE_INTERVAL = 10000; // 10 seconds

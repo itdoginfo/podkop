@@ -576,16 +576,6 @@ list_update() {
     fi
 }
 
-find_working_resolver() {
-    for resolver in $DNS_RESOLVERS; do
-        if nslookup -timeout=2 $FAKEIP_TEST_DOMAIN $resolver > /dev/null 2>&1; then
-            echo "$resolver"
-            return 0
-        fi
-    done
-    return 1
-}
-
 # sing-box funcs
 
 sing_box_uci() {
@@ -709,7 +699,7 @@ configure_outbound_handler() {
                 else
                     outbound_tags="$outbound_tags,$outbound_tag"
                 fi
-                i=$((i+1))
+                i=$((i + 1))
             done
 
             urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
@@ -749,53 +739,22 @@ configure_outbound_handler() {
 
 sing_box_configure_dns() {
     log "Configure the DNS section of a sing-box JSON configuration"
-    local split_dns_enabled final_dns_server
-    config_get_bool split_dns_enabled "main" "split_dns_enabled" 0
-    if [ "$split_dns_enabled" -eq 1 ]; then
-        final_dns_server="$SB_SPLIT_DNS_SERVER_TAG"
-    else
-        final_dns_server="$SB_DNS_SERVER_TAG"
-    fi
-    config=$(sing_box_cm_configure_dns "$config" "$final_dns_server" "ipv4_only" true)
+    config=$(sing_box_cm_configure_dns "$config" "$SB_DNS_SERVER_TAG" "ipv4_only" true)
 
-    local dns_type dns_server split_dns_type split_dns_server dns_server_address split_dns_server_address
+    log "Adding DNS Servers" "debug"
+    local dns_type dns_server bootstrap_dns_server dns_server_address dns_domain_resolver
     config_get dns_type "main" "dns_type" "doh"
     config_get dns_server "main" "dns_server" "1.1.1.1"
-    config_get split_dns_type "main" "split_dns_type" "udp"
-    config_get split_dns_server "main" "split_dns_server" "1.1.1.1"
+    config_get bootstrap_dns_server "main" "bootstrap_dns_server" "77.88.8.8"
+
     dns_server_address=$(url_get_host "$dns_server")
-    split_dns_server_address=$(url_get_host "$split_dns_server")
-
-    local need_dns_domain_resolver=0
-    if ! is_ipv4 "$dns_server_address" || ! is_ipv4 "$split_dns_server_address"; then
-        need_dns_domain_resolver=1
+    if ! is_ipv4 "$dns_server_address"; then
+        dns_domain_resolver=$SB_BOOTSTRAP_SERVER_TAG
     fi
 
-    log "Adding DNS Servers"
-    config=$(sing_box_cm_add_fakeip_dns_server "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_INET4_RANGE")
-
-    local dns_domain_resolver
-    if [ "$need_dns_domain_resolver" -eq 1 ]; then
-        log "One of the DNS server addresses is a domain. Searching for a working DNS server..."
-        dns_domain_resolver=$(find_working_resolver)
-        if [ -z "$dns_domain_resolver" ]; then
-            log "Working DNS server not found, using default DNS server"
-            dns_domain_resolver="1.1.1.1"
-        else
-            log "Working DNS server has been found: $dns_domain_resolver"
-        fi
-        config=$(sing_box_cm_add_udp_dns_server "$config" "$SB_DNS_DOMAIN_RESOLVER_TAG" "$dns_domain_resolver" 53)
-        dns_domain_resolver="$SB_DNS_DOMAIN_RESOLVER_TAG"
-    fi
-
+    config=$(sing_box_cm_add_udp_dns_server "$config" "$SB_BOOTSTRAP_SERVER_TAG" "$bootstrap_dns_server" 53)
     config=$(sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "$dns_domain_resolver")
-
-    if [ "$split_dns_enabled" -eq 1 ]; then
-        config=$(
-            sing_box_cf_add_dns_server "$config" "$split_dns_type" "$SB_SPLIT_DNS_SERVER_TAG" "$split_dns_server" \
-                "$dns_domain_resolver" "$SB_MAIN_OUTBOUND_TAG"
-        )
-    fi
+    config=$(sing_box_cm_add_fakeip_dns_server "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_INET4_RANGE")
 
     log "Adding DNS Rules"
     local rewrite_ttl service_domains
@@ -807,11 +766,6 @@ sing_box_configure_dns() {
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
     service_domains=$(comma_string_to_json_array "$FAKEIP_TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
-    if [ "$split_dns_enabled" -eq 1 ]; then
-        config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_DNS_SERVER_TAG" "$SB_INVERT_FAKEIP_DNS_RULE_TAG")
-        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_INVERT_FAKEIP_DNS_RULE_TAG" "invert" true)
-        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_INVERT_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
-    fi
 }
 
 sing_box_configure_route() {
@@ -990,7 +944,9 @@ prepare_common_ruleset() {
         config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
-        domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
+        domains)
+            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+            ;;
         subnets) ;;
         *) log "Unsupported remote rule set type: $type" "warn" ;;
         esac
@@ -1011,7 +967,7 @@ configure_community_list_handler() {
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-    _add_ruleset_to_dns_rules "$ruleset_tag"
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
 }
 
 configure_user_domain_or_subnets_list() {
@@ -1070,7 +1026,7 @@ configure_local_domain_or_subnet_lists() {
     domains)
         config_list_foreach "$section" "local_domain_lists" import_local_domain_or_subnet_list "$type" \
             "$section" "$ruleset_filepath"
-        _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag"
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
         ;;
     subnets)
         config_list_foreach "$section" "local_subnet_lists" import_local_domain_or_subnet_list "$type" \
@@ -1130,7 +1086,9 @@ configure_remote_domain_or_subnet_list_handler() {
         config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
-        domains) _add_ruleset_to_dns_rules "$ruleset_tag" "$route_rule_tag" ;;
+        domains)
+            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+            ;;
         subnets) ;;
         *) log "Unsupported remote rule set type: $type" "warn" ;;
         esac
@@ -1139,17 +1097,6 @@ configure_remote_domain_or_subnet_list_handler() {
         log "Detected file extension: '$file_extension' → no processing needed, managed on list_update" "debug"
         ;;
     esac
-}
-
-_add_ruleset_to_dns_rules() {
-    local ruleset_tag="$1"
-
-    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
-    local split_dns_enabled final_dns_server
-    config_get_bool split_dns_enabled "main" "split_dns_enabled" 0
-    if [ "$split_dns_enabled" -eq 1 ]; then
-        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_INVERT_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
-    fi
 }
 
 sing_box_configure_experimental() {
@@ -1988,6 +1935,16 @@ check_dns_available() {
 print_global() {
     local message="$1"
     echo "$message"
+}
+
+find_working_resolver() {
+    for resolver in $DNS_RESOLVERS; do
+        if nslookup -timeout=2 "$FAKEIP_TEST_DOMAIN" "$resolver" > /dev/null 2>&1; then
+            echo "$resolver"
+            return 0
+        fi
+    done
+    return 1
 }
 
 global_check() {

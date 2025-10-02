@@ -60,27 +60,17 @@ function createAdditionalSection(mainSection, network) {
         return true;
     };
 
-    o = mainSection.taboption('additional', form.Flag, 'split_dns_enabled', _('Split DNS'), _('DNS for the list via proxy'));
-    o.default = '1';
+    o = mainSection.taboption('additional', form.Value, 'bootstrap_dns_server', _('Bootstrap DNS server'), _('The DNS server used to look up the IP address of an upstream DNS server'));
+    o.value('77.88.8.8', '77.88.8.8 (Yandex DNS)');
+    o.value('77.88.8.1', '77.88.8.1 (Yandex DNS)');
+    o.value('1.1.1.1', '1.1.1.1 (Cloudflare DNS)');
+    o.value('1.0.0.1', '1.0.0.1 (Cloudflare DNS)');
+    o.value('8.8.8.8', '8.8.8.8 (Google DNS)');
+    o.value('8.8.4.4', '8.8.4.4 (Google DNS)');
+    o.value('9.9.9.9', '9.9.9.9 (Quad9 DNS)');
+    o.value('9.9.9.11', '9.9.9.11 (Quad9 DNS)');
+    o.default = '77.88.8.8';
     o.rmempty = false;
-    o.ucisection = 'main';
-
-    o = mainSection.taboption('additional', form.ListValue, 'split_dns_type', _('Split DNS Protocol Type'), _('Select DNS protocol for split'));
-    o.value('doh', _('DNS over HTTPS (DoH)'));
-    o.value('dot', _('DNS over TLS (DoT)'));
-    o.value('udp', _('UDP (Unprotected DNS)'));
-    o.default = 'udp';
-    o.rmempty = false;
-    o.depends('split_dns_enabled', '1');
-    o.ucisection = 'main';
-
-    o = mainSection.taboption('additional', form.Value, 'split_dns_server', _('Split DNS Server'), _('Select or enter DNS server address'));
-    Object.entries(constants.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
-        o.value(key, _(label));
-    });
-    o.default = '1.1.1.1';
-    o.rmempty = false;
-    o.depends('split_dns_enabled', '1');
     o.ucisection = 'main';
     o.validate = function (section_id, value) {
         if (!value) {
@@ -88,10 +78,9 @@ function createAdditionalSection(mainSection, network) {
         }
 
         const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
-        const domainRegex = /^(?:https:\/\/)?([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}(:[0-9]{1,5})?(\/[^?#\s]*)?$/;
 
-        if (!ipRegex.test(value) && !domainRegex.test(value)) {
-            return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
+        if (!ipRegex.test(value)) {
+            return _('Invalid DNS server format. Example: 8.8.8.8');
         }
 
         return true;
