@@ -158,6 +158,12 @@ msgstr "IP для исключения"
 msgid "Specify local IP addresses that will never use the configured route"
 msgstr "Укажите локальные IP-адреса, которые никогда не будут использовать настроенный маршрут"
 
+msgid "Local IPs"
+msgstr "Локальные IP адреса"
+
+msgid "Enter valid IPv4 addresses"
+msgstr "Введите действительные IPv4-адреса"
+
 msgid "Local IPs/IP-CIDRs"
 msgstr "Локальные IP или IP/CIDR адреса"
 
