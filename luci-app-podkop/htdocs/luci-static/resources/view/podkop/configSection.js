@@ -4,19 +4,9 @@
 'require ui';
 'require network';
 'require view.podkop.constants as constants';
+'require view.podkop.main as main';
 'require tools.widgets as widgets';
 
-function validateUrl(url, protocols = ['http:', 'https:']) {
-    try {
-        const parsedUrl = new URL(url);
-        if (!protocols.includes(parsedUrl.protocol)) {
-            return _('URL must use one of the following protocols: ') + protocols.join(', ');
-        }
-        return true;
-    } catch (e) {
-        return _('Invalid URL format');
-    }
-}
 
 function createConfigSection(section, map, network) {
     const s = section;
@@ -438,8 +428,18 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        return validateUrl(value);
+        // Optional
+        if (!value || value.length === 0) {
+            return true
+        }
+
+        const validation = main.validateUrl(url);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
     };
 
     o = s.taboption('basic', form.Flag, 'local_subnet_lists_enabled', _('Local Subnet Lists'), _('Use the list from the router filesystem'));
@@ -562,8 +562,18 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        return validateUrl(value);
+        // Optional
+        if (!value || value.length === 0) {
+            return true
+        }
+
+        const validation = main.validateUrl(url);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
     };
 
     o = s.taboption('basic', form.Flag, 'all_traffic_from_ip_enabled', _('IP for full redirection'), _('Specify local IP addresses whose traffic will always use the configured route'));
