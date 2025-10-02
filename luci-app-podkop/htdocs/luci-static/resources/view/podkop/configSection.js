@@ -29,6 +29,8 @@ function createConfigSection(section, map, network) {
     o = s.taboption('basic', form.TextValue, 'proxy_string', _('Proxy Configuration URL'), '');
     o.depends('proxy_config_type', 'url');
     o.rows = 5;
+    o.wrap = 'soft';
+    o.textarea = true;
     o.rmempty = false;
     o.ucisection = s.section;
     o.sectionDescriptions = new Map();
