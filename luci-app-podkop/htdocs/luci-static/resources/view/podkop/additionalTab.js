@@ -131,20 +131,29 @@ function createAdditionalSection(mainSection) {
     o.noinactive = false;
     o.multiple = true;
     o.filter = function (section_id, value) {
-        if (['wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan'].indexOf(value) !== -1) {
+        // Block specific interface names from being selectable
+        const blocked = ['wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan'];
+        if (blocked.includes(value)) {
             return false;
         }
 
-        var device = this.devices.filter(function (dev) {
-            return dev.getName() === value;
-        })[0];
+        // Try to find the device object by its name
+        const device = this.devices.find(dev => dev.getName() === value);
 
-        if (device) {
-            var type = device.getType();
-            return type !== 'wifi' && type !== 'wireless' && !type.includes('wlan');
+        // If no device is found, allow the value
+        if (!device) {
+            return true;
         }
 
-        return true;
+        // Check the type of the device
+        const type = device.getType();
+
+        // Consider any Wi-Fi / wireless / wlan device as invalid
+        const isWireless =
+            type === 'wifi' || type === 'wireless' || type.includes('wlan');
+
+        // Allow only non-wireless devices
+        return !isWireless;
     };
 
     o = mainSection.taboption('additional', form.Flag, 'mon_restart_ifaces', _('Interface monitoring'), _('Interface monitoring for bad WAN'));
