@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-09-30 15:18+0500\n"
+"POT-Creation-Date: 2025-10-02 19:37+0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -50,6 +50,7 @@ msgid "Select how often the lists will be updated"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:33
+#: htdocs/luci-static/resources/view/podkop/configSection.js:249
 msgid "DNS Protocol Type"
 msgstr ""
 
@@ -58,193 +59,187 @@ msgid "Select DNS protocol to use"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:34
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:69
+#: htdocs/luci-static/resources/view/podkop/configSection.js:250
 msgid "DNS over HTTPS (DoH)"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:35
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:70
+#: htdocs/luci-static/resources/view/podkop/configSection.js:251
 msgid "DNS over TLS (DoT)"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:36
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:71
+#: htdocs/luci-static/resources/view/podkop/configSection.js:252
 msgid "UDP (Unprotected DNS)"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:41
+#: htdocs/luci-static/resources/view/podkop/configSection.js:258
 msgid "DNS Server"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:41
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:77
+#: htdocs/luci-static/resources/view/podkop/configSection.js:258
 msgid "Select or enter DNS server address"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:50
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:87
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:77
+#: htdocs/luci-static/resources/view/podkop/configSection.js:268
 msgid "DNS server address cannot be empty"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:57
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:94
+#: htdocs/luci-static/resources/view/podkop/configSection.js:275
 msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:63
-msgid "Split DNS"
+msgid "Bootstrap DNS server"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:63
-msgid "DNS for the list via proxy"
+msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:68
-msgid "Split DNS Protocol Type"
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:83
+msgid "Invalid DNS server format. Example: 8.8.8.8"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:68
-msgid "Select DNS protocol for split"
-msgstr ""
-
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:77
-msgid "Split DNS Server"
-msgstr ""
-
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:100
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:89
 msgid "DNS Rewrite TTL"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:100
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:89
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:106
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:95
 msgid "TTL value cannot be empty"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:111
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:100
 msgid "TTL must be a positive number"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:117
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:106
 msgid "Config File Path"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:117
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:106
 msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:124
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:113
 msgid "Cache File Path"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:124
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:113
 msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:132
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:121
 msgid "Cache file path cannot be empty"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:136
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:125
 msgid "Path must be absolute (start with /)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:140
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:129
 msgid "Path must end with cache.db"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:145
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:134
 msgid "Path must contain at least one directory (like /tmp/cache.db)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:151
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:140
 msgid "Source Network Interface"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:151
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:140
 msgid "Select the network interface from which the traffic will originate"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:175
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:164
 msgid "Interface monitoring"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:175
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:164
 msgid "Interface monitoring for bad WAN"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:180
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:169
 msgid "Interface for monitoring"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:180
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:169
 msgid "Select the WAN interfaces to be monitored"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:188
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:177
 msgid "Interface Monitoring Delay"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:188
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:177
 msgid "Delay in milliseconds before reloading podkop after interface UP"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:195
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:184
 msgid "Delay value cannot be empty"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:200
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:189
 msgid "Dont touch my DHCP!"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:200
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:189
 msgid "Podkop will not change the DHCP config"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:205
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:194
 msgid "Proxy download of lists"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:205
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:194
 msgid "Downloading all lists via main Proxy/VPN"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:212
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:200
 msgid "IP for exclusion"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:212
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:200
 msgid "Specify local IP addresses that will never use the configured route"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:217
-#: htdocs/luci-static/resources/view/podkop/configSection.js:536
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:205
+#: htdocs/luci-static/resources/view/podkop/configSection.js:574
 msgid "Local IPs"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:217
-#: htdocs/luci-static/resources/view/podkop/configSection.js:536
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:205
+#: htdocs/luci-static/resources/view/podkop/configSection.js:574
 msgid "Enter valid IPv4 addresses"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:225
-#: htdocs/luci-static/resources/view/podkop/configSection.js:544
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:213
+#: htdocs/luci-static/resources/view/podkop/configSection.js:582
 msgid "Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:229
-#: htdocs/luci-static/resources/view/podkop/configSection.js:450
-#: htdocs/luci-static/resources/view/podkop/configSection.js:548
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:217
+#: htdocs/luci-static/resources/view/podkop/configSection.js:488
+#: htdocs/luci-static/resources/view/podkop/configSection.js:586
 msgid "IP address parts must be between 0 and 255"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:234
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:222
 msgid "Mixed enable"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:234
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:222
 msgid "Browser port: 2080"
 msgstr ""
 
@@ -427,213 +422,225 @@ msgid "Select network interface for VPN connection"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/configSection.js:243
+msgid "Domain Resolver"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/podkop/configSection.js:243
+msgid "Enable built-in DNS resolver for domains handled by this section"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/podkop/configSection.js:249
+msgid "Select the DNS protocol type for the domain resolver"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/podkop/configSection.js:281
 msgid "Community Lists"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:248
+#: htdocs/luci-static/resources/view/podkop/configSection.js:286
 msgid "Service List"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:248
+#: htdocs/luci-static/resources/view/podkop/configSection.js:286
 msgid "Select predefined service for routing"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:276
+#: htdocs/luci-static/resources/view/podkop/configSection.js:314
 msgid "Regional options cannot be used together"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:277
+#: htdocs/luci-static/resources/view/podkop/configSection.js:315
 #, javascript-format
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:287
+#: htdocs/luci-static/resources/view/podkop/configSection.js:325
 msgid "Russia inside restrictions"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:288
+#: htdocs/luci-static/resources/view/podkop/configSection.js:326
 #, javascript-format
 msgid ""
 "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:310
+#: htdocs/luci-static/resources/view/podkop/configSection.js:348
 msgid "User Domain List Type"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:310
+#: htdocs/luci-static/resources/view/podkop/configSection.js:348
 msgid "Select how to add your custom domains"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:311
-#: htdocs/luci-static/resources/view/podkop/configSection.js:427
+#: htdocs/luci-static/resources/view/podkop/configSection.js:349
+#: htdocs/luci-static/resources/view/podkop/configSection.js:465
 msgid "Disabled"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:312
-#: htdocs/luci-static/resources/view/podkop/configSection.js:428
+#: htdocs/luci-static/resources/view/podkop/configSection.js:350
+#: htdocs/luci-static/resources/view/podkop/configSection.js:466
 msgid "Dynamic List"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:313
+#: htdocs/luci-static/resources/view/podkop/configSection.js:351
 msgid "Text List"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:318
+#: htdocs/luci-static/resources/view/podkop/configSection.js:356
 msgid "User Domains"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:318
+#: htdocs/luci-static/resources/view/podkop/configSection.js:356
 msgid "Enter domain names without protocols (example: sub.example.com or example.com)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:327
+#: htdocs/luci-static/resources/view/podkop/configSection.js:365
 msgid "Invalid domain format. Enter domain without protocol (example: sub.example.com or ru)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:332
+#: htdocs/luci-static/resources/view/podkop/configSection.js:370
 msgid "User Domains List"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:332
+#: htdocs/luci-static/resources/view/podkop/configSection.js:370
 msgid "Enter domain names separated by comma, space or newline. You can add comments after //"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:360
+#: htdocs/luci-static/resources/view/podkop/configSection.js:398
 #, javascript-format
 msgid "Invalid domain format: %s. Enter domain without protocol"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:367
+#: htdocs/luci-static/resources/view/podkop/configSection.js:405
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:373
+#: htdocs/luci-static/resources/view/podkop/configSection.js:411
 msgid "Local Domain Lists"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:373
-#: htdocs/luci-static/resources/view/podkop/configSection.js:407
+#: htdocs/luci-static/resources/view/podkop/configSection.js:411
+#: htdocs/luci-static/resources/view/podkop/configSection.js:445
 msgid "Use the list from the router filesystem"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:378
+#: htdocs/luci-static/resources/view/podkop/configSection.js:416
 msgid "Local Domain List Paths"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:378
-#: htdocs/luci-static/resources/view/podkop/configSection.js:412
+#: htdocs/luci-static/resources/view/podkop/configSection.js:416
+#: htdocs/luci-static/resources/view/podkop/configSection.js:450
 msgid "Enter the list file path"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:387
-#: htdocs/luci-static/resources/view/podkop/configSection.js:421
+#: htdocs/luci-static/resources/view/podkop/configSection.js:425
+#: htdocs/luci-static/resources/view/podkop/configSection.js:459
 msgid "Invalid path format. Path must start with \"/\" and contain valid characters"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:392
+#: htdocs/luci-static/resources/view/podkop/configSection.js:430
 msgid "Remote Domain Lists"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:392
+#: htdocs/luci-static/resources/view/podkop/configSection.js:430
 msgid "Download and use domain lists from remote URLs"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:397
+#: htdocs/luci-static/resources/view/podkop/configSection.js:435
 msgid "Remote Domain URLs"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:397
-#: htdocs/luci-static/resources/view/podkop/configSection.js:521
+#: htdocs/luci-static/resources/view/podkop/configSection.js:435
+#: htdocs/luci-static/resources/view/podkop/configSection.js:559
 msgid "Enter full URLs starting with http:// or https://"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:407
+#: htdocs/luci-static/resources/view/podkop/configSection.js:445
 msgid "Local Subnet Lists"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:412
+#: htdocs/luci-static/resources/view/podkop/configSection.js:450
 msgid "Local Subnet List Paths"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:426
+#: htdocs/luci-static/resources/view/podkop/configSection.js:464
 msgid "User Subnet List Type"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:426
+#: htdocs/luci-static/resources/view/podkop/configSection.js:464
 msgid "Select how to add your custom subnets"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:429
+#: htdocs/luci-static/resources/view/podkop/configSection.js:467
 msgid "Text List (comma/space/newline separated)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:434
+#: htdocs/luci-static/resources/view/podkop/configSection.js:472
 msgid "User Subnets"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:434
+#: htdocs/luci-static/resources/view/podkop/configSection.js:472
 msgid "Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:442
+#: htdocs/luci-static/resources/view/podkop/configSection.js:480
 msgid "Invalid format. Use format: X.X.X.X or X.X.X.X/Y"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:445
+#: htdocs/luci-static/resources/view/podkop/configSection.js:483
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:454
+#: htdocs/luci-static/resources/view/podkop/configSection.js:492
 msgid "CIDR must be between 0 and 32"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:459
+#: htdocs/luci-static/resources/view/podkop/configSection.js:497
 msgid "User Subnets List"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:459
+#: htdocs/luci-static/resources/view/podkop/configSection.js:497
 msgid ""
 "Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments "
 "after //"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:487
+#: htdocs/luci-static/resources/view/podkop/configSection.js:525
 #, javascript-format
 msgid "Invalid format: %s. Use format: X.X.X.X or X.X.X.X/Y"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:495
+#: htdocs/luci-static/resources/view/podkop/configSection.js:533
 #, javascript-format
 msgid "IP parts must be between 0 and 255 in: %s"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:502
+#: htdocs/luci-static/resources/view/podkop/configSection.js:540
 #, javascript-format
 msgid "CIDR must be between 0 and 32 in: %s"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:510
+#: htdocs/luci-static/resources/view/podkop/configSection.js:548
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:516
+#: htdocs/luci-static/resources/view/podkop/configSection.js:554
 msgid "Remote Subnet Lists"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:516
+#: htdocs/luci-static/resources/view/podkop/configSection.js:554
 msgid "Download and use subnet lists from remote URLs"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:521
+#: htdocs/luci-static/resources/view/podkop/configSection.js:559
 msgid "Remote Subnet URLs"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:531
+#: htdocs/luci-static/resources/view/podkop/configSection.js:569
 msgid "IP for full redirection"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/configSection.js:531
+#: htdocs/luci-static/resources/view/podkop/configSection.js:569
 msgid "Specify local IP addresses whose traffic will always use the configured route"
 msgstr ""
 
