@@ -196,7 +196,6 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
 
-    // TODO(ampetelin): Can be moved to advanced settings in luci
     // Extra IPs and exclusions (main section)
     o = mainSection.taboption('basic', form.Flag, 'exclude_from_ip_enabled', _('IP for exclusion'), _('Specify local IP addresses that will never use the configured route'));
     o.default = '0';

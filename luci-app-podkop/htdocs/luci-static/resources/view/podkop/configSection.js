@@ -240,6 +240,44 @@ function createConfigSection(section, map, network) {
         return true;
     };
 
+    o = s.taboption('basic', form.Flag, 'domain_resolver_enabled', _('Domain Resolver'), _('Enable built-in DNS resolver for domains handled by this section'));
+    o.default = '0';
+    o.rmempty = false;
+    o.depends('mode', 'vpn');
+    o.ucisection = s.section;
+
+    o = s.taboption('basic', form.ListValue, 'domain_resolver_dns_type', _('Domain Resolver DNS Protocol Type'), _('Select DNS protocol for split'));
+    o.value('doh', _('DNS over HTTPS (DoH)'));
+    o.value('dot', _('DNS over TLS (DoT)'));
+    o.value('udp', _('UDP (Unprotected DNS)'));
+    o.default = 'udp';
+    o.rmempty = false;
+    o.depends('domain_resolver_enabled', '1');
+    o.ucisection = s.section;
+
+    o = s.taboption('basic', form.Value, 'domain_resolver_dns_server', _('Domain Resolver Server'), _('Select or enter DNS server address'));
+    Object.entries(constants.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
+        o.value(key, _(label));
+    });
+    o.default = '8.8.8.8';
+    o.rmempty = false;
+    o.depends('domain_resolver_enabled', '1');
+    o.ucisection = s.section;
+    o.validate = function (section_id, value) {
+        if (!value) {
+            return _('DNS server address cannot be empty');
+        }
+
+        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
+        const domainRegex = /^(?:https:\/\/)?([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}(:[0-9]{1,5})?(\/[^?#\s]*)?$/;
+
+        if (!ipRegex.test(value) && !domainRegex.test(value)) {
+            return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
+        }
+
+        return true;
+    };
+
     o = s.taboption('basic', form.Flag, 'community_lists_enabled', _('Community Lists'));
     o.default = '0';
     o.rmempty = false;

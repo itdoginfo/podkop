@@ -717,15 +717,32 @@ configure_outbound_handler() {
         ;;
     vpn)
         log "Configuring outbound in VPN connection mode for the $section section"
-        local interface_name
+        local interface_name domain_resolver_enabled domain_resolver_dns_type domain_resolver_dns_server \
+            outbound_tag domain_resolver_tag dns_domain_resolver
+
         config_get interface_name "$section" "interface"
+        config_get domain_resolver_enabled "$section" "domain_resolver_enabled"
+        config_get domain_resolver_dns_type "$section" "domain_resolver_dns_type"
+        config_get domain_resolver_dns_server "$section" "domain_resolver_dns_server"
 
         if [ -z "$interface_name" ]; then
             log "VPN interface is not set. Aborted." "fatal"
             exit 1
         fi
 
-        config=$(sing_box_cf_add_interface_outbound "$config" "$section" "$interface_name")
+        local outbound_tag
+        outbound_tag="$(get_outbound_tag_by_section "$section")"
+
+        if [ "$domain_resolver_enabled" -eq 1 ]; then
+            if ! is_ipv4 "$domain_resolver_dns_server"; then
+                dns_domain_resolver=$SB_BOOTSTRAP_SERVER_TAG
+            fi
+            domain_resolver_tag="$(get_domain_resolver_tag "$section")"
+            config=$(sing_box_cf_add_dns_server "$config" "$domain_resolver_dns_type" "$domain_resolver_tag" \
+                "$domain_resolver_dns_server" "$dns_domain_resolver" "$outbound_tag")
+        fi
+
+        config=$(sing_box_cm_add_interface_outbound "$config" "$outbound_tag" "$interface_name" "$domain_resolver_tag")
         ;;
     block)
         log "Connection mode 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
@@ -742,13 +759,12 @@ sing_box_configure_dns() {
     config=$(sing_box_cm_configure_dns "$config" "$SB_DNS_SERVER_TAG" "ipv4_only" true)
 
     log "Adding DNS Servers" "debug"
-    local dns_type dns_server bootstrap_dns_server dns_server_address dns_domain_resolver
+    local dns_type dns_server bootstrap_dns_server dns_domain_resolver
     config_get dns_type "main" "dns_type" "doh"
     config_get dns_server "main" "dns_server" "1.1.1.1"
     config_get bootstrap_dns_server "main" "bootstrap_dns_server" "77.88.8.8"
 
-    dns_server_address=$(url_get_host "$dns_server")
-    if ! is_ipv4 "$dns_server_address"; then
+    if ! is_ipv4 "$dns_server"; then
         dns_domain_resolver=$SB_BOOTSTRAP_SERVER_TAG
     fi
 
