@@ -189,6 +189,12 @@ var COMMAND_SCHEDULING = {
   P10_PRIORITY: 1900
   // Lowest priority
 };
+
+// src/helpers/getBaseUrl.ts
+function getBaseUrl() {
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}`;
+}
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
@@ -207,6 +213,7 @@ return baseclass.extend({
   REGIONAL_OPTIONS,
   STATUS_COLORS,
   UPDATE_INTERVAL_OPTIONS,
+  getBaseUrl,
   validateDNS,
   validateDomain,
   validateIPV4,
