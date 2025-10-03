@@ -622,7 +622,47 @@ sing_box_cm_add_vless_outbound() {
 }
 
 #######################################
-# Set gRPC transport settings for a VLESS outbound in a sing-box JSON configuration.
+# Add a Trojan outbound to the outbounds section of a sing-box JSON configuration.
+# Arguments:
+#   config: string, JSON configuration
+#   tag: string, identifier for the outbound
+#   server_address: string, IP address or hostname of the Trojan server
+#   server_port: number, port of the Trojan server
+#   password: string, password for authentication
+#   network: string, optional network type (e.g., "tcp")
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_trojan_outbound "$CONFIG" "trojan-out" "example.com" 443 "supersecretpassword" "tcp")
+#######################################
+sing_box_cm_add_trojan_outbound() {
+    local config="$1"
+    local tag="$2"
+    local server_address="$3"
+    local server_port="$4"
+    local password="$5"
+    local network="$6"
+
+    echo "$config" | jq \
+    --arg tag "$tag" \
+    --arg server_address "$server_address" \
+    --arg server_port "$server_port" \
+    --arg password "$password" \
+    --arg network "$network" \
+    '.outbounds += [(
+        {
+          type: "trojan",
+          tag: $tag,
+          server: $server_address,
+          server_port: ($server_port | tonumber),
+          password: $password
+        }
+        + (if $network != "" then {network: $network} else {} end)
+    )]'
+}
+
+#######################################
+# Set gRPC transport settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
 #   tag: string, identifier of the outbound to modify
@@ -633,9 +673,9 @@ sing_box_cm_add_vless_outbound() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_set_vless_grpc_transport "$CONFIG" "vless-tls-grpc-out")
+#   CONFIG=$(sing_box_cm_set_grpc_transport_for_outbound "$CONFIG" "vless-tls-grpc-out")
 #######################################
-sing_box_cm_set_vless_grpc_transport() {
+sing_box_cm_set_grpc_transport_for_outbound() {
     local config="$1"
     local tag="$2"
     local service_name="$3"
@@ -667,7 +707,7 @@ sing_box_cm_set_vless_grpc_transport() {
 }
 
 #######################################
-# Set WebSocket transport settings for a VLESS outbound in a sing-box JSON configuration.
+# Set WebSocket transport settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
 #   tag: string, identifier of the outbound to modify
@@ -678,9 +718,9 @@ sing_box_cm_set_vless_grpc_transport() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_set_vless_ws_transport "$CONFIG" "vless-tls-ws-out" "/path" "example.com")
+#   CONFIG=$(sing_box_cm_set_ws_transport_for_outbound "$CONFIG" "vless-tls-ws-out" "/path" "example.com")
 #######################################
-sing_box_cm_set_vless_ws_transport() {
+sing_box_cm_set_ws_transport_for_outbound() {
     local config="$1"
     local tag="$2"
     local path="$3"
@@ -717,7 +757,7 @@ sing_box_cm_set_vless_ws_transport() {
 }
 
 #######################################
-# Set TLS settings for a VLESS outbound in a sing-box JSON configuration.
+# Set TLS settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
 #   tag: string, identifier of the outbound to modify
@@ -731,11 +771,11 @@ sing_box_cm_set_vless_ws_transport() {
 #   Writes updated JSON configuration to stdout
 # Example:
 #   CONFIG=$(
-#       sing_box_cm_set_vless_tls "$CONFIG" "vless-reality-out" "example.com" false null "chrome" \
+#       sing_box_cm_set_tls_for_outbound "$CONFIG" "vless-reality-out" "example.com" false null "chrome" \
 #       "jNXHt1yRo0vDuchQlIP6Z0ZvjT3KtzVI-T4E7RoLJS0" "0123456789abcdef"
 #   )
 #######################################
-sing_box_cm_set_vless_tls() {
+sing_box_cm_set_tls_for_outbound() {
     local config="$1"
     local tag="$2"
     local server_name="$3"

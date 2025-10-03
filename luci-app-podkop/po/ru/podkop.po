@@ -606,7 +606,7 @@ msgid "does not work in browser"
 msgstr "не работает в браузере"
 
 msgid "works on router"
-msgstr "не работает в браузере"
+msgstr "работает на роутере"
 
 msgid "does not work on router"
 msgstr "не работает на роутере"
