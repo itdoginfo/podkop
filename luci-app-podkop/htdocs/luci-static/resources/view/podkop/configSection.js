@@ -7,7 +7,7 @@
 'require tools.widgets as widgets';
 
 
-function createConfigSection(section, map, network) {
+function createConfigSection(section) {
     const s = section;
 
     let o = s.tab('basic', _('Basic Settings'));

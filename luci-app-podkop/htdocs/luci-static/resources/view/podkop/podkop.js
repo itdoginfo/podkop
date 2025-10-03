@@ -8,23 +8,23 @@
 'require view.podkop.utils as utils';
 'require view.podkop.main as main';
 
-return view.extend({
+const EntryNode = {
     async render() {
         main.injectGlobalStyles();
 
-        const m = new form.Map('podkop', '', null, ['main', 'extra']);
+        const podkopFormMap = new form.Map('podkop', '', null, ['main', 'extra']);
 
         // Main Section
-        const mainSection = m.section(form.TypedSection, 'main');
+        const mainSection = podkopFormMap.section(form.TypedSection, 'main');
         mainSection.anonymous = true;
-        configSection.createConfigSection(mainSection, m, network);
+        configSection.createConfigSection(mainSection);
 
         // Additional Settings Tab (main section)
-        additionalTab.createAdditionalSection(mainSection, network);
+        additionalTab.createAdditionalSection(mainSection);
 
         // Diagnostics Tab (main section)
         diagnosticTab.createDiagnosticsSection(mainSection);
-        const map_promise = m.render().then(node => {
+        const podkopFormMapPromise = podkopFormMap.render().then(node => {
             // Set up diagnostics event handlers
             diagnosticTab.setupDiagnosticsEventHandlers(node);
 
@@ -56,13 +56,15 @@ return view.extend({
         });
 
         // Extra Section
-        const extraSection = m.section(form.TypedSection, 'extra', _('Extra configurations'));
+        const extraSection = podkopFormMap.section(form.TypedSection, 'extra', _('Extra configurations'));
         extraSection.anonymous = false;
         extraSection.addremove = true;
         extraSection.addbtntitle = _('Add Section');
         extraSection.multiple = true;
-        configSection.createConfigSection(extraSection, m, network);
+        configSection.createConfigSection(extraSection);
 
-        return map_promise;
+        return podkopFormMapPromise;
     }
-});
+}
+
+return view.extend(EntryNode);

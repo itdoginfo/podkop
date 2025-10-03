@@ -251,33 +251,6 @@ async function checkBypass() {
     }
 }
 
-// Modal Functions
-function createModalContent(title, content) {
-    return [
-        E('div', {
-            'class': 'panel-body',
-            style: 'max-height: 70vh; overflow-y: auto; margin: 1em 0; padding: 1.5em; ' +
-                'font-family: monospace; white-space: pre-wrap; word-wrap: break-word; ' +
-                'line-height: 1.5; font-size: 14px;'
-        }, [
-            E('pre', { style: 'margin: 0;' }, content)
-        ]),
-        E('div', {
-            'class': 'right',
-            style: 'margin-top: 1em;'
-        }, [
-            E('button', {
-                'class': 'btn',
-                'click': ev => copyToClipboard('```txt\n' + content + '\n```', ev.target)
-            }, _('Copy to Clipboard')),
-            E('button', {
-                'class': 'btn',
-                'click': ui.hideModal
-            }, _('Close'))
-        ])
-    ];
-}
-
 function showConfigModal(command, title) {
     // Create and show modal immediately with loading state
     const modalContent = E('div', { 'class': 'panel-body' }, [
