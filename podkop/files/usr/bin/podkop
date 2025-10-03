@@ -718,7 +718,7 @@ configure_outbound_handler() {
     vpn)
         log "Configuring outbound in VPN connection mode for the $section section"
         local interface_name domain_resolver_enabled domain_resolver_dns_type domain_resolver_dns_server \
-            outbound_tag domain_resolver_tag dns_domain_resolver
+            domain_resolver_dns_server_address outbound_tag domain_resolver_tag dns_domain_resolver
 
         config_get interface_name "$section" "interface"
         config_get domain_resolver_enabled "$section" "domain_resolver_enabled"
@@ -734,7 +734,8 @@ configure_outbound_handler() {
         outbound_tag="$(get_outbound_tag_by_section "$section")"
 
         if [ "$domain_resolver_enabled" -eq 1 ]; then
-            if ! is_ipv4 "$domain_resolver_dns_server"; then
+            domain_resolver_dns_server_address="$(url_get_host "$dns_server")"
+            if ! is_ipv4 "$domain_resolver_dns_server_address"; then
                 dns_domain_resolver=$SB_BOOTSTRAP_SERVER_TAG
             fi
             domain_resolver_tag="$(get_domain_resolver_tag "$section")"
@@ -759,12 +760,13 @@ sing_box_configure_dns() {
     config=$(sing_box_cm_configure_dns "$config" "$SB_DNS_SERVER_TAG" "ipv4_only" true)
 
     log "Adding DNS Servers" "debug"
-    local dns_type dns_server bootstrap_dns_server dns_domain_resolver
+    local dns_type dns_server bootstrap_dns_server dns_domain_resolver dns_server_address
     config_get dns_type "main" "dns_type" "doh"
     config_get dns_server "main" "dns_server" "1.1.1.1"
     config_get bootstrap_dns_server "main" "bootstrap_dns_server" "77.88.8.8"
 
-    if ! is_ipv4 "$dns_server"; then
+    dns_server_address="$(url_get_host "$dns_server")"
+    if ! is_ipv4 "$dns_server_address"; then
         dns_domain_resolver=$SB_BOOTSTRAP_SERVER_TAG
     fi
 
