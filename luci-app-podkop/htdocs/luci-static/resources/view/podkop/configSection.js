@@ -385,35 +385,27 @@ function createConfigSection(section, map, network) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-
-        const domainRegex = /^(?!-)[A-Za-z0-9-]+([-.][A-Za-z0-9-]+)*(\.[A-Za-z]{2,})?$/;
-        const lines = value.split(/\n/).map(line => line.trim());
-        let hasValidDomain = false;
-
-        for (const line of lines) {
-            // Skip empty lines
-            if (!line) continue;
-
-            // Extract domain part (before any //)
-            const domainPart = line.split('//')[0].trim();
-
-            // Skip if line is empty after removing comments
-            if (!domainPart) continue;
-
-            // Process each domain in the line (separated by comma or space)
-            const domains = domainPart.split(/[,\s]+/).map(d => d.trim()).filter(d => d.length > 0);
-
-            for (const domain of domains) {
-                if (!domainRegex.test(domain)) {
-                    return _('Invalid domain format: %s. Enter domain without protocol').format(domain);
-                }
-                hasValidDomain = true;
-            }
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
 
-        if (!hasValidDomain) {
-            return _('At least one valid domain must be specified. Comments-only content is not allowed.');
+        const subnets = main.parseValueList(value);
+
+        if (!subnets.length) {
+            return _(
+                'At least one valid domain must be specified. Comments-only content is not allowed.'
+            );
+        }
+
+        const { valid, results } = main.bulkValidate(subnets, main.validateDomain);
+
+        if (!valid) {
+            const errors = results
+                .filter(validation => !validation.valid) // Leave only failed validations
+                .map((validation) => _(`${validation.value}: ${validation.message}`)) // Collect validation errors
+
+            return [_('Validation errors:'), ...errors].join('\n');
         }
 
         return true;
@@ -534,13 +526,7 @@ function createConfigSection(section, map, network) {
             return true
         }
 
-        const subnets = value
-            .split(/\n/) // Split to array by newline separator
-            .map(line => line.split('//')[0]) // Remove comments
-            .join(' ') // Build clean string
-            .split(/[,\s]+/) // Split to subnets array by comma and space
-            .map(s => s.trim()) // Remove extra spaces
-            .filter(Boolean);
+        const subnets = main.parseValueList(value);
 
         if (!subnets.length) {
             return _(
@@ -552,8 +538,8 @@ function createConfigSection(section, map, network) {
 
         if (!valid) {
             const errors = results
-                .filter(subnetValidation => !subnetValidation.valid) // Leave only failed validations
-                .map((subnetValidation) => _(`${subnetValidation.value}: ${subnetValidation.message}`)) // Collect validation errors
+                .filter(validation => !validation.valid) // Leave only failed validations
+                .map((validation) => _(`${validation.value}: ${validation.message}`)) // Collect validation errors
 
             return [_('Validation errors:'), ...errors].join('\n');
         }
