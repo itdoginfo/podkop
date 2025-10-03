@@ -1,68 +1,76 @@
-# Shadowsocks
-Тут всё просто
-
-## Shadowsocks-old
+## Shadowsocks
 ```
-ss://YWVzLTI1Ni1nY206RmJwUDJnSStPczJKK1kzdkVhTnVuOUZ2ZjJZYUhNUlN1L1BBdEVqMks1VT0@example.com:80?type=tcp#example-ss-old
-```
-
-## Shadowsocks-2022
-```
-ss://2022-blake3-aes-128-gcm:5NgF%2B9eM8h4OnrTbHp%2B8UA%3D%3D%3Am8tbs5aKLYG7dN9f3xsiKA%3D%3D@example.com:80#example-ss2022
+ss://MjAyMi1ibGFrZTMtYWVzLTI1Ni1nY206ZG1DbHkvWmgxNVd3OStzK0dGWGlGVElrcHc3Yy9xQ0lTYUJyYWk3V2hoWT0@127.0.0.1:25144?type=tcp#shadowsocks-no-client
+ss://MjAyMi1ibGFrZTMtYWVzLTI1Ni1nY206S3FiWXZiNkhwb1RmTUt0N2VGcUZQSmJNNXBXaHlFU0ZKTXY2dEp1Ym1Fdz06dzRNMEx5RU9OTGQ5SWlkSGc0endTbzN2R3h4NS9aQ3hId0FpaWlxck5hcz0@127.0.0.1:26627?type=tcp#shadowsocks-client
+ss://2022-blake3-aes-256-gcm:dmCly/Zh15Ww9+s+GFXiFTIkpw7c/qCISaBrai7WhhY=@127.0.0.1:27214?type=tcp#shadowsocks-plain-user
 ```
 
+## VLESS
 ```
-ss://MjAyMi1ibGFrZTMtYWVzLTEyOC1nY206Y21lZklCdDhwMTJaZm1QWUplMnNCNThRd3R3NXNKeVpUV0Z6ZENKV2taOD06eEJHZUxiMWNPTjFIeE9CenF6UlN0VFdhUUh6YWM2cFhRVFNZd2dVV2R1RT0@example.com:81?type=tcp#example-ss2022
-```
-Может быть без `?type=tcp`
+# tcp
+vless://94792286-7bbe-4f33-8b36-18d1bbf70723@127.0.0.1:34520?type=tcp&encryption=none&security=none#vless-tcp-none
+vless://e95163dc-905e-480a-afe5-20b146288679@127.0.0.1:16399?type=tcp&encryption=none&security=reality&pbk=tqhSkeDR6jsqC-BYCnZWBrdL33g705ba8tV5-ZboWTM&fp=chrome&sni=google.com&sid=f6&spx=%2F#vless-tcp-reality
+vless://2e9e8288-060e-4da2-8b9f-a1c81826feb7@127.0.0.1:19316?type=tcp&encryption=none&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#vless-tcp-tls
+vless://0235c833-dc29-4202-8a7b-1bbba5b516a2@127.0.0.1:22993?type=tcp&encryption=none&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&allowInsecure=1&sni=google.com#vless-tcp-tls-insecure
+vless://17776137-e747-4268-a84d-99fd798accac@127.0.0.1:48076?type=tcp&encryption=none&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com&ech=AFP%2BDQBPAAAgACDJXiKG5eoCHfd1MbMxgccxgrbGisBPPe3bz1KVIETUXQAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAAAAAA%3D%3D#vless-tcp-tls-ech
 
-# VLESS
+# mKCP
+vless://72e201d7-7841-4a32-b266-4aa3eb776d51@127.0.0.1:17270?type=kcp&encryption=none&headerType=none&seed=AirziWi4ng&security=none#vless-mKCP
 
-## Reality
-```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?type=tcp&security=reality&pbk=ARQzddtXPJZHinwkPbgVpah9uwPTuzdjU9GpbUkQJkc&fp=chrome&sni=sni.server.com&sid=6cabf01472a3&spx=%2F&flow=xtls-rprx-vision#vless-reality
-```
+# WebSocket
+vless://d86daef7-565b-4ecd-a9ee-bac847ad38e6@127.0.0.1:12928?type=ws&encryption=none&path=%2Fwspath&host=google.com&security=none#vless-websocket-none
+vless://fe0f0941-09a9-4e46-bc69-e00190d7bb9c@127.0.0.1:10156?type=ws&encryption=none&path=%2Fwspath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#vless-websocket-tls
+vless://599e8659-e2ef-47d9-bf72-2f9b4b673474@127.0.0.1:36567?type=ws&encryption=none&path=%2Fwspath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&allowInsecure=1&sni=google.com#vless-websocket-tls-insecure
+vless://4d21ce62-8723-4c4d-93e3-d586b107aa40@127.0.0.1:51394?type=ws&encryption=none&path=%2Fwspath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com&ech=AF3%2BDQBZAAAgACD7fjrtDMlcigKXFBKoLn6UDB9%2BWR6HBZpY96DlBiD%2BIwAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D#vless-websocket-tls-ech
 
-```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@123.123.123.123:2082?security=reality&sni=sni.server.com&alpn=h2,http/1.1&allowInsecure=1&fp=chrome&pbk=ARQzddtXPJZHinwkPbgVpah9uwPTuzdjU9GpbUkQJkc&sid=6cabf01472a3&type=grpc&encryption=none#vless-reality-strange
-```
+# gRPC
+vless://974b39e3-f7bf-42b9-933c-16699c635e77@127.0.0.1:15633?type=grpc&encryption=none&serviceName=TunService&authority=&security=none#vless-gRPC-none
+vless://651e7eca-5152-46f1-baf2-d502e0af7b27@127.0.0.1:28535?type=grpc&encryption=none&serviceName=TunService&authority=authority&security=reality&pbk=nhZ7NiKfcqESa5ZeBFfsq9o18W-OWOAHLln9UmuVXSk&fp=chrome&sni=google.com&sid=11cbaeaa&spx=%2F#vless-gRPC-reality
+vless://af1f8b5f-26c9-4fe8-8ce7-6d6366c5c9ce@127.0.0.1:47904?type=grpc&encryption=none&serviceName=TunService&authority=authority&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#vless-gRPC-tls
+vless://95f2c4bb-abcb-47ba-bfad-e181c03e4659@127.0.0.1:34530?type=grpc&encryption=none&serviceName=TunService&authority=authority&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&allowInsecure=1&sni=google.com#vless-gRPC-tls-insecure
+vless://bd39490f-9a4f-49b2-96b6-824190cf89e9@127.0.0.1:27779?type=grpc&encryption=none&serviceName=TunService&authority=authority&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com&ech=AF3%2BDQBZAAAgACBc%2FiNdo4QkTt9eQCQgkOiJVSfA9G6UWAyipaBFtBD%2FVQAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D#vless-gRPC-tls-ech
 
-## TLS
-1. 
-```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?type=tcp&security=tls&fp=&alpn=h3%2Ch2%2Chttp%2F1.1#vless-tls
-```
+# HTTPUpgrade
+vless://2b98f144-847f-42f7-8798-e1a32d27bdc7@127.0.0.1:47154?type=httpupgrade&encryption=none&path=%2Fhttpupgradepath&host=google.com&security=none#vless-httpupgrade-none
+vless://76dbd0ff-1a35-4f0c-a9ba-3c5890b7dea6@127.0.0.1:50639?type=httpupgrade&encryption=none&path=%2Fhttpupgradepath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#vless-httpupgrade-tls
+vless://6d229881-50ed-4f3f-995d-bd3e725fdbff@127.0.0.1:57616?type=httpupgrade&encryption=none&path=%2Fhttpupgradepath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&allowInsecure=1&sni=google.com#vless-httpupgrade-tls-insecure
+vless://1897e9e4-6f5d-4a85-9512-9192e76c3f04@127.0.0.1:38658?type=httpupgrade&encryption=none&path=%2Fhttpupgradepath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com&ech=AF3%2BDQBZAAAgACCmXTMzlrdcCk2FyINAWKZ4DBxq4%2BCgmJ69v%2BmH4EMlEQAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D#vless-httpupgrade-tls-ech
 
-2.
-```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?security=tls&sni=sni.server.com&fp=chrome&type=tcp&flow=xtls-rprx-vision&encryption=none#vless-tls-withot-alpn
-```
-3. 
-```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443/?type=ws&encryption=none&path=%2Fwebsocket&security=tls&sni=sni.server.com&fp=chrome#vless-tls-ws
-```
-
-4.
-```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?security=tls&sni=sni.server.com&type=ws&path=/?ed%3D2560&host=sni.server.com&encryption=none#vless-tls-ws-2
-```
-
-5.
-```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?security=tls&sni=sni.server.com&fp=chrome&type=ws&path=/websocket&encryption=none#vless-tls-ws-3
+# XHTTP
+vless://c2841505-ec32-4b8d-b6dd-3e19d648c321@127.0.0.1:45507?type=xhttp&encryption=none&path=%2Fxhttppath&host=xhttp&mode=auto&security=none#vless-xhttp
 ```
 
-6.
+## Trojan
 ```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443/?type=ws&encryption=none&path=%2Fwebsocket&security=tls&sni=sni.server.com&fp=chrome#vless-tls-ws-4
-```
+# tcp
+trojan://04agAQapcl@127.0.0.1:33641?type=tcp&security=none#trojan-tcp-none
+trojan://cME3ZlUrYF@127.0.0.1:43772?type=tcp&security=reality&pbk=DckTwU6p6pTX9QxFXOi6vH4Vzt_RCE1vMCnj2c6hvjw&fp=chrome&sni=google.com&sid=221a80cf94&spx=%2F#trojan-tcp-reality
+trojan://EJjpAj02lg@127.0.0.1:11381?type=tcp&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#trojan-tcp-tls
+trojan://ZP2Ik5sxN3@127.0.0.1:16247?type=tcp&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&allowInsecure=1&sni=google.com#trojan-tcp-tls-insecure
+trojan://90caP481ay@127.0.0.1:59708?type=tcp&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&ech=AF3%2BDQBZAAAgACC2y%2BAe4dqthLNpfvmtE6g%2BnaJ%2FciK6P%2BREbRLkR%2Fg%2FEgAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D&sni=google.com#trojan-tcp-tls-ech
 
-7.
-```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@sub.example.com:443?type=ws&path=%2Fdir%2Fpath&host=sub.example.com&security=tls#configname
-```
+# mKCP
+trojan://N5v7iIOe9G@127.0.0.1:36319?type=kcp&headerType=none&seed=P91wFIfjzZ&security=none#trojan-mKCP
 
-## No security
-```
-vless://8100b6eb-3fd1-4e73-8ccf-b4ac961232d6@example.com:443?type=tcp&security=none#vless-tls-no-encrypt
+# WebSocket
+trojan://G3cE9phv1g@127.0.0.1:57370?type=ws&path=%2Fwspath&host=google.com&security=none#trojan-websocket-none
+trojan://FBok41WczO@127.0.0.1:59919?type=ws&path=%2Fwspath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#trojan-websocket-tls
+trojan://bhwvndUBPA@127.0.0.1:22969?type=ws&path=%2Fwspath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&allowInsecure=1&sni=google.com#trojan-websocket-tls-insecur
+trojan://pwiduqFUWO@127.0.0.1:46765?type=ws&path=%2Fwspath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&ech=AF3%2BDQBZAAAgACCFcQYEtwrFOidJJLYHvSiN%2BljRgaAIrNHoVnio3uXAOwAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D&sni=google.com#trojan-websocket-tls-ech
+
+# gRPC
+trojan://WMR7qkKhsV@127.0.0.1:27897?type=grpc&serviceName=TunService&authority=authority&security=none#trojan-gRPC-none
+trojan://KVuRNsu6KG@127.0.0.1:46077?type=grpc&serviceName=TunService&authority=authority&security=reality&pbk=Xn59i4gum3ppCICS6-_NuywrhHIVVAH54b2mjd5CFkE&fp=chrome&sni=google.com&sid=e5be&spx=%2F#trojan-gRPC-reality
+trojan://7BJtbywy8h@127.0.0.1:10627?type=grpc&serviceName=TunService&authority=authority&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#trojan-gRPC-tls
+trojan://TI3PakvtP4@127.0.0.1:10435?type=grpc&serviceName=TunService&authority=authority&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&allowInsecure=1&sni=google.com#trojan-gRPC-tls-insecure
+trojan://mbzoVKL27h@127.0.0.1:38681?type=grpc&serviceName=TunService&authority=authority&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&ech=AF3%2BDQBZAAAgACCq72Ru3VbFlDpKttl3LccmInu8R2oAsCr8wzyxB0vZZQAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D&sni=google.com#trojan-gRPC-tls-ech
+
+# HTTPUpgrade
+trojan://uc44gBwOKQ@127.0.0.1:29085?type=httpupgrade&path=%2Fhttpupgradepath&host=google.com&security=none#trojan-httpupgrade-none
+trojan://MhNxbcVB14@127.0.0.1:32700?type=httpupgrade&path=%2Fhttpupgradepath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#trojan-httpupgrade-tls
+trojan://7SOQFUpLob@127.0.0.1:28474?type=httpupgrade&path=%2Fhttpupgradepath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&allowInsecure=1&sni=google.com#trojan-httpupgrade-tls-insecure
+trojan://ou8pLSyx9N@127.0.0.1:17737?type=httpupgrade&path=%2Fhttpupgradepath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&ech=AF3%2BDQBZAAAgACB%2FlkIkit%2BblFzE7PtbYDVF3NXK8olXJ5a7YwY%2Biy9QQwAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D&sni=google.com#trojan-httpupgrade-tls-ech
+
+# XHTTP
+trojan://VEetltxLtw@127.0.0.1:59072?type=xhttp&path=%2Fxhttppath&host=google.com&mode=auto&security=none#trojan-xhttp
 ```
