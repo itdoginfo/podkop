@@ -331,15 +331,15 @@ function createConfigSection(section, map, network) {
             return true
         }
 
-        const subnets = main.parseValueList(value);
+        const domains = main.parseValueList(value);
 
-        if (!subnets.length) {
+        if (!domains.length) {
             return _(
                 'At least one valid domain must be specified. Comments-only content is not allowed.'
             );
         }
 
-        const { valid, results } = main.bulkValidate(subnets, main.validateDomain);
+        const { valid, results } = main.bulkValidate(domains, main.validateDomain);
 
         if (!valid) {
             const errors = results
