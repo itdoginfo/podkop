@@ -4,51 +4,118 @@ on:
     tags:
       - v*
 
+permissions:
+  contents: write
+
 jobs:
-  build:
-    name: Build podkop and luci-app-podkop
+  preparation:
+    name: Setup build version
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: version
+        run: |
+          VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "dev_$(date +%d%m%Y)")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.type }} podkop and luci-app-podkop
+    runs-on: ubuntu-latest
+    needs: preparation
+    strategy:
+      matrix:
+        include:
+          - { type: stable,   ext: ipk }
+          - { type: snapshot, ext: apk }
     steps:
       - uses: actions/checkout@v4.2.1
         with:
           fetch-depth: 0
 
-      - name: Extract version
-        id: version
-        run: |
-          VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "dev_$(date +%d%m%Y)")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Build and push
-        uses: docker/build-push-action@v6.9.0
+      - name: Build ${{ matrix.type }}
+        uses: docker/build-push-action@v6
         with:
+          file: ./Dockerfile-${{ matrix.type }}
           context: .
-          tags: podkop:ci
+          tags: podkop:ci-${{ matrix.type }}
           build-args: |
-            PKG_VERSION=${{ steps.version.outputs.version }}
+            PKG_VERSION=${{ needs.preparation.outputs.version }}
 
-      - name: Create Docker container
-        run: docker create --name podkop podkop:ci
+      - name: Create ${{ matrix.type }} Docker container
+        run: docker create --name ${{ matrix.type }} podkop:ci-${{ matrix.type }}
 
-      - name: Copy file from Docker container
+      - name: Copy files from ${{ matrix.type }} Docker container
         run: |
-          docker cp podkop:/builder/bin/packages/x86_64/utilites/. ./bin/
-          docker cp podkop:/builder/bin/packages/x86_64/luci/. ./bin/
+          mkdir -p ./bin/${{ matrix.type }}
+          rm -f ./bin/${{ matrix.type }}/*.${{ matrix.ext }} || true
+          docker cp ${{ matrix.type }}:/builder/bin/packages/x86_64/utilites/. ./bin/${{ matrix.type }}/
+          docker cp ${{ matrix.type }}:/builder/bin/packages/x86_64/luci/. ./bin/${{ matrix.type }}/
 
-      - name: Filter IPK files
+      - name: Rename all output packages (replace _ with -)
+        if: matrix.type == 'stable'
+        shell: bash
+        run: |
+          for f in ./bin/${{ matrix.type }}/*.${{ matrix.ext }}; do
+            [ -e "$f" ] || continue
+            base=$(basename "$f")
+            newname=$(echo "$base" | sed 's/_/-/g')
+            mv "$f" "./bin/${{ matrix.type }}/$newname"
+          done
+
+      - name: Filter files
+        shell: bash
         run: |
           # Извлекаем версию из тега, убирая префикс 'v'
           VERSION=${GITHUB_REF#refs/tags/v}
 
-          mkdir -p ./filtered-bin
-          cp ./bin/luci-i18n-podkop-ru_*.ipk "./filtered-bin/luci-i18n-podkop-ru_${VERSION}.ipk"
-          cp ./bin/podkop_*.ipk ./filtered-bin/
-          cp ./bin/luci-app-podkop_*.ipk ./filtered-bin/
+          mkdir -p ./filtered-bin/${{ matrix.type }}
+          cp ./bin/${{ matrix.type }}/luci-i18n-podkop-ru-*.${{ matrix.ext }} "./filtered-bin/luci-i18n-podkop-ru-${VERSION}.${{ matrix.ext }}"
+          cp ./bin/${{ matrix.type }}/podkop-*.${{ matrix.ext }} ./filtered-bin/
+          cp ./bin/${{ matrix.type }}/luci-app-podkop-*.${{ matrix.ext }} ./filtered-bin/
 
       - name: Remove Docker container
-        run: docker rm podkop
+        run: docker rm ${{ matrix.type }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-files-${{ github.ref_name }}-${{ matrix.type }}
+          path: ./filtered-bin/${{ matrix.type }}/*.${{ matrix.ext }}
+          retention-days: 1
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Create release dir
+        run: mkdir -p ./filtered-bin/release
+
+      - name: Download stable artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-files-${{ github.ref_name }}-stable
+          path: ./filtered-bin/release
+
+      - name: Download snapshot artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-files-${{ github.ref_name }}-snapshot
+          path: ./filtered-bin/release
 
       - name: Release
-        uses: softprops/action-gh-release@v2.0.8
+        uses: softprops/action-gh-release@v2
         with:
-          files: ./filtered-bin/*.ipk
+          files: ./filtered-bin/release/*.*
+          draft: false
+          prerelease: false
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}

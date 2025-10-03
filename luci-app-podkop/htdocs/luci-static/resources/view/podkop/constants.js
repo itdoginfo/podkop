@@ -1,6 +1,8 @@
 'use strict';
 'require baseclass';
 
+const PODKOP_LUCI_APP_VERSION="__COMPILED_VERSION_VARIABLE__"
+
 const STATUS_COLORS = {
     SUCCESS: '#4caf50',
     ERROR: '#f44336',
@@ -94,6 +96,7 @@ const COMMAND_SCHEDULING = {
 };
 
 return baseclass.extend({
+    PODKOP_LUCI_APP_VERSION,
     STATUS_COLORS,
     FAKEIP_CHECK_DOMAIN,
     IP_CHECK_DOMAIN,

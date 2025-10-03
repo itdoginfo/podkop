@@ -1783,13 +1783,7 @@ show_config() {
 }
 
 show_version() {
-    local version=$(opkg list-installed podkop | awk '{print $3}')
-    echo "$version"
-}
-
-show_luci_version() {
-    local version=$(opkg list-installed luci-app-podkop | awk '{print $3}')
-    echo "$version"
+    echo "$PODKOP_VERSION"
 }
 
 show_sing_box_version() {
@@ -1966,11 +1960,15 @@ find_working_resolver() {
 }
 
 global_check() {
+    local luci_ver="Unknown"
+
+    [ -n "$1" ] && luci_ver="$1"
+
     print_global "📡 Global check run!"
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🛠️ System info"
-    print_global "🕳️ Podkop:     $(opkg list-installed podkop | awk '{print $3}')"
-    print_global "🕳️ LuCI App:   $(opkg list-installed luci-app-podkop | awk '{print $3}')"
+    print_global "🕳️ Podkop:     ${PODKOP_VERSION}"
+    print_global "🕳️ LuCI App:   ${luci_ver}"
     print_global "📦 Sing-box:   $(sing-box version | head -n 1 | awk '{print $3}')"
     print_global "🛜 OpenWrt:    $(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)"
     print_global "🛜 Device:     $(cat /tmp/sysinfo/model)"
@@ -2132,7 +2130,6 @@ Available commands:
     show_config             Display current podkop configuration
     show_version            Show podkop version
     show_sing_box_config    Show sing-box configuration
-    show_luci_version       Show LuCI app version
     show_sing_box_version   Show sing-box version
     show_system_info        Show system information
     get_status              Get podkop service status
@@ -2191,9 +2188,6 @@ show_version)
 show_sing_box_config)
     show_sing_box_config
     ;;
-show_luci_version)
-    show_luci_version
-    ;;
 show_sing_box_version)
     show_sing_box_version
     ;;
@@ -2210,7 +2204,7 @@ check_dns_available)
     check_dns_available
     ;;
 global_check)
-    global_check
+    global_check "${2:-}"
     ;;
 *)
     show_help
