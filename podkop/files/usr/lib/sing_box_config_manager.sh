@@ -622,6 +622,46 @@ sing_box_cm_add_vless_outbound() {
 }
 
 #######################################
+# Add a Trojan outbound to the outbounds section of a sing-box JSON configuration.
+# Arguments:
+#   config: string, JSON configuration
+#   tag: string, identifier for the outbound
+#   server_address: string, IP address or hostname of the Trojan server
+#   server_port: number, port of the Trojan server
+#   password: string, password for authentication
+#   network: string, optional network type (e.g., "tcp")
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_trojan_outbound "$CONFIG" "trojan-out" "example.com" 443 "supersecretpassword" "tcp")
+#######################################
+sing_box_cm_add_trojan_outbound() {
+    local config="$1"
+    local tag="$2"
+    local server_address="$3"
+    local server_port="$4"
+    local password="$5"
+    local network="$6"
+
+    echo "$config" | jq \
+    --arg tag "$tag" \
+    --arg server_address "$server_address" \
+    --arg server_port "$server_port" \
+    --arg password "$password" \
+    --arg network "$network" \
+    '.outbounds += [(
+        {
+          type: "trojan",
+          tag: $tag,
+          server: $server_address,
+          server_port: ($server_port | tonumber),
+          password: $password
+        }
+        + (if $network != "" then {network: $network} else {} end)
+    )]'
+}
+
+#######################################
 # Set gRPC transport settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
