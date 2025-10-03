@@ -152,6 +152,9 @@ function createConfigSection(section) {
     o.depends('proxy_config_type', 'urltest');
     o.placeholder = 'vless:// or ss:// link';
     o.rmempty = false;
+    o.textarea = true;
+    o.rows = 3;
+    o.wrap = 'soft';
 
     o = s.taboption('basic', form.Flag, 'ss_uot', _('Shadowsocks UDP over TCP'), _('Apply for SS2022'));
     o.default = '0';
