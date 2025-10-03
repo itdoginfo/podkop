@@ -622,7 +622,7 @@ sing_box_cm_add_vless_outbound() {
 }
 
 #######################################
-# Set gRPC transport settings for a VLESS outbound in a sing-box JSON configuration.
+# Set gRPC transport settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
 #   tag: string, identifier of the outbound to modify
@@ -633,9 +633,9 @@ sing_box_cm_add_vless_outbound() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_set_vless_grpc_transport "$CONFIG" "vless-tls-grpc-out")
+#   CONFIG=$(sing_box_cm_set_grpc_transport_for_outbound "$CONFIG" "vless-tls-grpc-out")
 #######################################
-sing_box_cm_set_vless_grpc_transport() {
+sing_box_cm_set_grpc_transport_for_outbound() {
     local config="$1"
     local tag="$2"
     local service_name="$3"
@@ -667,7 +667,7 @@ sing_box_cm_set_vless_grpc_transport() {
 }
 
 #######################################
-# Set WebSocket transport settings for a VLESS outbound in a sing-box JSON configuration.
+# Set WebSocket transport settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
 #   tag: string, identifier of the outbound to modify
@@ -678,9 +678,9 @@ sing_box_cm_set_vless_grpc_transport() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_set_vless_ws_transport "$CONFIG" "vless-tls-ws-out" "/path" "example.com")
+#   CONFIG=$(sing_box_cm_set_ws_transport_for_outbound "$CONFIG" "vless-tls-ws-out" "/path" "example.com")
 #######################################
-sing_box_cm_set_vless_ws_transport() {
+sing_box_cm_set_ws_transport_for_outbound() {
     local config="$1"
     local tag="$2"
     local path="$3"
@@ -717,7 +717,7 @@ sing_box_cm_set_vless_ws_transport() {
 }
 
 #######################################
-# Set TLS settings for a VLESS outbound in a sing-box JSON configuration.
+# Set TLS settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
 #   tag: string, identifier of the outbound to modify
@@ -731,11 +731,11 @@ sing_box_cm_set_vless_ws_transport() {
 #   Writes updated JSON configuration to stdout
 # Example:
 #   CONFIG=$(
-#       sing_box_cm_set_vless_tls "$CONFIG" "vless-reality-out" "example.com" false null "chrome" \
+#       sing_box_cm_set_tls_for_outbound "$CONFIG" "vless-reality-out" "example.com" false null "chrome" \
 #       "jNXHt1yRo0vDuchQlIP6Z0ZvjT3KtzVI-T4E7RoLJS0" "0123456789abcdef"
 #   )
 #######################################
-sing_box_cm_set_vless_tls() {
+sing_box_cm_set_tls_for_outbound() {
     local config="$1"
     local tag="$2"
     local server_name="$3"
