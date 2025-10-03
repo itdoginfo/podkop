@@ -288,6 +288,45 @@ function parseValueList(value) {
   return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
 }
 
+// src/styles.ts
+var GlobalStyles = `
+.cbi-value {
+    margin-bottom: 10px !important;
+}
+
+#diagnostics-status .table > div {
+    background: var(--background-color-primary);
+    border: 1px solid var(--border-color-medium);
+    border-radius: var(--border-radius);
+}
+
+#diagnostics-status .table > div pre,
+#diagnostics-status .table > div div[style*="monospace"] {
+    color: var(--color-text-primary);
+}
+
+#diagnostics-status .alert-message {
+    background: var(--background-color-primary);
+    border-color: var(--border-color-medium);
+}
+
+#cbi-podkop:has(.cbi-tab-disabled[data-tab="basic"]) #cbi-podkop-extra {
+    display: none;
+}
+`;
+
+// src/helpers/injectGlobalStyles.ts
+function injectGlobalStyles() {
+  document.head.insertAdjacentHTML(
+    "beforeend",
+    `
+        <style>
+          ${GlobalStyles}
+        </style>
+    `
+  );
+}
+
 // src/constants.ts
 var STATUS_COLORS = {
   SUCCESS: "#4caf50",
@@ -417,6 +456,7 @@ return baseclass.extend({
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
   getBaseUrl,
+  injectGlobalStyles,
   parseValueList,
   validateDNS,
   validateDomain,

@@ -6,36 +6,11 @@
 'require view.podkop.diagnosticTab as diagnosticTab';
 'require view.podkop.additionalTab as additionalTab';
 'require view.podkop.utils as utils';
+'require view.podkop.main as main';
 
 return view.extend({
     async render() {
-        document.head.insertAdjacentHTML('beforeend', `
-            <style>
-                .cbi-value {
-                    margin-bottom: 10px !important;
-                }
-
-                #diagnostics-status .table > div {
-                    background: var(--background-color-primary);
-                    border: 1px solid var(--border-color-medium);
-                    border-radius: var(--border-radius);
-                }
-
-                #diagnostics-status .table > div pre,
-                #diagnostics-status .table > div div[style*="monospace"] {
-                    color: var(--color-text-primary);
-                }
-
-                #diagnostics-status .alert-message {
-                    background: var(--background-color-primary);
-                    border-color: var(--border-color-medium);
-                }
-
-                #cbi-podkop:has(.cbi-tab-disabled[data-tab="basic"]) #cbi-podkop-extra {
-                    display: none;
-                }
-            </style>
-        `);
+        main.injectGlobalStyles();
 
         const m = new form.Map('podkop', '', null, ['main', 'extra']);
 
