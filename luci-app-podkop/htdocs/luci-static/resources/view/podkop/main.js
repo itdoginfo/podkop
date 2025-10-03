@@ -118,6 +118,160 @@ function bulkValidate(values, validate) {
   };
 }
 
+// src/validators/validateShadowsocksUrl.ts
+function validateShadowsocksUrl(url) {
+  if (!url.startsWith("ss://")) {
+    return {
+      valid: false,
+      message: "Invalid Shadowsocks URL: must start with ss://"
+    };
+  }
+  try {
+    const mainPart = url.includes("?") ? url.split("?")[0] : url.split("#")[0];
+    const encryptedPart = mainPart.split("/")[2]?.split("@")[0];
+    if (!encryptedPart) {
+      return {
+        valid: false,
+        message: "Invalid Shadowsocks URL: missing credentials"
+      };
+    }
+    try {
+      const decoded = atob(encryptedPart);
+      if (!decoded.includes(":")) {
+        return {
+          valid: false,
+          message: "Invalid Shadowsocks URL: decoded credentials must contain method:password"
+        };
+      }
+    } catch (e) {
+      if (!encryptedPart.includes(":") && !encryptedPart.includes("-")) {
+        return {
+          valid: false,
+          message: 'Invalid Shadowsocks URL: missing method and password separator ":"'
+        };
+      }
+    }
+    const serverPart = url.split("@")[1];
+    if (!serverPart) {
+      return {
+        valid: false,
+        message: "Invalid Shadowsocks URL: missing server address"
+      };
+    }
+    const [server, portAndRest] = serverPart.split(":");
+    if (!server) {
+      return {
+        valid: false,
+        message: "Invalid Shadowsocks URL: missing server"
+      };
+    }
+    const port = portAndRest ? portAndRest.split(/[?#]/)[0] : null;
+    if (!port) {
+      return { valid: false, message: "Invalid Shadowsocks URL: missing port" };
+    }
+    const portNum = parseInt(port, 10);
+    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      return {
+        valid: false,
+        message: "Invalid port number. Must be between 1 and 65535"
+      };
+    }
+  } catch (e) {
+    return { valid: false, message: "Invalid Shadowsocks URL: parsing failed" };
+  }
+  return { valid: true, message: "Valid" };
+}
+
+// src/validators/validateVlessUrl.ts
+function validateVlessUrl(url) {
+  if (!url.startsWith("vless://")) {
+    return {
+      valid: false,
+      message: "Invalid VLESS URL: must start with vless://"
+    };
+  }
+  try {
+    const uuid = url.split("/")[2]?.split("@")[0];
+    if (!uuid) {
+      return { valid: false, message: "Invalid VLESS URL: missing UUID" };
+    }
+    const serverPart = url.split("@")[1];
+    if (!serverPart) {
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: missing server address"
+      };
+    }
+    const [server, portAndRest] = serverPart.split(":");
+    if (!server) {
+      return { valid: false, message: "Invalid VLESS URL: missing server" };
+    }
+    const port = portAndRest ? portAndRest.split(/[/?#]/)[0] : null;
+    if (!port) {
+      return { valid: false, message: "Invalid VLESS URL: missing port" };
+    }
+    const portNum = parseInt(port, 10);
+    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      return {
+        valid: false,
+        message: "Invalid port number. Must be between 1 and 65535"
+      };
+    }
+    const queryString = url.split("?")[1];
+    if (!queryString) {
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: missing query parameters"
+      };
+    }
+    const params = new URLSearchParams(queryString.split("#")[0]);
+    const type = params.get("type");
+    const validTypes = ["tcp", "raw", "udp", "grpc", "http", "ws"];
+    if (!type || !validTypes.includes(type)) {
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws"
+      };
+    }
+    const security = params.get("security");
+    const validSecurities = ["tls", "reality", "none"];
+    if (!security || !validSecurities.includes(security)) {
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: security must be one of tls, reality, none"
+      };
+    }
+    if (security === "reality") {
+      if (!params.get("pbk")) {
+        return {
+          valid: false,
+          message: "Invalid VLESS URL: missing pbk parameter for reality security"
+        };
+      }
+      if (!params.get("fp")) {
+        return {
+          valid: false,
+          message: "Invalid VLESS URL: missing fp parameter for reality security"
+        };
+      }
+    }
+  } catch (e) {
+    return { valid: false, message: "Invalid VLESS URL: parsing failed" };
+  }
+  return { valid: true, message: "Valid" };
+}
+
+// src/helpers/getBaseUrl.ts
+function getBaseUrl() {
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}`;
+}
+
+// src/helpers/parseValueList.ts
+function parseValueList(value) {
+  return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+}
+
 // src/constants.ts
 var STATUS_COLORS = {
   SUCCESS: "#4caf50",
@@ -227,17 +381,6 @@ var COMMAND_SCHEDULING = {
   P10_PRIORITY: 1900
   // Lowest priority
 };
-
-// src/helpers/getBaseUrl.ts
-function getBaseUrl() {
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}`;
-}
-
-// src/helpers/parseValueList.ts
-function parseValueList(value) {
-  return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
-}
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
@@ -263,6 +406,8 @@ return baseclass.extend({
   validateDomain,
   validateIPV4,
   validatePath,
+  validateShadowsocksUrl,
   validateSubnet,
-  validateUrl
+  validateUrl,
+  validateVlessUrl
 });
