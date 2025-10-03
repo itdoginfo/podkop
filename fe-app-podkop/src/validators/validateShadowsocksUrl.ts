@@ -31,7 +31,7 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
             'Invalid Shadowsocks URL: decoded credentials must contain method:password',
         };
       }
-    } catch (e) {
+    } catch (_e) {
       if (!encryptedPart.includes(':') && !encryptedPart.includes('-')) {
         return {
           valid: false,
@@ -73,7 +73,7 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
         message: 'Invalid port number. Must be between 1 and 65535',
       };
     }
-  } catch (e) {
+  } catch (_e) {
     return { valid: false, message: 'Invalid Shadowsocks URL: parsing failed' };
   }
 

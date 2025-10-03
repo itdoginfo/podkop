@@ -14,7 +14,7 @@ export function validateUrl(
       };
     }
     return { valid: true, message: 'Valid' };
-  } catch (e) {
+  } catch (_e) {
     return { valid: false, message: 'Invalid URL format' };
   }
 }

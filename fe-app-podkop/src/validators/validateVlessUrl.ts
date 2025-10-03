@@ -94,7 +94,7 @@ export function validateVlessUrl(url: string): ValidationResult {
         };
       }
     }
-  } catch (e) {
+  } catch (_e) {
     return { valid: false, message: 'Invalid VLESS URL: parsing failed' };
   }
 

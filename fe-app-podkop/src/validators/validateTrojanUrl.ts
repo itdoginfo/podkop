@@ -18,7 +18,7 @@ export function validateTrojanUrl(url: string): ValidationResult {
         message: 'Invalid Trojan URL: must contain username, hostname and port',
       };
     }
-  } catch (e) {
+  } catch (_e) {
     return { valid: false, message: 'Invalid Trojan URL: parsing failed' };
   }
 

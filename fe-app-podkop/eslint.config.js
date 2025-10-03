@@ -7,11 +7,20 @@ export default [
     js.configs.recommended,
     ...tseslint.configs.recommended,
     {
-        ignores: ['dist', 'node_modules'],
+        ignores: ['node_modules'],
     },
     {
         rules: {
-            'no-console': 'warn',
+            'no-console': 'off',
+            'no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': [
+                'warn',
+                {
+                    argsIgnorePattern: '^_',
+                    varsIgnorePattern: '^_',
+                    caughtErrorsIgnorePattern: '^_',
+                },
+            ],
         },
     },
     prettier,
