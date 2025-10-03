@@ -92,38 +92,13 @@ function createConfigSection(section) {
                 return _('No active configuration found. At least one non-commented line is required.');
             }
 
-            if (activeConfig.startsWith('ss://')) {
-                const validation = main.validateShadowsocksUrl(activeConfig);
+            const validation = main.validateProxyUrl(activeConfig);
 
-                if (validation.valid) {
-                    return true;
-                }
-
-                return _(validation.message)
+            if (validation.valid) {
+                return true;
             }
 
-            if (activeConfig.startsWith('vless://')) {
-                const validation = main.validateVlessUrl(activeConfig);
-
-                if (validation.valid) {
-                    return true;
-                }
-
-                return _(validation.message)
-            }
-
-            if (activeConfig.startsWith('trojan://')) {
-                const validation = main.validateTrojanUrl(activeConfig);
-
-                if (validation.valid) {
-                    return true;
-                }
-
-                return _(validation.message)
-            }
-
-            return _('URL must start with vless:// or ss:// or trojan://')
-
+            return _(validation.message)
         } catch (e) {
             return `${_('Invalid URL format:')} ${e?.message}`;
         }
@@ -150,11 +125,25 @@ function createConfigSection(section) {
 
     o = s.taboption('basic', form.DynamicList, 'urltest_proxy_links', _('URLTest Proxy Links'));
     o.depends('proxy_config_type', 'urltest');
-    o.placeholder = 'vless:// or ss:// link';
+    o.placeholder = 'vless://, ss://, trojan:// links';
     o.rmempty = false;
     o.textarea = true;
     o.rows = 3;
     o.wrap = 'soft';
+    o.validate = function (section_id, value) {
+        // Optional
+        if (!value || value.length === 0) {
+            return true
+        }
+
+        const validation = main.validateProxyUrl(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
+    };
 
     o = s.taboption('basic', form.Flag, 'ss_uot', _('Shadowsocks UDP over TCP'), _('Apply for SS2022'));
     o.default = '0';

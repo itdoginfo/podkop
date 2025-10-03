@@ -104,4 +104,4 @@ export const COMMAND_SCHEDULING = {
   P8_PRIORITY: 1500, // Background execution
   P9_PRIORITY: 1700, // Idle mode execution
   P10_PRIORITY: 1900, // Lowest priority
-};
+} as const;

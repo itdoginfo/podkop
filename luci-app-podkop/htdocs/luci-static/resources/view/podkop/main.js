@@ -299,6 +299,23 @@ function validateTrojanUrl(url) {
   return { valid: true, message: "Valid" };
 }
 
+// src/validators/validateProxyUrl.ts
+function validateProxyUrl(url) {
+  if (url.startsWith("ss://")) {
+    return validateShadowsocksUrl(url);
+  }
+  if (url.startsWith("vless://")) {
+    return validateVlessUrl(url);
+  }
+  if (url.startsWith("trojan://")) {
+    return validateTrojanUrl(url);
+  }
+  return {
+    valid: false,
+    message: "URL must start with vless:// or ss:// or trojan://"
+  };
+}
+
 // src/helpers/getBaseUrl.ts
 function getBaseUrl() {
   const { protocol, hostname } = window.location;
@@ -485,6 +502,7 @@ return baseclass.extend({
   validateIPV4,
   validateOutboundJson,
   validatePath,
+  validateProxyUrl,
   validateShadowsocksUrl,
   validateSubnet,
   validateTrojanUrl,

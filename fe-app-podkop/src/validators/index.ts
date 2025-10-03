@@ -9,3 +9,4 @@ export * from './validateShadowsocksUrl';
 export * from './validateVlessUrl';
 export * from './validateOutboundJson';
 export * from './validateTrojanUrl';
+export * from './validateProxyUrl';
