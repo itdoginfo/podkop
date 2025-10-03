@@ -5,3 +5,5 @@ export * from './validateUrl';
 export * from './validatePath';
 export * from './validateSubnet';
 export * from './bulkValidate';
+export * from './validateShadowsocksUrl';
+export * from './validateVlessUrl';
