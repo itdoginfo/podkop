@@ -34,7 +34,7 @@ function createConfigSection(section) {
     o.rmempty = false;
     o.ucisection = s.section;
     o.sectionDescriptions = new Map();
-    o.placeholder = 'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt';
+    o.placeholder = 'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt\n// backup3 trojan://04agAQapcl@127.0.0.1:33641?type=tcp&security=none#trojan-tcp-none';
 
     o.renderWidget = function (section_id, option_index, cfgvalue) {
         const original = form.TextValue.prototype.renderWidget.apply(this, [section_id, option_index, cfgvalue]);
@@ -112,7 +112,17 @@ function createConfigSection(section) {
                 return _(validation.message)
             }
 
-            return _('URL must start with vless:// or ss://')
+            if (activeConfig.startsWith('trojan://')) {
+                const validation = main.validateTrojanUrl(activeConfig);
+
+                if (validation.valid) {
+                    return true;
+                }
+
+                return _(validation.message)
+            }
+
+            return _('URL must start with vless:// or ss:// or trojan://')
 
         } catch (e) {
             return `${_('Invalid URL format:')} ${e?.message}`;

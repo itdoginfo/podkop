@@ -8,3 +8,4 @@ export * from './bulkValidate';
 export * from './validateShadowsocksUrl';
 export * from './validateVlessUrl';
 export * from './validateOutboundJson';
+export * from './validateTrojanUrl';

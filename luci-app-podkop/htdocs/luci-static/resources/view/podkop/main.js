@@ -277,6 +277,28 @@ function validateOutboundJson(value) {
   }
 }
 
+// src/validators/validateTrojanUrl.ts
+function validateTrojanUrl(url) {
+  if (!url.startsWith("trojan://")) {
+    return {
+      valid: false,
+      message: "Invalid Trojan URL: must start with trojan://"
+    };
+  }
+  try {
+    const parsedUrl = new URL(url);
+    if (!parsedUrl.username || !parsedUrl.hostname || !parsedUrl.port) {
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: must contain username, hostname and port"
+      };
+    }
+  } catch (e) {
+    return { valid: false, message: "Invalid Trojan URL: parsing failed" };
+  }
+  return { valid: true, message: "Valid" };
+}
+
 // src/helpers/getBaseUrl.ts
 function getBaseUrl() {
   const { protocol, hostname } = window.location;
@@ -465,6 +487,7 @@ return baseclass.extend({
   validatePath,
   validateShadowsocksUrl,
   validateSubnet,
+  validateTrojanUrl,
   validateUrl,
   validateVlessUrl
 });
