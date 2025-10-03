@@ -215,14 +215,20 @@ msgid "Specify local IP addresses that will never use the configured route"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:205
-#: htdocs/luci-static/resources/view/podkop/configSection.js:574
 msgid "Local IPs"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/podkop/additionalTab.js:205
 #: htdocs/luci-static/resources/view/podkop/configSection.js:574
+msgid "Local IPs/IP-CIDRs"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/podkop/additionalTab.js:205
 msgid "Enter valid IPv4 addresses"
 msgstr ""
+
+#: htdocs/luci-static/resources/view/podkop/configSection.js:574
+msgid "Enter valid IPv4 or IPv4 CIDR addresses"
+msgstr "Введите действительные IPv4-адреса в формате IPv4 или IPv4/CIDR"
 
 #: htdocs/luci-static/resources/view/podkop/additionalTab.js:213
 #: htdocs/luci-static/resources/view/podkop/configSection.js:582
@@ -641,7 +647,7 @@ msgid "IP for full redirection"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/configSection.js:569
-msgid "Specify local IP addresses whose traffic will always use the configured route"
+msgid "Specify local IP or IP/CIDR addresses whose traffic will always use the configured route"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/podkop/diagnosticTab.js:121
