@@ -1,6 +1,6 @@
 import { validateDomain } from './validateDomain';
 import { validateIPV4 } from './validateIp';
-import { ValidationResult } from './types.js';
+import { ValidationResult } from './types';
 
 export function validateDNS(value: string): ValidationResult {
   if (!value) {

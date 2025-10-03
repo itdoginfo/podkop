@@ -261,6 +261,22 @@ function validateVlessUrl(url) {
   return { valid: true, message: "Valid" };
 }
 
+// src/validators/validateOutboundJson.ts
+function validateOutboundJson(value) {
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed.type || !parsed.server || !parsed.server_port) {
+      return {
+        valid: false,
+        message: 'Outbound JSON must contain at least "type", "server" and "server_port" fields'
+      };
+    }
+    return { valid: true, message: "Valid" };
+  } catch {
+    return { valid: false, message: "Invalid JSON format" };
+  }
+}
+
 // src/helpers/getBaseUrl.ts
 function getBaseUrl() {
   const { protocol, hostname } = window.location;
@@ -405,6 +421,7 @@ return baseclass.extend({
   validateDNS,
   validateDomain,
   validateIPV4,
+  validateOutboundJson,
   validatePath,
   validateShadowsocksUrl,
   validateSubnet,

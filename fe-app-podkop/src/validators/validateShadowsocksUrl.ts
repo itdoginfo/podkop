@@ -1,4 +1,4 @@
-import { ValidationResult } from './types.js';
+import { ValidationResult } from './types';
 
 // TODO refactor current validation and add tests
 export function validateShadowsocksUrl(url: string): ValidationResult {

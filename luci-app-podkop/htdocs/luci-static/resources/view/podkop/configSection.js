@@ -124,16 +124,18 @@ function createConfigSection(section, map, network) {
     o.rows = 10;
     o.ucisection = s.section;
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        try {
-            const parsed = JSON.parse(value);
-            if (!parsed.type || !parsed.server || !parsed.server_port) {
-                return _('JSON must contain at least type, server and server_port fields');
-            }
-            return true;
-        } catch (e) {
-            return _('Invalid JSON format');
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
+
+        const validation = main.validateOutboundJson(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
     };
 
     o = s.taboption('basic', form.DynamicList, 'urltest_proxy_links', _('URLTest Proxy Links'));

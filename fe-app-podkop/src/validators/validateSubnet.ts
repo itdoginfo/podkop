@@ -1,4 +1,4 @@
-import { ValidationResult } from './types.js';
+import { ValidationResult } from './types';
 import { validateIPV4 } from './validateIp';
 
 export function validateSubnet(value: string): ValidationResult {
