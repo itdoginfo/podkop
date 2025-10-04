@@ -1,13 +1,13 @@
 'use strict';
 'require form';
 'require baseclass';
-'require view.podkop.constants as constants';
 'require tools.widgets as widgets';
+'require view.podkop.main as main';
 
-function createAdditionalSection(mainSection, network) {
+function createAdditionalSection(mainSection) {
     let o = mainSection.tab('additional', _('Additional Settings'));
 
-    o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), '<a href="http://openwrt.lan:9090/ui" target="_blank">openwrt.lan:9090/ui</a>');
+    o = mainSection.taboption('additional', form.Flag, 'yacd', _('Yacd enable'), `<a href="${main.getBaseUrl()}:9090/ui" target="_blank">${main.getBaseUrl()}:9090/ui</a>`);
     o.default = '0';
     o.rmempty = false;
     o.ucisection = 'main';
@@ -23,7 +23,7 @@ function createAdditionalSection(mainSection, network) {
     o.ucisection = 'main';
 
     o = mainSection.taboption('additional', form.ListValue, 'update_interval', _('List Update Frequency'), _('Select how often the lists will be updated'));
-    Object.entries(constants.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
+    Object.entries(main.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
     });
     o.default = '1d';
@@ -39,51 +39,37 @@ function createAdditionalSection(mainSection, network) {
     o.ucisection = 'main';
 
     o = mainSection.taboption('additional', form.Value, 'dns_server', _('DNS Server'), _('Select or enter DNS server address'));
-    Object.entries(constants.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
+    Object.entries(main.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
     });
     o.default = '8.8.8.8';
     o.rmempty = false;
     o.ucisection = 'main';
     o.validate = function (section_id, value) {
-        if (!value) {
-            return _('DNS server address cannot be empty');
+        const validation = main.validateDNS(value);
+
+        if (validation.valid) {
+            return true;
         }
 
-        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
-        const domainRegex = /^(?:https:\/\/)?([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}(:[0-9]{1,5})?(\/[^?#\s]*)?$/;
-
-        if (!ipRegex.test(value) && !domainRegex.test(value)) {
-            return _('Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH');
-        }
-
-        return true;
+        return _(validation.message);
     };
 
     o = mainSection.taboption('additional', form.Value, 'bootstrap_dns_server', _('Bootstrap DNS server'), _('The DNS server used to look up the IP address of an upstream DNS server'));
-    o.value('77.88.8.8', '77.88.8.8 (Yandex DNS)');
-    o.value('77.88.8.1', '77.88.8.1 (Yandex DNS)');
-    o.value('1.1.1.1', '1.1.1.1 (Cloudflare DNS)');
-    o.value('1.0.0.1', '1.0.0.1 (Cloudflare DNS)');
-    o.value('8.8.8.8', '8.8.8.8 (Google DNS)');
-    o.value('8.8.4.4', '8.8.4.4 (Google DNS)');
-    o.value('9.9.9.9', '9.9.9.9 (Quad9 DNS)');
-    o.value('9.9.9.11', '9.9.9.11 (Quad9 DNS)');
+    Object.entries(main.BOOTSTRAP_DNS_SERVER_OPTIONS).forEach(([key, label]) => {
+        o.value(key, _(label));
+    });
     o.default = '77.88.8.8';
     o.rmempty = false;
     o.ucisection = 'main';
     o.validate = function (section_id, value) {
-        if (!value) {
-            return _('DNS server address cannot be empty');
+        const validation = main.validateDNS(value);
+
+        if (validation.valid) {
+            return true;
         }
 
-        const ipRegex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}(:[0-9]{1,5})?$/;
-
-        if (!ipRegex.test(value)) {
-            return _('Invalid DNS server format. Example: 8.8.8.8');
-        }
-
-        return true;
+        return _(validation.message);
     };
 
     o = mainSection.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 60)'));
@@ -145,20 +131,29 @@ function createAdditionalSection(mainSection, network) {
     o.noinactive = false;
     o.multiple = true;
     o.filter = function (section_id, value) {
-        if (['wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan'].indexOf(value) !== -1) {
+        // Block specific interface names from being selectable
+        const blocked = ['wan', 'phy0-ap0', 'phy1-ap0', 'pppoe-wan'];
+        if (blocked.includes(value)) {
             return false;
         }
 
-        var device = this.devices.filter(function (dev) {
-            return dev.getName() === value;
-        })[0];
+        // Try to find the device object by its name
+        const device = this.devices.find(dev => dev.getName() === value);
 
-        if (device) {
-            var type = device.getType();
-            return type !== 'wifi' && type !== 'wireless' && !type.includes('wlan');
+        // If no device is found, allow the value
+        if (!device) {
+            return true;
         }
 
-        return true;
+        // Check the type of the device
+        const type = device.getType();
+
+        // Consider any Wi-Fi / wireless / wlan device as invalid
+        const isWireless =
+            type === 'wifi' || type === 'wireless' || type.includes('wlan');
+
+        // Allow only non-wireless devices
+        return !isWireless;
     };
 
     o = mainSection.taboption('additional', form.Flag, 'mon_restart_ifaces', _('Interface monitoring'), _('Interface monitoring for bad WAN'));
@@ -171,7 +166,18 @@ function createAdditionalSection(mainSection, network) {
     o.depends('mon_restart_ifaces', '1');
     o.multiple = true;
     o.filter = function (section_id, value) {
-        return ['lan', 'loopback'].indexOf(value) === -1 && !value.startsWith('@');
+        // Reject if the value is in the blocked list ['lan', 'loopback']
+        if (['lan', 'loopback'].includes(value)) {
+            return false;
+        }
+
+        // Reject if the value starts with '@' (means it's an alias/reference)
+        if (value.startsWith('@')) {
+            return false;
+        }
+
+        // Otherwise allow it
+        return true;
     };
 
     o = mainSection.taboption('additional', form.Value, 'procd_reload_delay', _('Interface Monitoring Delay'), _('Delay in milliseconds before reloading podkop after interface UP'));
@@ -208,15 +214,18 @@ function createAdditionalSection(mainSection, network) {
     o.rmempty = false;
     o.ucisection = 'main';
     o.validate = function (section_id, value) {
-        if (!value || value.length === 0) return true;
-        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        if (!ipRegex.test(value)) return _('Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)');
-        const ipParts = value.split('.');
-        for (const part of ipParts) {
-            const num = parseInt(part);
-            if (num < 0 || num > 255) return _('IP address parts must be between 0 and 255');
+        // Optional
+        if (!value || value.length === 0) {
+            return true
         }
-        return true;
+
+        const validation = main.validateIPV4(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return _(validation.message)
     };
 
     o = mainSection.taboption('basic', form.Flag, 'socks5', _('Mixed enable'), _('Browser port: 2080'));
@@ -227,4 +236,4 @@ function createAdditionalSection(mainSection, network) {
 
 return baseclass.extend({
     createAdditionalSection
-}); 
+});

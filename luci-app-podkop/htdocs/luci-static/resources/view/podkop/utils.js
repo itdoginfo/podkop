@@ -2,7 +2,7 @@
 'require baseclass';
 'require ui';
 'require fs';
-'require view.podkop.constants as constants';
+'require view.podkop.main as main';
 
 // Flag to track if this is the first error check
 let isInitialCheck = true;
@@ -39,13 +39,13 @@ function showErrorNotification(error, isMultiple = false) {
 }
 
 // Helper function for command execution with prioritization
-function safeExec(command, args, priority, callback, timeout = constants.COMMAND_TIMEOUT) {
+function safeExec(command, args, priority, callback, timeout = main.COMMAND_TIMEOUT) {
     // Default to highest priority execution if priority is not provided or invalid
-    let schedulingDelay = constants.COMMAND_SCHEDULING.P0_PRIORITY;
+    let schedulingDelay = main.COMMAND_SCHEDULING.P0_PRIORITY;
 
     // If priority is a string, try to get the corresponding delay value
-    if (typeof priority === 'string' && constants.COMMAND_SCHEDULING[priority] !== undefined) {
-        schedulingDelay = constants.COMMAND_SCHEDULING[priority];
+    if (typeof priority === 'string' && main.COMMAND_SCHEDULING[priority] !== undefined) {
+        schedulingDelay = main.COMMAND_SCHEDULING[priority];
     }
 
     const executeCommand = async () => {
@@ -133,7 +133,7 @@ function startErrorPolling() {
     checkForCriticalErrors();
 
     // Then set up periodic checks
-    errorPollTimer = setInterval(checkForCriticalErrors, constants.ERROR_POLL_INTERVAL);
+    errorPollTimer = setInterval(checkForCriticalErrors, main.ERROR_POLL_INTERVAL);
 }
 
 // Stop polling for errors
@@ -149,4 +149,4 @@ return baseclass.extend({
     stopErrorPolling,
     checkForCriticalErrors,
     safeExec
-}); 
+});

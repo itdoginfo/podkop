@@ -6,50 +6,25 @@
 'require view.podkop.diagnosticTab as diagnosticTab';
 'require view.podkop.additionalTab as additionalTab';
 'require view.podkop.utils as utils';
+'require view.podkop.main as main';
 
-return view.extend({
+const EntryNode = {
     async render() {
-        document.head.insertAdjacentHTML('beforeend', `
-            <style>
-                .cbi-value {
-                    margin-bottom: 10px !important;
-                }
+        main.injectGlobalStyles();
 
-                #diagnostics-status .table > div {
-                    background: var(--background-color-primary);
-                    border: 1px solid var(--border-color-medium);
-                    border-radius: var(--border-radius);
-                }
-
-                #diagnostics-status .table > div pre,
-                #diagnostics-status .table > div div[style*="monospace"] {
-                    color: var(--color-text-primary);
-                }
-
-                #diagnostics-status .alert-message {
-                    background: var(--background-color-primary);
-                    border-color: var(--border-color-medium);
-                }
-
-                #cbi-podkop:has(.cbi-tab-disabled[data-tab="basic"]) #cbi-podkop-extra {
-                    display: none;
-                }
-            </style>
-        `);
-
-        const m = new form.Map('podkop', '', null, ['main', 'extra']);
+        const podkopFormMap = new form.Map('podkop', '', null, ['main', 'extra']);
 
         // Main Section
-        const mainSection = m.section(form.TypedSection, 'main');
+        const mainSection = podkopFormMap.section(form.TypedSection, 'main');
         mainSection.anonymous = true;
-        configSection.createConfigSection(mainSection, m, network);
+        configSection.createConfigSection(mainSection);
 
         // Additional Settings Tab (main section)
-        additionalTab.createAdditionalSection(mainSection, network);
+        additionalTab.createAdditionalSection(mainSection);
 
         // Diagnostics Tab (main section)
         diagnosticTab.createDiagnosticsSection(mainSection);
-        const map_promise = m.render().then(node => {
+        const podkopFormMapPromise = podkopFormMap.render().then(node => {
             // Set up diagnostics event handlers
             diagnosticTab.setupDiagnosticsEventHandlers(node);
 
@@ -81,13 +56,15 @@ return view.extend({
         });
 
         // Extra Section
-        const extraSection = m.section(form.TypedSection, 'extra', _('Extra configurations'));
+        const extraSection = podkopFormMap.section(form.TypedSection, 'extra', _('Extra configurations'));
         extraSection.anonymous = false;
         extraSection.addremove = true;
         extraSection.addbtntitle = _('Add Section');
         extraSection.multiple = true;
-        configSection.createConfigSection(extraSection, m, network);
+        configSection.createConfigSection(extraSection);
 
-        return map_promise;
+        return podkopFormMapPromise;
     }
-});
+}
+
+return view.extend(EntryNode);
