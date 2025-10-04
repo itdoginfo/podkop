@@ -75,3 +75,4 @@ jobs:
           echo "- ✅ Lint check: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Tests: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Build: ${{ steps.build.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "![Success](https://cdn2.combot.org/boratbrat/webp/6xf09f988f.webp)" >> $GITHUB_STEP_SUMMARY
