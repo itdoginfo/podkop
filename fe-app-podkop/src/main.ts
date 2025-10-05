@@ -4,4 +4,5 @@
 
 export * from './validators';
 export * from './helpers';
+export * from './clash';
 export * from './constants';

@@ -556,6 +556,72 @@ function maskIP(ip = "") {
   const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
   return ip.replace(ipv4Regex, (_match, _p1, _p2, _p3, p4) => `XX.XX.XX.${p4}`);
 }
+
+// src/clash/methods/createBaseApiRequest.ts
+async function createBaseApiRequest(fetchFn) {
+  try {
+    const response = await fetchFn();
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `HTTP error ${response.status}: ${response.statusText}`
+      };
+    }
+    const data = await response.json();
+    return {
+      success: true,
+      data
+    };
+  } catch (e) {
+    return {
+      success: false,
+      message: e instanceof Error ? e.message : "Unknown error"
+    };
+  }
+}
+
+// src/clash/methods/getConfig.ts
+async function getClashConfig() {
+  return createBaseApiRequest(
+    () => fetch("http://192.168.160.129:9090/configs", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    })
+  );
+}
+
+// src/clash/methods/getGroupDelay.ts
+async function getClashGroupDelay(group, url = "https://www.gstatic.com/generate_204", timeout = 2e3) {
+  const endpoint = `http://192.168.160.129:9090/group/${group}/delay?url=${encodeURIComponent(
+    url
+  )}&timeout=${timeout}`;
+  return createBaseApiRequest(
+    () => fetch(endpoint, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    })
+  );
+}
+
+// src/clash/methods/getProxies.ts
+async function getClashProxies() {
+  return createBaseApiRequest(
+    () => fetch("http://192.168.160.129:9090/proxies", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    })
+  );
+}
+
+// src/clash/methods/getVersion.ts
+async function getClashVersion() {
+  return createBaseApiRequest(
+    () => fetch("http://192.168.160.129:9090/version", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    })
+  );
+}
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
@@ -576,8 +642,13 @@ return baseclass.extend({
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
   copyToClipboard,
+  createBaseApiRequest,
   executeShellCommand,
   getBaseUrl,
+  getClashConfig,
+  getClashGroupDelay,
+  getClashProxies,
+  getClashVersion,
   injectGlobalStyles,
   maskIP,
   parseValueList,

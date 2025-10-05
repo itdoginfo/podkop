@@ -12,6 +12,21 @@ const EntryNode = {
     async render() {
         main.injectGlobalStyles();
 
+        main.getClashVersion()
+            .then(result => console.log('getClashVersion - then', result))
+            .catch(err => console.log('getClashVersion - err', err))
+            .finally(() => console.log('getClashVersion - finish'));
+
+        main.getClashConfig()
+            .then(result => console.log('getClashConfig - then', result))
+            .catch(err => console.log('getClashConfig - err', err))
+            .finally(() => console.log('getClashConfig - finish'));
+
+        main.getClashProxies()
+            .then(result => console.log('getClashProxies - then', result))
+            .catch(err => console.log('getClashProxies - err', err))
+            .finally(() => console.log('getClashProxies - finish'));
+
         const podkopFormMap = new form.Map('podkop', '', null, ['main', 'extra']);
 
         // Main Section
