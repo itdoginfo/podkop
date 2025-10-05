@@ -128,6 +128,12 @@ function validateShadowsocksUrl(url) {
     };
   }
   try {
+    if (!url || /\s/.test(url)) {
+      return {
+        valid: false,
+        message: "Invalid Shadowsocks URL: must not contain spaces"
+      };
+    }
     const mainPart = url.includes("?") ? url.split("?")[0] : url.split("#")[0];
     const encryptedPart = mainPart.split("/")[2]?.split("@")[0];
     if (!encryptedPart) {
@@ -185,49 +191,54 @@ function validateShadowsocksUrl(url) {
 
 // src/validators/validateVlessUrl.ts
 function validateVlessUrl(url) {
-  if (!url.startsWith("vless://")) {
-    return {
-      valid: false,
-      message: "Invalid VLESS URL: must start with vless://"
-    };
-  }
   try {
-    const uuid = url.split("/")[2]?.split("@")[0];
-    if (!uuid) {
+    const parsedUrl = new URL(url);
+    if (!url || /\s/.test(url)) {
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: must not contain spaces"
+      };
+    }
+    if (parsedUrl.protocol !== "vless:") {
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: must start with vless://"
+      };
+    }
+    if (!parsedUrl.username) {
       return { valid: false, message: "Invalid VLESS URL: missing UUID" };
     }
-    const serverPart = url.split("@")[1];
-    if (!serverPart) {
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: missing server address"
-      };
-    }
-    const [server, portAndRest] = serverPart.split(":");
-    if (!server) {
+    if (!parsedUrl.hostname) {
       return { valid: false, message: "Invalid VLESS URL: missing server" };
     }
-    const port = portAndRest ? portAndRest.split(/[/?#]/)[0] : null;
-    if (!port) {
+    if (!parsedUrl.port) {
       return { valid: false, message: "Invalid VLESS URL: missing port" };
     }
-    const portNum = parseInt(port, 10);
-    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+    if (isNaN(+parsedUrl.port) || +parsedUrl.port < 1 || +parsedUrl.port > 65535) {
       return {
         valid: false,
-        message: "Invalid port number. Must be between 1 and 65535"
+        message: "Invalid VLESS URL: invalid port number. Must be between 1 and 65535"
       };
     }
-    const queryString = url.split("?")[1];
-    if (!queryString) {
+    if (!parsedUrl.search) {
       return {
         valid: false,
         message: "Invalid VLESS URL: missing query parameters"
       };
     }
-    const params = new URLSearchParams(queryString.split("#")[0]);
+    const params = new URLSearchParams(parsedUrl.search);
     const type = params.get("type");
-    const validTypes = ["tcp", "raw", "udp", "grpc", "http", "ws"];
+    const validTypes = [
+      "tcp",
+      "raw",
+      "udp",
+      "grpc",
+      "http",
+      "httpupgrade",
+      "xhttp",
+      "ws",
+      "kcp"
+    ];
     if (!type || !validTypes.includes(type)) {
       return {
         valid: false,
@@ -256,10 +267,10 @@ function validateVlessUrl(url) {
         };
       }
     }
+    return { valid: true, message: "Valid" };
   } catch (_e) {
     return { valid: false, message: "Invalid VLESS URL: parsing failed" };
   }
-  return { valid: true, message: "Valid" };
 }
 
 // src/validators/validateOutboundJson.ts
@@ -284,6 +295,12 @@ function validateTrojanUrl(url) {
     return {
       valid: false,
       message: "Invalid Trojan URL: must start with trojan://"
+    };
+  }
+  if (!url || /\s/.test(url)) {
+    return {
+      valid: false,
+      message: "Invalid Trojan URL: must not contain spaces"
     };
   }
   try {

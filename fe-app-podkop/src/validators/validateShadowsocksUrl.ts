@@ -10,6 +10,13 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
   }
 
   try {
+    if (!url || /\s/.test(url)) {
+      return {
+        valid: false,
+        message: 'Invalid Shadowsocks URL: must not contain spaces',
+      };
+    }
+
     const mainPart = url.includes('?') ? url.split('?')[0] : url.split('#')[0];
 
     const encryptedPart = mainPart.split('/')[2]?.split('@')[0];

@@ -9,6 +9,13 @@ export function validateTrojanUrl(url: string): ValidationResult {
     };
   }
 
+  if (!url || /\s/.test(url)) {
+    return {
+      valid: false,
+      message: 'Invalid Trojan URL: must not contain spaces',
+    };
+  }
+
   try {
     const parsedUrl = new URL(url);
 
