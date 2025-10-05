@@ -23,7 +23,7 @@ export const invalidIPs = [
 
 describe('validateIPV4', () => {
   describe.each(validIPs)('Valid IP: %s', (_desc, ip) => {
-    it(`returns {valid:true for "${ip}"`, () => {
+    it(`returns {valid:true} for "${ip}"`, () => {
       const res = validateIPV4(ip);
       expect(res.valid).toBe(true);
     });
