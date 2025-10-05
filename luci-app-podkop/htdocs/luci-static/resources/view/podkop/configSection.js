@@ -185,9 +185,6 @@ function createConfigSection(section) {
   o.depends('proxy_config_type', 'urltest');
   o.placeholder = 'vless://, ss://, trojan:// links';
   o.rmempty = false;
-  o.textarea = true;
-  o.rows = 3;
-  o.wrap = 'soft';
   o.validate = function (section_id, value) {
     // Optional
     if (!value || value.length === 0) {
