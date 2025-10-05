@@ -30,7 +30,7 @@ describe('validateIPV4', () => {
   });
 
   describe.each(invalidIPs)('Invalid IP: %s', (_desc, ip) => {
-    it(`returns {valid:false for "${ip}"`, () => {
+    it(`returns {valid:false} for "${ip}"`, () => {
       const res = validateIPV4(ip);
       expect(res.valid).toBe(false);
     });
