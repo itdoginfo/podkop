@@ -1335,8 +1335,8 @@ sing_box_cm_configure_cache_file() {
 # Configure the experimental clash_api section of a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
-#   external_controller: string, URL or path for the external controller
-#   external_ui: string, URL or path for the external UI
+#   external_controller: API listening address; Clash API will be disabled if empty
+#   external_ui: Optional path to static web resources to serve at http://{{external-controller}}/ui
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -1352,8 +1352,8 @@ sing_box_cm_configure_clash_api() {
         --arg external_ui "$external_ui" \
         '.experimental.clash_api = {
             external_controller: $external_controller,
-            external_ui: $external_ui
-        }'
+        }
+        + (if $external_ui != "" then { external_ui: $external_ui } else {} end)'
 }
 
 #######################################
