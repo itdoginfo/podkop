@@ -866,7 +866,7 @@ async function triggerProxySelector(selector, outbound) {
 }
 
 // src/clash/methods/triggerLatencyTest.ts
-async function triggerLatencyGroupTest(tag, timeout = 2e3, url = "https://www.gstatic.com/generate_204") {
+async function triggerLatencyGroupTest(tag, timeout = 5e3, url = "https://www.gstatic.com/generate_204") {
   return createBaseApiRequest(
     () => fetch(
       `${getClashApiUrl()}/group/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,

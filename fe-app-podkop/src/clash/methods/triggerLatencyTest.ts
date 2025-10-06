@@ -4,7 +4,7 @@ import { getClashApiUrl } from '../../helpers';
 
 export async function triggerLatencyGroupTest(
   tag: string,
-  timeout: number = 2000,
+  timeout: number = 5000,
   url: string = 'https://www.gstatic.com/generate_204',
 ): Promise<IBaseApiResponse<void>> {
   return createBaseApiRequest<void>(() =>
