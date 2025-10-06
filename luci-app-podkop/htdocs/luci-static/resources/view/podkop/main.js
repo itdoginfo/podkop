@@ -470,13 +470,17 @@ var GlobalStyles = `
 }
 
 .pdk_dashboard-page__outbound-grid__item {
-    cursor: pointer;
     border: 2px var(--background-color-low) solid;
     border-radius: 4px;
     padding: 10px;
     transition: border 0.2s ease;
 }
-.pdk_dashboard-page__outbound-grid__item:hover {
+
+.pdk_dashboard-page__outbound-grid__item--selectable {
+    cursor: pointer;
+}
+
+.pdk_dashboard-page__outbound-grid__item--selectable:hover {
     border-color: var(--primary-color-high);
 }
 
@@ -855,6 +859,30 @@ async function triggerProxySelector(selector, outbound) {
   );
 }
 
+// src/clash/methods/triggerLatencyTest.ts
+async function triggerLatencyGroupTest(tag, timeout = 2e3, url = "https://www.gstatic.com/generate_204") {
+  return createBaseApiRequest(
+    () => fetch(
+      `${getClashApiUrl()}/group/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    )
+  );
+}
+async function triggerLatencyProxyTest(tag, timeout = 2e3, url = "https://www.gstatic.com/generate_204") {
+  return createBaseApiRequest(
+    () => fetch(
+      `${getClashApiUrl()}/proxies/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    )
+  );
+}
+
 // src/dashboard/renderDashboard.ts
 function renderDashboard() {
   return E(
@@ -958,7 +986,8 @@ async function getDashboardSections() {
           (proxy) => proxy.code === `${section[".name"]}-out`
         );
         return {
-          code: section[".name"],
+          withTagSelect: false,
+          code: outbound?.code || section[".name"],
           displayName: section[".name"],
           outbounds: [
             {
@@ -976,7 +1005,8 @@ async function getDashboardSections() {
           (proxy) => proxy.code === `${section[".name"]}-out`
         );
         return {
-          code: section[".name"],
+          withTagSelect: false,
+          code: outbound?.code || section[".name"],
           displayName: section[".name"],
           outbounds: [
             {
@@ -1004,7 +1034,8 @@ async function getDashboardSections() {
           selected: selector?.value?.now === item?.code
         }));
         return {
-          code: section[".name"],
+          withTagSelect: true,
+          code: selector?.code || section[".name"],
           displayName: section[".name"],
           outbounds: [
             {
@@ -1024,7 +1055,8 @@ async function getDashboardSections() {
         (proxy) => proxy.code === `${section[".name"]}-out`
       );
       return {
-        code: section[".name"],
+        withTagSelect: false,
+        code: outbound?.code || section[".name"],
         displayName: section[".name"],
         outbounds: [
           {
@@ -1038,6 +1070,7 @@ async function getDashboardSections() {
       };
     }
     return {
+      withTagSelect: false,
       code: section[".name"],
       displayName: section[".name"],
       outbounds: []
@@ -1073,9 +1106,18 @@ async function getSingboxStatus() {
 
 // src/dashboard/renderer/renderOutboundGroup.ts
 function renderOutboundGroup({
-  outbounds,
-  displayName
+  section,
+  onTestLatency,
+  onChooseOutbound
 }) {
+  function testLatency() {
+    if (section.withTagSelect) {
+      return onTestLatency(section.code);
+    }
+    if (section.outbounds.length) {
+      return onTestLatency(section.outbounds[0].code);
+    }
+  }
   function renderOutbound(outbound) {
     function getLatencyClass() {
       if (!outbound.latency) {
@@ -1092,7 +1134,8 @@ function renderOutboundGroup({
     return E(
       "div",
       {
-        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? "pdk_dashboard-page__outbound-grid__item--active" : ""}`
+        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? "pdk_dashboard-page__outbound-grid__item--active" : ""} ${section.withTagSelect ? "pdk_dashboard-page__outbound-grid__item--selectable" : ""}`,
+        click: () => section.withTagSelect && onChooseOutbound(section.code, outbound.code)
       },
       [
         E("b", {}, outbound.displayName),
@@ -1119,14 +1162,14 @@ function renderOutboundGroup({
         {
           class: "pdk_dashboard-page__outbound-section__title-section__title"
         },
-        displayName
+        section.displayName
       ),
-      E("button", { class: "btn" }, "Test latency")
+      E("button", { class: "btn", click: () => testLatency() }, "Test latency")
     ]),
     E(
       "div",
       { class: "pdk_dashboard-page__outbound-grid" },
-      outbounds.map((outbound) => renderOutbound(outbound))
+      section.outbounds.map((outbound) => renderOutbound(outbound))
     )
   ]);
 }
@@ -1343,11 +1386,36 @@ async function connectToClashSockets() {
     });
   });
 }
+async function handleChooseOutbound(selector, tag) {
+  await triggerProxySelector(selector, tag);
+  await fetchDashboardSections();
+}
+async function handleTestGroupLatency(tag) {
+  await triggerLatencyGroupTest(tag);
+  await fetchDashboardSections();
+}
+async function handleTestProxyLatency(tag) {
+  await triggerLatencyProxyTest(tag);
+  await fetchDashboardSections();
+}
 async function renderDashboardSections() {
   const sections = store.get().sections;
   console.log("render dashboard sections group");
   const container = document.getElementById("dashboard-sections-grid");
-  const renderedOutboundGroups = sections.map(renderOutboundGroup);
+  const renderedOutboundGroups = sections.map(
+    (section) => renderOutboundGroup({
+      section,
+      onTestLatency: (tag) => {
+        if (section.withTagSelect) {
+          return handleTestGroupLatency(tag);
+        }
+        return handleTestProxyLatency(tag);
+      },
+      onChooseOutbound: (selector, tag) => {
+        handleChooseOutbound(selector, tag);
+      }
+    })
+  );
   container.replaceChildren(...renderedOutboundGroups);
 }
 async function renderTrafficWidget() {
@@ -1480,6 +1548,8 @@ return baseclass.extend({
   onMount,
   parseValueList,
   renderDashboard,
+  triggerLatencyGroupTest,
+  triggerLatencyProxyTest,
   triggerProxySelector,
   validateDNS,
   validateDomain,

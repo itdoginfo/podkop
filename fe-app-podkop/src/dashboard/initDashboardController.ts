@@ -9,6 +9,11 @@ import { store } from '../store';
 import { socket } from '../socket';
 import { renderDashboardWidget } from './renderer/renderWidget';
 import { prettyBytes } from '../helpers/prettyBytes';
+import {
+  triggerLatencyGroupTest,
+  triggerLatencyProxyTest,
+  triggerProxySelector,
+} from '../clash';
 
 // Fetchers
 
@@ -63,11 +68,40 @@ async function connectToClashSockets() {
 
 // Renderer
 
+async function handleChooseOutbound(selector: string, tag: string) {
+  await triggerProxySelector(selector, tag);
+  await fetchDashboardSections();
+}
+
+async function handleTestGroupLatency(tag: string) {
+  await triggerLatencyGroupTest(tag);
+  await fetchDashboardSections();
+}
+
+async function handleTestProxyLatency(tag: string) {
+  await triggerLatencyProxyTest(tag);
+  await fetchDashboardSections();
+}
+
 async function renderDashboardSections() {
   const sections = store.get().sections;
   console.log('render dashboard sections group');
   const container = document.getElementById('dashboard-sections-grid');
-  const renderedOutboundGroups = sections.map(renderOutboundGroup);
+  const renderedOutboundGroups = sections.map((section) =>
+    renderOutboundGroup({
+      section,
+      onTestLatency: (tag) => {
+        if (section.withTagSelect) {
+          return handleTestGroupLatency(tag);
+        }
+
+        return handleTestProxyLatency(tag);
+      },
+      onChooseOutbound: (selector, tag) => {
+        handleChooseOutbound(selector, tag);
+      },
+    }),
+  );
 
   container!.replaceChildren(...renderedOutboundGroups);
 }

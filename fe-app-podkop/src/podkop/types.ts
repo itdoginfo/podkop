@@ -9,6 +9,7 @@ export namespace Podkop {
   }
 
   export interface OutboundGroup {
+    withTagSelect: boolean;
     code: string;
     displayName: string;
     outbounds: Outbound[];

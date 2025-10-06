@@ -122,13 +122,17 @@ export const GlobalStyles = `
 }
 
 .pdk_dashboard-page__outbound-grid__item {
-    cursor: pointer;
     border: 2px var(--background-color-low) solid;
     border-radius: 4px;
     padding: 10px;
     transition: border 0.2s ease;
 }
-.pdk_dashboard-page__outbound-grid__item:hover {
+
+.pdk_dashboard-page__outbound-grid__item--selectable {
+    cursor: pointer;
+}
+
+.pdk_dashboard-page__outbound-grid__item--selectable:hover {
     border-color: var(--primary-color-high);
 }
 

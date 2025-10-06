@@ -28,7 +28,8 @@ export async function getDashboardSections(): Promise<Podkop.OutboundGroup[]> {
           );
 
           return {
-            code: section['.name'],
+            withTagSelect: false,
+            code: outbound?.code || section['.name'],
             displayName: section['.name'],
             outbounds: [
               {
@@ -51,7 +52,8 @@ export async function getDashboardSections(): Promise<Podkop.OutboundGroup[]> {
           );
 
           return {
-            code: section['.name'],
+            withTagSelect: false,
+            code: outbound?.code || section['.name'],
             displayName: section['.name'],
             outbounds: [
               {
@@ -90,7 +92,8 @@ export async function getDashboardSections(): Promise<Podkop.OutboundGroup[]> {
             }));
 
           return {
-            code: section['.name'],
+            withTagSelect: true,
+            code: selector?.code || section['.name'],
             displayName: section['.name'],
             outbounds: [
               {
@@ -112,7 +115,8 @@ export async function getDashboardSections(): Promise<Podkop.OutboundGroup[]> {
         );
 
         return {
-          code: section['.name'],
+          withTagSelect: false,
+          code: outbound?.code || section['.name'],
           displayName: section['.name'],
           outbounds: [
             {
@@ -127,6 +131,7 @@ export async function getDashboardSections(): Promise<Podkop.OutboundGroup[]> {
       }
 
       return {
+        withTagSelect: false,
         code: section['.name'],
         displayName: section['.name'],
         outbounds: [],

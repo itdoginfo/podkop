@@ -1,12 +1,28 @@
 import { Podkop } from '../../podkop/types';
 
+interface IRenderOutboundGroupProps {
+  section: Podkop.OutboundGroup;
+  onTestLatency: (tag: string) => void;
+  onChooseOutbound: (selector: string, tag: string) => void;
+}
+
 export function renderOutboundGroup({
-  outbounds,
-  displayName,
-}: Podkop.OutboundGroup) {
+  section,
+  onTestLatency,
+  onChooseOutbound,
+}: IRenderOutboundGroupProps) {
+  function testLatency() {
+    if (section.withTagSelect) {
+      return onTestLatency(section.code);
+    }
+
+    if (section.outbounds.length) {
+      return onTestLatency(section.outbounds[0].code);
+    }
+  }
+
   function renderOutbound(outbound: Podkop.Outbound) {
     function getLatencyClass() {
-
       if (!outbound.latency) {
         return 'pdk_dashboard-page__outbound-grid__item__latency--empty';
       }
@@ -25,7 +41,10 @@ export function renderOutboundGroup({
     return E(
       'div',
       {
-        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? 'pdk_dashboard-page__outbound-grid__item--active' : ''}`,
+        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? 'pdk_dashboard-page__outbound-grid__item--active' : ''} ${section.withTagSelect ? 'pdk_dashboard-page__outbound-grid__item--selectable' : ''}`,
+        click: () =>
+          section.withTagSelect &&
+          onChooseOutbound(section.code, outbound.code),
       },
       [
         E('b', {}, outbound.displayName),
@@ -53,14 +72,14 @@ export function renderOutboundGroup({
         {
           class: 'pdk_dashboard-page__outbound-section__title-section__title',
         },
-        displayName,
+        section.displayName,
       ),
-      E('button', { class: 'btn' }, 'Test latency'),
+      E('button', { class: 'btn', click: () => testLatency() }, 'Test latency'),
     ]),
     E(
       'div',
       { class: 'pdk_dashboard-page__outbound-grid' },
-      outbounds.map((outbound) => renderOutbound(outbound)),
+      section.outbounds.map((outbound) => renderOutbound(outbound)),
     ),
   ]);
 }
