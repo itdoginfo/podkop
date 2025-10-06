@@ -2,6 +2,7 @@
 "use strict";
 "require baseclass";
 "require fs";
+"require uci";
 
 // src/validators/validateIp.ts
 function validateIPV4(ip) {
@@ -370,6 +371,141 @@ var GlobalStyles = `
 #cbi-podkop:has(.cbi-tab-disabled[data-tab="basic"]) #cbi-podkop-extra {
     display: none;
 }
+
+#cbi-podkop-main-_status > div {
+    width: 100%;
+}
+
+.pdk_dashboard-page {
+    width: 100%;
+    --dashboard-grid-columns: 4;
+}
+
+@media (max-width: 900px) {
+    .pdk_dashboard-page {
+        --dashboard-grid-columns: 2;
+    }
+}
+
+/*@media (max-width: 440px) {*/
+/*    .pdk_dashboard-page {*/
+/*        --dashboard-grid-columns: 1;*/
+/*    }*/
+/*}*/
+
+.pdk_dashboard-page__title-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 2px var(--background-color-low) solid;
+    border-radius: 4px;
+    padding: 0 10px;
+}
+
+.pdk_dashboard-page__title-section__title {
+    color: var(--text-color-high);
+    font-weight: 700;
+}
+
+.pdk_dashboard-page__widgets-section {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-gap: 10px;
+}
+
+.pdk_dashboard-page__widgets-section__item {
+    border: 2px var(--background-color-low) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__outbound-section {
+    margin-top: 10px;
+    border: 2px var(--background-color-low) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__outbound-section__title-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pdk_dashboard-page__outbound-section__title-section__title {
+    color: var(--text-color-high);
+    font-weight: 700;
+}
+
+.pdk_dashboard-page__outbound-grid {
+    margin-top: 5px;
+    display: grid;
+    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-gap: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item {
+    cursor: pointer;
+    border: 2px var(--background-color-low) solid;
+    border-radius: 4px;
+    padding: 10px;
+    transition: border 0.2s ease;
+}
+.pdk_dashboard-page__outbound-grid__item:hover {
+    border-color: var(--primary-color-high);
+}
+
+.pdk_dashboard-page__outbound-grid__item--active {
+    border-color: var(--success-color-medium);
+}
+
+.pdk_dashboard-page__outbound-grid__item__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item__type {
+    
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency {
+    
+}
+
+
+
+/* Skeleton styles*/
+.skeleton {
+    background-color: var(--background-color-low, #e0e0e0);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 150%;
+    height: 100%;
+    background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.4),
+            transparent
+    );
+    animation: skeleton-shimmer 1.6s infinite;
+}
+
+@keyframes skeleton-shimmer {
+    100% {
+        left: 150%;
+    }
+}
 `;
 
 // src/helpers/injectGlobalStyles.ts
@@ -557,6 +693,57 @@ function maskIP(ip = "") {
   return ip.replace(ipv4Regex, (_match, _p1, _p2, _p3, p4) => `XX.XX.XX.${p4}`);
 }
 
+// src/helpers/getProxyUrlName.ts
+function getProxyUrlName(url) {
+  try {
+    const [_link, hash] = url.split("#");
+    if (!hash) {
+      return "";
+    }
+    return decodeURIComponent(hash);
+  } catch {
+    return "";
+  }
+}
+
+// src/helpers/onMount.ts
+async function onMount(id) {
+  return new Promise((resolve) => {
+    const el = document.getElementById(id);
+    if (el && el.offsetParent !== null) {
+      return resolve(el);
+    }
+    const observer = new MutationObserver(() => {
+      const target = document.getElementById(id);
+      if (target) {
+        const io = new IntersectionObserver((entries) => {
+          const visible = entries.some((e) => e.isIntersecting);
+          if (visible) {
+            observer.disconnect();
+            io.disconnect();
+            resolve(target);
+          }
+        });
+        io.observe(target);
+      }
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
+// src/helpers/getClashApiUrl.ts
+function getClashApiUrl() {
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:9090`;
+}
+function getClashWsUrl() {
+  const { hostname } = window.location;
+  return `ws://${hostname}:9090`;
+}
+
 // src/clash/methods/createBaseApiRequest.ts
 async function createBaseApiRequest(fetchFn) {
   try {
@@ -583,7 +770,7 @@ async function createBaseApiRequest(fetchFn) {
 // src/clash/methods/getConfig.ts
 async function getClashConfig() {
   return createBaseApiRequest(
-    () => fetch("http://192.168.160.129:9090/configs", {
+    () => fetch(`${getClashApiUrl()}/configs`, {
       method: "GET",
       headers: { "Content-Type": "application/json" }
     })
@@ -592,7 +779,7 @@ async function getClashConfig() {
 
 // src/clash/methods/getGroupDelay.ts
 async function getClashGroupDelay(group, url = "https://www.gstatic.com/generate_204", timeout = 2e3) {
-  const endpoint = `http://192.168.160.129:9090/group/${group}/delay?url=${encodeURIComponent(
+  const endpoint = `${getClashApiUrl()}/group/${group}/delay?url=${encodeURIComponent(
     url
   )}&timeout=${timeout}`;
   return createBaseApiRequest(
@@ -606,7 +793,7 @@ async function getClashGroupDelay(group, url = "https://www.gstatic.com/generate
 // src/clash/methods/getProxies.ts
 async function getClashProxies() {
   return createBaseApiRequest(
-    () => fetch("http://192.168.160.129:9090/proxies", {
+    () => fetch(`${getClashApiUrl()}/proxies`, {
       method: "GET",
       headers: { "Content-Type": "application/json" }
     })
@@ -616,11 +803,552 @@ async function getClashProxies() {
 // src/clash/methods/getVersion.ts
 async function getClashVersion() {
   return createBaseApiRequest(
-    () => fetch("http://192.168.160.129:9090/version", {
+    () => fetch(`${getClashApiUrl()}/version`, {
       method: "GET",
       headers: { "Content-Type": "application/json" }
     })
   );
+}
+
+// src/clash/methods/triggerProxySelector.ts
+async function triggerProxySelector(selector, outbound) {
+  return createBaseApiRequest(
+    () => fetch(`${getClashApiUrl()}/proxies/${selector}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: outbound })
+    })
+  );
+}
+
+// src/dashboard/renderDashboard.ts
+function renderDashboard() {
+  return E(
+    "div",
+    {
+      id: "dashboard-status",
+      class: "pdk_dashboard-page"
+    },
+    [
+      // Title section
+      E("div", { class: "pdk_dashboard-page__title-section" }, [
+        E(
+          "h3",
+          { class: "pdk_dashboard-page__title-section__title" },
+          "Overall (alpha)"
+        ),
+        E("label", {}, [
+          E("input", { type: "checkbox", disabled: true, checked: true }),
+          " Runtime"
+        ])
+      ]),
+      // Widgets section
+      E("div", { class: "pdk_dashboard-page__widgets-section" }, [
+        E("div", { id: "dashboard-widget-traffic" }, [
+          E(
+            "div",
+            {
+              id: "",
+              style: "height: 78px",
+              class: "pdk_dashboard-page__widgets-section__item skeleton"
+            },
+            ""
+          )
+        ]),
+        E("div", { id: "dashboard-widget-traffic-total" }, [
+          E(
+            "div",
+            {
+              id: "",
+              style: "height: 78px",
+              class: "pdk_dashboard-page__widgets-section__item skeleton"
+            },
+            ""
+          )
+        ]),
+        E("div", { id: "dashboard-widget-system-info" }, [
+          E(
+            "div",
+            {
+              id: "",
+              style: "height: 78px",
+              class: "pdk_dashboard-page__widgets-section__item skeleton"
+            },
+            ""
+          )
+        ]),
+        E("div", { id: "dashboard-widget-service-info" }, [
+          E(
+            "div",
+            {
+              id: "",
+              style: "height: 78px",
+              class: "pdk_dashboard-page__widgets-section__item skeleton"
+            },
+            ""
+          )
+        ])
+      ]),
+      // All outbounds
+      E("div", { id: "dashboard-sections-grid" }, [
+        E("div", {
+          id: "dashboard-sections-grid-skeleton",
+          class: "pdk_dashboard-page__outbound-section skeleton",
+          style: "height: 127px"
+        })
+      ])
+    ]
+  );
+}
+
+// src/podkop/methods/getConfigSections.ts
+async function getConfigSections() {
+  return uci.load("podkop").then(() => uci.sections("podkop"));
+}
+
+// src/podkop/methods/getDashboardSections.ts
+async function getDashboardSections() {
+  const configSections = await getConfigSections();
+  const clashProxies = await getClashProxies();
+  const clashProxiesData = clashProxies.success ? clashProxies.data : { proxies: [] };
+  const proxies = Object.entries(clashProxiesData.proxies).map(
+    ([key, value]) => ({
+      code: key,
+      value
+    })
+  );
+  return configSections.filter((section) => section.mode !== "block").map((section) => {
+    if (section.mode === "proxy") {
+      if (section.proxy_config_type === "url") {
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        return {
+          code: section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || section[".name"],
+              displayName: getProxyUrlName(section.proxy_string) || outbound?.value?.name || "",
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: true
+            }
+          ]
+        };
+      }
+      if (section.proxy_config_type === "outbound") {
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        return {
+          code: section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || section[".name"],
+              displayName: decodeURIComponent(JSON.parse(section.outbound_json)?.tag) || outbound?.value?.name || "",
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: true
+            }
+          ]
+        };
+      }
+      if (section.proxy_config_type === "urltest") {
+        const selector = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-urltest-out`
+        );
+        const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
+          code: item?.code || "",
+          displayName: getProxyUrlName(section.urltest_proxy_links?.[index]) || item?.value?.name || "",
+          latency: item?.value?.history?.[0]?.delay || 0,
+          type: item?.value?.type || "",
+          selected: selector?.value?.now === item?.code
+        }));
+        return {
+          code: section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || "",
+              displayName: "Fastest",
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: selector?.value?.now === outbound?.code
+            },
+            ...outbounds
+          ]
+        };
+      }
+    }
+    return {
+      code: section[".name"],
+      displayName: section[".name"],
+      outbounds: []
+    };
+  });
+}
+
+// src/podkop/methods/getPodkopStatus.ts
+async function getPodkopStatus() {
+  const response = await executeShellCommand({
+    command: "/usr/bin/podkop",
+    args: ["get_status"],
+    timeout: 1e3
+  });
+  if (response.stdout) {
+    return JSON.parse(response.stdout.replace(/\n/g, ""));
+  }
+  return { enabled: 0, status: "unknown" };
+}
+
+// src/podkop/methods/getSingboxStatus.ts
+async function getSingboxStatus() {
+  const response = await executeShellCommand({
+    command: "/usr/bin/podkop",
+    args: ["get_sing_box_status"],
+    timeout: 1e3
+  });
+  if (response.stdout) {
+    return JSON.parse(response.stdout.replace(/\n/g, ""));
+  }
+  return { running: 0, enabled: 0, status: "unknown" };
+}
+
+// src/dashboard/renderer/renderOutboundGroup.ts
+function renderOutboundGroup({
+  outbounds,
+  displayName
+}) {
+  function renderOutbound(outbound) {
+    return E(
+      "div",
+      {
+        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? "pdk_dashboard-page__outbound-grid__item--active" : ""}`
+      },
+      [
+        E("b", {}, outbound.displayName),
+        E("div", { class: "pdk_dashboard-page__outbound-grid__item__footer" }, [
+          E(
+            "div",
+            { class: "pdk_dashboard-page__outbound-grid__item__type" },
+            outbound.type
+          ),
+          E(
+            "div",
+            { class: "pdk_dashboard-page__outbound-grid__item__latency" },
+            outbound.latency ? `${outbound.latency}ms` : "N/A"
+          )
+        ])
+      ]
+    );
+  }
+  return E("div", { class: "pdk_dashboard-page__outbound-section" }, [
+    // Title with test latency
+    E("div", { class: "pdk_dashboard-page__outbound-section__title-section" }, [
+      E(
+        "div",
+        {
+          class: "pdk_dashboard-page__outbound-section__title-section__title"
+        },
+        displayName
+      ),
+      E("button", { class: "btn" }, "Test latency")
+    ]),
+    E(
+      "div",
+      { class: "pdk_dashboard-page__outbound-grid" },
+      outbounds.map((outbound) => renderOutbound(outbound))
+    )
+  ]);
+}
+
+// src/store.ts
+var Store = class {
+  constructor(initial) {
+    this.listeners = /* @__PURE__ */ new Set();
+    this.value = initial;
+  }
+  get() {
+    return this.value;
+  }
+  set(next) {
+    const prev = this.value;
+    const merged = { ...this.value, ...next };
+    if (Object.is(prev, merged)) return;
+    this.value = merged;
+    const diff = {};
+    for (const key in merged) {
+      if (merged[key] !== prev[key]) diff[key] = merged[key];
+    }
+    this.listeners.forEach((cb) => cb(this.value, prev, diff));
+  }
+  subscribe(cb) {
+    this.listeners.add(cb);
+    cb(this.value, this.value, {});
+    return () => this.listeners.delete(cb);
+  }
+  patch(key, value) {
+    this.set({ ...this.value, [key]: value });
+  }
+  getKey(key) {
+    return this.value[key];
+  }
+  subscribeKey(key, cb) {
+    let prev = this.value[key];
+    const unsub = this.subscribe((val) => {
+      if (val[key] !== prev) {
+        prev = val[key];
+        cb(val[key]);
+      }
+    });
+    return unsub;
+  }
+};
+var store = new Store({
+  sections: [],
+  traffic: { up: 0, down: 0 },
+  memory: { inuse: 0, oslimit: 0 },
+  connections: { connections: [], memory: 0, downloadTotal: 0, uploadTotal: 0 },
+  services: { singbox: "", podkop: "" }
+});
+
+// src/socket.ts
+var SocketManager = class _SocketManager {
+  constructor() {
+    this.sockets = /* @__PURE__ */ new Map();
+    this.listeners = /* @__PURE__ */ new Map();
+    this.connected = /* @__PURE__ */ new Map();
+  }
+  static getInstance() {
+    if (!_SocketManager.instance) {
+      _SocketManager.instance = new _SocketManager();
+    }
+    return _SocketManager.instance;
+  }
+  connect(url) {
+    if (this.sockets.has(url)) return;
+    const ws = new WebSocket(url);
+    this.sockets.set(url, ws);
+    this.connected.set(url, false);
+    this.listeners.set(url, /* @__PURE__ */ new Set());
+    ws.addEventListener("open", () => {
+      this.connected.set(url, true);
+      console.log(`\u2705 Connected: ${url}`);
+    });
+    ws.addEventListener("message", (event) => {
+      const handlers = this.listeners.get(url);
+      if (handlers) {
+        for (const handler of handlers) {
+          try {
+            handler(event.data);
+          } catch (err) {
+            console.error(`Handler error for ${url}:`, err);
+          }
+        }
+      }
+    });
+    ws.addEventListener("close", () => {
+      this.connected.set(url, false);
+      console.warn(`\u26A0\uFE0F Disconnected: ${url}`);
+    });
+    ws.addEventListener("error", (err) => {
+      console.error(`\u274C Socket error for ${url}:`, err);
+    });
+  }
+  subscribe(url, listener) {
+    if (!this.sockets.has(url)) {
+      this.connect(url);
+    }
+    this.listeners.get(url)?.add(listener);
+  }
+  unsubscribe(url, listener) {
+    this.listeners.get(url)?.delete(listener);
+  }
+  // eslint-disable-next-line
+  send(url, data) {
+    const ws = this.sockets.get(url);
+    if (ws && this.connected.get(url)) {
+      ws.send(typeof data === "string" ? data : JSON.stringify(data));
+    } else {
+      console.warn(`\u26A0\uFE0F Cannot send: not connected to ${url}`);
+    }
+  }
+  disconnect(url) {
+    const ws = this.sockets.get(url);
+    if (ws) {
+      ws.close();
+      this.sockets.delete(url);
+      this.listeners.delete(url);
+      this.connected.delete(url);
+    }
+  }
+  disconnectAll() {
+    for (const url of this.sockets.keys()) {
+      this.disconnect(url);
+    }
+  }
+};
+var socket = SocketManager.getInstance();
+
+// src/dashboard/renderer/renderWidget.ts
+function renderDashboardWidget({ title, items }) {
+  return E("div", { class: "pdk_dashboard-page__widgets-section__item" }, [
+    E("b", {}, title),
+    ...items.map(
+      (item) => E("div", {}, [E("span", {}, `${item.key}: `), E("span", {}, item.value)])
+    )
+  ]);
+}
+
+// src/helpers/prettyBytes.ts
+function prettyBytes(n) {
+  const UNITS = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+  if (n < 1e3) {
+    return n + " B";
+  }
+  const exponent = Math.min(Math.floor(Math.log10(n) / 3), UNITS.length - 1);
+  n = Number((n / Math.pow(1e3, exponent)).toPrecision(3));
+  const unit = UNITS[exponent];
+  return n + " " + unit;
+}
+
+// src/dashboard/initDashboardController.ts
+async function fetchDashboardSections() {
+  const sections = await getDashboardSections();
+  store.set({ sections });
+}
+async function fetchServicesInfo() {
+  const podkop = await getPodkopStatus();
+  const singbox = await getSingboxStatus();
+  console.log("podkop", podkop);
+  console.log("singbox", singbox);
+  store.set({
+    services: {
+      singbox: singbox.running ? "\u2714 Enabled" : singbox.status,
+      podkop: podkop.status ? "\u2714 Enabled" : podkop.status
+    }
+  });
+}
+async function connectToClashSockets() {
+  socket.subscribe(`${getClashWsUrl()}/traffic?token=`, (msg) => {
+    const parsedMsg = JSON.parse(msg);
+    store.set({
+      traffic: { up: parsedMsg.up, down: parsedMsg.down }
+    });
+  });
+  socket.subscribe(`${getClashWsUrl()}/connections?token=`, (msg) => {
+    const parsedMsg = JSON.parse(msg);
+    store.set({
+      connections: {
+        connections: parsedMsg.connections,
+        downloadTotal: parsedMsg.downloadTotal,
+        uploadTotal: parsedMsg.uploadTotal,
+        memory: parsedMsg.memory
+      }
+    });
+  });
+  socket.subscribe(`${getClashWsUrl()}/memory?token=`, (msg) => {
+    store.set({
+      memory: { inuse: msg.inuse, oslimit: msg.oslimit }
+    });
+  });
+}
+async function renderDashboardSections() {
+  const sections = store.get().sections;
+  console.log("render dashboard sections group");
+  const container = document.getElementById("dashboard-sections-grid");
+  const renderedOutboundGroups = sections.map(renderOutboundGroup);
+  container.replaceChildren(...renderedOutboundGroups);
+}
+async function renderTrafficWidget() {
+  const traffic = store.get().traffic;
+  console.log("render dashboard traffic widget");
+  const container = document.getElementById("dashboard-widget-traffic");
+  const renderedWidget = renderDashboardWidget({
+    title: "Traffic",
+    items: [
+      { key: "Uplink", value: `${prettyBytes(traffic.up)}/s` },
+      { key: "Downlink", value: `${prettyBytes(traffic.down)}/s` }
+    ]
+  });
+  container.replaceChildren(renderedWidget);
+}
+async function renderTrafficTotalWidget() {
+  const connections = store.get().connections;
+  console.log("render dashboard traffic total widget");
+  const container = document.getElementById("dashboard-widget-traffic-total");
+  const renderedWidget = renderDashboardWidget({
+    title: "Traffic Total",
+    items: [
+      { key: "Uplink", value: String(prettyBytes(connections.uploadTotal)) },
+      {
+        key: "Downlink",
+        value: String(prettyBytes(connections.downloadTotal))
+      }
+    ]
+  });
+  container.replaceChildren(renderedWidget);
+}
+async function renderSystemInfoWidget() {
+  const connections = store.get().connections;
+  console.log("render dashboard system info widget");
+  const container = document.getElementById("dashboard-widget-system-info");
+  const renderedWidget = renderDashboardWidget({
+    title: "System info",
+    items: [
+      {
+        key: "Active Connections",
+        value: String(connections.connections.length)
+      },
+      { key: "Memory Usage", value: String(prettyBytes(connections.memory)) }
+    ]
+  });
+  container.replaceChildren(renderedWidget);
+}
+async function renderServiceInfoWidget() {
+  const services = store.get().services;
+  console.log("render dashboard service info widget");
+  const container = document.getElementById("dashboard-widget-service-info");
+  const renderedWidget = renderDashboardWidget({
+    title: "Services info",
+    items: [
+      {
+        key: "Podkop",
+        value: String(services.podkop)
+      },
+      { key: "Sing-box", value: String(services.singbox) }
+    ]
+  });
+  container.replaceChildren(renderedWidget);
+}
+async function initDashboardController() {
+  store.subscribe((next, prev, diff) => {
+    console.log("Store changed", { prev, next, diff });
+    if (diff?.sections) {
+      renderDashboardSections();
+    }
+    if (diff?.traffic) {
+      renderTrafficWidget();
+    }
+    if (diff?.connections) {
+      renderTrafficTotalWidget();
+      renderSystemInfoWidget();
+    }
+    if (diff?.services) {
+      renderServiceInfoWidget();
+    }
+  });
+  onMount("dashboard-status").then(() => {
+    console.log("Mounting dashboard");
+    fetchDashboardSections();
+    fetchServicesInfo();
+    connectToClashSockets();
+  });
 }
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
@@ -645,13 +1373,20 @@ return baseclass.extend({
   createBaseApiRequest,
   executeShellCommand,
   getBaseUrl,
+  getClashApiUrl,
   getClashConfig,
   getClashGroupDelay,
   getClashProxies,
   getClashVersion,
+  getClashWsUrl,
+  getProxyUrlName,
+  initDashboardController,
   injectGlobalStyles,
   maskIP,
+  onMount,
   parseValueList,
+  renderDashboard,
+  triggerProxySelector,
   validateDNS,
   validateDomain,
   validateIPV4,

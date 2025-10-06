@@ -7,7 +7,7 @@ export default [
     js.configs.recommended,
     ...tseslint.configs.recommended,
     {
-        ignores: ['node_modules'],
+        ignores: ['node_modules', 'watch-upload.js'],
     },
     {
         rules: {

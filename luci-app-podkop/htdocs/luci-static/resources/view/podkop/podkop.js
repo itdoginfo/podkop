@@ -5,6 +5,7 @@
 'require view.podkop.configSection as configSection';
 'require view.podkop.diagnosticTab as diagnosticTab';
 'require view.podkop.additionalTab as additionalTab';
+'require view.podkop.dashboardTab as dashboardTab';
 'require view.podkop.utils as utils';
 'require view.podkop.main as main';
 
@@ -12,26 +13,31 @@ const EntryNode = {
     async render() {
         main.injectGlobalStyles();
 
-        main.getClashVersion()
-            .then(result => console.log('getClashVersion - then', result))
-            .catch(err => console.log('getClashVersion - err', err))
-            .finally(() => console.log('getClashVersion - finish'));
-
-        main.getClashConfig()
-            .then(result => console.log('getClashConfig - then', result))
-            .catch(err => console.log('getClashConfig - err', err))
-            .finally(() => console.log('getClashConfig - finish'));
-
-        main.getClashProxies()
-            .then(result => console.log('getClashProxies - then', result))
-            .catch(err => console.log('getClashProxies - err', err))
-            .finally(() => console.log('getClashProxies - finish'));
+        // main.getClashVersion()
+        //     .then(result => console.log('getClashVersion - then', result))
+        //     .catch(err => console.log('getClashVersion - err', err))
+        //     .finally(() => console.log('getClashVersion - finish'));
+        //
+        // main.getClashConfig()
+        //     .then(result => console.log('getClashConfig - then', result))
+        //     .catch(err => console.log('getClashConfig - err', err))
+        //     .finally(() => console.log('getClashConfig - finish'));
+        //
+        // main.getClashProxies()
+        //     .then(result => console.log('getClashProxies - then', result))
+        //     .catch(err => console.log('getClashProxies - err', err))
+        //     .finally(() => console.log('getClashProxies - finish'));
 
         const podkopFormMap = new form.Map('podkop', '', null, ['main', 'extra']);
 
         // Main Section
         const mainSection = podkopFormMap.section(form.TypedSection, 'main');
         mainSection.anonymous = true;
+
+        dashboardTab.createDashboardSection(mainSection);
+
+        main.initDashboardController();
+
         configSection.createConfigSection(mainSection);
 
         // Additional Settings Tab (main section)
