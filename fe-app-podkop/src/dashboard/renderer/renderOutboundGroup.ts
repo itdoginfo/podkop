@@ -74,7 +74,7 @@ export function renderOutboundGroup({
         },
         section.displayName,
       ),
-      E('button', { class: 'btn', click: () => testLatency() }, 'Test latency'),
+      E('button', { class: 'btn dashboard-sections-grid-item-test-latency', click: () => testLatency() }, 'Test latency'),
     ]),
     E(
       'div',

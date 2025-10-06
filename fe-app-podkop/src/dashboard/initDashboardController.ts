@@ -66,7 +66,7 @@ async function connectToClashSockets() {
   });
 }
 
-// Renderer
+// Handlers
 
 async function handleChooseOutbound(selector: string, tag: string) {
   await triggerProxySelector(selector, tag);
@@ -83,6 +83,18 @@ async function handleTestProxyLatency(tag: string) {
   await fetchDashboardSections();
 }
 
+function replaceTestLatencyButtonsWithSkeleton () {
+  document.querySelectorAll('.dashboard-sections-grid-item-test-latency').forEach(el => {
+    const newDiv = document.createElement('div');
+    newDiv.className = 'skeleton';
+    newDiv.style.width = '99px';
+    newDiv.style.height = '28px';
+    el.replaceWith(newDiv);
+  });
+}
+
+// Renderer
+
 async function renderDashboardSections() {
   const sections = store.get().sections;
   console.log('render dashboard sections group');
@@ -91,6 +103,8 @@ async function renderDashboardSections() {
     renderOutboundGroup({
       section,
       onTestLatency: (tag) => {
+        replaceTestLatencyButtonsWithSkeleton();
+
         if (section.withTagSelect) {
           return handleTestGroupLatency(tag);
         }

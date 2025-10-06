@@ -1164,7 +1164,7 @@ function renderOutboundGroup({
         },
         section.displayName
       ),
-      E("button", { class: "btn", click: () => testLatency() }, "Test latency")
+      E("button", { class: "btn dashboard-sections-grid-item-test-latency", click: () => testLatency() }, "Test latency")
     ]),
     E(
       "div",
@@ -1398,6 +1398,15 @@ async function handleTestProxyLatency(tag) {
   await triggerLatencyProxyTest(tag);
   await fetchDashboardSections();
 }
+function replaceTestLatencyButtonsWithSkeleton() {
+  document.querySelectorAll(".dashboard-sections-grid-item-test-latency").forEach((el) => {
+    const newDiv = document.createElement("div");
+    newDiv.className = "skeleton";
+    newDiv.style.width = "99px";
+    newDiv.style.height = "28px";
+    el.replaceWith(newDiv);
+  });
+}
 async function renderDashboardSections() {
   const sections = store.get().sections;
   console.log("render dashboard sections group");
@@ -1406,6 +1415,7 @@ async function renderDashboardSections() {
     (section) => renderOutboundGroup({
       section,
       onTestLatency: (tag) => {
+        replaceTestLatencyButtonsWithSkeleton();
         if (section.withTagSelect) {
           return handleTestGroupLatency(tag);
         }
