@@ -2,33 +2,40 @@ import {
   getDashboardSections,
   getPodkopStatus,
   getSingboxStatus,
-} from '../podkop/methods';
+} from '../../methods';
 import { renderOutboundGroup } from './renderer/renderOutboundGroup';
-import { getClashWsUrl, onMount } from '../helpers';
-import { store } from '../store';
-import { socket } from '../socket';
+import { getClashWsUrl, onMount } from '../../../helpers';
 import { renderDashboardWidget } from './renderer/renderWidget';
-import { prettyBytes } from '../helpers/prettyBytes';
 import {
   triggerLatencyGroupTest,
   triggerLatencyProxyTest,
   triggerProxySelector,
-} from '../clash';
+} from '../../../clash';
+import { store, StoreType } from '../../../store';
+import { socket } from '../../../socket';
+import { prettyBytes } from '../../../helpers/prettyBytes';
+import { renderEmptyOutboundGroup } from './renderer/renderEmptyOutboundGroup';
 
 // Fetchers
 
 async function fetchDashboardSections() {
-  const sections = await getDashboardSections();
+  store.set({
+    dashboardSections: {
+      ...store.get().dashboardSections,
+      failed: false,
+      loading: true,
+    },
+  });
 
-  store.set({ sections });
+  const { data, success } = await getDashboardSections();
+
+  store.set({ dashboardSections: { loading: false, data, failed: !success } });
 }
 
 async function fetchServicesInfo() {
   const podkop = await getPodkopStatus();
   const singbox = await getSingboxStatus();
 
-  console.log('podkop', podkop);
-  console.log('singbox', singbox);
   store.set({
     services: {
       singbox: singbox.running,
@@ -83,23 +90,31 @@ async function handleTestProxyLatency(tag: string) {
   await fetchDashboardSections();
 }
 
-function replaceTestLatencyButtonsWithSkeleton () {
-  document.querySelectorAll('.dashboard-sections-grid-item-test-latency').forEach(el => {
-    const newDiv = document.createElement('div');
-    newDiv.className = 'skeleton';
-    newDiv.style.width = '99px';
-    newDiv.style.height = '28px';
-    el.replaceWith(newDiv);
-  });
+function replaceTestLatencyButtonsWithSkeleton() {
+  document
+    .querySelectorAll('.dashboard-sections-grid-item-test-latency')
+    .forEach((el) => {
+      const newDiv = document.createElement('div');
+      newDiv.className = 'skeleton';
+      newDiv.style.width = '99px';
+      newDiv.style.height = '28px';
+      el.replaceWith(newDiv);
+    });
 }
 
 // Renderer
 
 async function renderDashboardSections() {
-  const sections = store.get().sections;
-  console.log('render dashboard sections group');
+  const dashboardSections = store.get().dashboardSections;
   const container = document.getElementById('dashboard-sections-grid');
-  const renderedOutboundGroups = sections.map((section) =>
+
+  if (dashboardSections.failed) {
+    const rendered = renderEmptyOutboundGroup();
+
+    return container!.replaceChildren(rendered);
+  }
+
+  const renderedOutboundGroups = dashboardSections.data.map((section) =>
     renderOutboundGroup({
       section,
       onTestLatency: (tag) => {
@@ -122,7 +137,7 @@ async function renderDashboardSections() {
 
 async function renderTrafficWidget() {
   const traffic = store.get().traffic;
-  console.log('render dashboard traffic widget');
+
   const container = document.getElementById('dashboard-widget-traffic');
   const renderedWidget = renderDashboardWidget({
     title: 'Traffic',
@@ -137,7 +152,7 @@ async function renderTrafficWidget() {
 
 async function renderTrafficTotalWidget() {
   const connections = store.get().connections;
-  console.log('render dashboard traffic total widget');
+
   const container = document.getElementById('dashboard-widget-traffic-total');
   const renderedWidget = renderDashboardWidget({
     title: 'Traffic Total',
@@ -155,7 +170,7 @@ async function renderTrafficTotalWidget() {
 
 async function renderSystemInfoWidget() {
   const connections = store.get().connections;
-  console.log('render dashboard system info widget');
+
   const container = document.getElementById('dashboard-widget-system-info');
   const renderedWidget = renderDashboardWidget({
     title: 'System info',
@@ -173,7 +188,7 @@ async function renderSystemInfoWidget() {
 
 async function renderServiceInfoWidget() {
   const services = store.get().services;
-  console.log('render dashboard service info widget');
+
   const container = document.getElementById('dashboard-widget-service-info');
   const renderedWidget = renderDashboardWidget({
     title: 'Services info',
@@ -202,31 +217,39 @@ async function renderServiceInfoWidget() {
   container!.replaceChildren(renderedWidget);
 }
 
+async function onStoreUpdate(
+  next: StoreType,
+  prev: StoreType,
+  diff: Partial<StoreType>,
+) {
+  if (diff?.dashboardSections) {
+    renderDashboardSections();
+  }
+
+  if (diff?.traffic) {
+    renderTrafficWidget();
+  }
+
+  if (diff?.connections) {
+    renderTrafficTotalWidget();
+    renderSystemInfoWidget();
+  }
+
+  if (diff?.services) {
+    renderServiceInfoWidget();
+  }
+}
+
 export async function initDashboardController(): Promise<void> {
-  store.subscribe((next, prev, diff) => {
-    console.log('Store changed', { prev, next, diff });
-
-    // Update sections render
-    if (diff?.sections) {
-      renderDashboardSections();
-    }
-
-    if (diff?.traffic) {
-      renderTrafficWidget();
-    }
-
-    if (diff?.connections) {
-      renderTrafficTotalWidget();
-      renderSystemInfoWidget();
-    }
-
-    if (diff?.services) {
-      renderServiceInfoWidget();
-    }
-  });
-
   onMount('dashboard-status').then(() => {
-    console.log('Mounting dashboard');
+    // Remove old listener
+    store.unsubscribe(onStoreUpdate);
+    // Clear store
+    store.reset();
+
+    // Add new listener
+    store.subscribe(onStoreUpdate);
+
     // Initial sections fetch
     fetchDashboardSections();
     fetchServicesInfo();

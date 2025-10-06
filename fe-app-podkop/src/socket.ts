@@ -26,7 +26,6 @@ class SocketManager {
 
     ws.addEventListener('open', () => {
       this.connected.set(url, true);
-      console.log(`✅ Connected: ${url}`);
     });
 
     ws.addEventListener('message', (event) => {

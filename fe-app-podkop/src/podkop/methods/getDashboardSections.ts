@@ -3,22 +3,30 @@ import { getConfigSections } from './getConfigSections';
 import { getClashProxies } from '../../clash';
 import { getProxyUrlName } from '../../helpers';
 
-export async function getDashboardSections(): Promise<Podkop.OutboundGroup[]> {
+interface IGetDashboardSectionsResponse {
+  success: boolean;
+  data: Podkop.OutboundGroup[];
+}
+
+export async function getDashboardSections(): Promise<IGetDashboardSectionsResponse> {
   const configSections = await getConfigSections();
   const clashProxies = await getClashProxies();
 
-  const clashProxiesData = clashProxies.success
-    ? clashProxies.data
-    : { proxies: [] };
+  if (!clashProxies.success) {
+    return {
+      success: false,
+      data: [],
+    };
+  }
 
-  const proxies = Object.entries(clashProxiesData.proxies).map(
+  const proxies = Object.entries(clashProxies.data.proxies).map(
     ([key, value]) => ({
       code: key,
       value,
     }),
   );
 
-  return configSections
+  const data = configSections
     .filter((section) => section.mode !== 'block')
     .map((section) => {
       if (section.mode === 'proxy') {
@@ -137,4 +145,9 @@ export async function getDashboardSections(): Promise<Podkop.OutboundGroup[]> {
         outbounds: [],
       };
     });
+
+  return {
+    success: true,
+    data,
+  };
 }

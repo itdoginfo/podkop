@@ -34,10 +34,6 @@ const EntryNode = {
         const mainSection = podkopFormMap.section(form.TypedSection, 'main');
         mainSection.anonymous = true;
 
-        dashboardTab.createDashboardSection(mainSection);
-
-        main.initDashboardController();
-
         configSection.createConfigSection(mainSection);
 
         // Additional Settings Tab (main section)
@@ -83,6 +79,16 @@ const EntryNode = {
         extraSection.addbtntitle = _('Add Section');
         extraSection.multiple = true;
         configSection.createConfigSection(extraSection);
+
+
+        // Initial dashboard render
+        dashboardTab.createDashboardSection(mainSection);
+
+        // Inject dashboard actualizer logic
+        // main.initDashboardController();
+
+        // Inject core service
+        main.coreService();
 
         return podkopFormMapPromise;
     }

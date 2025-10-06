@@ -12,7 +12,11 @@ function createDashboardSection(mainSection) {
 
     o = mainSection.taboption('dashboard', form.DummyValue, '_status');
     o.rawhtml = true;
-    o.cfgvalue = () => main.renderDashboard();
+    o.cfgvalue = () => {
+        main.initDashboardController()
+
+        return main.renderDashboard()
+    };
 }
 
 const EntryPoint = {

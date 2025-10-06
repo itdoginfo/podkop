@@ -167,6 +167,12 @@ export const GlobalStyles = `
     color: var(--error-color-medium);
 }
 
+.centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 /* Skeleton styles*/
 .skeleton {
     background-color: var(--background-color-low, #e0e0e0);

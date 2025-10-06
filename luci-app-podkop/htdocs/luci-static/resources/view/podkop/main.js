@@ -515,6 +515,12 @@ var GlobalStyles = `
     color: var(--error-color-medium);
 }
 
+.centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 /* Skeleton styles*/
 .skeleton {
     background-color: var(--background-color-low, #e0e0e0);
@@ -883,86 +889,6 @@ async function triggerLatencyProxyTest(tag, timeout = 2e3, url = "https://www.gs
   );
 }
 
-// src/dashboard/renderDashboard.ts
-function renderDashboard() {
-  return E(
-    "div",
-    {
-      id: "dashboard-status",
-      class: "pdk_dashboard-page"
-    },
-    [
-      // Title section
-      E("div", { class: "pdk_dashboard-page__title-section" }, [
-        E(
-          "h3",
-          { class: "pdk_dashboard-page__title-section__title" },
-          "Overall (alpha)"
-        ),
-        E("label", {}, [
-          E("input", { type: "checkbox", disabled: true, checked: true }),
-          " Runtime"
-        ])
-      ]),
-      // Widgets section
-      E("div", { class: "pdk_dashboard-page__widgets-section" }, [
-        E("div", { id: "dashboard-widget-traffic" }, [
-          E(
-            "div",
-            {
-              id: "",
-              style: "height: 78px",
-              class: "pdk_dashboard-page__widgets-section__item skeleton"
-            },
-            ""
-          )
-        ]),
-        E("div", { id: "dashboard-widget-traffic-total" }, [
-          E(
-            "div",
-            {
-              id: "",
-              style: "height: 78px",
-              class: "pdk_dashboard-page__widgets-section__item skeleton"
-            },
-            ""
-          )
-        ]),
-        E("div", { id: "dashboard-widget-system-info" }, [
-          E(
-            "div",
-            {
-              id: "",
-              style: "height: 78px",
-              class: "pdk_dashboard-page__widgets-section__item skeleton"
-            },
-            ""
-          )
-        ]),
-        E("div", { id: "dashboard-widget-service-info" }, [
-          E(
-            "div",
-            {
-              id: "",
-              style: "height: 78px",
-              class: "pdk_dashboard-page__widgets-section__item skeleton"
-            },
-            ""
-          )
-        ])
-      ]),
-      // All outbounds
-      E("div", { id: "dashboard-sections-grid" }, [
-        E("div", {
-          id: "dashboard-sections-grid-skeleton",
-          class: "pdk_dashboard-page__outbound-section skeleton",
-          style: "height: 127px"
-        })
-      ])
-    ]
-  );
-}
-
 // src/podkop/methods/getConfigSections.ts
 async function getConfigSections() {
   return uci.load("podkop").then(() => uci.sections("podkop"));
@@ -972,14 +898,19 @@ async function getConfigSections() {
 async function getDashboardSections() {
   const configSections = await getConfigSections();
   const clashProxies = await getClashProxies();
-  const clashProxiesData = clashProxies.success ? clashProxies.data : { proxies: [] };
-  const proxies = Object.entries(clashProxiesData.proxies).map(
+  if (!clashProxies.success) {
+    return {
+      success: false,
+      data: []
+    };
+  }
+  const proxies = Object.entries(clashProxies.data.proxies).map(
     ([key, value]) => ({
       code: key,
       value
     })
   );
-  return configSections.filter((section) => section.mode !== "block").map((section) => {
+  const data = configSections.filter((section) => section.mode !== "block").map((section) => {
     if (section.mode === "proxy") {
       if (section.proxy_config_type === "url") {
         const outbound = proxies.find(
@@ -1076,6 +1007,10 @@ async function getDashboardSections() {
       outbounds: []
     };
   });
+  return {
+    success: true,
+    data
+  };
 }
 
 // src/podkop/methods/getPodkopStatus.ts
@@ -1104,7 +1039,258 @@ async function getSingboxStatus() {
   return { running: 0, enabled: 0, status: "unknown" };
 }
 
-// src/dashboard/renderer/renderOutboundGroup.ts
+// src/podkop/services/tab.service.ts
+var TabService = class _TabService {
+  constructor() {
+    this.observer = null;
+    this.lastActiveId = null;
+    this.init();
+  }
+  static getInstance() {
+    if (!_TabService.instance) {
+      _TabService.instance = new _TabService();
+    }
+    return _TabService.instance;
+  }
+  init() {
+    this.observer = new MutationObserver(() => this.handleMutations());
+    this.observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+    this.notify();
+  }
+  handleMutations() {
+    this.notify();
+  }
+  getTabsInfo() {
+    const tabs = Array.from(
+      document.querySelectorAll(".cbi-tab, .cbi-tab-disabled")
+    );
+    return tabs.map((el) => ({
+      el,
+      id: el.dataset.tab || "",
+      active: el.classList.contains("cbi-tab") && !el.classList.contains("cbi-tab-disabled")
+    }));
+  }
+  getActiveTabId() {
+    const active = document.querySelector(
+      ".cbi-tab:not(.cbi-tab-disabled)"
+    );
+    return active?.dataset.tab || null;
+  }
+  notify() {
+    const tabs = this.getTabsInfo();
+    const activeId = this.getActiveTabId();
+    if (activeId !== this.lastActiveId) {
+      this.lastActiveId = activeId;
+      this.callback?.(activeId, tabs);
+    }
+  }
+  onChange(callback) {
+    this.callback = callback;
+    this.notify();
+  }
+  getAllTabs() {
+    return this.getTabsInfo();
+  }
+  getActiveTab() {
+    return this.getActiveTabId();
+  }
+  disconnect() {
+    this.observer?.disconnect();
+    this.observer = null;
+  }
+};
+var TabServiceInstance = TabService.getInstance();
+
+// src/store.ts
+function jsonStableStringify(obj) {
+  return JSON.stringify(obj, (_, value) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return Object.keys(value).sort().reduce(
+        (acc, key) => {
+          acc[key] = value[key];
+          return acc;
+        },
+        {}
+      );
+    }
+    return value;
+  });
+}
+function jsonEqual(a, b) {
+  try {
+    return jsonStableStringify(a) === jsonStableStringify(b);
+  } catch {
+    return false;
+  }
+}
+var Store = class {
+  constructor(initial) {
+    this.listeners = /* @__PURE__ */ new Set();
+    this.lastHash = "";
+    this.value = initial;
+    this.initial = structuredClone(initial);
+    this.lastHash = jsonStableStringify(initial);
+  }
+  get() {
+    return this.value;
+  }
+  set(next) {
+    const prev = this.value;
+    const merged = { ...prev, ...next };
+    if (jsonEqual(prev, merged)) return;
+    this.value = merged;
+    this.lastHash = jsonStableStringify(merged);
+    const diff = {};
+    for (const key in merged) {
+      if (!jsonEqual(merged[key], prev[key])) diff[key] = merged[key];
+    }
+    this.listeners.forEach((cb) => cb(this.value, prev, diff));
+  }
+  reset() {
+    const prev = this.value;
+    const next = structuredClone(this.initial);
+    if (jsonEqual(prev, next)) return;
+    this.value = next;
+    this.lastHash = jsonStableStringify(next);
+    const diff = {};
+    for (const key in next) {
+      if (!jsonEqual(next[key], prev[key])) diff[key] = next[key];
+    }
+    this.listeners.forEach((cb) => cb(this.value, prev, diff));
+  }
+  subscribe(cb) {
+    this.listeners.add(cb);
+    cb(this.value, this.value, {});
+    return () => this.listeners.delete(cb);
+  }
+  unsubscribe(cb) {
+    this.listeners.delete(cb);
+  }
+  patch(key, value) {
+    this.set({ [key]: value });
+  }
+  getKey(key) {
+    return this.value[key];
+  }
+  subscribeKey(key, cb) {
+    let prev = this.value[key];
+    const wrapper = (val) => {
+      if (!jsonEqual(val[key], prev)) {
+        prev = val[key];
+        cb(val[key]);
+      }
+    };
+    this.listeners.add(wrapper);
+    return () => this.listeners.delete(wrapper);
+  }
+};
+var initialStore = {
+  tabService: {
+    current: "",
+    all: []
+  },
+  dashboardSections: {
+    data: [],
+    loading: true
+  },
+  traffic: { up: -1, down: -1 },
+  memory: { inuse: -1, oslimit: -1 },
+  connections: {
+    connections: [],
+    memory: -1,
+    downloadTotal: -1,
+    uploadTotal: -1
+  },
+  services: { singbox: -1, podkop: -1 }
+};
+var store = new Store(initialStore);
+
+// src/podkop/services/core.service.ts
+function coreService() {
+  TabServiceInstance.onChange((activeId, tabs) => {
+    store.set({
+      tabService: {
+        current: activeId || "",
+        all: tabs.map((tab) => tab.id)
+      }
+    });
+  });
+}
+
+// src/podkop/tabs/dashboard/renderDashboard.ts
+function renderDashboard() {
+  return E(
+    "div",
+    {
+      id: "dashboard-status",
+      class: "pdk_dashboard-page"
+    },
+    [
+      // Widgets section
+      E("div", { class: "pdk_dashboard-page__widgets-section" }, [
+        E("div", { id: "dashboard-widget-traffic" }, [
+          E(
+            "div",
+            {
+              id: "",
+              style: "height: 78px",
+              class: "pdk_dashboard-page__widgets-section__item skeleton"
+            },
+            ""
+          )
+        ]),
+        E("div", { id: "dashboard-widget-traffic-total" }, [
+          E(
+            "div",
+            {
+              id: "",
+              style: "height: 78px",
+              class: "pdk_dashboard-page__widgets-section__item skeleton"
+            },
+            ""
+          )
+        ]),
+        E("div", { id: "dashboard-widget-system-info" }, [
+          E(
+            "div",
+            {
+              id: "",
+              style: "height: 78px",
+              class: "pdk_dashboard-page__widgets-section__item skeleton"
+            },
+            ""
+          )
+        ]),
+        E("div", { id: "dashboard-widget-service-info" }, [
+          E(
+            "div",
+            {
+              id: "",
+              style: "height: 78px",
+              class: "pdk_dashboard-page__widgets-section__item skeleton"
+            },
+            ""
+          )
+        ])
+      ]),
+      // All outbounds
+      E("div", { id: "dashboard-sections-grid" }, [
+        E("div", {
+          id: "dashboard-sections-grid-skeleton",
+          class: "pdk_dashboard-page__outbound-section skeleton",
+          style: "height: 127px"
+        })
+      ])
+    ]
+  );
+}
+
+// src/podkop/tabs/dashboard/renderer/renderOutboundGroup.ts
 function renderOutboundGroup({
   section,
   onTestLatency,
@@ -1164,7 +1350,14 @@ function renderOutboundGroup({
         },
         section.displayName
       ),
-      E("button", { class: "btn dashboard-sections-grid-item-test-latency", click: () => testLatency() }, "Test latency")
+      E(
+        "button",
+        {
+          class: "btn dashboard-sections-grid-item-test-latency",
+          click: () => testLatency()
+        },
+        "Test latency"
+      )
     ]),
     E(
       "div",
@@ -1174,55 +1367,36 @@ function renderOutboundGroup({
   ]);
 }
 
-// src/store.ts
-var Store = class {
-  constructor(initial) {
-    this.listeners = /* @__PURE__ */ new Set();
-    this.value = initial;
-  }
-  get() {
-    return this.value;
-  }
-  set(next) {
-    const prev = this.value;
-    const merged = { ...this.value, ...next };
-    if (Object.is(prev, merged)) return;
-    this.value = merged;
-    const diff = {};
-    for (const key in merged) {
-      if (merged[key] !== prev[key]) diff[key] = merged[key];
-    }
-    this.listeners.forEach((cb) => cb(this.value, prev, diff));
-  }
-  subscribe(cb) {
-    this.listeners.add(cb);
-    cb(this.value, this.value, {});
-    return () => this.listeners.delete(cb);
-  }
-  patch(key, value) {
-    this.set({ ...this.value, [key]: value });
-  }
-  getKey(key) {
-    return this.value[key];
-  }
-  subscribeKey(key, cb) {
-    let prev = this.value[key];
-    const unsub = this.subscribe((val) => {
-      if (val[key] !== prev) {
-        prev = val[key];
-        cb(val[key]);
-      }
-    });
-    return unsub;
-  }
-};
-var store = new Store({
-  sections: [],
-  traffic: { up: 0, down: 0 },
-  memory: { inuse: 0, oslimit: 0 },
-  connections: { connections: [], memory: 0, downloadTotal: 0, uploadTotal: 0 },
-  services: { singbox: -1, podkop: -1 }
-});
+// src/podkop/tabs/dashboard/renderer/renderWidget.ts
+function renderDashboardWidget({ title, items }) {
+  return E("div", { class: "pdk_dashboard-page__widgets-section__item" }, [
+    E(
+      "b",
+      { class: "pdk_dashboard-page__widgets-section__item__title" },
+      title
+    ),
+    ...items.map(
+      (item) => E(
+        "div",
+        {
+          class: `pdk_dashboard-page__widgets-section__item__row ${item?.attributes?.class || ""}`
+        },
+        [
+          E(
+            "span",
+            { class: "pdk_dashboard-page__widgets-section__item__row__key" },
+            `${item.key}: `
+          ),
+          E(
+            "span",
+            { class: "pdk_dashboard-page__widgets-section__item__row__value" },
+            item.value
+          )
+        ]
+      )
+    )
+  ]);
+}
 
 // src/socket.ts
 var SocketManager = class _SocketManager {
@@ -1245,7 +1419,6 @@ var SocketManager = class _SocketManager {
     this.listeners.set(url, /* @__PURE__ */ new Set());
     ws.addEventListener("open", () => {
       this.connected.set(url, true);
-      console.log(`\u2705 Connected: ${url}`);
     });
     ws.addEventListener("message", (event) => {
       const handlers = this.listeners.get(url);
@@ -1302,37 +1475,6 @@ var SocketManager = class _SocketManager {
 };
 var socket = SocketManager.getInstance();
 
-// src/dashboard/renderer/renderWidget.ts
-function renderDashboardWidget({ title, items }) {
-  return E("div", { class: "pdk_dashboard-page__widgets-section__item" }, [
-    E(
-      "b",
-      { class: "pdk_dashboard-page__widgets-section__item__title" },
-      title
-    ),
-    ...items.map(
-      (item) => E(
-        "div",
-        {
-          class: `pdk_dashboard-page__widgets-section__item__row ${item?.attributes?.class || ""}`
-        },
-        [
-          E(
-            "span",
-            { class: "pdk_dashboard-page__widgets-section__item__row__key" },
-            `${item.key}: `
-          ),
-          E(
-            "span",
-            { class: "pdk_dashboard-page__widgets-section__item__row__value" },
-            item.value
-          )
-        ]
-      )
-    )
-  ]);
-}
-
 // src/helpers/prettyBytes.ts
 function prettyBytes(n) {
   const UNITS = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
@@ -1345,16 +1487,33 @@ function prettyBytes(n) {
   return n + " " + unit;
 }
 
-// src/dashboard/initDashboardController.ts
+// src/podkop/tabs/dashboard/renderer/renderEmptyOutboundGroup.ts
+function renderEmptyOutboundGroup() {
+  return E(
+    "div",
+    {
+      class: "pdk_dashboard-page__outbound-section centered",
+      style: "height: 127px"
+    },
+    E("span", {}, "Dashboard currently unavailable")
+  );
+}
+
+// src/podkop/tabs/dashboard/initDashboardController.ts
 async function fetchDashboardSections() {
-  const sections = await getDashboardSections();
-  store.set({ sections });
+  store.set({
+    dashboardSections: {
+      ...store.get().dashboardSections,
+      failed: false,
+      loading: true
+    }
+  });
+  const { data, success } = await getDashboardSections();
+  store.set({ dashboardSections: { loading: false, data, failed: !success } });
 }
 async function fetchServicesInfo() {
   const podkop = await getPodkopStatus();
   const singbox = await getSingboxStatus();
-  console.log("podkop", podkop);
-  console.log("singbox", singbox);
   store.set({
     services: {
       singbox: singbox.running,
@@ -1408,10 +1567,13 @@ function replaceTestLatencyButtonsWithSkeleton() {
   });
 }
 async function renderDashboardSections() {
-  const sections = store.get().sections;
-  console.log("render dashboard sections group");
+  const dashboardSections = store.get().dashboardSections;
   const container = document.getElementById("dashboard-sections-grid");
-  const renderedOutboundGroups = sections.map(
+  if (dashboardSections.failed) {
+    const rendered = renderEmptyOutboundGroup();
+    return container.replaceChildren(rendered);
+  }
+  const renderedOutboundGroups = dashboardSections.data.map(
     (section) => renderOutboundGroup({
       section,
       onTestLatency: (tag) => {
@@ -1430,7 +1592,6 @@ async function renderDashboardSections() {
 }
 async function renderTrafficWidget() {
   const traffic = store.get().traffic;
-  console.log("render dashboard traffic widget");
   const container = document.getElementById("dashboard-widget-traffic");
   const renderedWidget = renderDashboardWidget({
     title: "Traffic",
@@ -1443,7 +1604,6 @@ async function renderTrafficWidget() {
 }
 async function renderTrafficTotalWidget() {
   const connections = store.get().connections;
-  console.log("render dashboard traffic total widget");
   const container = document.getElementById("dashboard-widget-traffic-total");
   const renderedWidget = renderDashboardWidget({
     title: "Traffic Total",
@@ -1459,7 +1619,6 @@ async function renderTrafficTotalWidget() {
 }
 async function renderSystemInfoWidget() {
   const connections = store.get().connections;
-  console.log("render dashboard system info widget");
   const container = document.getElementById("dashboard-widget-system-info");
   const renderedWidget = renderDashboardWidget({
     title: "System info",
@@ -1475,7 +1634,6 @@ async function renderSystemInfoWidget() {
 }
 async function renderServiceInfoWidget() {
   const services = store.get().services;
-  console.log("render dashboard service info widget");
   const container = document.getElementById("dashboard-widget-service-info");
   const renderedWidget = renderDashboardWidget({
     title: "Services info",
@@ -1498,25 +1656,26 @@ async function renderServiceInfoWidget() {
   });
   container.replaceChildren(renderedWidget);
 }
+async function onStoreUpdate(next, prev, diff) {
+  if (diff?.dashboardSections) {
+    renderDashboardSections();
+  }
+  if (diff?.traffic) {
+    renderTrafficWidget();
+  }
+  if (diff?.connections) {
+    renderTrafficTotalWidget();
+    renderSystemInfoWidget();
+  }
+  if (diff?.services) {
+    renderServiceInfoWidget();
+  }
+}
 async function initDashboardController() {
-  store.subscribe((next, prev, diff) => {
-    console.log("Store changed", { prev, next, diff });
-    if (diff?.sections) {
-      renderDashboardSections();
-    }
-    if (diff?.traffic) {
-      renderTrafficWidget();
-    }
-    if (diff?.connections) {
-      renderTrafficTotalWidget();
-      renderSystemInfoWidget();
-    }
-    if (diff?.services) {
-      renderServiceInfoWidget();
-    }
-  });
   onMount("dashboard-status").then(() => {
-    console.log("Mounting dashboard");
+    store.unsubscribe(onStoreUpdate);
+    store.reset();
+    store.subscribe(onStoreUpdate);
     fetchDashboardSections();
     fetchServicesInfo();
     connectToClashSockets();
@@ -1539,9 +1698,12 @@ return baseclass.extend({
   IP_CHECK_DOMAIN,
   REGIONAL_OPTIONS,
   STATUS_COLORS,
+  TabService,
+  TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
   copyToClipboard,
+  coreService,
   createBaseApiRequest,
   executeShellCommand,
   getBaseUrl,
@@ -1551,7 +1713,11 @@ return baseclass.extend({
   getClashProxies,
   getClashVersion,
   getClashWsUrl,
+  getConfigSections,
+  getDashboardSections,
+  getPodkopStatus,
   getProxyUrlName,
+  getSingboxStatus,
   initDashboardController,
   injectGlobalStyles,
   maskIP,
