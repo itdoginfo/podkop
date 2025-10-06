@@ -1,6 +1,5 @@
 import { ValidationResult } from './types';
 
-// TODO refactor current validation and add tests
 export function validateVlessUrl(url: string): ValidationResult {
   try {
     const parsedUrl = new URL(url);

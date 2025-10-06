@@ -23,12 +23,12 @@ async function uploadFile(filePath) {
   const relativePath = path.relative(localDir, filePath);
   const remotePath = path.posix.join(remoteDir, relativePath);
 
-  console.log(`⬆️ Uploading: ${relativePath} -> ${remotePath}`);
+  console.log(`Uploading: ${relativePath} -> ${remotePath}`);
   try {
     await sftp.fastPut(filePath, remotePath);
-    console.log(`✅ Uploaded: ${relativePath}`);
+    console.log(`Uploaded: ${relativePath}`);
   } catch (err) {
-    console.error(`❌ Failed: ${relativePath}: ${err.message}`);
+    console.error(`Failed: ${relativePath}: ${err.message}`);
   }
 }
 
@@ -36,34 +36,32 @@ async function deleteFile(filePath) {
   const relativePath = path.relative(localDir, filePath);
   const remotePath = path.posix.join(remoteDir, relativePath);
 
-  console.log(`🗑 Removing: ${relativePath}`);
+  console.log(`Removing: ${relativePath}`);
   try {
     await sftp.delete(remotePath);
-    console.log(`✅ Removed: ${relativePath}`);
+    console.log(`Removed: ${relativePath}`);
   } catch (err) {
-    console.warn(`⚠️ Could not delete ${relativePath}: ${err.message}`);
+    console.warn(`Could not delete ${relativePath}: ${err.message}`);
   }
 }
 
 async function uploadAllFiles() {
-  console.log('🚀 Uploading all files from', localDir);
+  console.log('Uploading all files from', localDir);
 
   const files = await glob(`${localDir}/**/*`, { nodir: true });
   for (const file of files) {
     await uploadFile(file);
   }
 
-  console.log('✅ Initial upload complete!');
+  console.log('Initial upload complete!');
 }
 
 async function main() {
   await sftp.connect(config);
-  console.log(`✅ Connected to ${config.host}`);
+  console.log(`Connected to ${config.host}`);
 
-  // 🔹 Загрузить всё при старте
   await uploadAllFiles();
 
-  // 🔹 Затем следить за изменениями
   chokidar
       .watch(localDir, { ignoreInitial: true })
       .on('all', async (event, filePath) => {
@@ -75,7 +73,7 @@ async function main() {
       });
 
   process.on('SIGINT', async () => {
-    console.log('🔌 Disconnecting...');
+    console.log('Disconnecting...');
     await sftp.end();
     process.exit();
   });

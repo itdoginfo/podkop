@@ -8,19 +8,19 @@
 'require view.podkop.main as main';
 
 function createDashboardSection(mainSection) {
-    let o = mainSection.tab('dashboard', _('Dashboard'));
+  let o = mainSection.tab('dashboard', _('Dashboard'));
 
-    o = mainSection.taboption('dashboard', form.DummyValue, '_status');
-    o.rawhtml = true;
-    o.cfgvalue = () => {
-        main.initDashboardController()
+  o = mainSection.taboption('dashboard', form.DummyValue, '_status');
+  o.rawhtml = true;
+  o.cfgvalue = () => {
+    main.initDashboardController();
 
-        return main.renderDashboard()
-    };
+    return main.renderDashboard();
+  };
 }
 
 const EntryPoint = {
-    createDashboardSection,
-}
+  createDashboardSection,
+};
 
 return baseclass.extend(EntryPoint);
