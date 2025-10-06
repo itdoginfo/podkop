@@ -106,6 +106,26 @@ export async function getDashboardSections(): Promise<Podkop.OutboundGroup[]> {
         }
       }
 
+      if (section.mode === 'vpn') {
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section['.name']}-out`,
+        );
+
+        return {
+          code: section['.name'],
+          displayName: section['.name'],
+          outbounds: [
+            {
+              code: outbound?.code || section['.name'],
+              displayName: section.interface || outbound?.value?.name || '',
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || '',
+              selected: true,
+            },
+          ],
+        };
+      }
+
       return {
         code: section['.name'],
         displayName: section['.name'],
