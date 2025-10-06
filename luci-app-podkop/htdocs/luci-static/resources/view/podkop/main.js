@@ -420,6 +420,30 @@ var GlobalStyles = `
     padding: 10px;
 }
 
+.pdk_dashboard-page__widgets-section__item__title {
+    
+}
+
+.pdk_dashboard-page__widgets-section__item__row {
+
+}
+
+.pdk_dashboard-page__widgets-section__item__row--success .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--success-color-medium);
+}
+
+.pdk_dashboard-page__widgets-section__item__row--error .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--error-color-medium);
+}
+
+.pdk_dashboard-page__widgets-section__item__row__key {
+    
+}
+
+.pdk_dashboard-page__widgets-section__item__row__value {
+
+}
+
 .pdk_dashboard-page__outbound-section {
     margin-top: 10px;
     border: 2px var(--background-color-low) solid;
@@ -471,11 +495,21 @@ var GlobalStyles = `
     
 }
 
-.pdk_dashboard-page__outbound-grid__item__latency {
-    
+.pdk_dashboard-page__outbound-grid__item__latency--empty {
+    color: var(--primary-color-low);
 }
 
+.pdk_dashboard-page__outbound-grid__item__latency--green {
+    color: var(--success-color-medium);
+}
 
+.pdk_dashboard-page__outbound-grid__item__latency--yellow {
+    color: var(--warn-color-medium);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--red {
+    color: var(--error-color-medium);
+}
 
 /* Skeleton styles*/
 .skeleton {
@@ -1043,6 +1077,18 @@ function renderOutboundGroup({
   displayName
 }) {
   function renderOutbound(outbound) {
+    function getLatencyClass() {
+      if (!outbound.latency) {
+        return "pdk_dashboard-page__outbound-grid__item__latency--empty";
+      }
+      if (outbound.latency < 200) {
+        return "pdk_dashboard-page__outbound-grid__item__latency--green";
+      }
+      if (outbound.latency < 400) {
+        return "pdk_dashboard-page__outbound-grid__item__latency--yellow";
+      }
+      return "pdk_dashboard-page__outbound-grid__item__latency--red";
+    }
     return E(
       "div",
       {
@@ -1058,7 +1104,7 @@ function renderOutboundGroup({
           ),
           E(
             "div",
-            { class: "pdk_dashboard-page__outbound-grid__item__latency" },
+            { class: getLatencyClass() },
             outbound.latency ? `${outbound.latency}ms` : "N/A"
           )
         ])
@@ -1132,7 +1178,7 @@ var store = new Store({
   traffic: { up: 0, down: 0 },
   memory: { inuse: 0, oslimit: 0 },
   connections: { connections: [], memory: 0, downloadTotal: 0, uploadTotal: 0 },
-  services: { singbox: "", podkop: "" }
+  services: { singbox: -1, podkop: -1 }
 });
 
 // src/socket.ts
@@ -1216,9 +1262,30 @@ var socket = SocketManager.getInstance();
 // src/dashboard/renderer/renderWidget.ts
 function renderDashboardWidget({ title, items }) {
   return E("div", { class: "pdk_dashboard-page__widgets-section__item" }, [
-    E("b", {}, title),
+    E(
+      "b",
+      { class: "pdk_dashboard-page__widgets-section__item__title" },
+      title
+    ),
     ...items.map(
-      (item) => E("div", {}, [E("span", {}, `${item.key}: `), E("span", {}, item.value)])
+      (item) => E(
+        "div",
+        {
+          class: `pdk_dashboard-page__widgets-section__item__row ${item?.attributes?.class || ""}`
+        },
+        [
+          E(
+            "span",
+            { class: "pdk_dashboard-page__widgets-section__item__row__key" },
+            `${item.key}: `
+          ),
+          E(
+            "span",
+            { class: "pdk_dashboard-page__widgets-section__item__row__value" },
+            item.value
+          )
+        ]
+      )
     )
   ]);
 }
@@ -1247,8 +1314,8 @@ async function fetchServicesInfo() {
   console.log("singbox", singbox);
   store.set({
     services: {
-      singbox: singbox.running ? "\u2714 Enabled" : singbox.status,
-      podkop: podkop.status ? "\u2714 Enabled" : podkop.status
+      singbox: singbox.running,
+      podkop: podkop.enabled
     }
   });
 }
@@ -1337,9 +1404,18 @@ async function renderServiceInfoWidget() {
     items: [
       {
         key: "Podkop",
-        value: String(services.podkop)
+        value: services.podkop ? "\u2714 Enabled" : "\u2718 Disabled",
+        attributes: {
+          class: services.podkop ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
+        }
       },
-      { key: "Sing-box", value: String(services.singbox) }
+      {
+        key: "Sing-box",
+        value: services.singbox ? "\u2714 Running" : "\u2718 Stopped",
+        attributes: {
+          class: services.singbox ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
+        }
+      }
     ]
   });
   container.replaceChildren(renderedWidget);

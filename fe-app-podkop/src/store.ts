@@ -70,13 +70,13 @@ export const store = new Store<{
     uploadTotal: number;
   };
   services: {
-    singbox: string;
-    podkop: string;
+    singbox: number;
+    podkop: number;
   };
 }>({
   sections: [],
   traffic: { up: 0, down: 0 },
   memory: { inuse: 0, oslimit: 0 },
   connections: { connections: [], memory: 0, downloadTotal: 0, uploadTotal: 0 },
-  services: { singbox: '', podkop: '' },
+  services: { singbox: -1, podkop: -1 },
 });

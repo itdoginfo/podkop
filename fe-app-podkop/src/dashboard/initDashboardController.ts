@@ -26,8 +26,8 @@ async function fetchServicesInfo() {
   console.log('singbox', singbox);
   store.set({
     services: {
-      singbox: singbox.running ? '✔ Enabled' : singbox.status,
-      podkop: podkop.status ? '✔ Enabled' : podkop.status,
+      singbox: singbox.running,
+      podkop: podkop.enabled,
     },
   });
 }
@@ -132,9 +132,22 @@ async function renderServiceInfoWidget() {
     items: [
       {
         key: 'Podkop',
-        value: String(services.podkop),
+        value: services.podkop ? '✔ Enabled' : '✘ Disabled',
+        attributes: {
+          class: services.podkop
+            ? 'pdk_dashboard-page__widgets-section__item__row--success'
+            : 'pdk_dashboard-page__widgets-section__item__row--error',
+        },
       },
-      { key: 'Sing-box', value: String(services.singbox) },
+      {
+        key: 'Sing-box',
+        value: services.singbox ? '✔ Running' : '✘ Stopped',
+        attributes: {
+          class: services.singbox
+            ? 'pdk_dashboard-page__widgets-section__item__row--success'
+            : 'pdk_dashboard-page__widgets-section__item__row--error',
+        },
+      },
     ],
   });
 

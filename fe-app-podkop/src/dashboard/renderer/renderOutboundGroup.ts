@@ -5,6 +5,23 @@ export function renderOutboundGroup({
   displayName,
 }: Podkop.OutboundGroup) {
   function renderOutbound(outbound: Podkop.Outbound) {
+    function getLatencyClass() {
+
+      if (!outbound.latency) {
+        return 'pdk_dashboard-page__outbound-grid__item__latency--empty';
+      }
+
+      if (outbound.latency < 200) {
+        return 'pdk_dashboard-page__outbound-grid__item__latency--green';
+      }
+
+      if (outbound.latency < 400) {
+        return 'pdk_dashboard-page__outbound-grid__item__latency--yellow';
+      }
+
+      return 'pdk_dashboard-page__outbound-grid__item__latency--red';
+    }
+
     return E(
       'div',
       {
@@ -20,7 +37,7 @@ export function renderOutboundGroup({
           ),
           E(
             'div',
-            { class: 'pdk_dashboard-page__outbound-grid__item__latency' },
+            { class: getLatencyClass() },
             outbound.latency ? `${outbound.latency}ms` : 'N/A',
           ),
         ]),
