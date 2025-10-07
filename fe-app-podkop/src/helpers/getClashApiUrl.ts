@@ -1,7 +1,7 @@
 export function getClashApiUrl(): string {
-  const { protocol, hostname } = window.location;
+  const { hostname } = window.location;
 
-  return `${protocol}//${hostname}:9090`;
+  return `http://${hostname}:9090`;
 }
 
 export function getClashWsUrl(): string {
