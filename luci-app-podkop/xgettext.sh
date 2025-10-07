@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 SRC_DIR="htdocs/luci-static/resources/view/podkop"
 OUT_POT="po/templates/podkop.pot"
