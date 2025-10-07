@@ -1,4 +1,6 @@
-interface IRenderWidgetParams {
+interface IRenderWidgetProps {
+  loading: boolean;
+  failed: boolean;
   title: string;
   items: Array<{
     key: string;
@@ -9,7 +11,31 @@ interface IRenderWidgetParams {
   }>;
 }
 
-export function renderDashboardWidget({ title, items }: IRenderWidgetParams) {
+function renderFailedState() {
+  return E(
+    'div',
+    {
+      id: '',
+      style: 'height: 78px',
+      class: 'pdk_dashboard-page__widgets-section__item centered',
+    },
+    'Currently unavailable',
+  );
+}
+
+function renderLoadingState() {
+  return E(
+    'div',
+    {
+      id: '',
+      style: 'height: 78px',
+      class: 'pdk_dashboard-page__widgets-section__item skeleton',
+    },
+    '',
+  );
+}
+
+function renderDefaultState({ title, items }: IRenderWidgetProps) {
   return E('div', { class: 'pdk_dashboard-page__widgets-section__item' }, [
     E(
       'b',
@@ -37,4 +63,16 @@ export function renderDashboardWidget({ title, items }: IRenderWidgetParams) {
       ),
     ),
   ]);
+}
+
+export function renderWidget(props: IRenderWidgetProps) {
+  if (props.loading) {
+    return renderLoadingState();
+  }
+
+  if (props.failed) {
+    return renderFailedState();
+  }
+
+  return renderDefaultState(props);
 }

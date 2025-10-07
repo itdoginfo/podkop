@@ -1,16 +1,37 @@
-import { Podkop } from '../../../types';
+import { Podkop } from '../../types';
 
-interface IRenderOutboundGroupProps {
+interface IRenderSectionsProps {
+  loading: boolean;
+  failed: boolean;
   section: Podkop.OutboundGroup;
   onTestLatency: (tag: string) => void;
   onChooseOutbound: (selector: string, tag: string) => void;
 }
 
-export function renderOutboundGroup({
+function renderFailedState() {
+  return E(
+    'div',
+    {
+      class: 'pdk_dashboard-page__outbound-section centered',
+      style: 'height: 127px',
+    },
+    E('span', {}, 'Dashboard currently unavailable'),
+  );
+}
+
+function renderLoadingState() {
+  return E('div', {
+    id: 'dashboard-sections-grid-skeleton',
+    class: 'pdk_dashboard-page__outbound-section skeleton',
+    style: 'height: 127px',
+  });
+}
+
+export function renderDefaultState({
   section,
-  onTestLatency,
   onChooseOutbound,
-}: IRenderOutboundGroupProps) {
+  onTestLatency,
+}: IRenderSectionsProps) {
   function testLatency() {
     if (section.withTagSelect) {
       return onTestLatency(section.code);
@@ -89,4 +110,16 @@ export function renderOutboundGroup({
       section.outbounds.map((outbound) => renderOutbound(outbound)),
     ),
   ]);
+}
+
+export function renderSections(props: IRenderSectionsProps) {
+  if (props.failed) {
+    return renderFailedState();
+  }
+
+  if (props.loading) {
+    return renderLoadingState();
+  }
+
+  return renderDefaultState(props);
 }

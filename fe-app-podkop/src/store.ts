@@ -117,22 +117,30 @@ export interface StoreType {
     current: string;
     all: string[];
   };
-  dashboardSections: {
+  bandwidthWidget: {
     loading: boolean;
-    data: Podkop.OutboundGroup[];
     failed: boolean;
+    data: { up: number; down: number };
   };
-  traffic: { up: number; down: number };
-  memory: { inuse: number; oslimit: number };
-  connections: {
-    connections: unknown[];
-    downloadTotal: number;
-    memory: number;
-    uploadTotal: number;
+  trafficTotalWidget: {
+    loading: boolean;
+    failed: boolean;
+    data: { downloadTotal: number; uploadTotal: number };
   };
-  services: {
-    singbox: number;
-    podkop: number;
+  systemInfoWidget: {
+    loading: boolean;
+    failed: boolean;
+    data: { connections: number; memory: number };
+  };
+  servicesInfoWidget: {
+    loading: boolean;
+    failed: boolean;
+    data: { singbox: number; podkop: number };
+  };
+  sectionsWidget: {
+    loading: boolean;
+    failed: boolean;
+    data: Podkop.OutboundGroup[];
   };
 }
 
@@ -141,19 +149,31 @@ const initialStore: StoreType = {
     current: '',
     all: [],
   },
-  dashboardSections: {
-    data: [],
+  bandwidthWidget: {
     loading: true,
+    failed: false,
+    data: { up: 0, down: 0 },
   },
-  traffic: { up: -1, down: -1 },
-  memory: { inuse: -1, oslimit: -1 },
-  connections: {
-    connections: [],
-    memory: -1,
-    downloadTotal: -1,
-    uploadTotal: -1,
+  trafficTotalWidget: {
+    loading: true,
+    failed: false,
+    data: { downloadTotal: 0, uploadTotal: 0 },
   },
-  services: { singbox: -1, podkop: -1 },
+  systemInfoWidget: {
+    loading: true,
+    failed: false,
+    data: { connections: 0, memory: 0 },
+  },
+  servicesInfoWidget: {
+    loading: true,
+    failed: false,
+    data: { singbox: 0, podkop: 0 },
+  },
+  sectionsWidget: {
+    loading: true,
+    failed: false,
+    data: [],
+  },
 };
 
 export const store = new Store<StoreType>(initialStore);

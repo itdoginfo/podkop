@@ -1,3 +1,6 @@
+import { renderSections } from './renderSections';
+import { renderWidget } from './renderWidget';
+
 export function renderDashboard() {
   return E(
     'div',
@@ -8,59 +11,44 @@ export function renderDashboard() {
     [
       // Widgets section
       E('div', { class: 'pdk_dashboard-page__widgets-section' }, [
-        E('div', { id: 'dashboard-widget-traffic' }, [
-          E(
-            'div',
-            {
-              id: '',
-              style: 'height: 78px',
-              class: 'pdk_dashboard-page__widgets-section__item skeleton',
-            },
-            '',
-          ),
-        ]),
-        E('div', { id: 'dashboard-widget-traffic-total' }, [
-          E(
-            'div',
-            {
-              id: '',
-              style: 'height: 78px',
-              class: 'pdk_dashboard-page__widgets-section__item skeleton',
-            },
-            '',
-          ),
-        ]),
-        E('div', { id: 'dashboard-widget-system-info' }, [
-          E(
-            'div',
-            {
-              id: '',
-              style: 'height: 78px',
-              class: 'pdk_dashboard-page__widgets-section__item skeleton',
-            },
-            '',
-          ),
-        ]),
-        E('div', { id: 'dashboard-widget-service-info' }, [
-          E(
-            'div',
-            {
-              id: '',
-              style: 'height: 78px',
-              class: 'pdk_dashboard-page__widgets-section__item skeleton',
-            },
-            '',
-          ),
-        ]),
+        E(
+          'div',
+          { id: 'dashboard-widget-traffic' },
+          renderWidget({ loading: true, failed: false, title: '', items: [] }),
+        ),
+        E(
+          'div',
+          { id: 'dashboard-widget-traffic-total' },
+          renderWidget({ loading: true, failed: false, title: '', items: [] }),
+        ),
+        E(
+          'div',
+          { id: 'dashboard-widget-system-info' },
+          renderWidget({ loading: true, failed: false, title: '', items: [] }),
+        ),
+        E(
+          'div',
+          { id: 'dashboard-widget-service-info' },
+          renderWidget({ loading: true, failed: false, title: '', items: [] }),
+        ),
       ]),
       // All outbounds
-      E('div', { id: 'dashboard-sections-grid' }, [
-        E('div', {
-          id: 'dashboard-sections-grid-skeleton',
-          class: 'pdk_dashboard-page__outbound-section skeleton',
-          style: 'height: 127px',
+      E(
+        'div',
+        { id: 'dashboard-sections-grid' },
+        renderSections({
+          loading: true,
+          failed: false,
+          section: {
+            code: '',
+            displayName: '',
+            outbounds: [],
+            withTagSelect: false,
+          },
+          onTestLatency: () => {},
+          onChooseOutbound: () => {},
         }),
-      ]),
+      ),
     ],
   );
 }

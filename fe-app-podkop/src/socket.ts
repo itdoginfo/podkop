@@ -1,11 +1,13 @@
 // eslint-disable-next-line
 type Listener = (data: any) => void;
+type ErrorListener = (error: Event | string) => void;
 
 class SocketManager {
   private static instance: SocketManager;
   private sockets = new Map<string, WebSocket>();
   private listeners = new Map<string, Set<Listener>>();
   private connected = new Map<string, boolean>();
+  private errorListeners = new Map<string, Set<ErrorListener>>();
 
   private constructor() {}
 
@@ -23,9 +25,11 @@ class SocketManager {
     this.sockets.set(url, ws);
     this.connected.set(url, false);
     this.listeners.set(url, new Set());
+    this.errorListeners.set(url, new Set());
 
     ws.addEventListener('open', () => {
       this.connected.set(url, true);
+      console.info(`Connected: ${url}`);
     });
 
     ws.addEventListener('message', (event) => {
@@ -43,23 +47,33 @@ class SocketManager {
 
     ws.addEventListener('close', () => {
       this.connected.set(url, false);
-      console.warn(`⚠️ Disconnected: ${url}`);
+      console.warn(`Disconnected: ${url}`);
+      this.triggerError(url, 'Connection closed');
     });
 
     ws.addEventListener('error', (err) => {
-      console.error(`❌ Socket error for ${url}:`, err);
+      console.error(`Socket error for ${url}:`, err);
+      this.triggerError(url, err);
     });
   }
 
-  subscribe(url: string, listener: Listener): void {
+  subscribe(url: string, listener: Listener, onError?: ErrorListener): void {
     if (!this.sockets.has(url)) {
       this.connect(url);
     }
+
     this.listeners.get(url)?.add(listener);
+
+    if (onError) {
+      this.errorListeners.get(url)?.add(onError);
+    }
   }
 
-  unsubscribe(url: string, listener: Listener): void {
+  unsubscribe(url: string, listener: Listener, onError?: ErrorListener): void {
     this.listeners.get(url)?.delete(listener);
+    if (onError) {
+      this.errorListeners.get(url)?.delete(onError);
+    }
   }
 
   // eslint-disable-next-line
@@ -68,7 +82,8 @@ class SocketManager {
     if (ws && this.connected.get(url)) {
       ws.send(typeof data === 'string' ? data : JSON.stringify(data));
     } else {
-      console.warn(`⚠️ Cannot send: not connected to ${url}`);
+      console.warn(`Cannot send: not connected to ${url}`);
+      this.triggerError(url, 'Not connected');
     }
   }
 
@@ -78,6 +93,7 @@ class SocketManager {
       ws.close();
       this.sockets.delete(url);
       this.listeners.delete(url);
+      this.errorListeners.delete(url);
       this.connected.delete(url);
     }
   }
@@ -85,6 +101,19 @@ class SocketManager {
   disconnectAll(): void {
     for (const url of this.sockets.keys()) {
       this.disconnect(url);
+    }
+  }
+
+  private triggerError(url: string, err: Event | string): void {
+    const handlers = this.errorListeners.get(url);
+    if (handlers) {
+      for (const cb of handlers) {
+        try {
+          cb(err);
+        } catch (e) {
+          console.error(`Error handler threw for ${url}:`, e);
+        }
+      }
     }
   }
 }

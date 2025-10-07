@@ -3,9 +3,7 @@ import {
   getPodkopStatus,
   getSingboxStatus,
 } from '../../methods';
-import { renderOutboundGroup } from './renderer/renderOutboundGroup';
 import { getClashWsUrl, onMount } from '../../../helpers';
-import { renderDashboardWidget } from './renderer/renderWidget';
 import {
   triggerLatencyGroupTest,
   triggerLatencyProxyTest,
@@ -14,63 +12,114 @@ import {
 import { store, StoreType } from '../../../store';
 import { socket } from '../../../socket';
 import { prettyBytes } from '../../../helpers/prettyBytes';
-import { renderEmptyOutboundGroup } from './renderer/renderEmptyOutboundGroup';
+import { renderSections } from './renderSections';
+import { renderWidget } from './renderWidget';
 
 // Fetchers
 
 async function fetchDashboardSections() {
+  const prev = store.get().sectionsWidget;
+
   store.set({
-    dashboardSections: {
-      ...store.get().dashboardSections,
+    sectionsWidget: {
+      ...prev,
       failed: false,
-      loading: true,
     },
   });
 
   const { data, success } = await getDashboardSections();
 
-  store.set({ dashboardSections: { loading: false, data, failed: !success } });
+  store.set({
+    sectionsWidget: {
+      loading: false,
+      failed: !success,
+      data,
+    },
+  });
 }
 
 async function fetchServicesInfo() {
-  const podkop = await getPodkopStatus();
-  const singbox = await getSingboxStatus();
+  const [podkop, singbox] = await Promise.all([
+    getPodkopStatus(),
+    getSingboxStatus(),
+  ]);
 
   store.set({
-    services: {
-      singbox: singbox.running,
-      podkop: podkop.enabled,
+    servicesInfoWidget: {
+      loading: false,
+      failed: false,
+      data: { singbox: singbox.running, podkop: podkop.enabled },
     },
   });
 }
 
 async function connectToClashSockets() {
-  socket.subscribe(`${getClashWsUrl()}/traffic?token=`, (msg) => {
-    const parsedMsg = JSON.parse(msg);
+  socket.subscribe(
+    `${getClashWsUrl()}/traffic?token=`,
+    (msg) => {
+      const parsedMsg = JSON.parse(msg);
 
-    store.set({
-      traffic: { up: parsedMsg.up, down: parsedMsg.down },
-    });
-  });
+      store.set({
+        bandwidthWidget: {
+          loading: false,
+          failed: false,
+          data: { up: parsedMsg.up, down: parsedMsg.down },
+        },
+      });
+    },
+    (_err) => {
+      store.set({
+        bandwidthWidget: {
+          loading: false,
+          failed: true,
+          data: { up: 0, down: 0 },
+        },
+      });
+    },
+  );
 
-  socket.subscribe(`${getClashWsUrl()}/connections?token=`, (msg) => {
-    const parsedMsg = JSON.parse(msg);
+  socket.subscribe(
+    `${getClashWsUrl()}/connections?token=`,
+    (msg) => {
+      const parsedMsg = JSON.parse(msg);
 
-    store.set({
-      connections: {
-        connections: parsedMsg.connections,
-        downloadTotal: parsedMsg.downloadTotal,
-        uploadTotal: parsedMsg.uploadTotal,
-        memory: parsedMsg.memory,
-      },
-    });
-  });
-
-  socket.subscribe(`${getClashWsUrl()}/memory?token=`, (msg) => {
-    store.set({
-      memory: { inuse: msg.inuse, oslimit: msg.oslimit },
-    });
-  });
+      store.set({
+        trafficTotalWidget: {
+          loading: false,
+          failed: false,
+          data: {
+            downloadTotal: parsedMsg.downloadTotal,
+            uploadTotal: parsedMsg.uploadTotal,
+          },
+        },
+        systemInfoWidget: {
+          loading: false,
+          failed: false,
+          data: {
+            connections: parsedMsg.connections?.length,
+            memory: parsedMsg.memory,
+          },
+        },
+      });
+    },
+    (_err) => {
+      store.set({
+        trafficTotalWidget: {
+          loading: false,
+          failed: true,
+          data: { downloadTotal: 0, uploadTotal: 0 },
+        },
+        systemInfoWidget: {
+          loading: false,
+          failed: true,
+          data: {
+            connections: 0,
+            memory: 0,
+          },
+        },
+      });
+    },
+  );
 }
 
 // Handlers
@@ -104,18 +153,31 @@ function replaceTestLatencyButtonsWithSkeleton() {
 
 // Renderer
 
-async function renderDashboardSections() {
-  const dashboardSections = store.get().dashboardSections;
+async function renderSectionsWidget() {
+  console.log('renderSectionsWidget');
+  const sectionsWidget = store.get().sectionsWidget;
   const container = document.getElementById('dashboard-sections-grid');
 
-  if (dashboardSections.failed) {
-    const rendered = renderEmptyOutboundGroup();
-
-    return container!.replaceChildren(rendered);
+  if (sectionsWidget.loading || sectionsWidget.failed) {
+    const renderedWidget = renderSections({
+      loading: sectionsWidget.loading,
+      failed: sectionsWidget.failed,
+      section: {
+        code: '',
+        displayName: '',
+        outbounds: [],
+        withTagSelect: false,
+      },
+      onTestLatency: () => {},
+      onChooseOutbound: () => {},
+    });
+    return container!.replaceChildren(renderedWidget);
   }
 
-  const renderedOutboundGroups = dashboardSections.data.map((section) =>
-    renderOutboundGroup({
+  const renderedWidgets = sectionsWidget.data.map((section) =>
+    renderSections({
+      loading: sectionsWidget.loading,
+      failed: sectionsWidget.failed,
       section,
       onTestLatency: (tag) => {
         replaceTestLatencyButtonsWithSkeleton();
@@ -132,18 +194,33 @@ async function renderDashboardSections() {
     }),
   );
 
-  container!.replaceChildren(...renderedOutboundGroups);
+  return container!.replaceChildren(...renderedWidgets);
 }
 
-async function renderTrafficWidget() {
-  const traffic = store.get().traffic;
+async function renderBandwidthWidget() {
+  console.log('renderBandwidthWidget');
+  const traffic = store.get().bandwidthWidget;
 
   const container = document.getElementById('dashboard-widget-traffic');
-  const renderedWidget = renderDashboardWidget({
+
+  if (traffic.loading || traffic.failed) {
+    const renderedWidget = renderWidget({
+      loading: traffic.loading,
+      failed: traffic.failed,
+      title: '',
+      items: [],
+    });
+
+    return container!.replaceChildren(renderedWidget);
+  }
+
+  const renderedWidget = renderWidget({
+    loading: traffic.loading,
+    failed: traffic.failed,
     title: 'Traffic',
     items: [
-      { key: 'Uplink', value: `${prettyBytes(traffic.up)}/s` },
-      { key: 'Downlink', value: `${prettyBytes(traffic.down)}/s` },
+      { key: 'Uplink', value: `${prettyBytes(traffic.data.up)}/s` },
+      { key: 'Downlink', value: `${prettyBytes(traffic.data.down)}/s` },
     ],
   });
 
@@ -151,16 +228,34 @@ async function renderTrafficWidget() {
 }
 
 async function renderTrafficTotalWidget() {
-  const connections = store.get().connections;
+  console.log('renderTrafficTotalWidget');
+  const trafficTotalWidget = store.get().trafficTotalWidget;
 
   const container = document.getElementById('dashboard-widget-traffic-total');
-  const renderedWidget = renderDashboardWidget({
+
+  if (trafficTotalWidget.loading || trafficTotalWidget.failed) {
+    const renderedWidget = renderWidget({
+      loading: trafficTotalWidget.loading,
+      failed: trafficTotalWidget.failed,
+      title: '',
+      items: [],
+    });
+
+    return container!.replaceChildren(renderedWidget);
+  }
+
+  const renderedWidget = renderWidget({
+    loading: trafficTotalWidget.loading,
+    failed: trafficTotalWidget.failed,
     title: 'Traffic Total',
     items: [
-      { key: 'Uplink', value: String(prettyBytes(connections.uploadTotal)) },
+      {
+        key: 'Uplink',
+        value: String(prettyBytes(trafficTotalWidget.data.uploadTotal)),
+      },
       {
         key: 'Downlink',
-        value: String(prettyBytes(connections.downloadTotal)),
+        value: String(prettyBytes(trafficTotalWidget.data.downloadTotal)),
       },
     ],
   });
@@ -169,44 +264,77 @@ async function renderTrafficTotalWidget() {
 }
 
 async function renderSystemInfoWidget() {
-  const connections = store.get().connections;
+  console.log('renderSystemInfoWidget');
+  const systemInfoWidget = store.get().systemInfoWidget;
 
   const container = document.getElementById('dashboard-widget-system-info');
-  const renderedWidget = renderDashboardWidget({
+
+  if (systemInfoWidget.loading || systemInfoWidget.failed) {
+    const renderedWidget = renderWidget({
+      loading: systemInfoWidget.loading,
+      failed: systemInfoWidget.failed,
+      title: '',
+      items: [],
+    });
+
+    return container!.replaceChildren(renderedWidget);
+  }
+
+  const renderedWidget = renderWidget({
+    loading: systemInfoWidget.loading,
+    failed: systemInfoWidget.failed,
     title: 'System info',
     items: [
       {
         key: 'Active Connections',
-        value: String(connections.connections.length),
+        value: String(systemInfoWidget.data.connections),
       },
-      { key: 'Memory Usage', value: String(prettyBytes(connections.memory)) },
+      {
+        key: 'Memory Usage',
+        value: String(prettyBytes(systemInfoWidget.data.memory)),
+      },
     ],
   });
 
   container!.replaceChildren(renderedWidget);
 }
 
-async function renderServiceInfoWidget() {
-  const services = store.get().services;
+async function renderServicesInfoWidget() {
+  console.log('renderServicesInfoWidget');
+  const servicesInfoWidget = store.get().servicesInfoWidget;
 
   const container = document.getElementById('dashboard-widget-service-info');
-  const renderedWidget = renderDashboardWidget({
+
+  if (servicesInfoWidget.loading || servicesInfoWidget.failed) {
+    const renderedWidget = renderWidget({
+      loading: servicesInfoWidget.loading,
+      failed: servicesInfoWidget.failed,
+      title: '',
+      items: [],
+    });
+
+    return container!.replaceChildren(renderedWidget);
+  }
+
+  const renderedWidget = renderWidget({
+    loading: servicesInfoWidget.loading,
+    failed: servicesInfoWidget.failed,
     title: 'Services info',
     items: [
       {
         key: 'Podkop',
-        value: services.podkop ? '✔ Enabled' : '✘ Disabled',
+        value: servicesInfoWidget.data.podkop ? '✔ Enabled' : '✘ Disabled',
         attributes: {
-          class: services.podkop
+          class: servicesInfoWidget.data.podkop
             ? 'pdk_dashboard-page__widgets-section__item__row--success'
             : 'pdk_dashboard-page__widgets-section__item__row--error',
         },
       },
       {
         key: 'Sing-box',
-        value: services.singbox ? '✔ Running' : '✘ Stopped',
+        value: servicesInfoWidget.data.singbox ? '✔ Running' : '✘ Stopped',
         attributes: {
-          class: services.singbox
+          class: servicesInfoWidget.data.singbox
             ? 'pdk_dashboard-page__widgets-section__item__row--success'
             : 'pdk_dashboard-page__widgets-section__item__row--error',
         },
@@ -222,21 +350,24 @@ async function onStoreUpdate(
   prev: StoreType,
   diff: Partial<StoreType>,
 ) {
-  if (diff?.dashboardSections) {
-    renderDashboardSections();
+  if (diff.sectionsWidget) {
+    renderSectionsWidget();
   }
 
-  if (diff?.traffic) {
-    renderTrafficWidget();
+  if (diff.bandwidthWidget) {
+    renderBandwidthWidget();
   }
 
-  if (diff?.connections) {
+  if (diff.trafficTotalWidget) {
     renderTrafficTotalWidget();
+  }
+
+  if (diff.systemInfoWidget) {
     renderSystemInfoWidget();
   }
 
-  if (diff?.services) {
-    renderServiceInfoWidget();
+  if (diff.servicesInfoWidget) {
+    renderServicesInfoWidget();
   }
 }
 

@@ -1166,19 +1166,31 @@ var initialStore = {
     current: "",
     all: []
   },
-  dashboardSections: {
-    data: [],
-    loading: true
+  bandwidthWidget: {
+    loading: true,
+    failed: false,
+    data: { up: 0, down: 0 }
   },
-  traffic: { up: -1, down: -1 },
-  memory: { inuse: -1, oslimit: -1 },
-  connections: {
-    connections: [],
-    memory: -1,
-    downloadTotal: -1,
-    uploadTotal: -1
+  trafficTotalWidget: {
+    loading: true,
+    failed: false,
+    data: { downloadTotal: 0, uploadTotal: 0 }
   },
-  services: { singbox: -1, podkop: -1 }
+  systemInfoWidget: {
+    loading: true,
+    failed: false,
+    data: { connections: 0, memory: 0 }
+  },
+  servicesInfoWidget: {
+    loading: true,
+    failed: false,
+    data: { singbox: 0, podkop: 0 }
+  },
+  sectionsWidget: {
+    loading: true,
+    failed: false,
+    data: []
+  }
 };
 var store = new Store(initialStore);
 
@@ -1194,79 +1206,28 @@ function coreService() {
   });
 }
 
-// src/podkop/tabs/dashboard/renderDashboard.ts
-function renderDashboard() {
+// src/podkop/tabs/dashboard/renderSections.ts
+function renderFailedState() {
   return E(
     "div",
     {
-      id: "dashboard-status",
-      class: "pdk_dashboard-page"
+      class: "pdk_dashboard-page__outbound-section centered",
+      style: "height: 127px"
     },
-    [
-      // Widgets section
-      E("div", { class: "pdk_dashboard-page__widgets-section" }, [
-        E("div", { id: "dashboard-widget-traffic" }, [
-          E(
-            "div",
-            {
-              id: "",
-              style: "height: 78px",
-              class: "pdk_dashboard-page__widgets-section__item skeleton"
-            },
-            ""
-          )
-        ]),
-        E("div", { id: "dashboard-widget-traffic-total" }, [
-          E(
-            "div",
-            {
-              id: "",
-              style: "height: 78px",
-              class: "pdk_dashboard-page__widgets-section__item skeleton"
-            },
-            ""
-          )
-        ]),
-        E("div", { id: "dashboard-widget-system-info" }, [
-          E(
-            "div",
-            {
-              id: "",
-              style: "height: 78px",
-              class: "pdk_dashboard-page__widgets-section__item skeleton"
-            },
-            ""
-          )
-        ]),
-        E("div", { id: "dashboard-widget-service-info" }, [
-          E(
-            "div",
-            {
-              id: "",
-              style: "height: 78px",
-              class: "pdk_dashboard-page__widgets-section__item skeleton"
-            },
-            ""
-          )
-        ])
-      ]),
-      // All outbounds
-      E("div", { id: "dashboard-sections-grid" }, [
-        E("div", {
-          id: "dashboard-sections-grid-skeleton",
-          class: "pdk_dashboard-page__outbound-section skeleton",
-          style: "height: 127px"
-        })
-      ])
-    ]
+    E("span", {}, "Dashboard currently unavailable")
   );
 }
-
-// src/podkop/tabs/dashboard/renderer/renderOutboundGroup.ts
-function renderOutboundGroup({
+function renderLoadingState() {
+  return E("div", {
+    id: "dashboard-sections-grid-skeleton",
+    class: "pdk_dashboard-page__outbound-section skeleton",
+    style: "height: 127px"
+  });
+}
+function renderDefaultState({
   section,
-  onTestLatency,
-  onChooseOutbound
+  onChooseOutbound,
+  onTestLatency
 }) {
   function testLatency() {
     if (section.withTagSelect) {
@@ -1338,9 +1299,40 @@ function renderOutboundGroup({
     )
   ]);
 }
+function renderSections(props) {
+  if (props.failed) {
+    return renderFailedState();
+  }
+  if (props.loading) {
+    return renderLoadingState();
+  }
+  return renderDefaultState(props);
+}
 
-// src/podkop/tabs/dashboard/renderer/renderWidget.ts
-function renderDashboardWidget({ title, items }) {
+// src/podkop/tabs/dashboard/renderWidget.ts
+function renderFailedState2() {
+  return E(
+    "div",
+    {
+      id: "",
+      style: "height: 78px",
+      class: "pdk_dashboard-page__widgets-section__item centered"
+    },
+    "Currently unavailable"
+  );
+}
+function renderLoadingState2() {
+  return E(
+    "div",
+    {
+      id: "",
+      style: "height: 78px",
+      class: "pdk_dashboard-page__widgets-section__item skeleton"
+    },
+    ""
+  );
+}
+function renderDefaultState2({ title, items }) {
   return E("div", { class: "pdk_dashboard-page__widgets-section__item" }, [
     E(
       "b",
@@ -1369,6 +1361,70 @@ function renderDashboardWidget({ title, items }) {
     )
   ]);
 }
+function renderWidget(props) {
+  if (props.loading) {
+    return renderLoadingState2();
+  }
+  if (props.failed) {
+    return renderFailedState2();
+  }
+  return renderDefaultState2(props);
+}
+
+// src/podkop/tabs/dashboard/renderDashboard.ts
+function renderDashboard() {
+  return E(
+    "div",
+    {
+      id: "dashboard-status",
+      class: "pdk_dashboard-page"
+    },
+    [
+      // Widgets section
+      E("div", { class: "pdk_dashboard-page__widgets-section" }, [
+        E(
+          "div",
+          { id: "dashboard-widget-traffic" },
+          renderWidget({ loading: true, failed: false, title: "", items: [] })
+        ),
+        E(
+          "div",
+          { id: "dashboard-widget-traffic-total" },
+          renderWidget({ loading: true, failed: false, title: "", items: [] })
+        ),
+        E(
+          "div",
+          { id: "dashboard-widget-system-info" },
+          renderWidget({ loading: true, failed: false, title: "", items: [] })
+        ),
+        E(
+          "div",
+          { id: "dashboard-widget-service-info" },
+          renderWidget({ loading: true, failed: false, title: "", items: [] })
+        )
+      ]),
+      // All outbounds
+      E(
+        "div",
+        { id: "dashboard-sections-grid" },
+        renderSections({
+          loading: true,
+          failed: false,
+          section: {
+            code: "",
+            displayName: "",
+            outbounds: [],
+            withTagSelect: false
+          },
+          onTestLatency: () => {
+          },
+          onChooseOutbound: () => {
+          }
+        })
+      )
+    ]
+  );
+}
 
 // src/socket.ts
 var SocketManager = class _SocketManager {
@@ -1376,6 +1432,7 @@ var SocketManager = class _SocketManager {
     this.sockets = /* @__PURE__ */ new Map();
     this.listeners = /* @__PURE__ */ new Map();
     this.connected = /* @__PURE__ */ new Map();
+    this.errorListeners = /* @__PURE__ */ new Map();
   }
   static getInstance() {
     if (!_SocketManager.instance) {
@@ -1389,8 +1446,10 @@ var SocketManager = class _SocketManager {
     this.sockets.set(url, ws);
     this.connected.set(url, false);
     this.listeners.set(url, /* @__PURE__ */ new Set());
+    this.errorListeners.set(url, /* @__PURE__ */ new Set());
     ws.addEventListener("open", () => {
       this.connected.set(url, true);
+      console.info(`Connected: ${url}`);
     });
     ws.addEventListener("message", (event) => {
       const handlers = this.listeners.get(url);
@@ -1406,20 +1465,28 @@ var SocketManager = class _SocketManager {
     });
     ws.addEventListener("close", () => {
       this.connected.set(url, false);
-      console.warn(`\u26A0\uFE0F Disconnected: ${url}`);
+      console.warn(`Disconnected: ${url}`);
+      this.triggerError(url, "Connection closed");
     });
     ws.addEventListener("error", (err) => {
-      console.error(`\u274C Socket error for ${url}:`, err);
+      console.error(`Socket error for ${url}:`, err);
+      this.triggerError(url, err);
     });
   }
-  subscribe(url, listener) {
+  subscribe(url, listener, onError) {
     if (!this.sockets.has(url)) {
       this.connect(url);
     }
     this.listeners.get(url)?.add(listener);
+    if (onError) {
+      this.errorListeners.get(url)?.add(onError);
+    }
   }
-  unsubscribe(url, listener) {
+  unsubscribe(url, listener, onError) {
     this.listeners.get(url)?.delete(listener);
+    if (onError) {
+      this.errorListeners.get(url)?.delete(onError);
+    }
   }
   // eslint-disable-next-line
   send(url, data) {
@@ -1427,7 +1494,8 @@ var SocketManager = class _SocketManager {
     if (ws && this.connected.get(url)) {
       ws.send(typeof data === "string" ? data : JSON.stringify(data));
     } else {
-      console.warn(`\u26A0\uFE0F Cannot send: not connected to ${url}`);
+      console.warn(`Cannot send: not connected to ${url}`);
+      this.triggerError(url, "Not connected");
     }
   }
   disconnect(url) {
@@ -1436,12 +1504,25 @@ var SocketManager = class _SocketManager {
       ws.close();
       this.sockets.delete(url);
       this.listeners.delete(url);
+      this.errorListeners.delete(url);
       this.connected.delete(url);
     }
   }
   disconnectAll() {
     for (const url of this.sockets.keys()) {
       this.disconnect(url);
+    }
+  }
+  triggerError(url, err) {
+    const handlers = this.errorListeners.get(url);
+    if (handlers) {
+      for (const cb of handlers) {
+        try {
+          cb(err);
+        } catch (e) {
+          console.error(`Error handler threw for ${url}:`, e);
+        }
+      }
     }
   }
 };
@@ -1459,63 +1540,101 @@ function prettyBytes(n) {
   return n + " " + unit;
 }
 
-// src/podkop/tabs/dashboard/renderer/renderEmptyOutboundGroup.ts
-function renderEmptyOutboundGroup() {
-  return E(
-    "div",
-    {
-      class: "pdk_dashboard-page__outbound-section centered",
-      style: "height: 127px"
-    },
-    E("span", {}, "Dashboard currently unavailable")
-  );
-}
-
 // src/podkop/tabs/dashboard/initDashboardController.ts
 async function fetchDashboardSections() {
+  const prev = store.get().sectionsWidget;
   store.set({
-    dashboardSections: {
-      ...store.get().dashboardSections,
-      failed: false,
-      loading: true
+    sectionsWidget: {
+      ...prev,
+      failed: false
     }
   });
   const { data, success } = await getDashboardSections();
-  store.set({ dashboardSections: { loading: false, data, failed: !success } });
+  store.set({
+    sectionsWidget: {
+      loading: false,
+      failed: !success,
+      data
+    }
+  });
 }
 async function fetchServicesInfo() {
-  const podkop = await getPodkopStatus();
-  const singbox = await getSingboxStatus();
+  const [podkop, singbox] = await Promise.all([
+    getPodkopStatus(),
+    getSingboxStatus()
+  ]);
   store.set({
-    services: {
-      singbox: singbox.running,
-      podkop: podkop.enabled
+    servicesInfoWidget: {
+      loading: false,
+      failed: false,
+      data: { singbox: singbox.running, podkop: podkop.enabled }
     }
   });
 }
 async function connectToClashSockets() {
-  socket.subscribe(`${getClashWsUrl()}/traffic?token=`, (msg) => {
-    const parsedMsg = JSON.parse(msg);
-    store.set({
-      traffic: { up: parsedMsg.up, down: parsedMsg.down }
-    });
-  });
-  socket.subscribe(`${getClashWsUrl()}/connections?token=`, (msg) => {
-    const parsedMsg = JSON.parse(msg);
-    store.set({
-      connections: {
-        connections: parsedMsg.connections,
-        downloadTotal: parsedMsg.downloadTotal,
-        uploadTotal: parsedMsg.uploadTotal,
-        memory: parsedMsg.memory
-      }
-    });
-  });
-  socket.subscribe(`${getClashWsUrl()}/memory?token=`, (msg) => {
-    store.set({
-      memory: { inuse: msg.inuse, oslimit: msg.oslimit }
-    });
-  });
+  socket.subscribe(
+    `${getClashWsUrl()}/traffic?token=`,
+    (msg) => {
+      const parsedMsg = JSON.parse(msg);
+      store.set({
+        bandwidthWidget: {
+          loading: false,
+          failed: false,
+          data: { up: parsedMsg.up, down: parsedMsg.down }
+        }
+      });
+    },
+    (_err) => {
+      store.set({
+        bandwidthWidget: {
+          loading: false,
+          failed: true,
+          data: { up: 0, down: 0 }
+        }
+      });
+    }
+  );
+  socket.subscribe(
+    `${getClashWsUrl()}/connections?token=`,
+    (msg) => {
+      const parsedMsg = JSON.parse(msg);
+      store.set({
+        trafficTotalWidget: {
+          loading: false,
+          failed: false,
+          data: {
+            downloadTotal: parsedMsg.downloadTotal,
+            uploadTotal: parsedMsg.uploadTotal
+          }
+        },
+        systemInfoWidget: {
+          loading: false,
+          failed: false,
+          data: {
+            connections: parsedMsg.connections?.length,
+            memory: parsedMsg.memory
+          }
+        }
+      });
+    },
+    (_err) => {
+      store.set({
+        trafficTotalWidget: {
+          loading: false,
+          failed: true,
+          data: { downloadTotal: 0, uploadTotal: 0 }
+        },
+        systemInfoWidget: {
+          loading: false,
+          failed: true,
+          data: {
+            connections: 0,
+            memory: 0
+          }
+        }
+      });
+    }
+  );
 }
 async function handleChooseOutbound(selector, tag) {
   await triggerProxySelector(selector, tag);
@@ -1538,15 +1657,31 @@ function replaceTestLatencyButtonsWithSkeleton() {
     el.replaceWith(newDiv);
   });
 }
-async function renderDashboardSections() {
-  const dashboardSections = store.get().dashboardSections;
+async function renderSectionsWidget() {
+  console.log("renderSectionsWidget");
+  const sectionsWidget = store.get().sectionsWidget;
   const container = document.getElementById("dashboard-sections-grid");
-  if (dashboardSections.failed) {
-    const rendered = renderEmptyOutboundGroup();
-    return container.replaceChildren(rendered);
+  if (sectionsWidget.loading || sectionsWidget.failed) {
+    const renderedWidget = renderSections({
+      loading: sectionsWidget.loading,
+      failed: sectionsWidget.failed,
+      section: {
+        code: "",
+        displayName: "",
+        outbounds: [],
+        withTagSelect: false
+      },
+      onTestLatency: () => {
+      },
+      onChooseOutbound: () => {
+      }
+    });
+    return container.replaceChildren(renderedWidget);
   }
-  const renderedOutboundGroups = dashboardSections.data.map(
-    (section) => renderOutboundGroup({
+  const renderedWidgets = sectionsWidget.data.map(
+    (section) => renderSections({
+      loading: sectionsWidget.loading,
+      failed: sectionsWidget.failed,
       section,
       onTestLatency: (tag) => {
         replaceTestLatencyButtonsWithSkeleton();
@@ -1560,68 +1695,122 @@ async function renderDashboardSections() {
       }
     })
   );
-  container.replaceChildren(...renderedOutboundGroups);
+  return container.replaceChildren(...renderedWidgets);
 }
-async function renderTrafficWidget() {
-  const traffic = store.get().traffic;
+async function renderBandwidthWidget() {
+  console.log("renderBandwidthWidget");
+  const traffic = store.get().bandwidthWidget;
   const container = document.getElementById("dashboard-widget-traffic");
-  const renderedWidget = renderDashboardWidget({
+  if (traffic.loading || traffic.failed) {
+    const renderedWidget2 = renderWidget({
+      loading: traffic.loading,
+      failed: traffic.failed,
+      title: "",
+      items: []
+    });
+    return container.replaceChildren(renderedWidget2);
+  }
+  const renderedWidget = renderWidget({
+    loading: traffic.loading,
+    failed: traffic.failed,
     title: "Traffic",
     items: [
-      { key: "Uplink", value: `${prettyBytes(traffic.up)}/s` },
-      { key: "Downlink", value: `${prettyBytes(traffic.down)}/s` }
+      { key: "Uplink", value: `${prettyBytes(traffic.data.up)}/s` },
+      { key: "Downlink", value: `${prettyBytes(traffic.data.down)}/s` }
     ]
   });
   container.replaceChildren(renderedWidget);
 }
 async function renderTrafficTotalWidget() {
-  const connections = store.get().connections;
+  console.log("renderTrafficTotalWidget");
+  const trafficTotalWidget = store.get().trafficTotalWidget;
   const container = document.getElementById("dashboard-widget-traffic-total");
-  const renderedWidget = renderDashboardWidget({
+  if (trafficTotalWidget.loading || trafficTotalWidget.failed) {
+    const renderedWidget2 = renderWidget({
+      loading: trafficTotalWidget.loading,
+      failed: trafficTotalWidget.failed,
+      title: "",
+      items: []
+    });
+    return container.replaceChildren(renderedWidget2);
+  }
+  const renderedWidget = renderWidget({
+    loading: trafficTotalWidget.loading,
+    failed: trafficTotalWidget.failed,
     title: "Traffic Total",
     items: [
-      { key: "Uplink", value: String(prettyBytes(connections.uploadTotal)) },
+      {
+        key: "Uplink",
+        value: String(prettyBytes(trafficTotalWidget.data.uploadTotal))
+      },
       {
         key: "Downlink",
-        value: String(prettyBytes(connections.downloadTotal))
+        value: String(prettyBytes(trafficTotalWidget.data.downloadTotal))
       }
     ]
   });
   container.replaceChildren(renderedWidget);
 }
 async function renderSystemInfoWidget() {
-  const connections = store.get().connections;
+  console.log("renderSystemInfoWidget");
+  const systemInfoWidget = store.get().systemInfoWidget;
   const container = document.getElementById("dashboard-widget-system-info");
-  const renderedWidget = renderDashboardWidget({
+  if (systemInfoWidget.loading || systemInfoWidget.failed) {
+    const renderedWidget2 = renderWidget({
+      loading: systemInfoWidget.loading,
+      failed: systemInfoWidget.failed,
+      title: "",
+      items: []
+    });
+    return container.replaceChildren(renderedWidget2);
+  }
+  const renderedWidget = renderWidget({
+    loading: systemInfoWidget.loading,
+    failed: systemInfoWidget.failed,
     title: "System info",
     items: [
       {
         key: "Active Connections",
-        value: String(connections.connections.length)
+        value: String(systemInfoWidget.data.connections)
       },
-      { key: "Memory Usage", value: String(prettyBytes(connections.memory)) }
+      {
+        key: "Memory Usage",
+        value: String(prettyBytes(systemInfoWidget.data.memory))
+      }
     ]
   });
   container.replaceChildren(renderedWidget);
 }
-async function renderServiceInfoWidget() {
-  const services = store.get().services;
+async function renderServicesInfoWidget() {
+  console.log("renderServicesInfoWidget");
+  const servicesInfoWidget = store.get().servicesInfoWidget;
   const container = document.getElementById("dashboard-widget-service-info");
-  const renderedWidget = renderDashboardWidget({
+  if (servicesInfoWidget.loading || servicesInfoWidget.failed) {
+    const renderedWidget2 = renderWidget({
+      loading: servicesInfoWidget.loading,
+      failed: servicesInfoWidget.failed,
+      title: "",
+      items: []
+    });
+    return container.replaceChildren(renderedWidget2);
+  }
+  const renderedWidget = renderWidget({
+    loading: servicesInfoWidget.loading,
+    failed: servicesInfoWidget.failed,
     title: "Services info",
     items: [
       {
         key: "Podkop",
-        value: services.podkop ? "\u2714 Enabled" : "\u2718 Disabled",
+        value: servicesInfoWidget.data.podkop ? "\u2714 Enabled" : "\u2718 Disabled",
         attributes: {
-          class: services.podkop ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
+          class: servicesInfoWidget.data.podkop ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
         }
       },
       {
         key: "Sing-box",
-        value: services.singbox ? "\u2714 Running" : "\u2718 Stopped",
+        value: servicesInfoWidget.data.singbox ? "\u2714 Running" : "\u2718 Stopped",
         attributes: {
-          class: services.singbox ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
+          class: servicesInfoWidget.data.singbox ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
         }
       }
     ]
@@ -1629,18 +1818,20 @@ async function renderServiceInfoWidget() {
   container.replaceChildren(renderedWidget);
 }
 async function onStoreUpdate(next, prev, diff) {
-  if (diff?.dashboardSections) {
-    renderDashboardSections();
+  if (diff.sectionsWidget) {
+    renderSectionsWidget();
   }
-  if (diff?.traffic) {
-    renderTrafficWidget();
+  if (diff.bandwidthWidget) {
+    renderBandwidthWidget();
   }
-  if (diff?.connections) {
+  if (diff.trafficTotalWidget) {
     renderTrafficTotalWidget();
+  }
+  if (diff.systemInfoWidget) {
     renderSystemInfoWidget();
   }
-  if (diff?.services) {
-    renderServiceInfoWidget();
+  if (diff.servicesInfoWidget) {
+    renderServicesInfoWidget();
   }
 }
 async function initDashboardController() {
