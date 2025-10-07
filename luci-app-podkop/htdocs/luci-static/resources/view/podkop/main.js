@@ -763,8 +763,8 @@ async function onMount(id) {
 
 // src/helpers/getClashApiUrl.ts
 function getClashApiUrl() {
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:9090`;
+  const { hostname } = window.location;
+  return `http://${hostname}:9090`;
 }
 function getClashWsUrl() {
   const { hostname } = window.location;
