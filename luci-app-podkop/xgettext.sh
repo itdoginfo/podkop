@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 SRC_DIR="htdocs/luci-static/resources/view/podkop"
 OUT_POT="po/templates/podkop.pot"
@@ -11,6 +12,7 @@ if [ ${#FILES[@]} -eq 0 ]; then
     exit 1
 fi
 
+mapfile -t FILES < <(printf '%s\n' "${FILES[@]}" | sort)
 mkdir -p "$(dirname "$OUT_POT")"
 
 echo "Generating POT template from JS files in $SRC_DIR"

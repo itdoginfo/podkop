@@ -1,7 +1,7 @@
 import { Podkop } from '../types';
 import { getConfigSections } from './getConfigSections';
 import { getClashProxies } from '../../clash';
-import { getProxyUrlName } from '../../helpers';
+import { getProxyUrlName, splitProxyString } from '../../helpers';
 
 interface IGetDashboardSectionsResponse {
   success: boolean;
@@ -35,6 +35,11 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
             (proxy) => proxy.code === `${section['.name']}-out`,
           );
 
+          const activeConfigs = splitProxyString(section.proxy_string);
+
+          const proxyDisplayName =
+            getProxyUrlName(activeConfigs?.[0]) || outbound?.value?.name || '';
+
           return {
             withTagSelect: false,
             code: outbound?.code || section['.name'],
@@ -42,10 +47,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
             outbounds: [
               {
                 code: outbound?.code || section['.name'],
-                displayName:
-                  getProxyUrlName(section.proxy_string) ||
-                  outbound?.value?.name ||
-                  '',
+                displayName: proxyDisplayName,
                 latency: outbound?.value?.history?.[0]?.delay || 0,
                 type: outbound?.value?.type || '',
                 selected: true,

@@ -14,8 +14,14 @@ function validateIPV4(ip) {
 }
 
 // src/validators/validateDomain.ts
-function validateDomain(domain) {
+function validateDomain(domain, allowDotTLD = false) {
   const domainRegex = /^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$/;
+  if (allowDotTLD) {
+    const dotTLD = /^\.[a-zA-Z]{2,}$/;
+    if (dotTLD.test(domain)) {
+      return { valid: true, message: _("Valid") };
+    }
+  }
   if (!domainRegex.test(domain)) {
     return { valid: false, message: _("Invalid domain address") };
   }
@@ -765,6 +771,11 @@ function getClashWsUrl() {
   return `ws://${hostname}:9090`;
 }
 
+// src/helpers/splitProxyString.ts
+function splitProxyString(str) {
+  return str.split("\n").map((line) => line.trim()).filter((line) => !line.startsWith("//")).filter(Boolean);
+}
+
 // src/clash/methods/createBaseApiRequest.ts
 async function createBaseApiRequest(fetchFn) {
   try {
@@ -893,6 +904,8 @@ async function getDashboardSections() {
         const outbound = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-out`
         );
+        const activeConfigs = splitProxyString(section.proxy_string);
+        const proxyDisplayName = getProxyUrlName(activeConfigs?.[0]) || outbound?.value?.name || "";
         return {
           withTagSelect: false,
           code: outbound?.code || section[".name"],
@@ -900,7 +913,7 @@ async function getDashboardSections() {
           outbounds: [
             {
               code: outbound?.code || section[".name"],
-              displayName: getProxyUrlName(section.proxy_string) || outbound?.value?.name || "",
+              displayName: proxyDisplayName,
               latency: outbound?.value?.history?.[0]?.delay || 0,
               type: outbound?.value?.type || "",
               selected: true
@@ -1294,7 +1307,7 @@ function renderDefaultState({
           class: "btn dashboard-sections-grid-item-test-latency",
           click: () => testLatency()
         },
-        "Test latency"
+        _("Test latency")
       )
     ]),
     E(
@@ -1891,6 +1904,7 @@ return baseclass.extend({
   onMount,
   parseValueList,
   renderDashboard,
+  splitProxyString,
   triggerLatencyGroupTest,
   triggerLatencyProxyTest,
   triggerProxySelector,

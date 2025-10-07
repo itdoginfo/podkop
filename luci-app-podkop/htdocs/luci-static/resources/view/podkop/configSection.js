@@ -130,11 +130,7 @@ function createConfigSection(section) {
     }
 
     try {
-      const activeConfigs = value
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => !line.startsWith('//'))
-        .filter(Boolean);
+      const activeConfigs = main.splitProxyString(value);
 
       if (!activeConfigs.length) {
         return _(
@@ -455,7 +451,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    const validation = main.validateDomain(value);
+    const validation = main.validateDomain(value, true);
 
     if (validation.valid) {
       return true;
@@ -493,7 +489,7 @@ function createConfigSection(section) {
       );
     }
 
-    const { valid, results } = main.bulkValidate(domains, main.validateDomain);
+    const { valid, results } = main.bulkValidate(domains, row => main.validateDomain(row, true));
 
     if (!valid) {
       const errors = results
