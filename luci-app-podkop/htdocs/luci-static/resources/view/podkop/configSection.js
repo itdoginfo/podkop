@@ -455,7 +455,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    const validation = main.validateDomain(value);
+    const validation = main.validateDomain(value, true);
 
     if (validation.valid) {
       return true;
@@ -493,7 +493,7 @@ function createConfigSection(section) {
       );
     }
 
-    const { valid, results } = main.bulkValidate(domains, main.validateDomain);
+    const { valid, results } = main.bulkValidate(domains, row => main.validateDomain(row, true));
 
     if (!valid) {
       const errors = results

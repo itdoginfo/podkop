@@ -14,8 +14,14 @@ function validateIPV4(ip) {
 }
 
 // src/validators/validateDomain.ts
-function validateDomain(domain) {
+function validateDomain(domain, allowDotTLD = false) {
   const domainRegex = /^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$/;
+  if (allowDotTLD) {
+    const dotTLD = /^\.[a-zA-Z]{2,}$/;
+    if (dotTLD.test(domain)) {
+      return { valid: true, message: _("Valid") };
+    }
+  }
   if (!domainRegex.test(domain)) {
     return { valid: false, message: _("Invalid domain address") };
   }
