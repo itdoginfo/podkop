@@ -776,6 +776,15 @@ function splitProxyString(str) {
   return str.split("\n").map((line) => line.trim()).filter((line) => !line.startsWith("//")).filter(Boolean);
 }
 
+// src/helpers/preserveScrollForPage.ts
+function preserveScrollForPage(renderFn) {
+  const scrollY = window.scrollY;
+  renderFn();
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: scrollY });
+  });
+}
+
 // src/clash/methods/createBaseApiRequest.ts
 async function createBaseApiRequest(fetchFn) {
   try {
@@ -1210,6 +1219,7 @@ var initialStore = {
   sectionsWidget: {
     loading: true,
     failed: false,
+    latencyFetching: false,
     data: []
   }
 };
@@ -1248,7 +1258,8 @@ function renderLoadingState() {
 function renderDefaultState({
   section,
   onChooseOutbound,
-  onTestLatency
+  onTestLatency,
+  latencyFetching
 }) {
   function testLatency() {
     if (section.withTagSelect) {
@@ -1304,7 +1315,7 @@ function renderDefaultState({
         },
         section.displayName
       ),
-      E(
+      latencyFetching ? E("div", { class: "skeleton", style: "width: 99px; height: 28px" }) : E(
         "button",
         {
           class: "btn dashboard-sections-grid-item-test-latency",
@@ -1573,6 +1584,7 @@ async function fetchDashboardSections() {
   const { data, success } = await getDashboardSections();
   store.set({
     sectionsWidget: {
+      latencyFetching: false,
       loading: false,
       failed: !success,
       data
@@ -1662,20 +1674,35 @@ async function handleChooseOutbound(selector, tag) {
   await fetchDashboardSections();
 }
 async function handleTestGroupLatency(tag) {
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching: true
+    }
+  });
   await triggerLatencyGroupTest(tag);
   await fetchDashboardSections();
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching: false
+    }
+  });
 }
 async function handleTestProxyLatency(tag) {
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching: true
+    }
+  });
   await triggerLatencyProxyTest(tag);
   await fetchDashboardSections();
-}
-function replaceTestLatencyButtonsWithSkeleton() {
-  document.querySelectorAll(".dashboard-sections-grid-item-test-latency").forEach((el) => {
-    const newDiv = document.createElement("div");
-    newDiv.className = "skeleton";
-    newDiv.style.width = "99px";
-    newDiv.style.height = "28px";
-    el.replaceWith(newDiv);
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching: false
+    }
   });
 }
 async function renderSectionsWidget() {
@@ -1695,17 +1722,20 @@ async function renderSectionsWidget() {
       onTestLatency: () => {
       },
       onChooseOutbound: () => {
-      }
+      },
+      latencyFetching: sectionsWidget.latencyFetching
     });
-    return container.replaceChildren(renderedWidget);
+    return preserveScrollForPage(() => {
+      container.replaceChildren(renderedWidget);
+    });
   }
   const renderedWidgets = sectionsWidget.data.map(
     (section) => renderSections({
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
       section,
+      latencyFetching: sectionsWidget.latencyFetching,
       onTestLatency: (tag) => {
-        replaceTestLatencyButtonsWithSkeleton();
         if (section.withTagSelect) {
           return handleTestGroupLatency(tag);
         }
@@ -1716,7 +1746,9 @@ async function renderSectionsWidget() {
       }
     })
   );
-  return container.replaceChildren(...renderedWidgets);
+  return preserveScrollForPage(() => {
+    container.replaceChildren(...renderedWidgets);
+  });
 }
 async function renderBandwidthWidget() {
   console.log("renderBandwidthWidget");
@@ -1906,6 +1938,7 @@ return baseclass.extend({
   maskIP,
   onMount,
   parseValueList,
+  preserveScrollForPage,
   renderDashboard,
   splitProxyString,
   triggerLatencyGroupTest,

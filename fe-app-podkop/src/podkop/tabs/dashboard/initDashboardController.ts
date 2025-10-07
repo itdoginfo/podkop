@@ -3,7 +3,11 @@ import {
   getPodkopStatus,
   getSingboxStatus,
 } from '../../methods';
-import { getClashWsUrl, onMount } from '../../../helpers';
+import {
+  getClashWsUrl,
+  onMount,
+  preserveScrollForPage,
+} from '../../../helpers';
 import {
   triggerLatencyGroupTest,
   triggerLatencyProxyTest,
@@ -31,6 +35,7 @@ async function fetchDashboardSections() {
 
   store.set({
     sectionsWidget: {
+      latencyFetching: false,
       loading: false,
       failed: !success,
       data,
@@ -130,25 +135,41 @@ async function handleChooseOutbound(selector: string, tag: string) {
 }
 
 async function handleTestGroupLatency(tag: string) {
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching: true,
+    },
+  });
+
   await triggerLatencyGroupTest(tag);
   await fetchDashboardSections();
+
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching: false,
+    },
+  });
 }
 
 async function handleTestProxyLatency(tag: string) {
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching: true,
+    },
+  });
+
   await triggerLatencyProxyTest(tag);
   await fetchDashboardSections();
-}
 
-function replaceTestLatencyButtonsWithSkeleton() {
-  document
-    .querySelectorAll('.dashboard-sections-grid-item-test-latency')
-    .forEach((el) => {
-      const newDiv = document.createElement('div');
-      newDiv.className = 'skeleton';
-      newDiv.style.width = '99px';
-      newDiv.style.height = '28px';
-      el.replaceWith(newDiv);
-    });
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching: false,
+    },
+  });
 }
 
 // Renderer
@@ -170,8 +191,12 @@ async function renderSectionsWidget() {
       },
       onTestLatency: () => {},
       onChooseOutbound: () => {},
+      latencyFetching: sectionsWidget.latencyFetching,
     });
-    return container!.replaceChildren(renderedWidget);
+
+    return preserveScrollForPage(() => {
+      container!.replaceChildren(renderedWidget);
+    });
   }
 
   const renderedWidgets = sectionsWidget.data.map((section) =>
@@ -179,9 +204,8 @@ async function renderSectionsWidget() {
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
       section,
+      latencyFetching: sectionsWidget.latencyFetching,
       onTestLatency: (tag) => {
-        replaceTestLatencyButtonsWithSkeleton();
-
         if (section.withTagSelect) {
           return handleTestGroupLatency(tag);
         }
@@ -194,7 +218,9 @@ async function renderSectionsWidget() {
     }),
   );
 
-  return container!.replaceChildren(...renderedWidgets);
+  return preserveScrollForPage(() => {
+    container!.replaceChildren(...renderedWidgets);
+  });
 }
 
 async function renderBandwidthWidget() {

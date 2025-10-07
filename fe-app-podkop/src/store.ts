@@ -141,6 +141,7 @@ export interface StoreType {
     loading: boolean;
     failed: boolean;
     data: Podkop.OutboundGroup[];
+    latencyFetching: boolean;
   };
 }
 
@@ -172,6 +173,7 @@ const initialStore: StoreType = {
   sectionsWidget: {
     loading: true,
     failed: false,
+    latencyFetching: false,
     data: [],
   },
 };

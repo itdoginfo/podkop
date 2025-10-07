@@ -6,6 +6,7 @@ interface IRenderSectionsProps {
   section: Podkop.OutboundGroup;
   onTestLatency: (tag: string) => void;
   onChooseOutbound: (selector: string, tag: string) => void;
+  latencyFetching: boolean;
 }
 
 function renderFailedState() {
@@ -31,6 +32,7 @@ export function renderDefaultState({
   section,
   onChooseOutbound,
   onTestLatency,
+  latencyFetching,
 }: IRenderSectionsProps) {
   function testLatency() {
     if (section.withTagSelect) {
@@ -95,14 +97,16 @@ export function renderDefaultState({
         },
         section.displayName,
       ),
-      E(
-        'button',
-        {
-          class: 'btn dashboard-sections-grid-item-test-latency',
-          click: () => testLatency(),
-        },
-        _('Test latency'),
-      ),
+      latencyFetching
+        ? E('div', { class: 'skeleton', style: 'width: 99px; height: 28px' })
+        : E(
+            'button',
+            {
+              class: 'btn dashboard-sections-grid-item-test-latency',
+              click: () => testLatency(),
+            },
+            _('Test latency'),
+          ),
     ]),
     E(
       'div',

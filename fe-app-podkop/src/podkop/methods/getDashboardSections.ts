@@ -62,9 +62,10 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
           );
 
           const parsedOutbound = JSON.parse(section.outbound_json);
-          const parsedTag = parsedOutbound?.tag ? decodeURIComponent(parsedOutbound?.tag) : undefined;
-          const proxyDisplayName = parsedTag || outbound?.value?.name || ''
-
+          const parsedTag = parsedOutbound?.tag
+            ? decodeURIComponent(parsedOutbound?.tag)
+            : undefined;
+          const proxyDisplayName = parsedTag || outbound?.value?.name || '';
 
           return {
             withTagSelect: false,
