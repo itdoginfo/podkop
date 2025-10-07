@@ -1,0 +1,78 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    paths:
+      - 'fe-app-podkop/**'
+      - '.github/workflows/frontend-ci.yml'
+
+jobs:
+  frontend-checks:
+    name: Frontend Quality Checks
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: fe-app-podkop
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5.0.0
+        with:
+          node-version: '22'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        working-directory: fe-app-podkop
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
+      - name: Cache yarn dependencies
+        uses: actions/cache@v4.3.0
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('fe-app-podkop/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Check formatting
+        id: format
+        run: |
+          yarn format
+          if ! git diff --exit-code; then
+            echo "::error::Code is not formatted. Run 'yarn format' locally."
+            exit 1
+          fi
+
+      - name: Run linter
+        run: yarn lint --max-warnings=0
+
+      - name: Run tests
+        run: yarn test --run
+
+      - name: Build project
+        id: build
+        run: |
+          yarn build
+          if ! git diff --exit-code; then
+            echo "::error::Build generated changes. Check build output."
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Frontend CI Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Format check: ${{ steps.format.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Lint check: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Tests: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Build: ${{ steps.build.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "![Success](https://cdn2.combot.org/boratbrat/webp/6xf09f988f.webp)" >> $GITHUB_STEP_SUMMARY
