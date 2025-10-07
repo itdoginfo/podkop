@@ -10,11 +10,11 @@ export function validateUrl(
     if (!protocols.includes(parsedUrl.protocol)) {
       return {
         valid: false,
-        message: `URL must use one of the following protocols: ${protocols.join(', ')}`,
+        message: `${_('URL must use one of the following protocols:')} ${protocols.join(', ')}`,
       };
     }
-    return { valid: true, message: 'Valid' };
+    return { valid: true, message: _('Valid') };
   } catch (_e) {
-    return { valid: false, message: 'Invalid URL format' };
+    return { valid: false, message: _('Invalid URL format') };
   }
 }

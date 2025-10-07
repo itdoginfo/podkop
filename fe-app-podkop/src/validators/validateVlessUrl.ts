@@ -1,6 +1,5 @@
 import { ValidationResult } from './types';
 
-// TODO refactor current validation and add tests
 export function validateVlessUrl(url: string): ValidationResult {
   try {
     const parsedUrl = new URL(url);
@@ -8,27 +7,27 @@ export function validateVlessUrl(url: string): ValidationResult {
     if (!url || /\s/.test(url)) {
       return {
         valid: false,
-        message: 'Invalid VLESS URL: must not contain spaces',
+        message: _('Invalid VLESS URL: must not contain spaces'),
       };
     }
 
     if (parsedUrl.protocol !== 'vless:') {
       return {
         valid: false,
-        message: 'Invalid VLESS URL: must start with vless://',
+        message: _('Invalid VLESS URL: must start with vless://'),
       };
     }
 
     if (!parsedUrl.username) {
-      return { valid: false, message: 'Invalid VLESS URL: missing UUID' };
+      return { valid: false, message: _('Invalid VLESS URL: missing UUID') };
     }
 
     if (!parsedUrl.hostname) {
-      return { valid: false, message: 'Invalid VLESS URL: missing server' };
+      return { valid: false, message: _('Invalid VLESS URL: missing server') };
     }
 
     if (!parsedUrl.port) {
-      return { valid: false, message: 'Invalid VLESS URL: missing port' };
+      return { valid: false, message: _('Invalid VLESS URL: missing port') };
     }
 
     if (
@@ -38,15 +37,16 @@ export function validateVlessUrl(url: string): ValidationResult {
     ) {
       return {
         valid: false,
-        message:
+        message: _(
           'Invalid VLESS URL: invalid port number. Must be between 1 and 65535',
+        ),
       };
     }
 
     if (!parsedUrl.search) {
       return {
         valid: false,
-        message: 'Invalid VLESS URL: missing query parameters',
+        message: _('Invalid VLESS URL: missing query parameters'),
       };
     }
 
@@ -68,8 +68,9 @@ export function validateVlessUrl(url: string): ValidationResult {
     if (!type || !validTypes.includes(type)) {
       return {
         valid: false,
-        message:
+        message: _(
           'Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws',
+        ),
       };
     }
 
@@ -79,8 +80,9 @@ export function validateVlessUrl(url: string): ValidationResult {
     if (!security || !validSecurities.includes(security)) {
       return {
         valid: false,
-        message:
+        message: _(
           'Invalid VLESS URL: security must be one of tls, reality, none',
+        ),
       };
     }
 
@@ -88,21 +90,23 @@ export function validateVlessUrl(url: string): ValidationResult {
       if (!params.get('pbk')) {
         return {
           valid: false,
-          message:
+          message: _(
             'Invalid VLESS URL: missing pbk parameter for reality security',
+          ),
         };
       }
       if (!params.get('fp')) {
         return {
           valid: false,
-          message:
+          message: _(
             'Invalid VLESS URL: missing fp parameter for reality security',
+          ),
         };
       }
     }
 
-    return { valid: true, message: 'Valid' };
+    return { valid: true, message: _('Valid') };
   } catch (_e) {
-    return { valid: false, message: 'Invalid VLESS URL: parsing failed' };
+    return { valid: false, message: _('Invalid VLESS URL: parsing failed') };
   }
 }

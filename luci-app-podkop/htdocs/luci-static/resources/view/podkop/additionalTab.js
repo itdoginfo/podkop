@@ -88,7 +88,7 @@ function createAdditionalSection(mainSection) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = mainSection.taboption(
@@ -113,7 +113,7 @@ function createAdditionalSection(mainSection) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = mainSection.taboption(
@@ -342,7 +342,7 @@ function createAdditionalSection(mainSection) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = mainSection.taboption(

@@ -48,6 +48,8 @@ SB_DIRECT_OUTBOUND_TAG="direct-out"
 SB_MAIN_OUTBOUND_TAG="main-out"
 # Route
 SB_REJECT_RULE_TAG="reject-rule-tag"
+# Experimental
+SB_CLASH_API_CONTROLLER="0.0.0.0:9090"
 
 ## Lists
 GITHUB_RAW_URL="https://raw.githubusercontent.com/itdoginfo/allow-domains/main"

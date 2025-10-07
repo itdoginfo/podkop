@@ -8,14 +8,14 @@ export function validateSubnet(value: string): ValidationResult {
   if (!subnetRegex.test(value)) {
     return {
       valid: false,
-      message: 'Invalid format. Use X.X.X.X or X.X.X.X/Y',
+      message: _('Invalid format. Use X.X.X.X or X.X.X.X/Y'),
     };
   }
 
   const [ip, cidr] = value.split('/');
 
   if (ip === '0.0.0.0') {
-    return { valid: false, message: 'IP address 0.0.0.0 is not allowed' };
+    return { valid: false, message: _('IP address 0.0.0.0 is not allowed') };
   }
 
   const ipCheck = validateIPV4(ip);
@@ -30,10 +30,10 @@ export function validateSubnet(value: string): ValidationResult {
     if (cidrNum < 0 || cidrNum > 32) {
       return {
         valid: false,
-        message: 'CIDR must be between 0 and 32',
+        message: _('CIDR must be between 0 and 32'),
       };
     }
   }
 
-  return { valid: true, message: 'Valid' };
+  return { valid: true, message: _('Valid') };
 }

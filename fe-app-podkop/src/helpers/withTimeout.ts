@@ -2,7 +2,7 @@ export async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
   operationName: string,
-  timeoutMessage = 'Operation timed out',
+  timeoutMessage = _('Operation timed out'),
 ): Promise<T> {
   let timeoutId;
   const start = performance.now();

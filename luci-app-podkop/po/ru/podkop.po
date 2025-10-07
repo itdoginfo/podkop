@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-02 19:37+0500\n"
-"PO-Revision-Date: 2025-09-30 15:18+0500\n"
+"POT-Creation-Date: 2025-10-07 16:55+0300\n"
+"PO-Revision-Date: 2025-10-07 23:45+0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -16,171 +16,6 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
-
-msgid "Additional Settings"
-msgstr "Дополнительные настройки"
-
-msgid "Yacd enable"
-msgstr "Включить Yacd"
-
-msgid "Exclude NTP"
-msgstr "Исключить NTP"
-
-msgid "Allows you to exclude NTP protocol traffic from the tunnel"
-msgstr "Позволяет исключить направление трафика NTP-протокола в туннель"
-
-msgid "QUIC disable"
-msgstr "Отключить QUIC"
-
-msgid "For issues with the video stream"
-msgstr "Для проблем с видеопотоком"
-
-msgid "List Update Frequency"
-msgstr "Частота обновления списков"
-
-msgid "Select how often the lists will be updated"
-msgstr "Выберите как часто будут обновляться списки"
-
-msgid "DNS Protocol Type"
-msgstr "Тип DNS протокола"
-
-msgid "Select DNS protocol to use"
-msgstr "Выберите протокол DNS"
-
-msgid "DNS over HTTPS (DoH)"
-msgstr "DNS через HTTPS (DoH)"
-
-msgid "DNS over TLS (DoT)"
-msgstr "DNS через TLS (DoT)"
-
-msgid "UDP (Unprotected DNS)"
-msgstr "UDP (Незащищённый DNS)"
-
-msgid "DNS Server"
-msgstr "DNS-сервер"
-
-msgid "Select or enter DNS server address"
-msgstr "Выберите или введите адрес DNS-сервера"
-
-msgid "DNS server address cannot be empty"
-msgstr "Адрес DNS-сервера не может быть пустым"
-
-msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
-msgstr "Неверный формат DNS-сервера. Примеры: 8.8.8.8 или dns.example.com или dns.example.com/nicedns для DoH"
-
-msgid "Bootstrap DNS server"
-msgstr "Bootstrap DNS-сервер"
-
-msgid "The DNS server used to look up the IP address of an upstream DNS server"
-msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
-
-msgid "Invalid DNS server format. Example: 8.8.8.8"
-msgstr "Неверный формат DNS-сервера. Пример: 8.8.8.8"
-
-msgid "DNS Rewrite TTL"
-msgstr "Перезапись TTL для DNS"
-
-msgid "Time in seconds for DNS record caching (default: 60)"
-msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
-
-msgid "TTL value cannot be empty"
-msgstr "Значение TTL не может быть пустым"
-
-msgid "TTL must be a positive number"
-msgstr "TTL должно быть положительным числом"
-
-msgid "Config File Path"
-msgstr "Путь к файлу конфигурации"
-
-msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
-msgstr "Выберите путь к файлу конфигурации sing-box. Изменяйте это, ТОЛЬКО если вы знаете, что делаете"
-
-msgid "Cache File Path"
-msgstr "Путь к файлу кэша"
-
-msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
-msgstr "Выберите или введите путь к файлу кеша sing-box. Изменяйте это, ТОЛЬКО если вы знаете, что делаете"
-
-msgid "Cache file path cannot be empty"
-msgstr "Путь к файлу кэша не может быть пустым"
-
-msgid "Path must be absolute (start with /)"
-msgstr "Путь должен быть абсолютным (начинаться с /)"
-
-msgid "Path must end with cache.db"
-msgstr "Путь должен заканчиваться на cache.db"
-
-msgid "Path must contain at least one directory (like /tmp/cache.db)"
-msgstr "Путь должен содержать хотя бы одну директорию (например /tmp/cache.db)"
-
-msgid "Source Network Interface"
-msgstr "Сетевой интерфейс источника"
-
-msgid "Select the network interface from which the traffic will originate"
-msgstr "Выберите сетевой интерфейс, с которого будет исходить трафик"
-
-msgid "Interface monitoring"
-msgstr "Мониторинг интерфейсов"
-
-msgid "Interface monitoring for bad WAN"
-msgstr "Мониторинг интерфейсов для плохого WAN"
-
-msgid "Interface for monitoring"
-msgstr "Интерфейс для мониторинга"
-
-msgid "Select the WAN interfaces to be monitored"
-msgstr "Выберите WAN интерфейсы для мониторинга"
-
-msgid "Interface Monitoring Delay"
-msgstr "Задержка при мониторинге интерфейсов"
-
-msgid "Delay in milliseconds before reloading podkop after interface UP"
-msgstr "Задержка в миллисекундах перед перезагрузкой podkop после поднятия интерфейса"
-
-msgid "Delay value cannot be empty"
-msgstr "Значение задержки не может быть пустым"
-
-msgid "Dont touch my DHCP!"
-msgstr "Не трогать мой DHCP!"
-
-msgid "Podkop will not change the DHCP config"
-msgstr "Podkop не будет изменять конфигурацию DHCP"
-
-msgid "Proxy download of lists"
-msgstr "Загрузка списков через прокси"
-
-msgid "Downloading all lists via main Proxy/VPN"
-msgstr "Загрузка всех списков через основной прокси/VPN"
-
-msgid "IP for exclusion"
-msgstr "IP для исключения"
-
-msgid "Specify local IP addresses that will never use the configured route"
-msgstr "Укажите локальные IP-адреса, которые никогда не будут использовать настроенный маршрут"
-
-msgid "Local IPs"
-msgstr "Локальные IP адреса"
-
-msgid "Enter valid IPv4 addresses"
-msgstr "Введите действительные IPv4-адреса"
-
-msgid "Invalid IP format. Use format: X.X.X.X (like 192.168.1.1)"
-msgstr "Неверный формат IP. Используйте формат: X.X.X.X (например: 192.168.1.1)"
-
-msgid "IP address parts must be between 0 and 255"
-msgstr "Части IP-адреса должны быть между 0 и 255"
-
-msgid "Mixed enable"
-msgstr "Включить смешанный режим"
-
-msgid "Browser port: 2080"
-msgstr "Порт браузера: 2080"
-
-msgid "URL must use one of the following protocols: "
-msgstr "URL должен использовать один из следующих протоколов: "
-
-msgid "Invalid URL format"
-msgstr "Неверный формат URL"
 
 msgid "Basic Settings"
 msgstr "Основные настройки"
@@ -216,83 +51,24 @@ msgid "Config without description"
 msgstr "Конфигурация без описания"
 
 msgid ""
-"Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup "
-"configs"
+"Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs"
 msgstr ""
-"Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси. Добавляйте комментарии с // для "
-"сохранения других конфигураций"
+"Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси. Добавляйте комментарии с // для резервных конфигураций"
 
-msgid "No active configuration found. At least one non-commented line is required."
+msgid "No active configuration found. One configuration is required."
 msgstr "Активная конфигурация не найдена. Требуется хотя бы одна незакомментированная строка."
 
-msgid "URL must start with vless:// or ss://"
-msgstr "URL должен начинаться с vless:// или ss://"
+msgid "Multiply active configurations found. Please leave one configuration."
+msgstr "Найдено несколько активных конфигураций. Оставьте только одну."
 
-msgid "Invalid Shadowsocks URL format: missing method and password separator \":\""
-msgstr "Неверный формат URL Shadowsocks: отсутствует разделитель метода и пароля \":\""
-
-msgid "Invalid Shadowsocks URL format"
-msgstr "Неверный формат URL Shadowsocks"
-
-msgid "Invalid Shadowsocks URL: missing server address"
-msgstr "Неверный URL Shadowsocks: отсутствует адрес сервера"
-
-msgid "Invalid Shadowsocks URL: missing server"
-msgstr "Неверный URL Shadowsocks: отсутствует сервер"
-
-msgid "Invalid Shadowsocks URL: missing port"
-msgstr "Неверный URL Shadowsocks: отсутствует порт"
-
-msgid "Invalid port number. Must be between 1 and 65535"
-msgstr "Неверный номер порта. Должен быть между 1 и 65535"
-
-msgid "Invalid Shadowsocks URL: missing or invalid server/port format"
-msgstr "Неверный URL Shadowsocks: отсутствует или неверный формат сервера/порта"
-
-msgid "Invalid VLESS URL: missing UUID"
-msgstr "Неверный URL VLESS: отсутствует UUID"
-
-msgid "Invalid VLESS URL: missing server address"
-msgstr "Неверный URL VLESS: отсутствует адрес сервера"
-
-msgid "Invalid VLESS URL: missing server"
-msgstr "Неверный URL VLESS: отсутствует сервер"
-
-msgid "Invalid VLESS URL: missing port"
-msgstr "Неверный URL VLESS: отсутствует порт"
-
-msgid "Invalid VLESS URL: missing or invalid server/port format"
-msgstr "Неверный URL VLESS: отсутствует или неверный формат сервера/порта"
-
-msgid "Invalid VLESS URL: missing query parameters"
-msgstr "Неверный URL VLESS: отсутствуют параметры запроса"
-
-msgid "Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws"
-msgstr "Неверный URL VLESS: тип должен быть одним из tcp, raw, udp, grpc, http, ws"
-
-msgid "Invalid VLESS URL: security must be one of tls, reality, none"
-msgstr "Неверный URL VLESS: security должен быть одним из tls, reality, none"
-
-msgid "Invalid VLESS URL: missing pbk parameter for reality security"
-msgstr "Неверный URL VLESS: отсутствует параметр pbk для security reality"
-
-msgid "Invalid VLESS URL: missing fp parameter for reality security"
-msgstr "Неверный URL VLESS: отсутствует параметр fp для security reality"
-
-msgid "Invalid URL format: "
-msgstr "Неверный формат URL: "
+msgid "Invalid URL format:"
+msgstr "Неверный формат URL:"
 
 msgid "Outbound Configuration"
 msgstr "Конфигурация исходящего соединения"
 
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
-
-msgid "JSON must contain at least type, server and server_port fields"
-msgstr "JSON должен содержать как минимум поля type, server и server_port"
-
-msgid "Invalid JSON format"
-msgstr "Неверный формат JSON"
 
 msgid "URLTest Proxy Links"
 msgstr "Ссылки прокси для URLTest"
@@ -315,8 +91,26 @@ msgstr "Резолвер доменов"
 msgid "Enable built-in DNS resolver for domains handled by this section"
 msgstr "Включить встроенный DNS-резолвер для доменов, обрабатываемых в этом разделе"
 
+msgid "DNS Protocol Type"
+msgstr "Тип протокола DNS"
+
 msgid "Select the DNS protocol type for the domain resolver"
-msgstr "Выберите протокол DNS для резолвера доменов"
+msgstr "Выберите тип протокола DNS для резолвера доменов"
+
+msgid "DNS over HTTPS (DoH)"
+msgstr "DNS через HTTPS (DoH)"
+
+msgid "DNS over TLS (DoT)"
+msgstr "DNS через TLS (DoT)"
+
+msgid "UDP (Unprotected DNS)"
+msgstr "UDP (Незащищённый DNS)"
+
+msgid "DNS Server"
+msgstr "DNS-сервер"
+
+msgid "Select or enter DNS server address"
+msgstr "Выберите или введите адрес DNS-сервера"
 
 msgid "Community Lists"
 msgstr "Списки сообщества"
@@ -328,21 +122,16 @@ msgid "Select predefined service for routing"
 msgstr "Выберите предустановленные сервисы для маршрутизации"
 
 msgid "Regional options cannot be used together"
-msgstr "Нельзя использовать несколько региональных опций"
+msgstr "Нельзя использовать несколько региональных опций одновременно"
 
-#, javascript-format
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
 
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
 
-#, javascript-format
-msgid ""
-"Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
-msgstr ""
-"Внимание: \"Russia inside\" может использоваться только с %s. %s уже находится в \"Russia inside\" и был удален из "
-"выбора."
+msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
+msgstr "Внимание: «Russia inside» может использоваться только с %s. %s уже находится в «Russia inside» и был удалён из выбора."
 
 msgid "User Domain List Type"
 msgstr "Тип пользовательского списка доменов"
@@ -363,25 +152,19 @@ msgid "User Domains"
 msgstr "Пользовательские домены"
 
 msgid "Enter domain names without protocols (example: sub.example.com or example.com)"
-msgstr "Введите доменные имена без указания протоколов (например: sub.example.com или example.com)"
-
-msgid "Invalid domain format. Enter domain without protocol (example: sub.example.com or ru)"
-msgstr "Введите имена доменов без протоколов (пример: sub.example.com или example.com)"
+msgstr "Введите доменные имена без протоколов (например: sub.example.com или example.com)"
 
 msgid "User Domains List"
 msgstr "Список пользовательских доменов"
 
 msgid "Enter domain names separated by comma, space or newline. You can add comments after //"
-msgstr ""
-"Введите имена доменов, разделяя их запятой, пробелом или с новой строки. Вы можете добавлять комментарии после //"
-
-#, javascript-format
-msgid "Invalid domain format: %s. Enter domain without protocol"
-msgstr "Неверный формат домена: %s. Введите домен без протокола"
+msgstr "Введите домены через запятую, пробел или с новой строки. Можно добавлять комментарии после //"
 
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
-msgstr ""
-"Должен быть указан хотя бы один действительный домен. Содержимое, состоящее только из комментариев, не допускается."
+msgstr "Необходимо указать хотя бы один действительный домен. Содержимое только из комментариев не допускается."
+
+msgid "Validation errors:"
+msgstr "Ошибки валидации:"
 
 msgid "Local Domain Lists"
 msgstr "Локальные списки доменов"
@@ -395,17 +178,14 @@ msgstr "Пути к локальным спискам доменов"
 msgid "Enter the list file path"
 msgstr "Введите путь к файлу списка"
 
-msgid "Invalid path format. Path must start with \"/\" and contain valid characters"
-msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать допустимые символы"
-
 msgid "Remote Domain Lists"
-msgstr "Удаленные списки доменов"
+msgstr "Удалённые списки доменов"
 
 msgid "Download and use domain lists from remote URLs"
-msgstr "Загрузка и использование списков доменов с удаленных URL"
+msgstr "Загружать и использовать списки доменов с удалённых URL"
 
 msgid "Remote Domain URLs"
-msgstr "URL удаленных доменов"
+msgstr "URL удалённых доменов"
 
 msgid "Enter full URLs starting with http:// or https://"
 msgstr "Введите полные URL, начинающиеся с http:// или https://"
@@ -423,58 +203,31 @@ msgid "Select how to add your custom subnets"
 msgstr "Выберите способ добавления пользовательских подсетей"
 
 msgid "Text List (comma/space/newline separated)"
-msgstr "Текстовый список (разделенный запятыми/пробелами/новыми строками)"
+msgstr "Текстовый список (через запятую, пробел или новую строку)"
 
 msgid "User Subnets"
 msgstr "Пользовательские подсети"
 
 msgid "Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses"
-msgstr "Введите подсети в нотации CIDR (пример: 103.21.244.0/22) или отдельные IP-адреса"
-
-msgid "Invalid format. Use format: X.X.X.X or X.X.X.X/Y"
-msgstr "Неверный формат. Используйте формат: X.X.X.X или X.X.X.X/Y"
-
-msgid "IP address 0.0.0.0 is not allowed"
-msgstr "IP адрес не может быть 0.0.0.0"
-
-msgid "CIDR must be between 0 and 32"
-msgstr "CIDR должен быть между 0 и 32"
+msgstr "Введите подсети в нотации CIDR (например: 103.21.244.0/22) или отдельные IP-адреса"
 
 msgid "User Subnets List"
 msgstr "Список пользовательских подсетей"
 
-msgid ""
-"Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments "
-"after //"
-msgstr ""
-"Введите подсети в нотации CIDR или отдельные IP-адреса, разделенные запятой, пробелом или новой строкой. Вы можете "
-"добавлять комментарии после //"
-
-#, javascript-format
-msgid "Invalid format: %s. Use format: X.X.X.X or X.X.X.X/Y"
-msgstr "Неверный формат: %s. Используйте формат: X.X.X.X или X.X.X.X/Y"
-
-#, javascript-format
-msgid "IP parts must be between 0 and 255 in: %s"
-msgstr "Части IP-адреса должны быть между 0 и 255 в: %s"
-
-#, javascript-format
-msgid "CIDR must be between 0 and 32 in: %s"
-msgstr "CIDR должен быть между 0 и 32 в: %s"
+msgid "Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments after //"
+msgstr "Введите подсети в нотации CIDR или IP-адреса через запятую, пробел или новую строку. Можно добавлять комментарии после //"
 
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
-msgstr ""
-"Должна быть указана хотя бы одна действительная подсеть или IP. Содержимое, состоящее только из комментариев, не "
-"допускается."
+msgstr "Необходимо указать хотя бы одну действительную подсеть или IP. Только комментарии недопустимы."
 
 msgid "Remote Subnet Lists"
-msgstr "Удаленные списки подсетей"
+msgstr "Удалённые списки подсетей"
 
 msgid "Download and use subnet lists from remote URLs"
-msgstr "Загрузка и использование списков подсетей с удаленных URL"
+msgstr "Загружать и использовать списки подсетей с удалённых URL"
 
 msgid "Remote Subnet URLs"
-msgstr "URL удаленных подсетей"
+msgstr "URL удалённых подсетей"
 
 msgid "IP for full redirection"
 msgstr "IP для полного перенаправления"
@@ -482,20 +235,218 @@ msgstr "IP для полного перенаправления"
 msgid "Specify local IP addresses whose traffic will always use the configured route"
 msgstr "Укажите локальные IP-адреса, трафик которых всегда будет использовать настроенный маршрут"
 
+msgid "Local IPs"
+msgstr "Локальные IP-адреса"
+
+msgid "Enter valid IPv4 addresses"
+msgstr "Введите действительные IPv4-адреса"
+
+msgid "Extra configurations"
+msgstr "Дополнительные конфигурации"
+
+msgid "Add Section"
+msgstr "Добавить раздел"
+
+msgid "Dashboard"
+msgstr "Дашборд"
+
+msgid "Valid"
+msgstr "Валидно"
+
+msgid "Invalid IP address"
+msgstr "Неверный IP-адрес"
+
+msgid "Invalid domain address"
+msgstr "Неверный домен"
+
+msgid "DNS server address cannot be empty"
+msgstr "Адрес DNS-сервера не может быть пустым"
+
+msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
+msgstr "Неверный формат DNS-сервера. Примеры: 8.8.8.8, dns.example.com или dns.example.com/nicedns для DoH"
+
+msgid "URL must use one of the following protocols:"
+msgstr "URL должен использовать один из следующих протоколов:"
+
+msgid "Invalid URL format"
+msgstr "Неверный формат URL"
+
+msgid "Path cannot be empty"
+msgstr "Путь не может быть пустым"
+
+msgid "Invalid path format. Path must start with \"/\" and contain valid characters"
+msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать допустимые символы"
+
+msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
+msgstr "Неверный формат. Используйте X.X.X.X или X.X.X.X/Y"
+
+msgid "IP address 0.0.0.0 is not allowed"
+msgstr "IP-адрес 0.0.0.0 не допускается"
+
+msgid "CIDR must be between 0 and 32"
+msgstr "CIDR должен быть между 0 и 32"
+
+msgid "Invalid Shadowsocks URL: must start with ss://"
+msgstr "Неверный URL Shadowsocks: должен начинаться с ss://"
+
+msgid "Invalid Shadowsocks URL: must not contain spaces"
+msgstr "Неверный URL Shadowsocks: не должен содержать пробелов"
+
+msgid "Invalid Shadowsocks URL: missing credentials"
+msgstr "Неверный URL Shadowsocks: отсутствуют учетные данные"
+
+msgid "Invalid Shadowsocks URL: decoded credentials must contain method:password"
+msgstr "Неверный URL Shadowsocks: декодированные данные должны содержать method:password"
+
+msgid "Invalid Shadowsocks URL: missing method and password separator \":\""
+msgstr "Неверный URL Shadowsocks: отсутствует разделитель метода и пароля \":\""
+
+msgid "Invalid Shadowsocks URL: missing server address"
+msgstr "Неверный URL Shadowsocks: отсутствует адрес сервера"
+
+msgid "Invalid Shadowsocks URL: missing server"
+msgstr "Неверный URL Shadowsocks: отсутствует сервер"
+
+msgid "Invalid Shadowsocks URL: missing port"
+msgstr "Неверный URL Shadowsocks: отсутствует порт"
+
+msgid "Invalid port number. Must be between 1 and 65535"
+msgstr "Неверный номер порта. Допустимо от 1 до 65535"
+
+msgid "Invalid Shadowsocks URL: parsing failed"
+msgstr "Неверный URL Shadowsocks: ошибка разбора"
+
+msgid "Invalid VLESS URL: must not contain spaces"
+msgstr "Неверный URL VLESS: не должен содержать пробелов"
+
+msgid "Invalid VLESS URL: must start with vless://"
+msgstr "Неверный URL VLESS: должен начинаться с vless://"
+
+msgid "Invalid VLESS URL: missing UUID"
+msgstr "Неверный URL VLESS: отсутствует UUID"
+
+msgid "Invalid VLESS URL: missing server"
+msgstr "Неверный URL VLESS: отсутствует сервер"
+
+msgid "Invalid VLESS URL: missing port"
+msgstr "Неверный URL VLESS: отсутствует порт"
+
+msgid "Invalid VLESS URL: invalid port number. Must be between 1 and 65535"
+msgstr "Неверный URL VLESS: недопустимый порт (1–65535)"
+
+msgid "Invalid VLESS URL: missing query parameters"
+msgstr "Неверный URL VLESS: отсутствуют параметры запроса"
+
+msgid "Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws"
+msgstr "Неверный URL VLESS: тип должен быть tcp, raw, udp, grpc, http или ws"
+
+msgid "Invalid VLESS URL: security must be one of tls, reality, none"
+msgstr "Неверный URL VLESS: параметр security должен быть tls, reality или none"
+
+msgid "Invalid VLESS URL: missing pbk parameter for reality security"
+msgstr "Неверный URL VLESS: отсутствует параметр pbk для security=reality"
+
+msgid "Invalid VLESS URL: missing fp parameter for reality security"
+msgstr "Неверный URL VLESS: отсутствует параметр fp для security=reality"
+
+msgid "Invalid VLESS URL: parsing failed"
+msgstr "Неверный URL VLESS: ошибка разбора"
+
+msgid "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields"
+msgstr "JSON должен содержать поля \"type\", \"server\" и \"server_port\""
+
+msgid "Invalid JSON format"
+msgstr "Неверный формат JSON"
+
+msgid "Invalid Trojan URL: must start with trojan://"
+msgstr "Неверный URL Trojan: должен начинаться с trojan://"
+
+msgid "Invalid Trojan URL: must not contain spaces"
+msgstr "Неверный URL Trojan: не должен содержать пробелов"
+
+msgid "Invalid Trojan URL: must contain username, hostname and port"
+msgstr "Неверный URL Trojan: должен содержать имя пользователя, хост и порт"
+
+msgid "Invalid Trojan URL: parsing failed"
+msgstr "Неверный URL Trojan: ошибка разбора"
+
+msgid "URL must start with vless:// or ss:// or trojan://"
+msgstr "URL должен начинаться с vless://, ss:// или trojan://"
+
+msgid "Operation timed out"
+msgstr "Время ожидания истекло"
+
+msgid "HTTP error"
+msgstr "Ошибка HTTP"
+
+msgid "Unknown error"
+msgstr "Неизвестная ошибка"
+
+msgid "Fastest"
+msgstr "Самый быстрый"
+
+msgid "Dashboard currently unavailable"
+msgstr "Дашборд сейчас недоступен"
+
+msgid "Currently unavailable"
+msgstr "Временно недоступно"
+
+msgid "Traffic"
+msgstr "Трафик"
+
+msgid "Uplink"
+msgstr "Исходящий"
+
+msgid "Downlink"
+msgstr "Входящий"
+
+msgid "Traffic Total"
+msgstr "Всего трафика"
+
+msgid "System info"
+msgstr "Системная информация"
+
+msgid "Active Connections"
+msgstr "Активные соединения"
+
+msgid "Memory Usage"
+msgstr "Использование памяти"
+
+msgid "Services info"
+msgstr "Информация о сервисах"
+
+msgid "Podkop"
+msgstr "Podkop"
+
+msgid "✔ Enabled"
+msgstr "✔ Включено"
+
+msgid "✘ Disabled"
+msgstr "✘ Отключено"
+
+msgid "Sing-box"
+msgstr "Sing-box"
+
+msgid "✔ Running"
+msgstr "✔ Работает"
+
+msgid "✘ Stopped"
+msgstr "✘ Остановлен"
+
 msgid "Copied!"
 msgstr "Скопировано!"
 
 msgid "Failed to copy: "
 msgstr "Не удалось скопировать: "
 
+msgid "Loading..."
+msgstr "Загрузка..."
+
 msgid "Copy to Clipboard"
-msgstr "Копировать в буфер обмена"
+msgstr "Копировать в буфер"
 
 msgid "Close"
 msgstr "Закрыть"
-
-msgid "Loading..."
-msgstr "Загрузка..."
 
 msgid "No output"
 msgstr "Нет вывода"
@@ -507,7 +458,7 @@ msgid "FakeIP is not working in browser"
 msgstr "FakeIP не работает в браузере"
 
 msgid "Check DNS server on current device (PC, phone)"
-msgstr "Проверьте DNS сервер на текущем устройстве (ПК, телефон)"
+msgstr "Проверьте DNS-сервер на текущем устройстве (ПК, телефон)"
 
 msgid "Its must be router!"
 msgstr "Это должен быть роутер!"
@@ -522,7 +473,7 @@ msgid "Proxy IP: "
 msgstr "Прокси IP: "
 
 msgid "Proxy is not working - same IP for both domains"
-msgstr "Прокси не работает - одинаковый IP для обоих доменов"
+msgstr "Прокси не работает — одинаковый IP для обоих доменов"
 
 msgid "IP: "
 msgstr "IP: "

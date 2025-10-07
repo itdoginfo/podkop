@@ -5,66 +5,78 @@
 'require view.podkop.configSection as configSection';
 'require view.podkop.diagnosticTab as diagnosticTab';
 'require view.podkop.additionalTab as additionalTab';
+'require view.podkop.dashboardTab as dashboardTab';
 'require view.podkop.utils as utils';
 'require view.podkop.main as main';
 
 const EntryNode = {
-    async render() {
-        main.injectGlobalStyles();
+  async render() {
+    main.injectGlobalStyles();
 
-        const podkopFormMap = new form.Map('podkop', '', null, ['main', 'extra']);
+    const podkopFormMap = new form.Map('podkop', '', null, ['main', 'extra']);
 
-        // Main Section
-        const mainSection = podkopFormMap.section(form.TypedSection, 'main');
-        mainSection.anonymous = true;
-        configSection.createConfigSection(mainSection);
+    // Main Section
+    const mainSection = podkopFormMap.section(form.TypedSection, 'main');
+    mainSection.anonymous = true;
 
-        // Additional Settings Tab (main section)
-        additionalTab.createAdditionalSection(mainSection);
+    configSection.createConfigSection(mainSection);
 
-        // Diagnostics Tab (main section)
-        diagnosticTab.createDiagnosticsSection(mainSection);
-        const podkopFormMapPromise = podkopFormMap.render().then(node => {
-            // Set up diagnostics event handlers
-            diagnosticTab.setupDiagnosticsEventHandlers(node);
+    // Additional Settings Tab (main section)
+    additionalTab.createAdditionalSection(mainSection);
 
-            // Start critical error polling for all tabs
+    // Diagnostics Tab (main section)
+    diagnosticTab.createDiagnosticsSection(mainSection);
+    const podkopFormMapPromise = podkopFormMap.render().then((node) => {
+      // Set up diagnostics event handlers
+      diagnosticTab.setupDiagnosticsEventHandlers(node);
+
+      // Start critical error polling for all tabs
+      utils.startErrorPolling();
+
+      // Add event listener to keep error polling active when switching tabs
+      const tabs = node.querySelectorAll('.cbi-tabmenu');
+      if (tabs.length > 0) {
+        tabs[0].addEventListener('click', function (e) {
+          const tab = e.target.closest('.cbi-tab');
+          if (tab) {
+            // Ensure error polling continues when switching tabs
             utils.startErrorPolling();
-
-            // Add event listener to keep error polling active when switching tabs
-            const tabs = node.querySelectorAll('.cbi-tabmenu');
-            if (tabs.length > 0) {
-                tabs[0].addEventListener('click', function (e) {
-                    const tab = e.target.closest('.cbi-tab');
-                    if (tab) {
-                        // Ensure error polling continues when switching tabs
-                        utils.startErrorPolling();
-                    }
-                });
-            }
-
-            // Add visibility change handler to manage error polling
-            document.addEventListener('visibilitychange', function () {
-                if (document.hidden) {
-                    utils.stopErrorPolling();
-                } else {
-                    utils.startErrorPolling();
-                }
-            });
-
-            return node;
+          }
         });
+      }
 
-        // Extra Section
-        const extraSection = podkopFormMap.section(form.TypedSection, 'extra', _('Extra configurations'));
-        extraSection.anonymous = false;
-        extraSection.addremove = true;
-        extraSection.addbtntitle = _('Add Section');
-        extraSection.multiple = true;
-        configSection.createConfigSection(extraSection);
+      // Add visibility change handler to manage error polling
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+          utils.stopErrorPolling();
+        } else {
+          utils.startErrorPolling();
+        }
+      });
 
-        return podkopFormMapPromise;
-    }
-}
+      return node;
+    });
+
+    // Extra Section
+    const extraSection = podkopFormMap.section(
+      form.TypedSection,
+      'extra',
+      _('Extra configurations'),
+    );
+    extraSection.anonymous = false;
+    extraSection.addremove = true;
+    extraSection.addbtntitle = _('Add Section');
+    extraSection.multiple = true;
+    configSection.createConfigSection(extraSection);
+
+    // Initial dashboard render
+    dashboardTab.createDashboardSection(mainSection);
+
+    // Inject core service
+    main.coreService();
+
+    return podkopFormMapPromise;
+  },
+};
 
 return view.extend(EntryNode);

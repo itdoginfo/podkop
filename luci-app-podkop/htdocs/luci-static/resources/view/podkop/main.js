@@ -2,45 +2,48 @@
 "use strict";
 "require baseclass";
 "require fs";
+"require uci";
 
 // src/validators/validateIp.ts
 function validateIPV4(ip) {
   const ipRegex = /^(?:(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$/;
   if (ipRegex.test(ip)) {
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   }
-  return { valid: false, message: "Invalid IP address" };
+  return { valid: false, message: _("Invalid IP address") };
 }
 
 // src/validators/validateDomain.ts
 function validateDomain(domain) {
   const domainRegex = /^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$/;
   if (!domainRegex.test(domain)) {
-    return { valid: false, message: "Invalid domain address" };
+    return { valid: false, message: _("Invalid domain address") };
   }
   const hostname = domain.split("/")[0];
   const parts = hostname.split(".");
   const atLeastOneInvalidPart = parts.some((part) => part.length > 63);
   if (atLeastOneInvalidPart) {
-    return { valid: false, message: "Invalid domain address" };
+    return { valid: false, message: _("Invalid domain address") };
   }
-  return { valid: true, message: "Valid" };
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/validateDns.ts
 function validateDNS(value) {
   if (!value) {
-    return { valid: false, message: "DNS server address cannot be empty" };
+    return { valid: false, message: _("DNS server address cannot be empty") };
   }
   if (validateIPV4(value).valid) {
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   }
   if (validateDomain(value).valid) {
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   }
   return {
     valid: false,
-    message: "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
+    message: _(
+      "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
+    )
   };
 }
 
@@ -51,12 +54,12 @@ function validateUrl(url, protocols = ["http:", "https:"]) {
     if (!protocols.includes(parsedUrl.protocol)) {
       return {
         valid: false,
-        message: `URL must use one of the following protocols: ${protocols.join(", ")}`
+        message: `${_("URL must use one of the following protocols:")} ${protocols.join(", ")}`
       };
     }
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   } catch (_e) {
-    return { valid: false, message: "Invalid URL format" };
+    return { valid: false, message: _("Invalid URL format") };
   }
 }
 
@@ -65,7 +68,7 @@ function validatePath(value) {
   if (!value) {
     return {
       valid: false,
-      message: "Path cannot be empty"
+      message: _("Path cannot be empty")
     };
   }
   const pathRegex = /^\/[a-zA-Z0-9_\-/.]+$/;
@@ -77,7 +80,9 @@ function validatePath(value) {
   }
   return {
     valid: false,
-    message: 'Invalid path format. Path must start with "/" and contain valid characters'
+    message: _(
+      'Invalid path format. Path must start with "/" and contain valid characters'
+    )
   };
 }
 
@@ -87,12 +92,12 @@ function validateSubnet(value) {
   if (!subnetRegex.test(value)) {
     return {
       valid: false,
-      message: "Invalid format. Use X.X.X.X or X.X.X.X/Y"
+      message: _("Invalid format. Use X.X.X.X or X.X.X.X/Y")
     };
   }
   const [ip, cidr] = value.split("/");
   if (ip === "0.0.0.0") {
-    return { valid: false, message: "IP address 0.0.0.0 is not allowed" };
+    return { valid: false, message: _("IP address 0.0.0.0 is not allowed") };
   }
   const ipCheck = validateIPV4(ip);
   if (!ipCheck.valid) {
@@ -103,11 +108,11 @@ function validateSubnet(value) {
     if (cidrNum < 0 || cidrNum > 32) {
       return {
         valid: false,
-        message: "CIDR must be between 0 and 32"
+        message: _("CIDR must be between 0 and 32")
       };
     }
   }
-  return { valid: true, message: "Valid" };
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/bulkValidate.ts
@@ -124,14 +129,14 @@ function validateShadowsocksUrl(url) {
   if (!url.startsWith("ss://")) {
     return {
       valid: false,
-      message: "Invalid Shadowsocks URL: must start with ss://"
+      message: _("Invalid Shadowsocks URL: must start with ss://")
     };
   }
   try {
     if (!url || /\s/.test(url)) {
       return {
         valid: false,
-        message: "Invalid Shadowsocks URL: must not contain spaces"
+        message: _("Invalid Shadowsocks URL: must not contain spaces")
       };
     }
     const mainPart = url.includes("?") ? url.split("?")[0] : url.split("#")[0];
@@ -139,7 +144,7 @@ function validateShadowsocksUrl(url) {
     if (!encryptedPart) {
       return {
         valid: false,
-        message: "Invalid Shadowsocks URL: missing credentials"
+        message: _("Invalid Shadowsocks URL: missing credentials")
       };
     }
     try {
@@ -147,14 +152,18 @@ function validateShadowsocksUrl(url) {
       if (!decoded.includes(":")) {
         return {
           valid: false,
-          message: "Invalid Shadowsocks URL: decoded credentials must contain method:password"
+          message: _(
+            "Invalid Shadowsocks URL: decoded credentials must contain method:password"
+          )
         };
       }
     } catch (_e) {
       if (!encryptedPart.includes(":") && !encryptedPart.includes("-")) {
         return {
           valid: false,
-          message: 'Invalid Shadowsocks URL: missing method and password separator ":"'
+          message: _(
+            'Invalid Shadowsocks URL: missing method and password separator ":"'
+          )
         };
       }
     }
@@ -162,31 +171,37 @@ function validateShadowsocksUrl(url) {
     if (!serverPart) {
       return {
         valid: false,
-        message: "Invalid Shadowsocks URL: missing server address"
+        message: _("Invalid Shadowsocks URL: missing server address")
       };
     }
     const [server, portAndRest] = serverPart.split(":");
     if (!server) {
       return {
         valid: false,
-        message: "Invalid Shadowsocks URL: missing server"
+        message: _("Invalid Shadowsocks URL: missing server")
       };
     }
     const port = portAndRest ? portAndRest.split(/[?#]/)[0] : null;
     if (!port) {
-      return { valid: false, message: "Invalid Shadowsocks URL: missing port" };
+      return {
+        valid: false,
+        message: _("Invalid Shadowsocks URL: missing port")
+      };
     }
     const portNum = parseInt(port, 10);
     if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
       return {
         valid: false,
-        message: "Invalid port number. Must be between 1 and 65535"
+        message: _("Invalid port number. Must be between 1 and 65535")
       };
     }
   } catch (_e) {
-    return { valid: false, message: "Invalid Shadowsocks URL: parsing failed" };
+    return {
+      valid: false,
+      message: _("Invalid Shadowsocks URL: parsing failed")
+    };
   }
-  return { valid: true, message: "Valid" };
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/validateVlessUrl.ts
@@ -196,34 +211,36 @@ function validateVlessUrl(url) {
     if (!url || /\s/.test(url)) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: must not contain spaces"
+        message: _("Invalid VLESS URL: must not contain spaces")
       };
     }
     if (parsedUrl.protocol !== "vless:") {
       return {
         valid: false,
-        message: "Invalid VLESS URL: must start with vless://"
+        message: _("Invalid VLESS URL: must start with vless://")
       };
     }
     if (!parsedUrl.username) {
-      return { valid: false, message: "Invalid VLESS URL: missing UUID" };
+      return { valid: false, message: _("Invalid VLESS URL: missing UUID") };
     }
     if (!parsedUrl.hostname) {
-      return { valid: false, message: "Invalid VLESS URL: missing server" };
+      return { valid: false, message: _("Invalid VLESS URL: missing server") };
     }
     if (!parsedUrl.port) {
-      return { valid: false, message: "Invalid VLESS URL: missing port" };
+      return { valid: false, message: _("Invalid VLESS URL: missing port") };
     }
     if (isNaN(+parsedUrl.port) || +parsedUrl.port < 1 || +parsedUrl.port > 65535) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: invalid port number. Must be between 1 and 65535"
+        message: _(
+          "Invalid VLESS URL: invalid port number. Must be between 1 and 65535"
+        )
       };
     }
     if (!parsedUrl.search) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: missing query parameters"
+        message: _("Invalid VLESS URL: missing query parameters")
       };
     }
     const params = new URLSearchParams(parsedUrl.search);
@@ -242,7 +259,9 @@ function validateVlessUrl(url) {
     if (!type || !validTypes.includes(type)) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws"
+        message: _(
+          "Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws"
+        )
       };
     }
     const security = params.get("security");
@@ -250,26 +269,32 @@ function validateVlessUrl(url) {
     if (!security || !validSecurities.includes(security)) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: security must be one of tls, reality, none"
+        message: _(
+          "Invalid VLESS URL: security must be one of tls, reality, none"
+        )
       };
     }
     if (security === "reality") {
       if (!params.get("pbk")) {
         return {
           valid: false,
-          message: "Invalid VLESS URL: missing pbk parameter for reality security"
+          message: _(
+            "Invalid VLESS URL: missing pbk parameter for reality security"
+          )
         };
       }
       if (!params.get("fp")) {
         return {
           valid: false,
-          message: "Invalid VLESS URL: missing fp parameter for reality security"
+          message: _(
+            "Invalid VLESS URL: missing fp parameter for reality security"
+          )
         };
       }
     }
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   } catch (_e) {
-    return { valid: false, message: "Invalid VLESS URL: parsing failed" };
+    return { valid: false, message: _("Invalid VLESS URL: parsing failed") };
   }
 }
 
@@ -280,12 +305,14 @@ function validateOutboundJson(value) {
     if (!parsed.type || !parsed.server || !parsed.server_port) {
       return {
         valid: false,
-        message: 'Outbound JSON must contain at least "type", "server" and "server_port" fields'
+        message: _(
+          'Outbound JSON must contain at least "type", "server" and "server_port" fields'
+        )
       };
     }
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   } catch {
-    return { valid: false, message: "Invalid JSON format" };
+    return { valid: false, message: _("Invalid JSON format") };
   }
 }
 
@@ -294,13 +321,13 @@ function validateTrojanUrl(url) {
   if (!url.startsWith("trojan://")) {
     return {
       valid: false,
-      message: "Invalid Trojan URL: must start with trojan://"
+      message: _("Invalid Trojan URL: must start with trojan://")
     };
   }
   if (!url || /\s/.test(url)) {
     return {
       valid: false,
-      message: "Invalid Trojan URL: must not contain spaces"
+      message: _("Invalid Trojan URL: must not contain spaces")
     };
   }
   try {
@@ -308,13 +335,15 @@ function validateTrojanUrl(url) {
     if (!parsedUrl.username || !parsedUrl.hostname || !parsedUrl.port) {
       return {
         valid: false,
-        message: "Invalid Trojan URL: must contain username, hostname and port"
+        message: _(
+          "Invalid Trojan URL: must contain username, hostname and port"
+        )
       };
     }
   } catch (_e) {
-    return { valid: false, message: "Invalid Trojan URL: parsing failed" };
+    return { valid: false, message: _("Invalid Trojan URL: parsing failed") };
   }
-  return { valid: true, message: "Valid" };
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/validateProxyUrl.ts
@@ -330,7 +359,7 @@ function validateProxyUrl(url) {
   }
   return {
     valid: false,
-    message: "URL must start with vless:// or ss:// or trojan://"
+    message: _("URL must start with vless:// or ss:// or trojan://")
   };
 }
 
@@ -370,6 +399,157 @@ var GlobalStyles = `
 #cbi-podkop:has(.cbi-tab-disabled[data-tab="basic"]) #cbi-podkop-extra {
     display: none;
 }
+
+#cbi-podkop-main-_status > div {
+    width: 100%;
+}
+
+/* Dashboard styles */
+
+.pdk_dashboard-page {
+    width: 100%;
+    --dashboard-grid-columns: 4;
+}
+
+@media (max-width: 900px) {
+    .pdk_dashboard-page {
+        --dashboard-grid-columns: 2;
+    }
+}
+
+.pdk_dashboard-page__widgets-section {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-gap: 10px;
+}
+
+.pdk_dashboard-page__widgets-section__item {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__widgets-section__item__title {}
+
+.pdk_dashboard-page__widgets-section__item__row {}
+
+.pdk_dashboard-page__widgets-section__item__row--success .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__widgets-section__item__row--error .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--error-color-medium, red);
+}
+
+.pdk_dashboard-page__widgets-section__item__row__key {}
+
+.pdk_dashboard-page__widgets-section__item__row__value {}
+
+.pdk_dashboard-page__outbound-section {
+    margin-top: 10px;
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__outbound-section__title-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pdk_dashboard-page__outbound-section__title-section__title {
+    color: var(--text-color-high);
+    font-weight: 700;
+}
+
+.pdk_dashboard-page__outbound-grid {
+    margin-top: 5px;
+    display: grid;
+    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-gap: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+    transition: border 0.2s ease;
+}
+
+.pdk_dashboard-page__outbound-grid__item--selectable {
+    cursor: pointer;
+}
+
+.pdk_dashboard-page__outbound-grid__item--selectable:hover {
+    border-color: var(--primary-color-high, dodgerblue);
+}
+
+.pdk_dashboard-page__outbound-grid__item--active {
+    border-color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__outbound-grid__item__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item__type {}
+
+.pdk_dashboard-page__outbound-grid__item__latency--empty {
+    color: var(--primary-color-low, lightgray);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--green {
+    color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--yellow {
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--red {
+    color: var(--error-color-medium, red);
+}
+
+.centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Skeleton styles*/
+.skeleton {
+    background-color: var(--background-color-low, #e0e0e0);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 150%;
+    height: 100%;
+    background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.4),
+            transparent
+    );
+    animation: skeleton-shimmer 1.6s infinite;
+}
+
+@keyframes skeleton-shimmer {
+    100% {
+        left: 150%;
+    }
+}
 `;
 
 // src/helpers/injectGlobalStyles.ts
@@ -385,10 +565,10 @@ function injectGlobalStyles() {
 }
 
 // src/helpers/withTimeout.ts
-async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = "Operation timed out") {
+async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = _("Operation timed out")) {
   let timeoutId;
   const start = performance.now();
-  const timeoutPromise = new Promise((_, reject) => {
+  const timeoutPromise = new Promise((_2, reject) => {
     timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
   });
   try {
@@ -528,33 +708,1146 @@ async function executeShellCommand({
   }
 }
 
-// src/helpers/copyToClipboard.ts
-function copyToClipboard(text) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    document.execCommand("copy");
-    return {
-      success: true,
-      message: "Copied!"
-    };
-  } catch (err) {
-    const error = err;
-    return {
-      success: false,
-      message: `Failed to copy: ${error.message}`
-    };
-  } finally {
-    document.body.removeChild(textarea);
-  }
-}
-
 // src/helpers/maskIP.ts
 function maskIP(ip = "") {
   const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
   return ip.replace(ipv4Regex, (_match, _p1, _p2, _p3, p4) => `XX.XX.XX.${p4}`);
+}
+
+// src/helpers/getProxyUrlName.ts
+function getProxyUrlName(url) {
+  try {
+    const [_link, hash] = url.split("#");
+    if (!hash) {
+      return "";
+    }
+    return decodeURIComponent(hash);
+  } catch {
+    return "";
+  }
+}
+
+// src/helpers/onMount.ts
+async function onMount(id) {
+  return new Promise((resolve) => {
+    const el = document.getElementById(id);
+    if (el && el.offsetParent !== null) {
+      return resolve(el);
+    }
+    const observer = new MutationObserver(() => {
+      const target = document.getElementById(id);
+      if (target) {
+        const io = new IntersectionObserver((entries) => {
+          const visible = entries.some((e) => e.isIntersecting);
+          if (visible) {
+            observer.disconnect();
+            io.disconnect();
+            resolve(target);
+          }
+        });
+        io.observe(target);
+      }
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
+// src/helpers/getClashApiUrl.ts
+function getClashApiUrl() {
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:9090`;
+}
+function getClashWsUrl() {
+  const { hostname } = window.location;
+  return `ws://${hostname}:9090`;
+}
+
+// src/clash/methods/createBaseApiRequest.ts
+async function createBaseApiRequest(fetchFn) {
+  try {
+    const response = await fetchFn();
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `${_("HTTP error")} ${response.status}: ${response.statusText}`
+      };
+    }
+    const data = await response.json();
+    return {
+      success: true,
+      data
+    };
+  } catch (e) {
+    return {
+      success: false,
+      message: e instanceof Error ? e.message : _("Unknown error")
+    };
+  }
+}
+
+// src/clash/methods/getConfig.ts
+async function getClashConfig() {
+  return createBaseApiRequest(
+    () => fetch(`${getClashApiUrl()}/configs`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    })
+  );
+}
+
+// src/clash/methods/getGroupDelay.ts
+async function getClashGroupDelay(group, url = "https://www.gstatic.com/generate_204", timeout = 2e3) {
+  const endpoint = `${getClashApiUrl()}/group/${group}/delay?url=${encodeURIComponent(
+    url
+  )}&timeout=${timeout}`;
+  return createBaseApiRequest(
+    () => fetch(endpoint, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    })
+  );
+}
+
+// src/clash/methods/getProxies.ts
+async function getClashProxies() {
+  return createBaseApiRequest(
+    () => fetch(`${getClashApiUrl()}/proxies`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    })
+  );
+}
+
+// src/clash/methods/getVersion.ts
+async function getClashVersion() {
+  return createBaseApiRequest(
+    () => fetch(`${getClashApiUrl()}/version`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    })
+  );
+}
+
+// src/clash/methods/triggerProxySelector.ts
+async function triggerProxySelector(selector, outbound) {
+  return createBaseApiRequest(
+    () => fetch(`${getClashApiUrl()}/proxies/${selector}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: outbound })
+    })
+  );
+}
+
+// src/clash/methods/triggerLatencyTest.ts
+async function triggerLatencyGroupTest(tag, timeout = 5e3, url = "https://www.gstatic.com/generate_204") {
+  return createBaseApiRequest(
+    () => fetch(
+      `${getClashApiUrl()}/group/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    )
+  );
+}
+async function triggerLatencyProxyTest(tag, timeout = 2e3, url = "https://www.gstatic.com/generate_204") {
+  return createBaseApiRequest(
+    () => fetch(
+      `${getClashApiUrl()}/proxies/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    )
+  );
+}
+
+// src/podkop/methods/getConfigSections.ts
+async function getConfigSections() {
+  return uci.load("podkop").then(() => uci.sections("podkop"));
+}
+
+// src/podkop/methods/getDashboardSections.ts
+async function getDashboardSections() {
+  const configSections = await getConfigSections();
+  const clashProxies = await getClashProxies();
+  if (!clashProxies.success) {
+    return {
+      success: false,
+      data: []
+    };
+  }
+  const proxies = Object.entries(clashProxies.data.proxies).map(
+    ([key, value]) => ({
+      code: key,
+      value
+    })
+  );
+  const data = configSections.filter((section) => section.mode !== "block").map((section) => {
+    if (section.mode === "proxy") {
+      if (section.proxy_config_type === "url") {
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        return {
+          withTagSelect: false,
+          code: outbound?.code || section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || section[".name"],
+              displayName: getProxyUrlName(section.proxy_string) || outbound?.value?.name || "",
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: true
+            }
+          ]
+        };
+      }
+      if (section.proxy_config_type === "outbound") {
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        return {
+          withTagSelect: false,
+          code: outbound?.code || section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || section[".name"],
+              displayName: decodeURIComponent(JSON.parse(section.outbound_json)?.tag) || outbound?.value?.name || "",
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: true
+            }
+          ]
+        };
+      }
+      if (section.proxy_config_type === "urltest") {
+        const selector = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-urltest-out`
+        );
+        const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
+          code: item?.code || "",
+          displayName: getProxyUrlName(section.urltest_proxy_links?.[index]) || item?.value?.name || "",
+          latency: item?.value?.history?.[0]?.delay || 0,
+          type: item?.value?.type || "",
+          selected: selector?.value?.now === item?.code
+        }));
+        return {
+          withTagSelect: true,
+          code: selector?.code || section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || "",
+              displayName: _("Fastest"),
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: selector?.value?.now === outbound?.code
+            },
+            ...outbounds
+          ]
+        };
+      }
+    }
+    if (section.mode === "vpn") {
+      const outbound = proxies.find(
+        (proxy) => proxy.code === `${section[".name"]}-out`
+      );
+      return {
+        withTagSelect: false,
+        code: outbound?.code || section[".name"],
+        displayName: section[".name"],
+        outbounds: [
+          {
+            code: outbound?.code || section[".name"],
+            displayName: section.interface || outbound?.value?.name || "",
+            latency: outbound?.value?.history?.[0]?.delay || 0,
+            type: outbound?.value?.type || "",
+            selected: true
+          }
+        ]
+      };
+    }
+    return {
+      withTagSelect: false,
+      code: section[".name"],
+      displayName: section[".name"],
+      outbounds: []
+    };
+  });
+  return {
+    success: true,
+    data
+  };
+}
+
+// src/podkop/methods/getPodkopStatus.ts
+async function getPodkopStatus() {
+  const response = await executeShellCommand({
+    command: "/usr/bin/podkop",
+    args: ["get_status"],
+    timeout: 1e3
+  });
+  if (response.stdout) {
+    return JSON.parse(response.stdout.replace(/\n/g, ""));
+  }
+  return { enabled: 0, status: "unknown" };
+}
+
+// src/podkop/methods/getSingboxStatus.ts
+async function getSingboxStatus() {
+  const response = await executeShellCommand({
+    command: "/usr/bin/podkop",
+    args: ["get_sing_box_status"],
+    timeout: 1e3
+  });
+  if (response.stdout) {
+    return JSON.parse(response.stdout.replace(/\n/g, ""));
+  }
+  return { running: 0, enabled: 0, status: "unknown" };
+}
+
+// src/podkop/services/tab.service.ts
+var TabService = class _TabService {
+  constructor() {
+    this.observer = null;
+    this.lastActiveId = null;
+    this.init();
+  }
+  static getInstance() {
+    if (!_TabService.instance) {
+      _TabService.instance = new _TabService();
+    }
+    return _TabService.instance;
+  }
+  init() {
+    this.observer = new MutationObserver(() => this.handleMutations());
+    this.observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+    this.notify();
+  }
+  handleMutations() {
+    this.notify();
+  }
+  getTabsInfo() {
+    const tabs = Array.from(
+      document.querySelectorAll(".cbi-tab, .cbi-tab-disabled")
+    );
+    return tabs.map((el) => ({
+      el,
+      id: el.dataset.tab || "",
+      active: el.classList.contains("cbi-tab") && !el.classList.contains("cbi-tab-disabled")
+    }));
+  }
+  getActiveTabId() {
+    const active = document.querySelector(
+      ".cbi-tab:not(.cbi-tab-disabled)"
+    );
+    return active?.dataset.tab || null;
+  }
+  notify() {
+    const tabs = this.getTabsInfo();
+    const activeId = this.getActiveTabId();
+    if (activeId !== this.lastActiveId) {
+      this.lastActiveId = activeId;
+      this.callback?.(activeId, tabs);
+    }
+  }
+  onChange(callback) {
+    this.callback = callback;
+    this.notify();
+  }
+  getAllTabs() {
+    return this.getTabsInfo();
+  }
+  getActiveTab() {
+    return this.getActiveTabId();
+  }
+  disconnect() {
+    this.observer?.disconnect();
+    this.observer = null;
+  }
+};
+var TabServiceInstance = TabService.getInstance();
+
+// src/store.ts
+function jsonStableStringify(obj) {
+  return JSON.stringify(obj, (_2, value) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return Object.keys(value).sort().reduce(
+        (acc, key) => {
+          acc[key] = value[key];
+          return acc;
+        },
+        {}
+      );
+    }
+    return value;
+  });
+}
+function jsonEqual(a, b) {
+  try {
+    return jsonStableStringify(a) === jsonStableStringify(b);
+  } catch {
+    return false;
+  }
+}
+var Store = class {
+  constructor(initial) {
+    this.listeners = /* @__PURE__ */ new Set();
+    this.lastHash = "";
+    this.value = initial;
+    this.initial = structuredClone(initial);
+    this.lastHash = jsonStableStringify(initial);
+  }
+  get() {
+    return this.value;
+  }
+  set(next) {
+    const prev = this.value;
+    const merged = { ...prev, ...next };
+    if (jsonEqual(prev, merged)) return;
+    this.value = merged;
+    this.lastHash = jsonStableStringify(merged);
+    const diff = {};
+    for (const key in merged) {
+      if (!jsonEqual(merged[key], prev[key])) diff[key] = merged[key];
+    }
+    this.listeners.forEach((cb) => cb(this.value, prev, diff));
+  }
+  reset() {
+    const prev = this.value;
+    const next = structuredClone(this.initial);
+    if (jsonEqual(prev, next)) return;
+    this.value = next;
+    this.lastHash = jsonStableStringify(next);
+    const diff = {};
+    for (const key in next) {
+      if (!jsonEqual(next[key], prev[key])) diff[key] = next[key];
+    }
+    this.listeners.forEach((cb) => cb(this.value, prev, diff));
+  }
+  subscribe(cb) {
+    this.listeners.add(cb);
+    cb(this.value, this.value, {});
+    return () => this.listeners.delete(cb);
+  }
+  unsubscribe(cb) {
+    this.listeners.delete(cb);
+  }
+  patch(key, value) {
+    this.set({ [key]: value });
+  }
+  getKey(key) {
+    return this.value[key];
+  }
+  subscribeKey(key, cb) {
+    let prev = this.value[key];
+    const wrapper = (val) => {
+      if (!jsonEqual(val[key], prev)) {
+        prev = val[key];
+        cb(val[key]);
+      }
+    };
+    this.listeners.add(wrapper);
+    return () => this.listeners.delete(wrapper);
+  }
+};
+var initialStore = {
+  tabService: {
+    current: "",
+    all: []
+  },
+  bandwidthWidget: {
+    loading: true,
+    failed: false,
+    data: { up: 0, down: 0 }
+  },
+  trafficTotalWidget: {
+    loading: true,
+    failed: false,
+    data: { downloadTotal: 0, uploadTotal: 0 }
+  },
+  systemInfoWidget: {
+    loading: true,
+    failed: false,
+    data: { connections: 0, memory: 0 }
+  },
+  servicesInfoWidget: {
+    loading: true,
+    failed: false,
+    data: { singbox: 0, podkop: 0 }
+  },
+  sectionsWidget: {
+    loading: true,
+    failed: false,
+    data: []
+  }
+};
+var store = new Store(initialStore);
+
+// src/podkop/services/core.service.ts
+function coreService() {
+  TabServiceInstance.onChange((activeId, tabs) => {
+    store.set({
+      tabService: {
+        current: activeId || "",
+        all: tabs.map((tab) => tab.id)
+      }
+    });
+  });
+}
+
+// src/podkop/tabs/dashboard/renderSections.ts
+function renderFailedState() {
+  return E(
+    "div",
+    {
+      class: "pdk_dashboard-page__outbound-section centered",
+      style: "height: 127px"
+    },
+    E("span", {}, _("Dashboard currently unavailable"))
+  );
+}
+function renderLoadingState() {
+  return E("div", {
+    id: "dashboard-sections-grid-skeleton",
+    class: "pdk_dashboard-page__outbound-section skeleton",
+    style: "height: 127px"
+  });
+}
+function renderDefaultState({
+  section,
+  onChooseOutbound,
+  onTestLatency
+}) {
+  function testLatency() {
+    if (section.withTagSelect) {
+      return onTestLatency(section.code);
+    }
+    if (section.outbounds.length) {
+      return onTestLatency(section.outbounds[0].code);
+    }
+  }
+  function renderOutbound(outbound) {
+    function getLatencyClass() {
+      if (!outbound.latency) {
+        return "pdk_dashboard-page__outbound-grid__item__latency--empty";
+      }
+      if (outbound.latency < 200) {
+        return "pdk_dashboard-page__outbound-grid__item__latency--green";
+      }
+      if (outbound.latency < 400) {
+        return "pdk_dashboard-page__outbound-grid__item__latency--yellow";
+      }
+      return "pdk_dashboard-page__outbound-grid__item__latency--red";
+    }
+    return E(
+      "div",
+      {
+        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? "pdk_dashboard-page__outbound-grid__item--active" : ""} ${section.withTagSelect ? "pdk_dashboard-page__outbound-grid__item--selectable" : ""}`,
+        click: () => section.withTagSelect && onChooseOutbound(section.code, outbound.code)
+      },
+      [
+        E("b", {}, outbound.displayName),
+        E("div", { class: "pdk_dashboard-page__outbound-grid__item__footer" }, [
+          E(
+            "div",
+            { class: "pdk_dashboard-page__outbound-grid__item__type" },
+            outbound.type
+          ),
+          E(
+            "div",
+            { class: getLatencyClass() },
+            outbound.latency ? `${outbound.latency}ms` : "N/A"
+          )
+        ])
+      ]
+    );
+  }
+  return E("div", { class: "pdk_dashboard-page__outbound-section" }, [
+    // Title with test latency
+    E("div", { class: "pdk_dashboard-page__outbound-section__title-section" }, [
+      E(
+        "div",
+        {
+          class: "pdk_dashboard-page__outbound-section__title-section__title"
+        },
+        section.displayName
+      ),
+      E(
+        "button",
+        {
+          class: "btn dashboard-sections-grid-item-test-latency",
+          click: () => testLatency()
+        },
+        "Test latency"
+      )
+    ]),
+    E(
+      "div",
+      { class: "pdk_dashboard-page__outbound-grid" },
+      section.outbounds.map((outbound) => renderOutbound(outbound))
+    )
+  ]);
+}
+function renderSections(props) {
+  if (props.failed) {
+    return renderFailedState();
+  }
+  if (props.loading) {
+    return renderLoadingState();
+  }
+  return renderDefaultState(props);
+}
+
+// src/podkop/tabs/dashboard/renderWidget.ts
+function renderFailedState2() {
+  return E(
+    "div",
+    {
+      id: "",
+      style: "height: 78px",
+      class: "pdk_dashboard-page__widgets-section__item centered"
+    },
+    _("Currently unavailable")
+  );
+}
+function renderLoadingState2() {
+  return E(
+    "div",
+    {
+      id: "",
+      style: "height: 78px",
+      class: "pdk_dashboard-page__widgets-section__item skeleton"
+    },
+    ""
+  );
+}
+function renderDefaultState2({ title, items }) {
+  return E("div", { class: "pdk_dashboard-page__widgets-section__item" }, [
+    E(
+      "b",
+      { class: "pdk_dashboard-page__widgets-section__item__title" },
+      title
+    ),
+    ...items.map(
+      (item) => E(
+        "div",
+        {
+          class: `pdk_dashboard-page__widgets-section__item__row ${item?.attributes?.class || ""}`
+        },
+        [
+          E(
+            "span",
+            { class: "pdk_dashboard-page__widgets-section__item__row__key" },
+            `${item.key}: `
+          ),
+          E(
+            "span",
+            { class: "pdk_dashboard-page__widgets-section__item__row__value" },
+            item.value
+          )
+        ]
+      )
+    )
+  ]);
+}
+function renderWidget(props) {
+  if (props.loading) {
+    return renderLoadingState2();
+  }
+  if (props.failed) {
+    return renderFailedState2();
+  }
+  return renderDefaultState2(props);
+}
+
+// src/podkop/tabs/dashboard/renderDashboard.ts
+function renderDashboard() {
+  return E(
+    "div",
+    {
+      id: "dashboard-status",
+      class: "pdk_dashboard-page"
+    },
+    [
+      // Widgets section
+      E("div", { class: "pdk_dashboard-page__widgets-section" }, [
+        E(
+          "div",
+          { id: "dashboard-widget-traffic" },
+          renderWidget({ loading: true, failed: false, title: "", items: [] })
+        ),
+        E(
+          "div",
+          { id: "dashboard-widget-traffic-total" },
+          renderWidget({ loading: true, failed: false, title: "", items: [] })
+        ),
+        E(
+          "div",
+          { id: "dashboard-widget-system-info" },
+          renderWidget({ loading: true, failed: false, title: "", items: [] })
+        ),
+        E(
+          "div",
+          { id: "dashboard-widget-service-info" },
+          renderWidget({ loading: true, failed: false, title: "", items: [] })
+        )
+      ]),
+      // All outbounds
+      E(
+        "div",
+        { id: "dashboard-sections-grid" },
+        renderSections({
+          loading: true,
+          failed: false,
+          section: {
+            code: "",
+            displayName: "",
+            outbounds: [],
+            withTagSelect: false
+          },
+          onTestLatency: () => {
+          },
+          onChooseOutbound: () => {
+          }
+        })
+      )
+    ]
+  );
+}
+
+// src/socket.ts
+var SocketManager = class _SocketManager {
+  constructor() {
+    this.sockets = /* @__PURE__ */ new Map();
+    this.listeners = /* @__PURE__ */ new Map();
+    this.connected = /* @__PURE__ */ new Map();
+    this.errorListeners = /* @__PURE__ */ new Map();
+  }
+  static getInstance() {
+    if (!_SocketManager.instance) {
+      _SocketManager.instance = new _SocketManager();
+    }
+    return _SocketManager.instance;
+  }
+  connect(url) {
+    if (this.sockets.has(url)) return;
+    const ws = new WebSocket(url);
+    this.sockets.set(url, ws);
+    this.connected.set(url, false);
+    this.listeners.set(url, /* @__PURE__ */ new Set());
+    this.errorListeners.set(url, /* @__PURE__ */ new Set());
+    ws.addEventListener("open", () => {
+      this.connected.set(url, true);
+      console.info(`Connected: ${url}`);
+    });
+    ws.addEventListener("message", (event) => {
+      const handlers = this.listeners.get(url);
+      if (handlers) {
+        for (const handler of handlers) {
+          try {
+            handler(event.data);
+          } catch (err) {
+            console.error(`Handler error for ${url}:`, err);
+          }
+        }
+      }
+    });
+    ws.addEventListener("close", () => {
+      this.connected.set(url, false);
+      console.warn(`Disconnected: ${url}`);
+      this.triggerError(url, "Connection closed");
+    });
+    ws.addEventListener("error", (err) => {
+      console.error(`Socket error for ${url}:`, err);
+      this.triggerError(url, err);
+    });
+  }
+  subscribe(url, listener, onError) {
+    if (!this.sockets.has(url)) {
+      this.connect(url);
+    }
+    this.listeners.get(url)?.add(listener);
+    if (onError) {
+      this.errorListeners.get(url)?.add(onError);
+    }
+  }
+  unsubscribe(url, listener, onError) {
+    this.listeners.get(url)?.delete(listener);
+    if (onError) {
+      this.errorListeners.get(url)?.delete(onError);
+    }
+  }
+  // eslint-disable-next-line
+  send(url, data) {
+    const ws = this.sockets.get(url);
+    if (ws && this.connected.get(url)) {
+      ws.send(typeof data === "string" ? data : JSON.stringify(data));
+    } else {
+      console.warn(`Cannot send: not connected to ${url}`);
+      this.triggerError(url, "Not connected");
+    }
+  }
+  disconnect(url) {
+    const ws = this.sockets.get(url);
+    if (ws) {
+      ws.close();
+      this.sockets.delete(url);
+      this.listeners.delete(url);
+      this.errorListeners.delete(url);
+      this.connected.delete(url);
+    }
+  }
+  disconnectAll() {
+    for (const url of this.sockets.keys()) {
+      this.disconnect(url);
+    }
+  }
+  triggerError(url, err) {
+    const handlers = this.errorListeners.get(url);
+    if (handlers) {
+      for (const cb of handlers) {
+        try {
+          cb(err);
+        } catch (e) {
+          console.error(`Error handler threw for ${url}:`, e);
+        }
+      }
+    }
+  }
+};
+var socket = SocketManager.getInstance();
+
+// src/helpers/prettyBytes.ts
+function prettyBytes(n) {
+  const UNITS = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+  if (n < 1e3) {
+    return n + " B";
+  }
+  const exponent = Math.min(Math.floor(Math.log10(n) / 3), UNITS.length - 1);
+  n = Number((n / Math.pow(1e3, exponent)).toPrecision(3));
+  const unit = UNITS[exponent];
+  return n + " " + unit;
+}
+
+// src/podkop/tabs/dashboard/initDashboardController.ts
+async function fetchDashboardSections() {
+  const prev = store.get().sectionsWidget;
+  store.set({
+    sectionsWidget: {
+      ...prev,
+      failed: false
+    }
+  });
+  const { data, success } = await getDashboardSections();
+  store.set({
+    sectionsWidget: {
+      loading: false,
+      failed: !success,
+      data
+    }
+  });
+}
+async function fetchServicesInfo() {
+  const [podkop, singbox] = await Promise.all([
+    getPodkopStatus(),
+    getSingboxStatus()
+  ]);
+  store.set({
+    servicesInfoWidget: {
+      loading: false,
+      failed: false,
+      data: { singbox: singbox.running, podkop: podkop.enabled }
+    }
+  });
+}
+async function connectToClashSockets() {
+  socket.subscribe(
+    `${getClashWsUrl()}/traffic?token=`,
+    (msg) => {
+      const parsedMsg = JSON.parse(msg);
+      store.set({
+        bandwidthWidget: {
+          loading: false,
+          failed: false,
+          data: { up: parsedMsg.up, down: parsedMsg.down }
+        }
+      });
+    },
+    (_err) => {
+      store.set({
+        bandwidthWidget: {
+          loading: false,
+          failed: true,
+          data: { up: 0, down: 0 }
+        }
+      });
+    }
+  );
+  socket.subscribe(
+    `${getClashWsUrl()}/connections?token=`,
+    (msg) => {
+      const parsedMsg = JSON.parse(msg);
+      store.set({
+        trafficTotalWidget: {
+          loading: false,
+          failed: false,
+          data: {
+            downloadTotal: parsedMsg.downloadTotal,
+            uploadTotal: parsedMsg.uploadTotal
+          }
+        },
+        systemInfoWidget: {
+          loading: false,
+          failed: false,
+          data: {
+            connections: parsedMsg.connections?.length,
+            memory: parsedMsg.memory
+          }
+        }
+      });
+    },
+    (_err) => {
+      store.set({
+        trafficTotalWidget: {
+          loading: false,
+          failed: true,
+          data: { downloadTotal: 0, uploadTotal: 0 }
+        },
+        systemInfoWidget: {
+          loading: false,
+          failed: true,
+          data: {
+            connections: 0,
+            memory: 0
+          }
+        }
+      });
+    }
+  );
+}
+async function handleChooseOutbound(selector, tag) {
+  await triggerProxySelector(selector, tag);
+  await fetchDashboardSections();
+}
+async function handleTestGroupLatency(tag) {
+  await triggerLatencyGroupTest(tag);
+  await fetchDashboardSections();
+}
+async function handleTestProxyLatency(tag) {
+  await triggerLatencyProxyTest(tag);
+  await fetchDashboardSections();
+}
+function replaceTestLatencyButtonsWithSkeleton() {
+  document.querySelectorAll(".dashboard-sections-grid-item-test-latency").forEach((el) => {
+    const newDiv = document.createElement("div");
+    newDiv.className = "skeleton";
+    newDiv.style.width = "99px";
+    newDiv.style.height = "28px";
+    el.replaceWith(newDiv);
+  });
+}
+async function renderSectionsWidget() {
+  console.log("renderSectionsWidget");
+  const sectionsWidget = store.get().sectionsWidget;
+  const container = document.getElementById("dashboard-sections-grid");
+  if (sectionsWidget.loading || sectionsWidget.failed) {
+    const renderedWidget = renderSections({
+      loading: sectionsWidget.loading,
+      failed: sectionsWidget.failed,
+      section: {
+        code: "",
+        displayName: "",
+        outbounds: [],
+        withTagSelect: false
+      },
+      onTestLatency: () => {
+      },
+      onChooseOutbound: () => {
+      }
+    });
+    return container.replaceChildren(renderedWidget);
+  }
+  const renderedWidgets = sectionsWidget.data.map(
+    (section) => renderSections({
+      loading: sectionsWidget.loading,
+      failed: sectionsWidget.failed,
+      section,
+      onTestLatency: (tag) => {
+        replaceTestLatencyButtonsWithSkeleton();
+        if (section.withTagSelect) {
+          return handleTestGroupLatency(tag);
+        }
+        return handleTestProxyLatency(tag);
+      },
+      onChooseOutbound: (selector, tag) => {
+        handleChooseOutbound(selector, tag);
+      }
+    })
+  );
+  return container.replaceChildren(...renderedWidgets);
+}
+async function renderBandwidthWidget() {
+  console.log("renderBandwidthWidget");
+  const traffic = store.get().bandwidthWidget;
+  const container = document.getElementById("dashboard-widget-traffic");
+  if (traffic.loading || traffic.failed) {
+    const renderedWidget2 = renderWidget({
+      loading: traffic.loading,
+      failed: traffic.failed,
+      title: "",
+      items: []
+    });
+    return container.replaceChildren(renderedWidget2);
+  }
+  const renderedWidget = renderWidget({
+    loading: traffic.loading,
+    failed: traffic.failed,
+    title: _("Traffic"),
+    items: [
+      { key: _("Uplink"), value: `${prettyBytes(traffic.data.up)}/s` },
+      { key: _("Downlink"), value: `${prettyBytes(traffic.data.down)}/s` }
+    ]
+  });
+  container.replaceChildren(renderedWidget);
+}
+async function renderTrafficTotalWidget() {
+  console.log("renderTrafficTotalWidget");
+  const trafficTotalWidget = store.get().trafficTotalWidget;
+  const container = document.getElementById("dashboard-widget-traffic-total");
+  if (trafficTotalWidget.loading || trafficTotalWidget.failed) {
+    const renderedWidget2 = renderWidget({
+      loading: trafficTotalWidget.loading,
+      failed: trafficTotalWidget.failed,
+      title: "",
+      items: []
+    });
+    return container.replaceChildren(renderedWidget2);
+  }
+  const renderedWidget = renderWidget({
+    loading: trafficTotalWidget.loading,
+    failed: trafficTotalWidget.failed,
+    title: _("Traffic Total"),
+    items: [
+      {
+        key: _("Uplink"),
+        value: String(prettyBytes(trafficTotalWidget.data.uploadTotal))
+      },
+      {
+        key: _("Downlink"),
+        value: String(prettyBytes(trafficTotalWidget.data.downloadTotal))
+      }
+    ]
+  });
+  container.replaceChildren(renderedWidget);
+}
+async function renderSystemInfoWidget() {
+  console.log("renderSystemInfoWidget");
+  const systemInfoWidget = store.get().systemInfoWidget;
+  const container = document.getElementById("dashboard-widget-system-info");
+  if (systemInfoWidget.loading || systemInfoWidget.failed) {
+    const renderedWidget2 = renderWidget({
+      loading: systemInfoWidget.loading,
+      failed: systemInfoWidget.failed,
+      title: "",
+      items: []
+    });
+    return container.replaceChildren(renderedWidget2);
+  }
+  const renderedWidget = renderWidget({
+    loading: systemInfoWidget.loading,
+    failed: systemInfoWidget.failed,
+    title: _("System info"),
+    items: [
+      {
+        key: _("Active Connections"),
+        value: String(systemInfoWidget.data.connections)
+      },
+      {
+        key: _("Memory Usage"),
+        value: String(prettyBytes(systemInfoWidget.data.memory))
+      }
+    ]
+  });
+  container.replaceChildren(renderedWidget);
+}
+async function renderServicesInfoWidget() {
+  console.log("renderServicesInfoWidget");
+  const servicesInfoWidget = store.get().servicesInfoWidget;
+  const container = document.getElementById("dashboard-widget-service-info");
+  if (servicesInfoWidget.loading || servicesInfoWidget.failed) {
+    const renderedWidget2 = renderWidget({
+      loading: servicesInfoWidget.loading,
+      failed: servicesInfoWidget.failed,
+      title: "",
+      items: []
+    });
+    return container.replaceChildren(renderedWidget2);
+  }
+  const renderedWidget = renderWidget({
+    loading: servicesInfoWidget.loading,
+    failed: servicesInfoWidget.failed,
+    title: _("Services info"),
+    items: [
+      {
+        key: _("Podkop"),
+        value: servicesInfoWidget.data.podkop ? _("\u2714 Enabled") : _("\u2718 Disabled"),
+        attributes: {
+          class: servicesInfoWidget.data.podkop ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
+        }
+      },
+      {
+        key: _("Sing-box"),
+        value: servicesInfoWidget.data.singbox ? _("\u2714 Running") : _("\u2718 Stopped"),
+        attributes: {
+          class: servicesInfoWidget.data.singbox ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
+        }
+      }
+    ]
+  });
+  container.replaceChildren(renderedWidget);
+}
+async function onStoreUpdate(next, prev, diff) {
+  if (diff.sectionsWidget) {
+    renderSectionsWidget();
+  }
+  if (diff.bandwidthWidget) {
+    renderBandwidthWidget();
+  }
+  if (diff.trafficTotalWidget) {
+    renderTrafficTotalWidget();
+  }
+  if (diff.systemInfoWidget) {
+    renderSystemInfoWidget();
+  }
+  if (diff.servicesInfoWidget) {
+    renderServicesInfoWidget();
+  }
+}
+async function initDashboardController() {
+  onMount("dashboard-status").then(() => {
+    store.unsubscribe(onStoreUpdate);
+    store.reset();
+    store.subscribe(onStoreUpdate);
+    fetchDashboardSections();
+    fetchServicesInfo();
+    connectToClashSockets();
+  });
 }
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
@@ -573,14 +1866,34 @@ return baseclass.extend({
   IP_CHECK_DOMAIN,
   REGIONAL_OPTIONS,
   STATUS_COLORS,
+  TabService,
+  TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
-  copyToClipboard,
+  coreService,
+  createBaseApiRequest,
   executeShellCommand,
   getBaseUrl,
+  getClashApiUrl,
+  getClashConfig,
+  getClashGroupDelay,
+  getClashProxies,
+  getClashVersion,
+  getClashWsUrl,
+  getConfigSections,
+  getDashboardSections,
+  getPodkopStatus,
+  getProxyUrlName,
+  getSingboxStatus,
+  initDashboardController,
   injectGlobalStyles,
   maskIP,
+  onMount,
   parseValueList,
+  renderDashboard,
+  triggerLatencyGroupTest,
+  triggerLatencyProxyTest,
+  triggerProxySelector,
   validateDNS,
   validateDomain,
   validateIPV4,
