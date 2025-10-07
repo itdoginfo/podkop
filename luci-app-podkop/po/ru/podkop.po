@@ -51,9 +51,11 @@ msgid "Config without description"
 msgstr "Конфигурация без описания"
 
 msgid ""
-"Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup configs"
+"Enter connection string starting with vless:// or ss:// for proxy configuration. Add comments with // for backup "
+"configs"
 msgstr ""
-"Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси. Добавляйте комментарии с // для резервных конфигураций"
+"Введите строку подключения, начинающуюся с vless:// или ss:// для настройки прокси. Добавляйте комментарии с // для "
+"резервных конфигураций"
 
 msgid "No active configuration found. One configuration is required."
 msgstr "Активная конфигурация не найдена. Требуется хотя бы одна незакомментированная строка."
@@ -124,14 +126,18 @@ msgstr "Выберите предустановленные сервисы дл�
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
 
+#, javascript-format
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
 
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
 
-msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
-msgstr "Внимание: «Russia inside» может использоваться только с %s. %s уже находится в «Russia inside» и был удалён из выбора."
+#, javascript-format
+msgid ""
+"Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
+msgstr ""
+"Внимание: «Russia inside» может использоваться только с %s. %s уже находится в «Russia inside» и был удалён из выбора."
 
 msgid "User Domain List Type"
 msgstr "Тип пользовательского списка доменов"
@@ -214,8 +220,12 @@ msgstr "Введите подсети в нотации CIDR (например: 
 msgid "User Subnets List"
 msgstr "Список пользовательских подсетей"
 
-msgid "Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments after //"
-msgstr "Введите подсети в нотации CIDR или IP-адреса через запятую, пробел или новую строку. Можно добавлять комментарии после //"
+msgid ""
+"Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments "
+"after //"
+msgstr ""
+"Введите подсети в нотации CIDR или IP-адреса через запятую, пробел или новую строку. Можно добавлять комментарии "
+"после //"
 
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr "Необходимо указать хотя бы одну действительную подсеть или IP. Только комментарии недопустимы."
@@ -568,11 +578,122 @@ msgstr "Конфигурация: "
 msgid "Diagnostics"
 msgstr "Диагностика"
 
-msgid "Podkop"
-msgstr "Podkop"
+msgid "Additional Settings"
+msgstr "Дополнительные настройки"
 
-msgid "Extra configurations"
-msgstr "Дополнительные конфигурации"
+msgid "Yacd enable"
+msgstr "Включить YACD"
 
-msgid "Add Section"
-msgstr "Добавить раздел"
+msgid "Exclude NTP"
+msgstr "Исключить NTP"
+
+msgid "Allows you to exclude NTP protocol traffic from the tunnel"
+msgstr "Позволяет исключить направление трафика NTP-протокола в туннель"
+
+msgid "QUIC disable"
+msgstr "Отключить QUIC"
+
+msgid "For issues with the video stream"
+msgstr "Для проблем с видеопотоком"
+
+msgid "List Update Frequency"
+msgstr "Частота обновления списков"
+
+msgid "Select how often the lists will be updated"
+msgstr "Выберите как часто будут обновляться списки"
+
+msgid "Select DNS protocol to use"
+msgstr "Выберите протокол DNS"
+
+msgid "Bootstrap DNS server"
+msgstr "Bootstrap DNS-сервер"
+
+msgid "The DNS server used to look up the IP address of an upstream DNS server"
+msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
+
+msgid "DNS Rewrite TTL"
+msgstr "Перезапись TTL для DNS"
+
+msgid "Time in seconds for DNS record caching (default: 60)"
+msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
+
+msgid "TTL value cannot be empty"
+msgstr "Значение TTL не может быть пустым"
+
+msgid "TTL must be a positive number"
+msgstr "TTL должно быть положительным числом"
+
+msgid "Config File Path"
+msgstr "Путь к файлу конфигурации"
+
+msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
+msgstr "Выберите путь к файлу конфигурации sing-box. Изменяйте это, ТОЛЬКО если вы знаете, что делаете"
+
+msgid "Cache File Path"
+msgstr "Путь к файлу кэша"
+
+msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
+msgstr "Выберите или введите путь к файлу кеша sing-box. Изменяйте это, ТОЛЬКО если вы знаете, что делаете"
+
+msgid "Cache file path cannot be empty"
+msgstr "Путь к файлу кэша не может быть пустым"
+
+msgid "Path must be absolute (start with /)"
+msgstr "Путь должен быть абсолютным (начинаться с /)"
+
+msgid "Path must end with cache.db"
+msgstr "Путь должен заканчиваться на cache.db"
+
+msgid "Path must contain at least one directory (like /tmp/cache.db)"
+msgstr "Путь должен содержать хотя бы одну директорию (например /tmp/cache.db)"
+
+msgid "Source Network Interface"
+msgstr "Сетевой интерфейс источника"
+
+msgid "Select the network interface from which the traffic will originate"
+msgstr "Выберите сетевой интерфейс, с которого будет исходить трафик"
+
+msgid "Interface monitoring"
+msgstr "Мониторинг интерфейсов"
+
+msgid "Interface monitoring for bad WAN"
+msgstr "Мониторинг интерфейсов для плохого WAN"
+
+msgid "Interface for monitoring"
+msgstr "Интерфейс для мониторинга"
+
+msgid "Select the WAN interfaces to be monitored"
+msgstr "Выберите WAN интерфейсы для мониторинга"
+
+msgid "Interface Monitoring Delay"
+msgstr "Задержка при мониторинге интерфейсов"
+
+msgid "Delay in milliseconds before reloading podkop after interface UP"
+msgstr "Задержка в миллисекундах перед перезагрузкой podkop после поднятия интерфейса"
+
+msgid "Delay value cannot be empty"
+msgstr "Значение задержки не может быть пустым"
+
+msgid "Dont touch my DHCP!"
+msgstr "Не трогать мой DHCP!"
+
+msgid "Podkop will not change the DHCP config"
+msgstr "Podkop не будет изменять конфигурацию DHCP"
+
+msgid "Proxy download of lists"
+msgstr "Загрузка списков через прокси"
+
+msgid "Downloading all lists via main Proxy/VPN"
+msgstr "Загрузка всех списков через основной прокси/VPN"
+
+msgid "IP for exclusion"
+msgstr "IP для исключения"
+
+msgid "Specify local IP addresses that will never use the configured route"
+msgstr "Укажите локальные IP-адреса, которые никогда не будут использовать настроенный маршрут"
+
+msgid "Mixed enable"
+msgstr "Включить смешанный режим"
+
+msgid "Browser port: 2080"
+msgstr "Порт браузера: 2080"
