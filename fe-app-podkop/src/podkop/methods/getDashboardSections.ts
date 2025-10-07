@@ -61,6 +61,11 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
             (proxy) => proxy.code === `${section['.name']}-out`,
           );
 
+          const parsedOutbound = JSON.parse(section.outbound_json);
+          const parsedTag = parsedOutbound?.tag ? decodeURIComponent(parsedOutbound?.tag) : undefined;
+          const proxyDisplayName = parsedTag || outbound?.value?.name || ''
+
+
           return {
             withTagSelect: false,
             code: outbound?.code || section['.name'],
@@ -68,10 +73,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
             outbounds: [
               {
                 code: outbound?.code || section['.name'],
-                displayName:
-                  decodeURIComponent(JSON.parse(section.outbound_json)?.tag) ||
-                  outbound?.value?.name ||
-                  '',
+                displayName: proxyDisplayName,
                 latency: outbound?.value?.history?.[0]?.delay || 0,
                 type: outbound?.value?.type || '',
                 selected: true,
