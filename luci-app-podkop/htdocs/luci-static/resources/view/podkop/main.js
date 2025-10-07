@@ -1274,10 +1274,10 @@ function renderDefaultState({
       if (!outbound.latency) {
         return "pdk_dashboard-page__outbound-grid__item__latency--empty";
       }
-      if (outbound.latency < 200) {
+      if (outbound.latency < 800) {
         return "pdk_dashboard-page__outbound-grid__item__latency--green";
       }
-      if (outbound.latency < 400) {
+      if (outbound.latency < 1500) {
         return "pdk_dashboard-page__outbound-grid__item__latency--yellow";
       }
       return "pdk_dashboard-page__outbound-grid__item__latency--red";
