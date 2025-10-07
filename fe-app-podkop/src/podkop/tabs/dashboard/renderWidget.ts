@@ -19,7 +19,7 @@ function renderFailedState() {
       style: 'height: 78px',
       class: 'pdk_dashboard-page__widgets-section__item centered',
     },
-    'Currently unavailable',
+    _('Currently unavailable'),
   );
 }
 

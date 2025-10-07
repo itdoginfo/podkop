@@ -9,7 +9,7 @@ export async function createBaseApiRequest<T>(
     if (!response.ok) {
       return {
         success: false as const,
-        message: `HTTP error ${response.status}: ${response.statusText}`,
+        message: `${_('HTTP error')} ${response.status}: ${response.statusText}`,
       };
     }
 
@@ -22,7 +22,7 @@ export async function createBaseApiRequest<T>(
   } catch (e) {
     return {
       success: false as const,
-      message: e instanceof Error ? e.message : 'Unknown error',
+      message: e instanceof Error ? e.message : _('Unknown error'),
     };
   }
 }

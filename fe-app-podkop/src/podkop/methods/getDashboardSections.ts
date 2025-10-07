@@ -106,7 +106,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
             outbounds: [
               {
                 code: outbound?.code || '',
-                displayName: 'Fastest',
+                displayName: _('Fastest'),
                 latency: outbound?.value?.history?.[0]?.delay || 0,
                 type: outbound?.value?.type || '',
                 selected: selector?.value?.now === outbound?.code,

@@ -4,7 +4,7 @@ export function validatePath(value: string): ValidationResult {
   if (!value) {
     return {
       valid: false,
-      message: 'Path cannot be empty',
+      message: _('Path cannot be empty'),
     };
   }
 
@@ -19,7 +19,8 @@ export function validatePath(value: string): ValidationResult {
 
   return {
     valid: false,
-    message:
+    message: _(
       'Invalid path format. Path must start with "/" and contain valid characters',
+    ),
   };
 }

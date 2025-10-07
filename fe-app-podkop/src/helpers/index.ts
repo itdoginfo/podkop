@@ -3,7 +3,6 @@ export * from './parseValueList';
 export * from './injectGlobalStyles';
 export * from './withTimeout';
 export * from './executeShellCommand';
-export * from './copyToClipboard';
 export * from './maskIP';
 export * from './getProxyUrlName';
 export * from './onMount';

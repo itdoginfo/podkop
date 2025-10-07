@@ -19,6 +19,6 @@ export function validateProxyUrl(url: string): ValidationResult {
 
   return {
     valid: false,
-    message: 'URL must start with vless:// or ss:// or trojan://',
+    message: _('URL must start with vless:// or ss:// or trojan://'),
   };
 }

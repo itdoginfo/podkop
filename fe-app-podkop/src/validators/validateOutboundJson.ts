@@ -8,13 +8,14 @@ export function validateOutboundJson(value: string): ValidationResult {
     if (!parsed.type || !parsed.server || !parsed.server_port) {
       return {
         valid: false,
-        message:
+        message: _(
           'Outbound JSON must contain at least "type", "server" and "server_port" fields',
+        ),
       };
     }
 
-    return { valid: true, message: 'Valid' };
+    return { valid: true, message: _('Valid') };
   } catch {
-    return { valid: false, message: 'Invalid JSON format' };
+    return { valid: false, message: _('Invalid JSON format') };
   }
 }

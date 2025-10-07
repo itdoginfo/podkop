@@ -217,10 +217,10 @@ async function renderBandwidthWidget() {
   const renderedWidget = renderWidget({
     loading: traffic.loading,
     failed: traffic.failed,
-    title: 'Traffic',
+    title: _('Traffic'),
     items: [
-      { key: 'Uplink', value: `${prettyBytes(traffic.data.up)}/s` },
-      { key: 'Downlink', value: `${prettyBytes(traffic.data.down)}/s` },
+      { key: _('Uplink'), value: `${prettyBytes(traffic.data.up)}/s` },
+      { key: _('Downlink'), value: `${prettyBytes(traffic.data.down)}/s` },
     ],
   });
 
@@ -247,14 +247,14 @@ async function renderTrafficTotalWidget() {
   const renderedWidget = renderWidget({
     loading: trafficTotalWidget.loading,
     failed: trafficTotalWidget.failed,
-    title: 'Traffic Total',
+    title: _('Traffic Total'),
     items: [
       {
-        key: 'Uplink',
+        key: _('Uplink'),
         value: String(prettyBytes(trafficTotalWidget.data.uploadTotal)),
       },
       {
-        key: 'Downlink',
+        key: _('Downlink'),
         value: String(prettyBytes(trafficTotalWidget.data.downloadTotal)),
       },
     ],
@@ -283,14 +283,14 @@ async function renderSystemInfoWidget() {
   const renderedWidget = renderWidget({
     loading: systemInfoWidget.loading,
     failed: systemInfoWidget.failed,
-    title: 'System info',
+    title: _('System info'),
     items: [
       {
-        key: 'Active Connections',
+        key: _('Active Connections'),
         value: String(systemInfoWidget.data.connections),
       },
       {
-        key: 'Memory Usage',
+        key: _('Memory Usage'),
         value: String(prettyBytes(systemInfoWidget.data.memory)),
       },
     ],
@@ -319,11 +319,13 @@ async function renderServicesInfoWidget() {
   const renderedWidget = renderWidget({
     loading: servicesInfoWidget.loading,
     failed: servicesInfoWidget.failed,
-    title: 'Services info',
+    title: _('Services info'),
     items: [
       {
-        key: 'Podkop',
-        value: servicesInfoWidget.data.podkop ? '✔ Enabled' : '✘ Disabled',
+        key: _('Podkop'),
+        value: servicesInfoWidget.data.podkop
+          ? _('✔ Enabled')
+          : _('✘ Disabled'),
         attributes: {
           class: servicesInfoWidget.data.podkop
             ? 'pdk_dashboard-page__widgets-section__item__row--success'
@@ -331,8 +333,10 @@ async function renderServicesInfoWidget() {
         },
       },
       {
-        key: 'Sing-box',
-        value: servicesInfoWidget.data.singbox ? '✔ Running' : '✘ Stopped',
+        key: _('Sing-box'),
+        value: servicesInfoWidget.data.singbox
+          ? _('✔ Running')
+          : _('✘ Stopped'),
         attributes: {
           class: servicesInfoWidget.data.singbox
             ? 'pdk_dashboard-page__widgets-section__item__row--success'

@@ -33,6 +33,8 @@ declare global {
     load: (packages: string | string[]) => Promise<string>;
     sections: (conf: string, type?: string, cb?: () => void) => Promise<T>;
   };
+
+  const _ = (_key: string) => string;
 }
 
 export {};

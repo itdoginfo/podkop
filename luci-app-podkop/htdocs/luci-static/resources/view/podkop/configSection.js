@@ -152,7 +152,7 @@ function createConfigSection(section) {
         return true;
       }
 
-      return _(validation.message);
+      return validation.message;
     } catch (e) {
       return `${_('Invalid URL format:')} ${e?.message}`;
     }
@@ -180,7 +180,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = s.taboption(
@@ -204,7 +204,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = s.taboption(
@@ -315,7 +315,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = s.taboption(
@@ -459,7 +459,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = s.taboption(
@@ -538,7 +538,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = s.taboption(
@@ -575,7 +575,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = s.taboption(
@@ -612,7 +612,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = s.taboption(
@@ -654,7 +654,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = s.taboption(
@@ -733,7 +733,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 
   o = s.taboption(
@@ -772,7 +772,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    return _(validation.message);
+    return validation.message;
   };
 }
 

@@ -5,7 +5,7 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
   if (!url.startsWith('ss://')) {
     return {
       valid: false,
-      message: 'Invalid Shadowsocks URL: must start with ss://',
+      message: _('Invalid Shadowsocks URL: must start with ss://'),
     };
   }
 
@@ -13,7 +13,7 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
     if (!url || /\s/.test(url)) {
       return {
         valid: false,
-        message: 'Invalid Shadowsocks URL: must not contain spaces',
+        message: _('Invalid Shadowsocks URL: must not contain spaces'),
       };
     }
 
@@ -24,7 +24,7 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
     if (!encryptedPart) {
       return {
         valid: false,
-        message: 'Invalid Shadowsocks URL: missing credentials',
+        message: _('Invalid Shadowsocks URL: missing credentials'),
       };
     }
 
@@ -34,16 +34,18 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
       if (!decoded.includes(':')) {
         return {
           valid: false,
-          message:
+          message: _(
             'Invalid Shadowsocks URL: decoded credentials must contain method:password',
+          ),
         };
       }
     } catch (_e) {
       if (!encryptedPart.includes(':') && !encryptedPart.includes('-')) {
         return {
           valid: false,
-          message:
+          message: _(
             'Invalid Shadowsocks URL: missing method and password separator ":"',
+          ),
         };
       }
     }
@@ -53,7 +55,7 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
     if (!serverPart) {
       return {
         valid: false,
-        message: 'Invalid Shadowsocks URL: missing server address',
+        message: _('Invalid Shadowsocks URL: missing server address'),
       };
     }
 
@@ -62,14 +64,17 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
     if (!server) {
       return {
         valid: false,
-        message: 'Invalid Shadowsocks URL: missing server',
+        message: _('Invalid Shadowsocks URL: missing server'),
       };
     }
 
     const port = portAndRest ? portAndRest.split(/[?#]/)[0] : null;
 
     if (!port) {
-      return { valid: false, message: 'Invalid Shadowsocks URL: missing port' };
+      return {
+        valid: false,
+        message: _('Invalid Shadowsocks URL: missing port'),
+      };
     }
 
     const portNum = parseInt(port, 10);
@@ -77,12 +82,15 @@ export function validateShadowsocksUrl(url: string): ValidationResult {
     if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
       return {
         valid: false,
-        message: 'Invalid port number. Must be between 1 and 65535',
+        message: _('Invalid port number. Must be between 1 and 65535'),
       };
     }
   } catch (_e) {
-    return { valid: false, message: 'Invalid Shadowsocks URL: parsing failed' };
+    return {
+      valid: false,
+      message: _('Invalid Shadowsocks URL: parsing failed'),
+    };
   }
 
-  return { valid: true, message: 'Valid' };
+  return { valid: true, message: _('Valid') };
 }

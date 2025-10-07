@@ -8,40 +8,42 @@
 function validateIPV4(ip) {
   const ipRegex = /^(?:(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$/;
   if (ipRegex.test(ip)) {
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   }
-  return { valid: false, message: "Invalid IP address" };
+  return { valid: false, message: _("Invalid IP address") };
 }
 
 // src/validators/validateDomain.ts
 function validateDomain(domain) {
   const domainRegex = /^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$/;
   if (!domainRegex.test(domain)) {
-    return { valid: false, message: "Invalid domain address" };
+    return { valid: false, message: _("Invalid domain address") };
   }
   const hostname = domain.split("/")[0];
   const parts = hostname.split(".");
   const atLeastOneInvalidPart = parts.some((part) => part.length > 63);
   if (atLeastOneInvalidPart) {
-    return { valid: false, message: "Invalid domain address" };
+    return { valid: false, message: _("Invalid domain address") };
   }
-  return { valid: true, message: "Valid" };
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/validateDns.ts
 function validateDNS(value) {
   if (!value) {
-    return { valid: false, message: "DNS server address cannot be empty" };
+    return { valid: false, message: _("DNS server address cannot be empty") };
   }
   if (validateIPV4(value).valid) {
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   }
   if (validateDomain(value).valid) {
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   }
   return {
     valid: false,
-    message: "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
+    message: _(
+      "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
+    )
   };
 }
 
@@ -52,12 +54,12 @@ function validateUrl(url, protocols = ["http:", "https:"]) {
     if (!protocols.includes(parsedUrl.protocol)) {
       return {
         valid: false,
-        message: `URL must use one of the following protocols: ${protocols.join(", ")}`
+        message: `${_("URL must use one of the following protocols:")} ${protocols.join(", ")}`
       };
     }
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   } catch (_e) {
-    return { valid: false, message: "Invalid URL format" };
+    return { valid: false, message: _("Invalid URL format") };
   }
 }
 
@@ -66,7 +68,7 @@ function validatePath(value) {
   if (!value) {
     return {
       valid: false,
-      message: "Path cannot be empty"
+      message: _("Path cannot be empty")
     };
   }
   const pathRegex = /^\/[a-zA-Z0-9_\-/.]+$/;
@@ -78,7 +80,9 @@ function validatePath(value) {
   }
   return {
     valid: false,
-    message: 'Invalid path format. Path must start with "/" and contain valid characters'
+    message: _(
+      'Invalid path format. Path must start with "/" and contain valid characters'
+    )
   };
 }
 
@@ -88,12 +92,12 @@ function validateSubnet(value) {
   if (!subnetRegex.test(value)) {
     return {
       valid: false,
-      message: "Invalid format. Use X.X.X.X or X.X.X.X/Y"
+      message: _("Invalid format. Use X.X.X.X or X.X.X.X/Y")
     };
   }
   const [ip, cidr] = value.split("/");
   if (ip === "0.0.0.0") {
-    return { valid: false, message: "IP address 0.0.0.0 is not allowed" };
+    return { valid: false, message: _("IP address 0.0.0.0 is not allowed") };
   }
   const ipCheck = validateIPV4(ip);
   if (!ipCheck.valid) {
@@ -104,11 +108,11 @@ function validateSubnet(value) {
     if (cidrNum < 0 || cidrNum > 32) {
       return {
         valid: false,
-        message: "CIDR must be between 0 and 32"
+        message: _("CIDR must be between 0 and 32")
       };
     }
   }
-  return { valid: true, message: "Valid" };
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/bulkValidate.ts
@@ -125,14 +129,14 @@ function validateShadowsocksUrl(url) {
   if (!url.startsWith("ss://")) {
     return {
       valid: false,
-      message: "Invalid Shadowsocks URL: must start with ss://"
+      message: _("Invalid Shadowsocks URL: must start with ss://")
     };
   }
   try {
     if (!url || /\s/.test(url)) {
       return {
         valid: false,
-        message: "Invalid Shadowsocks URL: must not contain spaces"
+        message: _("Invalid Shadowsocks URL: must not contain spaces")
       };
     }
     const mainPart = url.includes("?") ? url.split("?")[0] : url.split("#")[0];
@@ -140,7 +144,7 @@ function validateShadowsocksUrl(url) {
     if (!encryptedPart) {
       return {
         valid: false,
-        message: "Invalid Shadowsocks URL: missing credentials"
+        message: _("Invalid Shadowsocks URL: missing credentials")
       };
     }
     try {
@@ -148,14 +152,18 @@ function validateShadowsocksUrl(url) {
       if (!decoded.includes(":")) {
         return {
           valid: false,
-          message: "Invalid Shadowsocks URL: decoded credentials must contain method:password"
+          message: _(
+            "Invalid Shadowsocks URL: decoded credentials must contain method:password"
+          )
         };
       }
     } catch (_e) {
       if (!encryptedPart.includes(":") && !encryptedPart.includes("-")) {
         return {
           valid: false,
-          message: 'Invalid Shadowsocks URL: missing method and password separator ":"'
+          message: _(
+            'Invalid Shadowsocks URL: missing method and password separator ":"'
+          )
         };
       }
     }
@@ -163,31 +171,37 @@ function validateShadowsocksUrl(url) {
     if (!serverPart) {
       return {
         valid: false,
-        message: "Invalid Shadowsocks URL: missing server address"
+        message: _("Invalid Shadowsocks URL: missing server address")
       };
     }
     const [server, portAndRest] = serverPart.split(":");
     if (!server) {
       return {
         valid: false,
-        message: "Invalid Shadowsocks URL: missing server"
+        message: _("Invalid Shadowsocks URL: missing server")
       };
     }
     const port = portAndRest ? portAndRest.split(/[?#]/)[0] : null;
     if (!port) {
-      return { valid: false, message: "Invalid Shadowsocks URL: missing port" };
+      return {
+        valid: false,
+        message: _("Invalid Shadowsocks URL: missing port")
+      };
     }
     const portNum = parseInt(port, 10);
     if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
       return {
         valid: false,
-        message: "Invalid port number. Must be between 1 and 65535"
+        message: _("Invalid port number. Must be between 1 and 65535")
       };
     }
   } catch (_e) {
-    return { valid: false, message: "Invalid Shadowsocks URL: parsing failed" };
+    return {
+      valid: false,
+      message: _("Invalid Shadowsocks URL: parsing failed")
+    };
   }
-  return { valid: true, message: "Valid" };
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/validateVlessUrl.ts
@@ -197,34 +211,36 @@ function validateVlessUrl(url) {
     if (!url || /\s/.test(url)) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: must not contain spaces"
+        message: _("Invalid VLESS URL: must not contain spaces")
       };
     }
     if (parsedUrl.protocol !== "vless:") {
       return {
         valid: false,
-        message: "Invalid VLESS URL: must start with vless://"
+        message: _("Invalid VLESS URL: must start with vless://")
       };
     }
     if (!parsedUrl.username) {
-      return { valid: false, message: "Invalid VLESS URL: missing UUID" };
+      return { valid: false, message: _("Invalid VLESS URL: missing UUID") };
     }
     if (!parsedUrl.hostname) {
-      return { valid: false, message: "Invalid VLESS URL: missing server" };
+      return { valid: false, message: _("Invalid VLESS URL: missing server") };
     }
     if (!parsedUrl.port) {
-      return { valid: false, message: "Invalid VLESS URL: missing port" };
+      return { valid: false, message: _("Invalid VLESS URL: missing port") };
     }
     if (isNaN(+parsedUrl.port) || +parsedUrl.port < 1 || +parsedUrl.port > 65535) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: invalid port number. Must be between 1 and 65535"
+        message: _(
+          "Invalid VLESS URL: invalid port number. Must be between 1 and 65535"
+        )
       };
     }
     if (!parsedUrl.search) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: missing query parameters"
+        message: _("Invalid VLESS URL: missing query parameters")
       };
     }
     const params = new URLSearchParams(parsedUrl.search);
@@ -243,7 +259,9 @@ function validateVlessUrl(url) {
     if (!type || !validTypes.includes(type)) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws"
+        message: _(
+          "Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws"
+        )
       };
     }
     const security = params.get("security");
@@ -251,26 +269,32 @@ function validateVlessUrl(url) {
     if (!security || !validSecurities.includes(security)) {
       return {
         valid: false,
-        message: "Invalid VLESS URL: security must be one of tls, reality, none"
+        message: _(
+          "Invalid VLESS URL: security must be one of tls, reality, none"
+        )
       };
     }
     if (security === "reality") {
       if (!params.get("pbk")) {
         return {
           valid: false,
-          message: "Invalid VLESS URL: missing pbk parameter for reality security"
+          message: _(
+            "Invalid VLESS URL: missing pbk parameter for reality security"
+          )
         };
       }
       if (!params.get("fp")) {
         return {
           valid: false,
-          message: "Invalid VLESS URL: missing fp parameter for reality security"
+          message: _(
+            "Invalid VLESS URL: missing fp parameter for reality security"
+          )
         };
       }
     }
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   } catch (_e) {
-    return { valid: false, message: "Invalid VLESS URL: parsing failed" };
+    return { valid: false, message: _("Invalid VLESS URL: parsing failed") };
   }
 }
 
@@ -281,12 +305,14 @@ function validateOutboundJson(value) {
     if (!parsed.type || !parsed.server || !parsed.server_port) {
       return {
         valid: false,
-        message: 'Outbound JSON must contain at least "type", "server" and "server_port" fields'
+        message: _(
+          'Outbound JSON must contain at least "type", "server" and "server_port" fields'
+        )
       };
     }
-    return { valid: true, message: "Valid" };
+    return { valid: true, message: _("Valid") };
   } catch {
-    return { valid: false, message: "Invalid JSON format" };
+    return { valid: false, message: _("Invalid JSON format") };
   }
 }
 
@@ -295,13 +321,13 @@ function validateTrojanUrl(url) {
   if (!url.startsWith("trojan://")) {
     return {
       valid: false,
-      message: "Invalid Trojan URL: must start with trojan://"
+      message: _("Invalid Trojan URL: must start with trojan://")
     };
   }
   if (!url || /\s/.test(url)) {
     return {
       valid: false,
-      message: "Invalid Trojan URL: must not contain spaces"
+      message: _("Invalid Trojan URL: must not contain spaces")
     };
   }
   try {
@@ -309,13 +335,15 @@ function validateTrojanUrl(url) {
     if (!parsedUrl.username || !parsedUrl.hostname || !parsedUrl.port) {
       return {
         valid: false,
-        message: "Invalid Trojan URL: must contain username, hostname and port"
+        message: _(
+          "Invalid Trojan URL: must contain username, hostname and port"
+        )
       };
     }
   } catch (_e) {
-    return { valid: false, message: "Invalid Trojan URL: parsing failed" };
+    return { valid: false, message: _("Invalid Trojan URL: parsing failed") };
   }
-  return { valid: true, message: "Valid" };
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/validateProxyUrl.ts
@@ -331,7 +359,7 @@ function validateProxyUrl(url) {
   }
   return {
     valid: false,
-    message: "URL must start with vless:// or ss:// or trojan://"
+    message: _("URL must start with vless:// or ss:// or trojan://")
   };
 }
 
@@ -537,10 +565,10 @@ function injectGlobalStyles() {
 }
 
 // src/helpers/withTimeout.ts
-async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = "Operation timed out") {
+async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = _("Operation timed out")) {
   let timeoutId;
   const start = performance.now();
-  const timeoutPromise = new Promise((_, reject) => {
+  const timeoutPromise = new Promise((_2, reject) => {
     timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
   });
   try {
@@ -680,29 +708,6 @@ async function executeShellCommand({
   }
 }
 
-// src/helpers/copyToClipboard.ts
-function copyToClipboard(text) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    document.execCommand("copy");
-    return {
-      success: true,
-      message: "Copied!"
-    };
-  } catch (err) {
-    const error = err;
-    return {
-      success: false,
-      message: `Failed to copy: ${error.message}`
-    };
-  } finally {
-    document.body.removeChild(textarea);
-  }
-}
-
 // src/helpers/maskIP.ts
 function maskIP(ip = "") {
   const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -767,7 +772,7 @@ async function createBaseApiRequest(fetchFn) {
     if (!response.ok) {
       return {
         success: false,
-        message: `HTTP error ${response.status}: ${response.statusText}`
+        message: `${_("HTTP error")} ${response.status}: ${response.statusText}`
       };
     }
     const data = await response.json();
@@ -778,7 +783,7 @@ async function createBaseApiRequest(fetchFn) {
   } catch (e) {
     return {
       success: false,
-      message: e instanceof Error ? e.message : "Unknown error"
+      message: e instanceof Error ? e.message : _("Unknown error")
     };
   }
 }
@@ -943,7 +948,7 @@ async function getDashboardSections() {
           outbounds: [
             {
               code: outbound?.code || "",
-              displayName: "Fastest",
+              displayName: _("Fastest"),
               latency: outbound?.value?.history?.[0]?.delay || 0,
               type: outbound?.value?.type || "",
               selected: selector?.value?.now === outbound?.code
@@ -1080,7 +1085,7 @@ var TabServiceInstance = TabService.getInstance();
 
 // src/store.ts
 function jsonStableStringify(obj) {
-  return JSON.stringify(obj, (_, value) => {
+  return JSON.stringify(obj, (_2, value) => {
     if (value && typeof value === "object" && !Array.isArray(value)) {
       return Object.keys(value).sort().reduce(
         (acc, key) => {
@@ -1214,7 +1219,7 @@ function renderFailedState() {
       class: "pdk_dashboard-page__outbound-section centered",
       style: "height: 127px"
     },
-    E("span", {}, "Dashboard currently unavailable")
+    E("span", {}, _("Dashboard currently unavailable"))
   );
 }
 function renderLoadingState() {
@@ -1318,7 +1323,7 @@ function renderFailedState2() {
       style: "height: 78px",
       class: "pdk_dashboard-page__widgets-section__item centered"
     },
-    "Currently unavailable"
+    _("Currently unavailable")
   );
 }
 function renderLoadingState2() {
@@ -1713,10 +1718,10 @@ async function renderBandwidthWidget() {
   const renderedWidget = renderWidget({
     loading: traffic.loading,
     failed: traffic.failed,
-    title: "Traffic",
+    title: _("Traffic"),
     items: [
-      { key: "Uplink", value: `${prettyBytes(traffic.data.up)}/s` },
-      { key: "Downlink", value: `${prettyBytes(traffic.data.down)}/s` }
+      { key: _("Uplink"), value: `${prettyBytes(traffic.data.up)}/s` },
+      { key: _("Downlink"), value: `${prettyBytes(traffic.data.down)}/s` }
     ]
   });
   container.replaceChildren(renderedWidget);
@@ -1737,14 +1742,14 @@ async function renderTrafficTotalWidget() {
   const renderedWidget = renderWidget({
     loading: trafficTotalWidget.loading,
     failed: trafficTotalWidget.failed,
-    title: "Traffic Total",
+    title: _("Traffic Total"),
     items: [
       {
-        key: "Uplink",
+        key: _("Uplink"),
         value: String(prettyBytes(trafficTotalWidget.data.uploadTotal))
       },
       {
-        key: "Downlink",
+        key: _("Downlink"),
         value: String(prettyBytes(trafficTotalWidget.data.downloadTotal))
       }
     ]
@@ -1767,14 +1772,14 @@ async function renderSystemInfoWidget() {
   const renderedWidget = renderWidget({
     loading: systemInfoWidget.loading,
     failed: systemInfoWidget.failed,
-    title: "System info",
+    title: _("System info"),
     items: [
       {
-        key: "Active Connections",
+        key: _("Active Connections"),
         value: String(systemInfoWidget.data.connections)
       },
       {
-        key: "Memory Usage",
+        key: _("Memory Usage"),
         value: String(prettyBytes(systemInfoWidget.data.memory))
       }
     ]
@@ -1797,18 +1802,18 @@ async function renderServicesInfoWidget() {
   const renderedWidget = renderWidget({
     loading: servicesInfoWidget.loading,
     failed: servicesInfoWidget.failed,
-    title: "Services info",
+    title: _("Services info"),
     items: [
       {
-        key: "Podkop",
-        value: servicesInfoWidget.data.podkop ? "\u2714 Enabled" : "\u2718 Disabled",
+        key: _("Podkop"),
+        value: servicesInfoWidget.data.podkop ? _("\u2714 Enabled") : _("\u2718 Disabled"),
         attributes: {
           class: servicesInfoWidget.data.podkop ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
         }
       },
       {
-        key: "Sing-box",
-        value: servicesInfoWidget.data.singbox ? "\u2714 Running" : "\u2718 Stopped",
+        key: _("Sing-box"),
+        value: servicesInfoWidget.data.singbox ? _("\u2714 Running") : _("\u2718 Stopped"),
         attributes: {
           class: servicesInfoWidget.data.singbox ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
         }
@@ -1865,7 +1870,6 @@ return baseclass.extend({
   TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
-  copyToClipboard,
   coreService,
   createBaseApiRequest,
   executeShellCommand,
