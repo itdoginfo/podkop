@@ -764,7 +764,7 @@ function createConfigSection(section) {
       return true;
     }
 
-    const validation = main.validateIPV4(value);
+    const validation = main.validateSubnet(value);
 
     if (validation.valid) {
       return true;
