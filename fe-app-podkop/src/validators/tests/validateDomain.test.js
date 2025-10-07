@@ -52,12 +52,12 @@ describe('validateDomain', () => {
   });
 
   describe.each(dotTLDTests)(
-      'Dot TLD toggle: %s',
-      (_desc, domain, allowDotTLD, expected) => {
-        it(`"${domain}" with allowDotTLD=${allowDotTLD} → valid=${expected}`, () => {
-          const res = validateDomain(domain, allowDotTLD);
-          expect(res.valid).toBe(expected);
-        });
-      },
+    'Dot TLD toggle: %s',
+    (_desc, domain, allowDotTLD, expected) => {
+      it(`"${domain}" with allowDotTLD=${allowDotTLD} → valid=${expected}`, () => {
+        const res = validateDomain(domain, allowDotTLD);
+        expect(res.valid).toBe(expected);
+      });
+    },
   );
 });

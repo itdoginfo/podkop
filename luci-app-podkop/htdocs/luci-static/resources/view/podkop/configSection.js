@@ -130,11 +130,7 @@ function createConfigSection(section) {
     }
 
     try {
-      const activeConfigs = value
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => !line.startsWith('//'))
-        .filter(Boolean);
+      const activeConfigs = main.splitProxyString(value);
 
       if (!activeConfigs.length) {
         return _(

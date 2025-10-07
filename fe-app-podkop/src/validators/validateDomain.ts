@@ -1,11 +1,11 @@
 import { ValidationResult } from './types';
 
 export function validateDomain(
-    domain: string,
-    allowDotTLD = false
+  domain: string,
+  allowDotTLD = false,
 ): ValidationResult {
   const domainRegex =
-      /^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$/;
+    /^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$/;
 
   if (allowDotTLD) {
     const dotTLD = /^\.[a-zA-Z]{2,}$/;

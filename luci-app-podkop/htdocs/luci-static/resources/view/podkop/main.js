@@ -771,6 +771,11 @@ function getClashWsUrl() {
   return `ws://${hostname}:9090`;
 }
 
+// src/helpers/splitProxyString.ts
+function splitProxyString(str) {
+  return str.split("\n").map((line) => line.trim()).filter((line) => !line.startsWith("//")).filter(Boolean);
+}
+
 // src/clash/methods/createBaseApiRequest.ts
 async function createBaseApiRequest(fetchFn) {
   try {
@@ -899,6 +904,8 @@ async function getDashboardSections() {
         const outbound = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-out`
         );
+        const activeConfigs = splitProxyString(section.proxy_string);
+        const proxyDisplayName = getProxyUrlName(activeConfigs?.[0]) || outbound?.value?.name || "";
         return {
           withTagSelect: false,
           code: outbound?.code || section[".name"],
@@ -906,7 +913,7 @@ async function getDashboardSections() {
           outbounds: [
             {
               code: outbound?.code || section[".name"],
-              displayName: getProxyUrlName(section.proxy_string) || outbound?.value?.name || "",
+              displayName: proxyDisplayName,
               latency: outbound?.value?.history?.[0]?.delay || 0,
               type: outbound?.value?.type || "",
               selected: true
@@ -1897,6 +1904,7 @@ return baseclass.extend({
   onMount,
   parseValueList,
   renderDashboard,
+  splitProxyString,
   triggerLatencyGroupTest,
   triggerLatencyProxyTest,
   triggerProxySelector,

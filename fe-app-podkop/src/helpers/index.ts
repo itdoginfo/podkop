@@ -7,3 +7,4 @@ export * from './maskIP';
 export * from './getProxyUrlName';
 export * from './onMount';
 export * from './getClashApiUrl';
+export * from './splitProxyString';
