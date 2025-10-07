@@ -13,7 +13,7 @@ export function validatePath(value: string): ValidationResult {
   if (pathRegex.test(value)) {
     return {
       valid: true,
-      message: 'Valid',
+      message: _('Valid'),
     };
   }
 

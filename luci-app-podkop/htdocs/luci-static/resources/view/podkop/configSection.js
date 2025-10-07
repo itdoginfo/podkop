@@ -46,7 +46,9 @@ function createConfigSection(section) {
   );
   o.depends('proxy_config_type', 'url');
   o.rows = 5;
+  // Enable soft wrapping for multi-line proxy URLs (e.g., for URLTest proxy links)
   o.wrap = 'soft';
+  // Render as a textarea to allow multiple proxy URLs/configs
   o.textarea = true;
   o.rmempty = false;
   o.ucisection = s.section;

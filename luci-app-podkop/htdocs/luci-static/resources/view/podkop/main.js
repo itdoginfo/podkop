@@ -75,7 +75,7 @@ function validatePath(value) {
   if (pathRegex.test(value)) {
     return {
       valid: true,
-      message: "Valid"
+      message: _("Valid")
     };
   }
   return {
