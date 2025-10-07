@@ -1294,7 +1294,7 @@ function renderDefaultState({
           class: "btn dashboard-sections-grid-item-test-latency",
           click: () => testLatency()
         },
-        "Test latency"
+        _("Test latency")
       )
     ]),
     E(
