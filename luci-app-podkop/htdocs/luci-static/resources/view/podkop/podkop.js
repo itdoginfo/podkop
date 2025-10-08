@@ -1,82 +1,68 @@
 'use strict';
 'require view';
 'require form';
+'require baseclass';
 'require network';
-'require view.podkop.configSection as configSection';
-'require view.podkop.diagnosticTab as diagnosticTab';
-'require view.podkop.additionalTab as additionalTab';
-'require view.podkop.dashboardTab as dashboardTab';
-'require view.podkop.utils as utils';
 'require view.podkop.main as main';
 
-const EntryNode = {
+// Settings content
+'require view.podkop.settings as settings';
+
+// Sections content
+'require view.podkop.section as section';
+
+// Dashboard content
+'require view.podkop.dashboard as dashboard';
+
+
+const EntryPoint = {
   async render() {
     main.injectGlobalStyles();
 
-    const podkopFormMap = new form.Map('podkop', '', null, ['main', 'extra']);
+    const podkopMap = new form.Map('podkop', _('Podkop Settings'), _('Configuration for Podkop service'));
+    // Enable tab views
+    podkopMap.tabbed = true;
 
-    // Main Section
-    const mainSection = podkopFormMap.section(form.TypedSection, 'main');
-    mainSection.anonymous = true;
 
-    configSection.createConfigSection(mainSection);
+    // Settings tab
+    const settingsSection = podkopMap.section(form.TypedSection, 'settings', _('Settings'));
+    settingsSection.anonymous = true;
+    settingsSection.addremove = false;
+    // Make it named [ config settings 'settings' ]
+    settingsSection.cfgsections = function () { return ['settings']; };
 
-    // Additional Settings Tab (main section)
-    additionalTab.createAdditionalSection(mainSection);
+    // Render settings content
+    settings.createSettingsContent(settingsSection);
 
-    // Diagnostics Tab (main section)
-    diagnosticTab.createDiagnosticsSection(mainSection);
-    const podkopFormMapPromise = podkopFormMap.render().then((node) => {
-      // Set up diagnostics event handlers
-      diagnosticTab.setupDiagnosticsEventHandlers(node);
 
-      // Start critical error polling for all tabs
-      utils.startErrorPolling();
+    // Sections tab
+    const sectionsSection = podkopMap.section(form.TypedSection, 'section', _('Sections'));
+    sectionsSection.anonymous = false;
+    sectionsSection.addremove = true;
+    sectionsSection.template = 'cbi/simpleform';
 
-      // Add event listener to keep error polling active when switching tabs
-      const tabs = node.querySelectorAll('.cbi-tabmenu');
-      if (tabs.length > 0) {
-        tabs[0].addEventListener('click', function (e) {
-          const tab = e.target.closest('.cbi-tab');
-          if (tab) {
-            // Ensure error polling continues when switching tabs
-            utils.startErrorPolling();
-          }
-        });
-      }
+    // Render section content
+    section.createSectionContent(sectionsSection);
 
-      // Add visibility change handler to manage error polling
-      document.addEventListener('visibilitychange', function () {
-        if (document.hidden) {
-          utils.stopErrorPolling();
-        } else {
-          utils.startErrorPolling();
-        }
-      });
 
-      return node;
-    });
+    // Dashboard tab
+    const dashboardSection = podkopMap.section(form.TypedSection, 'dashboard', _('Dashboard'));
+    dashboardSection.anonymous = true;
+    dashboardSection.addremove = false;
+    // dashboardSection.title = '';
+    dashboardSection.cfgsections = function () { return ['dashboard']; };
 
-    // Extra Section
-    const extraSection = podkopFormMap.section(
-      form.TypedSection,
-      'extra',
-      _('Extra configurations'),
-    );
-    extraSection.anonymous = false;
-    extraSection.addremove = true;
-    extraSection.addbtntitle = _('Add Section');
-    extraSection.multiple = true;
-    configSection.createConfigSection(extraSection);
+    // Render dashboard content
+    dashboard.createDashboardContent(dashboardSection);
 
-    // Initial dashboard render
-    dashboardTab.createDashboardSection(mainSection);
+
 
     // Inject core service
     main.coreService();
 
-    return podkopFormMapPromise;
-  },
-};
+    return podkopMap.render();
+  }
+}
 
-return view.extend(EntryNode);
+
+return view.extend(EntryPoint);

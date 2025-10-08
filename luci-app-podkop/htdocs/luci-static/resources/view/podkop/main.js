@@ -247,8 +247,28 @@ var GlobalStyles = `
     display: none;
 }
 
-#cbi-podkop-main-_status > div {
+#cbi-podkop-dashboard-_mount_node > div {
     width: 100%;
+}
+
+#cbi-podkop-dashboard > h3 {
+    display: none;
+}
+
+#cbi-podkop-settings > h3 {
+    display: none;
+}
+
+#cbi-podkop-section > h3:nth-child(1) {
+    display: none;
+}
+
+.cbi-section-remove {
+    margin-bottom: -32px;
+}
+
+.cbi-value {
+    margin-bottom: 20px !important;
 }
 
 /* Dashboard styles */
