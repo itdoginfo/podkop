@@ -51,7 +51,6 @@ jobs:
       - name: Copy files from ${{ matrix.package_type }} Docker container
         run: |
           mkdir -p ./bin/${{ matrix.package_type }}
-          rm -f ./bin/${{ matrix.package_type }}/*.${{ matrix.package_type }} || true
           docker cp ${{ matrix.package_type }}:/builder/bin/packages/x86_64/utilites/. ./bin/${{ matrix.package_type }}/
           docker cp ${{ matrix.package_type }}:/builder/bin/packages/x86_64/luci/. ./bin/${{ matrix.package_type }}/
 

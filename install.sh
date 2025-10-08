@@ -85,9 +85,9 @@ main() {
 
     local grep_url_pattern
     if [ "$PKG_IS_APK" -eq 1 ]; then
-        grep_url_pattern='https://[^"[:space:]]*\.ipk'
-    else
         grep_url_pattern='https://[^"[:space:]]*\.apk'
+    else
+        grep_url_pattern='https://[^"[:space:]]*\.ipk'
     fi
 
     download_success=0
@@ -133,8 +133,8 @@ main() {
     if [ -n "$ru" ]; then
         if pkg_is_installed luci-i18n-podkop-ru; then
                 msg "Upgraded ru translation..."
-                pkg_remove remove luci-i18n-podkop*
-                pkg_install install "$DOWNLOAD_DIR/$ru"
+                pkg_remove luci-i18n-podkop*
+                pkg_install "$DOWNLOAD_DIR/$ru"
         else
             msg "Русский язык интерфейса ставим? y/n (Need a Russian translation?)"
             while true; do

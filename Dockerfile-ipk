@@ -1,4 +1,4 @@
-FROM itdoginfo/openwrt-sdk-ipk:latest
+FROM itdoginfo/openwrt-sdk-ipk:24.10.3
 
 ARG PKG_VERSION
 ENV PKG_VERSION=${PKG_VERSION}
