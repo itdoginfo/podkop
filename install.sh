@@ -4,11 +4,60 @@ REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
 DOWNLOAD_DIR="/tmp/podkop"
 COUNT=3
 
+# Cached flag to switch between ipk or apk package managers
+PKG_IS_APK=0
+command -v apk >/dev/null 2>&1 && PKG_IS_APK=1
+
 rm -rf "$DOWNLOAD_DIR"
 mkdir -p "$DOWNLOAD_DIR"
 
 msg() {
     printf "\033[32;1m%s\033[0m\n" "$1"
+}
+
+pkg_is_installed () {
+    local pkg_name="$1"
+
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        # grep -q should work without change based on example from documentation
+        # apk list --installed --providers dnsmasq
+        # <dnsmasq> dnsmasq-full-2.90-r3 x86_64 {feeds/base/package/network/services/dnsmasq} (GPL-2.0) [installed]
+        apk list --installed | grep -q "$pkg_name"
+    else
+        opkg list-installed | grep -q "$pkg_name"
+    fi
+}
+
+pkg_remove() {
+    local pkg_name="$1"
+
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        # TODO: check --force-depends flag
+        # Nothing here: https://openwrt.org/docs/guide-user/additional-software/opkg-to-apk-cheatsheet
+        apk del "$pkg_name"
+    else
+        opkg remove --force-depends "$pkg_name"
+    fi
+}
+
+pkg_list_update() {
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        apk update
+    else
+        opkg update
+    fi
+}
+
+pkg_install() {
+    local pkg_file="$1"
+
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        # Can't install without flag based on info from documentation
+        # If you're installing a non-standard (self-built) package, use the --allow-untrusted option:
+        apk add --allow-untrusted "$pkg_file"
+    else
+        opkg install "$pkg_file"
+    fi
 }
 
 main() {
@@ -17,14 +66,14 @@ main() {
 
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
 
-    opkg update || { echo "opkg update failed"; exit 1; }
-  
+    pkg_list_update || { echo "Packages list update failed"; exit 1; }
+
     if [ -f "/etc/init.d/podkop" ]; then
         msg "Podkop is already installed. Upgraded..."
     else
         msg "Installed podkop..."
     fi
-    
+
     if command -v curl &> /dev/null; then
         check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
 
@@ -34,11 +83,18 @@ main() {
         fi
     fi
 
+    local grep_url_pattern
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        grep_url_pattern='https://[^"[:space:]]*\.ipk'
+    else
+        grep_url_pattern='https://[^"[:space:]]*\.apk'
+    fi
+
     download_success=0
     while read -r url; do
         filename=$(basename "$url")
         filepath="$DOWNLOAD_DIR/$filename"
-               
+
         attempt=0
         while [ $attempt -lt $COUNT ]; do
             msg "Download $filename (count $((attempt+1)))..."
@@ -53,40 +109,40 @@ main() {
             rm -f "$filepath"
             attempt=$((attempt+1))
         done
-        
+
         if [ $attempt -eq $COUNT ]; then
             msg "Failed to download $filename after $COUNT attempts"
         fi
-    done < <(wget -qO- "$REPO" | grep -o 'https://[^"[:space:]]*\.ipk')
-    
+    done < <(wget -qO- "$REPO" | grep -o "$grep_url_pattern")
+
     if [ $download_success -eq 0 ]; then
         msg "No packages were downloaded successfully"
         exit 1
     fi
-    
+
     for pkg in podkop luci-app-podkop; do
         file=$(ls "$DOWNLOAD_DIR" | grep "^$pkg" | head -n 1)
         if [ -n "$file" ]; then
             msg "Installing $file"
-            opkg install "$DOWNLOAD_DIR/$file"
+            pkg_install "$DOWNLOAD_DIR/$file"
             sleep 3
         fi
     done
 
     ru=$(ls "$DOWNLOAD_DIR" | grep "luci-i18n-podkop-ru" | head -n 1)
     if [ -n "$ru" ]; then
-        if opkg list-installed | grep -q luci-i18n-podkop-ru; then
+        if pkg_is_installed luci-i18n-podkop-ru; then
                 msg "Upgraded ru translation..."
-                opkg remove luci-i18n-podkop*
-                opkg install "$DOWNLOAD_DIR/$ru"
+                pkg_remove remove luci-i18n-podkop*
+                pkg_install install "$DOWNLOAD_DIR/$ru"
         else
             msg "Русский язык интерфейса ставим? y/n (Need a Russian translation?)"
             while true; do
                 read -r -p '' RUS
                 case $RUS in
                 y)
-                    opkg remove luci-i18n-podkop*
-                    opkg install "$DOWNLOAD_DIR/$ru"
+                    pkg_remove luci-i18n-podkop*
+                    pkg_install "$DOWNLOAD_DIR/$ru"
                     break
                     ;;
                 n)
@@ -133,15 +189,17 @@ check_system() {
         exit 1
     fi
 
-    if opkg list-installed | grep -q https-dns-proxy; then
+    if pkg_is_installed https-dns-proxy; then
         msg "Сonflicting package detected: https-dns-proxy. Remove?"
 
         while true; do
                 read -r -p '' DNSPROXY
                 case $DNSPROXY in
 
-                yes|y|Y|yes)
-                    opkg remove --force-depends luci-app-https-dns-proxy https-dns-proxy luci-i18n-https-dns-proxy*
+                yes|y|Y)
+                    pkg_remove luci-app-https-dns-proxy
+                    pkg_remove https-dns-proxy
+                    pkg_remove luci-i18n-https-dns-proxy*
                     break
                     ;;
                 *)
@@ -154,7 +212,7 @@ check_system() {
 }
 
 sing_box() {
-    if ! opkg list-installed | grep -q "^sing-box"; then
+    if ! pkg_is_installed "^sing-box"; then
         return
     fi
 
@@ -165,7 +223,7 @@ sing_box() {
         msg "sing-box version $sing_box_version is older than required $required_version"
         msg "Removing old version..."
         service podkop stop
-        opkg remove sing-box --force-depends
+        pkg_remove sing-box
     fi
 }
 
