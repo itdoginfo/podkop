@@ -43,7 +43,7 @@ jobs:
           context: .
           tags: podkop:ci-${{ matrix.package_type }}
           build-args: |
-            PKG_VERSION=${{ needs.preparation.outputs.version }}
+            PODKOP_VERSION=${{ needs.preparation.outputs.version }}
 
       - name: Create ${{ matrix.package_type }} Docker container
         run: docker create --name ${{ matrix.package_type }} podkop:ci-${{ matrix.package_type }}

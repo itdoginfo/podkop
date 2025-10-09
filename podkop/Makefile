@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=podkop
 
-PKG_VERSION := $(if $(PKG_VERSION),$(PKG_VERSION),0.$(shell date +%d%m%Y))
+PKG_VERSION := $(if $(PODKOP_VERSION),$(PODKOP_VERSION),0.$(shell date +%d%m%Y))
 
 PKG_RELEASE:=1
 
