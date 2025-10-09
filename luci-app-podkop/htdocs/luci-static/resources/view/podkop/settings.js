@@ -6,45 +6,6 @@
 
 function createSettingsContent(section) {
     let o = section.option(
-        form.Flag,
-        'yacd',
-        _('Yacd enable'),
-        `<a href="${main.getClashApiUrl()}/ui" target="_blank">${main.getClashApiUrl()}/ui</a>`,
-    );
-    o.default = '0';
-    o.rmempty = false;
-
-    o = section.option(
-        form.Flag,
-        'exclude_ntp',
-        _('Exclude NTP'),
-        _('Allows you to exclude NTP protocol traffic from the tunnel'),
-    );
-    o.default = '0';
-    o.rmempty = false;
-
-    o = section.option(
-        form.Flag,
-        'quic_disable',
-        _('QUIC disable'),
-        _('For issues with the video stream'),
-    );
-    o.default = '0';
-    o.rmempty = false;
-
-    o = section.option(
-        form.ListValue,
-        'update_interval',
-        _('List Update Frequency'),
-        _('Select how often the lists will be updated'),
-    );
-    Object.entries(main.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
-        o.value(key, _(label));
-    });
-    o.default = '1d';
-    o.rmempty = false;
-
-    o = section.option(
         form.ListValue,
         'dns_type',
         _('DNS Protocol Type'),
@@ -170,6 +131,7 @@ function createSettingsContent(section) {
         return true;
     };
 
+
     o = section.option(
         widgets.DeviceSelect,
         'iface',
@@ -206,6 +168,54 @@ function createSettingsContent(section) {
         // Allow only non-wireless devices
         return !isWireless;
     };
+
+    o = section.option(
+        form.ListValue,
+        'update_interval',
+        _('List Update Frequency'),
+        _('Select how often the lists will be updated'),
+    );
+    Object.entries(main.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
+        o.value(key, _(label));
+    });
+    o.default = '1d';
+    o.rmempty = false;
+
+    o = section.option(
+        form.Flag,
+        'quic_disable',
+        _('QUIC disable'),
+        _('For issues with the video stream'),
+    );
+    o.default = '0';
+    o.rmempty = false;
+
+    o = section.option(
+        form.Flag,
+        'yacd',
+        _('Yacd enable'),
+        `<a href="${main.getClashApiUrl()}/ui" target="_blank">${main.getClashApiUrl()}/ui</a>`,
+    );
+    o.default = '0';
+    o.rmempty = false;
+
+    o = section.option(
+        form.Flag,
+        'exclude_ntp',
+        _('Exclude NTP'),
+        _('Allows you to exclude NTP protocol traffic from the tunnel'),
+    );
+    o.default = '0';
+    o.rmempty = false;
+
+    o = section.option(
+        form.Flag,
+        'detour',
+        _('Proxy download of lists'),
+        _('Downloading all lists via main Proxy/VPN'),
+    );
+    o.default = '0';
+    o.rmempty = false;
 
     o = section.option(
         form.Flag,
@@ -263,17 +273,6 @@ function createSettingsContent(section) {
     );
     o.default = '0';
     o.rmempty = false;
-
-    o = section.option(
-        form.Flag,
-        'detour',
-        _('Proxy download of lists'),
-        _('Downloading all lists via main Proxy/VPN'),
-    );
-    o.default = '0';
-    o.rmempty = false;
-
-
 }
 
 const EntryPoint = {
