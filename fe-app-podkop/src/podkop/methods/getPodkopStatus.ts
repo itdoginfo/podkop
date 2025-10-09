@@ -7,7 +7,7 @@ export async function getPodkopStatus(): Promise<{
   const response = await executeShellCommand({
     command: '/usr/bin/podkop',
     args: ['get_status'],
-    timeout: 1000,
+    timeout: 10000,
   });
 
   if (response.stdout) {

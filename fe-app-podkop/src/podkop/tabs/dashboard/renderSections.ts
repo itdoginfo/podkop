@@ -1,4 +1,5 @@
 import { Podkop } from '../../types';
+import { getClashApiUrl } from '../../../helpers';
 
 interface IRenderSectionsProps {
   loading: boolean;
@@ -16,7 +17,10 @@ function renderFailedState() {
       class: 'pdk_dashboard-page__outbound-section centered',
       style: 'height: 127px',
     },
-    E('span', {}, _('Dashboard currently unavailable')),
+    E('span', {}, [
+      E('span', {}, _('Dashboard currently unavailable')),
+      E('div', { style: 'text-align: center;' }, `API: ${getClashApiUrl()}`),
+    ]),
   );
 }
 

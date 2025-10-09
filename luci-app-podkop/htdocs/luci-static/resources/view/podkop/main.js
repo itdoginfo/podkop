@@ -213,45 +213,52 @@ function validateShadowsocksUrl(url) {
 // src/validators/validateVlessUrl.ts
 function validateVlessUrl(url) {
   try {
-    if (!url.startsWith("vless://")) {
+    if (!url.startsWith("vless://"))
       return {
         valid: false,
-        message: _("Invalid VLESS URL: must start with vless://")
+        message: "Invalid VLESS URL: must start with vless://"
       };
-    }
-    if (!url || /\s/.test(url)) {
+    if (/\s/.test(url))
       return {
         valid: false,
-        message: _("Invalid VLESS URL: must not contain spaces")
+        message: "Invalid VLESS URL: must not contain spaces"
       };
-    }
-    const refinedURL = url.replace("vless://", "https://");
-    const parsedUrl = new URL(refinedURL);
-    if (!parsedUrl.username) {
-      return { valid: false, message: _("Invalid VLESS URL: missing UUID") };
-    }
-    if (!parsedUrl.hostname) {
-      return { valid: false, message: _("Invalid VLESS URL: missing server") };
-    }
-    if (!parsedUrl.port) {
-      return { valid: false, message: _("Invalid VLESS URL: missing port") };
-    }
-    if (isNaN(+parsedUrl.port) || +parsedUrl.port < 1 || +parsedUrl.port > 65535) {
+    const body = url.slice("vless://".length);
+    const [mainPart] = body.split("#");
+    const [userHostPort, queryString] = mainPart.split("?");
+    if (!userHostPort)
       return {
         valid: false,
-        message: _(
-          "Invalid VLESS URL: invalid port number. Must be between 1 and 65535"
-        )
+        message: "Invalid VLESS URL: missing host and UUID"
       };
-    }
-    if (!parsedUrl.search) {
+    const [userPart, hostPortPart] = userHostPort.split("@");
+    if (!userPart)
+      return { valid: false, message: "Invalid VLESS URL: missing UUID" };
+    if (!hostPortPart)
+      return { valid: false, message: "Invalid VLESS URL: missing server" };
+    const [host, port] = hostPortPart.split(":");
+    if (!host)
+      return { valid: false, message: "Invalid VLESS URL: missing hostname" };
+    if (!port)
+      return { valid: false, message: "Invalid VLESS URL: missing port" };
+    const portNum = Number(port);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
       return {
         valid: false,
-        message: _("Invalid VLESS URL: missing query parameters")
+        message: "Invalid VLESS URL: invalid port number"
       };
-    }
-    const params = new URLSearchParams(parsedUrl.search);
-    const type = params.get("type");
+    if (!queryString)
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: missing query parameters"
+      };
+    const params = queryString.split("&").filter(Boolean).map((pair) => pair.split("=")).reduce(
+      (acc, [key, value = ""]) => {
+        if (key) acc[key] = value;
+        return acc;
+      },
+      {}
+    );
     const validTypes = [
       "tcp",
       "raw",
@@ -263,41 +270,28 @@ function validateVlessUrl(url) {
       "ws",
       "kcp"
     ];
-    if (!type || !validTypes.includes(type)) {
-      return {
-        valid: false,
-        message: _(
-          "Invalid VLESS URL: type must be one of tcp, raw, udp, grpc, http, ws"
-        )
-      };
-    }
-    const security = params.get("security");
     const validSecurities = ["tls", "reality", "none"];
-    if (!security || !validSecurities.includes(security)) {
+    if (!params.type || !validTypes.includes(params.type))
       return {
         valid: false,
-        message: _(
-          "Invalid VLESS URL: security must be one of tls, reality, none"
-        )
+        message: "Invalid VLESS URL: unsupported or missing type"
       };
-    }
-    if (security === "reality") {
-      if (!params.get("pbk")) {
+    if (!params.security || !validSecurities.includes(params.security))
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: unsupported or missing security"
+      };
+    if (params.security === "reality") {
+      if (!params.pbk)
         return {
           valid: false,
-          message: _(
-            "Invalid VLESS URL: missing pbk parameter for reality security"
-          )
+          message: "Invalid VLESS URL: missing pbk for reality"
         };
-      }
-      if (!params.get("fp")) {
+      if (!params.fp)
         return {
           valid: false,
-          message: _(
-            "Invalid VLESS URL: missing fp parameter for reality security"
-          )
+          message: "Invalid VLESS URL: missing fp for reality"
         };
-      }
     }
     return { valid: true, message: _("Valid") };
   } catch (_e) {
@@ -338,16 +332,33 @@ function validateTrojanUrl(url) {
         message: _("Invalid Trojan URL: must not contain spaces")
       };
     }
-    const refinedURL = url.replace("trojan://", "https://");
-    const parsedUrl = new URL(refinedURL);
-    if (!parsedUrl.username || !parsedUrl.hostname || !parsedUrl.port) {
+    const body = url.slice("trojan://".length);
+    const [mainPart] = body.split("#");
+    const [userHostPort] = mainPart.split("?");
+    const [userPart, hostPortPart] = userHostPort.split("@");
+    if (!userHostPort)
       return {
         valid: false,
-        message: _(
-          "Invalid Trojan URL: must contain username, hostname and port"
-        )
+        message: "Invalid Trojan URL: missing credentials and host"
       };
-    }
+    if (!userPart)
+      return { valid: false, message: "Invalid Trojan URL: missing password" };
+    if (!hostPortPart)
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: missing hostname and port"
+      };
+    const [host, port] = hostPortPart.split(":");
+    if (!host)
+      return { valid: false, message: "Invalid Trojan URL: missing hostname" };
+    if (!port)
+      return { valid: false, message: "Invalid Trojan URL: missing port" };
+    const portNum = Number(port);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: invalid port number"
+      };
   } catch (_e) {
     return { valid: false, message: _("Invalid Trojan URL: parsing failed") };
   }
@@ -1023,7 +1034,7 @@ async function getPodkopStatus() {
   const response = await executeShellCommand({
     command: "/usr/bin/podkop",
     args: ["get_status"],
-    timeout: 1e3
+    timeout: 1e4
   });
   if (response.stdout) {
     return JSON.parse(response.stdout.replace(/\n/g, ""));
@@ -1036,7 +1047,7 @@ async function getSingboxStatus() {
   const response = await executeShellCommand({
     command: "/usr/bin/podkop",
     args: ["get_sing_box_status"],
-    timeout: 1e3
+    timeout: 1e4
   });
   if (response.stdout) {
     return JSON.parse(response.stdout.replace(/\n/g, ""));
@@ -1248,7 +1259,10 @@ function renderFailedState() {
       class: "pdk_dashboard-page__outbound-section centered",
       style: "height: 127px"
     },
-    E("span", {}, _("Dashboard currently unavailable"))
+    E("span", {}, [
+      E("span", {}, _("Dashboard currently unavailable")),
+      E("div", { style: "text-align: center;" }, `API: ${getClashApiUrl()}`)
+    ])
   );
 }
 function renderLoadingState() {
@@ -1585,6 +1599,9 @@ async function fetchDashboardSections() {
     }
   });
   const { data, success } = await getDashboardSections();
+  if (!success) {
+    console.log("[fetchDashboardSections]: failed to fetch", getClashApiUrl());
+  }
   store.set({
     sectionsWidget: {
       latencyFetching: false,
@@ -1595,17 +1612,28 @@ async function fetchDashboardSections() {
   });
 }
 async function fetchServicesInfo() {
-  const [podkop, singbox] = await Promise.all([
-    getPodkopStatus(),
-    getSingboxStatus()
-  ]);
-  store.set({
-    servicesInfoWidget: {
-      loading: false,
-      failed: false,
-      data: { singbox: singbox.running, podkop: podkop.enabled }
-    }
-  });
+  try {
+    const [podkop, singbox] = await Promise.all([
+      getPodkopStatus(),
+      getSingboxStatus()
+    ]);
+    store.set({
+      servicesInfoWidget: {
+        loading: false,
+        failed: false,
+        data: { singbox: singbox.running, podkop: podkop.enabled }
+      }
+    });
+  } catch (err) {
+    console.log("[fetchServicesInfo]: failed to fetchServices", err);
+    store.set({
+      servicesInfoWidget: {
+        loading: false,
+        failed: true,
+        data: { singbox: 0, podkop: 0 }
+      }
+    });
+  }
 }
 async function connectToClashSockets() {
   socket.subscribe(
@@ -1621,6 +1649,10 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
+      console.log(
+        "[fetchDashboardSections]: failed to connect",
+        getClashWsUrl()
+      );
       store.set({
         bandwidthWidget: {
           loading: false,
@@ -1654,6 +1686,10 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
+      console.log(
+        "[fetchDashboardSections]: failed to connect",
+        getClashWsUrl()
+      );
       store.set({
         trafficTotalWidget: {
           loading: false,

@@ -8,7 +8,7 @@ export async function getSingboxStatus(): Promise<{
   const response = await executeShellCommand({
     command: '/usr/bin/podkop',
     args: ['get_sing_box_status'],
-    timeout: 1000,
+    timeout: 10000,
   });
 
   if (response.stdout) {
