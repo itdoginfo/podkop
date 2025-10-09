@@ -2,7 +2,7 @@ name: Build packages
 on:
   push:
     tags:
-      - v*
+      - '*'
 
 permissions:
   contents: write
