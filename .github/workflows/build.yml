@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
       - id: version
         run: |
-          VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "dev_$(date +%d%m%Y)")
+          VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "0.$(date +%d%m%Y)")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   build:
@@ -51,10 +51,10 @@ jobs:
       - name: Copy files from ${{ matrix.package_type }} Docker container
         run: |
           mkdir -p ./bin/${{ matrix.package_type }}
-          docker cp ${{ matrix.package_type }}:/builder/bin/packages/x86_64/utilites/. ./bin/${{ matrix.package_type }}/
+          docker cp ${{ matrix.package_type }}:/builder/bin/packages/x86_64/utilities/. ./bin/${{ matrix.package_type }}/
           docker cp ${{ matrix.package_type }}:/builder/bin/packages/x86_64/luci/. ./bin/${{ matrix.package_type }}/
 
-        # Проблема в том, что sdk которая генерирует apk файлы не использует `_` символ --> только `-` в именах итоговых файлов
+        # IPK uses underscore `_` in filenames, while APK uses only dash `-`
       - name: Fix naming difference between build for packages (replace _ with -)
         if: matrix.package_type == 'ipk'
         shell: bash
@@ -69,13 +69,13 @@ jobs:
       - name: Filter files
         shell: bash
         run: |
-          # Извлекаем версию из тега, убирая префикс 'v'
+          # Extract version from tag, removing 'v' prefix
           VERSION=${GITHUB_REF#refs/tags/v}
 
           mkdir -p ./filtered-bin/${{ matrix.package_type }}
-          cp ./bin/${{ matrix.package_type }}/luci-i18n-podkop-ru-*.${{ matrix.package_type }} "./filtered-bin/luci-i18n-podkop-ru-${VERSION}.${{ matrix.package_type }}"
-          cp ./bin/${{ matrix.package_type }}/podkop-*.${{ matrix.package_type }} ./filtered-bin/
-          cp ./bin/${{ matrix.package_type }}/luci-app-podkop-*.${{ matrix.package_type }} ./filtered-bin/
+          cp ./bin/${{ matrix.package_type }}/luci-i18n-podkop-ru-*.${{ matrix.package_type }} "./filtered-bin/${{ matrix.package_type }}/luci-i18n-podkop-ru-${VERSION}.${{ matrix.package_type }}"
+          cp ./bin/${{ matrix.package_type }}/podkop-*.${{ matrix.package_type }} ./filtered-bin/${{ matrix.package_type }}/
+          cp ./bin/${{ matrix.package_type }}/luci-app-podkop-*.${{ matrix.package_type }} ./filtered-bin/${{ matrix.package_type }}/
 
       - name: Remove Docker container
         run: docker rm ${{ matrix.package_type }}
@@ -113,7 +113,7 @@ jobs:
         uses: softprops/action-gh-release@v2.4.0
         with:
           files: ./filtered-bin/release/*.*
-          draft: false
-          prerelease: false
+          draft: true
+          prerelease: true
           name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}

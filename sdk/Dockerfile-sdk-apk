@@ -3,5 +3,5 @@ WORKDIR /builder
 RUN ./setup.sh \
     && ./scripts/feeds update -a \
     && ./scripts/feeds install luci-base \
-    && mkdir -p /builder/package/feeds/utilites/ \
+    && mkdir -p /builder/package/feeds/utilities/ \
     && mkdir -p /builder/package/feeds/luci/
