@@ -1,5 +1,8 @@
 FROM itdoginfo/openwrt-sdk-apk:09102025
 
+ARG PKG_VERSION
+ENV PKG_VERSION=${PKG_VERSION}
+
 COPY ./podkop /builder/package/feeds/utilities/podkop
 COPY ./luci-app-podkop /builder/package/feeds/luci/luci-app-podkop
 
