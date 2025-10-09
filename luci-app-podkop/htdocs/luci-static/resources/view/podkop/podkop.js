@@ -23,6 +23,14 @@ const EntryPoint = {
     // Enable tab views
     podkopMap.tabbed = true;
 
+    // Sections tab
+    const sectionsSection = podkopMap.section(form.TypedSection, 'section', _('Sections'));
+    sectionsSection.anonymous = false;
+    sectionsSection.addremove = true;
+    sectionsSection.template = 'cbi/simpleform';
+
+    // Render section content
+    section.createSectionContent(sectionsSection);
 
     // Settings tab
     const settingsSection = podkopMap.section(form.TypedSection, 'settings', _('Settings'));
@@ -33,16 +41,6 @@ const EntryPoint = {
 
     // Render settings content
     settings.createSettingsContent(settingsSection);
-
-
-    // Sections tab
-    const sectionsSection = podkopMap.section(form.TypedSection, 'section', _('Sections'));
-    sectionsSection.anonymous = false;
-    sectionsSection.addremove = true;
-    sectionsSection.template = 'cbi/simpleform';
-
-    // Render section content
-    section.createSectionContent(sectionsSection);
 
 
     // Dashboard tab
