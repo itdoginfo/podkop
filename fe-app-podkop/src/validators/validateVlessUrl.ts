@@ -2,7 +2,12 @@ import { ValidationResult } from './types';
 
 export function validateVlessUrl(url: string): ValidationResult {
   try {
-    const parsedUrl = new URL(url);
+    if (!url.startsWith('vless://')) {
+      return {
+        valid: false,
+        message: _('Invalid VLESS URL: must start with vless://'),
+      };
+    }
 
     if (!url || /\s/.test(url)) {
       return {
@@ -11,12 +16,8 @@ export function validateVlessUrl(url: string): ValidationResult {
       };
     }
 
-    if (parsedUrl.protocol !== 'vless:') {
-      return {
-        valid: false,
-        message: _('Invalid VLESS URL: must start with vless://'),
-      };
-    }
+    const refinedURL = url.replace('vless://', 'https://');
+    const parsedUrl = new URL(refinedURL);
 
     if (!parsedUrl.username) {
       return { valid: false, message: _('Invalid VLESS URL: missing UUID') };

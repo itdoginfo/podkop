@@ -2,22 +2,23 @@ import { ValidationResult } from './types';
 
 // TODO refactor current validation and add tests
 export function validateTrojanUrl(url: string): ValidationResult {
-  if (!url.startsWith('trojan://')) {
-    return {
-      valid: false,
-      message: _('Invalid Trojan URL: must start with trojan://'),
-    };
-  }
-
-  if (!url || /\s/.test(url)) {
-    return {
-      valid: false,
-      message: _('Invalid Trojan URL: must not contain spaces'),
-    };
-  }
-
   try {
-    const parsedUrl = new URL(url);
+    if (!url.startsWith('trojan://')) {
+      return {
+        valid: false,
+        message: _('Invalid Trojan URL: must start with trojan://'),
+      };
+    }
+
+    if (!url || /\s/.test(url)) {
+      return {
+        valid: false,
+        message: _('Invalid Trojan URL: must not contain spaces'),
+      };
+    }
+
+    const refinedURL = url.replace('trojan://', 'https://');
+    const parsedUrl = new URL(refinedURL);
 
     if (!parsedUrl.username || !parsedUrl.hostname || !parsedUrl.port) {
       return {

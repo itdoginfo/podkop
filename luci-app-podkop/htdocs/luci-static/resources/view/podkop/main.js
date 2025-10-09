@@ -213,19 +213,20 @@ function validateShadowsocksUrl(url) {
 // src/validators/validateVlessUrl.ts
 function validateVlessUrl(url) {
   try {
-    const parsedUrl = new URL(url);
+    if (!url.startsWith("vless://")) {
+      return {
+        valid: false,
+        message: _("Invalid VLESS URL: must start with vless://")
+      };
+    }
     if (!url || /\s/.test(url)) {
       return {
         valid: false,
         message: _("Invalid VLESS URL: must not contain spaces")
       };
     }
-    if (parsedUrl.protocol !== "vless:") {
-      return {
-        valid: false,
-        message: _("Invalid VLESS URL: must start with vless://")
-      };
-    }
+    const refinedURL = url.replace("vless://", "https://");
+    const parsedUrl = new URL(refinedURL);
     if (!parsedUrl.username) {
       return { valid: false, message: _("Invalid VLESS URL: missing UUID") };
     }
@@ -324,20 +325,21 @@ function validateOutboundJson(value) {
 
 // src/validators/validateTrojanUrl.ts
 function validateTrojanUrl(url) {
-  if (!url.startsWith("trojan://")) {
-    return {
-      valid: false,
-      message: _("Invalid Trojan URL: must start with trojan://")
-    };
-  }
-  if (!url || /\s/.test(url)) {
-    return {
-      valid: false,
-      message: _("Invalid Trojan URL: must not contain spaces")
-    };
-  }
   try {
-    const parsedUrl = new URL(url);
+    if (!url.startsWith("trojan://")) {
+      return {
+        valid: false,
+        message: _("Invalid Trojan URL: must start with trojan://")
+      };
+    }
+    if (!url || /\s/.test(url)) {
+      return {
+        valid: false,
+        message: _("Invalid Trojan URL: must not contain spaces")
+      };
+    }
+    const refinedURL = url.replace("trojan://", "https://");
+    const parsedUrl = new URL(refinedURL);
     if (!parsedUrl.username || !parsedUrl.hostname || !parsedUrl.port) {
       return {
         valid: false,
