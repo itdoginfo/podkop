@@ -1,5 +1,6 @@
 # shellcheck disable=SC2034
 
+PODKOP_VERSION="__COMPILED_VERSION_VARIABLE__"
 ## Common
 PODKOP_CONFIG="/etc/config/podkop"
 RESOLV_CONF="/etc/resolv.conf"

@@ -376,7 +376,7 @@ function showConfigModal(command, title) {
     let formattedOutput = '';
 
     if (command === 'global_check') {
-      safeExec('/usr/bin/podkop', [command], 'P0_PRIORITY', (res) => {
+      safeExec('/usr/bin/podkop', [command, `${main.PODKOP_LUCI_APP_VERSION}`], 'P0_PRIORITY', (res) => {
         formattedOutput = formatDiagnosticOutput(res.stdout || _('No output'));
 
         try {
@@ -918,19 +918,11 @@ async function updateDiagnostics() {
     );
   });
 
-  safeExec(
-    '/usr/bin/podkop',
-    ['show_luci_version'],
-    'P2_PRIORITY',
-    (result) => {
-      updateTextElement(
-        'luci-version',
-        document.createTextNode(
-          result.stdout ? result.stdout.trim() : _('Unknown'),
-        ),
-      );
-    },
-  );
+  updateTextElement(
+    'luci-version',
+    document.createTextNode(
+      `${main.PODKOP_LUCI_APP_VERSION}`
+    ),
 
   safeExec(
     '/usr/bin/podkop',

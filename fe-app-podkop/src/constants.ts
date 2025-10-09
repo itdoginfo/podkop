@@ -4,6 +4,7 @@ export const STATUS_COLORS = {
   WARNING: '#ff9800',
 };
 
+export const PODKOP_LUCI_APP_VERSION = '__COMPILED_VERSION_VARIABLE__';
 export const FAKEIP_CHECK_DOMAIN = 'fakeip.podkop.fyi';
 export const IP_CHECK_DOMAIN = 'ip.podkop.fyi';
 
