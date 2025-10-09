@@ -12,7 +12,7 @@ function createAdditionalSection(mainSection) {
     form.Flag,
     'yacd',
     _('Yacd enable'),
-    `<a href="${main.getBaseUrl()}:9090/ui" target="_blank">${main.getBaseUrl()}:9090/ui</a>`,
+    `<a href="${main.getClashUIUrl()}" target="_blank">${main.getClashUIUrl()}</a>`,
   );
   o.default = '0';
   o.rmempty = false;

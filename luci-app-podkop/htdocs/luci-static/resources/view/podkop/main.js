@@ -784,6 +784,10 @@ function getClashWsUrl() {
   const { hostname } = window.location;
   return `ws://${hostname}:9090`;
 }
+function getClashUIUrl() {
+  const { hostname } = window.location;
+  return `http://${hostname}:9090/ui`;
+}
 
 // src/helpers/splitProxyString.ts
 function splitProxyString(str) {
@@ -1966,6 +1970,7 @@ return baseclass.extend({
   getClashConfig,
   getClashGroupDelay,
   getClashProxies,
+  getClashUIUrl,
   getClashVersion,
   getClashWsUrl,
   getConfigSections,
