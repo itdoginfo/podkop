@@ -47,6 +47,7 @@ export function renderDashboard() {
           },
           onTestLatency: () => {},
           onChooseOutbound: () => {},
+          latencyFetching: false,
         }),
       ),
     ],

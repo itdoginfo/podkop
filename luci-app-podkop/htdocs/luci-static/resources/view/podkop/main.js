@@ -1503,7 +1503,8 @@ function renderDashboard() {
           onTestLatency: () => {
           },
           onChooseOutbound: () => {
-          }
+          },
+          latencyFetching: false
         })
       )
     ]
@@ -1971,6 +1972,25 @@ async function initDashboardController() {
     connectToClashSockets();
   });
 }
+
+// src/podkop/tabs/diagnostic/renderDiagnostic.ts
+function renderDiagnostic() {
+  return E(
+    "div",
+    {
+      id: "diagnostic-status",
+      class: "pdk_diagnostic-page"
+    },
+    "Not implemented yet"
+  );
+}
+
+// src/podkop/tabs/diagnostic/initDiagnosticController.ts
+async function initDiagnosticController() {
+  onMount("diagnostic-status").then(() => {
+    console.log("diagnostic controller initialized.");
+  });
+}
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
@@ -2010,6 +2030,7 @@ return baseclass.extend({
   getProxyUrlName,
   getSingboxStatus,
   initDashboardController,
+  initDiagnosticController,
   injectGlobalStyles,
   maskIP,
   onMount,
@@ -2017,6 +2038,7 @@ return baseclass.extend({
   parseValueList,
   preserveScrollForPage,
   renderDashboard,
+  renderDiagnostic,
   splitProxyString,
   triggerLatencyGroupTest,
   triggerLatencyProxyTest,
