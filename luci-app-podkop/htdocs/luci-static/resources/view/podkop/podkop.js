@@ -14,6 +14,9 @@
 // Dashboard content
 'require view.podkop.dashboard as dashboard';
 
+// Diagnostic content
+'require view.podkop.diagnostic as diagnostic';
+
 
 const EntryPoint = {
   async render() {
@@ -43,11 +46,19 @@ const EntryPoint = {
     settings.createSettingsContent(settingsSection);
 
 
+    // Diagnostic tab
+    const diagnosticSection = podkopMap.section(form.TypedSection, 'diagnostic', _('Diagnostics'));
+    diagnosticSection.anonymous = true;
+    diagnosticSection.addremove = false;
+    diagnosticSection.cfgsections = function () { return ['diagnostic']; };
+
+    // Render diagnostic content
+    diagnostic.createDiagnosticContent(diagnosticSection);
+
     // Dashboard tab
     const dashboardSection = podkopMap.section(form.TypedSection, 'dashboard', _('Dashboard'));
     dashboardSection.anonymous = true;
     dashboardSection.addremove = false;
-    // dashboardSection.title = '';
     dashboardSection.cfgsections = function () { return ['dashboard']; };
 
     // Render dashboard content
