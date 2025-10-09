@@ -69,8 +69,8 @@ jobs:
       - name: Filter files
         shell: bash
         run: |
-          # Extract version from tag, removing 'v' prefix
-          VERSION=${GITHUB_REF#refs/tags/v}
+          # Use version from preparation job (already without 'v' prefix)
+          VERSION="${{ needs.preparation.outputs.version }}"
 
           mkdir -p ./filtered-bin/${{ matrix.package_type }}
           cp ./bin/${{ matrix.package_type }}/luci-i18n-podkop-ru-*.${{ matrix.package_type }} "./filtered-bin/${{ matrix.package_type }}/luci-i18n-podkop-ru-${VERSION}.${{ matrix.package_type }}"
