@@ -197,7 +197,7 @@ function createSettingsContent(section) {
 
     o = section.option(
         form.Flag,
-        'detour',
+        'download_lists_via_proxy',
         _('Download Lists via Proxy/VPN'),
         _('Downloading all lists via main Proxy/VPN'),
     );

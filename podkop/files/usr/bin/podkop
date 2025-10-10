@@ -470,8 +470,8 @@ list_update() {
     fi
 
     for i in $(seq 1 60); do
-        config_get_bool detour "settings" "detour" "0"
-        if [ "$detour" -eq 1 ]; then
+        config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" "0"
+        if [ "$download_lists_via_proxy" -eq 1 ]; then
             if http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" curl -s -m 3 https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed (via proxy)"
                 break
@@ -1177,7 +1177,7 @@ import_community_service_subnet_list_handler() {
     *) return 0 ;;
     esac
 
-    local tmpfile detour http_proxy_address subnets
+    local tmpfile http_proxy_address subnets
     tmpfile=$(mktemp)
     http_proxy_address="$(get_service_proxy_address)"
 
@@ -1345,9 +1345,9 @@ import_subnets_from_remote_srs_file() {
 
 ## Support functions
 get_service_proxy_address() {
-    local detour
-    config_get_bool detour "settings" "detour" 0
-    if [ "$detour" -eq 1 ]; then
+    local download_lists_via_proxy
+    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
+    if [ "$download_lists_via_proxy" -eq 1 ]; then
         echo "$SB_SERVICE_MIXED_INBOUND_ADDRESS:$SB_SERVICE_MIXED_INBOUND_PORT"
     else
         echo ""
@@ -1355,8 +1355,8 @@ get_service_proxy_address() {
 }
 
 get_download_detour_tag() {
-    config_get_bool detour "settings" "detour" 0
-    if [ "${detour:-0}" -eq 1 ]; then
+    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
+    if [ "$download_lists_via_proxy" -eq 1 ]; then
         echo "$SB_MAIN_OUTBOUND_TAG"
     else
         echo ""
@@ -1573,8 +1573,8 @@ check_github() {
         "$SUBNETS_TWITTER" "$SUBNETS_META" "$SUBNETS_DISCORD"; do
         local list_name=$(basename "$url")
 
-        config_get_bool detour "settings" "detour" "0"
-        if [ "$detour" -eq 1 ]; then
+        config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" "0"
+        if [ "$download_lists_via_proxy" -eq 1 ]; then
             http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -q -O /dev/null "$url"
         else
             wget -q -O /dev/null "$url"
