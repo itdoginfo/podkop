@@ -42,8 +42,7 @@ function createSectionContent(section) {
     o.textarea = true;
     o.rmempty = false;
     o.sectionDescriptions = new Map();
-    o.placeholder =
-        'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt\n// backup3 trojan://04agAQapcl@127.0.0.1:33641?type=tcp&security=none#trojan-tcp-none';
+    o.placeholder = 'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt\n// backup3 trojan://04agAQapcl@127.0.0.1:33641?type=tcp&security=none#trojan-tcp-none';
     o.validate = function (section_id, value) {
         // Optional
         if (!value || value.length === 0) {
@@ -54,15 +53,11 @@ function createSectionContent(section) {
             const activeConfigs = main.splitProxyString(value);
 
             if (!activeConfigs.length) {
-                return _(
-                    'No active configuration found. One configuration is required.',
-                );
+                return _('No active configuration found. One configuration is required.');
             }
 
             if (activeConfigs.length > 1) {
-                return _(
-                    'Multiply active configurations found. Please leave one configuration.',
-                );
+                return _('Multiply active configurations found. Please leave one configuration.');
             }
 
             const validation = main.validateProxyUrl(activeConfigs[0]);
@@ -225,32 +220,23 @@ function createSectionContent(section) {
     };
 
     o = section.option(
-        form.Flag,
-        'community_lists_enabled',
-        _('Community Lists'),
-    );
-    o.default = '0';
-    o.rmempty = false;
-
-    o = section.option(
         form.DynamicList,
         'community_lists',
-        _('Service List'),
-        _('Select predefined service for routing') +
+        _('Community Lists'),
+        _('Select a predefined list for routing') +
         ' <a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>',
     );
     o.placeholder = 'Service list';
     Object.entries(main.DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
     });
-    o.depends('community_lists_enabled', '1');
-    o.rmempty = false;
+    o.rmempty = true;
 
     o = section.option(
         form.ListValue,
         'user_domain_list_type',
         _('User Domain List Type'),
-        _('Select how to add your custom domains'),
+        _('Select the list type for adding custom domains'),
     );
     o.value('disabled', _('Disabled'));
     o.value('dynamic', _('Dynamic List'));
@@ -262,9 +248,7 @@ function createSectionContent(section) {
         form.DynamicList,
         'user_domains',
         _('User Domains'),
-        _(
-            'Enter domain names without protocols (example: sub.example.com or example.com)',
-        ),
+        _('Enter domain names without protocols, e.g. example.com or sub.example.com'),
     );
     o.placeholder = 'Domains list';
     o.depends('user_domain_list_type', 'dynamic');
@@ -288,12 +272,9 @@ function createSectionContent(section) {
         form.TextValue,
         'user_domains_text',
         _('User Domains List'),
-        _(
-            'Enter domain names separated by comma, space or newline. You can add comments after //',
-        ),
+        _('Enter domain names separated by commas, spaces, or newlines. You can add comments using //'),
     );
-    o.placeholder =
-        'example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains';
+    o.placeholder = 'example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains';
     o.depends('user_domain_list_type', 'text');
     o.rows = 8;
     o.rmempty = false;
@@ -306,9 +287,7 @@ function createSectionContent(section) {
         const domains = main.parseValueList(value);
 
         if (!domains.length) {
-            return _(
-                'At least one valid domain must be specified. Comments-only content is not allowed.',
-            );
+            return _('At least one valid domain must be specified. Comments-only content is not allowed.');
         }
 
         const {valid, results} = main.bulkValidate(domains, row => main.validateDomain(row, true));
@@ -325,109 +304,10 @@ function createSectionContent(section) {
     };
 
     o = section.option(
-        form.Flag,
-        'local_domain_lists_enabled',
-        _('Local Domain Lists'),
-        _('Use the list from the router filesystem'),
-    );
-    o.default = '0';
-    o.rmempty = false;
-
-    o = section.option(
-        form.DynamicList,
-        'local_domain_lists',
-        _('Local Domain List Paths'),
-        _('Enter the list file path'),
-    );
-    o.placeholder = '/path/file.lst';
-    o.depends('local_domain_lists_enabled', '1');
-    o.rmempty = false;
-    o.validate = function (section_id, value) {
-        // Optional
-        if (!value || value.length === 0) {
-            return true;
-        }
-
-        const validation = main.validatePath(value);
-
-        if (validation.valid) {
-            return true;
-        }
-
-        return validation.message;
-    };
-
-    o = section.option(
-        form.Flag,
-        'remote_domain_lists_enabled',
-        _('Remote Domain Lists'),
-        _('Download and use domain lists from remote URLs'),
-    );
-    o.default = '0';
-    o.rmempty = false;
-
-    o = section.option(
-        form.DynamicList,
-        'remote_domain_lists',
-        _('Remote Domain URLs'),
-        _('Enter full URLs starting with http:// or https://'),
-    );
-    o.placeholder = 'URL';
-    o.depends('remote_domain_lists_enabled', '1');
-    o.rmempty = false;
-    o.validate = function (section_id, value) {
-        // Optional
-        if (!value || value.length === 0) {
-            return true;
-        }
-
-        const validation = main.validateUrl(value);
-
-        if (validation.valid) {
-            return true;
-        }
-
-        return validation.message;
-    };
-
-    o = section.option(
-        form.Flag,
-        'local_subnet_lists_enabled',
-        _('Local Subnet Lists'),
-        _('Use the list from the router filesystem'),
-    );
-    o.default = '0';
-    o.rmempty = false;
-
-    o = section.option(
-        form.DynamicList,
-        'local_subnet_lists',
-        _('Local Subnet List Paths'),
-        _('Enter the list file path'),
-    );
-    o.placeholder = '/path/file.lst';
-    o.depends('local_subnet_lists_enabled', '1');
-    o.rmempty = false;
-    o.validate = function (section_id, value) {
-        // Optional
-        if (!value || value.length === 0) {
-            return true;
-        }
-
-        const validation = main.validatePath(value);
-
-        if (validation.valid) {
-            return true;
-        }
-
-        return validation.message;
-    };
-
-    o = section.option(
         form.ListValue,
         'user_subnet_list_type',
         _('User Subnet List Type'),
-        _('Select how to add your custom subnets'),
+        _('Select the list type for adding custom subnets'),
     );
     o.value('disabled', _('Disabled'));
     o.value('dynamic', _('Dynamic List'));
@@ -439,9 +319,7 @@ function createSectionContent(section) {
         form.DynamicList,
         'user_subnets',
         _('User Subnets'),
-        _(
-            'Enter subnets in CIDR notation (example: 103.21.244.0/22) or single IP addresses',
-        ),
+        _('Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses'),
     );
     o.placeholder = 'IP or subnet';
     o.depends('user_subnet_list_type', 'dynamic');
@@ -466,7 +344,8 @@ function createSectionContent(section) {
         'user_subnets_text',
         _('User Subnets List'),
         _(
-            'Enter subnets in CIDR notation or single IP addresses, separated by comma, space or newline. You can add comments after //',
+            'Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. ' +
+            'You can add comments using //'
         ),
     );
     o.placeholder =
@@ -483,9 +362,7 @@ function createSectionContent(section) {
         const subnets = main.parseValueList(value);
 
         if (!subnets.length) {
-            return _(
-                'At least one valid subnet or IP must be specified. Comments-only content is not allowed.',
-            );
+            return _('At least one valid subnet or IP must be specified. Comments-only content is not allowed.');
         }
 
         const {valid, results} = main.bulkValidate(subnets, main.validateSubnet);
@@ -502,23 +379,82 @@ function createSectionContent(section) {
     };
 
     o = section.option(
-        form.Flag,
-        'remote_subnet_lists_enabled',
-        _('Remote Subnet Lists'),
-        _('Download and use subnet lists from remote URLs'),
+        form.DynamicList,
+        'local_domain_lists',
+        _('Local Domain Lists'),
+        _('Specify the path to the list file located on the router filesystem'),
     );
-    o.default = '0';
-    o.rmempty = false;
+    o.placeholder = '/path/file.lst';
+    o.rmempty = true;
+    o.validate = function (section_id, value) {
+        // Optional
+        if (!value || value.length === 0) {
+            return true;
+        }
+
+        const validation = main.validatePath(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return validation.message;
+    };
+
+    o = section.option(
+        form.DynamicList,
+        'local_subnet_lists',
+        _('Local Subnet Lists'),
+        _('Specify the path to the list file located on the router filesystem'),
+    );
+    o.placeholder = '/path/file.lst';
+    o.rmempty = true;
+    o.validate = function (section_id, value) {
+        // Optional
+        if (!value || value.length === 0) {
+            return true;
+        }
+
+        const validation = main.validatePath(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return validation.message;
+    };
+
+    o = section.option(
+        form.DynamicList,
+        'remote_domain_lists',
+        _('Remote Domain Lists'),
+        _('Specify remote URLs to download and use domain lists'),
+    );
+    o.placeholder = 'https://example.com/domains.srs';
+    o.rmempty = true;
+    o.validate = function (section_id, value) {
+        // Optional
+        if (!value || value.length === 0) {
+            return true;
+        }
+
+        const validation = main.validateUrl(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return validation.message;
+    };
 
     o = section.option(
         form.DynamicList,
         'remote_subnet_lists',
-        _('Remote Subnet URLs'),
-        _('Enter full URLs starting with http:// or https://'),
+        _('Remote Subnet Lists'),
+        _('Specify remote URLs to download and use subnet lists'),
     );
-    o.placeholder = 'URL';
-    o.depends('remote_subnet_lists_enabled', '1');
-    o.rmempty = false;
+    o.placeholder = 'https://example.com/subnets.srs';
+    o.rmempty = true;
     o.validate = function (section_id, value) {
         // Optional
         if (!value || value.length === 0) {
@@ -538,10 +474,10 @@ function createSectionContent(section) {
         form.DynamicList,
         'fully_routed_ips',
         _('Fully Routed IPs'),
-        _('Specify local IP addresses whose traffic will always be routed through the configured route'),
+        _('Specify local IP addresses or subnets whose traffic will always be routed through the configured route'),
     );
-    o.placeholder = 'IP';
-    o.rmempty = false;
+    o.placeholder = '192.168.1.2 or 192.168.1.0/24';
+    o.rmempty = true;
     o.validate = function (section_id, value) {
         // Optional
         if (!value || value.length === 0) {
