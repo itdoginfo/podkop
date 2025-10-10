@@ -151,7 +151,7 @@ function createSettingsContent(section) {
 
     o = section.option(
         form.Value,
-        'procd_reload_delay',
+        'badwan_reload_delay',
         _('Interface Monitoring Delay'),
         _('Delay in milliseconds before reloading podkop after interface UP'),
     );
