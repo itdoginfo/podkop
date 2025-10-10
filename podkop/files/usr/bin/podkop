@@ -571,7 +571,7 @@ sing_box_configure_outbounds() {
 
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
-    config_foreach configure_outbound_handler
+    config_foreach configure_outbound_handler "section"
 }
 
 configure_outbound_handler() {
