@@ -120,7 +120,7 @@ function createSectionContent(section) {
 
     o = section.option(
         form.Flag,
-        'ss_uot',
+        'enable_shadowsocks_udp_over_tcp',
         _('Shadowsocks UDP over TCP'),
         _('Apply for SS2022'),
     );
