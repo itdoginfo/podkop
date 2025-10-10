@@ -726,9 +726,9 @@ sing_box_configure_route() {
 
     config=$(sing_box_cm_add_hijack_dns_route_rule "$config" "protocol" "dns")
 
-    local quic_disable
-    config_get_bool quic_disable "settings" "quic_disable" 0
-    if [ "$quic_disable" -eq 1 ]; then
+    local disable_quic
+    config_get_bool disable_quic "settings" "disable_quic" 0
+    if [ "$disable_quic" -eq 1 ]; then
         config=$(sing_box_cf_add_single_key_reject_rule "$config" "$SB_TPROXY_INBOUND_TAG" "protocol" "quic")
     fi
 

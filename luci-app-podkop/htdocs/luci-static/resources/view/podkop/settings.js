@@ -176,7 +176,7 @@ function createSettingsContent(section) {
 
     o = section.option(
         form.Flag,
-        'quic_disable',
+        'disable_quic',
         _('Disable QUIC'),
         _('Disable the QUIC protocol to improve compatibility or fix issues with video streaming'),
     );
