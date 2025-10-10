@@ -1792,12 +1792,15 @@ get_status() {
 }
 
 check_dns_available() {
-    local dns_type=$(uci get podkop.main.dns_type 2> /dev/null)
-    local dns_server=$(uci get podkop.main.dns_server 2> /dev/null)
-    local is_available=0
-    local status="unavailable"
-    local local_dns_working=0
-    local local_dns_status="unavailable"
+    local dns_type dns_server bootstrap_dns_server
+    config_get dns_type "settings" "dns_type"
+    config_get dns_server "settings" "dns_server"
+    config_get bootstrap_dns_server "settings" "bootstrap_dns_server"
+
+    local dns_status=0
+    local local_dns_status=0
+    local bootstrap_dns_status=0
+    local dhcp_has_dns_server=0
 
     # Mask NextDNS ID if present
     local display_dns_server="$dns_server"
@@ -1810,88 +1813,64 @@ check_dns_available() {
     fi
 
     if [ "$dns_type" = "doh" ]; then
-        # Generate random DNS query ID (2 bytes)
-        local random_id=$(head -c2 /dev/urandom | hexdump -ve '1/1 "%.2x"' 2> /dev/null)
-        if [ $? -ne 0 ]; then
-            error_message="Failed to generate random ID"
-            status="internal error"
-        else
-            # Create DNS wire format query for google.com A record with random ID
-            local dns_query=$(printf "\x${random_id:0:2}\x${random_id:2:2}\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03www\x06google\x03com\x00\x00\x01\x00\x01" | base64 2> /dev/null)
-            if [ $? -ne 0 ]; then
-                error_message="Failed to generate DNS query"
-                status="internal error"
-            else
-                # Try POST method first (RFC 8484 compliant) with shorter timeout
-                local result=$(echo "$dns_query" | base64 -d 2> /dev/null | curl -H "Content-Type: application/dns-message" \
-                    -H "Accept: application/dns-message" \
-                    --data-binary @- \
-                    --max-time 2 \
-                    --connect-timeout 1 \
-                    -s \
-                    "https://$dns_server/dns-query" 2> /dev/null)
-
-                if [ $? -eq 0 ] && [ -n "$result" ]; then
-                    is_available=1
-                    status="available"
-                else
-                    # Try GET method as fallback with shorter timeout
-                    local dns_query_no_padding=$(echo "$dns_query" | tr -d '=' 2> /dev/null)
-                    result=$(curl -H "accept: application/dns-message" \
-                        --max-time 2 \
-                        --connect-timeout 1 \
-                        -s \
-                        "https://$dns_server/dns-query?dns=$dns_query_no_padding" 2> /dev/null)
-
-                    if [ $? -eq 0 ] && [ -n "$result" ]; then
-                        is_available=1
-                        status="available"
-                    else
-                        error_message="DoH server not responding"
-                    fi
-                fi
-            fi
+        # Check if dns_server already contains a path
+        local doh_path="/dns-query"
+        if echo "$dns_server" | grep -q "/"; then
+            # Path is already present, extract it
+            doh_path="/$(echo "$dns_server" | cut -d'/' -f2-)"
+            dns_server="$(echo "$dns_server" | cut -d'/' -f1)"
+        fi
+        
+        if dig @"$dns_server" google.com +https="$doh_path" +timeout=2 +tries=1 > /dev/null 2>&1; then
+            dns_status=1
         fi
     elif [ "$dns_type" = "dot" ]; then
-        (nc "$dns_server" 853 < /dev/null > /dev/null 2>&1) &
-        pid=$!
-        sleep 2
-        if kill -0 $pid 2> /dev/null; then
-            kill $pid 2> /dev/null
-            wait $pid 2> /dev/null
-        else
-            is_available=1
-            status="available"
+        if dig @"$dns_server" google.com +tls +timeout=2 +tries=1 > /dev/null 2>&1; then
+            dns_status=1
         fi
     elif [ "$dns_type" = "udp" ]; then
-        if nslookup -timeout=2 itdog.info $dns_server > /dev/null 2>&1; then
-            is_available=1
-            status="available"
+        if dig @"$dns_server" google.com +timeout=2 +tries=1 > /dev/null 2>&1; then
+            dns_status=1
         fi
     fi
 
     # Check if local DNS resolver is working
-    if nslookup -timeout=2 $FAKEIP_TEST_DOMAIN 127.0.0.1 > /dev/null 2>&1; then
-        local_dns_working=1
-        local_dns_status="available"
+    if dig @127.0.0.1 "$FAKEIP_TEST_DOMAIN" +timeout=2 +tries=1 > /dev/null 2>&1; then
+        local_dns_status=1
     fi
 
-    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"is_available\":$is_available,\"status\":\"$status\",\"local_dns_working\":$local_dns_working,\"local_dns_status\":\"$local_dns_status\"}"
+    # Check bootstrap DNS server
+    if [ -n "$bootstrap_dns_server" ]; then
+        if dig @"$bootstrap_dns_server" google.com +timeout=2 +tries=1 > /dev/null 2>&1; then
+            bootstrap_dns_status=1
+        fi
+    fi
+
+    # Check if /etc/config/dhcp has server 127.0.0.42
+    config_load dhcp
+    config_foreach check_dhcp_has_podkop_dns dnsmasq
+    config_load "$PODKOP_CONFIG"
+
+    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"dns_status\":$dns_status,\"local_dns_status\":$local_dns_status,\"bootstrap_dns_server\":\"$bootstrap_dns_server\",\"bootstrap_dns_status\":$bootstrap_dns_status,\"dhcp_has_dns_server\":$dhcp_has_dns_server}" | jq .
+}
+
+check_dhcp_has_podkop_dns() {
+    local server_list
+    config_get server_list "$1" "server"
+    
+    if [ -n "$server_list" ]; then
+        for server in $server_list; do
+            if [ "$server" = "127.0.0.42" ]; then
+                dhcp_has_dns_server=1
+                return 0
+            fi
+        done
+    fi
 }
 
 print_global() {
     local message="$1"
     echo "$message"
-}
-
-find_working_resolver() {
-    for resolver in $DNS_RESOLVERS; do
-        if nslookup -timeout=2 "$FAKEIP_TEST_DOMAIN" "$resolver" > /dev/null 2>&1; then
-            echo "$resolver"
-            return 0
-        fi
-    done
-    return 1
 }
 
 global_check() {
@@ -2014,15 +1993,6 @@ global_check() {
 
     print_global "➡️ DNS resolution: system DNS server"
     nslookup -timeout=2 $FAKEIP_TEST_DOMAIN
-
-    local working_resolver
-    working_resolver=$(find_working_resolver)
-    if [ -z "$working_resolver" ]; then
-        print_global "❌ No working external resolver found"
-    else
-        print_global "➡️ DNS resolution: external resolver ($working_resolver)"
-        nslookup -timeout=2 $FAKEIP_TEST_DOMAIN $working_resolver
-    fi
 
     print_global "➡️ DNS resolution: sing-box DNS server (127.0.0.42)"
     local result
