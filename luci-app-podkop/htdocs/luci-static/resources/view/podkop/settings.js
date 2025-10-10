@@ -42,9 +42,7 @@ function createSettingsContent(section) {
         form.Value,
         'bootstrap_dns_server',
         _('Bootstrap DNS server'),
-        _(
-            'The DNS server used to look up the IP address of an upstream DNS server',
-        ),
+        _('The DNS server used to look up the IP address of an upstream DNS server'),
     );
     Object.entries(main.BOOTSTRAP_DNS_SERVER_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
@@ -122,8 +120,8 @@ function createSettingsContent(section) {
     o = section.option(
         form.Flag,
         'mon_restart_ifaces',
-        _('Interface monitoring'),
-        _('Interface monitoring for bad WAN'),
+        _('Interface Monitoring'),
+        _('Interface monitoring for Bad WAN'),
     );
     o.default = '0';
     o.rmempty = false;
@@ -170,7 +168,7 @@ function createSettingsContent(section) {
     o = section.option(
         form.Flag,
         'yacd',
-        _('Yacd enable'),
+        _('Enable YACD'),
         `<a href="${main.getClashApiUrl()}/ui" target="_blank">${main.getClashApiUrl()}/ui</a>`,
     );
     o.default = '0';
@@ -179,8 +177,8 @@ function createSettingsContent(section) {
     o = section.option(
         form.Flag,
         'quic_disable',
-        _('QUIC disable'),
-        _('For issues with the video stream'),
+        _('Disable QUIC'),
+        _('Disable the QUIC protocol to improve compatibility or fix issues with video streaming'),
     );
     o.default = '0';
     o.rmempty = false;
@@ -189,7 +187,7 @@ function createSettingsContent(section) {
         form.ListValue,
         'update_interval',
         _('List Update Frequency'),
-        _('Select how often the lists will be updated'),
+        _('Select how often the domain or subnet lists are updated automatically'),
     );
     Object.entries(main.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
@@ -200,7 +198,7 @@ function createSettingsContent(section) {
     o = section.option(
         form.Flag,
         'detour',
-        _('Proxy download of lists'),
+        _('Download Lists via Proxy/VPN'),
         _('Downloading all lists via main Proxy/VPN'),
     );
     o.default = '0';
@@ -209,8 +207,8 @@ function createSettingsContent(section) {
     o = section.option(
         form.Flag,
         'dont_touch_dhcp',
-        _('Dont touch my DHCP!'),
-        _('Podkop will not change the DHCP config'),
+        _('Dont Touch My DHCP!'),
+        _('Podkop will not modify your DHCP configuration'),
     );
     o.default = '0';
     o.rmempty = false;
@@ -219,9 +217,7 @@ function createSettingsContent(section) {
         form.ListValue,
         'config_path',
         _('Config File Path'),
-        _(
-            'Select path for sing-box config file. Change this ONLY if you know what you are doing',
-        ),
+        _('Select path for sing-box config file. Change this ONLY if you know what you are doing'),
     );
     o.value('/etc/sing-box/config.json', 'Flash (/etc/sing-box/config.json)');
     o.value('/tmp/sing-box/config.json', 'RAM (/tmp/sing-box/config.json)');
@@ -232,9 +228,7 @@ function createSettingsContent(section) {
         form.Value,
         'cache_path',
         _('Cache File Path'),
-        _(
-            'Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing',
-        ),
+        _('Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing'),
     );
     o.value('/tmp/sing-box/cache.db', 'RAM (/tmp/sing-box/cache.db)');
     o.value(
@@ -268,7 +262,7 @@ function createSettingsContent(section) {
         form.Flag,
         'exclude_ntp',
         _('Exclude NTP'),
-        _('Allows you to exclude NTP protocol traffic from the tunnel'),
+        _('Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN'),
     );
     o.default = '0';
     o.rmempty = false;
