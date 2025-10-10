@@ -754,15 +754,15 @@ sing_box_configure_route() {
 include_source_ips_in_routing_handler() {
     local section="$1"
 
-    local all_traffic_from_ip_enabled rule_tag
-    config_get all_traffic_from_ip_enabled "$section" "all_traffic_from_ip_enabled" 0
-    if [ "$all_traffic_from_ip_enabled" -eq 1 ]; then
+    local fully_routed_ips rule_tag
+    config_get fully_routed_ips "$section" "fully_routed_ips"
+    if [ -n "$fully_routed_ips" ]; then
         rule_tag="$(gen_id)"
         config=$(
             sing_box_cm_add_route_rule \
                 "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$(get_outbound_tag_by_section "$section")"
         )
-        config_list_foreach "$section" "all_traffic_ip" include_source_ip_in_routing_handler "$rule_tag"
+        config_list_foreach "$section" "fully_routed_ips" include_source_ip_in_routing_handler "$rule_tag"
     fi
 }
 
