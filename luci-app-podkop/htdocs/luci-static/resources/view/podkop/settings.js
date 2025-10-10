@@ -128,8 +128,8 @@ function createSettingsContent(section) {
 
     o = section.option(
         widgets.NetworkSelect,
-        'restart_ifaces',
-        _('Interface for monitoring'),
+        'badwan_monitored_interfaces',
+        _('Monitored Interfaces'),
         _('Select the WAN interfaces to be monitored'),
     );
     o.depends('enable_badwan_interface_monitoring', '1');
