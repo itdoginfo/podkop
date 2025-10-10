@@ -943,6 +943,7 @@ async function getConfigSections() {
 // src/podkop/methods/getDashboardSections.ts
 async function getDashboardSections() {
   const configSections = await getConfigSections();
+  console.log("configSections", configSections);
   const clashProxies = await getClashProxies();
   if (!clashProxies.success) {
     return {
@@ -956,8 +957,8 @@ async function getDashboardSections() {
       value
     })
   );
-  const data = configSections.filter((section) => section.mode !== "block").map((section) => {
-    if (section.mode === "proxy") {
+  const data = configSections.filter((section) => section.connection_type !== "block" && section[".type"] !== "settings").map((section) => {
+    if (section.connection_type === "proxy") {
       if (section.proxy_config_type === "url") {
         const outbound = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-out`
@@ -1032,7 +1033,7 @@ async function getDashboardSections() {
         };
       }
     }
-    if (section.mode === "vpn") {
+    if (section.connection_type === "vpn") {
       const outbound = proxies.find(
         (proxy) => proxy.code === `${section[".name"]}-out`
       );

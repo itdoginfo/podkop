@@ -10,6 +10,7 @@ interface IGetDashboardSectionsResponse {
 
 export async function getDashboardSections(): Promise<IGetDashboardSectionsResponse> {
   const configSections = await getConfigSections();
+  console.log('configSections', configSections)
   const clashProxies = await getClashProxies();
 
   if (!clashProxies.success) {
@@ -27,9 +28,9 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
   );
 
   const data = configSections
-    .filter((section) => section.mode !== 'block')
+    .filter((section) => section.connection_type !== 'block' && section[".type"] !== 'settings')
     .map((section) => {
-      if (section.mode === 'proxy') {
+      if (section.connection_type === 'proxy') {
         if (section.proxy_config_type === 'url') {
           const outbound = proxies.find(
             (proxy) => proxy.code === `${section['.name']}-out`,
@@ -122,7 +123,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
         }
       }
 
-      if (section.mode === 'vpn') {
+      if (section.connection_type === 'vpn') {
         const outbound = proxies.find(
           (proxy) => proxy.code === `${section['.name']}-out`,
         );

@@ -16,30 +16,30 @@ export namespace Podkop {
   }
 
   export interface ConfigProxyUrlTestSection {
-    mode: 'proxy';
+    connection_type: 'proxy';
     proxy_config_type: 'urltest';
     urltest_proxy_links: string[];
   }
 
   export interface ConfigProxyUrlSection {
-    mode: 'proxy';
+    connection_type: 'proxy';
     proxy_config_type: 'url';
     proxy_string: string;
   }
 
   export interface ConfigProxyOutboundSection {
-    mode: 'proxy';
+    connection_type: 'proxy';
     proxy_config_type: 'outbound';
     outbound_json: string;
   }
 
   export interface ConfigVpnSection {
-    mode: 'vpn';
+    connection_type: 'vpn';
     interface: string;
   }
 
   export interface ConfigBlockSection {
-    mode: 'block';
+    connection_type: 'block';
   }
 
   export type ConfigBaseSection =
@@ -51,6 +51,6 @@ export namespace Podkop {
 
   export type ConfigSection = ConfigBaseSection & {
     '.name': string;
-    '.type': 'main' | 'extra';
+    '.type': 'settings' | 'section';
   };
 }
