@@ -26,7 +26,7 @@ function createSectionContent(section) {
     o.value('outbound', _('Outbound Config'));
     o.value('urltest', _('URLTest'));
     o.default = 'url';
-    o.depends('mode', 'proxy');
+    o.depends('connection_type', 'proxy');
 
     o = section.option(
         form.TextValue,
@@ -125,7 +125,7 @@ function createSectionContent(section) {
         _('Apply for SS2022'),
     );
     o.default = '0';
-    o.depends('mode', 'proxy');
+    o.depends('connection_type', 'proxy');
     o.rmempty = false;
 
     o = section.option(
@@ -134,7 +134,7 @@ function createSectionContent(section) {
         _('Network Interface'),
         _('Select network interface for VPN connection'),
     );
-    o.depends('mode', 'vpn');
+    o.depends('connection_type', 'vpn');
     o.noaliases = true;
     o.nobridges = false;
     o.noinactive = false;
@@ -182,7 +182,7 @@ function createSectionContent(section) {
     );
     o.default = '0';
     o.rmempty = false;
-    o.depends('mode', 'vpn');
+    o.depends('connection_type', 'vpn');
 
     o = section.option(
         form.ListValue,
