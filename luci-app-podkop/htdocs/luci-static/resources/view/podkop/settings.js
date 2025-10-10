@@ -167,7 +167,7 @@ function createSettingsContent(section) {
 
     o = section.option(
         form.Flag,
-        'yacd',
+        'enable_yacd',
         _('Enable YACD'),
         `<a href="${main.getClashApiUrl()}/ui" target="_blank">${main.getClashApiUrl()}/ui</a>`,
     );

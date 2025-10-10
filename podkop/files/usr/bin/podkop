@@ -1050,10 +1050,10 @@ sing_box_configure_experimental() {
     config_get cache_file "settings" "cache_path" "/tmp/sing-box/cache.db"
     config=$(sing_box_cm_configure_cache_file "$config" true "$cache_file" true)
 
-    local yacd_enabled external_controller_ui
-    config_get_bool yacd_enabled "settings" "yacd" 0
+    local enable_yacd external_controller_ui
+    config_get_bool enable_yacd "settings" "enable_yacd" 0
     log "Configuring Clash API"
-    if [ "$yacd_enabled" -eq 1 ]; then
+    if [ "$enable_yacd" -eq 1 ]; then
         log "YACD is enabled, enabling Clash API with downloadable YACD" "debug"
         local external_controller_ui="ui"
         config=$(sing_box_cm_configure_clash_api "$config" "$SB_CLASH_API_CONTROLLER" "$external_controller_ui")
