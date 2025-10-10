@@ -119,7 +119,7 @@ function createSettingsContent(section) {
 
     o = section.option(
         form.Flag,
-        'mon_restart_ifaces',
+        'enable_badwan_interface_monitoring',
         _('Interface Monitoring'),
         _('Interface monitoring for Bad WAN'),
     );
@@ -132,7 +132,7 @@ function createSettingsContent(section) {
         _('Interface for monitoring'),
         _('Select the WAN interfaces to be monitored'),
     );
-    o.depends('mon_restart_ifaces', '1');
+    o.depends('enable_badwan_interface_monitoring', '1');
     o.multiple = true;
     o.filter = function (section_id, value) {
         // Reject if the value is in the blocked list ['lan', 'loopback']
@@ -155,7 +155,7 @@ function createSettingsContent(section) {
         _('Interface Monitoring Delay'),
         _('Delay in milliseconds before reloading podkop after interface UP'),
     );
-    o.depends('mon_restart_ifaces', '1');
+    o.depends('enable_badwan_interface_monitoring', '1');
     o.default = '2000';
     o.rmempty = false;
     o.validate = function (section_id, value) {
