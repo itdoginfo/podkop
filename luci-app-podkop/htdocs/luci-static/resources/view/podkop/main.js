@@ -210,178 +210,6 @@ function validateShadowsocksUrl(url) {
   return { valid: true, message: _("Valid") };
 }
 
-// src/validators/validateVlessUrl.ts
-function validateVlessUrl(url) {
-  try {
-    if (!url.startsWith("vless://"))
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: must start with vless://"
-      };
-    if (/\s/.test(url))
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: must not contain spaces"
-      };
-    const body = url.slice("vless://".length);
-    const [mainPart] = body.split("#");
-    const [userHostPort, queryString] = mainPart.split("?");
-    if (!userHostPort)
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: missing host and UUID"
-      };
-    const [userPart, hostPortPart] = userHostPort.split("@");
-    if (!userPart)
-      return { valid: false, message: "Invalid VLESS URL: missing UUID" };
-    if (!hostPortPart)
-      return { valid: false, message: "Invalid VLESS URL: missing server" };
-    const [host, port] = hostPortPart.split(":");
-    if (!host)
-      return { valid: false, message: "Invalid VLESS URL: missing hostname" };
-    if (!port)
-      return { valid: false, message: "Invalid VLESS URL: missing port" };
-    const portNum = Number(port);
-    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: invalid port number"
-      };
-    if (!queryString)
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: missing query parameters"
-      };
-    const params = queryString.split("&").filter(Boolean).map((pair) => pair.split("=")).reduce(
-      (acc, [key, value = ""]) => {
-        if (key) acc[key] = value;
-        return acc;
-      },
-      {}
-    );
-    const validTypes = [
-      "tcp",
-      "raw",
-      "udp",
-      "grpc",
-      "http",
-      "httpupgrade",
-      "xhttp",
-      "ws",
-      "kcp"
-    ];
-    const validSecurities = ["tls", "reality", "none"];
-    if (!params.type || !validTypes.includes(params.type))
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: unsupported or missing type"
-      };
-    if (!params.security || !validSecurities.includes(params.security))
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: unsupported or missing security"
-      };
-    if (params.security === "reality") {
-      if (!params.pbk)
-        return {
-          valid: false,
-          message: "Invalid VLESS URL: missing pbk for reality"
-        };
-      if (!params.fp)
-        return {
-          valid: false,
-          message: "Invalid VLESS URL: missing fp for reality"
-        };
-    }
-    return { valid: true, message: _("Valid") };
-  } catch (_e) {
-    return { valid: false, message: _("Invalid VLESS URL: parsing failed") };
-  }
-}
-
-// src/validators/validateOutboundJson.ts
-function validateOutboundJson(value) {
-  try {
-    const parsed = JSON.parse(value);
-    if (!parsed.type || !parsed.server || !parsed.server_port) {
-      return {
-        valid: false,
-        message: _(
-          'Outbound JSON must contain at least "type", "server" and "server_port" fields'
-        )
-      };
-    }
-    return { valid: true, message: _("Valid") };
-  } catch {
-    return { valid: false, message: _("Invalid JSON format") };
-  }
-}
-
-// src/validators/validateTrojanUrl.ts
-function validateTrojanUrl(url) {
-  try {
-    if (!url.startsWith("trojan://")) {
-      return {
-        valid: false,
-        message: _("Invalid Trojan URL: must start with trojan://")
-      };
-    }
-    if (!url || /\s/.test(url)) {
-      return {
-        valid: false,
-        message: _("Invalid Trojan URL: must not contain spaces")
-      };
-    }
-    const body = url.slice("trojan://".length);
-    const [mainPart] = body.split("#");
-    const [userHostPort] = mainPart.split("?");
-    const [userPart, hostPortPart] = userHostPort.split("@");
-    if (!userHostPort)
-      return {
-        valid: false,
-        message: "Invalid Trojan URL: missing credentials and host"
-      };
-    if (!userPart)
-      return { valid: false, message: "Invalid Trojan URL: missing password" };
-    if (!hostPortPart)
-      return {
-        valid: false,
-        message: "Invalid Trojan URL: missing hostname and port"
-      };
-    const [host, port] = hostPortPart.split(":");
-    if (!host)
-      return { valid: false, message: "Invalid Trojan URL: missing hostname" };
-    if (!port)
-      return { valid: false, message: "Invalid Trojan URL: missing port" };
-    const portNum = Number(port);
-    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
-      return {
-        valid: false,
-        message: "Invalid Trojan URL: invalid port number"
-      };
-  } catch (_e) {
-    return { valid: false, message: _("Invalid Trojan URL: parsing failed") };
-  }
-  return { valid: true, message: _("Valid") };
-}
-
-// src/validators/validateProxyUrl.ts
-function validateProxyUrl(url) {
-  if (url.startsWith("ss://")) {
-    return validateShadowsocksUrl(url);
-  }
-  if (url.startsWith("vless://")) {
-    return validateVlessUrl(url);
-  }
-  if (url.startsWith("trojan://")) {
-    return validateTrojanUrl(url);
-  }
-  return {
-    valid: false,
-    message: _("URL must start with vless:// or ss:// or trojan://")
-  };
-}
-
 // src/helpers/getBaseUrl.ts
 function getBaseUrl() {
   const { protocol, hostname } = window.location;
@@ -801,6 +629,189 @@ function preserveScrollForPage(renderFn) {
   requestAnimationFrame(() => {
     window.scrollTo({ top: scrollY });
   });
+}
+
+// src/helpers/parseQueryString.ts
+function parseQueryString(query) {
+  const clean = query.startsWith("?") ? query.slice(1) : query;
+  return clean.split("&").filter(Boolean).reduce(
+    (acc, pair) => {
+      const [rawKey, rawValue = ""] = pair.split("=");
+      if (!rawKey) {
+        return acc;
+      }
+      const key = decodeURIComponent(rawKey);
+      const value = decodeURIComponent(rawValue);
+      return { ...acc, [key]: value };
+    },
+    {}
+  );
+}
+
+// src/validators/validateVlessUrl.ts
+function validateVlessUrl(url) {
+  try {
+    if (!url.startsWith("vless://"))
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: must start with vless://"
+      };
+    if (/\s/.test(url))
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: must not contain spaces"
+      };
+    const body = url.slice("vless://".length);
+    const [mainPart] = body.split("#");
+    const [userHostPort, queryString] = mainPart.split("?");
+    if (!userHostPort)
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: missing host and UUID"
+      };
+    const [userPart, hostPortPart] = userHostPort.split("@");
+    if (!userPart)
+      return { valid: false, message: "Invalid VLESS URL: missing UUID" };
+    if (!hostPortPart)
+      return { valid: false, message: "Invalid VLESS URL: missing server" };
+    const [host, port] = hostPortPart.split(":");
+    if (!host)
+      return { valid: false, message: "Invalid VLESS URL: missing hostname" };
+    if (!port)
+      return { valid: false, message: "Invalid VLESS URL: missing port" };
+    const portNum = Number(port);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: invalid port number"
+      };
+    if (!queryString)
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: missing query parameters"
+      };
+    const params = parseQueryString(queryString);
+    const validTypes = [
+      "tcp",
+      "raw",
+      "udp",
+      "grpc",
+      "http",
+      "httpupgrade",
+      "xhttp",
+      "ws",
+      "kcp"
+    ];
+    const validSecurities = ["tls", "reality", "none"];
+    if (!params.type || !validTypes.includes(params.type))
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: unsupported or missing type"
+      };
+    if (!params.security || !validSecurities.includes(params.security))
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: unsupported or missing security"
+      };
+    if (params.security === "reality") {
+      if (!params.pbk)
+        return {
+          valid: false,
+          message: "Invalid VLESS URL: missing pbk for reality"
+        };
+      if (!params.fp)
+        return {
+          valid: false,
+          message: "Invalid VLESS URL: missing fp for reality"
+        };
+    }
+    return { valid: true, message: _("Valid") };
+  } catch (_e) {
+    return { valid: false, message: _("Invalid VLESS URL: parsing failed") };
+  }
+}
+
+// src/validators/validateOutboundJson.ts
+function validateOutboundJson(value) {
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed.type || !parsed.server || !parsed.server_port) {
+      return {
+        valid: false,
+        message: _(
+          'Outbound JSON must contain at least "type", "server" and "server_port" fields'
+        )
+      };
+    }
+    return { valid: true, message: _("Valid") };
+  } catch {
+    return { valid: false, message: _("Invalid JSON format") };
+  }
+}
+
+// src/validators/validateTrojanUrl.ts
+function validateTrojanUrl(url) {
+  try {
+    if (!url.startsWith("trojan://")) {
+      return {
+        valid: false,
+        message: _("Invalid Trojan URL: must start with trojan://")
+      };
+    }
+    if (!url || /\s/.test(url)) {
+      return {
+        valid: false,
+        message: _("Invalid Trojan URL: must not contain spaces")
+      };
+    }
+    const body = url.slice("trojan://".length);
+    const [mainPart] = body.split("#");
+    const [userHostPort] = mainPart.split("?");
+    const [userPart, hostPortPart] = userHostPort.split("@");
+    if (!userHostPort)
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: missing credentials and host"
+      };
+    if (!userPart)
+      return { valid: false, message: "Invalid Trojan URL: missing password" };
+    if (!hostPortPart)
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: missing hostname and port"
+      };
+    const [host, port] = hostPortPart.split(":");
+    if (!host)
+      return { valid: false, message: "Invalid Trojan URL: missing hostname" };
+    if (!port)
+      return { valid: false, message: "Invalid Trojan URL: missing port" };
+    const portNum = Number(port);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: invalid port number"
+      };
+  } catch (_e) {
+    return { valid: false, message: _("Invalid Trojan URL: parsing failed") };
+  }
+  return { valid: true, message: _("Valid") };
+}
+
+// src/validators/validateProxyUrl.ts
+function validateProxyUrl(url) {
+  if (url.startsWith("ss://")) {
+    return validateShadowsocksUrl(url);
+  }
+  if (url.startsWith("vless://")) {
+    return validateVlessUrl(url);
+  }
+  if (url.startsWith("trojan://")) {
+    return validateTrojanUrl(url);
+  }
+  return {
+    valid: false,
+    message: _("URL must start with vless:// or ss:// or trojan://")
+  };
 }
 
 // src/clash/methods/createBaseApiRequest.ts
@@ -1982,6 +1993,7 @@ return baseclass.extend({
   injectGlobalStyles,
   maskIP,
   onMount,
+  parseQueryString,
   parseValueList,
   preserveScrollForPage,
   renderDashboard,

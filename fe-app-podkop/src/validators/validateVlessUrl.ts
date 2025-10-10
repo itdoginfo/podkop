@@ -1,4 +1,5 @@
 import { ValidationResult } from './types';
+import { parseQueryString } from '../helpers';
 
 export function validateVlessUrl(url: string): ValidationResult {
   try {
@@ -55,17 +56,7 @@ export function validateVlessUrl(url: string): ValidationResult {
         message: 'Invalid VLESS URL: missing query parameters',
       };
 
-    const params = queryString
-      .split('&')
-      .filter(Boolean)
-      .map((pair) => pair.split('='))
-      .reduce(
-        (acc, [key, value = '']) => {
-          if (key) acc[key] = value;
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
+    const params = parseQueryString(queryString);
 
     const validTypes = [
       'tcp',
