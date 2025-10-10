@@ -71,7 +71,7 @@ check_requirements() {
         log "Detected https-dns-proxy in dhcp config. Edit /etc/config/dhcp" "warn"
     fi
 
-    local proxy_string interface outbound_json urltest_proxy_links dont_touch_dhcp
+    local proxy_string interface outbound_json urltest_proxy_links
     config_get proxy_string "main" "proxy_string"
     config_get interface "main" "interface"
     config_get outbound_json "main" "outbound_json"
@@ -113,7 +113,7 @@ start_main() {
     /etc/init.d/sing-box start
 
     local exclude_ntp
-    config_get_bool exclude_ntp "main" "exclude_ntp" "0"
+    config_get_bool exclude_ntp "settings" "exclude_ntp" "0"
     if [ "$exclude_ntp" -eq 1 ]; then
         log "NTP traffic exclude for proxy"
         nft insert rule inet "$NFT_TABLE_NAME" mangle udp dport 123 return
@@ -126,11 +126,11 @@ start_main() {
 
 start() {
     start_main
-    config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" 0
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_add_resolver
     fi
-    uci_set "podkop" "main" "shutdown_correctly" 0
+    uci_set "podkop" "settings" "shutdown_correctly" 0
     uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
@@ -171,12 +171,12 @@ stop_main() {
 
 stop() {
     local dont_touch_dhcp
-    config_get_bool dont_touch_dhcp "main" "dont_touch_dhcp" 0
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_restore
     fi
     stop_main
-    uci_set "podkop" "main" "shutdown_correctly" 1
+    uci_set "podkop" "settings" "shutdown_correctly" 1
     uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
@@ -252,7 +252,7 @@ nft_init_interfaces_set() {
     nft_create_ifname_set "$NFT_TABLE_NAME" "$NFT_INTERFACE_SET_NAME"
 
     local interface_list
-    config_get interface_list "main" "iface" "br-lan"
+    config_get interface_list "settings" "iface" "br-lan"
 
     for interface in $interface_list; do
         nft add element inet "$NFT_TABLE_NAME" "$NFT_INTERFACE_SET_NAME" "{ $interface }"
@@ -322,7 +322,7 @@ backup_dnsmasq_config_option() {
 
 dnsmasq_add_resolver() {
     local shutdown_correctly
-    config_get shutdown_correctly "main" "shutdown_correctly"
+    config_get shutdown_correctly "settings" "shutdown_correctly"
     if [ "$shutdown_correctly" -eq 0 ]; then
         log "Previous shutdown of podkop was not correct, reconfiguration of dnsmasq is not required"
         return 0
@@ -354,7 +354,7 @@ dnsmasq_add_resolver() {
 dnsmasq_restore() {
     log "Restoring the dnsmasq configuration"
     local shutdown_correctly
-    config_get shutdown_correctly "main" "shutdown_correctly"
+    config_get shutdown_correctly "settings" "shutdown_correctly"
     if [ "$shutdown_correctly" -eq 1 ]; then
         log "Previous shutdown of podkop was correct, reconfiguration of dnsmasq is not required"
         return 0
@@ -408,7 +408,7 @@ add_cron_job() {
     config_get community_lists_enabled "$section" "community_lists_enabled"
     config_get remote_domain_lists_enabled "$section" "remote_domain_lists_enabled"
     config_get remote_subnet_lists_enabled "$section" "remote_subnet_lists_enabled"
-    config_get update_interval "main" "update_interval"
+    config_get update_interval "settings" "update_interval"
 
     case "$update_interval" in
     "1h")
@@ -469,7 +469,7 @@ list_update() {
     fi
 
     for i in $(seq 1 60); do
-        config_get_bool detour "main" "detour" "0"
+        config_get_bool detour "settings" "detour" "0"
         if [ "$detour" -eq 1 ]; then
             if http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" curl -s -m 3 https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed (via proxy)"
@@ -522,7 +522,7 @@ sing_box_uci() {
         log "sing-box service user has been changed to root"
     fi
 
-    config_get sing_box_config_path "main" "config_path"
+    config_get sing_box_config_path "settings" "config_path"
     sing_box_conffile=$(uci get "sing-box.main.conffile")
     log "sing-box config path: $sing_box_config_path" "debug"
     log "sing-box service conffile: $sing_box_conffile" "debug"
@@ -689,9 +689,9 @@ sing_box_configure_dns() {
 
     log "Adding DNS Servers" "debug"
     local dns_type dns_server bootstrap_dns_server dns_domain_resolver dns_server_address
-    config_get dns_type "main" "dns_type" "doh"
-    config_get dns_server "main" "dns_server" "1.1.1.1"
-    config_get bootstrap_dns_server "main" "bootstrap_dns_server" "77.88.8.8"
+    config_get dns_type "settings" "dns_type" "doh"
+    config_get dns_server "settings" "dns_server" "1.1.1.1"
+    config_get bootstrap_dns_server "settings" "bootstrap_dns_server" "77.88.8.8"
 
     dns_server_address="$(url_get_host "$dns_server")"
     if ! is_ipv4 "$dns_server_address"; then
@@ -704,7 +704,7 @@ sing_box_configure_dns() {
 
     log "Adding DNS Rules"
     local rewrite_ttl service_domains
-    config_get rewrite_ttl "main" "dns_rewrite_ttl" "60"
+    config_get rewrite_ttl "settings" "dns_rewrite_ttl" "60"
 
     config=$(sing_box_cm_add_dns_reject_rule "$config" "query_type" "HTTPS")
     config=$(sing_box_cm_add_dns_reject_rule "$config" "domain_suffix" '"use-application-dns.net"')
@@ -731,7 +731,7 @@ sing_box_configure_route() {
     config=$(sing_box_cm_add_hijack_dns_route_rule "$config" "protocol" "dns")
 
     local quic_disable
-    config_get_bool quic_disable "main" "quic_disable" 0
+    config_get_bool quic_disable "settings" "quic_disable" 0
     if [ "$quic_disable" -eq 1 ]; then
         config=$(sing_box_cf_add_single_key_reject_rule "$config" "$SB_TPROXY_INBOUND_TAG" "protocol" "quic")
     fi
@@ -745,12 +745,12 @@ sing_box_configure_route() {
 
     configure_common_reject_route_rule
 
-    local exclude_from_ip_enabled
-    config_get_bool exclude_from_ip_enabled "main" "exclude_from_ip_enabled" 0
-    if [ "$exclude_from_ip_enabled" -eq 1 ]; then
+    local routing_excluded_ips
+    config_get_bool routing_excluded_ips "settings" "routing_excluded_ips"
+    if [ -n "$routing_excluded_ips" ]; then
         rule_tag="$(gen_id)"
         config=$(sing_box_cm_add_route_rule "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$SB_DIRECT_OUTBOUND_TAG")
-        config_list_foreach "main" "exclude_traffic_ip" exclude_source_ip_from_routing_handler "$rule_tag"
+        config_list_foreach "settings" "routing_excluded_ips" exclude_source_ip_from_routing_handler "$rule_tag"
     fi
 
     config_foreach configure_routing_for_section_lists
@@ -909,7 +909,7 @@ configure_community_list_handler() {
     format="binary"
     url="$SRS_MAIN_URL/$tag.srs"
     detour="$(get_download_detour_tag)"
-    config_get update_interval "main" "update_interval" "1d"
+    config_get update_interval "settings" "update_interval" "1d"
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
@@ -1027,7 +1027,7 @@ configure_remote_domain_or_subnet_list_handler() {
         ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
         format="$(get_ruleset_format_by_file_extension "$file_extension")"
         detour="$(get_download_detour_tag)"
-        config_get update_interval "main" "update_interval" "1d"
+        config_get update_interval "settings" "update_interval" "1d"
 
         config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
@@ -1050,11 +1050,11 @@ sing_box_configure_experimental() {
 
     log "Configuring cache database"
     local cache_file
-    config_get cache_file "main" "cache_path" "/tmp/sing-box/cache.db"
+    config_get cache_file "settings" "cache_path" "/tmp/sing-box/cache.db"
     config=$(sing_box_cm_configure_cache_file "$config" true "$cache_file" true)
 
     local yacd_enabled external_controller_ui
-    config_get_bool yacd_enabled "main" "yacd" 0
+    config_get_bool yacd_enabled "settings" "yacd" 0
     log "Configuring Clash API"
     if [ "$yacd_enabled" -eq 1 ]; then
         log "YACD is enabled, enabling Clash API with downloadable YACD" "debug"
@@ -1094,7 +1094,7 @@ sing_box_additional_inbounds() {
 
 sing_box_save_config() {
     local sing_box_config_path temp_file_path current_config_hash temp_config_hash
-    config_get sing_box_config_path "main" "config_path"
+    config_get sing_box_config_path "settings" "config_path"
     temp_file_path="$(mktemp)"
 
     log "Save sing-box temporary config to $temp_file_path" "debug"
@@ -1340,7 +1340,7 @@ import_subnets_from_remote_srs_file() {
 ## Support functions
 get_service_proxy_address() {
     local detour
-    config_get_bool detour "main" "detour" 0
+    config_get_bool detour "settings" "detour" 0
     if [ "$detour" -eq 1 ]; then
         echo "$SB_SERVICE_MIXED_INBOUND_ADDRESS:$SB_SERVICE_MIXED_INBOUND_PORT"
     else
@@ -1349,7 +1349,7 @@ get_service_proxy_address() {
 }
 
 get_download_detour_tag() {
-    config_get_bool detour "main" "detour" 0
+    config_get_bool detour "settings" "detour" 0
     if [ "${detour:-0}" -eq 1 ]; then
         echo "$SB_MAIN_OUTBOUND_TAG"
     else
@@ -1409,7 +1409,7 @@ nft_list_all_traffic_from_ip() {
 # Diagnotics
 check_proxy() {
     local sing_box_config_path
-    config_get sing_box_config_path "main" "config_path"
+    config_get sing_box_config_path "settings" "config_path"
 
     if ! command -v sing-box > /dev/null 2>&1; then
         nolog "sing-box is not installed"
@@ -1567,7 +1567,7 @@ check_github() {
         "$SUBNETS_TWITTER" "$SUBNETS_META" "$SUBNETS_DISCORD"; do
         local list_name=$(basename "$url")
 
-        config_get_bool detour "main" "detour" "0"
+        config_get_bool detour "settings" "detour" "0"
         if [ "$detour" -eq 1 ]; then
             http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -q -O /dev/null "$url"
         else
@@ -1652,7 +1652,7 @@ check_logs() {
 
 show_sing_box_config() {
     local sing_box_config_path
-    config_get sing_box_config_path "main" "config_path"
+    config_get sing_box_config_path "settings" "config_path"
     nolog "Current sing-box configuration:"
 
     if [ ! -f "$sing_box_config_path" ]; then

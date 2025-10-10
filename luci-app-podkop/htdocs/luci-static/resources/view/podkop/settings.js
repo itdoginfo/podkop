@@ -168,18 +168,6 @@ function createSettingsContent(section) {
     };
 
     o = section.option(
-        form.ListValue,
-        'update_interval',
-        _('List Update Frequency'),
-        _('Select how often the lists will be updated'),
-    );
-    Object.entries(main.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
-        o.value(key, _(label));
-    });
-    o.default = '1d';
-    o.rmempty = false;
-
-    o = section.option(
         form.Flag,
         'yacd',
         _('Yacd enable'),
@@ -195,6 +183,18 @@ function createSettingsContent(section) {
         _('For issues with the video stream'),
     );
     o.default = '0';
+    o.rmempty = false;
+
+    o = section.option(
+        form.ListValue,
+        'update_interval',
+        _('List Update Frequency'),
+        _('Select how often the lists will be updated'),
+    );
+    Object.entries(main.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
+        o.value(key, _(label));
+    });
+    o.default = '1d';
     o.rmempty = false;
 
     o = section.option(
@@ -272,6 +272,29 @@ function createSettingsContent(section) {
     );
     o.default = '0';
     o.rmempty = false;
+
+    o = section.option(
+        form.DynamicList,
+        'routing_excluded_ips',
+        _('Routing Excluded IPs'),
+        _('Specify a local IP address to be excluded from routing'),
+    );
+    o.placeholder = 'IP';
+    o.rmempty = true;
+    o.validate = function (section_id, value) {
+        // Optional
+        if (!value || value.length === 0) {
+            return true;
+        }
+
+        const validation = main.validateIPV4(value);
+
+        if (validation.valid) {
+            return true;
+        }
+
+        return validation.message;
+    };
 }
 
 const EntryPoint = {
