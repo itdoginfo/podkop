@@ -7,7 +7,7 @@
 function createSectionContent(section) {
     let o = section.option(
         form.ListValue,
-        'mode',
+        'connection_type',
         _('Connection Type'),
         _('Select between VPN and Proxy connection methods for traffic routing'),
     );

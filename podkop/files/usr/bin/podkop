@@ -578,11 +578,11 @@ sing_box_configure_outbounds() {
 configure_outbound_handler() {
     local section="$1"
 
-    local connection_mode
-    config_get connection_mode "$section" "mode"
-    case "$connection_mode" in
+    local connection_type
+    config_get connection_type "$section" "connection_type"
+    case "$connection_type" in
     proxy)
-        log "Configuring outbound in proxy connection mode for the $section section"
+        log "Configuring outbound in proxy connection type for the $section section"
         local proxy_config_type
         config_get proxy_config_type "$section" "proxy_config_type"
 
@@ -645,7 +645,7 @@ configure_outbound_handler() {
         esac
         ;;
     vpn)
-        log "Configuring outbound in VPN connection mode for the $section section"
+        log "Configuring outbound in VPN connection type for the $section section"
         local interface_name domain_resolver_enabled domain_resolver_dns_type domain_resolver_dns_server \
             domain_resolver_dns_server_address outbound_tag domain_resolver_tag dns_domain_resolver
 
@@ -675,10 +675,10 @@ configure_outbound_handler() {
         config=$(sing_box_cm_add_interface_outbound "$config" "$outbound_tag" "$interface_name" "$domain_resolver_tag")
         ;;
     block)
-        log "Connection mode 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
+        log "Connection type 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
         ;;
     *)
-        log "Unknown connection mode '$connection_mode' for the $section section. Aborted." "fatal"
+        log "Unknown connection type '$connection_type' for the $section section. Aborted." "fatal"
         exit 1
         ;;
     esac
@@ -811,7 +811,7 @@ configure_routing_for_section_lists() {
     fi
 
     local community_lists user_domain_list_type user_subnet_list_type local_domain_lists local_subnet_lists \
-        remote_domain_lists remote_subnet_lists section_mode_type route_rule_tag
+        remote_domain_lists remote_subnet_lists section_connection_type route_rule_tag
     config_get_bool community_lists "$section" "community_lists"
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
     config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
@@ -819,9 +819,9 @@ configure_routing_for_section_lists() {
     config_get_bool local_subnet_lists "$section" "local_subnet_lists"
     config_get_bool remote_domain_lists "$section" "remote_domain_lists"
     config_get_bool remote_subnet_lists "$section" "remote_subnet_lists"
-    config_get section_mode_type "$section" "mode"
+    config_get section_connection_type "$section" "connection_type"
 
-    if [ "$section_mode_type" = "block" ]; then
+    if [ "$section_connection_type" = "block" ]; then
         route_rule_tag="$SB_REJECT_RULE_TAG"
     else
         route_rule_tag="$(gen_id)"
@@ -1364,11 +1364,11 @@ get_download_detour_tag() {
 }
 
 get_block_sections() {
-    uci show podkop | grep "\.mode='block'" | cut -d'.' -f2
+    uci show podkop | grep "\.connection_type='block'" | cut -d'.' -f2
 }
 
 block_section_exists() {
-    if uci show podkop | grep -q "\.mode='block'"; then
+    if uci show podkop | grep -q "\.connection_type='block'"; then
         return 0
     else
         return 1
