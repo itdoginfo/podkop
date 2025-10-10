@@ -535,24 +535,12 @@ function createSectionContent(section) {
     };
 
     o = section.option(
-        form.Flag,
-        'all_traffic_from_ip_enabled',
-        _('IP for full redirection'),
-        _(
-            'Specify local IP addresses whose traffic will always use the configured route',
-        ),
-    );
-    o.default = '0';
-    o.rmempty = false;
-
-    o = section.option(
         form.DynamicList,
-        'all_traffic_ip',
-        _('Local IPs'),
-        _('Enter valid IPv4 addresses'),
+        'fully_routed_ips',
+        _('Fully Routed IPs'),
+        _('Specify local IP addresses whose traffic will always be routed through the configured route'),
     );
     o.placeholder = 'IP';
-    o.depends('all_traffic_from_ip_enabled', '1');
     o.rmempty = false;
     o.validate = function (section_id, value) {
         // Optional
@@ -573,7 +561,7 @@ function createSectionContent(section) {
         form.Flag,
         'mixed_proxy_enabled',
         _('Enable Mixed Proxy'),
-        _('Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies.'),
+        _('Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies'),
     );
     o.default = '0';
     o.rmempty = false;
@@ -584,7 +572,7 @@ function createSectionContent(section) {
         _('Mixed Proxy Port'),
         _(
             'Specify the port number on which the mixed proxy will run for this section. ' +
-            'Make sure the selected port is not used by another service.'
+            'Make sure the selected port is not used by another service'
         ),
     );
     o.rmempty = false;
