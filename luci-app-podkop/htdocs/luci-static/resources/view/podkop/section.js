@@ -311,7 +311,7 @@ function createSectionContent(section) {
             );
         }
 
-        const { valid, results } = main.bulkValidate(domains, row => main.validateDomain(row, true));
+        const {valid, results} = main.bulkValidate(domains, row => main.validateDomain(row, true));
 
         if (!valid) {
             const errors = results
@@ -488,7 +488,7 @@ function createSectionContent(section) {
             );
         }
 
-        const { valid, results } = main.bulkValidate(subnets, main.validateSubnet);
+        const {valid, results} = main.bulkValidate(subnets, main.validateSubnet);
 
         if (!valid) {
             const errors = results
@@ -571,12 +571,24 @@ function createSectionContent(section) {
 
     o = section.option(
         form.Flag,
-        'socks5',
-        _('Mixed enable'),
-        _('Browser port: 2080'),
+        'mixed_proxy_enabled',
+        _('Enable Mixed Proxy'),
+        _('Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies.'),
     );
     o.default = '0';
     o.rmempty = false;
+
+    o = section.option(
+        form.Value,
+        'mixed_proxy_port',
+        _('Mixed Proxy Port'),
+        _(
+            'Specify the port number on which the mixed proxy will run for this section. ' +
+            'Make sure the selected port is not used by another service.'
+        ),
+    );
+    o.rmempty = false;
+    o.depends('mixed_proxy_enabled', '1');
 }
 
 const EntryPoint = {
