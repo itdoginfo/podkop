@@ -252,10 +252,10 @@ route_table_rule_mark() {
 nft_init_interfaces_set() {
     nft_create_ifname_set "$NFT_TABLE_NAME" "$NFT_INTERFACE_SET_NAME"
 
-    local interface_list
-    config_get interface_list "settings" "iface" "br-lan"
+    local source_network_interfaces
+    config_get source_network_interfaces "settings" "source_network_interfaces" "br-lan"
 
-    for interface in $interface_list; do
+    for interface in $source_network_interfaces; do
         nft add element inet "$NFT_TABLE_NAME" "$NFT_INTERFACE_SET_NAME" "{ $interface }"
     done
 }

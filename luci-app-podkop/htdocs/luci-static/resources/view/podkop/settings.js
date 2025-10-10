@@ -82,7 +82,7 @@ function createSettingsContent(section) {
 
     o = section.option(
         widgets.DeviceSelect,
-        'iface',
+        'source_network_interfaces',
         _('Source Network Interface'),
         _('Select the network interface from which the traffic will originate'),
     );
