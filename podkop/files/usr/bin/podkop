@@ -90,7 +90,7 @@ start_main() {
 
     migration
 
-    config_foreach process_validate_service
+    config_foreach process_validate_service "section"
 
     br_netfilter_disable
 
@@ -109,7 +109,7 @@ start_main() {
 
     # sing-box
     sing_box_init_config
-    config_foreach add_cron_job
+    config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
 
     local exclude_ntp
@@ -493,9 +493,9 @@ list_update() {
 
     echolog "📥 Downloading and processing lists..."
 
-    config_foreach import_community_subnet_lists
-    config_foreach import_domains_from_remote_domain_lists
-    config_foreach import_subnets_from_remote_subnet_lists
+    config_foreach import_community_subnet_lists "section"
+    config_foreach import_domains_from_remote_domain_lists "section"
+    config_foreach import_subnets_from_remote_subnet_lists "section"
 
     if [ $? -eq 0 ]; then
         echolog "✅ Lists update completed successfully"
@@ -719,13 +719,8 @@ sing_box_configure_route() {
 
     config=$(sing_box_cm_configure_route "$config" "$SB_DIRECT_OUTBOUND_TAG" true "$SB_DNS_SERVER_TAG")
 
-    local sniff_inbounds mixed_inbound_enabled
-    config_get_bool mixed_inbound_enabled "main" "socks5" 0
-    if [ "$mixed_inbound_enabled" -eq 1 ]; then
-        sniff_inbounds=$(comma_string_to_json_array "$SB_TPROXY_INBOUND_TAG,$SB_DNS_INBOUND_TAG,$SB_MIXED_INBOUND_TAG")
-    else
-        sniff_inbounds=$(comma_string_to_json_array "$SB_TPROXY_INBOUND_TAG,$SB_DNS_INBOUND_TAG")
-    fi
+    local sniff_inbounds
+    sniff_inbounds=$(comma_string_to_json_array "$SB_TPROXY_INBOUND_TAG,$SB_DNS_INBOUND_TAG,$SB_MIXED_INBOUND_TAG")
     config=$(sing_box_cm_sniff_route_rule "$config" "inbound" "$sniff_inbounds")
 
     config=$(sing_box_cm_add_hijack_dns_route_rule "$config" "protocol" "dns")
@@ -741,7 +736,7 @@ sing_box_configure_route() {
     )
     config=$(sing_box_cf_override_domain_port "$config" "$FAKEIP_TEST_DOMAIN" 8443)
 
-    config_foreach include_source_ips_in_routing_handler
+    config_foreach include_source_ips_in_routing_handler "section"
 
     configure_common_reject_route_rule
 
@@ -753,7 +748,7 @@ sing_box_configure_route() {
         config_list_foreach "settings" "routing_excluded_ips" exclude_source_ip_from_routing_handler "$rule_tag"
     fi
 
-    config_foreach configure_routing_for_section_lists
+    config_foreach configure_routing_for_section_lists "section"
 }
 
 include_source_ips_in_routing_handler() {
@@ -1069,19 +1064,6 @@ sing_box_configure_experimental() {
 sing_box_additional_inbounds() {
     log "Configure the additional inbounds of a sing-box JSON configuration"
 
-    local mixed_inbound_enabled
-    config_get_bool mixed_inbound_enabled "main" "socks5" 0
-    if [ "$mixed_inbound_enabled" -eq 1 ]; then
-        config=$(
-            sing_box_cf_add_mixed_inbound_and_route_rule \
-                "$config" \
-                "$SB_MIXED_INBOUND_TAG" \
-                "$SB_MIXED_INBOUND_ADDRESS" \
-                "$SB_MIXED_INBOUND_PORT" \
-                "$SB_MAIN_OUTBOUND_TAG"
-        )
-    fi
-
     config=$(
         sing_box_cf_add_mixed_inbound_and_route_rule \
             "$config" \
@@ -1090,6 +1072,28 @@ sing_box_additional_inbounds() {
             "$SB_SERVICE_MIXED_INBOUND_PORT" \
             "$SB_MAIN_OUTBOUND_TAG"
     )
+
+    config_foreach configure_section_mixed_proxy "section"
+}
+
+configure_section_mixed_proxy() {
+    local section="$1"
+
+    local mixed_inbound_enabled mixed_proxy_port mixed_inbound_tag mixed_outbound_tag
+    config_get_bool mixed_inbound_enabled "$section" "mixed_proxy_enabled" 0
+    config_get mixed_proxy_port "$section" "mixed_proxy_port"
+    if [ "$mixed_inbound_enabled" -eq 1 ]; then
+        mixed_inbound_tag="$(get_inbound_tag_by_section "$section-mixed")"
+        mixed_outbound_tag="$(get_outbound_tag_by_section "$section")"
+        config=$(
+            sing_box_cf_add_mixed_inbound_and_route_rule \
+                "$config" \
+                "$mixed_inbound_tag" \
+                "$SB_MIXED_INBOUND_ADDRESS" \
+                "$mixed_proxy_port" \
+                "$mixed_outbound_tag"
+        )
+    fi
 }
 
 sing_box_save_config() {
