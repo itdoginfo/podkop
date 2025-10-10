@@ -4,6 +4,7 @@ import {
   getSingboxStatus,
 } from '../../methods';
 import {
+  getClashApiUrl,
   getClashWsUrl,
   onMount,
   preserveScrollForPage,
@@ -33,6 +34,10 @@ async function fetchDashboardSections() {
 
   const { data, success } = await getDashboardSections();
 
+  if (!success) {
+    console.log('[fetchDashboardSections]: failed to fetch', getClashApiUrl());
+  }
+
   store.set({
     sectionsWidget: {
       latencyFetching: false,
@@ -44,18 +49,30 @@ async function fetchDashboardSections() {
 }
 
 async function fetchServicesInfo() {
-  const [podkop, singbox] = await Promise.all([
-    getPodkopStatus(),
-    getSingboxStatus(),
-  ]);
+  try {
+    const [podkop, singbox] = await Promise.all([
+      getPodkopStatus(),
+      getSingboxStatus(),
+    ]);
 
-  store.set({
-    servicesInfoWidget: {
-      loading: false,
-      failed: false,
-      data: { singbox: singbox.running, podkop: podkop.enabled },
-    },
-  });
+    store.set({
+      servicesInfoWidget: {
+        loading: false,
+        failed: false,
+        data: { singbox: singbox.running, podkop: podkop.enabled },
+      },
+    });
+  } catch (err) {
+    console.log('[fetchServicesInfo]: failed to fetchServices', err);
+
+    store.set({
+      servicesInfoWidget: {
+        loading: false,
+        failed: true,
+        data: { singbox: 0, podkop: 0 },
+      },
+    });
+  }
 }
 
 async function connectToClashSockets() {
@@ -73,6 +90,10 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
+      console.log(
+        '[fetchDashboardSections]: failed to connect',
+        getClashWsUrl(),
+      );
       store.set({
         bandwidthWidget: {
           loading: false,
@@ -108,6 +129,10 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
+      console.log(
+        '[fetchDashboardSections]: failed to connect',
+        getClashWsUrl(),
+      );
       store.set({
         trafficTotalWidget: {
           loading: false,
