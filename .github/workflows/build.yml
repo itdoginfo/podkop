@@ -113,7 +113,7 @@ jobs:
         uses: softprops/action-gh-release@v2.4.0
         with:
           files: ./filtered-bin/release/*.*
-          draft: true
-          prerelease: true
+          draft: false
+          prerelease: false
           name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
