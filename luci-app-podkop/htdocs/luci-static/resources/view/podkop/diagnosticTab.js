@@ -922,7 +922,8 @@ async function updateDiagnostics() {
     'luci-version',
     document.createTextNode(
       `${main.PODKOP_LUCI_APP_VERSION}`
-    ),
+    )
+  );
 
   safeExec(
     '/usr/bin/podkop',
