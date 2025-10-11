@@ -1878,6 +1878,16 @@ check_nft_rules() {
     local rules_proxy_counters=0
     local rules_other_mark_exist=0
     
+    # Generate traffic through PodkopTable
+    curl -m 3 -s "http://ip.podkop.fyi/check" > /dev/null 2>&1 &
+    local pid1=$!
+    curl -m 3 -s "http://fakeip.podkop.fyi/check" > /dev/null 2>&1 &
+    local pid2=$!
+    
+    wait $pid1 2>/dev/null
+    wait $pid2 2>/dev/null
+    sleep 1
+    
     # Check if PodkopTable exists
     if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
         table_exist=1
@@ -1926,17 +1936,80 @@ check_nft_rules() {
         [ "$table_name" = "$NFT_TABLE_NAME" ] && continue
         
         if nft list table "$family" "$table_name" 2>/dev/null | grep -q "meta mark set"; then
-            touch /tmp/podkop/mark_check.$$
+            touch /tmp/podkop_mark_check.$$
             break
         fi
     done
 
-    if [ -f /tmp/podkop/mark_check.$$ ]; then
+    if [ -f /tmp/podkop_mark_check.$$ ]; then
         rules_other_mark_exist=1
-        rm -f /tmp/podkop/mark_check.$$
+        rm -f /tmp/podkop_mark_check.$$
     fi
     
     echo "{\"table_exist\":$table_exist,\"rules_mangle_exist\":$rules_mangle_exist,\"rules_mangle_counters\":$rules_mangle_counters,\"rules_mangle_output_exist\":$rules_mangle_output_exist,\"rules_mangle_output_counters\":$rules_mangle_output_counters,\"rules_proxy_exist\":$rules_proxy_exist,\"rules_proxy_counters\":$rules_proxy_counters,\"rules_other_mark_exist\":$rules_other_mark_exist}" | jq .
+}
+
+check_sing_box() {
+    local sing_box_installed=0
+    local sing_box_version_ok=0
+    local sing_box_service_exist=0
+    local sing_box_autostart_disabled=0
+    local sing_box_process_running=0
+    local sing_box_ports_listening=0
+    
+    # Check if sing-box is installed
+    if command -v sing-box > /dev/null 2>&1; then
+        sing_box_installed=1
+        
+        # Check version (must be >= 1.12.4)
+        local version=$(sing-box version 2>/dev/null | head -n 1 | awk '{print $3}')
+        if [ -n "$version" ]; then
+            version=$(echo "$version" | sed 's/^v//')
+            local major=$(echo "$version" | cut -d. -f1)
+            local minor=$(echo "$version" | cut -d. -f2)
+            local patch=$(echo "$version" | cut -d. -f3)
+            
+            # Compare version: must be >= 1.12.4
+            if [ "$major" -gt 1 ] || \
+               [ "$major" -eq 1 ] && [ "$minor" -gt 12 ] || \
+               [ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]; then
+                sing_box_version_ok=1
+            fi
+        fi
+    fi
+
+    # Check if service exists and is enabled
+    if [ -f /etc/init.d/sing-box ]; then
+        sing_box_service_exist=1
+        
+        if ! /etc/init.d/sing-box enabled 2>/dev/null; then
+            sing_box_autostart_disabled=1
+        fi
+    fi
+    
+    # Check if process is running
+    if pgrep "sing-box" > /dev/null 2>&1; then
+        sing_box_process_running=1
+    fi
+    
+    # Check if sing-box is listening on required ports
+    local port_53_ok=0
+    local port_1602_ok=0
+    
+    if netstat -ln 2>/dev/null | grep -q "127.0.0.42:53"; then
+        port_53_ok=1
+    fi
+    
+    if netstat -ln 2>/dev/null | grep -q "127.0.0.1:1602"; then
+        port_1602_ok=1
+    fi
+    
+    # Both ports must be listening
+    if [ "$port_53_ok" == "1" ] && [ "$port_1602_ok" == "1" ]; then
+        sing_box_ports_listening=1
+    fi
+    
+    echo "{\"sing_box_installed\":$sing_box_installed,\"sing_box_version_ok\":$sing_box_version_ok,\"sing_box_service_exist\":$sing_box_service_exist,\"sing_box_autostart_disabled\":$sing_box_autostart_disabled,\"sing_box_process_running\":$sing_box_process_running,\"sing_box_ports_listening\":$sing_box_ports_listening}" | jq .
 }
 
 print_global() {
@@ -2098,6 +2171,7 @@ Available commands:
     check_proxy             Check proxy connectivity
     check_nft               Check NFT rules
     check_nft_rules         Check NFT rules status
+    check_sing_box          Check sing-box installation and status
     check_github            Check GitHub connectivity
     check_logs              Show podkop logs from system journal
     check_sing_box_connections  Show active sing-box connections
@@ -2142,6 +2216,9 @@ check_nft)
     ;;
 check_nft_rules)
     check_nft_rules
+    ;;
+check_sing_box)
+    check_sing_box
     ;;
 check_github)
     check_github
