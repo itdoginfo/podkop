@@ -4,6 +4,7 @@ import { renderCheckSection } from './renderCheckSection';
 import { runDnsCheck } from './checks/runDnsCheck';
 import { runSingBoxCheck } from './checks/runSingBoxCheck';
 import { runNftCheck } from './checks/runNftCheck';
+import { runFakeIPCheck } from './checks/runFakeIPCheck';
 
 async function renderDiagnosticsChecks() {
   console.log('renderDiagnosticsChecks');
@@ -35,6 +36,8 @@ async function runChecks() {
   await runSingBoxCheck();
 
   await runNftCheck();
+
+  await runFakeIPCheck();
 }
 
 export async function initDiagnosticController(): Promise<void> {
