@@ -263,6 +263,10 @@ var GlobalStyles = `
     display: none;
 }
 
+#cbi-podkop-diagnostic > h3 {
+    display: none;
+}
+
 .cbi-section-remove {
     margin-bottom: -32px;
 }
@@ -417,6 +421,91 @@ var GlobalStyles = `
         left: 150%;
     }
 }
+
+/* Lucide spinner animate */
+.lucide-rotate {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+#cbi-podkop-diagnostic-_mount_node > div {
+    width: 100%;
+}
+
+.pdk_diagnostic-page__checks {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic_alert {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    
+    display: grid;
+    grid-template-columns: 24px 1fr;    
+    grid-column-gap: 10px;
+    align-items: center;
+    padding: 10px;
+}
+
+.pdk_diagnostic_alert--loading {
+    border: 2px var(--primary-color-high, dodgerblue) solid;
+}
+
+.pdk_diagnostic_alert--warning {
+    border: 2px var(--warn-color-medium, orange) solid;
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic_alert--error {
+    border: 2px var(--error-color-medium, red) solid;
+    color: var(--error-color-medium, red);
+}
+
+.pdk_diagnostic_alert--success {
+    border: 2px var(--success-color-medium, green) solid;
+    color: var(--success-color-medium, green);
+}
+
+.pdk_diagnostic_alert--skipped {}
+
+.pdk_diagnostic_alert__icon {}
+
+.pdk_diagnostic_alert__content {}
+
+.pdk_diagnostic_alert__title {
+    display: block;
+}
+
+.pdk_diagnostic_alert__description {}
+
+.pdk_diagnostic_alert__summary {
+    margin-top: 10px;
+}
+
+.pdk_diagnostic_alert__summary__item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-column-gap: 10px;
+}
+
+.pdk_diagnostic_alert__summary__item--error {
+    color: var(--error-color-medium, red);
+}
+
+.pdk_diagnostic_alert__summary__item--warning {
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic_alert__summary__item--success {
+    color: var(--success-color-medium, green);
+}
+
 `;
 
 // src/helpers/injectGlobalStyles.ts
@@ -666,6 +755,17 @@ function parseQueryString(query) {
     },
     {}
   );
+}
+
+// src/helpers/svgEl.ts
+function svgEl(tag, attrs = {}, children = []) {
+  const NS = "http://www.w3.org/2000/svg";
+  const el = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v != null) el.setAttribute(k, String(v));
+  }
+  (Array.isArray(children) ? children : [children]).filter(Boolean).forEach((ch) => el.appendChild(ch));
+  return el;
 }
 
 // src/validators/validateVlessUrl.ts
@@ -1329,7 +1429,8 @@ var initialStore = {
     failed: false,
     latencyFetching: false,
     data: []
-  }
+  },
+  diagnosticsChecks: []
 };
 var store = new Store(initialStore);
 
@@ -2036,18 +2137,592 @@ async function initDashboardController() {
 function renderDiagnostic() {
   return E(
     "div",
-    {
-      id: "diagnostic-status",
-      class: "pdk_diagnostic-page"
-    },
-    "Not implemented yet"
+    { id: "diagnostic-status", class: "pdk_diagnostic-page" },
+    E(
+      "div",
+      {
+        class: "pdk_diagnostic-page__checks",
+        id: "pdk_diagnostic-page-checks"
+      }
+      // [
+      //   renderCheckSection({
+      //     state: 'loading',
+      //     title: _('DNS Checks'),
+      //     description: _('Checking, please wait'),
+      //     items: [],
+      //   }),
+      //   renderCheckSection({
+      //     state: 'warning',
+      //     title: _('DNS Checks'),
+      //     description: _('Some checks was failed'),
+      //     items: [],
+      //   }),
+      //   renderCheckSection({
+      //     state: 'error',
+      //     title: _('DNS Checks'),
+      //     description: _('Checks was failed'),
+      //     items: [],
+      //   }),
+      //   renderCheckSection({
+      //     state: 'success',
+      //     title: _('DNS Checks'),
+      //     description: _('Checks was passed'),
+      //     items: [],
+      //   }),
+      //   renderCheckSection({
+      //     state: 'skipped',
+      //     title: _('DNS Checks'),
+      //     description: _('Checks was skipped'),
+      //     items: [],
+      //   }),
+      // ],
+    )
   );
 }
 
+// src/icons/renderLoaderCircleIcon24.ts
+function renderLoaderCircleIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-loader-circle lucide-rotate"
+    },
+    [
+      svgEl("path", {
+        d: "M21 12a9 9 0 1 1-6.219-8.56"
+      }),
+      svgEl("animateTransform", {
+        attributeName: "transform",
+        attributeType: "XML",
+        type: "rotate",
+        from: "0 12 12",
+        to: "360 12 12",
+        dur: "1s",
+        repeatCount: "indefinite"
+      })
+    ]
+  );
+}
+
+// src/icons/renderShieldAlertIcon24.ts
+function renderShieldAlertIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-shield-alert"
+    },
+    [
+      svgEl("path", {
+        d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+      }),
+      svgEl("path", { d: "M12 8v4" }),
+      svgEl("path", { d: "M12 16h.01" })
+    ]
+  );
+}
+
+// src/icons/renderShieldCheckIcon24.ts
+function renderShieldCheckIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-shield-check"
+    },
+    [
+      svgEl("path", {
+        d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+      }),
+      svgEl("path", { d: "m9 12 2 2 4-4" })
+    ]
+  );
+}
+
+// src/icons/renderShieldIcon24.ts
+function renderShieldIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-shield"
+    },
+    [
+      svgEl("path", {
+        d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+      })
+    ]
+  );
+}
+
+// src/icons/renderShieldXIcon24.ts
+function renderShieldXIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-shield-x"
+    },
+    [
+      svgEl("path", {
+        d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+      }),
+      svgEl("path", { d: "m14.5 9.5-5 5" }),
+      svgEl("path", { d: "m9.5 9.5 5 5" })
+    ]
+  );
+}
+
+// src/podkop/tabs/diagnostic/renderCheckSection.ts
+function renderCheckSummary(items) {
+  if (!items.length) {
+    return E("div", {}, "");
+  }
+  const renderedItems = items.map(
+    (item) => E(
+      "div",
+      {
+        class: `pdk_diagnostic_alert__summary__item pdk_diagnostic_alert__summary__item--${item.state}`
+      },
+      [E("b", {}, item.key), E("div", {}, item.value)]
+    )
+  );
+  return E("div", { class: "pdk_diagnostic_alert__summary" }, renderedItems);
+}
+function renderLoadingState3(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderLoaderCircleIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--loading" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderWarningState(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderShieldAlertIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--warning" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderErrorState(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderShieldXIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--error" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderSuccessState(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderShieldCheckIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--success" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderSkippedState(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderShieldIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--skipped" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderCheckSection(props) {
+  if (props.state === "loading") {
+    return renderLoadingState3(props);
+  }
+  if (props.state === "warning") {
+    return renderWarningState(props);
+  }
+  if (props.state === "error") {
+    return renderErrorState(props);
+  }
+  if (props.state === "success") {
+    return renderSuccessState(props);
+  }
+  if (props.state === "skipped") {
+    return renderSkippedState(props);
+  }
+  return E("div", {}, "Not implement yet");
+}
+
+// src/podkop/tabs/diagnostic/updateDiagnosticsCheck.ts
+function updateDiagnosticsCheck(check) {
+  const diagnosticsChecks = store.get().diagnosticsChecks;
+  const other = diagnosticsChecks.filter((item) => item.code !== check.code);
+  store.set({
+    diagnosticsChecks: [...other, check]
+  });
+}
+
+// src/podkop/tabs/diagnostic/checks/runDnsCheck.ts
+async function runDnsCheck() {
+  const code = "dns_check";
+  updateDiagnosticsCheck({
+    code,
+    title: _("DNS checks"),
+    description: _("Checking dns, please wait"),
+    state: "loading",
+    items: []
+  });
+  const dnsChecks = await getDNSCheck();
+  if (!dnsChecks.success) {
+    updateDiagnosticsCheck({
+      code,
+      title: _("DNS checks"),
+      description: _("Cannot receive DNS checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("DNS checks failed");
+  }
+  const data = dnsChecks.data;
+  const allGood = Boolean(data.local_dns_status) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
+  const atLeastOneGood = Boolean(data.local_dns_status) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
+  console.log("dnsChecks", dnsChecks);
+  function getStatus() {
+    if (allGood) {
+      return "success";
+    }
+    if (atLeastOneGood) {
+      return "warning";
+    }
+    return "error";
+  }
+  updateDiagnosticsCheck({
+    code,
+    title: _("DNS checks"),
+    description: _("DNS checks passed"),
+    state: getStatus(),
+    items: [
+      {
+        state: data.bootstrap_dns_status ? "success" : "error",
+        key: _("Bootsrap DNS"),
+        value: data.bootstrap_dns_server
+      },
+      {
+        state: data.dns_status ? "success" : "error",
+        key: _("Main DNS"),
+        value: `${data.dns_server} [${data.dns_type}]`
+      },
+      {
+        state: data.local_dns_status ? "success" : "error",
+        key: _("Local DNS"),
+        value: data.local_dns_status ? _("Enabled") : _("Failed")
+      }
+    ]
+  });
+  if (!atLeastOneGood) {
+    throw new Error("DNS checks failed");
+  }
+}
+
+// src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts
+async function runSingBoxCheck() {
+  const code = "sing_box_check";
+  updateDiagnosticsCheck({
+    code,
+    title: _("Sing-box checks"),
+    description: _("Checking sing-box, please wait"),
+    state: "loading",
+    items: []
+  });
+  const singBoxChecks = await getSingBoxCheck();
+  if (!singBoxChecks.success) {
+    updateDiagnosticsCheck({
+      code,
+      title: _("Sing-box checks"),
+      description: _("Cannot receive Sing-box checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("Sing-box checks failed");
+  }
+  const data = singBoxChecks.data;
+  const allGood = Boolean(data.sing_box_installed) && Boolean(data.sing_box_version_ok) && Boolean(data.sing_box_service_exist) && Boolean(data.sing_box_autostart_disabled) && Boolean(data.sing_box_process_running) && Boolean(data.sing_box_ports_listening);
+  const atLeastOneGood = Boolean(data.sing_box_installed) || Boolean(data.sing_box_version_ok) || Boolean(data.sing_box_service_exist) || Boolean(data.sing_box_autostart_disabled) || Boolean(data.sing_box_process_running) || Boolean(data.sing_box_ports_listening);
+  console.log("singBoxChecks", singBoxChecks);
+  function getStatus() {
+    if (allGood) {
+      return "success";
+    }
+    if (atLeastOneGood) {
+      return "warning";
+    }
+    return "error";
+  }
+  updateDiagnosticsCheck({
+    code,
+    title: _("Sing-box checks"),
+    description: _("Sing-box checks passed"),
+    state: getStatus(),
+    items: [
+      {
+        state: data.sing_box_installed ? "success" : "error",
+        key: _("Sing-box installed"),
+        value: data.sing_box_installed ? _("Yes") : _("No")
+      },
+      {
+        state: data.sing_box_version_ok ? "success" : "error",
+        key: _("Sing-box version >= 1.12.4"),
+        value: data.sing_box_version_ok ? _("Yes") : _("No")
+      },
+      {
+        state: data.sing_box_service_exist ? "success" : "error",
+        key: _("Sing-box service exist"),
+        value: data.sing_box_service_exist ? _("Yes") : _("No")
+      },
+      {
+        state: data.sing_box_autostart_disabled ? "success" : "error",
+        key: _("Sing-box autostart disabled"),
+        value: data.sing_box_autostart_disabled ? _("Yes") : _("No")
+      },
+      {
+        state: data.sing_box_process_running ? "success" : "error",
+        key: _("Sing-box process running"),
+        value: data.sing_box_process_running ? _("Yes") : _("No")
+      },
+      {
+        state: data.sing_box_ports_listening ? "success" : "error",
+        key: _("Sing-box listening ports"),
+        value: data.sing_box_ports_listening ? _("Yes") : _("No")
+      }
+    ]
+  });
+  if (!atLeastOneGood) {
+    throw new Error("Sing-box checks failed");
+  }
+}
+
+// src/podkop/tabs/diagnostic/checks/runNftCheck.ts
+async function runNftCheck() {
+  const code = "nft_check";
+  updateDiagnosticsCheck({
+    code,
+    title: _("Nftables checks"),
+    description: _("Checking nftables, please wait"),
+    state: "loading",
+    items: []
+  });
+  const nftablesChecks = await getNftRulesCheck();
+  if (!nftablesChecks.success) {
+    updateDiagnosticsCheck({
+      code,
+      title: _("Nftables checks"),
+      description: _("Cannot receive nftables checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("Nftables checks failed");
+  }
+  const data = nftablesChecks.data;
+  const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && Boolean(data.rules_other_mark_exist);
+  const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || Boolean(data.rules_other_mark_exist);
+  console.log("nftablesChecks", nftablesChecks);
+  function getStatus() {
+    if (allGood) {
+      return "success";
+    }
+    if (atLeastOneGood) {
+      return "warning";
+    }
+    return "error";
+  }
+  updateDiagnosticsCheck({
+    code,
+    title: _("Nftables checks"),
+    description: allGood ? _("Nftables checks passed") : _("Nftables checks partially passed"),
+    state: getStatus(),
+    items: [
+      {
+        state: data.table_exist ? "success" : "error",
+        key: _("Table exist"),
+        value: data.table_exist ? _("Yes") : _("No")
+      },
+      {
+        state: data.rules_mangle_exist ? "success" : "error",
+        key: _("Rules mangle exist"),
+        value: data.rules_mangle_exist ? _("Yes") : _("No")
+      },
+      {
+        state: data.rules_mangle_counters ? "success" : "error",
+        key: _("Rules mangle counters"),
+        value: data.rules_mangle_counters ? _("Yes") : _("No")
+      },
+      {
+        state: data.rules_mangle_output_exist ? "success" : "error",
+        key: _("Rules mangle output exist"),
+        value: data.rules_mangle_output_exist ? _("Yes") : _("No")
+      },
+      {
+        state: data.rules_mangle_output_counters ? "success" : "error",
+        key: _("Rules mangle output counters"),
+        value: data.rules_mangle_output_counters ? _("Yes") : _("No")
+      },
+      {
+        state: data.rules_proxy_exist ? "success" : "error",
+        key: _("Rules proxy exist"),
+        value: data.rules_proxy_exist ? _("Yes") : _("No")
+      },
+      {
+        state: data.rules_proxy_counters ? "success" : "error",
+        key: _("Rules proxy counters"),
+        value: data.rules_proxy_counters ? _("Yes") : _("No")
+      },
+      {
+        state: data.rules_other_mark_exist ? "warning" : "success",
+        key: _("Rules other mark exist"),
+        value: data.rules_other_mark_exist ? _("Yes") : _("No")
+      }
+    ]
+  });
+  if (!atLeastOneGood) {
+    throw new Error("Nftables checks failed");
+  }
+}
+
 // src/podkop/tabs/diagnostic/initDiagnosticController.ts
+async function renderDiagnosticsChecks() {
+  console.log("renderDiagnosticsChecks");
+  const diagnosticsChecks = store.get().diagnosticsChecks;
+  const container = document.getElementById("pdk_diagnostic-page-checks");
+  const renderedDiagnosticsChecks = diagnosticsChecks.map(
+    (check) => renderCheckSection(check)
+  );
+  return preserveScrollForPage(() => {
+    container.replaceChildren(...renderedDiagnosticsChecks);
+  });
+}
+async function onStoreUpdate2(next, prev, diff) {
+  if (diff.diagnosticsChecks) {
+    renderDiagnosticsChecks();
+  }
+}
+async function runChecks() {
+  await runDnsCheck();
+  await runSingBoxCheck();
+  await runNftCheck();
+}
 async function initDiagnosticController() {
   onMount("diagnostic-status").then(() => {
     console.log("diagnostic controller initialized.");
+    store.unsubscribe(onStoreUpdate2);
+    store.reset();
+    store.subscribe(onStoreUpdate2);
+    runChecks();
   });
 }
 return baseclass.extend({
@@ -2102,6 +2777,7 @@ return baseclass.extend({
   renderDashboard,
   renderDiagnostic,
   splitProxyString,
+  svgEl,
   triggerLatencyGroupTest,
   triggerLatencyProxyTest,
   triggerProxySelector,

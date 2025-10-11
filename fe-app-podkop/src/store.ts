@@ -112,6 +112,18 @@ class Store<T extends Record<string, any>> {
   }
 }
 
+export interface IDiagnosticsChecksStoreItem {
+  code: string;
+  title: string;
+  description: string;
+  state: 'loading' | 'warning' | 'success' | 'error' | 'skipped';
+  items: Array<{
+    state: 'error' | 'warning' | 'success';
+    key: string;
+    value: string;
+  }>;
+}
+
 export interface StoreType {
   tabService: {
     current: string;
@@ -143,6 +155,7 @@ export interface StoreType {
     data: Podkop.OutboundGroup[];
     latencyFetching: boolean;
   };
+  diagnosticsChecks: Array<IDiagnosticsChecksStoreItem>;
 }
 
 const initialStore: StoreType = {
@@ -176,6 +189,7 @@ const initialStore: StoreType = {
     latencyFetching: false,
     data: [],
   },
+  diagnosticsChecks: [],
 };
 
 export const store = new Store<StoreType>(initialStore);

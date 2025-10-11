@@ -40,6 +40,10 @@ export const GlobalStyles = `
     display: none;
 }
 
+#cbi-podkop-diagnostic > h3 {
+    display: none;
+}
+
 .cbi-section-remove {
     margin-bottom: -32px;
 }
@@ -194,4 +198,89 @@ export const GlobalStyles = `
         left: 150%;
     }
 }
+
+/* Lucide spinner animate */
+.lucide-rotate {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+#cbi-podkop-diagnostic-_mount_node > div {
+    width: 100%;
+}
+
+.pdk_diagnostic-page__checks {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic_alert {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    
+    display: grid;
+    grid-template-columns: 24px 1fr;    
+    grid-column-gap: 10px;
+    align-items: center;
+    padding: 10px;
+}
+
+.pdk_diagnostic_alert--loading {
+    border: 2px var(--primary-color-high, dodgerblue) solid;
+}
+
+.pdk_diagnostic_alert--warning {
+    border: 2px var(--warn-color-medium, orange) solid;
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic_alert--error {
+    border: 2px var(--error-color-medium, red) solid;
+    color: var(--error-color-medium, red);
+}
+
+.pdk_diagnostic_alert--success {
+    border: 2px var(--success-color-medium, green) solid;
+    color: var(--success-color-medium, green);
+}
+
+.pdk_diagnostic_alert--skipped {}
+
+.pdk_diagnostic_alert__icon {}
+
+.pdk_diagnostic_alert__content {}
+
+.pdk_diagnostic_alert__title {
+    display: block;
+}
+
+.pdk_diagnostic_alert__description {}
+
+.pdk_diagnostic_alert__summary {
+    margin-top: 10px;
+}
+
+.pdk_diagnostic_alert__summary__item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-column-gap: 10px;
+}
+
+.pdk_diagnostic_alert__summary__item--error {
+    color: var(--error-color-medium, red);
+}
+
+.pdk_diagnostic_alert__summary__item--warning {
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic_alert__summary__item--success {
+    color: var(--success-color-medium, green);
+}
+
 `;
