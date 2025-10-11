@@ -1,7 +1,7 @@
 import {
   getDashboardSections,
   getPodkopStatus,
-  getSingboxStatus,
+  getSingBoxStatus,
 } from '../../methods';
 import {
   getClashApiUrl,
@@ -52,7 +52,7 @@ async function fetchServicesInfo() {
   try {
     const [podkop, singbox] = await Promise.all([
       getPodkopStatus(),
-      getSingboxStatus(),
+      getSingBoxStatus(),
     ]);
 
     store.set({

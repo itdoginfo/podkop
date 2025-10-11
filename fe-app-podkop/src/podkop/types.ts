@@ -88,4 +88,13 @@ export namespace Podkop {
     rules_proxy_counters: 0 | 1;
     rules_other_mark_exist: 0 | 1;
   }
+
+  export interface SingBoxCheckResult {
+    sing_box_installed: 0 | 1;
+    sing_box_version_ok: 0 | 1;
+    sing_box_service_exist: 0 | 1;
+    sing_box_autostart_disabled: 0 | 1;
+    sing_box_process_running: 0 | 1;
+    sing_box_ports_listening: 0 | 1;
+  }
 }

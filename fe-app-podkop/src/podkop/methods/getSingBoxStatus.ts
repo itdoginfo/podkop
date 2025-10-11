@@ -1,6 +1,6 @@
 import { executeShellCommand } from '../../helpers';
 
-export async function getSingboxStatus(): Promise<{
+export async function getSingBoxStatus(): Promise<{
   running: number;
   enabled: number;
   status: string;

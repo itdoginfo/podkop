@@ -1079,8 +1079,8 @@ async function getPodkopStatus() {
   return { enabled: 0, status: "unknown" };
 }
 
-// src/podkop/methods/getSingboxStatus.ts
-async function getSingboxStatus() {
+// src/podkop/methods/getSingBoxStatus.ts
+async function getSingBoxStatus() {
   const response = await executeShellCommand({
     command: "/usr/bin/podkop",
     args: ["get_sing_box_status"],
@@ -1116,6 +1116,25 @@ async function getNftRulesCheck() {
   const response = await executeShellCommand({
     command: "/usr/bin/podkop",
     args: ["check_nft_rules"],
+    timeout: 1e4
+  });
+  if (response.stdout) {
+    return {
+      success: true,
+      data: JSON.parse(response.stdout)
+    };
+  }
+  return {
+    success: false,
+    error: ""
+  };
+}
+
+// src/podkop/methods/getSingBoxCheck.ts
+async function getSingBoxCheck() {
+  const response = await executeShellCommand({
+    command: "/usr/bin/podkop",
+    args: ["check_sing_box"],
     timeout: 1e4
   });
   if (response.stdout) {
@@ -1691,7 +1710,7 @@ async function fetchServicesInfo() {
   try {
     const [podkop, singbox] = await Promise.all([
       getPodkopStatus(),
-      getSingboxStatus()
+      getSingBoxStatus()
     ]);
     store.set({
       servicesInfoWidget: {
@@ -2070,7 +2089,8 @@ return baseclass.extend({
   getNftRulesCheck,
   getPodkopStatus,
   getProxyUrlName,
-  getSingboxStatus,
+  getSingBoxCheck,
+  getSingBoxStatus,
   initDashboardController,
   initDiagnosticController,
   injectGlobalStyles,
