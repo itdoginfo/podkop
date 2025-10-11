@@ -29,6 +29,10 @@ const syncDirs = [
     local: path.resolve(process.env.LOCAL_DIR_LIB ?? '../podkop/files/usr/lib/'),
     remote: process.env.REMOTE_DIR_LIB ?? '/usr/lib/podkop/',
   },
+  {
+    local: path.resolve(process.env.LOCAL_DIR_INIT ?? '../podkop/files/etc/init.d/'),
+    remote: process.env.REMOTE_DIR_INIT ?? '/etc/init.d/',
+  }
 ];
 
 async function uploadFile(filePath, baseDir, remoteBase) {
