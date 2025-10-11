@@ -943,7 +943,6 @@ async function getConfigSections() {
 // src/podkop/methods/getDashboardSections.ts
 async function getDashboardSections() {
   const configSections = await getConfigSections();
-  console.log("configSections", configSections);
   const clashProxies = await getClashProxies();
   if (!clashProxies.success) {
     return {
@@ -957,7 +956,9 @@ async function getDashboardSections() {
       value
     })
   );
-  const data = configSections.filter((section) => section.connection_type !== "block" && section[".type"] !== "settings").map((section) => {
+  const data = configSections.filter(
+    (section) => section.connection_type !== "block" && section[".type"] !== "settings"
+  ).map((section) => {
     if (section.connection_type === "proxy") {
       if (section.proxy_config_type === "url") {
         const outbound = proxies.find(
@@ -1089,6 +1090,44 @@ async function getSingboxStatus() {
     return JSON.parse(response.stdout.replace(/\n/g, ""));
   }
   return { running: 0, enabled: 0, status: "unknown" };
+}
+
+// src/podkop/methods/getDNSCheck.ts
+async function getDNSCheck() {
+  const response = await executeShellCommand({
+    command: "/usr/bin/podkop",
+    args: ["check_dns_available"],
+    timeout: 1e4
+  });
+  if (response.stdout) {
+    return {
+      success: true,
+      data: JSON.parse(response.stdout)
+    };
+  }
+  return {
+    success: false,
+    error: ""
+  };
+}
+
+// src/podkop/methods/getNftRulesCheck.ts
+async function getNftRulesCheck() {
+  const response = await executeShellCommand({
+    command: "/usr/bin/podkop",
+    args: ["check_nft_rules"],
+    timeout: 1e4
+  });
+  if (response.stdout) {
+    return {
+      success: true,
+      data: JSON.parse(response.stdout)
+    };
+  }
+  return {
+    success: false,
+    error: ""
+  };
 }
 
 // src/podkop/services/tab.service.ts
@@ -2026,7 +2065,9 @@ return baseclass.extend({
   getClashVersion,
   getClashWsUrl,
   getConfigSections,
+  getDNSCheck,
   getDashboardSections,
+  getNftRulesCheck,
   getPodkopStatus,
   getProxyUrlName,
   getSingboxStatus,

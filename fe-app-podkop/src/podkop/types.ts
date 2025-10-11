@@ -53,4 +53,39 @@ export namespace Podkop {
     '.name': string;
     '.type': 'settings' | 'section';
   };
+
+  export interface MethodSuccessResponse<T> {
+    success: true;
+    data: T;
+  }
+
+  export interface MethodFailureResponse {
+    success: false;
+    error: string;
+  }
+
+  export type MethodResponse<T> =
+    | MethodSuccessResponse<T>
+    | MethodFailureResponse;
+
+  export interface DnsCheckResult {
+    dns_type: 'udp' | 'doh' | 'dot';
+    dns_server: string;
+    dns_status: 0 | 1;
+    local_dns_status: 0 | 1;
+    bootstrap_dns_server: string;
+    bootstrap_dns_status: 0 | 1;
+    dhcp_has_dns_server: 0 | 1;
+  }
+
+  export interface NftRulesCheckResult {
+    table_exist: 0 | 1;
+    rules_mangle_exist: 0 | 1;
+    rules_mangle_counters: 0 | 1;
+    rules_mangle_output_exist: 0 | 1;
+    rules_mangle_output_counters: 0 | 1;
+    rules_proxy_exist: 0 | 1;
+    rules_proxy_counters: 0 | 1;
+    rules_other_mark_exist: 0 | 1;
+  }
 }
