@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck shell=dash
 
 REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
 DOWNLOAD_DIR="/tmp/podkop"
@@ -74,7 +75,7 @@ main() {
         msg "Installed podkop..."
     fi
 
-    if command -v curl &> /dev/null; then
+    if command -v curl >/dev/null 2>&1; then
         check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
 
         if echo "$check_response" | grep -q 'API rate limit '; then
@@ -90,8 +91,7 @@ main() {
         grep_url_pattern='https://[^"[:space:]]*\.ipk'
     fi
 
-    download_success=0
-    while read -r url; do
+    wget -qO- "$REPO" | grep -o "$grep_url_pattern" | while read -r url; do
         filename=$(basename "$url")
         filepath="$DOWNLOAD_DIR/$filename"
 
@@ -101,7 +101,6 @@ main() {
             if wget -q -O "$filepath" "$url"; then
                 if [ -s "$filepath" ]; then
                     msg "$filename successfully downloaded"
-                    download_success=1
                     break
                 fi
             fi
@@ -113,15 +112,22 @@ main() {
         if [ $attempt -eq $COUNT ]; then
             msg "Failed to download $filename after $COUNT attempts"
         fi
-    done < <(wget -qO- "$REPO" | grep -o "$grep_url_pattern")
+    done
 
-    if [ $download_success -eq 0 ]; then
+    # Check if any files were downloaded
+    if ! ls "$DOWNLOAD_DIR"/*podkop* >/dev/null 2>&1; then
         msg "No packages were downloaded successfully"
         exit 1
     fi
 
     for pkg in podkop luci-app-podkop; do
-        file=$(ls "$DOWNLOAD_DIR" | grep "^$pkg" | head -n 1)
+        file=""
+        for f in "$DOWNLOAD_DIR"/"$pkg"*; do
+            if [ -f "$f" ]; then
+                file=$(basename "$f")
+                break
+            fi
+        done
         if [ -n "$file" ]; then
             msg "Installing $file"
             pkg_install "$DOWNLOAD_DIR/$file"
@@ -129,7 +135,13 @@ main() {
         fi
     done
 
-    ru=$(ls "$DOWNLOAD_DIR" | grep "luci-i18n-podkop-ru" | head -n 1)
+    ru=""
+    for f in "$DOWNLOAD_DIR"/luci-i18n-podkop-ru*; do
+        if [ -f "$f" ]; then
+            ru=$(basename "$f")
+            break
+        fi
+    done
     if [ -n "$ru" ]; then
         if pkg_is_installed luci-i18n-podkop-ru; then
                 msg "Upgraded ru translation..."
@@ -219,7 +231,7 @@ sing_box() {
     sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
     required_version="1.12.4"
 
-    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
+    if [ "$(printf '%s\n%s\n' "$sing_box_version" "$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than required $required_version"
         msg "Removing old version..."
         service podkop stop
