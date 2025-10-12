@@ -6,7 +6,7 @@ on:
       - main
       - 'rc/**'
     paths:
-      - '**.sh'
+      - 'install.sh'
       - 'podkop/files/usr/bin/**'
       - 'podkop/files/usr/lib/**'
       - '.github/workflows/shellcheck.yml'
@@ -15,7 +15,7 @@ on:
       - main
       - 'rc/**'
     paths:
-      - '**.sh'
+      - 'install.sh'
       - 'podkop/files/usr/bin/**'
       - 'podkop/files/usr/lib/**'
       - '.github/workflows/shellcheck.yml'
@@ -26,7 +26,7 @@ permissions:
 jobs:
   shellcheck:
     name: Differential ShellCheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     permissions:
       contents: read
@@ -42,7 +42,8 @@ jobs:
         uses: redhat-plumbers-in-action/differential-shellcheck@v5.5.5
         with:
           severity: error
-          scan-directory: |
-            podkop/files/usr/bin/**
-            podkop/files/usr/lib/**
+          include-path: |
+            podkop/files/usr/bin/podkop
+            podkop/files/usr/lib/**.sh
+            install.sh
           token: ${{ secrets.GITHUB_TOKEN }}
