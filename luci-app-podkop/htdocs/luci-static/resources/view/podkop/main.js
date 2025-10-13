@@ -768,6 +768,14 @@ function svgEl(tag, attrs = {}, children = []) {
   return el;
 }
 
+// src/helpers/insertIf.ts
+function insertIf(condition, elements) {
+  return condition ? elements : [];
+}
+function insertIfObj(condition, object) {
+  return condition ? object : {};
+}
+
 // src/validators/validateVlessUrl.ts
 function validateVlessUrl(url) {
   try {
@@ -2538,20 +2546,25 @@ async function runDnsCheck() {
     description: _("DNS checks passed"),
     state: getStatus(),
     items: [
-      {
-        state: data.bootstrap_dns_status ? "success" : "error",
-        key: _("Bootsrap DNS"),
-        value: data.bootstrap_dns_server
-      },
+      ...insertIf(
+        data.dns_type === "doh" || data.dns_type === "dot",
+        [
+          {
+            state: data.bootstrap_dns_status ? "success" : "error",
+            key: _("Bootsrap DNS"),
+            value: `${data.bootstrap_dns_server} ${data.bootstrap_dns_status ? "\u2705" : "\u274C"}`
+          }
+        ]
+      ),
       {
         state: data.dns_status ? "success" : "error",
         key: _("Main DNS"),
-        value: `${data.dns_server} [${data.dns_type}]`
+        value: `${data.dns_server} [${data.dns_type}] ${data.dns_status ? "\u2705" : "\u274C"}`
       },
       {
         state: data.local_dns_status ? "success" : "error",
         key: _("Local DNS"),
-        value: data.local_dns_status ? _("Enabled") : _("Failed")
+        value: data.local_dns_status ? "\u2705" : "\u274C"
       }
     ]
   });
@@ -2812,6 +2825,8 @@ return baseclass.extend({
   initDashboardController,
   initDiagnosticController,
   injectGlobalStyles,
+  insertIf,
+  insertIfObj,
   maskIP,
   onMount,
   parseQueryString,

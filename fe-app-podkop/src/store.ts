@@ -112,16 +112,18 @@ class Store<T extends Record<string, any>> {
   }
 }
 
+export interface IDiagnosticsChecksItem {
+  state: 'error' | 'warning' | 'success';
+  key: string;
+  value: string;
+}
+
 export interface IDiagnosticsChecksStoreItem {
   code: string;
   title: string;
   description: string;
   state: 'loading' | 'warning' | 'success' | 'error' | 'skipped';
-  items: Array<{
-    state: 'error' | 'warning' | 'success';
-    key: string;
-    value: string;
-  }>;
+  items: Array<IDiagnosticsChecksItem>;
 }
 
 export interface StoreType {

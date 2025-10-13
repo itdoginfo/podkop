@@ -1,5 +1,7 @@
 import { getDNSCheck } from '../../../methods';
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
+import { insertIf } from '../../../../helpers';
+import { IDiagnosticsChecksItem } from '../../../../store';
 
 export async function runDnsCheck() {
   const code = 'dns_check';
@@ -58,20 +60,25 @@ export async function runDnsCheck() {
     description: _('DNS checks passed'),
     state: getStatus(),
     items: [
-      {
-        state: data.bootstrap_dns_status ? 'success' : 'error',
-        key: _('Bootsrap DNS'),
-        value: data.bootstrap_dns_server,
-      },
+      ...insertIf<IDiagnosticsChecksItem>(
+        data.dns_type === 'doh' || data.dns_type === 'dot',
+        [
+          {
+            state: data.bootstrap_dns_status ? 'success' : 'error',
+            key: _('Bootsrap DNS'),
+            value: `${data.bootstrap_dns_server} ${data.bootstrap_dns_status ? '✅' : '❌'}`,
+          },
+        ],
+      ),
       {
         state: data.dns_status ? 'success' : 'error',
         key: _('Main DNS'),
-        value: `${data.dns_server} [${data.dns_type}]`,
+        value: `${data.dns_server} [${data.dns_type}] ${data.dns_status ? '✅' : '❌'}`,
       },
       {
         state: data.local_dns_status ? 'success' : 'error',
         key: _('Local DNS'),
-        value: data.local_dns_status ? _('Enabled') : _('Failed'),
+        value: data.local_dns_status ? '✅' : '❌',
       },
     ],
   });
