@@ -490,7 +490,7 @@ var GlobalStyles = `
 
 .pdk_diagnostic_alert__summary__item {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 16px auto 1fr;
     grid-column-gap: 10px;
 }
 
@@ -504,6 +504,11 @@ var GlobalStyles = `
 
 .pdk_diagnostic_alert__summary__item--success {
     color: var(--success-color-medium, green);
+}
+
+.pdk_diagnostic_alert__summary__item__icon {
+    width: 16px;
+    height: 16px;
 }
 
 `;
@@ -942,10 +947,16 @@ function validateProxyUrl(url) {
   };
 }
 
-// src/clash/methods/createBaseApiRequest.ts
-async function createBaseApiRequest(fetchFn) {
+// src/api/createBaseApiRequest.ts
+async function createBaseApiRequest(fetchFn, options) {
+  const wrappedFn = () => options?.timeoutMs && options?.operationName ? withTimeout(
+    fetchFn(),
+    options.timeoutMs,
+    options.operationName,
+    options.timeoutMessage
+  ) : fetchFn();
   try {
-    const response = await fetchFn();
+    const response = await wrappedFn();
     if (!response.ok) {
       return {
         success: false,
@@ -2357,20 +2368,102 @@ function renderCircleXIcon24() {
   );
 }
 
+// src/icons/renderCheckIcon24.ts
+function renderCheckIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-check-icon lucide-check"
+    },
+    [
+      svgEl("path", {
+        d: "M20 6 9 17l-5-5"
+      })
+    ]
+  );
+}
+
+// src/icons/renderXIcon24.ts
+function renderXIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-x-icon lucide-x"
+    },
+    [svgEl("path", { d: "M18 6 6 18" }), svgEl("path", { d: "m6 6 12 12" })]
+  );
+}
+
+// src/icons/renderTriangleAlertIcon24.ts
+function renderTriangleAlertIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-triangle-alert-icon lucide-triangle-alert"
+    },
+    [
+      svgEl("path", {
+        d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"
+      }),
+      svgEl("path", { d: "M12 9v4" }),
+      svgEl("path", { d: "M12 17h.01" })
+    ]
+  );
+}
+
 // src/podkop/tabs/diagnostic/renderCheckSection.ts
 function renderCheckSummary(items) {
   if (!items.length) {
     return E("div", {}, "");
   }
-  const renderedItems = items.map(
-    (item) => E(
+  const renderedItems = items.map((item) => {
+    function getIcon() {
+      const iconWrap = E("span", {
+        class: "pdk_diagnostic_alert__summary__item__icon"
+      });
+      if (item.state === "success") {
+        iconWrap.appendChild(renderCheckIcon24());
+      }
+      if (item.state === "warning") {
+        iconWrap.appendChild(renderTriangleAlertIcon24());
+      }
+      if (item.state === "error") {
+        iconWrap.appendChild(renderXIcon24());
+      }
+      return iconWrap;
+    }
+    return E(
       "div",
       {
         class: `pdk_diagnostic_alert__summary__item pdk_diagnostic_alert__summary__item--${item.state}`
       },
-      [E("b", {}, item.key), E("div", {}, item.value)]
-    )
-  );
+      [getIcon(), E("b", {}, item.key), E("div", {}, item.value)]
+    );
+  });
   return E("div", { class: "pdk_diagnostic_alert__summary" }, renderedItems);
 }
 function renderLoadingState3(props) {
@@ -2552,19 +2645,19 @@ async function runDnsCheck() {
           {
             state: data.bootstrap_dns_status ? "success" : "error",
             key: _("Bootsrap DNS"),
-            value: `${data.bootstrap_dns_server} ${data.bootstrap_dns_status ? "\u2705" : "\u274C"}`
+            value: data.bootstrap_dns_server
           }
         ]
       ),
       {
         state: data.dns_status ? "success" : "error",
         key: _("Main DNS"),
-        value: `${data.dns_server} [${data.dns_type}] ${data.dns_status ? "\u2705" : "\u274C"}`
+        value: `${data.dns_server} [${data.dns_type}]`
       },
       {
         state: data.local_dns_status ? "success" : "error",
         key: _("Local DNS"),
-        value: data.local_dns_status ? "\u2705" : "\u274C"
+        value: ""
       }
     ]
   });
@@ -2616,32 +2709,32 @@ async function runSingBoxCheck() {
       {
         state: data.sing_box_installed ? "success" : "error",
         key: _("Sing-box installed"),
-        value: data.sing_box_installed ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.sing_box_version_ok ? "success" : "error",
         key: _("Sing-box version >= 1.12.4"),
-        value: data.sing_box_version_ok ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.sing_box_service_exist ? "success" : "error",
         key: _("Sing-box service exist"),
-        value: data.sing_box_service_exist ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.sing_box_autostart_disabled ? "success" : "error",
         key: _("Sing-box autostart disabled"),
-        value: data.sing_box_autostart_disabled ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.sing_box_process_running ? "success" : "error",
         key: _("Sing-box process running"),
-        value: data.sing_box_process_running ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.sing_box_ports_listening ? "success" : "error",
         key: _("Sing-box listening ports"),
-        value: data.sing_box_ports_listening ? _("Yes") : _("No")
+        value: ""
       }
     ]
   });
@@ -2650,9 +2743,39 @@ async function runSingBoxCheck() {
   }
 }
 
+// src/fakeip/methods/getIpCheck.ts
+async function getIpCheck() {
+  return createBaseApiRequest(
+    () => fetch(`https://${IP_CHECK_DOMAIN}/check`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    }),
+    {
+      operationName: "getIpCheck",
+      timeoutMs: 5e3
+    }
+  );
+}
+
+// src/fakeip/methods/getFakeIpCheck.ts
+async function getFakeIpCheck() {
+  return createBaseApiRequest(
+    () => fetch(`https://${FAKEIP_CHECK_DOMAIN}/check`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    }),
+    {
+      operationName: "getFakeIpCheck",
+      timeoutMs: 5e3
+    }
+  );
+}
+
 // src/podkop/tabs/diagnostic/checks/runNftCheck.ts
 async function runNftCheck() {
   const code = "nft_check";
+  await getFakeIpCheck();
+  await getIpCheck();
   updateDiagnosticsCheck({
     code,
     title: _("Nftables checks"),
@@ -2693,42 +2816,42 @@ async function runNftCheck() {
       {
         state: data.table_exist ? "success" : "error",
         key: _("Table exist"),
-        value: data.table_exist ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.rules_mangle_exist ? "success" : "error",
         key: _("Rules mangle exist"),
-        value: data.rules_mangle_exist ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.rules_mangle_counters ? "success" : "error",
         key: _("Rules mangle counters"),
-        value: data.rules_mangle_counters ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.rules_mangle_output_exist ? "success" : "error",
         key: _("Rules mangle output exist"),
-        value: data.rules_mangle_output_exist ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.rules_mangle_output_counters ? "success" : "error",
         key: _("Rules mangle output counters"),
-        value: data.rules_mangle_output_counters ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.rules_proxy_exist ? "success" : "error",
         key: _("Rules proxy exist"),
-        value: data.rules_proxy_exist ? _("Yes") : _("No")
+        value: ""
       },
       {
         state: data.rules_proxy_counters ? "success" : "error",
         key: _("Rules proxy counters"),
-        value: data.rules_proxy_counters ? _("Yes") : _("No")
+        value: ""
       },
       {
-        state: data.rules_other_mark_exist ? "warning" : "success",
-        key: _("Rules other mark exist"),
-        value: data.rules_other_mark_exist ? _("Yes") : _("No")
+        state: !data.rules_other_mark_exist ? "success" : "warning",
+        key: _("None other Mark rules"),
+        value: ""
       }
     ]
   });
@@ -2745,7 +2868,23 @@ async function runFakeIPCheck() {
     title: _("Fake IP checks"),
     description: _("Not implemented yet"),
     state: "skipped",
-    items: []
+    items: [
+      {
+        state: "success",
+        key: "success",
+        value: ""
+      },
+      {
+        state: "warning",
+        key: "warning",
+        value: ""
+      },
+      {
+        state: "error",
+        key: "error",
+        value: ""
+      }
+    ]
   });
 }
 
@@ -2804,7 +2943,6 @@ return baseclass.extend({
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
   coreService,
-  createBaseApiRequest,
   executeShellCommand,
   getBaseUrl,
   getClashApiUrl,

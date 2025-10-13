@@ -1,8 +1,12 @@
 import { getNftRulesCheck } from '../../../methods';
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
+import { getFakeIpCheck, getIpCheck } from '../../../../fakeip';
 
 export async function runNftCheck() {
   const code = 'nft_check';
+
+  await getFakeIpCheck();
+  await getIpCheck();
 
   updateDiagnosticsCheck({
     code,
@@ -73,42 +77,42 @@ export async function runNftCheck() {
       {
         state: data.table_exist ? 'success' : 'error',
         key: _('Table exist'),
-        value: data.table_exist ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.rules_mangle_exist ? 'success' : 'error',
         key: _('Rules mangle exist'),
-        value: data.rules_mangle_exist ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.rules_mangle_counters ? 'success' : 'error',
         key: _('Rules mangle counters'),
-        value: data.rules_mangle_counters ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.rules_mangle_output_exist ? 'success' : 'error',
         key: _('Rules mangle output exist'),
-        value: data.rules_mangle_output_exist ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.rules_mangle_output_counters ? 'success' : 'error',
         key: _('Rules mangle output counters'),
-        value: data.rules_mangle_output_counters ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.rules_proxy_exist ? 'success' : 'error',
         key: _('Rules proxy exist'),
-        value: data.rules_proxy_exist ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.rules_proxy_counters ? 'success' : 'error',
         key: _('Rules proxy counters'),
-        value: data.rules_proxy_counters ? _('Yes') : _('No'),
+        value: '',
       },
       {
-        state: data.rules_other_mark_exist ? 'warning' : 'success',
-        key: _('Rules other mark exist'),
-        value: data.rules_other_mark_exist ? _('Yes') : _('No'),
+        state: !data.rules_other_mark_exist ? 'success' : 'warning',
+        key: _('None other Mark rules'),
+        value: '',
       },
     ],
   });

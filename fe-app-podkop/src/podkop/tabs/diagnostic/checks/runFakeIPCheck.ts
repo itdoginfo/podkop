@@ -8,6 +8,22 @@ export async function runFakeIPCheck() {
     title: _('Fake IP checks'),
     description: _('Not implemented yet'),
     state: 'skipped',
-    items: [],
+    items: [
+      {
+        state: 'success',
+        key: 'success',
+        value: '',
+      },
+      {
+        state: 'warning',
+        key: 'warning',
+        value: '',
+      },
+      {
+        state: 'error',
+        key: 'error',
+        value: '',
+      },
+    ],
   });
 }

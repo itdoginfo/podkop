@@ -67,32 +67,32 @@ export async function runSingBoxCheck() {
       {
         state: data.sing_box_installed ? 'success' : 'error',
         key: _('Sing-box installed'),
-        value: data.sing_box_installed ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.sing_box_version_ok ? 'success' : 'error',
         key: _('Sing-box version >= 1.12.4'),
-        value: data.sing_box_version_ok ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.sing_box_service_exist ? 'success' : 'error',
         key: _('Sing-box service exist'),
-        value: data.sing_box_service_exist ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.sing_box_autostart_disabled ? 'success' : 'error',
         key: _('Sing-box autostart disabled'),
-        value: data.sing_box_autostart_disabled ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.sing_box_process_running ? 'success' : 'error',
         key: _('Sing-box process running'),
-        value: data.sing_box_process_running ? _('Yes') : _('No'),
+        value: '',
       },
       {
         state: data.sing_box_ports_listening ? 'success' : 'error',
         key: _('Sing-box listening ports'),
-        value: data.sing_box_ports_listening ? _('Yes') : _('No'),
+        value: '',
       },
     ],
   });

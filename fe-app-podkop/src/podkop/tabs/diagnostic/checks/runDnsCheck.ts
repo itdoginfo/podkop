@@ -66,19 +66,19 @@ export async function runDnsCheck() {
           {
             state: data.bootstrap_dns_status ? 'success' : 'error',
             key: _('Bootsrap DNS'),
-            value: `${data.bootstrap_dns_server} ${data.bootstrap_dns_status ? '✅' : '❌'}`,
+            value: data.bootstrap_dns_server,
           },
         ],
       ),
       {
         state: data.dns_status ? 'success' : 'error',
         key: _('Main DNS'),
-        value: `${data.dns_server} [${data.dns_type}] ${data.dns_status ? '✅' : '❌'}`,
+        value: `${data.dns_server} [${data.dns_type}]`,
       },
       {
         state: data.local_dns_status ? 'success' : 'error',
         key: _('Local DNS'),
-        value: data.local_dns_status ? '✅' : '❌',
+        value: '',
       },
     ],
   });

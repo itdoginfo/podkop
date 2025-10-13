@@ -1,9 +1,12 @@
 import {
+  renderCheckIcon24,
   renderCircleAlertIcon24,
   renderCircleCheckIcon24,
   renderCircleSlashIcon24,
   renderCircleXIcon24,
   renderLoaderCircleIcon24,
+  renderTriangleAlertIcon24,
+  renderXIcon24,
 } from '../../../icons';
 import { IDiagnosticsChecksStoreItem } from '../../../store';
 
@@ -14,15 +17,35 @@ function renderCheckSummary(items: IRenderCheckSectionProps['items']) {
     return E('div', {}, '');
   }
 
-  const renderedItems = items.map((item) =>
-    E(
+  const renderedItems = items.map((item) => {
+    function getIcon() {
+      const iconWrap = E('span', {
+        class: 'pdk_diagnostic_alert__summary__item__icon',
+      });
+
+      if (item.state === 'success') {
+        iconWrap.appendChild(renderCheckIcon24());
+      }
+
+      if (item.state === 'warning') {
+        iconWrap.appendChild(renderTriangleAlertIcon24());
+      }
+
+      if (item.state === 'error') {
+        iconWrap.appendChild(renderXIcon24());
+      }
+
+      return iconWrap;
+    }
+
+    return E(
       'div',
       {
         class: `pdk_diagnostic_alert__summary__item pdk_diagnostic_alert__summary__item--${item.state}`,
       },
-      [E('b', {}, item.key), E('div', {}, item.value)],
-    ),
-  );
+      [getIcon(), E('b', {}, item.key), E('div', {}, item.value)],
+    );
+  });
 
   return E('div', { class: 'pdk_diagnostic_alert__summary' }, renderedItems);
 }

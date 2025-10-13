@@ -1,6 +1,5 @@
-import { IBaseApiResponse } from '../types';
-import { createBaseApiRequest } from './createBaseApiRequest';
 import { getClashApiUrl } from '../../helpers';
+import { createBaseApiRequest, IBaseApiResponse } from '../../api';
 
 export async function triggerLatencyGroupTest(
   tag: string,

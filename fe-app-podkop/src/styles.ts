@@ -267,7 +267,7 @@ export const GlobalStyles = `
 
 .pdk_diagnostic_alert__summary__item {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 16px auto 1fr;
     grid-column-gap: 10px;
 }
 
@@ -281,6 +281,11 @@ export const GlobalStyles = `
 
 .pdk_diagnostic_alert__summary__item--success {
     color: var(--success-color-medium, green);
+}
+
+.pdk_diagnostic_alert__summary__item__icon {
+    width: 16px;
+    height: 16px;
 }
 
 `;

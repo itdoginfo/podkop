@@ -1,13 +1,3 @@
-export type IBaseApiResponse<T> =
-  | {
-      success: true;
-      data: T;
-    }
-  | {
-      success: false;
-      message: string;
-    };
-
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace ClashAPI {
   export interface Version {
