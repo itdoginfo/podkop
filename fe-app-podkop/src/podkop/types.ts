@@ -97,4 +97,9 @@ export namespace Podkop {
     sing_box_process_running: 0 | 1;
     sing_box_ports_listening: 0 | 1;
   }
+
+  export interface FakeIPCheckResult {
+    fakeip: boolean;
+    IP: string;
+  }
 }

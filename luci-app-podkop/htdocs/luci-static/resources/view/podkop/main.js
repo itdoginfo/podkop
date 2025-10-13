@@ -1268,6 +1268,25 @@ async function getSingBoxCheck() {
   };
 }
 
+// src/podkop/methods/getFakeIPCheck.ts
+async function getFakeIPCheck() {
+  const response = await executeShellCommand({
+    command: "/usr/bin/podkop",
+    args: ["check_fakeip"],
+    timeout: 1e4
+  });
+  if (response.stdout) {
+    return {
+      success: true,
+      data: JSON.parse(response.stdout)
+    };
+  }
+  return {
+    success: false,
+    error: ""
+  };
+}
+
 // src/podkop/services/tab.service.ts
 var TabService = class _TabService {
   constructor() {
@@ -2774,8 +2793,6 @@ async function getFakeIpCheck() {
 // src/podkop/tabs/diagnostic/checks/runNftCheck.ts
 async function runNftCheck() {
   const code = "nft_check";
-  await getFakeIpCheck();
-  await getIpCheck();
   updateDiagnosticsCheck({
     code,
     title: _("Nftables checks"),
@@ -2783,6 +2800,8 @@ async function runNftCheck() {
     state: "loading",
     items: []
   });
+  await getFakeIpCheck();
+  await getIpCheck();
   const nftablesChecks = await getNftRulesCheck();
   if (!nftablesChecks.success) {
     updateDiagnosticsCheck({
@@ -2865,25 +2884,69 @@ async function runFakeIPCheck() {
   const code = "fake_ip_check";
   updateDiagnosticsCheck({
     code,
-    title: _("Fake IP checks"),
-    description: _("Not implemented yet"),
-    state: "skipped",
+    title: _("FakeIP checks"),
+    description: _("Checking FakeIP, please wait"),
+    state: "loading",
+    items: []
+  });
+  const routerFakeIPResponse = await getFakeIPCheck();
+  const checkFakeIPResponse = await getFakeIpCheck();
+  const checkIPResponse = await getIpCheck();
+  console.log("runFakeIPCheck", {
+    routerFakeIPResponse,
+    checkFakeIPResponse,
+    checkIPResponse
+  });
+  const checks = {
+    router: routerFakeIPResponse.success && routerFakeIPResponse.data.fakeip,
+    browserFakeIP: checkFakeIPResponse.success && checkFakeIPResponse.data.fakeip,
+    differentIP: checkFakeIPResponse.success && checkIPResponse.success && checkFakeIPResponse.data.IP !== checkIPResponse.data.IP
+  };
+  console.log("checks", checks);
+  const allGood = checks.router || checks.browserFakeIP || checks.differentIP;
+  const atLeastOneGood = checks.router && checks.browserFakeIP && checks.differentIP;
+  function getMeta() {
+    if (allGood) {
+      return {
+        state: "success",
+        description: _("FakeIP checks passed")
+      };
+    }
+    if (atLeastOneGood) {
+      return {
+        state: "warning",
+        description: _("FakeIP checks partially passed")
+      };
+    }
+    return {
+      state: "error",
+      description: _("FakeIP checks failed")
+    };
+  }
+  const { state, description } = getMeta();
+  updateDiagnosticsCheck({
+    code,
+    title: _("FakeIP checks"),
+    description,
+    state,
     items: [
       {
-        state: "success",
-        key: "success",
+        state: checks.router ? "success" : "warning",
+        key: checks.router ? _("Router DNS is routed through sing-box") : _("Router DNS is not routed through sing-box"),
         value: ""
       },
       {
-        state: "warning",
-        key: "warning",
+        state: checks.browserFakeIP ? "success" : "error",
+        key: checks.browserFakeIP ? _("Browser is using FakeIP correctly") : _("Browser is not using FakeIP"),
         value: ""
       },
-      {
-        state: "error",
-        key: "error",
-        value: ""
-      }
+      ...insertIf(checks.browserFakeIP, [
+        {
+          state: checks.differentIP ? "success" : "error",
+          key: checks.differentIP ? _("Proxy traffic is routed via FakeIP") : _("Proxy traffic is not routed via FakeIP"),
+          value: ""
+        }
+      ])
     ]
   });
 }
@@ -2955,6 +3018,7 @@ return baseclass.extend({
   getConfigSections,
   getDNSCheck,
   getDashboardSections,
+  getFakeIPCheck,
   getNftRulesCheck,
   getPodkopStatus,
   getProxyUrlName,

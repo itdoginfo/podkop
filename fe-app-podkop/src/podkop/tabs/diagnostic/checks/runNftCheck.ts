@@ -5,9 +5,6 @@ import { getFakeIpCheck, getIpCheck } from '../../../../fakeip';
 export async function runNftCheck() {
   const code = 'nft_check';
 
-  await getFakeIpCheck();
-  await getIpCheck();
-
   updateDiagnosticsCheck({
     code,
     title: _('Nftables checks'),
@@ -15,6 +12,9 @@ export async function runNftCheck() {
     state: 'loading',
     items: [],
   });
+
+  await getFakeIpCheck();
+  await getIpCheck();
 
   const nftablesChecks = await getNftRulesCheck();
 
