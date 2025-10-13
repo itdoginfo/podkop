@@ -1,5 +1,6 @@
 'use strict';
 'require form';
+'require uci';
 'require baseclass';
 'require tools.widgets as widgets';
 'require view.podkop.main as main';
@@ -203,6 +204,33 @@ function createSettingsContent(section) {
     );
     o.default = '0';
     o.rmempty = false;
+
+    o = section.option(
+        form.ListValue,
+        'download_lists_via_proxy_section',
+        _('Download Lists via specific proxy section'),
+        _('Downloading all lists via specific Proxy/VPN'),
+    );
+
+    o.rmempty = false;
+    o.depends('download_lists_via_proxy', '1');
+
+    o.load = function () {
+        const sections = this.map?.data?.state?.values?.podkop ?? {};
+
+        this.keylist = [];
+        this.vallist = [];
+
+        for (const secName in sections) {
+            const sec = sections[secName];
+            if (sec['.type'] === 'section') {
+                this.keylist.push(secName);
+                this.vallist.push(secName);
+            }
+        }
+
+        return Promise.resolve();
+    };
 
     o = section.option(
         form.Flag,
