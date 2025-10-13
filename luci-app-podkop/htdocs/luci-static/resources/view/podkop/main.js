@@ -2214,8 +2214,8 @@ function renderLoaderCircleIcon24() {
   );
 }
 
-// src/icons/renderShieldAlertIcon24.ts
-function renderShieldAlertIcon24() {
+// src/icons/renderCircleAlertIcon24.ts
+function renderCircleAlertIcon24() {
   const NS = "http://www.w3.org/2000/svg";
   return svgEl(
     "svg",
@@ -2229,71 +2229,32 @@ function renderShieldAlertIcon24() {
       "stroke-width": "2",
       "stroke-linecap": "round",
       "stroke-linejoin": "round",
-      class: "lucide lucide-shield-alert"
+      class: "lucide lucide-circle-alert-icon lucide-circle-alert"
     },
     [
-      svgEl("path", {
-        d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
       }),
-      svgEl("path", { d: "M12 8v4" }),
-      svgEl("path", { d: "M12 16h.01" })
-    ]
-  );
-}
-
-// src/icons/renderShieldCheckIcon24.ts
-function renderShieldCheckIcon24() {
-  const NS = "http://www.w3.org/2000/svg";
-  return svgEl(
-    "svg",
-    {
-      xmlns: NS,
-      width: "24",
-      height: "24",
-      viewBox: "0 0 24 24",
-      fill: "none",
-      stroke: "currentColor",
-      "stroke-width": "2",
-      "stroke-linecap": "round",
-      "stroke-linejoin": "round",
-      class: "lucide lucide-shield-check"
-    },
-    [
-      svgEl("path", {
-        d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+      svgEl("line", {
+        x1: "12",
+        y1: "8",
+        x2: "12",
+        y2: "12"
       }),
-      svgEl("path", { d: "m9 12 2 2 4-4" })
-    ]
-  );
-}
-
-// src/icons/renderShieldIcon24.ts
-function renderShieldIcon24() {
-  const NS = "http://www.w3.org/2000/svg";
-  return svgEl(
-    "svg",
-    {
-      xmlns: NS,
-      width: "24",
-      height: "24",
-      viewBox: "0 0 24 24",
-      fill: "none",
-      stroke: "currentColor",
-      "stroke-width": "2",
-      "stroke-linecap": "round",
-      "stroke-linejoin": "round",
-      class: "lucide lucide-shield"
-    },
-    [
-      svgEl("path", {
-        d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+      svgEl("line", {
+        x1: "12",
+        y1: "16",
+        x2: "12.01",
+        y2: "16"
       })
     ]
   );
 }
 
-// src/icons/renderShieldXIcon24.ts
-function renderShieldXIcon24() {
+// src/icons/renderCircleCheckIcon24.ts
+function renderCircleCheckIcon24() {
   const NS = "http://www.w3.org/2000/svg";
   return svgEl(
     "svg",
@@ -2307,14 +2268,83 @@ function renderShieldXIcon24() {
       "stroke-width": "2",
       "stroke-linecap": "round",
       "stroke-linejoin": "round",
-      class: "lucide lucide-shield-x"
+      class: "lucide lucide-circle-check-icon lucide-circle-check"
     },
     [
-      svgEl("path", {
-        d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
       }),
-      svgEl("path", { d: "m14.5 9.5-5 5" }),
-      svgEl("path", { d: "m9.5 9.5 5 5" })
+      svgEl("path", {
+        d: "M9 12l2 2 4-4"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleSlashIcon24.ts
+function renderCircleSlashIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-slash-icon lucide-circle-slash"
+    },
+    [
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      }),
+      svgEl("line", {
+        x1: "9",
+        y1: "15",
+        x2: "15",
+        y2: "9"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleXIcon24.ts
+function renderCircleXIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-x-icon lucide-circle-x"
+    },
+    [
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      }),
+      svgEl("path", {
+        d: "M15 9L9 15"
+      }),
+      svgEl("path", {
+        d: "M9 9L15 15"
+      })
     ]
   );
 }
@@ -2358,7 +2388,7 @@ function renderLoadingState3(props) {
 }
 function renderWarningState(props) {
   const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
-  iconWrap.appendChild(renderShieldAlertIcon24());
+  iconWrap.appendChild(renderCircleAlertIcon24());
   return E(
     "div",
     { class: "pdk_diagnostic_alert pdk_diagnostic_alert--warning" },
@@ -2379,7 +2409,7 @@ function renderWarningState(props) {
 }
 function renderErrorState(props) {
   const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
-  iconWrap.appendChild(renderShieldXIcon24());
+  iconWrap.appendChild(renderCircleXIcon24());
   return E(
     "div",
     { class: "pdk_diagnostic_alert pdk_diagnostic_alert--error" },
@@ -2400,7 +2430,7 @@ function renderErrorState(props) {
 }
 function renderSuccessState(props) {
   const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
-  iconWrap.appendChild(renderShieldCheckIcon24());
+  iconWrap.appendChild(renderCircleCheckIcon24());
   return E(
     "div",
     { class: "pdk_diagnostic_alert pdk_diagnostic_alert--success" },
@@ -2421,7 +2451,7 @@ function renderSuccessState(props) {
 }
 function renderSkippedState(props) {
   const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
-  iconWrap.appendChild(renderShieldIcon24());
+  iconWrap.appendChild(renderCircleSlashIcon24());
   return E(
     "div",
     { class: "pdk_diagnostic_alert pdk_diagnostic_alert--skipped" },

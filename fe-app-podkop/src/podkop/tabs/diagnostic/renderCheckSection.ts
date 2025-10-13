@@ -1,9 +1,9 @@
 import {
+  renderCircleAlertIcon24,
+  renderCircleCheckIcon24,
+  renderCircleSlashIcon24,
+  renderCircleXIcon24,
   renderLoaderCircleIcon24,
-  renderShieldAlertIcon24,
-  renderShieldCheckIcon24,
-  renderShieldIcon24,
-  renderShieldXIcon24,
 } from '../../../icons';
 import { IDiagnosticsChecksStoreItem } from '../../../store';
 
@@ -52,7 +52,7 @@ function renderLoadingState(props: IRenderCheckSectionProps) {
 
 function renderWarningState(props: IRenderCheckSectionProps) {
   const iconWrap = E('span', { class: 'pdk_diagnostic_alert__icon' });
-  iconWrap.appendChild(renderShieldAlertIcon24());
+  iconWrap.appendChild(renderCircleAlertIcon24());
 
   return E(
     'div',
@@ -75,7 +75,7 @@ function renderWarningState(props: IRenderCheckSectionProps) {
 
 function renderErrorState(props: IRenderCheckSectionProps) {
   const iconWrap = E('span', { class: 'pdk_diagnostic_alert__icon' });
-  iconWrap.appendChild(renderShieldXIcon24());
+  iconWrap.appendChild(renderCircleXIcon24());
 
   return E(
     'div',
@@ -98,7 +98,7 @@ function renderErrorState(props: IRenderCheckSectionProps) {
 
 function renderSuccessState(props: IRenderCheckSectionProps) {
   const iconWrap = E('span', { class: 'pdk_diagnostic_alert__icon' });
-  iconWrap.appendChild(renderShieldCheckIcon24());
+  iconWrap.appendChild(renderCircleCheckIcon24());
 
   return E(
     'div',
@@ -121,7 +121,7 @@ function renderSuccessState(props: IRenderCheckSectionProps) {
 
 function renderSkippedState(props: IRenderCheckSectionProps) {
   const iconWrap = E('span', { class: 'pdk_diagnostic_alert__icon' });
-  iconWrap.appendChild(renderShieldIcon24());
+  iconWrap.appendChild(renderCircleSlashIcon24());
 
   return E(
     'div',

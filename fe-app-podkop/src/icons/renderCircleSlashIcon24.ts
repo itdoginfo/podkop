@@ -1,6 +1,6 @@
 import { svgEl } from '../helpers';
 
-export function renderShieldIcon24() {
+export function renderCircleSlashIcon24() {
   const NS = 'http://www.w3.org/2000/svg';
   return svgEl(
     'svg',
@@ -14,11 +14,19 @@ export function renderShieldIcon24() {
       'stroke-width': '2',
       'stroke-linecap': 'round',
       'stroke-linejoin': 'round',
-      class: 'lucide lucide-shield',
+      class: 'lucide lucide-circle-slash-icon lucide-circle-slash',
     },
     [
-      svgEl('path', {
-        d: 'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z',
+      svgEl('circle', {
+        cx: '12',
+        cy: '12',
+        r: '10',
+      }),
+      svgEl('line', {
+        x1: '9',
+        y1: '15',
+        x2: '15',
+        y2: '9',
       }),
     ],
   );
