@@ -1884,9 +1884,9 @@ check_nft_rules() {
     local rules_other_mark_exist=0
     
     # Generate traffic through PodkopTable
-    curl -m 3 -s "http://ip.podkop.fyi/check" > /dev/null 2>&1 &
+    curl -m 3 -s "https://$CHECK_PROXY_IP_DOMAIN/check" > /dev/null 2>&1 &
     local pid1=$!
-    curl -m 3 -s "http://fakeip.podkop.fyi/check" > /dev/null 2>&1 &
+    curl -m 3 -s "https://$FAKEIP_TEST_DOMAIN/check" > /dev/null 2>&1 &
     local pid2=$!
     
     wait $pid1 2>/dev/null
@@ -2022,6 +2022,10 @@ check_sing_box() {
     fi
     
     echo "{\"sing_box_installed\":$sing_box_installed,\"sing_box_version_ok\":$sing_box_version_ok,\"sing_box_service_exist\":$sing_box_service_exist,\"sing_box_autostart_disabled\":$sing_box_autostart_disabled,\"sing_box_process_running\":$sing_box_process_running,\"sing_box_ports_listening\":$sing_box_ports_listening}" | jq .
+}
+
+check_fakeip() {
+    curl -m 3 -s "https://$FAKEIP_TEST_DOMAIN/check" | jq .
 }
 
 #######################################
@@ -2297,6 +2301,7 @@ Available commands:
     check_sing_box_connections  Show active sing-box connections
     check_sing_box_logs     Show sing-box logs
     check_dnsmasq           Check DNSMasq configuration
+    check_fakeip            Test FakeIP on router
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current podkop configuration
     show_version            Show podkop version
@@ -2355,6 +2360,9 @@ check_sing_box_logs)
     ;;
 check_dnsmasq)
     check_dnsmasq
+    ;;
+check_fakeip)
+    check_fakeip
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"
