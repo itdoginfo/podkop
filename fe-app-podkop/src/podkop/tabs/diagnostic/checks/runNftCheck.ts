@@ -111,7 +111,9 @@ export async function runNftCheck() {
       },
       {
         state: !data.rules_other_mark_exist ? 'success' : 'warning',
-        key: _('None other Mark rules'),
+        key: !data.rules_other_mark_exist
+          ? _('No other marking rules found')
+          : _('Additional marking rules found'),
         value: '',
       },
     ],
