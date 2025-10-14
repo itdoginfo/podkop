@@ -1066,14 +1066,21 @@ sing_box_configure_experimental() {
 sing_box_additional_inbounds() {
     log "Configure the additional inbounds of a sing-box JSON configuration"
 
-    config=$(
-        sing_box_cf_add_mixed_inbound_and_route_rule \
-            "$config" \
-            "$SB_SERVICE_MIXED_INBOUND_TAG" \
-            "$SB_SERVICE_MIXED_INBOUND_ADDRESS" \
-            "$SB_SERVICE_MIXED_INBOUND_PORT" \
-            "$SB_MAIN_OUTBOUND_TAG"
-    )
+    local download_lists_via_proxy
+    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
+    if [ "$download_lists_via_proxy" -eq 1 ]; then
+        local download_lists_via_proxy_section section_outbound_tag
+        config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
+        section_outbound_tag="$(get_outbound_tag_by_section "$download_lists_via_proxy_section")"
+        config=$(
+            sing_box_cf_add_mixed_inbound_and_route_rule \
+                "$config" \
+                "$SB_SERVICE_MIXED_INBOUND_TAG" \
+                "$SB_SERVICE_MIXED_INBOUND_ADDRESS" \
+                "$SB_SERVICE_MIXED_INBOUND_PORT" \
+                "$section_outbound_tag"
+        )
+    fi
 
     config_foreach configure_section_mixed_proxy "section"
 }
