@@ -1003,7 +1003,7 @@ function validateProxyUrl(url) {
   };
 }
 
-// src/api/createBaseApiRequest.ts
+// src/podkop/api.ts
 async function createBaseApiRequest(fetchFn, options) {
   const wrappedFn = () => options?.timeoutMs && options?.operationName ? withTimeout(
     fetchFn(),
@@ -1032,62 +1032,8 @@ async function createBaseApiRequest(fetchFn, options) {
   }
 }
 
-// src/clash/methods/getConfig.ts
-async function getClashConfig() {
-  return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/configs`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    })
-  );
-}
-
-// src/clash/methods/getGroupDelay.ts
-async function getClashGroupDelay(group, url = "https://www.gstatic.com/generate_204", timeout = 2e3) {
-  const endpoint = `${getClashApiUrl()}/group/${group}/delay?url=${encodeURIComponent(
-    url
-  )}&timeout=${timeout}`;
-  return createBaseApiRequest(
-    () => fetch(endpoint, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    })
-  );
-}
-
-// src/clash/methods/getProxies.ts
-async function getClashProxies() {
-  return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/proxies`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    })
-  );
-}
-
-// src/clash/methods/getVersion.ts
-async function getClashVersion() {
-  return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/version`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    })
-  );
-}
-
-// src/clash/methods/triggerProxySelector.ts
-async function triggerProxySelector(selector, outbound) {
-  return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/proxies/${selector}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: outbound })
-    })
-  );
-}
-
-// src/clash/methods/triggerLatencyTest.ts
-async function triggerLatencyGroupTest(tag, timeout = 5e3, url = "https://www.gstatic.com/generate_204") {
+// src/podkop/methods/clash/getGroupLatency.ts
+async function getGroupLatency(tag, timeout = 5e3, url = "https://www.gstatic.com/generate_204") {
   return createBaseApiRequest(
     () => fetch(
       `${getClashApiUrl()}/group/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
@@ -1098,7 +1044,19 @@ async function triggerLatencyGroupTest(tag, timeout = 5e3, url = "https://www.gs
     )
   );
 }
-async function triggerLatencyProxyTest(tag, timeout = 2e3, url = "https://www.gstatic.com/generate_204") {
+
+// src/podkop/methods/clash/getProxies.ts
+async function getProxies() {
+  return createBaseApiRequest(
+    () => fetch(`${getClashApiUrl()}/proxies`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    })
+  );
+}
+
+// src/podkop/methods/clash/getProxyLatency.ts
+async function getProxyLatency(tag, timeout = 2e3, url = "https://www.gstatic.com/generate_204") {
   return createBaseApiRequest(
     () => fetch(
       `${getClashApiUrl()}/proxies/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
@@ -1110,15 +1068,34 @@ async function triggerLatencyProxyTest(tag, timeout = 2e3, url = "https://www.gs
   );
 }
 
-// src/podkop/methods/getConfigSections.ts
+// src/podkop/methods/clash/setProxy.ts
+async function setProxy(selector, outbound) {
+  return createBaseApiRequest(
+    () => fetch(`${getClashApiUrl()}/proxies/${selector}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: outbound })
+    })
+  );
+}
+
+// src/podkop/methods/clash/index.ts
+var ClashMethods = {
+  getGroupLatency,
+  getProxies,
+  getProxyLatency,
+  setProxy
+};
+
+// src/podkop/methods/custom/getConfigSections.ts
 async function getConfigSections() {
   return uci.load("podkop").then(() => uci.sections("podkop"));
 }
 
-// src/podkop/methods/getDashboardSections.ts
+// src/podkop/methods/custom/getDashboardSections.ts
 async function getDashboardSections() {
   const configSections = await getConfigSections();
-  const clashProxies = await getClashProxies();
+  const clashProxies = await ClashMethods.getProxies();
   if (!clashProxies.success) {
     return {
       success: false,
@@ -1241,37 +1218,51 @@ async function getDashboardSections() {
   };
 }
 
-// src/podkop/methods/getPodkopStatus.ts
-async function getPodkopStatus() {
-  const response = await executeShellCommand({
-    command: "/usr/bin/podkop",
-    args: ["get_status"],
-    timeout: 1e4
-  });
-  if (response.stdout) {
-    return JSON.parse(response.stdout.replace(/\n/g, ""));
-  }
-  return { enabled: 0, status: "unknown" };
+// src/podkop/methods/custom/index.ts
+var CustomPodkopMethods = {
+  getConfigSections,
+  getDashboardSections
+};
+
+// src/podkop/methods/fakeip/getFakeIpCheck.ts
+async function getFakeIpCheck() {
+  return createBaseApiRequest(
+    () => fetch(`https://${FAKEIP_CHECK_DOMAIN}/check`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    }),
+    {
+      operationName: "getFakeIpCheck",
+      timeoutMs: 5e3
+    }
+  );
 }
 
-// src/podkop/methods/getSingBoxStatus.ts
-async function getSingBoxStatus() {
-  const response = await executeShellCommand({
-    command: "/usr/bin/podkop",
-    args: ["get_sing_box_status"],
-    timeout: 1e4
-  });
-  if (response.stdout) {
-    return JSON.parse(response.stdout.replace(/\n/g, ""));
-  }
-  return { running: 0, enabled: 0, status: "unknown" };
+// src/podkop/methods/fakeip/getIpCheck.ts
+async function getIpCheck() {
+  return createBaseApiRequest(
+    () => fetch(`https://${IP_CHECK_DOMAIN}/check`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    }),
+    {
+      operationName: "getIpCheck",
+      timeoutMs: 5e3
+    }
+  );
 }
 
-// src/podkop/methods/getDNSCheck.ts
-async function getDNSCheck() {
+// src/podkop/methods/fakeip/index.ts
+var RemoteFakeIPMethods = {
+  getFakeIpCheck,
+  getIpCheck
+};
+
+// src/podkop/methods/shell/callBaseMethod.ts
+async function callBaseMethod(method) {
   const response = await executeShellCommand({
     command: "/usr/bin/podkop",
-    args: ["check_dns_available"],
+    args: [method],
     timeout: 1e4
   });
   if (response.stdout) {
@@ -1286,62 +1277,39 @@ async function getDNSCheck() {
   };
 }
 
-// src/podkop/methods/getNftRulesCheck.ts
-async function getNftRulesCheck() {
-  const response = await executeShellCommand({
-    command: "/usr/bin/podkop",
-    args: ["check_nft_rules"],
-    timeout: 1e4
-  });
-  if (response.stdout) {
-    return {
-      success: true,
-      data: JSON.parse(response.stdout)
-    };
-  }
-  return {
-    success: false,
-    error: ""
-  };
-}
+// src/podkop/types.ts
+var Podkop;
+((Podkop2) => {
+  let AvailableMethods;
+  ((AvailableMethods2) => {
+    AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
+    AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
+    AvailableMethods2["CHECK_NFT_RULES"] = "check_nft_rules";
+    AvailableMethods2["GET_STATUS"] = "get_status";
+    AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
+    AvailableMethods2["GET_SING_BOX_STATUS"] = "get_sing_box_status";
+  })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
+})(Podkop || (Podkop = {}));
 
-// src/podkop/methods/getSingBoxCheck.ts
-async function getSingBoxCheck() {
-  const response = await executeShellCommand({
-    command: "/usr/bin/podkop",
-    args: ["check_sing_box"],
-    timeout: 1e4
-  });
-  if (response.stdout) {
-    return {
-      success: true,
-      data: JSON.parse(response.stdout)
-    };
-  }
-  return {
-    success: false,
-    error: ""
-  };
-}
-
-// src/podkop/methods/getFakeIPCheck.ts
-async function getFakeIPCheck() {
-  const response = await executeShellCommand({
-    command: "/usr/bin/podkop",
-    args: ["check_fakeip"],
-    timeout: 1e4
-  });
-  if (response.stdout) {
-    return {
-      success: true,
-      data: JSON.parse(response.stdout)
-    };
-  }
-  return {
-    success: false,
-    error: ""
-  };
-}
+// src/podkop/methods/shell/index.ts
+var PodkopShellMethods = {
+  checkDNSAvailable: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_DNS_AVAILABLE
+  ),
+  checkFakeIP: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_FAKEIP
+  ),
+  checkNftRules: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_NFT_RULES
+  ),
+  getStatus: async () => callBaseMethod(Podkop.AvailableMethods.GET_STATUS),
+  checkSingBox: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_SING_BOX
+  ),
+  getSingBoxStatus: async () => callBaseMethod(
+    Podkop.AvailableMethods.GET_SING_BOX_STATUS
+  )
+};
 
 // src/podkop/services/tab.service.ts
 var TabService = class _TabService {
@@ -1994,7 +1962,7 @@ async function fetchDashboardSections() {
       failed: false
     }
   });
-  const { data, success } = await getDashboardSections();
+  const { data, success } = await CustomPodkopMethods.getDashboardSections();
   if (!success) {
     console.log("[fetchDashboardSections]: failed to fetch", getClashApiUrl());
   }
@@ -2008,25 +1976,25 @@ async function fetchDashboardSections() {
   });
 }
 async function fetchServicesInfo() {
-  try {
-    const [podkop, singbox] = await Promise.all([
-      getPodkopStatus(),
-      getSingBoxStatus()
-    ]);
-    store.set({
-      servicesInfoWidget: {
-        loading: false,
-        failed: false,
-        data: { singbox: singbox.running, podkop: podkop.enabled }
-      }
-    });
-  } catch (err) {
-    console.log("[fetchServicesInfo]: failed to fetchServices", err);
+  const [podkop, singbox] = await Promise.all([
+    PodkopShellMethods.getStatus(),
+    PodkopShellMethods.getSingBoxStatus()
+  ]);
+  if (!podkop.success || !singbox.success) {
     store.set({
       servicesInfoWidget: {
         loading: false,
         failed: true,
         data: { singbox: 0, podkop: 0 }
+      }
+    });
+  }
+  if (podkop.success && singbox.success) {
+    store.set({
+      servicesInfoWidget: {
+        loading: false,
+        failed: false,
+        data: { singbox: singbox.data.running, podkop: podkop.data.enabled }
       }
     });
   }
@@ -2105,7 +2073,7 @@ async function connectToClashSockets() {
   );
 }
 async function handleChooseOutbound(selector, tag) {
-  await triggerProxySelector(selector, tag);
+  await ClashMethods.setProxy(selector, tag);
   await fetchDashboardSections();
 }
 async function handleTestGroupLatency(tag) {
@@ -2115,7 +2083,7 @@ async function handleTestGroupLatency(tag) {
       latencyFetching: true
     }
   });
-  await triggerLatencyGroupTest(tag);
+  await ClashMethods.getGroupLatency(tag);
   await fetchDashboardSections();
   store.set({
     sectionsWidget: {
@@ -2131,7 +2099,7 @@ async function handleTestProxyLatency(tag) {
       latencyFetching: true
     }
   });
-  await triggerLatencyProxyTest(tag);
+  await ClashMethods.getProxyLatency(tag);
   await fetchDashboardSections();
   store.set({
     sectionsWidget: {
@@ -2772,7 +2740,7 @@ async function runDnsCheck() {
     state: "loading",
     items: []
   });
-  const dnsChecks = await getDNSCheck();
+  const dnsChecks = await PodkopShellMethods.checkDNSAvailable();
   if (!dnsChecks.success) {
     updateDiagnosticsCheck({
       order,
@@ -2842,7 +2810,7 @@ async function runSingBoxCheck() {
     state: "loading",
     items: []
   });
-  const singBoxChecks = await getSingBoxCheck();
+  const singBoxChecks = await PodkopShellMethods.checkSingBox();
   if (!singBoxChecks.success) {
     updateDiagnosticsCheck({
       order,
@@ -2911,34 +2879,6 @@ async function runSingBoxCheck() {
   }
 }
 
-// src/fakeip/methods/getIpCheck.ts
-async function getIpCheck() {
-  return createBaseApiRequest(
-    () => fetch(`https://${IP_CHECK_DOMAIN}/check`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    }),
-    {
-      operationName: "getIpCheck",
-      timeoutMs: 5e3
-    }
-  );
-}
-
-// src/fakeip/methods/getFakeIpCheck.ts
-async function getFakeIpCheck() {
-  return createBaseApiRequest(
-    () => fetch(`https://${FAKEIP_CHECK_DOMAIN}/check`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    }),
-    {
-      operationName: "getFakeIpCheck",
-      timeoutMs: 5e3
-    }
-  );
-}
-
 // src/podkop/tabs/diagnostic/checks/runNftCheck.ts
 async function runNftCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.NFT;
@@ -2950,9 +2890,9 @@ async function runNftCheck() {
     state: "loading",
     items: []
   });
-  await getFakeIpCheck();
-  await getIpCheck();
-  const nftablesChecks = await getNftRulesCheck();
+  await RemoteFakeIPMethods.getFakeIpCheck();
+  await RemoteFakeIPMethods.getIpCheck();
+  const nftablesChecks = await PodkopShellMethods.checkNftRules();
   if (!nftablesChecks.success) {
     updateDiagnosticsCheck({
       order,
@@ -3042,9 +2982,9 @@ async function runFakeIPCheck() {
     state: "loading",
     items: []
   });
-  const routerFakeIPResponse = await getFakeIPCheck();
-  const checkFakeIPResponse = await getFakeIpCheck();
-  const checkIPResponse = await getIpCheck();
+  const routerFakeIPResponse = await PodkopShellMethods.checkFakeIP();
+  const checkFakeIPResponse = await RemoteFakeIPMethods.getFakeIpCheck();
+  const checkIPResponse = await RemoteFakeIPMethods.getIpCheck();
   console.log("runFakeIPCheck", {
     routerFakeIPResponse,
     checkFakeIPResponse,
@@ -3254,6 +3194,8 @@ return baseclass.extend({
   CACHE_TIMEOUT,
   COMMAND_SCHEDULING,
   COMMAND_TIMEOUT,
+  ClashMethods,
+  CustomPodkopMethods,
   DIAGNOSTICS_INITIAL_DELAY,
   DIAGNOSTICS_UPDATE_INTERVAL,
   DNS_SERVER_OPTIONS,
@@ -3263,7 +3205,9 @@ return baseclass.extend({
   FETCH_TIMEOUT,
   IP_CHECK_DOMAIN,
   PODKOP_LUCI_APP_VERSION,
+  PodkopShellMethods,
   REGIONAL_OPTIONS,
+  RemoteFakeIPMethods,
   STATUS_COLORS,
   TabService,
   TabServiceInstance,
@@ -3273,21 +3217,9 @@ return baseclass.extend({
   executeShellCommand,
   getBaseUrl,
   getClashApiUrl,
-  getClashConfig,
-  getClashGroupDelay,
-  getClashProxies,
   getClashUIUrl,
-  getClashVersion,
   getClashWsUrl,
-  getConfigSections,
-  getDNSCheck,
-  getDashboardSections,
-  getFakeIPCheck,
-  getNftRulesCheck,
-  getPodkopStatus,
   getProxyUrlName,
-  getSingBoxCheck,
-  getSingBoxStatus,
   initDashboardController,
   initDiagnosticController,
   injectGlobalStyles,
@@ -3302,9 +3234,6 @@ return baseclass.extend({
   renderDiagnostic,
   splitProxyString,
   svgEl,
-  triggerLatencyGroupTest,
-  triggerLatencyProxyTest,
-  triggerProxySelector,
   validateDNS,
   validateDomain,
   validateIPV4,

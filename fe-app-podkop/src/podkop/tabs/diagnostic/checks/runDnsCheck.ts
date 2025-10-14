@@ -1,8 +1,8 @@
-import { getDNSCheck } from '../../../methods';
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { insertIf } from '../../../../helpers';
 import { IDiagnosticsChecksItem } from '../../../../store';
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
+import { PodkopShellMethods } from '../../../methods';
 
 export async function runDnsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
@@ -16,7 +16,7 @@ export async function runDnsCheck() {
     items: [],
   });
 
-  const dnsChecks = await getDNSCheck();
+  const dnsChecks = await PodkopShellMethods.checkDNSAvailable();
 
   if (!dnsChecks.success) {
     updateDiagnosticsCheck({

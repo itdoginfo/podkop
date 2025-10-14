@@ -1,9 +1,8 @@
-import * as podkopMethods from '../../../methods';
-import * as fakeIPMethods from '../../../../fakeip/methods';
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { insertIf } from '../../../../helpers';
 import { IDiagnosticsChecksItem } from '../../../../store';
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
+import { PodkopShellMethods, RemoteFakeIPMethods } from '../../../methods';
 
 export async function runFakeIPCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.FAKEIP;
@@ -17,9 +16,9 @@ export async function runFakeIPCheck() {
     items: [],
   });
 
-  const routerFakeIPResponse = await podkopMethods.getFakeIPCheck();
-  const checkFakeIPResponse = await fakeIPMethods.getFakeIpCheck();
-  const checkIPResponse = await fakeIPMethods.getIpCheck();
+  const routerFakeIPResponse = await PodkopShellMethods.checkFakeIP();
+  const checkFakeIPResponse = await RemoteFakeIPMethods.getFakeIpCheck();
+  const checkIPResponse = await RemoteFakeIPMethods.getIpCheck();
 
   console.log('runFakeIPCheck', {
     routerFakeIPResponse,

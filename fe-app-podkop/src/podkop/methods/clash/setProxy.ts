@@ -1,7 +1,7 @@
-import { getClashApiUrl } from '../../helpers';
+import { getClashApiUrl } from '../../../helpers';
 import { createBaseApiRequest, IBaseApiResponse } from '../../api';
 
-export async function triggerProxySelector(
+export async function setProxy(
   selector: string,
   outbound: string,
 ): Promise<IBaseApiResponse<void>> {

@@ -1,5 +1,35 @@
 // eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace ClashAPI {
+  export interface ProxyHistoryEntry {
+    time: string;
+    delay: number;
+  }
+
+  export interface ProxyBase {
+    type: string;
+    name: string;
+    udp: boolean;
+    history: ProxyHistoryEntry[];
+    now?: string;
+    all?: string[];
+  }
+
+  export interface Proxies {
+    proxies: Record<string, ProxyBase>;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace Podkop {
+  export enum AvailableMethods {
+    CHECK_DNS_AVAILABLE = 'check_dns_available',
+    CHECK_FAKEIP = 'check_fakeip',
+    CHECK_NFT_RULES = 'check_nft_rules',
+    GET_STATUS = 'get_status',
+    CHECK_SING_BOX = 'check_sing_box',
+    GET_SING_BOX_STATUS = 'get_sing_box_status',
+  }
+
   export interface Outbound {
     code: string;
     displayName: string;
@@ -101,5 +131,16 @@ export namespace Podkop {
   export interface FakeIPCheckResult {
     fakeip: boolean;
     IP: string;
+  }
+
+  export interface GetStatus {
+    enabled: number;
+    status: string;
+  }
+
+  export interface GetSingBoxStatus {
+    running: number;
+    enabled: number;
+    status: string;
   }
 }

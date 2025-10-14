@@ -1,8 +1,8 @@
-import { ClashAPI } from '../types';
-import { getClashApiUrl } from '../../helpers';
+import { ClashAPI } from '../../types';
+import { getClashApiUrl } from '../../../helpers';
 import { createBaseApiRequest, IBaseApiResponse } from '../../api';
 
-export async function getClashProxies(): Promise<
+export async function getProxies(): Promise<
   IBaseApiResponse<ClashAPI.Proxies>
 > {
   return createBaseApiRequest<ClashAPI.Proxies>(() =>

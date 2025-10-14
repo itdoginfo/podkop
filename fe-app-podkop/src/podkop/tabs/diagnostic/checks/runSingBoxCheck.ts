@@ -1,6 +1,6 @@
-import { getSingBoxCheck } from '../../../methods';
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
+import { PodkopShellMethods } from '../../../methods';
 
 export async function runSingBoxCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.SINGBOX;
@@ -14,7 +14,7 @@ export async function runSingBoxCheck() {
     items: [],
   });
 
-  const singBoxChecks = await getSingBoxCheck();
+  const singBoxChecks = await PodkopShellMethods.checkSingBox();
 
   if (!singBoxChecks.success) {
     updateDiagnosticsCheck({

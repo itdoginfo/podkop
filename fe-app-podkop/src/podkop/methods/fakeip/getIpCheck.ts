@@ -1,5 +1,5 @@
+import { IP_CHECK_DOMAIN } from '../../../constants';
 import { createBaseApiRequest, IBaseApiResponse } from '../../api';
-import { IP_CHECK_DOMAIN } from '../../constants';
 
 interface IGetIpCheckResponse {
   fakeip: boolean;

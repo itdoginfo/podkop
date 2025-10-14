@@ -1,24 +1,19 @@
 import {
-  getDashboardSections,
-  getPodkopStatus,
-  getSingBoxStatus,
-} from '../../methods';
-import {
   getClashApiUrl,
   getClashWsUrl,
   onMount,
   preserveScrollForPage,
 } from '../../../helpers';
-import {
-  triggerLatencyGroupTest,
-  triggerLatencyProxyTest,
-  triggerProxySelector,
-} from '../../../clash';
 import { store, StoreType } from '../../../store';
 import { socket } from '../../../socket';
 import { prettyBytes } from '../../../helpers/prettyBytes';
 import { renderSections } from './renderSections';
 import { renderWidget } from './renderWidget';
+import {
+  ClashMethods,
+  CustomPodkopMethods,
+  PodkopShellMethods,
+} from '../../methods';
 
 // Fetchers
 
@@ -32,7 +27,7 @@ async function fetchDashboardSections() {
     },
   });
 
-  const { data, success } = await getDashboardSections();
+  const { data, success } = await CustomPodkopMethods.getDashboardSections();
 
   if (!success) {
     console.log('[fetchDashboardSections]: failed to fetch', getClashApiUrl());
@@ -49,27 +44,27 @@ async function fetchDashboardSections() {
 }
 
 async function fetchServicesInfo() {
-  try {
-    const [podkop, singbox] = await Promise.all([
-      getPodkopStatus(),
-      getSingBoxStatus(),
-    ]);
+  const [podkop, singbox] = await Promise.all([
+    PodkopShellMethods.getStatus(),
+    PodkopShellMethods.getSingBoxStatus(),
+  ]);
 
-    store.set({
-      servicesInfoWidget: {
-        loading: false,
-        failed: false,
-        data: { singbox: singbox.running, podkop: podkop.enabled },
-      },
-    });
-  } catch (err) {
-    console.log('[fetchServicesInfo]: failed to fetchServices', err);
-
+  if (!podkop.success || !singbox.success) {
     store.set({
       servicesInfoWidget: {
         loading: false,
         failed: true,
         data: { singbox: 0, podkop: 0 },
+      },
+    });
+  }
+
+  if (podkop.success && singbox.success) {
+    store.set({
+      servicesInfoWidget: {
+        loading: false,
+        failed: false,
+        data: { singbox: singbox.data.running, podkop: podkop.data.enabled },
       },
     });
   }
@@ -155,7 +150,7 @@ async function connectToClashSockets() {
 // Handlers
 
 async function handleChooseOutbound(selector: string, tag: string) {
-  await triggerProxySelector(selector, tag);
+  await ClashMethods.setProxy(selector, tag);
   await fetchDashboardSections();
 }
 
@@ -167,7 +162,7 @@ async function handleTestGroupLatency(tag: string) {
     },
   });
 
-  await triggerLatencyGroupTest(tag);
+  await ClashMethods.getGroupLatency(tag);
   await fetchDashboardSections();
 
   store.set({
@@ -186,7 +181,7 @@ async function handleTestProxyLatency(tag: string) {
     },
   });
 
-  await triggerLatencyProxyTest(tag);
+  await ClashMethods.getProxyLatency(tag);
   await fetchDashboardSections();
 
   store.set({
