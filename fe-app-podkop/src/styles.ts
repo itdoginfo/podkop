@@ -1,9 +1,11 @@
 // language=CSS
 import { DashboardTab, DiagnosticTab } from './podkop';
+import { PartialStyles } from './partials';
 
 export const GlobalStyles = `
 ${DashboardTab.styles}
 ${DiagnosticTab.styles}
+${PartialStyles}
 
 
 /* Hide extra H3 for settings tab */

@@ -6,8 +6,34 @@ import { StoreType } from '../../services';
 
 export const initialDiagnosticStore: Pick<
   StoreType,
-  'diagnosticsChecks' | 'diagnosticsRunAction'
+  'diagnosticsChecks' | 'diagnosticsRunAction' | 'diagnosticsActions'
 > = {
+  diagnosticsActions: {
+    restart: {
+      loading: false,
+    },
+    start: {
+      loading: false,
+    },
+    stop: {
+      loading: false,
+    },
+    enable: {
+      loading: false,
+    },
+    disable: {
+      loading: false,
+    },
+    globalCheck: {
+      loading: false,
+    },
+    viewLogs: {
+      loading: false,
+    },
+    showSingBoxConfig: {
+      loading: false,
+    },
+  },
   diagnosticsRunAction: { loading: false },
   diagnosticsChecks: [
     {

@@ -1,6 +1,6 @@
 import { svgEl } from '../helpers';
 
-export function renderLoaderCircleIcon24() {
+export function renderCircleCheckBigIcon24() {
   const NS = 'http://www.w3.org/2000/svg';
   return svgEl(
     'svg',
@@ -12,20 +12,14 @@ export function renderLoaderCircleIcon24() {
       'stroke-width': '2',
       'stroke-linecap': 'round',
       'stroke-linejoin': 'round',
-      class: 'lucide lucide-loader-circle rotate',
+      class: 'lucide lucide-circle-check-big-icon lucide-circle-check-big',
     },
     [
       svgEl('path', {
-        d: 'M21 12a9 9 0 1 1-6.219-8.56',
+        d: 'M21.801 10A10 10 0 1 1 17 3.335',
       }),
-      svgEl('animateTransform', {
-        attributeName: 'transform',
-        attributeType: 'XML',
-        type: 'rotate',
-        from: '0 12 12',
-        to: '360 12 12',
-        dur: '1s',
-        repeatCount: 'indefinite',
+      svgEl('path', {
+        d: 'm9 11 3 3L22 4',
       }),
     ],
   );

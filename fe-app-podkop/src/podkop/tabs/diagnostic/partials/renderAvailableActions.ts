@@ -1,11 +1,113 @@
-export function renderAvailableActions() {
+import { renderButton } from '../../../../partials';
+import {
+  renderCircleCheckBigIcon24,
+  renderCirclePlayIcon24,
+  renderCircleStopIcon24,
+  renderCogIcon24,
+  renderPauseIcon24,
+  renderPlayIcon24,
+  renderRotateCcwIcon24,
+  renderSquareChartGanttIcon24,
+} from '../../../../icons';
+import { insertIf } from '../../../../helpers';
+
+interface ActionProps {
+  loading: boolean;
+  visible: boolean;
+  onClick: () => void;
+}
+
+interface IRenderAvailableActionsProps {
+  restart: ActionProps;
+  start: ActionProps;
+  stop: ActionProps;
+  enable: ActionProps;
+  disable: ActionProps;
+  globalCheck: ActionProps;
+  viewLogs: ActionProps;
+  showSingBoxConfig: ActionProps;
+}
+
+export function renderAvailableActions({
+  restart,
+  start,
+  stop,
+  enable,
+  disable,
+  globalCheck,
+  viewLogs,
+  showSingBoxConfig,
+}: IRenderAvailableActionsProps) {
   return E('div', { class: 'pdk_diagnostic-page__right-bar__actions' }, [
     E('b', {}, 'Available actions'),
-    E('button', { class: 'btn' }, 'Restart podkop'),
-    E('button', { class: 'btn' }, 'Stop podkop'),
-    E('button', { class: 'btn' }, 'Disable podkop'),
-    E('button', { class: 'btn' }, 'Get global check'),
-    E('button', { class: 'btn' }, 'View logs'),
-    E('button', { class: 'btn' }, 'Show sing-box config'),
+    ...insertIf(restart.visible, [
+      renderButton({
+        classNames: ['cbi-button-apply'],
+        onClick: restart.onClick,
+        icon: renderRotateCcwIcon24,
+        text: 'Restart podkop',
+        loading: restart.loading,
+      }),
+    ]),
+    ...insertIf(stop.visible, [
+      renderButton({
+        classNames: ['cbi-button-remove'],
+        onClick: stop.onClick,
+        icon: renderCircleStopIcon24,
+        text: 'Stop podkop',
+        loading: stop.loading,
+      }),
+    ]),
+    ...insertIf(start.visible, [
+      renderButton({
+        classNames: ['cbi-button-save'],
+        onClick: start.onClick,
+        icon: renderCirclePlayIcon24,
+        text: 'Start podkop',
+        loading: start.loading,
+      }),
+    ]),
+    ...insertIf(disable.visible, [
+      renderButton({
+        classNames: ['cbi-button-remove'],
+        onClick: disable.onClick,
+        icon: renderPauseIcon24,
+        text: 'Disable podkop',
+        loading: disable.loading,
+      }),
+    ]),
+    ...insertIf(enable.visible, [
+      renderButton({
+        classNames: ['cbi-button-save'],
+        onClick: enable.onClick,
+        icon: renderPlayIcon24,
+        text: 'Enable podkop',
+        loading: enable.loading,
+      }),
+    ]),
+    ...insertIf(globalCheck.visible, [
+      renderButton({
+        onClick: globalCheck.onClick,
+        icon: renderCircleCheckBigIcon24,
+        text: 'Get global check',
+        loading: globalCheck.loading,
+      }),
+    ]),
+    ...insertIf(viewLogs.visible, [
+      renderButton({
+        onClick: viewLogs.onClick,
+        icon: renderSquareChartGanttIcon24,
+        text: 'View logs',
+        loading: viewLogs.loading,
+      }),
+    ]),
+    ...insertIf(showSingBoxConfig.visible, [
+      renderButton({
+        onClick: showSingBoxConfig.onClick,
+        icon: renderCogIcon24,
+        text: 'Show sing-box config',
+        loading: showSingBoxConfig.loading,
+      }),
+    ]),
   ]);
 }

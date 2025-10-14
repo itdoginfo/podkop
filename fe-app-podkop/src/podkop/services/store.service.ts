@@ -171,6 +171,16 @@ export interface StoreType {
     loading: boolean;
   };
   diagnosticsChecks: Array<IDiagnosticsChecksStoreItem>;
+  diagnosticsActions: {
+    restart: { loading: boolean };
+    start: { loading: boolean };
+    stop: { loading: boolean };
+    enable: { loading: boolean };
+    disable: { loading: boolean };
+    globalCheck: { loading: boolean };
+    viewLogs: { loading: boolean };
+    showSingBoxConfig: { loading: boolean };
+  };
 }
 
 const initialStore: StoreType = {

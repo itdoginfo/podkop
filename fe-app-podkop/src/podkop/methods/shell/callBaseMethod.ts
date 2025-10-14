@@ -12,10 +12,17 @@ export async function callBaseMethod<T>(
   });
 
   if (response.stdout) {
-    return {
-      success: true,
-      data: JSON.parse(response.stdout) as T,
-    };
+    try {
+      return {
+        success: true,
+        data: JSON.parse(response.stdout) as T,
+      };
+    } catch (_e) {
+      return {
+        success: true,
+        data: response.stdout as T,
+      };
+    }
   }
 
   return {

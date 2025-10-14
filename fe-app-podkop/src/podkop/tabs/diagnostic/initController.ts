@@ -11,6 +11,7 @@ import {
   renderRunAction,
   renderSystemInfo,
 } from './partials';
+import { PodkopShellMethods } from '../../methods';
 
 function renderDiagnosticsChecks() {
   console.log('renderDiagnosticsChecks');
@@ -44,12 +45,174 @@ function renderDiagnosticRunActionWidget() {
   });
 }
 
+async function handleRestart() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      restart: { loading: true },
+    },
+  });
+
+  try {
+    await PodkopShellMethods.restart();
+  } catch (e) {
+    console.log('handleRestart - e', e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        restart: { loading: false },
+      },
+    });
+    location.reload();
+  }
+}
+
+async function handleStop() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      stop: { loading: true },
+    },
+  });
+
+  try {
+    await PodkopShellMethods.stop();
+  } catch (e) {
+    console.log('handleStop - e', e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        stop: { loading: false },
+      },
+    });
+    // TODO actualize dashboard
+  }
+}
+
+async function handleStart() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      start: { loading: true },
+    },
+  });
+
+  try {
+    await PodkopShellMethods.start();
+  } catch (e) {
+    console.log('handleStart - e', e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        start: { loading: false },
+      },
+    });
+    location.reload();
+  }
+}
+
+async function handleEnable() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      enable: { loading: true },
+    },
+  });
+
+  try {
+    await PodkopShellMethods.enable();
+  } catch (e) {
+    console.log('handleEnable - e', e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        enable: { loading: false },
+      },
+    });
+    //TODO actualize dashboard
+  }
+}
+
+async function handleDisable() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      disable: { loading: true },
+    },
+  });
+
+  try {
+    await PodkopShellMethods.disable();
+  } catch (e) {
+    console.log('handleDisable - e', e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        disable: { loading: false },
+      },
+    });
+    //TODO actualize dashboard
+  }
+}
+
 function renderDiagnosticAvailableActionsWidget() {
+  const diagnosticsActions = store.get().diagnosticsActions;
   console.log('renderDiagnosticActionsWidget');
 
   const container = document.getElementById('pdk_diagnostic-page-actions');
 
-  const renderedActions = renderAvailableActions();
+  const renderedActions = renderAvailableActions({
+    restart: {
+      loading: diagnosticsActions.restart.loading,
+      visible: true,
+      onClick: handleRestart,
+    },
+    start: {
+      loading: diagnosticsActions.start.loading,
+      visible: true,
+      onClick: handleStart,
+    },
+    stop: {
+      loading: diagnosticsActions.stop.loading,
+      visible: true,
+      onClick: handleStop,
+    },
+    enable: {
+      loading: diagnosticsActions.enable.loading,
+      visible: true,
+      onClick: handleEnable,
+    },
+    disable: {
+      loading: diagnosticsActions.disable.loading,
+      visible: true,
+      onClick: handleDisable,
+    },
+    globalCheck: {
+      loading: diagnosticsActions.globalCheck.loading,
+      visible: true,
+      onClick: () => {},
+    },
+    viewLogs: {
+      loading: diagnosticsActions.viewLogs.loading,
+      visible: true,
+      onClick: () => {},
+    },
+    showSingBoxConfig: {
+      loading: diagnosticsActions.showSingBoxConfig.loading,
+      visible: true,
+      onClick: () => {},
+    },
+  });
 
   return preserveScrollForPage(() => {
     container!.replaceChildren(renderedActions);
@@ -102,6 +265,10 @@ async function onStoreUpdate(
 
   if (diff.diagnosticsRunAction) {
     renderDiagnosticRunActionWidget();
+  }
+
+  if (diff.diagnosticsActions) {
+    renderDiagnosticAvailableActionsWidget();
   }
 }
 

@@ -1,6 +1,6 @@
 import { svgEl } from '../helpers';
 
-export function renderLoaderCircleIcon24() {
+export function renderRotateCcwIcon24() {
   const NS = 'http://www.w3.org/2000/svg';
   return svgEl(
     'svg',
@@ -12,20 +12,14 @@ export function renderLoaderCircleIcon24() {
       'stroke-width': '2',
       'stroke-linecap': 'round',
       'stroke-linejoin': 'round',
-      class: 'lucide lucide-loader-circle rotate',
+      class: 'lucide lucide-rotate-ccw-icon lucide-rotate-ccw',
     },
     [
       svgEl('path', {
-        d: 'M21 12a9 9 0 1 1-6.219-8.56',
+        d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8',
       }),
-      svgEl('animateTransform', {
-        attributeName: 'transform',
-        attributeType: 'XML',
-        type: 'rotate',
-        from: '0 12 12',
-        to: '360 12 12',
-        dur: '1s',
-        repeatCount: 'indefinite',
+      svgEl('path', {
+        d: 'M3 3v5h5',
       }),
     ],
   );

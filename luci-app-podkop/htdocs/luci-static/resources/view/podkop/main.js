@@ -411,10 +411,17 @@ async function callBaseMethod(method, args = []) {
     timeout: 1e4
   });
   if (response.stdout) {
-    return {
-      success: true,
-      data: JSON.parse(response.stdout)
-    };
+    try {
+      return {
+        success: true,
+        data: JSON.parse(response.stdout)
+      };
+    } catch (_e) {
+      return {
+        success: true,
+        data: response.stdout
+      };
+    }
   }
   return {
     success: false,
@@ -895,6 +902,32 @@ var DIAGNOSTICS_CHECKS_MAP = {
 
 // src/podkop/tabs/diagnostic/diagnostic.store.ts
 var initialDiagnosticStore = {
+  diagnosticsActions: {
+    restart: {
+      loading: false
+    },
+    start: {
+      loading: false
+    },
+    stop: {
+      loading: false
+    },
+    enable: {
+      loading: false
+    },
+    disable: {
+      loading: false
+    },
+    globalCheck: {
+      loading: false
+    },
+    viewLogs: {
+      loading: false
+    },
+    showSingBoxConfig: {
+      loading: false
+    }
+  },
   diagnosticsRunAction: { loading: false },
   diagnosticsChecks: [
     {
@@ -2283,18 +2316,39 @@ async function runFakeIPCheck() {
   });
 }
 
-// src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts
-function renderAvailableActions() {
-  return E("div", { class: "pdk_diagnostic-page__right-bar__actions" }, [
-    E("b", {}, "Available actions"),
-    E("button", { class: "btn" }, "Restart podkop"),
-    E("button", { class: "btn" }, "Stop podkop"),
-    E("button", { class: "btn" }, "Disable podkop"),
-    E("button", { class: "btn" }, "Get global check"),
-    E("button", { class: "btn" }, "View logs"),
-    E("button", { class: "btn" }, "Show sing-box config")
-  ]);
+// src/partials/button/styles.ts
+var styles2 = `
+.pdk-partial-button {
+    text-align: center;
 }
+
+.pdk-partial-button--with-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pdk-partial-button--loading {
+}
+
+.pdk-partial-button--disabled {
+}
+
+.pdk-partial-button__icon {
+    margin-right: 5px;
+}
+
+.pdk-partial-button__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pdk-partial-button__icon svg {
+    width: 16px;
+    height: 16px;
+}
+`;
 
 // src/icons/renderLoaderCircleIcon24.ts
 function renderLoaderCircleIcon24() {
@@ -2303,8 +2357,6 @@ function renderLoaderCircleIcon24() {
     "svg",
     {
       xmlns: NS,
-      width: "24",
-      height: "24",
       viewBox: "0 0 24 24",
       fill: "none",
       stroke: "currentColor",
@@ -2532,6 +2584,398 @@ function renderTriangleAlertIcon24() {
   );
 }
 
+// src/icons/renderPauseIcon24.ts
+function renderPauseIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-pause-icon lucide-pause"
+    },
+    [
+      svgEl("rect", {
+        x: "14",
+        y: "3",
+        width: "5",
+        height: "18",
+        rx: "1"
+      }),
+      svgEl("rect", {
+        x: "5",
+        y: "3",
+        width: "5",
+        height: "18",
+        rx: "1"
+      })
+    ]
+  );
+}
+
+// src/icons/renderPlayIcon24.ts
+function renderPlayIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-play-icon lucide-play"
+    },
+    [
+      svgEl("path", {
+        d: "M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"
+      })
+    ]
+  );
+}
+
+// src/icons/renderRotateCcwIcon24.ts
+function renderRotateCcwIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-rotate-ccw-icon lucide-rotate-ccw"
+    },
+    [
+      svgEl("path", {
+        d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+      }),
+      svgEl("path", {
+        d: "M3 3v5h5"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleStopIcon24.ts
+function renderCircleStopIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-stop-icon lucide-circle-stop"
+    },
+    [
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      }),
+      svgEl("rect", {
+        x: "9",
+        y: "9",
+        width: "6",
+        height: "6",
+        rx: "1"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCirclePlayIcon24.ts
+function renderCirclePlayIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-play-icon lucide-circle-play"
+    },
+    [
+      svgEl("path", {
+        d: "M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z"
+      }),
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleCheckBigIcon24.ts
+function renderCircleCheckBigIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-check-big-icon lucide-circle-check-big"
+    },
+    [
+      svgEl("path", {
+        d: "M21.801 10A10 10 0 1 1 17 3.335"
+      }),
+      svgEl("path", {
+        d: "m9 11 3 3L22 4"
+      })
+    ]
+  );
+}
+
+// src/icons/renderSquareChartGanttIcon24.ts
+function renderSquareChartGanttIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-square-chart-gantt-icon lucide-square-chart-gantt"
+    },
+    [
+      svgEl("rect", {
+        width: "18",
+        height: "18",
+        x: "3",
+        y: "3",
+        rx: "2"
+      }),
+      svgEl("path", { d: "M9 8h7" }),
+      svgEl("path", { d: "M8 12h6" }),
+      svgEl("path", { d: "M11 16h5" })
+    ]
+  );
+}
+
+// src/icons/renderCogIcon24.ts
+function renderCogIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-cog-icon lucide-cog"
+    },
+    [
+      svgEl("path", { d: "M11 10.27 7 3.34" }),
+      svgEl("path", { d: "m11 13.73-4 6.93" }),
+      svgEl("path", { d: "M12 22v-2" }),
+      svgEl("path", { d: "M12 2v2" }),
+      svgEl("path", { d: "M14 12h8" }),
+      svgEl("path", { d: "m17 20.66-1-1.73" }),
+      svgEl("path", { d: "m17 3.34-1 1.73" }),
+      svgEl("path", { d: "M2 12h2" }),
+      svgEl("path", { d: "m20.66 17-1.73-1" }),
+      svgEl("path", { d: "m20.66 7-1.73 1" }),
+      svgEl("path", { d: "m3.34 17 1.73-1" }),
+      svgEl("path", { d: "m3.34 7 1.73 1" }),
+      svgEl("circle", { cx: "12", cy: "12", r: "2" }),
+      svgEl("circle", { cx: "12", cy: "12", r: "8" })
+    ]
+  );
+}
+
+// src/icons/renderSearchIcon24.ts
+function renderSearchIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-search-icon lucide-search"
+    },
+    [
+      svgEl("path", { d: "m21 21-4.34-4.34" }),
+      svgEl("circle", { cx: "11", cy: "11", r: "8" })
+    ]
+  );
+}
+
+// src/partials/button/renderButton.ts
+function renderButton({
+  classNames = [],
+  disabled,
+  loading,
+  onClick,
+  text,
+  icon
+}) {
+  const hasIcon = !!loading || !!icon;
+  function getWrappedIcon() {
+    const iconWrap = E("span", {
+      class: "pdk-partial-button__icon"
+    });
+    if (loading) {
+      iconWrap.appendChild(renderLoaderCircleIcon24());
+      return iconWrap;
+    }
+    if (icon) {
+      iconWrap.appendChild(icon());
+      return iconWrap;
+    }
+    return iconWrap;
+  }
+  function getClass() {
+    return [
+      "btn",
+      "pdk-partial-button",
+      ...insertIf(Boolean(disabled), ["pdk-partial-button--disabled"]),
+      ...insertIf(Boolean(loading), ["pdk-partial-button--loading"]),
+      ...insertIf(Boolean(hasIcon), ["pdk-partial-button--with-icon"]),
+      ...classNames
+    ].filter(Boolean).join(" ");
+  }
+  function getDisabled() {
+    if (loading || disabled) {
+      return true;
+    }
+    return void 0;
+  }
+  return E(
+    "button",
+    { class: getClass(), disabled: getDisabled(), click: onClick },
+    [...insertIf(hasIcon, [getWrappedIcon()]), E("span", {}, text)]
+  );
+}
+
+// src/partials/index.ts
+var PartialStyles = `
+${styles2}
+`;
+
+// src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts
+function renderAvailableActions({
+  restart,
+  start,
+  stop,
+  enable,
+  disable,
+  globalCheck,
+  viewLogs,
+  showSingBoxConfig
+}) {
+  return E("div", { class: "pdk_diagnostic-page__right-bar__actions" }, [
+    E("b", {}, "Available actions"),
+    ...insertIf(restart.visible, [
+      renderButton({
+        classNames: ["cbi-button-apply"],
+        onClick: restart.onClick,
+        icon: renderRotateCcwIcon24,
+        text: "Restart podkop",
+        loading: restart.loading
+      })
+    ]),
+    ...insertIf(stop.visible, [
+      renderButton({
+        classNames: ["cbi-button-remove"],
+        onClick: stop.onClick,
+        icon: renderCircleStopIcon24,
+        text: "Stop podkop",
+        loading: stop.loading
+      })
+    ]),
+    ...insertIf(start.visible, [
+      renderButton({
+        classNames: ["cbi-button-save"],
+        onClick: start.onClick,
+        icon: renderCirclePlayIcon24,
+        text: "Start podkop",
+        loading: start.loading
+      })
+    ]),
+    ...insertIf(disable.visible, [
+      renderButton({
+        classNames: ["cbi-button-remove"],
+        onClick: disable.onClick,
+        icon: renderPauseIcon24,
+        text: "Disable podkop",
+        loading: disable.loading
+      })
+    ]),
+    ...insertIf(enable.visible, [
+      renderButton({
+        classNames: ["cbi-button-save"],
+        onClick: enable.onClick,
+        icon: renderPlayIcon24,
+        text: "Enable podkop",
+        loading: enable.loading
+      })
+    ]),
+    ...insertIf(globalCheck.visible, [
+      renderButton({
+        onClick: globalCheck.onClick,
+        icon: renderCircleCheckBigIcon24,
+        text: "Get global check",
+        loading: globalCheck.loading
+      })
+    ]),
+    ...insertIf(viewLogs.visible, [
+      renderButton({
+        onClick: viewLogs.onClick,
+        icon: renderSquareChartGanttIcon24,
+        text: "View logs",
+        loading: viewLogs.loading
+      })
+    ]),
+    ...insertIf(showSingBoxConfig.visible, [
+      renderButton({
+        onClick: showSingBoxConfig.onClick,
+        icon: renderCogIcon24,
+        text: "Show sing-box config",
+        loading: showSingBoxConfig.loading
+      })
+    ])
+  ]);
+}
+
 // src/podkop/tabs/diagnostic/partials/renderCheckSection.ts
 function renderCheckSummary(items) {
   if (!items.length) {
@@ -2693,11 +3137,13 @@ function renderRunAction({
   click
 }) {
   return E("div", { class: "pdk_diagnostic-page__run_check_wrapper" }, [
-    E(
-      "button",
-      { class: "btn", disabled: loading ? true : void 0, click },
-      loading ? _("Running... please wait") : _("Run Diagnostic")
-    )
+    renderButton({
+      text: "Run Diagnostic",
+      onClick: click,
+      icon: renderSearchIcon24,
+      loading,
+      classNames: ["cbi-button-apply"]
+    })
   ]);
 }
 
@@ -2742,10 +3188,162 @@ function renderDiagnosticRunActionWidget() {
     container.replaceChildren(renderedAction);
   });
 }
+async function handleRestart() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      restart: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.restart();
+  } catch (e) {
+    console.log("handleRestart - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        restart: { loading: false }
+      }
+    });
+    location.reload();
+  }
+}
+async function handleStop() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      stop: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.stop();
+  } catch (e) {
+    console.log("handleStop - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        stop: { loading: false }
+      }
+    });
+  }
+}
+async function handleStart() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      start: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.start();
+  } catch (e) {
+    console.log("handleStart - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        start: { loading: false }
+      }
+    });
+    location.reload();
+  }
+}
+async function handleEnable() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      enable: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.enable();
+  } catch (e) {
+    console.log("handleEnable - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        enable: { loading: false }
+      }
+    });
+  }
+}
+async function handleDisable() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      disable: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.disable();
+  } catch (e) {
+    console.log("handleDisable - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        disable: { loading: false }
+      }
+    });
+  }
+}
 function renderDiagnosticAvailableActionsWidget() {
+  const diagnosticsActions = store.get().diagnosticsActions;
   console.log("renderDiagnosticActionsWidget");
   const container = document.getElementById("pdk_diagnostic-page-actions");
-  const renderedActions = renderAvailableActions();
+  const renderedActions = renderAvailableActions({
+    restart: {
+      loading: diagnosticsActions.restart.loading,
+      visible: true,
+      onClick: handleRestart
+    },
+    start: {
+      loading: diagnosticsActions.start.loading,
+      visible: true,
+      onClick: handleStart
+    },
+    stop: {
+      loading: diagnosticsActions.stop.loading,
+      visible: true,
+      onClick: handleStop
+    },
+    enable: {
+      loading: diagnosticsActions.enable.loading,
+      visible: true,
+      onClick: handleEnable
+    },
+    disable: {
+      loading: diagnosticsActions.disable.loading,
+      visible: true,
+      onClick: handleDisable
+    },
+    globalCheck: {
+      loading: diagnosticsActions.globalCheck.loading,
+      visible: true,
+      onClick: () => {
+      }
+    },
+    viewLogs: {
+      loading: diagnosticsActions.viewLogs.loading,
+      visible: true,
+      onClick: () => {
+      }
+    },
+    showSingBoxConfig: {
+      loading: diagnosticsActions.showSingBoxConfig.loading,
+      visible: true,
+      onClick: () => {
+      }
+    }
+  });
   return preserveScrollForPage(() => {
     container.replaceChildren(renderedActions);
   });
@@ -2761,7 +3359,7 @@ function renderDiagnosticSystemInfoWidget() {
       },
       {
         key: "Luci App",
-        value: PODKOP_LUCI_APP_VERSION
+        value: "1"
       },
       {
         key: "Sing-box",
@@ -2788,6 +3386,9 @@ async function onStoreUpdate2(next, prev, diff) {
   if (diff.diagnosticsRunAction) {
     renderDiagnosticRunActionWidget();
   }
+  if (diff.diagnosticsActions) {
+    renderDiagnosticAvailableActionsWidget();
+  }
 }
 async function runChecks() {
   try {
@@ -2805,8 +3406,6 @@ async function runChecks() {
     store.set({ diagnosticsRunAction: { loading: false } });
   }
 }
-async function test() {
-}
 async function initController2() {
   onMount("diagnostic-status").then(() => {
     console.log("diagnostic controller initialized.");
@@ -2816,12 +3415,11 @@ async function initController2() {
     renderDiagnosticRunActionWidget();
     renderDiagnosticAvailableActionsWidget();
     renderDiagnosticSystemInfoWidget();
-    test();
   });
 }
 
 // src/podkop/tabs/diagnostic/styles.ts
-var styles2 = `
+var styles3 = `
 
 #cbi-podkop-diagnostic-_mount_node > div {
     width: 100%;
@@ -2967,13 +3565,14 @@ var styles2 = `
 var DiagnosticTab = {
   render: render2,
   initController: initController2,
-  styles: styles2
+  styles: styles3
 };
 
 // src/styles.ts
 var GlobalStyles = `
 ${DashboardTab.styles}
 ${DiagnosticTab.styles}
+${PartialStyles}
 
 
 /* Hide extra H3 for settings tab */
