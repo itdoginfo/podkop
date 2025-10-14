@@ -34,12 +34,12 @@ export async function runDnsCheck() {
   const data = dnsChecks.data;
 
   const allGood =
-    Boolean(data.local_dns_status) &&
+    Boolean(data.dns_on_router) &&
     Boolean(data.bootstrap_dns_status) &&
     Boolean(data.dns_status);
 
   const atLeastOneGood =
-    Boolean(data.local_dns_status) ||
+    Boolean(data.dns_on_router) ||
     Boolean(data.bootstrap_dns_status) ||
     Boolean(data.dns_status);
 
@@ -80,7 +80,7 @@ export async function runDnsCheck() {
         value: `${data.dns_server} [${data.dns_type}]`,
       },
       {
-        state: data.local_dns_status ? 'success' : 'error',
+        state: data.dns_on_router ? 'success' : 'error',
         key: _('Local DNS'),
         value: '',
       },

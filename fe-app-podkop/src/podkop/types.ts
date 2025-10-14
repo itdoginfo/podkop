@@ -148,7 +148,7 @@ export namespace Podkop {
     dns_type: 'udp' | 'doh' | 'dot';
     dns_server: string;
     dns_status: 0 | 1;
-    local_dns_status: 0 | 1;
+    dns_on_router: 0 | 1;
     bootstrap_dns_server: string;
     bootstrap_dns_status: 0 | 1;
     dhcp_has_dns_server: 0 | 1;
