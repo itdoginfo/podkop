@@ -1,12 +1,14 @@
 import { getSingBoxCheck } from '../../../methods';
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
+import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 
 export async function runSingBoxCheck() {
-  const code = 'sing_box_check';
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.SINGBOX;
 
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _('Sing-box checks'),
+    title,
     description: _('Checking sing-box, please wait'),
     state: 'loading',
     items: [],
@@ -16,8 +18,9 @@ export async function runSingBoxCheck() {
 
   if (!singBoxChecks.success) {
     updateDiagnosticsCheck({
+      order,
       code,
-      title: _('Sing-box checks'),
+      title,
       description: _('Cannot receive Sing-box checks result'),
       state: 'error',
       items: [],
@@ -59,8 +62,9 @@ export async function runSingBoxCheck() {
   }
 
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _('Sing-box checks'),
+    title,
     description: _('Sing-box checks passed'),
     state: getStatus(),
     items: [

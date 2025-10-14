@@ -213,6 +213,62 @@ export const GlobalStyles = `
     width: 100%;
 }
 
+.pdk_diagnostic-page {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-column-gap: 10px;
+    align-items: start;
+}
+
+.pdk_diagnostic-page__right-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__actions {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+    
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+    
+}
+
+.pdk_diagnostic-page__right-bar__system-info {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__system-info__title {
+    
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-column-gap: 5px;
+}
+
+.pdk_diagnostic-page__left-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__run_check_wrapper {}
+
+.pdk_diagnostic-page__run_check_wrapper button {
+    width: 100%;
+}
+
 .pdk_diagnostic-page__checks {
     display: grid;
     grid-template-columns: 1fr;

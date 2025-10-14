@@ -1,13 +1,15 @@
 import { getNftRulesCheck } from '../../../methods';
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { getFakeIpCheck, getIpCheck } from '../../../../fakeip';
+import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 
 export async function runNftCheck() {
-  const code = 'nft_check';
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.NFT;
 
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _('Nftables checks'),
+    title,
     description: _('Checking nftables, please wait'),
     state: 'loading',
     items: [],
@@ -20,8 +22,9 @@ export async function runNftCheck() {
 
   if (!nftablesChecks.success) {
     updateDiagnosticsCheck({
+      order,
       code,
-      title: _('Nftables checks'),
+      title,
       description: _('Cannot receive nftables checks result'),
       state: 'error',
       items: [],
@@ -67,8 +70,9 @@ export async function runNftCheck() {
   }
 
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _('Nftables checks'),
+    title,
     description: allGood
       ? _('Nftables checks passed')
       : _('Nftables checks partially passed'),

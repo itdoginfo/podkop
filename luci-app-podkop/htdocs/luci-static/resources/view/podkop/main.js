@@ -436,6 +436,62 @@ var GlobalStyles = `
     width: 100%;
 }
 
+.pdk_diagnostic-page {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-column-gap: 10px;
+    align-items: start;
+}
+
+.pdk_diagnostic-page__right-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__actions {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+    
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+    
+}
+
+.pdk_diagnostic-page__right-bar__system-info {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__system-info__title {
+    
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-column-gap: 5px;
+}
+
+.pdk_diagnostic-page__left-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__run_check_wrapper {}
+
+.pdk_diagnostic-page__run_check_wrapper button {
+    width: 100%;
+}
+
 .pdk_diagnostic-page__checks {
     display: grid;
     grid-template-columns: 1fr;
@@ -1354,6 +1410,105 @@ var TabService = class _TabService {
 };
 var TabServiceInstance = TabService.getInstance();
 
+// src/podkop/tabs/diagnostic/checks/contstants.ts
+var DIAGNOSTICS_CHECKS_MAP = {
+  ["DNS" /* DNS */]: {
+    order: 1,
+    title: _("DNS checks"),
+    code: "DNS" /* DNS */
+  },
+  ["SINGBOX" /* SINGBOX */]: {
+    order: 2,
+    title: _("Sing-box checks"),
+    code: "SINGBOX" /* SINGBOX */
+  },
+  ["NFT" /* NFT */]: {
+    order: 3,
+    title: _("Nftables checks"),
+    code: "NFT" /* NFT */
+  },
+  ["FAKEIP" /* FAKEIP */]: {
+    order: 4,
+    title: _("FakeIP checks"),
+    code: "FAKEIP" /* FAKEIP */
+  }
+};
+
+// src/podkop/tabs/diagnostic/diagnostic.store.ts
+var initialDiagnosticStore = {
+  diagnosticsRunAction: { loading: false },
+  diagnosticsChecks: [
+    {
+      code: "DNS" /* DNS */,
+      title: DIAGNOSTICS_CHECKS_MAP.DNS.title,
+      order: DIAGNOSTICS_CHECKS_MAP.DNS.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "SINGBOX" /* SINGBOX */,
+      title: DIAGNOSTICS_CHECKS_MAP.SINGBOX.title,
+      order: DIAGNOSTICS_CHECKS_MAP.SINGBOX.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "NFT" /* NFT */,
+      title: DIAGNOSTICS_CHECKS_MAP.NFT.title,
+      order: DIAGNOSTICS_CHECKS_MAP.NFT.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "FAKEIP" /* FAKEIP */,
+      title: DIAGNOSTICS_CHECKS_MAP.FAKEIP.title,
+      order: DIAGNOSTICS_CHECKS_MAP.FAKEIP.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
+    }
+  ]
+};
+var loadingDiagnosticsChecksStore = {
+  diagnosticsChecks: [
+    {
+      code: "DNS" /* DNS */,
+      title: DIAGNOSTICS_CHECKS_MAP.DNS.title,
+      order: DIAGNOSTICS_CHECKS_MAP.DNS.order,
+      description: _("Queued"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "SINGBOX" /* SINGBOX */,
+      title: DIAGNOSTICS_CHECKS_MAP.SINGBOX.title,
+      order: DIAGNOSTICS_CHECKS_MAP.SINGBOX.order,
+      description: _("Queued"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "NFT" /* NFT */,
+      title: DIAGNOSTICS_CHECKS_MAP.NFT.title,
+      order: DIAGNOSTICS_CHECKS_MAP.NFT.order,
+      description: _("Queued"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "FAKEIP" /* FAKEIP */,
+      title: DIAGNOSTICS_CHECKS_MAP.FAKEIP.title,
+      order: DIAGNOSTICS_CHECKS_MAP.FAKEIP.order,
+      description: _("Queued"),
+      items: [],
+      state: "skipped"
+    }
+  ]
+};
+
 // src/store.ts
 function jsonStableStringify(obj) {
   return JSON.stringify(obj, (_2, value) => {
@@ -1399,9 +1554,16 @@ var Store = class {
     }
     this.listeners.forEach((cb) => cb(this.value, prev, diff));
   }
-  reset() {
+  reset(keys) {
     const prev = this.value;
-    const next = structuredClone(this.initial);
+    const next = structuredClone(this.value);
+    if (keys && keys.length > 0) {
+      keys.forEach((key) => {
+        next[key] = structuredClone(this.initial[key]);
+      });
+    } else {
+      Object.assign(next, structuredClone(this.initial));
+    }
     if (jsonEqual(prev, next)) return;
     this.value = next;
     this.lastHash = jsonStableStringify(next);
@@ -1468,7 +1630,7 @@ var initialStore = {
     latencyFetching: false,
     data: []
   },
-  diagnosticsChecks: []
+  ...initialDiagnosticStore
 };
 var store = new Store(initialStore);
 
@@ -2163,7 +2325,13 @@ async function onStoreUpdate(next, prev, diff) {
 async function initDashboardController() {
   onMount("dashboard-status").then(() => {
     store.unsubscribe(onStoreUpdate);
-    store.reset();
+    store.reset([
+      "bandwidthWidget",
+      "trafficTotalWidget",
+      "systemInfoWidget",
+      "servicesInfoWidget",
+      "sectionsWidget"
+    ]);
     store.subscribe(onStoreUpdate);
     fetchDashboardSections();
     fetchServicesInfo();
@@ -2173,49 +2341,19 @@ async function initDashboardController() {
 
 // src/podkop/tabs/diagnostic/renderDiagnostic.ts
 function renderDiagnostic() {
-  return E(
-    "div",
-    { id: "diagnostic-status", class: "pdk_diagnostic-page" },
-    E(
-      "div",
-      {
+  return E("div", { id: "diagnostic-status", class: "pdk_diagnostic-page" }, [
+    E("div", { class: "pdk_diagnostic-page__left-bar" }, [
+      E("div", { id: "pdk_diagnostic-page-run-check" }),
+      E("div", {
         class: "pdk_diagnostic-page__checks",
         id: "pdk_diagnostic-page-checks"
-      }
-      // [
-      //   renderCheckSection({
-      //     state: 'loading',
-      //     title: _('DNS Checks'),
-      //     description: _('Checking, please wait'),
-      //     items: [],
-      //   }),
-      //   renderCheckSection({
-      //     state: 'warning',
-      //     title: _('DNS Checks'),
-      //     description: _('Some checks was failed'),
-      //     items: [],
-      //   }),
-      //   renderCheckSection({
-      //     state: 'error',
-      //     title: _('DNS Checks'),
-      //     description: _('Checks was failed'),
-      //     items: [],
-      //   }),
-      //   renderCheckSection({
-      //     state: 'success',
-      //     title: _('DNS Checks'),
-      //     description: _('Checks was passed'),
-      //     items: [],
-      //   }),
-      //   renderCheckSection({
-      //     state: 'skipped',
-      //     title: _('DNS Checks'),
-      //     description: _('Checks was skipped'),
-      //     items: [],
-      //   }),
-      // ],
-    )
-  );
+      })
+    ]),
+    E("div", { class: "pdk_diagnostic-page__right-bar" }, [
+      E("div", { id: "pdk_diagnostic-page-actions" }),
+      E("div", { id: "pdk_diagnostic-page-system-info" })
+    ])
+  ]);
 }
 
 // src/icons/renderLoaderCircleIcon24.ts
@@ -2625,10 +2763,11 @@ function updateDiagnosticsCheck(check, minified) {
 
 // src/podkop/tabs/diagnostic/checks/runDnsCheck.ts
 async function runDnsCheck() {
-  const code = "dns_check";
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _("DNS checks"),
+    title,
     description: _("Checking dns, please wait"),
     state: "loading",
     items: []
@@ -2636,8 +2775,9 @@ async function runDnsCheck() {
   const dnsChecks = await getDNSCheck();
   if (!dnsChecks.success) {
     updateDiagnosticsCheck({
+      order,
       code,
-      title: _("DNS checks"),
+      title,
       description: _("Cannot receive DNS checks result"),
       state: "error",
       items: []
@@ -2658,8 +2798,9 @@ async function runDnsCheck() {
     return "error";
   }
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _("DNS checks"),
+    title,
     description: _("DNS checks passed"),
     state: getStatus(),
     items: [
@@ -2692,10 +2833,11 @@ async function runDnsCheck() {
 
 // src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts
 async function runSingBoxCheck() {
-  const code = "sing_box_check";
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.SINGBOX;
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _("Sing-box checks"),
+    title,
     description: _("Checking sing-box, please wait"),
     state: "loading",
     items: []
@@ -2703,8 +2845,9 @@ async function runSingBoxCheck() {
   const singBoxChecks = await getSingBoxCheck();
   if (!singBoxChecks.success) {
     updateDiagnosticsCheck({
+      order,
       code,
-      title: _("Sing-box checks"),
+      title,
       description: _("Cannot receive Sing-box checks result"),
       state: "error",
       items: []
@@ -2725,8 +2868,9 @@ async function runSingBoxCheck() {
     return "error";
   }
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _("Sing-box checks"),
+    title,
     description: _("Sing-box checks passed"),
     state: getStatus(),
     items: [
@@ -2797,10 +2941,11 @@ async function getFakeIpCheck() {
 
 // src/podkop/tabs/diagnostic/checks/runNftCheck.ts
 async function runNftCheck() {
-  const code = "nft_check";
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.NFT;
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _("Nftables checks"),
+    title,
     description: _("Checking nftables, please wait"),
     state: "loading",
     items: []
@@ -2810,8 +2955,9 @@ async function runNftCheck() {
   const nftablesChecks = await getNftRulesCheck();
   if (!nftablesChecks.success) {
     updateDiagnosticsCheck({
+      order,
       code,
-      title: _("Nftables checks"),
+      title,
       description: _("Cannot receive nftables checks result"),
       state: "error",
       items: []
@@ -2832,8 +2978,9 @@ async function runNftCheck() {
     return "error";
   }
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _("Nftables checks"),
+    title,
     description: allGood ? _("Nftables checks passed") : _("Nftables checks partially passed"),
     state: getStatus(),
     items: [
@@ -2886,10 +3033,11 @@ async function runNftCheck() {
 
 // src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts
 async function runFakeIPCheck() {
-  const code = "fake_ip_check";
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.FAKEIP;
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _("FakeIP checks"),
+    title,
     description: _("Checking FakeIP, please wait"),
     state: "loading",
     items: []
@@ -2930,8 +3078,9 @@ async function runFakeIPCheck() {
   }
   const { state, description } = getMeta();
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _("FakeIP checks"),
+    title,
     description,
     state,
     items: [
@@ -2956,10 +3105,54 @@ async function runFakeIPCheck() {
   });
 }
 
+// src/podkop/tabs/diagnostic/renderDiagnosticRunAction.ts
+function renderDiagnosticRunAction({
+  loading,
+  click
+}) {
+  return E("div", { class: "pdk_diagnostic-page__run_check_wrapper" }, [
+    E(
+      "button",
+      { class: "btn", disabled: loading ? true : void 0, click },
+      loading ? _("Running... please wait") : _("Run Diagnostic")
+    )
+  ]);
+}
+
+// src/podkop/tabs/diagnostic/renderAvailableActions.ts
+function renderAvailableActions() {
+  return E("div", { class: "pdk_diagnostic-page__right-bar__actions" }, [
+    E("b", {}, "Available actions"),
+    E("button", { class: "btn" }, "Restart podkop"),
+    E("button", { class: "btn" }, "Stop podkop"),
+    E("button", { class: "btn" }, "Disable podkop"),
+    E("button", { class: "btn" }, "Get global check"),
+    E("button", { class: "btn" }, "View logs"),
+    E("button", { class: "btn" }, "Show sing-box config")
+  ]);
+}
+
+// src/podkop/tabs/diagnostic/renderSystemInfo.ts
+function renderSystemInfo({ items }) {
+  return E("div", { class: "pdk_diagnostic-page__right-bar__system-info" }, [
+    E(
+      "b",
+      { class: "pdk_diagnostic-page__right-bar__system-info__title" },
+      "System information"
+    ),
+    ...items.map(
+      (item) => E("div", { class: "pdk_diagnostic-page__right-bar__system-info__row" }, [
+        E("b", {}, item.key),
+        E("div", {}, item.value)
+      ])
+    )
+  ]);
+}
+
 // src/podkop/tabs/diagnostic/initDiagnosticController.ts
-async function renderDiagnosticsChecks() {
+function renderDiagnosticsChecks() {
   console.log("renderDiagnosticsChecks");
-  const diagnosticsChecks = store.get().diagnosticsChecks;
+  const diagnosticsChecks = store.get().diagnosticsChecks.sort((a, b) => a.order - b.order);
   const container = document.getElementById("pdk_diagnostic-page-checks");
   const renderedDiagnosticsChecks = diagnosticsChecks.map(
     (check) => renderCheckSection(check)
@@ -2968,24 +3161,90 @@ async function renderDiagnosticsChecks() {
     container.replaceChildren(...renderedDiagnosticsChecks);
   });
 }
+function renderDiagnosticRunActionWidget() {
+  console.log("renderDiagnosticRunActionWidget");
+  const { loading } = store.get().diagnosticsRunAction;
+  const container = document.getElementById("pdk_diagnostic-page-run-check");
+  const renderedAction = renderDiagnosticRunAction({
+    loading,
+    click: () => runChecks()
+  });
+  return preserveScrollForPage(() => {
+    container.replaceChildren(renderedAction);
+  });
+}
+function renderDiagnosticAvailableActionsWidget() {
+  console.log("renderDiagnosticActionsWidget");
+  const container = document.getElementById("pdk_diagnostic-page-actions");
+  const renderedActions = renderAvailableActions();
+  return preserveScrollForPage(() => {
+    container.replaceChildren(renderedActions);
+  });
+}
+function renderDiagnosticSystemInfoWidget() {
+  console.log("renderDiagnosticSystemInfoWidget");
+  const container = document.getElementById("pdk_diagnostic-page-system-info");
+  const renderedSystemInfo = renderSystemInfo({
+    items: [
+      {
+        key: "Podkop",
+        value: "1"
+      },
+      {
+        key: "Luci App",
+        value: "1"
+      },
+      {
+        key: "Sing-box",
+        value: "1"
+      },
+      {
+        key: "OS",
+        value: "1"
+      },
+      {
+        key: "Device",
+        value: "1"
+      }
+    ]
+  });
+  return preserveScrollForPage(() => {
+    container.replaceChildren(renderedSystemInfo);
+  });
+}
 async function onStoreUpdate2(next, prev, diff) {
   if (diff.diagnosticsChecks) {
     renderDiagnosticsChecks();
   }
+  if (diff.diagnosticsRunAction) {
+    renderDiagnosticRunActionWidget();
+  }
 }
 async function runChecks() {
-  await runDnsCheck();
-  await runSingBoxCheck();
-  await runNftCheck();
-  await runFakeIPCheck();
+  try {
+    store.set({
+      diagnosticsRunAction: { loading: true },
+      diagnosticsChecks: loadingDiagnosticsChecksStore.diagnosticsChecks
+    });
+    await runDnsCheck();
+    await runSingBoxCheck();
+    await runNftCheck();
+    await runFakeIPCheck();
+  } catch (e) {
+    console.log("runChecks - e", e);
+  } finally {
+    store.set({ diagnosticsRunAction: { loading: false } });
+  }
 }
 async function initDiagnosticController() {
   onMount("diagnostic-status").then(() => {
     console.log("diagnostic controller initialized.");
     store.unsubscribe(onStoreUpdate2);
-    store.reset();
     store.subscribe(onStoreUpdate2);
-    runChecks();
+    renderDiagnosticsChecks();
+    renderDiagnosticRunActionWidget();
+    renderDiagnosticAvailableActionsWidget();
+    renderDiagnosticSystemInfoWidget();
   });
 }
 return baseclass.extend({

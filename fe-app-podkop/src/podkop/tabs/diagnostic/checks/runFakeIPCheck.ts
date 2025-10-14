@@ -3,13 +3,15 @@ import * as fakeIPMethods from '../../../../fakeip/methods';
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { insertIf } from '../../../../helpers';
 import { IDiagnosticsChecksItem } from '../../../../store';
+import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 
 export async function runFakeIPCheck() {
-  const code = 'fake_ip_check';
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.FAKEIP;
 
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _('FakeIP checks'),
+    title,
     description: _('Checking FakeIP, please wait'),
     state: 'loading',
     items: [],
@@ -68,8 +70,9 @@ export async function runFakeIPCheck() {
   const { state, description } = getMeta();
 
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _('FakeIP checks'),
+    title,
     description,
     state,
     items: [

@@ -1,4 +1,5 @@
 import { Podkop } from './podkop/types';
+import { initialDiagnosticStore } from './podkop/tabs/diagnostic/diagnostic.store';
 
 function jsonStableStringify<T, V>(obj: T): string {
   return JSON.stringify(obj, (_, value) => {
@@ -61,9 +62,17 @@ class Store<T extends Record<string, any>> {
     this.listeners.forEach((cb) => cb(this.value, prev, diff));
   }
 
-  reset(): void {
+  reset<K extends keyof T>(keys?: K[]): void {
     const prev = this.value;
-    const next = structuredClone(this.initial);
+    const next = structuredClone(this.value);
+
+    if (keys && keys.length > 0) {
+      keys.forEach((key) => {
+        next[key] = structuredClone(this.initial[key]);
+      });
+    } else {
+      Object.assign(next, structuredClone(this.initial));
+    }
 
     if (jsonEqual(prev, next)) return;
 
@@ -119,6 +128,7 @@ export interface IDiagnosticsChecksItem {
 }
 
 export interface IDiagnosticsChecksStoreItem {
+  order: number;
   code: string;
   title: string;
   description: string;
@@ -157,6 +167,9 @@ export interface StoreType {
     data: Podkop.OutboundGroup[];
     latencyFetching: boolean;
   };
+  diagnosticsRunAction: {
+    loading: boolean;
+  };
   diagnosticsChecks: Array<IDiagnosticsChecksStoreItem>;
 }
 
@@ -191,7 +204,7 @@ const initialStore: StoreType = {
     latencyFetching: false,
     data: [],
   },
-  diagnosticsChecks: [],
+  ...initialDiagnosticStore,
 };
 
 export const store = new Store<StoreType>(initialStore);

@@ -5,10 +5,16 @@ import { runDnsCheck } from './checks/runDnsCheck';
 import { runSingBoxCheck } from './checks/runSingBoxCheck';
 import { runNftCheck } from './checks/runNftCheck';
 import { runFakeIPCheck } from './checks/runFakeIPCheck';
+import { renderDiagnosticRunAction } from './renderDiagnosticRunAction';
+import { renderAvailableActions } from './renderAvailableActions';
+import { renderSystemInfo } from './renderSystemInfo';
+import { loadingDiagnosticsChecksStore } from './diagnostic.store';
 
-async function renderDiagnosticsChecks() {
+function renderDiagnosticsChecks() {
   console.log('renderDiagnosticsChecks');
-  const diagnosticsChecks = store.get().diagnosticsChecks;
+  const diagnosticsChecks = store
+    .get()
+    .diagnosticsChecks.sort((a, b) => a.order - b.order);
   const container = document.getElementById('pdk_diagnostic-page-checks');
 
   const renderedDiagnosticsChecks = diagnosticsChecks.map((check) =>
@@ -20,6 +26,69 @@ async function renderDiagnosticsChecks() {
   });
 }
 
+function renderDiagnosticRunActionWidget() {
+  console.log('renderDiagnosticRunActionWidget');
+
+  const { loading } = store.get().diagnosticsRunAction;
+  const container = document.getElementById('pdk_diagnostic-page-run-check');
+
+  const renderedAction = renderDiagnosticRunAction({
+    loading,
+    click: () => runChecks(),
+  });
+
+  return preserveScrollForPage(() => {
+    container!.replaceChildren(renderedAction);
+  });
+}
+
+function renderDiagnosticAvailableActionsWidget() {
+  console.log('renderDiagnosticActionsWidget');
+
+  const container = document.getElementById('pdk_diagnostic-page-actions');
+
+  const renderedActions = renderAvailableActions();
+
+  return preserveScrollForPage(() => {
+    container!.replaceChildren(renderedActions);
+  });
+}
+
+function renderDiagnosticSystemInfoWidget() {
+  console.log('renderDiagnosticSystemInfoWidget');
+
+  const container = document.getElementById('pdk_diagnostic-page-system-info');
+
+  const renderedSystemInfo = renderSystemInfo({
+    items: [
+      {
+        key: 'Podkop',
+        value: '1',
+      },
+      {
+        key: 'Luci App',
+        value: '1',
+      },
+      {
+        key: 'Sing-box',
+        value: '1',
+      },
+      {
+        key: 'OS',
+        value: '1',
+      },
+      {
+        key: 'Device',
+        value: '1',
+      },
+    ],
+  });
+
+  return preserveScrollForPage(() => {
+    container!.replaceChildren(renderedSystemInfo);
+  });
+}
+
 async function onStoreUpdate(
   next: StoreType,
   prev: StoreType,
@@ -28,16 +97,31 @@ async function onStoreUpdate(
   if (diff.diagnosticsChecks) {
     renderDiagnosticsChecks();
   }
+
+  if (diff.diagnosticsRunAction) {
+    renderDiagnosticRunActionWidget();
+  }
 }
 
 async function runChecks() {
-  await runDnsCheck();
+  try {
+    store.set({
+      diagnosticsRunAction: { loading: true },
+      diagnosticsChecks: loadingDiagnosticsChecksStore.diagnosticsChecks,
+    });
 
-  await runSingBoxCheck();
+    await runDnsCheck();
 
-  await runNftCheck();
+    await runSingBoxCheck();
 
-  await runFakeIPCheck();
+    await runNftCheck();
+
+    await runFakeIPCheck();
+  } catch (e) {
+    console.log('runChecks - e', e);
+  } finally {
+    store.set({ diagnosticsRunAction: { loading: false } });
+  }
 }
 
 export async function initDiagnosticController(): Promise<void> {
@@ -46,13 +130,19 @@ export async function initDiagnosticController(): Promise<void> {
     // Remove old listener
     store.unsubscribe(onStoreUpdate);
 
-    // Clear store
-    store.reset();
-
     // Add new listener
     store.subscribe(onStoreUpdate);
 
-    // TMP run checks on mount
-    runChecks();
+    // Initial checks render
+    renderDiagnosticsChecks();
+
+    // Initial run checks action render
+    renderDiagnosticRunActionWidget();
+
+    // Initial available actions render
+    renderDiagnosticAvailableActionsWidget();
+
+    // Initial system info render
+    renderDiagnosticSystemInfoWidget();
   });
 }

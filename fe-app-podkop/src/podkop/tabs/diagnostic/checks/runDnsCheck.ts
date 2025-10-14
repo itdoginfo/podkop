@@ -2,13 +2,15 @@ import { getDNSCheck } from '../../../methods';
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { insertIf } from '../../../../helpers';
 import { IDiagnosticsChecksItem } from '../../../../store';
+import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 
 export async function runDnsCheck() {
-  const code = 'dns_check';
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
 
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _('DNS checks'),
+    title,
     description: _('Checking dns, please wait'),
     state: 'loading',
     items: [],
@@ -18,8 +20,9 @@ export async function runDnsCheck() {
 
   if (!dnsChecks.success) {
     updateDiagnosticsCheck({
+      order,
       code,
-      title: _('DNS checks'),
+      title,
       description: _('Cannot receive DNS checks result'),
       state: 'error',
       items: [],
@@ -55,8 +58,9 @@ export async function runDnsCheck() {
   }
 
   updateDiagnosticsCheck({
+    order,
     code,
-    title: _('DNS checks'),
+    title,
     description: _('DNS checks passed'),
     state: getStatus(),
     items: [

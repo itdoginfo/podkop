@@ -431,7 +431,13 @@ export async function initDashboardController(): Promise<void> {
     // Remove old listener
     store.unsubscribe(onStoreUpdate);
     // Clear store
-    store.reset();
+    store.reset([
+      'bandwidthWidget',
+      'trafficTotalWidget',
+      'systemInfoWidget',
+      'servicesInfoWidget',
+      'sectionsWidget',
+    ]);
 
     // Add new listener
     store.subscribe(onStoreUpdate);
