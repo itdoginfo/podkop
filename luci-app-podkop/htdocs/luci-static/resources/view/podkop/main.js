@@ -2610,11 +2610,16 @@ function renderCheckSection(props) {
 }
 
 // src/podkop/tabs/diagnostic/updateDiagnosticsCheck.ts
-function updateDiagnosticsCheck(check) {
+function updateDiagnosticsCheck(check, minified) {
   const diagnosticsChecks = store.get().diagnosticsChecks;
   const other = diagnosticsChecks.filter((item) => item.code !== check.code);
+  const smallCheck = {
+    ...check,
+    items: check.items.filter((item) => item.state !== "success")
+  };
+  const targetCheck = minified ? smallCheck : check;
   store.set({
-    diagnosticsChecks: [...other, check]
+    diagnosticsChecks: [...other, targetCheck]
   });
 }
 
