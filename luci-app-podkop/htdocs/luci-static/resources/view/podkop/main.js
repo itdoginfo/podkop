@@ -1477,7 +1477,7 @@ var loadingDiagnosticsChecksStore = {
   ]
 };
 
-// src/store.ts
+// src/podkop/services/store.service.ts
 function jsonStableStringify(obj) {
   return JSON.stringify(obj, (_2, value) => {
     if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -1499,7 +1499,7 @@ function jsonEqual(a, b) {
     return false;
   }
 }
-var Store = class {
+var StoreService = class {
   constructor(initial) {
     this.listeners = /* @__PURE__ */ new Set();
     this.lastHash = "";
@@ -1600,7 +1600,7 @@ var initialStore = {
   },
   ...initialDiagnosticStore
 };
-var store = new Store(initialStore);
+var store = new StoreService(initialStore);
 
 // src/podkop/services/core.service.ts
 function coreService() {
@@ -1613,6 +1613,108 @@ function coreService() {
     });
   });
 }
+
+// src/podkop/services/socket.service.ts
+var SocketManager = class _SocketManager {
+  constructor() {
+    this.sockets = /* @__PURE__ */ new Map();
+    this.listeners = /* @__PURE__ */ new Map();
+    this.connected = /* @__PURE__ */ new Map();
+    this.errorListeners = /* @__PURE__ */ new Map();
+  }
+  static getInstance() {
+    if (!_SocketManager.instance) {
+      _SocketManager.instance = new _SocketManager();
+    }
+    return _SocketManager.instance;
+  }
+  connect(url) {
+    if (this.sockets.has(url)) return;
+    const ws = new WebSocket(url);
+    this.sockets.set(url, ws);
+    this.connected.set(url, false);
+    this.listeners.set(url, /* @__PURE__ */ new Set());
+    this.errorListeners.set(url, /* @__PURE__ */ new Set());
+    ws.addEventListener("open", () => {
+      this.connected.set(url, true);
+      console.info(`Connected: ${url}`);
+    });
+    ws.addEventListener("message", (event) => {
+      const handlers = this.listeners.get(url);
+      if (handlers) {
+        for (const handler of handlers) {
+          try {
+            handler(event.data);
+          } catch (err) {
+            console.error(`Handler error for ${url}:`, err);
+          }
+        }
+      }
+    });
+    ws.addEventListener("close", () => {
+      this.connected.set(url, false);
+      console.warn(`Disconnected: ${url}`);
+      this.triggerError(url, "Connection closed");
+    });
+    ws.addEventListener("error", (err) => {
+      console.error(`Socket error for ${url}:`, err);
+      this.triggerError(url, err);
+    });
+  }
+  subscribe(url, listener, onError) {
+    if (!this.sockets.has(url)) {
+      this.connect(url);
+    }
+    this.listeners.get(url)?.add(listener);
+    if (onError) {
+      this.errorListeners.get(url)?.add(onError);
+    }
+  }
+  unsubscribe(url, listener, onError) {
+    this.listeners.get(url)?.delete(listener);
+    if (onError) {
+      this.errorListeners.get(url)?.delete(onError);
+    }
+  }
+  // eslint-disable-next-line
+  send(url, data) {
+    const ws = this.sockets.get(url);
+    if (ws && this.connected.get(url)) {
+      ws.send(typeof data === "string" ? data : JSON.stringify(data));
+    } else {
+      console.warn(`Cannot send: not connected to ${url}`);
+      this.triggerError(url, "Not connected");
+    }
+  }
+  disconnect(url) {
+    const ws = this.sockets.get(url);
+    if (ws) {
+      ws.close();
+      this.sockets.delete(url);
+      this.listeners.delete(url);
+      this.errorListeners.delete(url);
+      this.connected.delete(url);
+    }
+  }
+  disconnectAll() {
+    for (const url of this.sockets.keys()) {
+      this.disconnect(url);
+    }
+  }
+  triggerError(url, err) {
+    const handlers = this.errorListeners.get(url);
+    if (handlers) {
+      for (const cb of handlers) {
+        try {
+          cb(err);
+        } catch (e) {
+          console.error(`Error handler threw for ${url}:`, e);
+        }
+      }
+    }
+  }
+};
+var socket = SocketManager.getInstance();
 
 // src/podkop/tabs/dashboard/renderSections.ts
 function renderFailedState() {
@@ -1838,108 +1940,6 @@ function renderDashboard() {
     ]
   );
 }
-
-// src/socket.ts
-var SocketManager = class _SocketManager {
-  constructor() {
-    this.sockets = /* @__PURE__ */ new Map();
-    this.listeners = /* @__PURE__ */ new Map();
-    this.connected = /* @__PURE__ */ new Map();
-    this.errorListeners = /* @__PURE__ */ new Map();
-  }
-  static getInstance() {
-    if (!_SocketManager.instance) {
-      _SocketManager.instance = new _SocketManager();
-    }
-    return _SocketManager.instance;
-  }
-  connect(url) {
-    if (this.sockets.has(url)) return;
-    const ws = new WebSocket(url);
-    this.sockets.set(url, ws);
-    this.connected.set(url, false);
-    this.listeners.set(url, /* @__PURE__ */ new Set());
-    this.errorListeners.set(url, /* @__PURE__ */ new Set());
-    ws.addEventListener("open", () => {
-      this.connected.set(url, true);
-      console.info(`Connected: ${url}`);
-    });
-    ws.addEventListener("message", (event) => {
-      const handlers = this.listeners.get(url);
-      if (handlers) {
-        for (const handler of handlers) {
-          try {
-            handler(event.data);
-          } catch (err) {
-            console.error(`Handler error for ${url}:`, err);
-          }
-        }
-      }
-    });
-    ws.addEventListener("close", () => {
-      this.connected.set(url, false);
-      console.warn(`Disconnected: ${url}`);
-      this.triggerError(url, "Connection closed");
-    });
-    ws.addEventListener("error", (err) => {
-      console.error(`Socket error for ${url}:`, err);
-      this.triggerError(url, err);
-    });
-  }
-  subscribe(url, listener, onError) {
-    if (!this.sockets.has(url)) {
-      this.connect(url);
-    }
-    this.listeners.get(url)?.add(listener);
-    if (onError) {
-      this.errorListeners.get(url)?.add(onError);
-    }
-  }
-  unsubscribe(url, listener, onError) {
-    this.listeners.get(url)?.delete(listener);
-    if (onError) {
-      this.errorListeners.get(url)?.delete(onError);
-    }
-  }
-  // eslint-disable-next-line
-  send(url, data) {
-    const ws = this.sockets.get(url);
-    if (ws && this.connected.get(url)) {
-      ws.send(typeof data === "string" ? data : JSON.stringify(data));
-    } else {
-      console.warn(`Cannot send: not connected to ${url}`);
-      this.triggerError(url, "Not connected");
-    }
-  }
-  disconnect(url) {
-    const ws = this.sockets.get(url);
-    if (ws) {
-      ws.close();
-      this.sockets.delete(url);
-      this.listeners.delete(url);
-      this.errorListeners.delete(url);
-      this.connected.delete(url);
-    }
-  }
-  disconnectAll() {
-    for (const url of this.sockets.keys()) {
-      this.disconnect(url);
-    }
-  }
-  triggerError(url, err) {
-    const handlers = this.errorListeners.get(url);
-    if (handlers) {
-      for (const cb of handlers) {
-        try {
-          cb(err);
-        } catch (e) {
-          console.error(`Error handler threw for ${url}:`, e);
-        }
-      }
-    }
-  }
-};
-var socket = SocketManager.getInstance();
 
 // src/helpers/prettyBytes.ts
 function prettyBytes(n) {
@@ -3232,7 +3232,9 @@ return baseclass.extend({
   preserveScrollForPage,
   renderDashboard,
   renderDiagnostic,
+  socket,
   splitProxyString,
+  store,
   svgEl,
   validateDNS,
   validateDomain,

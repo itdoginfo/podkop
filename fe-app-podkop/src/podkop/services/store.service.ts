@@ -1,5 +1,5 @@
-import { Podkop } from './podkop/types';
-import { initialDiagnosticStore } from './podkop/tabs/diagnostic/diagnostic.store';
+import { Podkop } from '../types';
+import { initialDiagnosticStore } from '../tabs/diagnostic/diagnostic.store';
 
 function jsonStableStringify<T, V>(obj: T): string {
   return JSON.stringify(obj, (_, value) => {
@@ -29,7 +29,7 @@ function jsonEqual<A, B>(a: A, b: B): boolean {
 type Listener<T> = (next: T, prev: T, diff: Partial<T>) => void;
 
 // eslint-disable-next-line
-class Store<T extends Record<string, any>> {
+class StoreService<T extends Record<string, any>> {
   private value: T;
   private readonly initial: T;
   private listeners = new Set<Listener<T>>();
@@ -207,4 +207,4 @@ const initialStore: StoreType = {
   ...initialDiagnosticStore,
 };
 
-export const store = new Store<StoreType>(initialStore);
+export const store = new StoreService<StoreType>(initialStore);

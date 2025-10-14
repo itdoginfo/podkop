@@ -1,8 +1,8 @@
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { insertIf } from '../../../../helpers';
-import { IDiagnosticsChecksItem } from '../../../../store';
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 import { PodkopShellMethods, RemoteFakeIPMethods } from '../../../methods';
+import { IDiagnosticsChecksItem } from '../../../services';
 
 export async function runFakeIPCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.FAKEIP;

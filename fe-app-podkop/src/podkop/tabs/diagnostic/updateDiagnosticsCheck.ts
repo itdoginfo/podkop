@@ -1,4 +1,4 @@
-import { IDiagnosticsChecksStoreItem, store } from '../../../store';
+import { IDiagnosticsChecksStoreItem, store } from '../../services';
 
 export function updateDiagnosticsCheck(
   check: IDiagnosticsChecksStoreItem,

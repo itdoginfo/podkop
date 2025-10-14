@@ -1,5 +1,5 @@
 import { TabServiceInstance } from './tab.service';
-import { store } from '../../store';
+import { store } from './store.service';
 
 export function coreService() {
   TabServiceInstance.onChange((activeId, tabs) => {

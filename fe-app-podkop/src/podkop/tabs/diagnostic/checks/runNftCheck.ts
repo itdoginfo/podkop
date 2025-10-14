@@ -1,7 +1,6 @@
 import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
-import { RemoteFakeIPMethods } from '../../../methods/fakeip';
-import { PodkopShellMethods } from '../../../methods';
+import { RemoteFakeIPMethods, PodkopShellMethods } from '../../../methods';
 
 export async function runNftCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.NFT;

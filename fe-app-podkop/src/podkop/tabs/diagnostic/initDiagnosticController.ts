@@ -1,5 +1,4 @@
 import { onMount, preserveScrollForPage } from '../../../helpers';
-import { store, StoreType } from '../../../store';
 import { renderCheckSection } from './renderCheckSection';
 import { runDnsCheck } from './checks/runDnsCheck';
 import { runSingBoxCheck } from './checks/runSingBoxCheck';
@@ -9,6 +8,7 @@ import { renderDiagnosticRunAction } from './renderDiagnosticRunAction';
 import { renderAvailableActions } from './renderAvailableActions';
 import { renderSystemInfo } from './renderSystemInfo';
 import { loadingDiagnosticsChecksStore } from './diagnostic.store';
+import { store, StoreType } from '../../services';
 
 function renderDiagnosticsChecks() {
   console.log('renderDiagnosticsChecks');

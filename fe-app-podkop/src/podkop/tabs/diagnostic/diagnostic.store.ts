@@ -2,7 +2,7 @@ import {
   DIAGNOSTICS_CHECKS,
   DIAGNOSTICS_CHECKS_MAP,
 } from './checks/contstants';
-import { StoreType } from '../../../store';
+import { StoreType } from '../../services';
 
 export const initialDiagnosticStore: Pick<
   StoreType,

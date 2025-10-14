@@ -4,8 +4,6 @@ import {
   onMount,
   preserveScrollForPage,
 } from '../../../helpers';
-import { store, StoreType } from '../../../store';
-import { socket } from '../../../socket';
 import { prettyBytes } from '../../../helpers/prettyBytes';
 import { renderSections } from './renderSections';
 import { renderWidget } from './renderWidget';
@@ -14,6 +12,7 @@ import {
   CustomPodkopMethods,
   PodkopShellMethods,
 } from '../../methods';
+import { socket, store, StoreType } from '../../services';
 
 // Fetchers
 
