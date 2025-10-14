@@ -210,597 +210,6 @@ function validateShadowsocksUrl(url) {
   return { valid: true, message: _("Valid") };
 }
 
-// src/helpers/getBaseUrl.ts
-function getBaseUrl() {
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}`;
-}
-
-// src/helpers/parseValueList.ts
-function parseValueList(value) {
-  return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
-}
-
-// src/styles.ts
-var GlobalStyles = `
-.cbi-value {
-    margin-bottom: 10px !important;
-}
-
-#diagnostics-status .table > div {
-    background: var(--background-color-primary);
-    border: 1px solid var(--border-color-medium);
-    border-radius: var(--border-radius);
-}
-
-#diagnostics-status .table > div pre,
-#diagnostics-status .table > div div[style*="monospace"] {
-    color: var(--color-text-primary);
-}
-
-#diagnostics-status .alert-message {
-    background: var(--background-color-primary);
-    border-color: var(--border-color-medium);
-}
-
-#cbi-podkop:has(.cbi-tab-disabled[data-tab="basic"]) #cbi-podkop-extra {
-    display: none;
-}
-
-#cbi-podkop-dashboard-_mount_node > div {
-    width: 100%;
-}
-
-#cbi-podkop-dashboard > h3 {
-    display: none;
-}
-
-#cbi-podkop-settings > h3 {
-    display: none;
-}
-
-#cbi-podkop-section > h3:nth-child(1) {
-    display: none;
-}
-
-#cbi-podkop-diagnostic > h3 {
-    display: none;
-}
-
-.cbi-section-remove {
-    margin-bottom: -32px;
-}
-
-.cbi-value {
-    margin-bottom: 20px !important;
-}
-
-/* Dashboard styles */
-
-.pdk_dashboard-page {
-    width: 100%;
-    --dashboard-grid-columns: 4;
-}
-
-@media (max-width: 900px) {
-    .pdk_dashboard-page {
-        --dashboard-grid-columns: 2;
-    }
-}
-
-.pdk_dashboard-page__widgets-section {
-    margin-top: 10px;
-    display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
-    grid-gap: 10px;
-}
-
-.pdk_dashboard-page__widgets-section__item {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-}
-
-.pdk_dashboard-page__widgets-section__item__title {}
-
-.pdk_dashboard-page__widgets-section__item__row {}
-
-.pdk_dashboard-page__widgets-section__item__row--success .pdk_dashboard-page__widgets-section__item__row__value {
-    color: var(--success-color-medium, green);
-}
-
-.pdk_dashboard-page__widgets-section__item__row--error .pdk_dashboard-page__widgets-section__item__row__value {
-    color: var(--error-color-medium, red);
-}
-
-.pdk_dashboard-page__widgets-section__item__row__key {}
-
-.pdk_dashboard-page__widgets-section__item__row__value {}
-
-.pdk_dashboard-page__outbound-section {
-    margin-top: 10px;
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-}
-
-.pdk_dashboard-page__outbound-section__title-section {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.pdk_dashboard-page__outbound-section__title-section__title {
-    color: var(--text-color-high);
-    font-weight: 700;
-}
-
-.pdk_dashboard-page__outbound-grid {
-    margin-top: 5px;
-    display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
-    grid-gap: 10px;
-}
-
-.pdk_dashboard-page__outbound-grid__item {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-    transition: border 0.2s ease;
-}
-
-.pdk_dashboard-page__outbound-grid__item--selectable {
-    cursor: pointer;
-}
-
-.pdk_dashboard-page__outbound-grid__item--selectable:hover {
-    border-color: var(--primary-color-high, dodgerblue);
-}
-
-.pdk_dashboard-page__outbound-grid__item--active {
-    border-color: var(--success-color-medium, green);
-}
-
-.pdk_dashboard-page__outbound-grid__item__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 10px;
-}
-
-.pdk_dashboard-page__outbound-grid__item__type {}
-
-.pdk_dashboard-page__outbound-grid__item__latency--empty {
-    color: var(--primary-color-low, lightgray);
-}
-
-.pdk_dashboard-page__outbound-grid__item__latency--green {
-    color: var(--success-color-medium, green);
-}
-
-.pdk_dashboard-page__outbound-grid__item__latency--yellow {
-    color: var(--warn-color-medium, orange);
-}
-
-.pdk_dashboard-page__outbound-grid__item__latency--red {
-    color: var(--error-color-medium, red);
-}
-
-.centered {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Skeleton styles*/
-.skeleton {
-    background-color: var(--background-color-low, #e0e0e0);
-    border-radius: 4px;
-    position: relative;
-    overflow: hidden;
-}
-
-.skeleton::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -150%;
-    width: 150%;
-    height: 100%;
-    background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(255, 255, 255, 0.4),
-            transparent
-    );
-    animation: skeleton-shimmer 1.6s infinite;
-}
-
-@keyframes skeleton-shimmer {
-    100% {
-        left: 150%;
-    }
-}
-
-/* Lucide spinner animate */
-.lucide-rotate {
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-#cbi-podkop-diagnostic-_mount_node > div {
-    width: 100%;
-}
-
-.pdk_diagnostic-page {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    grid-column-gap: 10px;
-    align-items: start;
-}
-
-.pdk_diagnostic-page__right-bar {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-row-gap: 10px;
-}
-
-.pdk_diagnostic-page__right-bar__actions {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-    
-    display: grid;
-    grid-template-columns: auto;
-    grid-row-gap: 10px;
-    
-}
-
-.pdk_diagnostic-page__right-bar__system-info {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-
-    display: grid;
-    grid-template-columns: auto;
-    grid-row-gap: 10px;
-}
-
-.pdk_diagnostic-page__right-bar__system-info__title {
-    
-}
-
-.pdk_diagnostic-page__right-bar__system-info__row {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    grid-column-gap: 5px;
-}
-
-.pdk_diagnostic-page__left-bar {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-row-gap: 10px;
-}
-
-.pdk_diagnostic-page__run_check_wrapper {}
-
-.pdk_diagnostic-page__run_check_wrapper button {
-    width: 100%;
-}
-
-.pdk_diagnostic-page__checks {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-row-gap: 10px;
-}
-
-.pdk_diagnostic_alert {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    
-    display: grid;
-    grid-template-columns: 24px 1fr;    
-    grid-column-gap: 10px;
-    align-items: center;
-    padding: 10px;
-}
-
-.pdk_diagnostic_alert--loading {
-    border: 2px var(--primary-color-high, dodgerblue) solid;
-}
-
-.pdk_diagnostic_alert--warning {
-    border: 2px var(--warn-color-medium, orange) solid;
-    color: var(--warn-color-medium, orange);
-}
-
-.pdk_diagnostic_alert--error {
-    border: 2px var(--error-color-medium, red) solid;
-    color: var(--error-color-medium, red);
-}
-
-.pdk_diagnostic_alert--success {
-    border: 2px var(--success-color-medium, green) solid;
-    color: var(--success-color-medium, green);
-}
-
-.pdk_diagnostic_alert--skipped {}
-
-.pdk_diagnostic_alert__icon {}
-
-.pdk_diagnostic_alert__content {}
-
-.pdk_diagnostic_alert__title {
-    display: block;
-}
-
-.pdk_diagnostic_alert__description {}
-
-.pdk_diagnostic_alert__summary {
-    margin-top: 10px;
-}
-
-.pdk_diagnostic_alert__summary__item {
-    display: grid;
-    grid-template-columns: 16px auto 1fr;
-    grid-column-gap: 10px;
-}
-
-.pdk_diagnostic_alert__summary__item--error {
-    color: var(--error-color-medium, red);
-}
-
-.pdk_diagnostic_alert__summary__item--warning {
-    color: var(--warn-color-medium, orange);
-}
-
-.pdk_diagnostic_alert__summary__item--success {
-    color: var(--success-color-medium, green);
-}
-
-.pdk_diagnostic_alert__summary__item__icon {
-    width: 16px;
-    height: 16px;
-}
-
-`;
-
-// src/helpers/injectGlobalStyles.ts
-function injectGlobalStyles() {
-  document.head.insertAdjacentHTML(
-    "beforeend",
-    `
-        <style>
-          ${GlobalStyles}
-        </style>
-    `
-  );
-}
-
-// src/helpers/withTimeout.ts
-async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = _("Operation timed out")) {
-  let timeoutId;
-  const start = performance.now();
-  const timeoutPromise = new Promise((_2, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
-  });
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    clearTimeout(timeoutId);
-    const elapsed = performance.now() - start;
-    console.log(`[${operationName}] Execution time: ${elapsed.toFixed(2)} ms`);
-  }
-}
-
-// src/constants.ts
-var STATUS_COLORS = {
-  SUCCESS: "#4caf50",
-  ERROR: "#f44336",
-  WARNING: "#ff9800"
-};
-var PODKOP_LUCI_APP_VERSION = "__COMPILED_VERSION_VARIABLE__";
-var FAKEIP_CHECK_DOMAIN = "fakeip.podkop.fyi";
-var IP_CHECK_DOMAIN = "ip.podkop.fyi";
-var REGIONAL_OPTIONS = [
-  "russia_inside",
-  "russia_outside",
-  "ukraine_inside"
-];
-var ALLOWED_WITH_RUSSIA_INSIDE = [
-  "russia_inside",
-  "meta",
-  "twitter",
-  "discord",
-  "telegram",
-  "cloudflare",
-  "google_ai",
-  "google_play",
-  "hetzner",
-  "ovh",
-  "hodca",
-  "digitalocean",
-  "cloudfront"
-];
-var DOMAIN_LIST_OPTIONS = {
-  russia_inside: "Russia inside",
-  russia_outside: "Russia outside",
-  ukraine_inside: "Ukraine",
-  geoblock: "Geo Block",
-  block: "Block",
-  porn: "Porn",
-  news: "News",
-  anime: "Anime",
-  youtube: "Youtube",
-  discord: "Discord",
-  meta: "Meta",
-  twitter: "Twitter (X)",
-  hdrezka: "HDRezka",
-  tiktok: "Tik-Tok",
-  telegram: "Telegram",
-  cloudflare: "Cloudflare",
-  google_ai: "Google AI",
-  google_play: "Google Play",
-  hodca: "H.O.D.C.A",
-  hetzner: "Hetzner ASN",
-  ovh: "OVH ASN",
-  digitalocean: "Digital Ocean ASN",
-  cloudfront: "CloudFront ASN"
-};
-var UPDATE_INTERVAL_OPTIONS = {
-  "1h": "Every hour",
-  "3h": "Every 3 hours",
-  "12h": "Every 12 hours",
-  "1d": "Every day",
-  "3d": "Every 3 days"
-};
-var DNS_SERVER_OPTIONS = {
-  "1.1.1.1": "1.1.1.1 (Cloudflare)",
-  "8.8.8.8": "8.8.8.8 (Google)",
-  "9.9.9.9": "9.9.9.9 (Quad9)",
-  "dns.adguard-dns.com": "dns.adguard-dns.com (AdGuard Default)",
-  "unfiltered.adguard-dns.com": "unfiltered.adguard-dns.com (AdGuard Unfiltered)",
-  "family.adguard-dns.com": "family.adguard-dns.com (AdGuard Family)"
-};
-var BOOTSTRAP_DNS_SERVER_OPTIONS = {
-  "77.88.8.8": "77.88.8.8 (Yandex DNS)",
-  "77.88.8.1": "77.88.8.1 (Yandex DNS)",
-  "1.1.1.1": "1.1.1.1 (Cloudflare DNS)",
-  "1.0.0.1": "1.0.0.1 (Cloudflare DNS)",
-  "8.8.8.8": "8.8.8.8 (Google DNS)",
-  "8.8.4.4": "8.8.4.4 (Google DNS)",
-  "9.9.9.9": "9.9.9.9 (Quad9 DNS)",
-  "9.9.9.11": "9.9.9.11 (Quad9 DNS)"
-};
-var DIAGNOSTICS_UPDATE_INTERVAL = 1e4;
-var CACHE_TIMEOUT = DIAGNOSTICS_UPDATE_INTERVAL - 1e3;
-var ERROR_POLL_INTERVAL = 1e4;
-var COMMAND_TIMEOUT = 1e4;
-var FETCH_TIMEOUT = 1e4;
-var BUTTON_FEEDBACK_TIMEOUT = 1e3;
-var DIAGNOSTICS_INITIAL_DELAY = 100;
-var COMMAND_SCHEDULING = {
-  P0_PRIORITY: 0,
-  // Highest priority (no delay)
-  P1_PRIORITY: 100,
-  // Very high priority
-  P2_PRIORITY: 300,
-  // High priority
-  P3_PRIORITY: 500,
-  // Above average
-  P4_PRIORITY: 700,
-  // Standard priority
-  P5_PRIORITY: 900,
-  // Below average
-  P6_PRIORITY: 1100,
-  // Low priority
-  P7_PRIORITY: 1300,
-  // Very low priority
-  P8_PRIORITY: 1500,
-  // Background execution
-  P9_PRIORITY: 1700,
-  // Idle mode execution
-  P10_PRIORITY: 1900
-  // Lowest priority
-};
-
-// src/helpers/executeShellCommand.ts
-async function executeShellCommand({
-  command,
-  args,
-  timeout = COMMAND_TIMEOUT
-}) {
-  try {
-    return withTimeout(
-      fs.exec(command, args),
-      timeout,
-      [command, ...args].join(" ")
-    );
-  } catch (err) {
-    const error = err;
-    return { stdout: "", stderr: error?.message, code: 0 };
-  }
-}
-
-// src/helpers/maskIP.ts
-function maskIP(ip = "") {
-  const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-  return ip.replace(ipv4Regex, (_match, _p1, _p2, _p3, p4) => `XX.XX.XX.${p4}`);
-}
-
-// src/helpers/getProxyUrlName.ts
-function getProxyUrlName(url) {
-  try {
-    const [_link, hash] = url.split("#");
-    if (!hash) {
-      return "";
-    }
-    return decodeURIComponent(hash);
-  } catch {
-    return "";
-  }
-}
-
-// src/helpers/onMount.ts
-async function onMount(id) {
-  return new Promise((resolve) => {
-    const el = document.getElementById(id);
-    if (el && el.offsetParent !== null) {
-      return resolve(el);
-    }
-    const observer = new MutationObserver(() => {
-      const target = document.getElementById(id);
-      if (target) {
-        const io = new IntersectionObserver((entries) => {
-          const visible = entries.some((e) => e.isIntersecting);
-          if (visible) {
-            observer.disconnect();
-            io.disconnect();
-            resolve(target);
-          }
-        });
-        io.observe(target);
-      }
-    });
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  });
-}
-
-// src/helpers/getClashApiUrl.ts
-function getClashApiUrl() {
-  const { hostname } = window.location;
-  return `http://${hostname}:9090`;
-}
-function getClashWsUrl() {
-  const { hostname } = window.location;
-  return `ws://${hostname}:9090`;
-}
-function getClashUIUrl() {
-  const { hostname } = window.location;
-  return `http://${hostname}:9090/ui`;
-}
-
-// src/helpers/splitProxyString.ts
-function splitProxyString(str) {
-  return str.split("\n").map((line) => line.trim()).filter((line) => !line.startsWith("//")).filter(Boolean);
-}
-
-// src/helpers/preserveScrollForPage.ts
-function preserveScrollForPage(renderFn) {
-  const scrollY = window.scrollY;
-  renderFn();
-  requestAnimationFrame(() => {
-    window.scrollTo({ top: scrollY });
-  });
-}
-
 // src/helpers/parseQueryString.ts
 function parseQueryString(query) {
   const clean = query.startsWith("?") ? query.slice(1) : query;
@@ -816,25 +225,6 @@ function parseQueryString(query) {
     },
     {}
   );
-}
-
-// src/helpers/svgEl.ts
-function svgEl(tag, attrs = {}, children = []) {
-  const NS = "http://www.w3.org/2000/svg";
-  const el = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v != null) el.setAttribute(k, String(v));
-  }
-  (Array.isArray(children) ? children : [children]).filter(Boolean).forEach((ch) => el.appendChild(ch));
-  return el;
-}
-
-// src/helpers/insertIf.ts
-function insertIf(condition, elements) {
-  return condition ? elements : [];
-}
-function insertIfObj(condition, object) {
-  return condition ? object : {};
 }
 
 // src/validators/validateVlessUrl.ts
@@ -1001,6 +391,17 @@ function validateProxyUrl(url) {
     valid: false,
     message: _("URL must start with vless:// or ss:// or trojan://")
   };
+}
+
+// src/helpers/getBaseUrl.ts
+function getBaseUrl() {
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}`;
+}
+
+// src/helpers/parseValueList.ts
+function parseValueList(value) {
+  return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
 }
 
 // src/podkop/api.ts
@@ -1222,6 +623,117 @@ async function getDashboardSections() {
 var CustomPodkopMethods = {
   getConfigSections,
   getDashboardSections
+};
+
+// src/constants.ts
+var STATUS_COLORS = {
+  SUCCESS: "#4caf50",
+  ERROR: "#f44336",
+  WARNING: "#ff9800"
+};
+var PODKOP_LUCI_APP_VERSION = "__COMPILED_VERSION_VARIABLE__";
+var FAKEIP_CHECK_DOMAIN = "fakeip.podkop.fyi";
+var IP_CHECK_DOMAIN = "ip.podkop.fyi";
+var REGIONAL_OPTIONS = [
+  "russia_inside",
+  "russia_outside",
+  "ukraine_inside"
+];
+var ALLOWED_WITH_RUSSIA_INSIDE = [
+  "russia_inside",
+  "meta",
+  "twitter",
+  "discord",
+  "telegram",
+  "cloudflare",
+  "google_ai",
+  "google_play",
+  "hetzner",
+  "ovh",
+  "hodca",
+  "digitalocean",
+  "cloudfront"
+];
+var DOMAIN_LIST_OPTIONS = {
+  russia_inside: "Russia inside",
+  russia_outside: "Russia outside",
+  ukraine_inside: "Ukraine",
+  geoblock: "Geo Block",
+  block: "Block",
+  porn: "Porn",
+  news: "News",
+  anime: "Anime",
+  youtube: "Youtube",
+  discord: "Discord",
+  meta: "Meta",
+  twitter: "Twitter (X)",
+  hdrezka: "HDRezka",
+  tiktok: "Tik-Tok",
+  telegram: "Telegram",
+  cloudflare: "Cloudflare",
+  google_ai: "Google AI",
+  google_play: "Google Play",
+  hodca: "H.O.D.C.A",
+  hetzner: "Hetzner ASN",
+  ovh: "OVH ASN",
+  digitalocean: "Digital Ocean ASN",
+  cloudfront: "CloudFront ASN"
+};
+var UPDATE_INTERVAL_OPTIONS = {
+  "1h": "Every hour",
+  "3h": "Every 3 hours",
+  "12h": "Every 12 hours",
+  "1d": "Every day",
+  "3d": "Every 3 days"
+};
+var DNS_SERVER_OPTIONS = {
+  "1.1.1.1": "1.1.1.1 (Cloudflare)",
+  "8.8.8.8": "8.8.8.8 (Google)",
+  "9.9.9.9": "9.9.9.9 (Quad9)",
+  "dns.adguard-dns.com": "dns.adguard-dns.com (AdGuard Default)",
+  "unfiltered.adguard-dns.com": "unfiltered.adguard-dns.com (AdGuard Unfiltered)",
+  "family.adguard-dns.com": "family.adguard-dns.com (AdGuard Family)"
+};
+var BOOTSTRAP_DNS_SERVER_OPTIONS = {
+  "77.88.8.8": "77.88.8.8 (Yandex DNS)",
+  "77.88.8.1": "77.88.8.1 (Yandex DNS)",
+  "1.1.1.1": "1.1.1.1 (Cloudflare DNS)",
+  "1.0.0.1": "1.0.0.1 (Cloudflare DNS)",
+  "8.8.8.8": "8.8.8.8 (Google DNS)",
+  "8.8.4.4": "8.8.4.4 (Google DNS)",
+  "9.9.9.9": "9.9.9.9 (Quad9 DNS)",
+  "9.9.9.11": "9.9.9.11 (Quad9 DNS)"
+};
+var DIAGNOSTICS_UPDATE_INTERVAL = 1e4;
+var CACHE_TIMEOUT = DIAGNOSTICS_UPDATE_INTERVAL - 1e3;
+var ERROR_POLL_INTERVAL = 1e4;
+var COMMAND_TIMEOUT = 1e4;
+var FETCH_TIMEOUT = 1e4;
+var BUTTON_FEEDBACK_TIMEOUT = 1e3;
+var DIAGNOSTICS_INITIAL_DELAY = 100;
+var COMMAND_SCHEDULING = {
+  P0_PRIORITY: 0,
+  // Highest priority (no delay)
+  P1_PRIORITY: 100,
+  // Very high priority
+  P2_PRIORITY: 300,
+  // High priority
+  P3_PRIORITY: 500,
+  // Above average
+  P4_PRIORITY: 700,
+  // Standard priority
+  P5_PRIORITY: 900,
+  // Below average
+  P6_PRIORITY: 1100,
+  // Low priority
+  P7_PRIORITY: 1300,
+  // Very low priority
+  P8_PRIORITY: 1500,
+  // Background execution
+  P9_PRIORITY: 1700,
+  // Idle mode execution
+  P10_PRIORITY: 1900
+  // Lowest priority
 };
 
 // src/podkop/methods/fakeip/getFakeIpCheck.ts
@@ -2307,10 +1819,132 @@ async function initController() {
   });
 }
 
+// src/podkop/tabs/dashboard/styles.ts
+var styles = `
+#cbi-podkop-dashboard-_mount_node > div {
+    width: 100%;
+}
+
+#cbi-podkop-dashboard > h3 {
+    display: none;
+}
+    
+.pdk_dashboard-page {
+    width: 100%;
+    --dashboard-grid-columns: 4;
+}
+
+@media (max-width: 900px) {
+    .pdk_dashboard-page {
+        --dashboard-grid-columns: 2;
+    }
+}
+
+.pdk_dashboard-page__widgets-section {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-gap: 10px;
+}
+
+.pdk_dashboard-page__widgets-section__item {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__widgets-section__item__title {}
+
+.pdk_dashboard-page__widgets-section__item__row {}
+
+.pdk_dashboard-page__widgets-section__item__row--success .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__widgets-section__item__row--error .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--error-color-medium, red);
+}
+
+.pdk_dashboard-page__widgets-section__item__row__key {}
+
+.pdk_dashboard-page__widgets-section__item__row__value {}
+
+.pdk_dashboard-page__outbound-section {
+    margin-top: 10px;
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__outbound-section__title-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pdk_dashboard-page__outbound-section__title-section__title {
+    color: var(--text-color-high);
+    font-weight: 700;
+}
+
+.pdk_dashboard-page__outbound-grid {
+    margin-top: 5px;
+    display: grid;
+    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-gap: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+    transition: border 0.2s ease;
+}
+
+.pdk_dashboard-page__outbound-grid__item--selectable {
+    cursor: pointer;
+}
+
+.pdk_dashboard-page__outbound-grid__item--selectable:hover {
+    border-color: var(--primary-color-high, dodgerblue);
+}
+
+.pdk_dashboard-page__outbound-grid__item--active {
+    border-color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__outbound-grid__item__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item__type {}
+
+.pdk_dashboard-page__outbound-grid__item__latency--empty {
+    color: var(--primary-color-low, lightgray);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--green {
+    color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--yellow {
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--red {
+    color: var(--error-color-medium, red);
+}
+
+`;
+
 // src/podkop/tabs/dashboard/index.ts
 var DashboardTab = {
   render,
-  initController
+  initController,
+  styles
 };
 
 // src/podkop/tabs/diagnostic/renderDiagnostic.ts
@@ -2688,7 +2322,7 @@ function renderLoaderCircleIcon24() {
       "stroke-width": "2",
       "stroke-linecap": "round",
       "stroke-linejoin": "round",
-      class: "lucide lucide-loader-circle lucide-rotate"
+      class: "lucide lucide-loader-circle rotate"
     },
     [
       svgEl("path", {
@@ -3194,11 +2828,364 @@ async function initController2() {
   });
 }
 
+// src/podkop/tabs/diagnostic/styles.ts
+var styles2 = `
+
+#cbi-podkop-diagnostic-_mount_node > div {
+    width: 100%;
+}
+
+#cbi-podkop-diagnostic > h3 {
+    display: none;
+}
+
+.pdk_diagnostic-page {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-column-gap: 10px;
+    align-items: start;
+}
+
+.pdk_diagnostic-page__right-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__actions {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+
+}
+
+.pdk_diagnostic-page__right-bar__system-info {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__system-info__title {
+
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-column-gap: 5px;
+}
+
+.pdk_diagnostic-page__left-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__run_check_wrapper {}
+
+.pdk_diagnostic-page__run_check_wrapper button {
+    width: 100%;
+}
+
+.pdk_diagnostic-page__checks {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic_alert {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    grid-column-gap: 10px;
+    align-items: center;
+    padding: 10px;
+}
+
+.pdk_diagnostic_alert--loading {
+    border: 2px var(--primary-color-high, dodgerblue) solid;
+}
+
+.pdk_diagnostic_alert--warning {
+    border: 2px var(--warn-color-medium, orange) solid;
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic_alert--error {
+    border: 2px var(--error-color-medium, red) solid;
+    color: var(--error-color-medium, red);
+}
+
+.pdk_diagnostic_alert--success {
+    border: 2px var(--success-color-medium, green) solid;
+    color: var(--success-color-medium, green);
+}
+
+.pdk_diagnostic_alert--skipped {}
+
+.pdk_diagnostic_alert__icon {}
+
+.pdk_diagnostic_alert__content {}
+
+.pdk_diagnostic_alert__title {
+    display: block;
+}
+
+.pdk_diagnostic_alert__description {}
+
+.pdk_diagnostic_alert__summary {
+    margin-top: 10px;
+}
+
+.pdk_diagnostic_alert__summary__item {
+    display: grid;
+    grid-template-columns: 16px auto 1fr;
+    grid-column-gap: 10px;
+}
+
+.pdk_diagnostic_alert__summary__item--error {
+    color: var(--error-color-medium, red);
+}
+
+.pdk_diagnostic_alert__summary__item--warning {
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic_alert__summary__item--success {
+    color: var(--success-color-medium, green);
+}
+
+.pdk_diagnostic_alert__summary__item__icon {
+    width: 16px;
+    height: 16px;
+}
+`;
+
 // src/podkop/tabs/diagnostic/index.ts
 var DiagnosticTab = {
   render: render2,
-  initController: initController2
+  initController: initController2,
+  styles: styles2
 };
+
+// src/styles.ts
+var GlobalStyles = `
+${DashboardTab.styles}
+${DiagnosticTab.styles}
+
+
+/* Hide extra H3 for settings tab */
+#cbi-podkop-settings > h3 {
+    display: none;
+}
+
+/* Hide extra H3 for sections tab */
+#cbi-podkop-section > h3:nth-child(1) {
+    display: none;
+}
+
+/* Vertical align for remove section action button */
+#cbi-podkop-section > .cbi-section-remove {
+    margin-bottom: -32px;
+}
+
+/* Centered class helper */
+.centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Rotate class helper */
+.rotate {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Skeleton styles*/
+.skeleton {
+    background-color: var(--background-color-low, #e0e0e0);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 150%;
+    height: 100%;
+    background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.4),
+            transparent
+    );
+    animation: skeleton-shimmer 1.6s infinite;
+}
+
+@keyframes skeleton-shimmer {
+    100% {
+        left: 150%;
+    }
+}
+`;
+
+// src/helpers/injectGlobalStyles.ts
+function injectGlobalStyles() {
+  document.head.insertAdjacentHTML(
+    "beforeend",
+    `
+        <style>
+          ${GlobalStyles}
+        </style>
+    `
+  );
+}
+
+// src/helpers/withTimeout.ts
+async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = _("Operation timed out")) {
+  let timeoutId;
+  const start = performance.now();
+  const timeoutPromise = new Promise((_2, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+    const elapsed = performance.now() - start;
+    console.log(`[${operationName}] Execution time: ${elapsed.toFixed(2)} ms`);
+  }
+}
+
+// src/helpers/executeShellCommand.ts
+async function executeShellCommand({
+  command,
+  args,
+  timeout = COMMAND_TIMEOUT
+}) {
+  try {
+    return withTimeout(
+      fs.exec(command, args),
+      timeout,
+      [command, ...args].join(" ")
+    );
+  } catch (err) {
+    const error = err;
+    return { stdout: "", stderr: error?.message, code: 0 };
+  }
+}
+
+// src/helpers/maskIP.ts
+function maskIP(ip = "") {
+  const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+  return ip.replace(ipv4Regex, (_match, _p1, _p2, _p3, p4) => `XX.XX.XX.${p4}`);
+}
+
+// src/helpers/getProxyUrlName.ts
+function getProxyUrlName(url) {
+  try {
+    const [_link, hash] = url.split("#");
+    if (!hash) {
+      return "";
+    }
+    return decodeURIComponent(hash);
+  } catch {
+    return "";
+  }
+}
+
+// src/helpers/onMount.ts
+async function onMount(id) {
+  return new Promise((resolve) => {
+    const el = document.getElementById(id);
+    if (el && el.offsetParent !== null) {
+      return resolve(el);
+    }
+    const observer = new MutationObserver(() => {
+      const target = document.getElementById(id);
+      if (target) {
+        const io = new IntersectionObserver((entries) => {
+          const visible = entries.some((e) => e.isIntersecting);
+          if (visible) {
+            observer.disconnect();
+            io.disconnect();
+            resolve(target);
+          }
+        });
+        io.observe(target);
+      }
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
+// src/helpers/getClashApiUrl.ts
+function getClashApiUrl() {
+  const { hostname } = window.location;
+  return `http://${hostname}:9090`;
+}
+function getClashWsUrl() {
+  const { hostname } = window.location;
+  return `ws://${hostname}:9090`;
+}
+function getClashUIUrl() {
+  const { hostname } = window.location;
+  return `http://${hostname}:9090/ui`;
+}
+
+// src/helpers/splitProxyString.ts
+function splitProxyString(str) {
+  return str.split("\n").map((line) => line.trim()).filter((line) => !line.startsWith("//")).filter(Boolean);
+}
+
+// src/helpers/preserveScrollForPage.ts
+function preserveScrollForPage(renderFn) {
+  const scrollY = window.scrollY;
+  renderFn();
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: scrollY });
+  });
+}
+
+// src/helpers/svgEl.ts
+function svgEl(tag, attrs = {}, children = []) {
+  const NS = "http://www.w3.org/2000/svg";
+  const el = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v != null) el.setAttribute(k, String(v));
+  }
+  (Array.isArray(children) ? children : [children]).filter(Boolean).forEach((ch) => el.appendChild(ch));
+  return el;
+}
+
+// src/helpers/insertIf.ts
+function insertIf(condition, elements) {
+  return condition ? elements : [];
+}
+function insertIfObj(condition, object) {
+  return condition ? object : {};
+}
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,

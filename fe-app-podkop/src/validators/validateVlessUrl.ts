@@ -1,5 +1,5 @@
 import { ValidationResult } from './types';
-import { parseQueryString } from '../helpers';
+import { parseQueryString } from '../helpers/parseQueryString';
 
 export function validateVlessUrl(url: string): ValidationResult {
   try {

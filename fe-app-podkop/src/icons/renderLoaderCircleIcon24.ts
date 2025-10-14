@@ -14,7 +14,7 @@ export function renderLoaderCircleIcon24() {
       'stroke-width': '2',
       'stroke-linecap': 'round',
       'stroke-linejoin': 'round',
-      class: 'lucide lucide-loader-circle lucide-rotate',
+      class: 'lucide lucide-loader-circle rotate',
     },
     [
       svgEl('path', {
