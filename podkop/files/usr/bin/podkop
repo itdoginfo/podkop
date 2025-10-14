@@ -1621,39 +1621,30 @@ check_sing_box_connections() {
     done
 }
 
-check_sing_box_logs() {
-    nolog "Showing sing-box logs from system journal..."
-
-    local logs=$(logread -e sing-box | tail -n 50)
-    if [ -z "$logs" ]; then
-        nolog "No sing-box logs found"
-        return 1
-    fi
-
-    echo "$logs"
-}
-
 check_logs() {
-    nolog "Showing podkop logs from system journal..."
-
     if ! command -v logread > /dev/null 2>&1; then
         nolog "Error: logread command not found"
         return 1
     fi
-
-    # Get all logs first
-    local all_logs=$(logread)
-
-    # Find the last occurrence of "Starting podkop"
-    local start_line=$(echo "$all_logs" | grep -n "podkop.*Starting podkop" | tail -n 1 | cut -d: -f1)
-
-    if [ -z "$start_line" ]; then
-        nolog "No 'Starting podkop' message found in logs"
+  
+    local logs
+    logs=$(logread | grep -E "podkop|sing-box")
+    
+    if [ -z "$logs" ]; then
+        nolog "Logs not found"
         return 1
     fi
+    ы
+    # Find the last occurrence of "Starting podkop"
+    local start_line
+    start_line=$(echo "$logs" | grep -n "podkop.*Starting podkop" | tail -n 1 | cut -d: -f1)
 
-    # Output all logs from the last start
-    echo "$all_logs" | tail -n +"$start_line"
+    if [ -n "$start_line" ]; then
+        echo "$logs" | tail -n +"$start_line"
+    else
+        nolog "No 'Starting podkop' message found, showing last 100 lines"
+        echo "$logs" | tail -n 100
+    fi
 }
 
 show_sing_box_config() {
