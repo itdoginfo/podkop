@@ -434,6 +434,14 @@ var Podkop;
     AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
     AvailableMethods2["GET_SING_BOX_STATUS"] = "get_sing_box_status";
     AvailableMethods2["CLASH_API"] = "clash_api";
+    AvailableMethods2["RESTART"] = "restart";
+    AvailableMethods2["START"] = "start";
+    AvailableMethods2["STOP"] = "stop";
+    AvailableMethods2["ENABLE"] = "enable";
+    AvailableMethods2["DISABLE"] = "disable";
+    AvailableMethods2["GLOBAL_CHECK"] = "global_check";
+    AvailableMethods2["SHOW_SING_BOX_CONFIG"] = "show_sing_box_config";
+    AvailableMethods2["CHECK_LOGS"] = "check_logs";
   })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
   let AvailableClashAPIMethods;
   ((AvailableClashAPIMethods2) => {
@@ -477,7 +485,15 @@ var PodkopShellMethods = {
     Podkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
     group,
     proxy
-  ])
+  ]),
+  restart: async () => callBaseMethod(Podkop.AvailableMethods.RESTART),
+  start: async () => callBaseMethod(Podkop.AvailableMethods.START),
+  stop: async () => callBaseMethod(Podkop.AvailableMethods.STOP),
+  enable: async () => callBaseMethod(Podkop.AvailableMethods.ENABLE),
+  disable: async () => callBaseMethod(Podkop.AvailableMethods.DISABLE),
+  globalCheck: async () => callBaseMethod(Podkop.AvailableMethods.GLOBAL_CHECK),
+  showSingBoxConfig: async () => callBaseMethod(Podkop.AvailableMethods.SHOW_SING_BOX_CONFIG),
+  checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS)
 };
 
 // src/podkop/methods/custom/getDashboardSections.ts
@@ -2745,7 +2761,7 @@ function renderDiagnosticSystemInfoWidget() {
       },
       {
         key: "Luci App",
-        value: "1"
+        value: PODKOP_LUCI_APP_VERSION
       },
       {
         key: "Sing-box",
@@ -2789,6 +2805,8 @@ async function runChecks() {
     store.set({ diagnosticsRunAction: { loading: false } });
   }
 }
+async function test() {
+}
 async function initController2() {
   onMount("diagnostic-status").then(() => {
     console.log("diagnostic controller initialized.");
@@ -2798,6 +2816,7 @@ async function initController2() {
     renderDiagnosticRunActionWidget();
     renderDiagnosticAvailableActionsWidget();
     renderDiagnosticSystemInfoWidget();
+    test();
   });
 }
 

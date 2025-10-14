@@ -44,4 +44,20 @@ export const PodkopShellMethods = {
       group,
       proxy,
     ]),
+  restart: async () =>
+      callBaseMethod<unknown>(Podkop.AvailableMethods.RESTART),
+  start: async () =>
+      callBaseMethod<unknown>(Podkop.AvailableMethods.START),
+  stop: async () =>
+      callBaseMethod<unknown>(Podkop.AvailableMethods.STOP),
+  enable: async () =>
+      callBaseMethod<unknown>(Podkop.AvailableMethods.ENABLE),
+  disable: async () =>
+      callBaseMethod<unknown>(Podkop.AvailableMethods.DISABLE),
+  globalCheck: async () =>
+      callBaseMethod<unknown>(Podkop.AvailableMethods.GLOBAL_CHECK),
+  showSingBoxConfig: async () =>
+      callBaseMethod<unknown>(Podkop.AvailableMethods.SHOW_SING_BOX_CONFIG),
+  checkLogs: async () =>
+      callBaseMethod<unknown>(Podkop.AvailableMethods.CHECK_LOGS),
 };

@@ -21,6 +21,36 @@ export namespace ClashAPI {
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace Podkop {
+  // Available commands:
+  // start                   Start podkop service
+  // stop                    Stop podkop service
+  // reload                  Reload podkop configuration
+  // restart                 Restart podkop service
+  // enable                  Enable podkop autostart
+  // disable                 Disable podkop autostart
+  // main                    Run main podkop process
+  // list_update             Update domain lists
+  // check_proxy             Check proxy connectivity
+  // check_nft               Check NFT rules
+  // check_nft_rules         Check NFT rules status
+  // check_sing_box          Check sing-box installation and status
+  // check_github            Check GitHub connectivity
+  // check_logs              Show podkop logs from system journal
+  // check_sing_box_connections  Show active sing-box connections
+  // check_sing_box_logs     Show sing-box logs
+  // check_dnsmasq           Check DNSMasq configuration
+  // check_fakeip            Test FakeIP on router
+  // clash_api               Clash API interface for managing proxies and groups
+  // show_config             Display current podkop configuration
+  // show_version            Show podkop version
+  // show_sing_box_config    Show sing-box configuration
+  // show_sing_box_version   Show sing-box version
+  // show_system_info        Show system information
+  // get_status              Get podkop service status
+  // get_sing_box_status     Get sing-box service status
+  // check_dns_available     Check DNS server availability
+  // global_check            Run global system check
+
   export enum AvailableMethods {
     CHECK_DNS_AVAILABLE = 'check_dns_available',
     CHECK_FAKEIP = 'check_fakeip',
@@ -29,6 +59,14 @@ export namespace Podkop {
     CHECK_SING_BOX = 'check_sing_box',
     GET_SING_BOX_STATUS = 'get_sing_box_status',
     CLASH_API = 'clash_api',
+    RESTART = 'restart',
+    START = 'start',
+    STOP = 'stop',
+    ENABLE = 'enable',
+    DISABLE = 'disable',
+    GLOBAL_CHECK = 'global_check',
+    SHOW_SING_BOX_CONFIG = 'show_sing_box_config',
+    CHECK_LOGS = 'check_logs',
   }
 
   export enum AvailableClashAPIMethods {
