@@ -393,110 +393,97 @@ function validateProxyUrl(url) {
   };
 }
 
-// src/helpers/getBaseUrl.ts
-function getBaseUrl() {
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}`;
-}
-
 // src/helpers/parseValueList.ts
 function parseValueList(value) {
   return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
 }
-
-// src/podkop/api.ts
-async function createBaseApiRequest(fetchFn, options) {
-  const wrappedFn = () => options?.timeoutMs && options?.operationName ? withTimeout(
-    fetchFn(),
-    options.timeoutMs,
-    options.operationName,
-    options.timeoutMessage
-  ) : fetchFn();
-  try {
-    const response = await wrappedFn();
-    if (!response.ok) {
-      return {
-        success: false,
-        message: `${_("HTTP error")} ${response.status}: ${response.statusText}`
-      };
-    }
-    const data = await response.json();
-    return {
-      success: true,
-      data
-    };
-  } catch (e) {
-    return {
-      success: false,
-      message: e instanceof Error ? e.message : _("Unknown error")
-    };
-  }
-}
-
-// src/podkop/methods/clash/getGroupLatency.ts
-async function getGroupLatency(tag, timeout = 5e3, url = "https://www.gstatic.com/generate_204") {
-  return createBaseApiRequest(
-    () => fetch(
-      `${getClashApiUrl()}/group/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
-      {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      }
-    )
-  );
-}
-
-// src/podkop/methods/clash/getProxies.ts
-async function getProxies() {
-  return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/proxies`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    })
-  );
-}
-
-// src/podkop/methods/clash/getProxyLatency.ts
-async function getProxyLatency(tag, timeout = 2e3, url = "https://www.gstatic.com/generate_204") {
-  return createBaseApiRequest(
-    () => fetch(
-      `${getClashApiUrl()}/proxies/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
-      {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      }
-    )
-  );
-}
-
-// src/podkop/methods/clash/setProxy.ts
-async function setProxy(selector, outbound) {
-  return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/proxies/${selector}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: outbound })
-    })
-  );
-}
-
-// src/podkop/methods/clash/index.ts
-var ClashMethods = {
-  getGroupLatency,
-  getProxies,
-  getProxyLatency,
-  setProxy
-};
 
 // src/podkop/methods/custom/getConfigSections.ts
 async function getConfigSections() {
   return uci.load("podkop").then(() => uci.sections("podkop"));
 }
 
+// src/podkop/methods/shell/callBaseMethod.ts
+async function callBaseMethod(method, args = []) {
+  const response = await executeShellCommand({
+    command: "/usr/bin/podkop",
+    args: [method, ...args],
+    timeout: 1e4
+  });
+  if (response.stdout) {
+    return {
+      success: true,
+      data: JSON.parse(response.stdout)
+    };
+  }
+  return {
+    success: false,
+    error: ""
+  };
+}
+
+// src/podkop/types.ts
+var Podkop;
+((Podkop2) => {
+  let AvailableMethods;
+  ((AvailableMethods2) => {
+    AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
+    AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
+    AvailableMethods2["CHECK_NFT_RULES"] = "check_nft_rules";
+    AvailableMethods2["GET_STATUS"] = "get_status";
+    AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
+    AvailableMethods2["GET_SING_BOX_STATUS"] = "get_sing_box_status";
+    AvailableMethods2["CLASH_API"] = "clash_api";
+  })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
+  let AvailableClashAPIMethods;
+  ((AvailableClashAPIMethods2) => {
+    AvailableClashAPIMethods2["GET_PROXIES"] = "get_proxies";
+    AvailableClashAPIMethods2["GET_PROXY_LATENCY"] = "get_proxy_latency";
+    AvailableClashAPIMethods2["GET_GROUP_LATENCY"] = "get_group_latency";
+    AvailableClashAPIMethods2["SET_GROUP_PROXY"] = "set_group_proxy";
+  })(AvailableClashAPIMethods = Podkop2.AvailableClashAPIMethods || (Podkop2.AvailableClashAPIMethods = {}));
+})(Podkop || (Podkop = {}));
+
+// src/podkop/methods/shell/index.ts
+var PodkopShellMethods = {
+  checkDNSAvailable: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_DNS_AVAILABLE
+  ),
+  checkFakeIP: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_FAKEIP
+  ),
+  checkNftRules: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_NFT_RULES
+  ),
+  getStatus: async () => callBaseMethod(Podkop.AvailableMethods.GET_STATUS),
+  checkSingBox: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_SING_BOX
+  ),
+  getSingBoxStatus: async () => callBaseMethod(
+    Podkop.AvailableMethods.GET_SING_BOX_STATUS
+  ),
+  getClashApiProxies: async () => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
+    Podkop.AvailableClashAPIMethods.GET_PROXIES
+  ]),
+  getClashApiProxyLatency: async (tag) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
+    Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY,
+    tag
+  ]),
+  getClashApiGroupLatency: async (tag) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
+    Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY,
+    tag
+  ]),
+  setClashApiGroupProxy: async (group, proxy) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
+    Podkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
+    group,
+    proxy
+  ])
+};
+
 // src/podkop/methods/custom/getDashboardSections.ts
 async function getDashboardSections() {
   const configSections = await getConfigSections();
-  const clashProxies = await ClashMethods.getProxies();
+  const clashProxies = await PodkopShellMethods.getClashApiProxies();
   if (!clashProxies.success) {
     return {
       success: false,
@@ -736,6 +723,35 @@ var COMMAND_SCHEDULING = {
   // Lowest priority
 };
 
+// src/podkop/api.ts
+async function createBaseApiRequest(fetchFn, options) {
+  const wrappedFn = () => options?.timeoutMs && options?.operationName ? withTimeout(
+    fetchFn(),
+    options.timeoutMs,
+    options.operationName,
+    options.timeoutMessage
+  ) : fetchFn();
+  try {
+    const response = await wrappedFn();
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `${_("HTTP error")} ${response.status}: ${response.statusText}`
+      };
+    }
+    const data = await response.json();
+    return {
+      success: true,
+      data
+    };
+  } catch (e) {
+    return {
+      success: false,
+      message: e instanceof Error ? e.message : _("Unknown error")
+    };
+  }
+}
+
 // src/podkop/methods/fakeip/getFakeIpCheck.ts
 async function getFakeIpCheck() {
   return createBaseApiRequest(
@@ -768,59 +784,6 @@ async function getIpCheck() {
 var RemoteFakeIPMethods = {
   getFakeIpCheck,
   getIpCheck
-};
-
-// src/podkop/methods/shell/callBaseMethod.ts
-async function callBaseMethod(method) {
-  const response = await executeShellCommand({
-    command: "/usr/bin/podkop",
-    args: [method],
-    timeout: 1e4
-  });
-  if (response.stdout) {
-    return {
-      success: true,
-      data: JSON.parse(response.stdout)
-    };
-  }
-  return {
-    success: false,
-    error: ""
-  };
-}
-
-// src/podkop/types.ts
-var Podkop;
-((Podkop2) => {
-  let AvailableMethods;
-  ((AvailableMethods2) => {
-    AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
-    AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
-    AvailableMethods2["CHECK_NFT_RULES"] = "check_nft_rules";
-    AvailableMethods2["GET_STATUS"] = "get_status";
-    AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
-    AvailableMethods2["GET_SING_BOX_STATUS"] = "get_sing_box_status";
-  })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
-})(Podkop || (Podkop = {}));
-
-// src/podkop/methods/shell/index.ts
-var PodkopShellMethods = {
-  checkDNSAvailable: async () => callBaseMethod(
-    Podkop.AvailableMethods.CHECK_DNS_AVAILABLE
-  ),
-  checkFakeIP: async () => callBaseMethod(
-    Podkop.AvailableMethods.CHECK_FAKEIP
-  ),
-  checkNftRules: async () => callBaseMethod(
-    Podkop.AvailableMethods.CHECK_NFT_RULES
-  ),
-  getStatus: async () => callBaseMethod(Podkop.AvailableMethods.GET_STATUS),
-  checkSingBox: async () => callBaseMethod(
-    Podkop.AvailableMethods.CHECK_SING_BOX
-  ),
-  getSingBoxStatus: async () => callBaseMethod(
-    Podkop.AvailableMethods.GET_SING_BOX_STATUS
-  )
 };
 
 // src/podkop/services/tab.service.ts
@@ -1142,7 +1105,14 @@ var SocketManager = class _SocketManager {
   }
   connect(url) {
     if (this.sockets.has(url)) return;
-    const ws = new WebSocket(url);
+    let ws;
+    try {
+      ws = new WebSocket(url);
+    } catch (err) {
+      console.error(`Failed to construct WebSocket for ${url}:`, err);
+      this.triggerError(url, err instanceof Event ? err : String(err));
+      return;
+    }
     this.sockets.set(url, ws);
     this.connected.set(url, false);
     this.listeners.set(url, /* @__PURE__ */ new Set());
@@ -1174,13 +1144,19 @@ var SocketManager = class _SocketManager {
     });
   }
   subscribe(url, listener, onError) {
-    if (!this.sockets.has(url)) {
-      this.connect(url);
+    if (!this.errorListeners.has(url)) {
+      this.errorListeners.set(url, /* @__PURE__ */ new Set());
     }
-    this.listeners.get(url)?.add(listener);
     if (onError) {
       this.errorListeners.get(url)?.add(onError);
     }
+    if (!this.sockets.has(url)) {
+      this.connect(url);
+    }
+    if (!this.listeners.has(url)) {
+      this.listeners.set(url, /* @__PURE__ */ new Set());
+    }
+    this.listeners.get(url)?.add(listener);
   }
   unsubscribe(url, listener, onError) {
     this.listeners.get(url)?.delete(listener);
@@ -1236,10 +1212,7 @@ function renderFailedState() {
       class: "pdk_dashboard-page__outbound-section centered",
       style: "height: 127px"
     },
-    E("span", {}, [
-      E("span", {}, _("Dashboard currently unavailable")),
-      E("div", { style: "text-align: center;" }, `API: ${getClashApiUrl()}`)
-    ])
+    E("span", {}, [E("span", {}, _("Dashboard currently unavailable"))])
   );
 }
 function renderLoadingState() {
@@ -1476,7 +1449,7 @@ async function fetchDashboardSections() {
   });
   const { data, success } = await CustomPodkopMethods.getDashboardSections();
   if (!success) {
-    console.log("[fetchDashboardSections]: failed to fetch", getClashApiUrl());
+    console.log("[fetchDashboardSections]: failed to fetch");
   }
   store.set({
     sectionsWidget: {
@@ -1585,7 +1558,7 @@ async function connectToClashSockets() {
   );
 }
 async function handleChooseOutbound(selector, tag) {
-  await ClashMethods.setProxy(selector, tag);
+  await PodkopShellMethods.setClashApiGroupProxy(selector, tag);
   await fetchDashboardSections();
 }
 async function handleTestGroupLatency(tag) {
@@ -1595,7 +1568,7 @@ async function handleTestGroupLatency(tag) {
       latencyFetching: true
     }
   });
-  await ClashMethods.getGroupLatency(tag);
+  await PodkopShellMethods.getClashApiGroupLatency(tag);
   await fetchDashboardSections();
   store.set({
     sectionsWidget: {
@@ -1611,7 +1584,7 @@ async function handleTestProxyLatency(tag) {
       latencyFetching: true
     }
   });
-  await ClashMethods.getProxyLatency(tag);
+  await PodkopShellMethods.getClashApiProxyLatency(tag);
   await fetchDashboardSections();
   store.set({
     sectionsWidget: {
@@ -3141,10 +3114,6 @@ async function onMount(id) {
 }
 
 // src/helpers/getClashApiUrl.ts
-function getClashApiUrl() {
-  const { hostname } = window.location;
-  return `http://${hostname}:9090`;
-}
 function getClashWsUrl() {
   const { hostname } = window.location;
   return `ws://${hostname}:9090`;
@@ -3193,7 +3162,6 @@ return baseclass.extend({
   CACHE_TIMEOUT,
   COMMAND_SCHEDULING,
   COMMAND_TIMEOUT,
-  ClashMethods,
   CustomPodkopMethods,
   DIAGNOSTICS_INITIAL_DELAY,
   DIAGNOSTICS_UPDATE_INTERVAL,
@@ -3216,8 +3184,6 @@ return baseclass.extend({
   bulkValidate,
   coreService,
   executeShellCommand,
-  getBaseUrl,
-  getClashApiUrl,
   getClashUIUrl,
   getClashWsUrl,
   getProxyUrlName,

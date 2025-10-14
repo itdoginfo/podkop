@@ -28,6 +28,14 @@ export namespace Podkop {
     GET_STATUS = 'get_status',
     CHECK_SING_BOX = 'check_sing_box',
     GET_SING_BOX_STATUS = 'get_sing_box_status',
+    CLASH_API = 'clash_api',
+  }
+
+  export enum AvailableClashAPIMethods {
+    GET_PROXIES = 'get_proxies',
+    GET_PROXY_LATENCY = 'get_proxy_latency',
+    GET_GROUP_LATENCY = 'get_group_latency',
+    SET_GROUP_PROXY = 'set_group_proxy',
   }
 
   export interface Outbound {

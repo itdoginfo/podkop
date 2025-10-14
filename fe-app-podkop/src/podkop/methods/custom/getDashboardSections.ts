@@ -1,7 +1,7 @@
 import { getConfigSections } from './getConfigSections';
 import { Podkop } from '../../types';
-import { ClashMethods } from '../clash';
 import { getProxyUrlName, splitProxyString } from '../../../helpers';
+import { PodkopShellMethods } from '../shell';
 
 interface IGetDashboardSectionsResponse {
   success: boolean;
@@ -10,7 +10,7 @@ interface IGetDashboardSectionsResponse {
 
 export async function getDashboardSections(): Promise<IGetDashboardSectionsResponse> {
   const configSections = await getConfigSections();
-  const clashProxies = await ClashMethods.getProxies();
+  const clashProxies = await PodkopShellMethods.getClashApiProxies();
 
   if (!clashProxies.success) {
     return {

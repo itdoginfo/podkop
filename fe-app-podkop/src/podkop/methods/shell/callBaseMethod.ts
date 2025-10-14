@@ -3,10 +3,11 @@ import { Podkop } from '../../types';
 
 export async function callBaseMethod<T>(
   method: Podkop.AvailableMethods,
+  args: string[] = [],
 ): Promise<Podkop.MethodResponse<T>> {
   const response = await executeShellCommand({
     command: '/usr/bin/podkop',
-    args: [method],
+    args: [method as string, ...args],
     timeout: 10000,
   });
 

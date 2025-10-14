@@ -21,7 +21,16 @@ class SocketManager {
   connect(url: string): void {
     if (this.sockets.has(url)) return;
 
-    const ws = new WebSocket(url);
+    let ws: WebSocket;
+
+    try {
+      ws = new WebSocket(url);
+    } catch (err) {
+      console.error(`Failed to construct WebSocket for ${url}:`, err);
+      this.triggerError(url, err instanceof Event ? err : String(err));
+      return;
+    }
+
     this.sockets.set(url, ws);
     this.connected.set(url, false);
     this.listeners.set(url, new Set());
@@ -58,15 +67,21 @@ class SocketManager {
   }
 
   subscribe(url: string, listener: Listener, onError?: ErrorListener): void {
+    if (!this.errorListeners.has(url)) {
+      this.errorListeners.set(url, new Set());
+    }
+    if (onError) {
+      this.errorListeners.get(url)?.add(onError);
+    }
+
     if (!this.sockets.has(url)) {
       this.connect(url);
     }
 
-    this.listeners.get(url)?.add(listener);
-
-    if (onError) {
-      this.errorListeners.get(url)?.add(onError);
+    if (!this.listeners.has(url)) {
+      this.listeners.set(url, new Set());
     }
+    this.listeners.get(url)?.add(listener);
   }
 
   unsubscribe(url: string, listener: Listener, onError?: ErrorListener): void {

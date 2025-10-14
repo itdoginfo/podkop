@@ -170,7 +170,7 @@ function createSettingsContent(section) {
         form.Flag,
         'enable_yacd',
         _('Enable YACD'),
-        `<a href="${main.getClashApiUrl()}/ui" target="_blank">${main.getClashApiUrl()}/ui</a>`,
+        `<a href="${main.getClashUIUrl()}" target="_blank">${main.getClashUIUrl()}</a>`,
     );
     o.default = '0';
     o.rmempty = false;

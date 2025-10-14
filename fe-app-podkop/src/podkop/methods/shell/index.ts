@@ -1,5 +1,5 @@
 import { callBaseMethod } from './callBaseMethod';
-import { Podkop } from '../../types';
+import { ClashAPI, Podkop } from '../../types';
 
 export const PodkopShellMethods = {
   checkDNSAvailable: async () =>
@@ -24,4 +24,24 @@ export const PodkopShellMethods = {
     callBaseMethod<Podkop.GetSingBoxStatus>(
       Podkop.AvailableMethods.GET_SING_BOX_STATUS,
     ),
+  getClashApiProxies: async () =>
+    callBaseMethod<ClashAPI.Proxies>(Podkop.AvailableMethods.CLASH_API, [
+      Podkop.AvailableClashAPIMethods.GET_PROXIES,
+    ]),
+  getClashApiProxyLatency: async (tag: string) =>
+    callBaseMethod<unknown>(Podkop.AvailableMethods.CLASH_API, [
+      Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY,
+      tag,
+    ]),
+  getClashApiGroupLatency: async (tag: string) =>
+    callBaseMethod<unknown>(Podkop.AvailableMethods.CLASH_API, [
+      Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY,
+      tag,
+    ]),
+  setClashApiGroupProxy: async (group: string, proxy: string) =>
+    callBaseMethod<unknown>(Podkop.AvailableMethods.CLASH_API, [
+      Podkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
+      group,
+      proxy,
+    ]),
 };

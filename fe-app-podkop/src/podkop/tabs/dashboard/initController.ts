@@ -1,15 +1,10 @@
 import {
-  getClashApiUrl,
   getClashWsUrl,
   onMount,
   preserveScrollForPage,
 } from '../../../helpers';
 import { prettyBytes } from '../../../helpers/prettyBytes';
-import {
-  ClashMethods,
-  CustomPodkopMethods,
-  PodkopShellMethods,
-} from '../../methods';
+import { CustomPodkopMethods, PodkopShellMethods } from '../../methods';
 import { socket, store, StoreType } from '../../services';
 import { renderSections, renderWidget } from './partials';
 
@@ -28,7 +23,7 @@ async function fetchDashboardSections() {
   const { data, success } = await CustomPodkopMethods.getDashboardSections();
 
   if (!success) {
-    console.log('[fetchDashboardSections]: failed to fetch', getClashApiUrl());
+    console.log('[fetchDashboardSections]: failed to fetch');
   }
 
   store.set({
@@ -148,7 +143,7 @@ async function connectToClashSockets() {
 // Handlers
 
 async function handleChooseOutbound(selector: string, tag: string) {
-  await ClashMethods.setProxy(selector, tag);
+  await PodkopShellMethods.setClashApiGroupProxy(selector, tag);
   await fetchDashboardSections();
 }
 
@@ -160,7 +155,7 @@ async function handleTestGroupLatency(tag: string) {
     },
   });
 
-  await ClashMethods.getGroupLatency(tag);
+  await PodkopShellMethods.getClashApiGroupLatency(tag);
   await fetchDashboardSections();
 
   store.set({
@@ -179,7 +174,7 @@ async function handleTestProxyLatency(tag: string) {
     },
   });
 
-  await ClashMethods.getProxyLatency(tag);
+  await PodkopShellMethods.getClashApiProxyLatency(tag);
   await fetchDashboardSections();
 
   store.set({
