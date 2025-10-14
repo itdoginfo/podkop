@@ -1794,6 +1794,20 @@ get_status() {
     echo "{\"enabled\":$enabled,\"status\":\"$status\"}"
 }
 
+get_latest_podkop_version() {
+    local latest_version
+    local current_version="$PODKOP_VERSION"
+    
+    latest_version=$(curl -m 3 -s https://api.github.com/repos/itdoginfo/podkop/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+    
+    if [ -z "$latest_version" ]; then
+        echo "{\"error\": \"Unable to fetch latest version\"}"
+        return 1
+    fi
+    
+    echo "{\"current\": \"$current_version\", \"latest\": \"$latest_version\"}" | jq .
+}
+
 check_dns_available() {
     local dns_type dns_server bootstrap_dns_server
     config_get dns_type "settings" "dns_type"
@@ -1801,7 +1815,7 @@ check_dns_available() {
     config_get bootstrap_dns_server "settings" "bootstrap_dns_server"
 
     local dns_status=0
-    local local_dns_status=0
+    local dns_on_router=0
     local bootstrap_dns_status=0
     local dhcp_has_dns_server=0
     local domain="google.com"
@@ -1842,7 +1856,7 @@ check_dns_available() {
 
     # Check if local DNS resolver is working
     if dig @127.0.0.1 "$domain" +timeout=2 +tries=1 > /dev/null 2>&1; then
-        local_dns_status=1
+        dns_on_router=1
     fi
 
     # Check bootstrap DNS server
@@ -1857,7 +1871,7 @@ check_dns_available() {
     config_foreach check_dhcp_has_podkop_dns dnsmasq
     config_load "$PODKOP_CONFIG"
 
-    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"dns_status\":$dns_status,\"local_dns_status\":$local_dns_status,\"bootstrap_dns_server\":\"$bootstrap_dns_server\",\"bootstrap_dns_status\":$bootstrap_dns_status,\"dhcp_has_dns_server\":$dhcp_has_dns_server}" | jq .
+    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"dns_status\":$dns_status,\"dns_on_router\":$dns_on_router,\"bootstrap_dns_server\":\"$bootstrap_dns_server\",\"bootstrap_dns_status\":$bootstrap_dns_status,\"dhcp_has_dns_server\":$dhcp_has_dns_server}" | jq .
 }
 
 check_dhcp_has_podkop_dns() {
@@ -2311,6 +2325,7 @@ Available commands:
     show_system_info        Show system information
     get_status              Get podkop service status
     get_sing_box_status     Get sing-box service status
+    get_latest_podkop_version  Get latest podkop version from GitHubs
     check_dns_available     Check DNS server availability
     global_check            Run global system check
 EOF
@@ -2388,6 +2403,9 @@ get_status)
     ;;
 get_sing_box_status)
     get_sing_box_status
+    ;;
+get_latest_podkop_version)
+    get_latest_podkop_version
     ;;
 check_dns_available)
     check_dns_available
