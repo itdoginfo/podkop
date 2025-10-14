@@ -16,6 +16,12 @@ export const styles = `
     align-items: start;
 }
 
+@media (max-width: 800px) {
+    .pdk_diagnostic-page {
+        grid-template-columns: 1fr;
+    }
+}
+
 .pdk_diagnostic-page__right-bar {
     display: grid;
     grid-template-columns: 1fr;
