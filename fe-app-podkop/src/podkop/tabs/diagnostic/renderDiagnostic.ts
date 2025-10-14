@@ -1,4 +1,4 @@
-export function renderDiagnostic() {
+export function render() {
   return E('div', { id: 'diagnostic-status', class: 'pdk_diagnostic-page' }, [
     E('div', { class: 'pdk_diagnostic-page__left-bar' }, [
       E('div', { id: 'pdk_diagnostic-page-run-check' }),

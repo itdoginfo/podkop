@@ -3,7 +3,7 @@ interface IRenderDiagnosticRunActionProps {
   click: () => void;
 }
 
-export function renderDiagnosticRunAction({
+export function renderRunAction({
   loading,
   click,
 }: IRenderDiagnosticRunActionProps) {

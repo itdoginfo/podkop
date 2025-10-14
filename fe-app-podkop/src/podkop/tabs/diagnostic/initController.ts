@@ -1,14 +1,16 @@
 import { onMount, preserveScrollForPage } from '../../../helpers';
-import { renderCheckSection } from './renderCheckSection';
 import { runDnsCheck } from './checks/runDnsCheck';
 import { runSingBoxCheck } from './checks/runSingBoxCheck';
 import { runNftCheck } from './checks/runNftCheck';
 import { runFakeIPCheck } from './checks/runFakeIPCheck';
-import { renderDiagnosticRunAction } from './renderDiagnosticRunAction';
-import { renderAvailableActions } from './renderAvailableActions';
-import { renderSystemInfo } from './renderSystemInfo';
 import { loadingDiagnosticsChecksStore } from './diagnostic.store';
 import { store, StoreType } from '../../services';
+import {
+  renderAvailableActions,
+  renderCheckSection,
+  renderRunAction,
+  renderSystemInfo,
+} from './partials';
 
 function renderDiagnosticsChecks() {
   console.log('renderDiagnosticsChecks');
@@ -32,7 +34,7 @@ function renderDiagnosticRunActionWidget() {
   const { loading } = store.get().diagnosticsRunAction;
   const container = document.getElementById('pdk_diagnostic-page-run-check');
 
-  const renderedAction = renderDiagnosticRunAction({
+  const renderedAction = renderRunAction({
     loading,
     click: () => runChecks(),
   });
@@ -124,7 +126,7 @@ async function runChecks() {
   }
 }
 
-export async function initDiagnosticController(): Promise<void> {
+export async function initController(): Promise<void> {
   onMount('diagnostic-status').then(() => {
     console.log('diagnostic controller initialized.');
     // Remove old listener

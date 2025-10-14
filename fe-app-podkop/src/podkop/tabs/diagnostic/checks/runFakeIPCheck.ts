@@ -1,13 +1,13 @@
-import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { insertIf } from '../../../../helpers';
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 import { PodkopShellMethods, RemoteFakeIPMethods } from '../../../methods';
 import { IDiagnosticsChecksItem } from '../../../services';
+import { updateCheckStore } from './updateCheckStore';
 
 export async function runFakeIPCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.FAKEIP;
 
-  updateDiagnosticsCheck({
+  updateCheckStore({
     order,
     code,
     title,
@@ -68,7 +68,7 @@ export async function runFakeIPCheck() {
 
   const { state, description } = getMeta();
 
-  updateDiagnosticsCheck({
+  updateCheckStore({
     order,
     code,
     title,

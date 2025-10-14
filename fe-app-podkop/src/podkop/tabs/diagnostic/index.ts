@@ -1,2 +1,7 @@
-export * from './renderDiagnostic';
-export * from './initDiagnosticController';
+import { render } from './renderDiagnostic';
+import { initController } from './initController';
+
+export const DiagnosticTab = {
+  render,
+  initController,
+};

@@ -5,14 +5,13 @@ import {
   preserveScrollForPage,
 } from '../../../helpers';
 import { prettyBytes } from '../../../helpers/prettyBytes';
-import { renderSections } from './renderSections';
-import { renderWidget } from './renderWidget';
 import {
   ClashMethods,
   CustomPodkopMethods,
   PodkopShellMethods,
 } from '../../methods';
 import { socket, store, StoreType } from '../../services';
+import { renderSections, renderWidget } from './partials';
 
 // Fetchers
 
@@ -420,7 +419,7 @@ async function onStoreUpdate(
   }
 }
 
-export async function initDashboardController(): Promise<void> {
+export async function initController(): Promise<void> {
   onMount('dashboard-status').then(() => {
     // Remove old listener
     store.unsubscribe(onStoreUpdate);

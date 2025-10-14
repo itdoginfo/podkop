@@ -10,8 +10,8 @@ function createDashboardContent(section) {
     const o = section.option(form.DummyValue, '_mount_node');
     o.rawhtml = true;
     o.cfgvalue = () => {
-        main.initDashboardController();
-        return main.renderDashboard();
+        main.DashboardTab.initController();
+        return main.DashboardTab.render();
     };
 }
 

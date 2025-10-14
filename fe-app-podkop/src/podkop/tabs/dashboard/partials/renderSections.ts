@@ -1,5 +1,5 @@
-import { Podkop } from '../../types';
-import { getClashApiUrl } from '../../../helpers';
+import { Podkop } from '../../../types';
+import { getClashApiUrl } from '../../../../helpers';
 
 interface IRenderSectionsProps {
   loading: boolean;

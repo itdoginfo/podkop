@@ -1,13 +1,13 @@
-import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { insertIf } from '../../../../helpers';
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 import { PodkopShellMethods } from '../../../methods';
 import { IDiagnosticsChecksItem } from '../../../services';
+import { updateCheckStore } from './updateCheckStore';
 
 export async function runDnsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
 
-  updateDiagnosticsCheck({
+  updateCheckStore({
     order,
     code,
     title,
@@ -19,7 +19,7 @@ export async function runDnsCheck() {
   const dnsChecks = await PodkopShellMethods.checkDNSAvailable();
 
   if (!dnsChecks.success) {
-    updateDiagnosticsCheck({
+    updateCheckStore({
       order,
       code,
       title,
@@ -57,7 +57,7 @@ export async function runDnsCheck() {
     return 'error';
   }
 
-  updateDiagnosticsCheck({
+  updateCheckStore({
     order,
     code,
     title,

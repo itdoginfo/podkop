@@ -1,6 +1,6 @@
-import { IDiagnosticsChecksStoreItem, store } from '../../services';
+import { IDiagnosticsChecksStoreItem, store } from '../../../services';
 
-export function updateDiagnosticsCheck(
+export function updateCheckStore(
   check: IDiagnosticsChecksStoreItem,
   minified?: boolean,
 ) {

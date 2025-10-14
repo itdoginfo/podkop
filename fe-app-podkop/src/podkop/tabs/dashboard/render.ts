@@ -1,7 +1,6 @@
-import { renderSections } from './renderSections';
-import { renderWidget } from './renderWidget';
+import { renderSections, renderWidget } from './partials';
 
-export function renderDashboard() {
+export function render() {
   return E(
     'div',
     {

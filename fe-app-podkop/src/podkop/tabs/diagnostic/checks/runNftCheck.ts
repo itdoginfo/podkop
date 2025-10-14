@@ -1,11 +1,11 @@
-import { updateDiagnosticsCheck } from '../updateDiagnosticsCheck';
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 import { RemoteFakeIPMethods, PodkopShellMethods } from '../../../methods';
+import { updateCheckStore } from './updateCheckStore';
 
 export async function runNftCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.NFT;
 
-  updateDiagnosticsCheck({
+  updateCheckStore({
     order,
     code,
     title,
@@ -20,7 +20,7 @@ export async function runNftCheck() {
   const nftablesChecks = await PodkopShellMethods.checkNftRules();
 
   if (!nftablesChecks.success) {
-    updateDiagnosticsCheck({
+    updateCheckStore({
       order,
       code,
       title,
@@ -68,7 +68,7 @@ export async function runNftCheck() {
     return 'error';
   }
 
-  updateDiagnosticsCheck({
+  updateCheckStore({
     order,
     code,
     title,

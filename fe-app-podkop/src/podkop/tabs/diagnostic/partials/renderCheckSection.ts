@@ -7,8 +7,8 @@ import {
   renderLoaderCircleIcon24,
   renderTriangleAlertIcon24,
   renderXIcon24,
-} from '../../../icons';
-import { IDiagnosticsChecksStoreItem } from '../../services';
+} from '../../../../icons';
+import { IDiagnosticsChecksStoreItem } from '../../../services';
 
 type IRenderCheckSectionProps = IDiagnosticsChecksStoreItem;
 

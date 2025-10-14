@@ -1716,7 +1716,7 @@ var SocketManager = class _SocketManager {
 };
 var socket = SocketManager.getInstance();
 
-// src/podkop/tabs/dashboard/renderSections.ts
+// src/podkop/tabs/dashboard/partials/renderSections.ts
 function renderFailedState() {
   return E(
     "div",
@@ -1823,7 +1823,7 @@ function renderSections(props) {
   return renderDefaultState(props);
 }
 
-// src/podkop/tabs/dashboard/renderWidget.ts
+// src/podkop/tabs/dashboard/partials/renderWidget.ts
 function renderFailedState2() {
   return E(
     "div",
@@ -1885,8 +1885,8 @@ function renderWidget(props) {
   return renderDefaultState2(props);
 }
 
-// src/podkop/tabs/dashboard/renderDashboard.ts
-function renderDashboard() {
+// src/podkop/tabs/dashboard/render.ts
+function render() {
   return E(
     "div",
     {
@@ -1953,7 +1953,7 @@ function prettyBytes(n) {
   return n + " " + unit;
 }
 
-// src/podkop/tabs/dashboard/initDashboardController.ts
+// src/podkop/tabs/dashboard/initController.ts
 async function fetchDashboardSections() {
   const prev = store.get().sectionsWidget;
   store.set({
@@ -2290,7 +2290,7 @@ async function onStoreUpdate(next, prev, diff) {
     renderServicesInfoWidget();
   }
 }
-async function initDashboardController() {
+async function initController() {
   onMount("dashboard-status").then(() => {
     store.unsubscribe(onStoreUpdate);
     store.reset([
@@ -2307,8 +2307,14 @@ async function initDashboardController() {
   });
 }
 
+// src/podkop/tabs/dashboard/index.ts
+var DashboardTab = {
+  render,
+  initController
+};
+
 // src/podkop/tabs/diagnostic/renderDiagnostic.ts
-function renderDiagnostic() {
+function render2() {
   return E("div", { id: "diagnostic-status", class: "pdk_diagnostic-page" }, [
     E("div", { class: "pdk_diagnostic-page__left-bar" }, [
       E("div", { id: "pdk_diagnostic-page-run-check" }),
@@ -2321,6 +2327,349 @@ function renderDiagnostic() {
       E("div", { id: "pdk_diagnostic-page-actions" }),
       E("div", { id: "pdk_diagnostic-page-system-info" })
     ])
+  ]);
+}
+
+// src/podkop/tabs/diagnostic/checks/updateCheckStore.ts
+function updateCheckStore(check, minified) {
+  const diagnosticsChecks = store.get().diagnosticsChecks;
+  const other = diagnosticsChecks.filter((item) => item.code !== check.code);
+  const smallCheck = {
+    ...check,
+    items: check.items.filter((item) => item.state !== "success")
+  };
+  const targetCheck = minified ? smallCheck : check;
+  store.set({
+    diagnosticsChecks: [...other, targetCheck]
+  });
+}
+
+// src/podkop/tabs/diagnostic/checks/runDnsCheck.ts
+async function runDnsCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking dns, please wait"),
+    state: "loading",
+    items: []
+  });
+  const dnsChecks = await PodkopShellMethods.checkDNSAvailable();
+  if (!dnsChecks.success) {
+    updateCheckStore({
+      order,
+      code,
+      title,
+      description: _("Cannot receive DNS checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("DNS checks failed");
+  }
+  const data = dnsChecks.data;
+  const allGood = Boolean(data.local_dns_status) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
+  const atLeastOneGood = Boolean(data.local_dns_status) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
+  console.log("dnsChecks", dnsChecks);
+  function getStatus() {
+    if (allGood) {
+      return "success";
+    }
+    if (atLeastOneGood) {
+      return "warning";
+    }
+    return "error";
+  }
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("DNS checks passed"),
+    state: getStatus(),
+    items: [
+      ...insertIf(
+        data.dns_type === "doh" || data.dns_type === "dot",
+        [
+          {
+            state: data.bootstrap_dns_status ? "success" : "error",
+            key: _("Bootsrap DNS"),
+            value: data.bootstrap_dns_server
+          }
+        ]
+      ),
+      {
+        state: data.dns_status ? "success" : "error",
+        key: _("Main DNS"),
+        value: `${data.dns_server} [${data.dns_type}]`
+      },
+      {
+        state: data.local_dns_status ? "success" : "error",
+        key: _("Local DNS"),
+        value: ""
+      }
+    ]
+  });
+  if (!atLeastOneGood) {
+    throw new Error("DNS checks failed");
+  }
+}
+
+// src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts
+async function runSingBoxCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.SINGBOX;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking sing-box, please wait"),
+    state: "loading",
+    items: []
+  });
+  const singBoxChecks = await PodkopShellMethods.checkSingBox();
+  if (!singBoxChecks.success) {
+    updateCheckStore({
+      order,
+      code,
+      title,
+      description: _("Cannot receive Sing-box checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("Sing-box checks failed");
+  }
+  const data = singBoxChecks.data;
+  const allGood = Boolean(data.sing_box_installed) && Boolean(data.sing_box_version_ok) && Boolean(data.sing_box_service_exist) && Boolean(data.sing_box_autostart_disabled) && Boolean(data.sing_box_process_running) && Boolean(data.sing_box_ports_listening);
+  const atLeastOneGood = Boolean(data.sing_box_installed) || Boolean(data.sing_box_version_ok) || Boolean(data.sing_box_service_exist) || Boolean(data.sing_box_autostart_disabled) || Boolean(data.sing_box_process_running) || Boolean(data.sing_box_ports_listening);
+  console.log("singBoxChecks", singBoxChecks);
+  function getStatus() {
+    if (allGood) {
+      return "success";
+    }
+    if (atLeastOneGood) {
+      return "warning";
+    }
+    return "error";
+  }
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Sing-box checks passed"),
+    state: getStatus(),
+    items: [
+      {
+        state: data.sing_box_installed ? "success" : "error",
+        key: _("Sing-box installed"),
+        value: ""
+      },
+      {
+        state: data.sing_box_version_ok ? "success" : "error",
+        key: _("Sing-box version >= 1.12.4"),
+        value: ""
+      },
+      {
+        state: data.sing_box_service_exist ? "success" : "error",
+        key: _("Sing-box service exist"),
+        value: ""
+      },
+      {
+        state: data.sing_box_autostart_disabled ? "success" : "error",
+        key: _("Sing-box autostart disabled"),
+        value: ""
+      },
+      {
+        state: data.sing_box_process_running ? "success" : "error",
+        key: _("Sing-box process running"),
+        value: ""
+      },
+      {
+        state: data.sing_box_ports_listening ? "success" : "error",
+        key: _("Sing-box listening ports"),
+        value: ""
+      }
+    ]
+  });
+  if (!atLeastOneGood) {
+    throw new Error("Sing-box checks failed");
+  }
+}
+
+// src/podkop/tabs/diagnostic/checks/runNftCheck.ts
+async function runNftCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.NFT;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking nftables, please wait"),
+    state: "loading",
+    items: []
+  });
+  await RemoteFakeIPMethods.getFakeIpCheck();
+  await RemoteFakeIPMethods.getIpCheck();
+  const nftablesChecks = await PodkopShellMethods.checkNftRules();
+  if (!nftablesChecks.success) {
+    updateCheckStore({
+      order,
+      code,
+      title,
+      description: _("Cannot receive nftables checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("Nftables checks failed");
+  }
+  const data = nftablesChecks.data;
+  const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && Boolean(data.rules_other_mark_exist);
+  const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || Boolean(data.rules_other_mark_exist);
+  console.log("nftablesChecks", nftablesChecks);
+  function getStatus() {
+    if (allGood) {
+      return "success";
+    }
+    if (atLeastOneGood) {
+      return "warning";
+    }
+    return "error";
+  }
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: allGood ? _("Nftables checks passed") : _("Nftables checks partially passed"),
+    state: getStatus(),
+    items: [
+      {
+        state: data.table_exist ? "success" : "error",
+        key: _("Table exist"),
+        value: ""
+      },
+      {
+        state: data.rules_mangle_exist ? "success" : "error",
+        key: _("Rules mangle exist"),
+        value: ""
+      },
+      {
+        state: data.rules_mangle_counters ? "success" : "error",
+        key: _("Rules mangle counters"),
+        value: ""
+      },
+      {
+        state: data.rules_mangle_output_exist ? "success" : "error",
+        key: _("Rules mangle output exist"),
+        value: ""
+      },
+      {
+        state: data.rules_mangle_output_counters ? "success" : "error",
+        key: _("Rules mangle output counters"),
+        value: ""
+      },
+      {
+        state: data.rules_proxy_exist ? "success" : "error",
+        key: _("Rules proxy exist"),
+        value: ""
+      },
+      {
+        state: data.rules_proxy_counters ? "success" : "error",
+        key: _("Rules proxy counters"),
+        value: ""
+      },
+      {
+        state: !data.rules_other_mark_exist ? "success" : "warning",
+        key: !data.rules_other_mark_exist ? _("No other marking rules found") : _("Additional marking rules found"),
+        value: ""
+      }
+    ]
+  });
+  if (!atLeastOneGood) {
+    throw new Error("Nftables checks failed");
+  }
+}
+
+// src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts
+async function runFakeIPCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.FAKEIP;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking FakeIP, please wait"),
+    state: "loading",
+    items: []
+  });
+  const routerFakeIPResponse = await PodkopShellMethods.checkFakeIP();
+  const checkFakeIPResponse = await RemoteFakeIPMethods.getFakeIpCheck();
+  const checkIPResponse = await RemoteFakeIPMethods.getIpCheck();
+  console.log("runFakeIPCheck", {
+    routerFakeIPResponse,
+    checkFakeIPResponse,
+    checkIPResponse
+  });
+  const checks = {
+    router: routerFakeIPResponse.success && routerFakeIPResponse.data.fakeip,
+    browserFakeIP: checkFakeIPResponse.success && checkFakeIPResponse.data.fakeip,
+    differentIP: checkFakeIPResponse.success && checkIPResponse.success && checkFakeIPResponse.data.IP !== checkIPResponse.data.IP
+  };
+  console.log("checks", checks);
+  const allGood = checks.router || checks.browserFakeIP || checks.differentIP;
+  const atLeastOneGood = checks.router && checks.browserFakeIP && checks.differentIP;
+  function getMeta() {
+    if (allGood) {
+      return {
+        state: "success",
+        description: _("FakeIP checks passed")
+      };
+    }
+    if (atLeastOneGood) {
+      return {
+        state: "warning",
+        description: _("FakeIP checks partially passed")
+      };
+    }
+    return {
+      state: "error",
+      description: _("FakeIP checks failed")
+    };
+  }
+  const { state, description } = getMeta();
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description,
+    state,
+    items: [
+      {
+        state: checks.router ? "success" : "warning",
+        key: checks.router ? _("Router DNS is routed through sing-box") : _("Router DNS is not routed through sing-box"),
+        value: ""
+      },
+      {
+        state: checks.browserFakeIP ? "success" : "error",
+        key: checks.browserFakeIP ? _("Browser is using FakeIP correctly") : _("Browser is not using FakeIP"),
+        value: ""
+      },
+      ...insertIf(checks.browserFakeIP, [
+        {
+          state: checks.differentIP ? "success" : "error",
+          key: checks.differentIP ? _("Proxy traffic is routed via FakeIP") : _("Proxy traffic is not routed via FakeIP"),
+          value: ""
+        }
+      ])
+    ]
+  });
+}
+
+// src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts
+function renderAvailableActions() {
+  return E("div", { class: "pdk_diagnostic-page__right-bar__actions" }, [
+    E("b", {}, "Available actions"),
+    E("button", { class: "btn" }, "Restart podkop"),
+    E("button", { class: "btn" }, "Stop podkop"),
+    E("button", { class: "btn" }, "Disable podkop"),
+    E("button", { class: "btn" }, "Get global check"),
+    E("button", { class: "btn" }, "View logs"),
+    E("button", { class: "btn" }, "Show sing-box config")
   ]);
 }
 
@@ -2560,7 +2909,7 @@ function renderTriangleAlertIcon24() {
   );
 }
 
-// src/podkop/tabs/diagnostic/renderCheckSection.ts
+// src/podkop/tabs/diagnostic/partials/renderCheckSection.ts
 function renderCheckSummary(items) {
   if (!items.length) {
     return E("div", {}, "");
@@ -2715,338 +3064,8 @@ function renderCheckSection(props) {
   return E("div", {}, "Not implement yet");
 }
 
-// src/podkop/tabs/diagnostic/updateDiagnosticsCheck.ts
-function updateDiagnosticsCheck(check, minified) {
-  const diagnosticsChecks = store.get().diagnosticsChecks;
-  const other = diagnosticsChecks.filter((item) => item.code !== check.code);
-  const smallCheck = {
-    ...check,
-    items: check.items.filter((item) => item.state !== "success")
-  };
-  const targetCheck = minified ? smallCheck : check;
-  store.set({
-    diagnosticsChecks: [...other, targetCheck]
-  });
-}
-
-// src/podkop/tabs/diagnostic/checks/runDnsCheck.ts
-async function runDnsCheck() {
-  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
-  updateDiagnosticsCheck({
-    order,
-    code,
-    title,
-    description: _("Checking dns, please wait"),
-    state: "loading",
-    items: []
-  });
-  const dnsChecks = await PodkopShellMethods.checkDNSAvailable();
-  if (!dnsChecks.success) {
-    updateDiagnosticsCheck({
-      order,
-      code,
-      title,
-      description: _("Cannot receive DNS checks result"),
-      state: "error",
-      items: []
-    });
-    throw new Error("DNS checks failed");
-  }
-  const data = dnsChecks.data;
-  const allGood = Boolean(data.local_dns_status) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
-  const atLeastOneGood = Boolean(data.local_dns_status) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
-  console.log("dnsChecks", dnsChecks);
-  function getStatus() {
-    if (allGood) {
-      return "success";
-    }
-    if (atLeastOneGood) {
-      return "warning";
-    }
-    return "error";
-  }
-  updateDiagnosticsCheck({
-    order,
-    code,
-    title,
-    description: _("DNS checks passed"),
-    state: getStatus(),
-    items: [
-      ...insertIf(
-        data.dns_type === "doh" || data.dns_type === "dot",
-        [
-          {
-            state: data.bootstrap_dns_status ? "success" : "error",
-            key: _("Bootsrap DNS"),
-            value: data.bootstrap_dns_server
-          }
-        ]
-      ),
-      {
-        state: data.dns_status ? "success" : "error",
-        key: _("Main DNS"),
-        value: `${data.dns_server} [${data.dns_type}]`
-      },
-      {
-        state: data.local_dns_status ? "success" : "error",
-        key: _("Local DNS"),
-        value: ""
-      }
-    ]
-  });
-  if (!atLeastOneGood) {
-    throw new Error("DNS checks failed");
-  }
-}
-
-// src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts
-async function runSingBoxCheck() {
-  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.SINGBOX;
-  updateDiagnosticsCheck({
-    order,
-    code,
-    title,
-    description: _("Checking sing-box, please wait"),
-    state: "loading",
-    items: []
-  });
-  const singBoxChecks = await PodkopShellMethods.checkSingBox();
-  if (!singBoxChecks.success) {
-    updateDiagnosticsCheck({
-      order,
-      code,
-      title,
-      description: _("Cannot receive Sing-box checks result"),
-      state: "error",
-      items: []
-    });
-    throw new Error("Sing-box checks failed");
-  }
-  const data = singBoxChecks.data;
-  const allGood = Boolean(data.sing_box_installed) && Boolean(data.sing_box_version_ok) && Boolean(data.sing_box_service_exist) && Boolean(data.sing_box_autostart_disabled) && Boolean(data.sing_box_process_running) && Boolean(data.sing_box_ports_listening);
-  const atLeastOneGood = Boolean(data.sing_box_installed) || Boolean(data.sing_box_version_ok) || Boolean(data.sing_box_service_exist) || Boolean(data.sing_box_autostart_disabled) || Boolean(data.sing_box_process_running) || Boolean(data.sing_box_ports_listening);
-  console.log("singBoxChecks", singBoxChecks);
-  function getStatus() {
-    if (allGood) {
-      return "success";
-    }
-    if (atLeastOneGood) {
-      return "warning";
-    }
-    return "error";
-  }
-  updateDiagnosticsCheck({
-    order,
-    code,
-    title,
-    description: _("Sing-box checks passed"),
-    state: getStatus(),
-    items: [
-      {
-        state: data.sing_box_installed ? "success" : "error",
-        key: _("Sing-box installed"),
-        value: ""
-      },
-      {
-        state: data.sing_box_version_ok ? "success" : "error",
-        key: _("Sing-box version >= 1.12.4"),
-        value: ""
-      },
-      {
-        state: data.sing_box_service_exist ? "success" : "error",
-        key: _("Sing-box service exist"),
-        value: ""
-      },
-      {
-        state: data.sing_box_autostart_disabled ? "success" : "error",
-        key: _("Sing-box autostart disabled"),
-        value: ""
-      },
-      {
-        state: data.sing_box_process_running ? "success" : "error",
-        key: _("Sing-box process running"),
-        value: ""
-      },
-      {
-        state: data.sing_box_ports_listening ? "success" : "error",
-        key: _("Sing-box listening ports"),
-        value: ""
-      }
-    ]
-  });
-  if (!atLeastOneGood) {
-    throw new Error("Sing-box checks failed");
-  }
-}
-
-// src/podkop/tabs/diagnostic/checks/runNftCheck.ts
-async function runNftCheck() {
-  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.NFT;
-  updateDiagnosticsCheck({
-    order,
-    code,
-    title,
-    description: _("Checking nftables, please wait"),
-    state: "loading",
-    items: []
-  });
-  await RemoteFakeIPMethods.getFakeIpCheck();
-  await RemoteFakeIPMethods.getIpCheck();
-  const nftablesChecks = await PodkopShellMethods.checkNftRules();
-  if (!nftablesChecks.success) {
-    updateDiagnosticsCheck({
-      order,
-      code,
-      title,
-      description: _("Cannot receive nftables checks result"),
-      state: "error",
-      items: []
-    });
-    throw new Error("Nftables checks failed");
-  }
-  const data = nftablesChecks.data;
-  const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && Boolean(data.rules_other_mark_exist);
-  const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || Boolean(data.rules_other_mark_exist);
-  console.log("nftablesChecks", nftablesChecks);
-  function getStatus() {
-    if (allGood) {
-      return "success";
-    }
-    if (atLeastOneGood) {
-      return "warning";
-    }
-    return "error";
-  }
-  updateDiagnosticsCheck({
-    order,
-    code,
-    title,
-    description: allGood ? _("Nftables checks passed") : _("Nftables checks partially passed"),
-    state: getStatus(),
-    items: [
-      {
-        state: data.table_exist ? "success" : "error",
-        key: _("Table exist"),
-        value: ""
-      },
-      {
-        state: data.rules_mangle_exist ? "success" : "error",
-        key: _("Rules mangle exist"),
-        value: ""
-      },
-      {
-        state: data.rules_mangle_counters ? "success" : "error",
-        key: _("Rules mangle counters"),
-        value: ""
-      },
-      {
-        state: data.rules_mangle_output_exist ? "success" : "error",
-        key: _("Rules mangle output exist"),
-        value: ""
-      },
-      {
-        state: data.rules_mangle_output_counters ? "success" : "error",
-        key: _("Rules mangle output counters"),
-        value: ""
-      },
-      {
-        state: data.rules_proxy_exist ? "success" : "error",
-        key: _("Rules proxy exist"),
-        value: ""
-      },
-      {
-        state: data.rules_proxy_counters ? "success" : "error",
-        key: _("Rules proxy counters"),
-        value: ""
-      },
-      {
-        state: !data.rules_other_mark_exist ? "success" : "warning",
-        key: !data.rules_other_mark_exist ? _("No other marking rules found") : _("Additional marking rules found"),
-        value: ""
-      }
-    ]
-  });
-  if (!atLeastOneGood) {
-    throw new Error("Nftables checks failed");
-  }
-}
-
-// src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts
-async function runFakeIPCheck() {
-  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.FAKEIP;
-  updateDiagnosticsCheck({
-    order,
-    code,
-    title,
-    description: _("Checking FakeIP, please wait"),
-    state: "loading",
-    items: []
-  });
-  const routerFakeIPResponse = await PodkopShellMethods.checkFakeIP();
-  const checkFakeIPResponse = await RemoteFakeIPMethods.getFakeIpCheck();
-  const checkIPResponse = await RemoteFakeIPMethods.getIpCheck();
-  console.log("runFakeIPCheck", {
-    routerFakeIPResponse,
-    checkFakeIPResponse,
-    checkIPResponse
-  });
-  const checks = {
-    router: routerFakeIPResponse.success && routerFakeIPResponse.data.fakeip,
-    browserFakeIP: checkFakeIPResponse.success && checkFakeIPResponse.data.fakeip,
-    differentIP: checkFakeIPResponse.success && checkIPResponse.success && checkFakeIPResponse.data.IP !== checkIPResponse.data.IP
-  };
-  console.log("checks", checks);
-  const allGood = checks.router || checks.browserFakeIP || checks.differentIP;
-  const atLeastOneGood = checks.router && checks.browserFakeIP && checks.differentIP;
-  function getMeta() {
-    if (allGood) {
-      return {
-        state: "success",
-        description: _("FakeIP checks passed")
-      };
-    }
-    if (atLeastOneGood) {
-      return {
-        state: "warning",
-        description: _("FakeIP checks partially passed")
-      };
-    }
-    return {
-      state: "error",
-      description: _("FakeIP checks failed")
-    };
-  }
-  const { state, description } = getMeta();
-  updateDiagnosticsCheck({
-    order,
-    code,
-    title,
-    description,
-    state,
-    items: [
-      {
-        state: checks.router ? "success" : "warning",
-        key: checks.router ? _("Router DNS is routed through sing-box") : _("Router DNS is not routed through sing-box"),
-        value: ""
-      },
-      {
-        state: checks.browserFakeIP ? "success" : "error",
-        key: checks.browserFakeIP ? _("Browser is using FakeIP correctly") : _("Browser is not using FakeIP"),
-        value: ""
-      },
-      ...insertIf(checks.browserFakeIP, [
-        {
-          state: checks.differentIP ? "success" : "error",
-          key: checks.differentIP ? _("Proxy traffic is routed via FakeIP") : _("Proxy traffic is not routed via FakeIP"),
-          value: ""
-        }
-      ])
-    ]
-  });
-}
-
-// src/podkop/tabs/diagnostic/renderDiagnosticRunAction.ts
-function renderDiagnosticRunAction({
+// src/podkop/tabs/diagnostic/partials/renderRunAction.ts
+function renderRunAction({
   loading,
   click
 }) {
@@ -3059,20 +3078,7 @@ function renderDiagnosticRunAction({
   ]);
 }
 
-// src/podkop/tabs/diagnostic/renderAvailableActions.ts
-function renderAvailableActions() {
-  return E("div", { class: "pdk_diagnostic-page__right-bar__actions" }, [
-    E("b", {}, "Available actions"),
-    E("button", { class: "btn" }, "Restart podkop"),
-    E("button", { class: "btn" }, "Stop podkop"),
-    E("button", { class: "btn" }, "Disable podkop"),
-    E("button", { class: "btn" }, "Get global check"),
-    E("button", { class: "btn" }, "View logs"),
-    E("button", { class: "btn" }, "Show sing-box config")
-  ]);
-}
-
-// src/podkop/tabs/diagnostic/renderSystemInfo.ts
+// src/podkop/tabs/diagnostic/partials/renderSystemInfo.ts
 function renderSystemInfo({ items }) {
   return E("div", { class: "pdk_diagnostic-page__right-bar__system-info" }, [
     E(
@@ -3089,7 +3095,7 @@ function renderSystemInfo({ items }) {
   ]);
 }
 
-// src/podkop/tabs/diagnostic/initDiagnosticController.ts
+// src/podkop/tabs/diagnostic/initController.ts
 function renderDiagnosticsChecks() {
   console.log("renderDiagnosticsChecks");
   const diagnosticsChecks = store.get().diagnosticsChecks.sort((a, b) => a.order - b.order);
@@ -3105,7 +3111,7 @@ function renderDiagnosticRunActionWidget() {
   console.log("renderDiagnosticRunActionWidget");
   const { loading } = store.get().diagnosticsRunAction;
   const container = document.getElementById("pdk_diagnostic-page-run-check");
-  const renderedAction = renderDiagnosticRunAction({
+  const renderedAction = renderRunAction({
     loading,
     click: () => runChecks()
   });
@@ -3176,7 +3182,7 @@ async function runChecks() {
     store.set({ diagnosticsRunAction: { loading: false } });
   }
 }
-async function initDiagnosticController() {
+async function initController2() {
   onMount("diagnostic-status").then(() => {
     console.log("diagnostic controller initialized.");
     store.unsubscribe(onStoreUpdate2);
@@ -3187,6 +3193,12 @@ async function initDiagnosticController() {
     renderDiagnosticSystemInfoWidget();
   });
 }
+
+// src/podkop/tabs/diagnostic/index.ts
+var DiagnosticTab = {
+  render: render2,
+  initController: initController2
+};
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
@@ -3200,6 +3212,8 @@ return baseclass.extend({
   DIAGNOSTICS_UPDATE_INTERVAL,
   DNS_SERVER_OPTIONS,
   DOMAIN_LIST_OPTIONS,
+  DashboardTab,
+  DiagnosticTab,
   ERROR_POLL_INTERVAL,
   FAKEIP_CHECK_DOMAIN,
   FETCH_TIMEOUT,
@@ -3220,8 +3234,6 @@ return baseclass.extend({
   getClashUIUrl,
   getClashWsUrl,
   getProxyUrlName,
-  initDashboardController,
-  initDiagnosticController,
   injectGlobalStyles,
   insertIf,
   insertIfObj,
@@ -3230,8 +3242,6 @@ return baseclass.extend({
   parseQueryString,
   parseValueList,
   preserveScrollForPage,
-  renderDashboard,
-  renderDiagnostic,
   socket,
   splitProxyString,
   store,
