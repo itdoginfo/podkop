@@ -812,13 +812,13 @@ configure_routing_for_section_lists() {
 
     local community_lists user_domain_list_type user_subnet_list_type local_domain_lists local_subnet_lists \
         remote_domain_lists remote_subnet_lists section_connection_type route_rule_tag
-    config_get_bool community_lists "$section" "community_lists"
+    config_get community_lists "$section" "community_lists"
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
     config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
-    config_get_bool local_domain_lists "$section" "local_domain_lists"
-    config_get_bool local_subnet_lists "$section" "local_subnet_lists"
-    config_get_bool remote_domain_lists "$section" "remote_domain_lists"
-    config_get_bool remote_subnet_lists "$section" "remote_subnet_lists"
+    config_get local_domain_lists "$section" "local_domain_lists"
+    config_get local_subnet_lists "$section" "local_subnet_lists"
+    config_get remote_domain_lists "$section" "remote_domain_lists"
+    config_get remote_subnet_lists "$section" "remote_subnet_lists"
     config_get section_connection_type "$section" "connection_type"
 
     if [ "$section_connection_type" = "block" ]; then
@@ -1387,13 +1387,13 @@ section_has_enabled_lists() {
     local community_lists user_domain_list_type user_subnet_list_type local_domain_lists local_subnet_lists \
         remote_domain_lists remote_subnet_lists
 
-    config_get_bool community_lists "$section" "community_lists"
+    config_get community_lists "$section" "community_lists"
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
     config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
-    config_get_bool local_domain_lists "$section" "local_domain_lists"
-    config_get_bool local_subnet_lists "$section" "local_subnet_lists"
-    config_get_bool remote_domain_lists "$section" "remote_domain_lists"
-    config_get_bool remote_subnet_lists "$section" "remote_subnet_lists"
+    config_get local_domain_lists "$section" "local_domain_lists"
+    config_get local_subnet_lists "$section" "local_subnet_lists"
+    config_get remote_domain_lists "$section" "remote_domain_lists"
+    config_get remote_subnet_lists "$section" "remote_subnet_lists"
 
     if [ -n "$community_lists" ] ||
         [ "$user_domain_list_type" != "disabled" ] ||
