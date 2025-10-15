@@ -12,6 +12,7 @@ import {
   renderSystemInfo,
 } from './partials';
 import { PodkopShellMethods } from '../../methods';
+import { fetchServicesInfo } from '../../fetchers';
 
 function renderDiagnosticsChecks() {
   console.log('renderDiagnosticsChecks');
@@ -59,13 +60,15 @@ async function handleRestart() {
   } catch (e) {
     console.log('handleRestart - e', e);
   } finally {
-    store.set({
-      diagnosticsActions: {
-        ...diagnosticsActions,
-        restart: { loading: false },
-      },
-    });
-    location.reload();
+    setTimeout(async () => {
+      await fetchServicesInfo();
+      store.set({
+        diagnosticsActions: {
+          ...diagnosticsActions,
+          restart: { loading: false },
+        },
+      });
+    }, 5000);
   }
 }
 
@@ -83,13 +86,13 @@ async function handleStop() {
   } catch (e) {
     console.log('handleStop - e', e);
   } finally {
+    await fetchServicesInfo();
     store.set({
       diagnosticsActions: {
         ...diagnosticsActions,
         stop: { loading: false },
       },
     });
-    // TODO actualize dashboard
   }
 }
 
@@ -107,13 +110,15 @@ async function handleStart() {
   } catch (e) {
     console.log('handleStart - e', e);
   } finally {
-    store.set({
-      diagnosticsActions: {
-        ...diagnosticsActions,
-        start: { loading: false },
-      },
-    });
-    location.reload();
+    setTimeout(async () => {
+      await fetchServicesInfo();
+      store.set({
+        diagnosticsActions: {
+          ...diagnosticsActions,
+          start: { loading: false },
+        },
+      });
+    }, 5000);
   }
 }
 
@@ -131,13 +136,13 @@ async function handleEnable() {
   } catch (e) {
     console.log('handleEnable - e', e);
   } finally {
+    await fetchServicesInfo();
     store.set({
       diagnosticsActions: {
         ...diagnosticsActions,
         enable: { loading: false },
       },
     });
-    //TODO actualize dashboard
   }
 }
 
@@ -155,19 +160,28 @@ async function handleDisable() {
   } catch (e) {
     console.log('handleDisable - e', e);
   } finally {
+    await fetchServicesInfo();
     store.set({
       diagnosticsActions: {
         ...diagnosticsActions,
         disable: { loading: false },
       },
     });
-    //TODO actualize dashboard
   }
 }
 
 function renderDiagnosticAvailableActionsWidget() {
   const diagnosticsActions = store.get().diagnosticsActions;
+  const servicesInfoWidget = store.get().servicesInfoWidget;
   console.log('renderDiagnosticActionsWidget');
+
+  const podkopEnabled = Boolean(servicesInfoWidget.data.podkop);
+  const singBoxRunning = Boolean(servicesInfoWidget.data.singbox);
+  const atLeastOneServiceCommandLoading =
+    servicesInfoWidget.loading ||
+    diagnosticsActions.restart.loading ||
+    diagnosticsActions.start.loading ||
+    diagnosticsActions.stop.loading;
 
   const container = document.getElementById('pdk_diagnostic-page-actions');
 
@@ -176,41 +190,49 @@ function renderDiagnosticAvailableActionsWidget() {
       loading: diagnosticsActions.restart.loading,
       visible: true,
       onClick: handleRestart,
+      disabled: atLeastOneServiceCommandLoading,
     },
     start: {
       loading: diagnosticsActions.start.loading,
-      visible: true,
+      visible: !singBoxRunning,
       onClick: handleStart,
+      disabled: atLeastOneServiceCommandLoading,
     },
     stop: {
       loading: diagnosticsActions.stop.loading,
-      visible: true,
+      visible: singBoxRunning,
       onClick: handleStop,
+      disabled: atLeastOneServiceCommandLoading,
     },
     enable: {
       loading: diagnosticsActions.enable.loading,
-      visible: true,
+      visible: !podkopEnabled,
       onClick: handleEnable,
+      disabled: atLeastOneServiceCommandLoading,
     },
     disable: {
       loading: diagnosticsActions.disable.loading,
-      visible: true,
+      visible: podkopEnabled,
       onClick: handleDisable,
+      disabled: atLeastOneServiceCommandLoading,
     },
     globalCheck: {
       loading: diagnosticsActions.globalCheck.loading,
       visible: true,
       onClick: () => {},
+      disabled: atLeastOneServiceCommandLoading,
     },
     viewLogs: {
       loading: diagnosticsActions.viewLogs.loading,
       visible: true,
       onClick: () => {},
+      disabled: atLeastOneServiceCommandLoading,
     },
     showSingBoxConfig: {
       loading: diagnosticsActions.showSingBoxConfig.loading,
       visible: true,
       onClick: () => {},
+      disabled: atLeastOneServiceCommandLoading,
     },
   });
 
@@ -267,7 +289,7 @@ async function onStoreUpdate(
     renderDiagnosticRunActionWidget();
   }
 
-  if (diff.diagnosticsActions) {
+  if (diff.diagnosticsActions || diff.servicesInfoWidget) {
     renderDiagnosticAvailableActionsWidget();
   }
 }
@@ -313,5 +335,8 @@ export async function initController(): Promise<void> {
 
     // Initial system info render
     renderDiagnosticSystemInfoWidget();
+
+    // Initial services info fetch
+    fetchServicesInfo();
   });
 }

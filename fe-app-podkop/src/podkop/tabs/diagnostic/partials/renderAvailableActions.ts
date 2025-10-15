@@ -14,6 +14,7 @@ import { insertIf } from '../../../../helpers';
 interface ActionProps {
   loading: boolean;
   visible: boolean;
+  disabled: boolean;
   onClick: () => void;
 }
 
@@ -47,6 +48,7 @@ export function renderAvailableActions({
         icon: renderRotateCcwIcon24,
         text: 'Restart podkop',
         loading: restart.loading,
+        disabled: restart.disabled,
       }),
     ]),
     ...insertIf(stop.visible, [
@@ -56,6 +58,7 @@ export function renderAvailableActions({
         icon: renderCircleStopIcon24,
         text: 'Stop podkop',
         loading: stop.loading,
+        disabled: stop.disabled,
       }),
     ]),
     ...insertIf(start.visible, [
@@ -65,6 +68,7 @@ export function renderAvailableActions({
         icon: renderCirclePlayIcon24,
         text: 'Start podkop',
         loading: start.loading,
+        disabled: start.disabled,
       }),
     ]),
     ...insertIf(disable.visible, [
@@ -72,8 +76,9 @@ export function renderAvailableActions({
         classNames: ['cbi-button-remove'],
         onClick: disable.onClick,
         icon: renderPauseIcon24,
-        text: 'Disable podkop',
+        text: 'Disable autostart',
         loading: disable.loading,
+        disabled: disable.disabled,
       }),
     ]),
     ...insertIf(enable.visible, [
@@ -81,8 +86,9 @@ export function renderAvailableActions({
         classNames: ['cbi-button-save'],
         onClick: enable.onClick,
         icon: renderPlayIcon24,
-        text: 'Enable podkop',
+        text: 'Enable autostart',
         loading: enable.loading,
+        disabled: enable.disabled,
       }),
     ]),
     ...insertIf(globalCheck.visible, [
@@ -91,6 +97,7 @@ export function renderAvailableActions({
         icon: renderCircleCheckBigIcon24,
         text: 'Get global check',
         loading: globalCheck.loading,
+        disabled: globalCheck.disabled,
       }),
     ]),
     ...insertIf(viewLogs.visible, [
@@ -99,6 +106,7 @@ export function renderAvailableActions({
         icon: renderSquareChartGanttIcon24,
         text: 'View logs',
         loading: viewLogs.loading,
+        disabled: viewLogs.disabled,
       }),
     ]),
     ...insertIf(showSingBoxConfig.visible, [
@@ -107,6 +115,7 @@ export function renderAvailableActions({
         icon: renderCogIcon24,
         text: 'Show sing-box config',
         loading: showSingBoxConfig.loading,
+        disabled: showSingBoxConfig.disabled,
       }),
     ]),
   ]);

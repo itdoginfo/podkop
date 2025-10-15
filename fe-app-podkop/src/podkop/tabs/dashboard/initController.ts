@@ -7,6 +7,7 @@ import { prettyBytes } from '../../../helpers/prettyBytes';
 import { CustomPodkopMethods, PodkopShellMethods } from '../../methods';
 import { socket, store, StoreType } from '../../services';
 import { renderSections, renderWidget } from './partials';
+import { fetchServicesInfo } from '../../fetchers';
 
 // Fetchers
 
@@ -34,33 +35,6 @@ async function fetchDashboardSections() {
       data,
     },
   });
-}
-
-async function fetchServicesInfo() {
-  const [podkop, singbox] = await Promise.all([
-    PodkopShellMethods.getStatus(),
-    PodkopShellMethods.getSingBoxStatus(),
-  ]);
-
-  if (!podkop.success || !singbox.success) {
-    store.set({
-      servicesInfoWidget: {
-        loading: false,
-        failed: true,
-        data: { singbox: 0, podkop: 0 },
-      },
-    });
-  }
-
-  if (podkop.success && singbox.success) {
-    store.set({
-      servicesInfoWidget: {
-        loading: false,
-        failed: false,
-        data: { singbox: singbox.data.running, podkop: podkop.data.enabled },
-      },
-    });
-  }
 }
 
 async function connectToClashSockets() {
