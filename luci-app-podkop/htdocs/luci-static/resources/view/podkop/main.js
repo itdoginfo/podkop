@@ -493,9 +493,21 @@ var PodkopShellMethods = {
     group,
     proxy
   ]),
-  restart: async () => callBaseMethod(Podkop.AvailableMethods.RESTART),
-  start: async () => callBaseMethod(Podkop.AvailableMethods.START),
-  stop: async () => callBaseMethod(Podkop.AvailableMethods.STOP),
+  restart: async () => callBaseMethod(
+    Podkop.AvailableMethods.RESTART,
+    [],
+    "/etc/init.d/podkop"
+  ),
+  start: async () => callBaseMethod(
+    Podkop.AvailableMethods.START,
+    [],
+    "/etc/init.d/podkop"
+  ),
+  stop: async () => callBaseMethod(
+    Podkop.AvailableMethods.STOP,
+    [],
+    "/etc/init.d/podkop"
+  ),
   enable: async () => callBaseMethod(
     Podkop.AvailableMethods.ENABLE,
     [],

@@ -44,9 +44,24 @@ export const PodkopShellMethods = {
       group,
       proxy,
     ]),
-  restart: async () => callBaseMethod<unknown>(Podkop.AvailableMethods.RESTART),
-  start: async () => callBaseMethod<unknown>(Podkop.AvailableMethods.START),
-  stop: async () => callBaseMethod<unknown>(Podkop.AvailableMethods.STOP),
+  restart: async () =>
+    callBaseMethod<unknown>(
+      Podkop.AvailableMethods.RESTART,
+      [],
+      '/etc/init.d/podkop',
+    ),
+  start: async () =>
+    callBaseMethod<unknown>(
+      Podkop.AvailableMethods.START,
+      [],
+      '/etc/init.d/podkop',
+    ),
+  stop: async () =>
+    callBaseMethod<unknown>(
+      Podkop.AvailableMethods.STOP,
+      [],
+      '/etc/init.d/podkop',
+    ),
   enable: async () =>
     callBaseMethod<unknown>(
       Podkop.AvailableMethods.ENABLE,
