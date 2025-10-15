@@ -101,7 +101,7 @@ export async function runSingBoxCheck() {
     ],
   });
 
-  if (!atLeastOneGood) {
+  if (!atLeastOneGood || !data.sing_box_process_running) {
     throw new Error('Sing-box checks failed');
   }
 }

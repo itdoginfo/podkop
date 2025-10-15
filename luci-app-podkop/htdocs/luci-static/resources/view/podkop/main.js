@@ -449,6 +449,7 @@ var Podkop;
     AvailableMethods2["GLOBAL_CHECK"] = "global_check";
     AvailableMethods2["SHOW_SING_BOX_CONFIG"] = "show_sing_box_config";
     AvailableMethods2["CHECK_LOGS"] = "check_logs";
+    AvailableMethods2["GET_SYSTEM_INFO"] = "get_system_info";
   })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
   let AvailableClashAPIMethods;
   ((AvailableClashAPIMethods2) => {
@@ -520,7 +521,8 @@ var PodkopShellMethods = {
   ),
   globalCheck: async () => callBaseMethod(Podkop.AvailableMethods.GLOBAL_CHECK),
   showSingBoxConfig: async () => callBaseMethod(Podkop.AvailableMethods.SHOW_SING_BOX_CONFIG),
-  checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS)
+  checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS),
+  getSystemInfo: async () => callBaseMethod(Podkop.AvailableMethods.GET_SYSTEM_INFO)
 };
 
 // src/podkop/methods/custom/getDashboardSections.ts
@@ -2172,7 +2174,7 @@ async function runSingBoxCheck() {
       }
     ]
   });
-  if (!atLeastOneGood) {
+  if (!atLeastOneGood || !data.sing_box_process_running) {
     throw new Error("Sing-box checks failed");
   }
 }
@@ -3244,6 +3246,7 @@ async function handleRestart() {
           restart: { loading: false }
         }
       });
+      store.reset(["diagnosticsChecks"]);
     }, 5e3);
   }
 }
@@ -3267,6 +3270,7 @@ async function handleStop() {
         stop: { loading: false }
       }
     });
+    store.reset(["diagnosticsChecks"]);
   }
 }
 async function handleStart() {
@@ -3290,6 +3294,7 @@ async function handleStart() {
           start: { loading: false }
         }
       });
+      store.reset(["diagnosticsChecks"]);
     }, 5e3);
   }
 }

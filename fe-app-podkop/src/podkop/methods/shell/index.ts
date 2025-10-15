@@ -80,4 +80,6 @@ export const PodkopShellMethods = {
     callBaseMethod<unknown>(Podkop.AvailableMethods.SHOW_SING_BOX_CONFIG),
   checkLogs: async () =>
     callBaseMethod<unknown>(Podkop.AvailableMethods.CHECK_LOGS),
+  getSystemInfo: async () =>
+    callBaseMethod<unknown>(Podkop.AvailableMethods.GET_SYSTEM_INFO),
 };

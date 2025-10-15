@@ -68,6 +68,7 @@ async function handleRestart() {
           restart: { loading: false },
         },
       });
+      store.reset(['diagnosticsChecks']);
     }, 5000);
   }
 }
@@ -93,6 +94,7 @@ async function handleStop() {
         stop: { loading: false },
       },
     });
+    store.reset(['diagnosticsChecks']);
   }
 }
 
@@ -118,6 +120,7 @@ async function handleStart() {
           start: { loading: false },
         },
       });
+      store.reset(['diagnosticsChecks']);
     }, 5000);
   }
 }

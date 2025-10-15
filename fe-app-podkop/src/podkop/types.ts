@@ -67,6 +67,7 @@ export namespace Podkop {
     GLOBAL_CHECK = 'global_check',
     SHOW_SING_BOX_CONFIG = 'show_sing_box_config',
     CHECK_LOGS = 'check_logs',
+    GET_SYSTEM_INFO = 'get_system_info',
   }
 
   export enum AvailableClashAPIMethods {
