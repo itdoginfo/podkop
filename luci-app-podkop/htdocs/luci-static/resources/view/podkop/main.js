@@ -404,9 +404,9 @@ async function getConfigSections() {
 }
 
 // src/podkop/methods/shell/callBaseMethod.ts
-async function callBaseMethod(method, args = []) {
+async function callBaseMethod(method, args = [], command = "/usr/bin/podkop") {
   const response = await executeShellCommand({
-    command: "/usr/bin/podkop",
+    command,
     args: [method, ...args],
     timeout: 1e4
   });
@@ -496,8 +496,16 @@ var PodkopShellMethods = {
   restart: async () => callBaseMethod(Podkop.AvailableMethods.RESTART),
   start: async () => callBaseMethod(Podkop.AvailableMethods.START),
   stop: async () => callBaseMethod(Podkop.AvailableMethods.STOP),
-  enable: async () => callBaseMethod(Podkop.AvailableMethods.ENABLE),
-  disable: async () => callBaseMethod(Podkop.AvailableMethods.DISABLE),
+  enable: async () => callBaseMethod(
+    Podkop.AvailableMethods.ENABLE,
+    [],
+    "/etc/init.d/podkop"
+  ),
+  disable: async () => callBaseMethod(
+    Podkop.AvailableMethods.DISABLE,
+    [],
+    "/etc/init.d/podkop"
+  ),
   globalCheck: async () => callBaseMethod(Podkop.AvailableMethods.GLOBAL_CHECK),
   showSingBoxConfig: async () => callBaseMethod(Podkop.AvailableMethods.SHOW_SING_BOX_CONFIG),
   checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS)

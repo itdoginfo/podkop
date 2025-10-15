@@ -47,8 +47,18 @@ export const PodkopShellMethods = {
   restart: async () => callBaseMethod<unknown>(Podkop.AvailableMethods.RESTART),
   start: async () => callBaseMethod<unknown>(Podkop.AvailableMethods.START),
   stop: async () => callBaseMethod<unknown>(Podkop.AvailableMethods.STOP),
-  enable: async () => callBaseMethod<unknown>(Podkop.AvailableMethods.ENABLE),
-  disable: async () => callBaseMethod<unknown>(Podkop.AvailableMethods.DISABLE),
+  enable: async () =>
+    callBaseMethod<unknown>(
+      Podkop.AvailableMethods.ENABLE,
+      [],
+      '/etc/init.d/podkop',
+    ),
+  disable: async () =>
+    callBaseMethod<unknown>(
+      Podkop.AvailableMethods.DISABLE,
+      [],
+      '/etc/init.d/podkop',
+    ),
   globalCheck: async () =>
     callBaseMethod<unknown>(Podkop.AvailableMethods.GLOBAL_CHECK),
   showSingBoxConfig: async () =>
