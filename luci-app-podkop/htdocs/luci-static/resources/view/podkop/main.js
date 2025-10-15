@@ -2044,8 +2044,8 @@ async function runDnsCheck() {
     throw new Error("DNS checks failed");
   }
   const data = dnsChecks.data;
-  const allGood = Boolean(data.dns_on_router) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
-  const atLeastOneGood = Boolean(data.dns_on_router) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
+  const allGood = Boolean(data.dns_on_router) && Boolean(data.dhcp_has_dns_server) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
+  const atLeastOneGood = Boolean(data.dns_on_router) || Boolean(data.dhcp_has_dns_server) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
   console.log("dnsChecks", dnsChecks);
   function getStatus() {
     if (allGood) {
@@ -2080,7 +2080,12 @@ async function runDnsCheck() {
       },
       {
         state: data.dns_on_router ? "success" : "error",
-        key: _("Local DNS"),
+        key: _("DNS on router"),
+        value: ""
+      },
+      {
+        state: data.dhcp_has_dns_server ? "success" : "error",
+        key: _("Dhcp has dns server"),
         value: ""
       }
     ]
