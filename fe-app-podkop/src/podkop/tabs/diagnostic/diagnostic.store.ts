@@ -6,8 +6,20 @@ import { StoreType } from '../../services';
 
 export const initialDiagnosticStore: Pick<
   StoreType,
-  'diagnosticsChecks' | 'diagnosticsRunAction' | 'diagnosticsActions'
+  | 'diagnosticsChecks'
+  | 'diagnosticsRunAction'
+  | 'diagnosticsActions'
+  | 'diagnosticsSystemInfo'
 > = {
+  diagnosticsSystemInfo: {
+    loading: true,
+    podkop_version: 'loading',
+    podkop_latest_version: 'loading',
+    luci_app_version: 'loading',
+    sing_box_version: 'loading',
+    openwrt_version: 'loading',
+    device_model: 'loading',
+  },
   diagnosticsActions: {
     restart: {
       loading: false,

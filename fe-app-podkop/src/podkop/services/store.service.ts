@@ -181,6 +181,15 @@ export interface StoreType {
     viewLogs: { loading: boolean };
     showSingBoxConfig: { loading: boolean };
   };
+  diagnosticsSystemInfo: {
+    loading: boolean;
+    podkop_version: string;
+    podkop_latest_version: string;
+    luci_app_version: string;
+    sing_box_version: string;
+    openwrt_version: string;
+    device_model: string;
+  };
 }
 
 const initialStore: StoreType = {

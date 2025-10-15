@@ -522,7 +522,9 @@ var PodkopShellMethods = {
   globalCheck: async () => callBaseMethod(Podkop.AvailableMethods.GLOBAL_CHECK),
   showSingBoxConfig: async () => callBaseMethod(Podkop.AvailableMethods.SHOW_SING_BOX_CONFIG),
   checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS),
-  getSystemInfo: async () => callBaseMethod(Podkop.AvailableMethods.GET_SYSTEM_INFO)
+  getSystemInfo: async () => callBaseMethod(
+    Podkop.AvailableMethods.GET_SYSTEM_INFO
+  )
 };
 
 // src/podkop/methods/custom/getDashboardSections.ts
@@ -924,6 +926,15 @@ var DIAGNOSTICS_CHECKS_MAP = {
 
 // src/podkop/tabs/diagnostic/diagnostic.store.ts
 var initialDiagnosticStore = {
+  diagnosticsSystemInfo: {
+    loading: true,
+    podkop_version: "loading",
+    podkop_latest_version: "loading",
+    luci_app_version: "loading",
+    sing_box_version: "loading",
+    openwrt_version: "loading",
+    device_model: "loading"
+  },
   diagnosticsActions: {
     restart: {
       loading: false
@@ -3192,16 +3203,63 @@ function renderSystemInfo({ items }) {
       { class: "pdk_diagnostic-page__right-bar__system-info__title" },
       "System information"
     ),
-    ...items.map(
-      (item) => E("div", { class: "pdk_diagnostic-page__right-bar__system-info__row" }, [
-        E("b", {}, item.key),
-        E("div", {}, item.value)
-      ])
-    )
+    ...items.map((item) => {
+      const tagClass = [
+        "pdk_diagnostic-page__right-bar__system-info__row__tag",
+        ...insertIf(item.tag?.kind === "warning", [
+          "pdk_diagnostic-page__right-bar__system-info__row__tag--warning"
+        ]),
+        ...insertIf(item.tag?.kind === "success", [
+          "pdk_diagnostic-page__right-bar__system-info__row__tag--success"
+        ])
+      ].filter(Boolean).join(" ");
+      return E(
+        "div",
+        { class: "pdk_diagnostic-page__right-bar__system-info__row" },
+        [
+          E("b", {}, item.key),
+          E("div", {}, [
+            E("span", {}, item.value),
+            E("span", { class: tagClass }, item?.tag?.label)
+          ])
+        ]
+      );
+    })
   ]);
 }
 
+// src/helpers/normalizeCompiledVersion.ts
+function normalizeCompiledVersion(version) {
+  if (version.includes("COMPILED")) {
+    return "dev";
+  }
+  return version;
+}
+
 // src/podkop/tabs/diagnostic/initController.ts
+async function fetchSystemInfo() {
+  const systemInfo = await PodkopShellMethods.getSystemInfo();
+  if (systemInfo.success) {
+    store.set({
+      diagnosticsSystemInfo: {
+        loading: false,
+        ...systemInfo.data
+      }
+    });
+  } else {
+    store.set({
+      diagnosticsSystemInfo: {
+        loading: false,
+        podkop_version: "unknown",
+        podkop_latest_version: "unknown",
+        luci_app_version: "unknown",
+        sing_box_version: "unknown",
+        openwrt_version: "unknown",
+        device_model: "unknown"
+      }
+    });
+  }
+}
 function renderDiagnosticsChecks() {
   console.log("renderDiagnosticsChecks");
   const diagnosticsChecks = store.get().diagnosticsChecks.sort((a, b) => a.order - b.order);
@@ -3409,28 +3467,61 @@ function renderDiagnosticAvailableActionsWidget() {
 }
 function renderDiagnosticSystemInfoWidget() {
   console.log("renderDiagnosticSystemInfoWidget");
+  const diagnosticsSystemInfo = store.get().diagnosticsSystemInfo;
   const container = document.getElementById("pdk_diagnostic-page-system-info");
+  function getPodkopVersionRow() {
+    const loading = diagnosticsSystemInfo.loading;
+    const unknown = diagnosticsSystemInfo.podkop_version === "unknown";
+    const hasActualVersion = Boolean(
+      diagnosticsSystemInfo.podkop_latest_version
+    );
+    const version = normalizeCompiledVersion(
+      diagnosticsSystemInfo.podkop_version
+    );
+    const isDevVersion = version === "dev";
+    if (loading || unknown || !hasActualVersion || isDevVersion) {
+      return {
+        key: "Podkop",
+        value: version
+      };
+    }
+    if (version !== diagnosticsSystemInfo.podkop_latest_version) {
+      return {
+        key: "Podkop",
+        value: version,
+        tag: {
+          label: "Outdated",
+          kind: "warning"
+        }
+      };
+    }
+    return {
+      key: "Podkop",
+      value: version,
+      tag: {
+        label: "Latest",
+        kind: "success"
+      }
+    };
+  }
   const renderedSystemInfo = renderSystemInfo({
     items: [
-      {
-        key: "Podkop",
-        value: "1"
-      },
+      getPodkopVersionRow(),
       {
         key: "Luci App",
-        value: "1"
+        value: normalizeCompiledVersion(diagnosticsSystemInfo.luci_app_version)
       },
       {
         key: "Sing-box",
-        value: "1"
+        value: diagnosticsSystemInfo.sing_box_version
       },
       {
         key: "OS",
-        value: "1"
+        value: diagnosticsSystemInfo.openwrt_version
       },
       {
         key: "Device",
-        value: "1"
+        value: diagnosticsSystemInfo.device_model
       }
     ]
   });
@@ -3447,6 +3538,9 @@ async function onStoreUpdate2(next, prev, diff) {
   }
   if (diff.diagnosticsActions || diff.servicesInfoWidget) {
     renderDiagnosticAvailableActionsWidget();
+  }
+  if (diff.diagnosticsSystemInfo) {
+    renderDiagnosticSystemInfoWidget();
   }
 }
 async function runChecks() {
@@ -3475,6 +3569,7 @@ async function initController2() {
     renderDiagnosticAvailableActionsWidget();
     renderDiagnosticSystemInfoWidget();
     fetchServicesInfo();
+    fetchSystemInfo();
   });
 }
 
@@ -3537,6 +3632,23 @@ var styles3 = `
     display: grid;
     grid-template-columns: auto 1fr;
     grid-column-gap: 5px;
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row__tag {
+    padding: 2px 4px;
+    border: 1px transparent solid;
+    border-radius: 4px;
+    margin-left: 5px;
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row__tag--warning {
+    border: 1px var(--warn-color-medium, orange) solid;
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row__tag--success {
+    border: 1px var(--success-color-medium, green) solid;
+    color: var(--success-color-medium, green);
 }
 
 .pdk_diagnostic-page__left-bar {

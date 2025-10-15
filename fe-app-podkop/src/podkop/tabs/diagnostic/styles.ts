@@ -59,6 +59,23 @@ export const styles = `
     grid-column-gap: 5px;
 }
 
+.pdk_diagnostic-page__right-bar__system-info__row__tag {
+    padding: 2px 4px;
+    border: 1px transparent solid;
+    border-radius: 4px;
+    margin-left: 5px;
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row__tag--warning {
+    border: 1px var(--warn-color-medium, orange) solid;
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row__tag--success {
+    border: 1px var(--success-color-medium, green) solid;
+    color: var(--success-color-medium, green);
+}
+
 .pdk_diagnostic-page__left-bar {
     display: grid;
     grid-template-columns: 1fr;

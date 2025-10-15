@@ -81,5 +81,7 @@ export const PodkopShellMethods = {
   checkLogs: async () =>
     callBaseMethod<unknown>(Podkop.AvailableMethods.CHECK_LOGS),
   getSystemInfo: async () =>
-    callBaseMethod<unknown>(Podkop.AvailableMethods.GET_SYSTEM_INFO),
+    callBaseMethod<Podkop.GetSystemInfo>(
+      Podkop.AvailableMethods.GET_SYSTEM_INFO,
+    ),
 };

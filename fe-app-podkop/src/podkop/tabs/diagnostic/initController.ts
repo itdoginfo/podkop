@@ -6,6 +6,7 @@ import { runFakeIPCheck } from './checks/runFakeIPCheck';
 import { loadingDiagnosticsChecksStore } from './diagnostic.store';
 import { store, StoreType } from '../../services';
 import {
+  IRenderSystemInfoRow,
   renderAvailableActions,
   renderCheckSection,
   renderRunAction,
@@ -13,6 +14,32 @@ import {
 } from './partials';
 import { PodkopShellMethods } from '../../methods';
 import { fetchServicesInfo } from '../../fetchers';
+import { normalizeCompiledVersion } from '../../../helpers/normalizeCompiledVersion';
+
+async function fetchSystemInfo() {
+  const systemInfo = await PodkopShellMethods.getSystemInfo();
+
+  if (systemInfo.success) {
+    store.set({
+      diagnosticsSystemInfo: {
+        loading: false,
+        ...systemInfo.data,
+      },
+    });
+  } else {
+    store.set({
+      diagnosticsSystemInfo: {
+        loading: false,
+        podkop_version: 'unknown',
+        podkop_latest_version: 'unknown',
+        luci_app_version: 'unknown',
+        sing_box_version: 'unknown',
+        openwrt_version: 'unknown',
+        device_model: 'unknown',
+      },
+    });
+  }
+}
 
 function renderDiagnosticsChecks() {
   console.log('renderDiagnosticsChecks');
@@ -246,30 +273,67 @@ function renderDiagnosticAvailableActionsWidget() {
 
 function renderDiagnosticSystemInfoWidget() {
   console.log('renderDiagnosticSystemInfoWidget');
+  const diagnosticsSystemInfo = store.get().diagnosticsSystemInfo;
 
   const container = document.getElementById('pdk_diagnostic-page-system-info');
 
+  function getPodkopVersionRow(): IRenderSystemInfoRow {
+    const loading = diagnosticsSystemInfo.loading;
+    const unknown = diagnosticsSystemInfo.podkop_version === 'unknown';
+    const hasActualVersion = Boolean(
+      diagnosticsSystemInfo.podkop_latest_version,
+    );
+    const version = normalizeCompiledVersion(
+      diagnosticsSystemInfo.podkop_version,
+    );
+    const isDevVersion = version === 'dev';
+
+    if (loading || unknown || !hasActualVersion || isDevVersion) {
+      return {
+        key: 'Podkop',
+        value: version,
+      };
+    }
+
+    if (version !== diagnosticsSystemInfo.podkop_latest_version) {
+      return {
+        key: 'Podkop',
+        value: version,
+        tag: {
+          label: 'Outdated',
+          kind: 'warning',
+        },
+      };
+    }
+
+    return {
+      key: 'Podkop',
+      value: version,
+      tag: {
+        label: 'Latest',
+        kind: 'success',
+      },
+    };
+  }
+
   const renderedSystemInfo = renderSystemInfo({
     items: [
-      {
-        key: 'Podkop',
-        value: '1',
-      },
+      getPodkopVersionRow(),
       {
         key: 'Luci App',
-        value: '1',
+        value: normalizeCompiledVersion(diagnosticsSystemInfo.luci_app_version),
       },
       {
         key: 'Sing-box',
-        value: '1',
+        value: diagnosticsSystemInfo.sing_box_version,
       },
       {
         key: 'OS',
-        value: '1',
+        value: diagnosticsSystemInfo.openwrt_version,
       },
       {
         key: 'Device',
-        value: '1',
+        value: diagnosticsSystemInfo.device_model,
       },
     ],
   });
@@ -294,6 +358,10 @@ async function onStoreUpdate(
 
   if (diff.diagnosticsActions || diff.servicesInfoWidget) {
     renderDiagnosticAvailableActionsWidget();
+  }
+
+  if (diff.diagnosticsSystemInfo) {
+    renderDiagnosticSystemInfoWidget();
   }
 }
 
@@ -341,5 +409,8 @@ export async function initController(): Promise<void> {
 
     // Initial services info fetch
     fetchServicesInfo();
+
+    // Initial system info fetch
+    fetchSystemInfo();
   });
 }
