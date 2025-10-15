@@ -1736,6 +1736,44 @@ show_system_info() {
     cat /tmp/sysinfo/model
 }
 
+get_system_info() {
+    local podkop_version podkop_latest_version luci_app_version sing_box_version openwrt_version device_model
+    
+    podkop_version="$PODKOP_VERSION"
+    
+    podkop_latest_version=$(curl -m 3 -s https://api.github.com/repos/itdoginfo/podkop/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+    [ -z "$podkop_latest_version" ] && podkop_latest_version="unknown"
+    
+    if [ -f /www/luci-static/resources/view/podkop/main.js ]; then
+        luci_app_version=$(grep 'var PODKOP_LUCI_APP_VERSION' /www/luci-static/resources/view/podkop/main.js | cut -d'"' -f2)
+    else
+        luci_app_version="not installed"
+    fi
+    
+    if command -v sing-box >/dev/null 2>&1; then
+        sing_box_version=$(sing-box version 2>/dev/null | head -n 1 | awk '{print $3}')
+        [ -z "$sing_box_version" ] && sing_box_version="unknown"
+    else
+        sing_box_version="not installed"
+    fi
+    
+    if [ -f /etc/os-release ]; then
+        openwrt_version=$(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)
+        [ -z "$openwrt_version" ] && openwrt_version="unknown"
+    else
+        openwrt_version="unknown"
+    fi
+    
+    if [ -f /tmp/sysinfo/model ]; then
+        device_model=$(cat /tmp/sysinfo/model)
+        [ -z "$device_model" ] && device_model="unknown"
+    else
+        device_model="unknown"
+    fi
+    
+    echo "{\"podkop_version\": \"$podkop_version\", \"podkop_latest_version\": \"$podkop_latest_version\", \"luci_app_version\": \"$luci_app_version\", \"sing_box_version\": \"$sing_box_version\", \"openwrt_version\": \"$openwrt_version\", \"device_model\": \"$device_model\"}" | jq .
+}
+
 get_sing_box_status() {
     local running=0
     local enabled=0
@@ -1792,20 +1830,6 @@ get_status() {
     fi
 
     echo "{\"enabled\":$enabled,\"status\":\"$status\"}"
-}
-
-get_latest_podkop_version() {
-    local latest_version
-    local current_version="$PODKOP_VERSION"
-    
-    latest_version=$(curl -m 3 -s https://api.github.com/repos/itdoginfo/podkop/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
-    
-    if [ -z "$latest_version" ]; then
-        echo "{\"error\": \"Unable to fetch latest version\"}"
-        return 1
-    fi
-    
-    echo "{\"current\": \"$current_version\", \"latest\": \"$latest_version\"}" | jq .
 }
 
 check_dns_available() {
@@ -2325,7 +2349,7 @@ Available commands:
     show_system_info        Show system information
     get_status              Get podkop service status
     get_sing_box_status     Get sing-box service status
-    get_latest_podkop_version  Get latest podkop version from GitHubs
+    get_system_info         Get system information in JSON format
     check_dns_available     Check DNS server availability
     global_check            Run global system check
 EOF
@@ -2404,8 +2428,8 @@ get_status)
 get_sing_box_status)
     get_sing_box_status
     ;;
-get_latest_podkop_version)
-    get_latest_podkop_version
+get_system_info)
+    get_system_info
     ;;
 check_dns_available)
     check_dns_available
