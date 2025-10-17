@@ -3,6 +3,7 @@
 "require baseclass";
 "require fs";
 "require uci";
+"require ui";
 
 // src/validators/validateIp.ts
 function validateIPV4(ip) {
@@ -2390,6 +2391,9 @@ var styles2 = `
 }
 `;
 
+// src/partials/modal/styles.ts
+var styles3 = ``;
+
 // src/icons/renderLoaderCircleIcon24.ts
 function renderLoaderCircleIcon24() {
   const NS = "http://www.w3.org/2000/svg";
@@ -2929,6 +2933,7 @@ function renderButton({
 // src/partials/index.ts
 var PartialStyles = `
 ${styles2}
+${styles3}
 `;
 
 // src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts
@@ -3442,8 +3447,7 @@ function renderDiagnosticAvailableActionsWidget() {
     globalCheck: {
       loading: diagnosticsActions.globalCheck.loading,
       visible: true,
-      onClick: () => {
-      },
+      onClick: () => ui.showModal("globalCheck", E("div", {}, "Example")),
       disabled: atLeastOneServiceCommandLoading
     },
     viewLogs: {
@@ -3574,7 +3578,7 @@ async function initController2() {
 }
 
 // src/podkop/tabs/diagnostic/styles.ts
-var styles3 = `
+var styles4 = `
 
 #cbi-podkop-diagnostic-_mount_node > div {
     width: 100%;
@@ -3743,7 +3747,7 @@ var styles3 = `
 var DiagnosticTab = {
   render: render2,
   initController: initController2,
-  styles: styles3
+  styles: styles4
 };
 
 // src/styles.ts

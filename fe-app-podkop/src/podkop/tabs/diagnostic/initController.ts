@@ -249,7 +249,7 @@ function renderDiagnosticAvailableActionsWidget() {
     globalCheck: {
       loading: diagnosticsActions.globalCheck.loading,
       visible: true,
-      onClick: () => {},
+      onClick: () => ui.showModal('globalCheck', E('div', {}, 'Example')),
       disabled: atLeastOneServiceCommandLoading,
     },
     viewLogs: {

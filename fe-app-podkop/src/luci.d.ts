@@ -35,6 +35,11 @@ declare global {
   };
 
   const _ = (_key: string) => string;
+
+  const ui = {
+    showModal: (_title: stirng, _content: HtmlElement) => undefined,
+    hideModal: () => undefined,
+  };
 }
 
 export {};
