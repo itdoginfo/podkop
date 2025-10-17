@@ -18,6 +18,27 @@ class SocketManager {
     return SocketManager.instance;
   }
 
+  resetAll(): void {
+    for (const [url, ws] of this.sockets.entries()) {
+      try {
+        if (
+          ws.readyState === WebSocket.OPEN ||
+          ws.readyState === WebSocket.CONNECTING
+        ) {
+          ws.close();
+        }
+      } catch (err) {
+        console.warn(`resetAll: failed to close socket ${url}`, err);
+      }
+    }
+
+    this.sockets.clear();
+    this.listeners.clear();
+    this.errorListeners.clear();
+    this.connected.clear();
+    console.info('[SocketManager] All connections and state have been reset.');
+  }
+
   connect(url: string): void {
     if (this.sockets.has(url)) return;
 

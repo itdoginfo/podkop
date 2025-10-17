@@ -1192,6 +1192,22 @@ var SocketManager = class _SocketManager {
     }
     return _SocketManager.instance;
   }
+  resetAll() {
+    for (const [url, ws] of this.sockets.entries()) {
+      try {
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
+      } catch (err) {
+        console.warn(`resetAll: failed to close socket ${url}`, err);
+      }
+    }
+    this.sockets.clear();
+    this.listeners.clear();
+    this.errorListeners.clear();
+    this.connected.clear();
+    console.info("[SocketManager] All connections and state have been reset.");
+  }
   connect(url) {
     if (this.sockets.has(url)) return;
     let ws;
@@ -1576,6 +1592,7 @@ async function fetchDashboardSections() {
   });
 }
 async function connectToClashSockets() {
+  console.log("[SOCKET] connectToClashSockets");
   socket.subscribe(
     `${getClashWsUrl()}/traffic?token=`,
     (msg) => {
@@ -1866,20 +1883,46 @@ async function onStoreUpdate(next, prev, diff) {
     renderServicesInfoWidget();
   }
 }
+async function onPageMount() {
+  onPageUnmount();
+  store.subscribe(onStoreUpdate);
+  await fetchDashboardSections();
+  await fetchServicesInfo();
+  await connectToClashSockets();
+}
+function onPageUnmount() {
+  store.unsubscribe(onStoreUpdate);
+  store.reset([
+    "bandwidthWidget",
+    "trafficTotalWidget",
+    "systemInfoWidget",
+    "servicesInfoWidget",
+    "sectionsWidget"
+  ]);
+  socket.resetAll();
+}
+function registerLifecycleListeners() {
+  store.subscribe((next, prev, diff) => {
+    if (diff.tabService && next.tabService.current !== prev.tabService.current) {
+      console.log(
+        (/* @__PURE__ */ new Date()).toISOString(),
+        "[Active Tab on dashboard]",
+        diff.tabService.current
+      );
+      const isDashboardVisible = next.tabService.current === "dashboard";
+      if (isDashboardVisible) {
+        return onPageMount();
+      }
+      if (!isDashboardVisible) {
+        onPageUnmount();
+      }
+    }
+  });
+}
 async function initController() {
   onMount("dashboard-status").then(() => {
-    store.unsubscribe(onStoreUpdate);
-    store.reset([
-      "bandwidthWidget",
-      "trafficTotalWidget",
-      "systemInfoWidget",
-      "servicesInfoWidget",
-      "sectionsWidget"
-    ]);
-    store.subscribe(onStoreUpdate);
-    fetchDashboardSections();
-    fetchServicesInfo();
-    connectToClashSockets();
+    onPageMount();
+    registerLifecycleListeners();
   });
 }
 
@@ -3744,17 +3787,48 @@ async function runChecks() {
     store.set({ diagnosticsRunAction: { loading: false } });
   }
 }
+function onPageMount2() {
+  console.log("diagnostic controller initialized.");
+  onPageUnmount2();
+  store.subscribe(onStoreUpdate2);
+  renderDiagnosticsChecks();
+  renderDiagnosticRunActionWidget();
+  renderDiagnosticAvailableActionsWidget();
+  renderDiagnosticSystemInfoWidget();
+  fetchServicesInfo();
+  fetchSystemInfo();
+}
+function onPageUnmount2() {
+  store.unsubscribe(onStoreUpdate2);
+  store.reset([
+    "diagnosticsActions",
+    "diagnosticsSystemInfo",
+    "diagnosticsChecks",
+    "diagnosticsRunAction"
+  ]);
+}
+function registerLifecycleListeners2() {
+  store.subscribe((next, prev, diff) => {
+    if (diff.tabService && next.tabService.current !== prev.tabService.current) {
+      console.log(
+        (/* @__PURE__ */ new Date()).toISOString(),
+        "[Active Tab on diagnostics]",
+        diff.tabService.current
+      );
+      const isDashboardVisible = next.tabService.current === "diagnostic";
+      if (isDashboardVisible) {
+        return onPageMount2();
+      }
+      if (!isDashboardVisible) {
+        onPageUnmount2();
+      }
+    }
+  });
+}
 async function initController2() {
   onMount("diagnostic-status").then(() => {
-    console.log("diagnostic controller initialized.");
-    store.unsubscribe(onStoreUpdate2);
-    store.subscribe(onStoreUpdate2);
-    renderDiagnosticsChecks();
-    renderDiagnosticRunActionWidget();
-    renderDiagnosticAvailableActionsWidget();
-    renderDiagnosticSystemInfoWidget();
-    fetchServicesInfo();
-    fetchSystemInfo();
+    onPageMount2();
+    registerLifecycleListeners2();
   });
 }
 

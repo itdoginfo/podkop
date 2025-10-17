@@ -477,31 +477,73 @@ async function runChecks() {
   }
 }
 
+function onPageMount() {
+  console.log('diagnostic controller initialized.');
+  // Cleanup before mount
+  onPageUnmount();
+
+  // Add new listener
+  store.subscribe(onStoreUpdate);
+
+  // Initial checks render
+  renderDiagnosticsChecks();
+
+  // Initial run checks action render
+  renderDiagnosticRunActionWidget();
+
+  // Initial available actions render
+  renderDiagnosticAvailableActionsWidget();
+
+  // Initial system info render
+  renderDiagnosticSystemInfoWidget();
+
+  // Initial services info fetch
+  fetchServicesInfo();
+
+  // Initial system info fetch
+  fetchSystemInfo();
+}
+
+function onPageUnmount() {
+  // Remove old listener
+  store.unsubscribe(onStoreUpdate);
+
+  // Clear store
+  store.reset([
+    'diagnosticsActions',
+    'diagnosticsSystemInfo',
+    'diagnosticsChecks',
+    'diagnosticsRunAction',
+  ]);
+}
+
+function registerLifecycleListeners() {
+  store.subscribe((next, prev, diff) => {
+    if (
+      diff.tabService &&
+      next.tabService.current !== prev.tabService.current
+    ) {
+      console.log(
+        new Date().toISOString(),
+        '[Active Tab on diagnostics]',
+        diff.tabService.current,
+      );
+      const isDashboardVisible = next.tabService.current === 'diagnostic';
+
+      if (isDashboardVisible) {
+        return onPageMount();
+      }
+
+      if (!isDashboardVisible) {
+        onPageUnmount();
+      }
+    }
+  });
+}
+
 export async function initController(): Promise<void> {
   onMount('diagnostic-status').then(() => {
-    console.log('diagnostic controller initialized.');
-    // Remove old listener
-    store.unsubscribe(onStoreUpdate);
-
-    // Add new listener
-    store.subscribe(onStoreUpdate);
-
-    // Initial checks render
-    renderDiagnosticsChecks();
-
-    // Initial run checks action render
-    renderDiagnosticRunActionWidget();
-
-    // Initial available actions render
-    renderDiagnosticAvailableActionsWidget();
-
-    // Initial system info render
-    renderDiagnosticSystemInfoWidget();
-
-    // Initial services info fetch
-    fetchServicesInfo();
-
-    // Initial system info fetch
-    fetchSystemInfo();
+    onPageMount();
+    registerLifecycleListeners();
   });
 }

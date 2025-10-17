@@ -38,6 +38,7 @@ async function fetchDashboardSections() {
 }
 
 async function connectToClashSockets() {
+  console.log('[SOCKET] connectToClashSockets');
   socket.subscribe(
     `${getClashWsUrl()}/traffic?token=`,
     (msg) => {
@@ -388,25 +389,60 @@ async function onStoreUpdate(
   }
 }
 
+async function onPageMount() {
+  // Cleanup before mount
+  onPageUnmount();
+
+  // Add new listener
+  store.subscribe(onStoreUpdate);
+
+  // Initial sections fetch
+  await fetchDashboardSections();
+  await fetchServicesInfo();
+  await connectToClashSockets();
+}
+
+function onPageUnmount() {
+  // Remove old listener
+  store.unsubscribe(onStoreUpdate);
+  // Clear store
+  store.reset([
+    'bandwidthWidget',
+    'trafficTotalWidget',
+    'systemInfoWidget',
+    'servicesInfoWidget',
+    'sectionsWidget',
+  ]);
+  socket.resetAll();
+}
+
+function registerLifecycleListeners() {
+  store.subscribe((next, prev, diff) => {
+    if (
+      diff.tabService &&
+      next.tabService.current !== prev.tabService.current
+    ) {
+      console.log(
+        new Date().toISOString(),
+        '[Active Tab on dashboard]',
+        diff.tabService.current,
+      );
+      const isDashboardVisible = next.tabService.current === 'dashboard';
+
+      if (isDashboardVisible) {
+        return onPageMount();
+      }
+
+      if (!isDashboardVisible) {
+        onPageUnmount();
+      }
+    }
+  });
+}
+
 export async function initController(): Promise<void> {
   onMount('dashboard-status').then(() => {
-    // Remove old listener
-    store.unsubscribe(onStoreUpdate);
-    // Clear store
-    store.reset([
-      'bandwidthWidget',
-      'trafficTotalWidget',
-      'systemInfoWidget',
-      'servicesInfoWidget',
-      'sectionsWidget',
-    ]);
-
-    // Add new listener
-    store.subscribe(onStoreUpdate);
-
-    // Initial sections fetch
-    fetchDashboardSections();
-    fetchServicesInfo();
-    connectToClashSockets();
+    onPageMount();
+    registerLifecycleListeners();
   });
 }
