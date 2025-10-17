@@ -2954,6 +2954,25 @@ function renderButton({
   );
 }
 
+// src/helpers/showToast.ts
+function showToast(message, type, duration = 3e3) {
+  let container = document.querySelector(".toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add("visible"), 100);
+  setTimeout(() => {
+    toast.classList.remove("visible");
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
 // src/helpers/copyToClipboard.ts
 function copyToClipboard(text) {
   const textarea = document.createElement("textarea");
@@ -2962,7 +2981,9 @@ function copyToClipboard(text) {
   textarea.select();
   try {
     document.execCommand("copy");
+    showToast(_("Successfully copied!"), "success");
   } catch (_err) {
+    showToast(_("Failed to copy!"), "error");
     console.error("copyToClipboard - e", _err);
   }
   document.body.removeChild(textarea);
@@ -3977,6 +3998,46 @@ ${PartialStyles}
     100% {
         left: 150%;
     }
+}
+/* Toast */
+.toast-container {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 9999;
+    font-family: system-ui, sans-serif;
+}
+
+.toast {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    padding: 10px 16px;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    min-width: 220px;
+    max-width: 340px;
+    text-align: center;
+}
+
+.toast-success {
+    background-color: #28a745;
+}
+
+.toast-error {
+    background-color: #dc3545;
+}
+
+.toast.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 `;
 
