@@ -35,13 +35,13 @@ export async function runDnsCheck() {
 
   const allGood =
     Boolean(data.dns_on_router) &&
-    Boolean(data.dhcp_has_dns_server) &&
+    Boolean(data.dhcp_config_status) &&
     Boolean(data.bootstrap_dns_status) &&
     Boolean(data.dns_status);
 
   const atLeastOneGood =
     Boolean(data.dns_on_router) ||
-    Boolean(data.dhcp_has_dns_server) ||
+    Boolean(data.dhcp_config_status) ||
     Boolean(data.bootstrap_dns_status) ||
     Boolean(data.dns_status);
 
@@ -87,7 +87,7 @@ export async function runDnsCheck() {
         value: '',
       },
       {
-        state: data.dhcp_has_dns_server ? 'success' : 'error',
+        state: data.dhcp_config_status ? 'success' : 'error',
         key: _('DHCP has DNS server'),
         value: '',
       },

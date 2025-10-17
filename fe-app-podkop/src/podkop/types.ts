@@ -152,7 +152,7 @@ export namespace Podkop {
     dns_on_router: 0 | 1;
     bootstrap_dns_server: string;
     bootstrap_dns_status: 0 | 1;
-    dhcp_has_dns_server: 0 | 1;
+    dhcp_config_status: 0 | 1;
   }
 
   export interface NftRulesCheckResult {
