@@ -15,6 +15,7 @@ import {
 import { PodkopShellMethods } from '../../methods';
 import { fetchServicesInfo } from '../../fetchers';
 import { normalizeCompiledVersion } from '../../../helpers/normalizeCompiledVersion';
+import { renderModal } from '../../../partials';
 
 async function fetchSystemInfo() {
   const systemInfo = await PodkopShellMethods.getSystemInfo();
@@ -200,6 +201,96 @@ async function handleDisable() {
   }
 }
 
+async function handleShowGlobalCheck() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      globalCheck: { loading: true },
+    },
+  });
+
+  try {
+    const globalCheck = await PodkopShellMethods.globalCheck();
+
+    if (globalCheck.success) {
+      console.log('globalCheck', globalCheck.data);
+
+      ui.showModal('Global check', renderModal(globalCheck.data as string));
+    }
+  } catch (e) {
+    console.log('handleShowGlobalCheck - e', e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        globalCheck: { loading: false },
+      },
+    });
+  }
+}
+
+async function handleViewLogs() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      viewLogs: { loading: true },
+    },
+  });
+
+  try {
+    const viewLogs = await PodkopShellMethods.checkLogs();
+
+    if (viewLogs.success) {
+      console.log('viewLogs', viewLogs.data);
+
+      ui.showModal('View logs', renderModal(viewLogs.data as string));
+    }
+  } catch (e) {
+    console.log('handleViewLogs - e', e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        viewLogs: { loading: false },
+      },
+    });
+  }
+}
+
+async function handleShowSingBoxConfig() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      showSingBoxConfig: { loading: true },
+    },
+  });
+
+  try {
+    const showSingBoxConfig = await PodkopShellMethods.showSingBoxConfig();
+
+    if (showSingBoxConfig.success) {
+      console.log('showSingBoxConfig', showSingBoxConfig.data);
+
+      ui.showModal(
+        'Show sing-box config',
+        renderModal(showSingBoxConfig.data as string),
+      );
+    }
+  } catch (e) {
+    console.log('handleViewLogs - e', e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        showSingBoxConfig: { loading: false },
+      },
+    });
+  }
+}
+
 function renderDiagnosticAvailableActionsWidget() {
   const diagnosticsActions = store.get().diagnosticsActions;
   const servicesInfoWidget = store.get().servicesInfoWidget;
@@ -249,19 +340,19 @@ function renderDiagnosticAvailableActionsWidget() {
     globalCheck: {
       loading: diagnosticsActions.globalCheck.loading,
       visible: true,
-      onClick: () => ui.showModal('globalCheck', E('div', {}, 'Example')),
+      onClick: handleShowGlobalCheck,
       disabled: atLeastOneServiceCommandLoading,
     },
     viewLogs: {
       loading: diagnosticsActions.viewLogs.loading,
       visible: true,
-      onClick: () => {},
+      onClick: handleViewLogs,
       disabled: atLeastOneServiceCommandLoading,
     },
     showSingBoxConfig: {
       loading: diagnosticsActions.showSingBoxConfig.loading,
       visible: true,
-      onClick: () => {},
+      onClick: handleShowSingBoxConfig,
       disabled: atLeastOneServiceCommandLoading,
     },
   });

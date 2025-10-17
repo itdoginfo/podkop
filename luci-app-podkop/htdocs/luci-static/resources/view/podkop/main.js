@@ -2398,7 +2398,25 @@ var styles2 = `
 `;
 
 // src/partials/modal/styles.ts
-var styles3 = ``;
+var styles3 = `
+
+.pdk-partial-modal__body {}
+
+.pdk-partial-modal__content {
+    max-height: 70vh;
+    overflow: scroll;
+    border-radius: 4px;
+}
+
+.pdk-partial-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.pdk-partial-modal__footer button {
+    margin-left: 10px;
+}
+`;
 
 // src/icons/renderLoaderCircleIcon24.ts
 function renderLoaderCircleIcon24() {
@@ -2936,6 +2954,30 @@ function renderButton({
   );
 }
 
+// src/partials/modal/renderModal.ts
+function renderModal(text) {
+  return E(
+    "div",
+    { class: "pdk-partial-modal__body" },
+    E("div", {}, [
+      E("pre", { class: "pdk-partial-modal__content" }, E("code", {}, text)),
+      E("div", { class: "pdk-partial-modal__footer" }, [
+        renderButton({
+          classNames: ["cbi-button-apply"],
+          text: "Copy content",
+          onClick: () => {
+          }
+        }),
+        renderButton({
+          classNames: ["cbi-button-remove"],
+          text: "Close modal",
+          onClick: ui.hideModal
+        })
+      ])
+    ])
+  );
+}
+
 // src/partials/index.ts
 var PartialStyles = `
 ${styles2}
@@ -3411,6 +3453,84 @@ async function handleDisable() {
     });
   }
 }
+async function handleShowGlobalCheck() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      globalCheck: { loading: true }
+    }
+  });
+  try {
+    const globalCheck = await PodkopShellMethods.globalCheck();
+    if (globalCheck.success) {
+      console.log("globalCheck", globalCheck.data);
+      ui.showModal("Global check", renderModal(globalCheck.data));
+    }
+  } catch (e) {
+    console.log("handleShowGlobalCheck - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        globalCheck: { loading: false }
+      }
+    });
+  }
+}
+async function handleViewLogs() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      viewLogs: { loading: true }
+    }
+  });
+  try {
+    const viewLogs = await PodkopShellMethods.checkLogs();
+    if (viewLogs.success) {
+      console.log("viewLogs", viewLogs.data);
+      ui.showModal("View logs", renderModal(viewLogs.data));
+    }
+  } catch (e) {
+    console.log("handleViewLogs - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        viewLogs: { loading: false }
+      }
+    });
+  }
+}
+async function handleShowSingBoxConfig() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      showSingBoxConfig: { loading: true }
+    }
+  });
+  try {
+    const showSingBoxConfig = await PodkopShellMethods.showSingBoxConfig();
+    if (showSingBoxConfig.success) {
+      console.log("showSingBoxConfig", showSingBoxConfig.data);
+      ui.showModal(
+        "Show sing-box config",
+        renderModal(showSingBoxConfig.data)
+      );
+    }
+  } catch (e) {
+    console.log("handleViewLogs - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        showSingBoxConfig: { loading: false }
+      }
+    });
+  }
+}
 function renderDiagnosticAvailableActionsWidget() {
   const diagnosticsActions = store.get().diagnosticsActions;
   const servicesInfoWidget = store.get().servicesInfoWidget;
@@ -3453,21 +3573,19 @@ function renderDiagnosticAvailableActionsWidget() {
     globalCheck: {
       loading: diagnosticsActions.globalCheck.loading,
       visible: true,
-      onClick: () => ui.showModal("globalCheck", E("div", {}, "Example")),
+      onClick: handleShowGlobalCheck,
       disabled: atLeastOneServiceCommandLoading
     },
     viewLogs: {
       loading: diagnosticsActions.viewLogs.loading,
       visible: true,
-      onClick: () => {
-      },
+      onClick: handleViewLogs,
       disabled: atLeastOneServiceCommandLoading
     },
     showSingBoxConfig: {
       loading: diagnosticsActions.showSingBoxConfig.loading,
       visible: true,
-      onClick: () => {
-      },
+      onClick: handleShowSingBoxConfig,
       disabled: atLeastOneServiceCommandLoading
     }
   });
