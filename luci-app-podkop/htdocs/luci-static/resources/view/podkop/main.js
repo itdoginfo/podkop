@@ -305,6 +305,12 @@ function validateVlessUrl(url) {
           message: "Invalid VLESS URL: missing fp for reality"
         };
     }
+    if (params.flow === "xtls-rprx-vision-udp443") {
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: flow xtls-rprx-vision-udp443 does not supported"
+      };
+    }
     return { valid: true, message: _("Valid") };
   } catch (_e) {
     return { valid: false, message: _("Invalid VLESS URL: parsing failed") };
