@@ -12,7 +12,7 @@ export function renderRunAction({
 }: IRenderDiagnosticRunActionProps) {
   return E('div', { class: 'pdk_diagnostic-page__run_check_wrapper' }, [
     renderButton({
-      text: 'Run Diagnostic',
+      text: _('Run Diagnostic'),
       onClick: click,
       icon: renderSearchIcon24,
       loading,

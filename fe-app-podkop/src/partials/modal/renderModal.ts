@@ -10,12 +10,12 @@ export function renderModal(text: string) {
       E('div', { class: 'pdk-partial-modal__footer' }, [
         renderButton({
           classNames: ['cbi-button-apply'],
-          text: 'Copy content',
+          text: _('Copy'),
           onClick: () => {},
         }),
         renderButton({
           classNames: ['cbi-button-remove'],
-          text: 'Close modal',
+          text: _('Close'),
           onClick: ui.hideModal,
         }),
       ]),

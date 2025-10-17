@@ -31,12 +31,12 @@ async function fetchSystemInfo() {
     store.set({
       diagnosticsSystemInfo: {
         loading: false,
-        podkop_version: 'unknown',
-        podkop_latest_version: 'unknown',
-        luci_app_version: 'unknown',
-        sing_box_version: 'unknown',
-        openwrt_version: 'unknown',
-        device_model: 'unknown',
+        podkop_version: _('unknown'),
+        podkop_latest_version: _('unknown'),
+        luci_app_version: _('unknown'),
+        sing_box_version: _('unknown'),
+        openwrt_version: _('unknown'),
+        device_model: _('unknown'),
       },
     });
   }
@@ -214,9 +214,7 @@ async function handleShowGlobalCheck() {
     const globalCheck = await PodkopShellMethods.globalCheck();
 
     if (globalCheck.success) {
-      console.log('globalCheck', globalCheck.data);
-
-      ui.showModal('Global check', renderModal(globalCheck.data as string));
+      ui.showModal(_('Global check'), renderModal(globalCheck.data as string));
     }
   } catch (e) {
     console.log('handleShowGlobalCheck - e', e);
@@ -243,9 +241,7 @@ async function handleViewLogs() {
     const viewLogs = await PodkopShellMethods.checkLogs();
 
     if (viewLogs.success) {
-      console.log('viewLogs', viewLogs.data);
-
-      ui.showModal('View logs', renderModal(viewLogs.data as string));
+      ui.showModal(_('View logs'), renderModal(viewLogs.data as string));
     }
   } catch (e) {
     console.log('handleViewLogs - e', e);
@@ -272,10 +268,8 @@ async function handleShowSingBoxConfig() {
     const showSingBoxConfig = await PodkopShellMethods.showSingBoxConfig();
 
     if (showSingBoxConfig.success) {
-      console.log('showSingBoxConfig', showSingBoxConfig.data);
-
       ui.showModal(
-        'Show sing-box config',
+        _('Show sing-box config'),
         renderModal(showSingBoxConfig.data as string),
       );
     }
@@ -370,7 +364,7 @@ function renderDiagnosticSystemInfoWidget() {
 
   function getPodkopVersionRow(): IRenderSystemInfoRow {
     const loading = diagnosticsSystemInfo.loading;
-    const unknown = diagnosticsSystemInfo.podkop_version === 'unknown';
+    const unknown = diagnosticsSystemInfo.podkop_version === _('unknown');
     const hasActualVersion = Boolean(
       diagnosticsSystemInfo.podkop_latest_version,
     );
@@ -391,7 +385,7 @@ function renderDiagnosticSystemInfoWidget() {
         key: 'Podkop',
         value: version,
         tag: {
-          label: 'Outdated',
+          label: _('Outdated'),
           kind: 'warning',
         },
       };
@@ -401,7 +395,7 @@ function renderDiagnosticSystemInfoWidget() {
       key: 'Podkop',
       value: version,
       tag: {
-        label: 'Latest',
+        label: _('Latest'),
         kind: 'success',
       },
     };

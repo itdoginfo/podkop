@@ -186,5 +186,5 @@ export function renderCheckSection(props: IRenderCheckSectionProps) {
     return renderSkippedState(props);
   }
 
-  return E('div', {}, 'Not implement yet');
+  return E('div', {}, _('Not implement yet'));
 }

@@ -2964,13 +2964,13 @@ function renderModal(text) {
       E("div", { class: "pdk-partial-modal__footer" }, [
         renderButton({
           classNames: ["cbi-button-apply"],
-          text: "Copy content",
+          text: _("Copy"),
           onClick: () => {
           }
         }),
         renderButton({
           classNames: ["cbi-button-remove"],
-          text: "Close modal",
+          text: _("Close"),
           onClick: ui.hideModal
         })
       ])
@@ -3002,7 +3002,7 @@ function renderAvailableActions({
         classNames: ["cbi-button-apply"],
         onClick: restart.onClick,
         icon: renderRotateCcwIcon24,
-        text: "Restart podkop",
+        text: _("Restart podkop"),
         loading: restart.loading,
         disabled: restart.disabled
       })
@@ -3012,7 +3012,7 @@ function renderAvailableActions({
         classNames: ["cbi-button-remove"],
         onClick: stop.onClick,
         icon: renderCircleStopIcon24,
-        text: "Stop podkop",
+        text: _("Stop podkop"),
         loading: stop.loading,
         disabled: stop.disabled
       })
@@ -3022,7 +3022,7 @@ function renderAvailableActions({
         classNames: ["cbi-button-save"],
         onClick: start.onClick,
         icon: renderCirclePlayIcon24,
-        text: "Start podkop",
+        text: _("Start podkop"),
         loading: start.loading,
         disabled: start.disabled
       })
@@ -3032,7 +3032,7 @@ function renderAvailableActions({
         classNames: ["cbi-button-remove"],
         onClick: disable.onClick,
         icon: renderPauseIcon24,
-        text: "Disable autostart",
+        text: _("Disable autostart"),
         loading: disable.loading,
         disabled: disable.disabled
       })
@@ -3042,7 +3042,7 @@ function renderAvailableActions({
         classNames: ["cbi-button-save"],
         onClick: enable.onClick,
         icon: renderPlayIcon24,
-        text: "Enable autostart",
+        text: _("Enable autostart"),
         loading: enable.loading,
         disabled: enable.disabled
       })
@@ -3051,7 +3051,7 @@ function renderAvailableActions({
       renderButton({
         onClick: globalCheck.onClick,
         icon: renderCircleCheckBigIcon24,
-        text: "Get global check",
+        text: _("Get global check"),
         loading: globalCheck.loading,
         disabled: globalCheck.disabled
       })
@@ -3060,7 +3060,7 @@ function renderAvailableActions({
       renderButton({
         onClick: viewLogs.onClick,
         icon: renderSquareChartGanttIcon24,
-        text: "View logs",
+        text: _("View logs"),
         loading: viewLogs.loading,
         disabled: viewLogs.disabled
       })
@@ -3069,7 +3069,7 @@ function renderAvailableActions({
       renderButton({
         onClick: showSingBoxConfig.onClick,
         icon: renderCogIcon24,
-        text: "Show sing-box config",
+        text: _("Show sing-box config"),
         loading: showSingBoxConfig.loading,
         disabled: showSingBoxConfig.disabled
       })
@@ -3229,7 +3229,7 @@ function renderCheckSection(props) {
   if (props.state === "skipped") {
     return renderSkippedState(props);
   }
-  return E("div", {}, "Not implement yet");
+  return E("div", {}, _("Not implement yet"));
 }
 
 // src/podkop/tabs/diagnostic/partials/renderRunAction.ts
@@ -3239,7 +3239,7 @@ function renderRunAction({
 }) {
   return E("div", { class: "pdk_diagnostic-page__run_check_wrapper" }, [
     renderButton({
-      text: "Run Diagnostic",
+      text: _("Run Diagnostic"),
       onClick: click,
       icon: renderSearchIcon24,
       loading,
@@ -3303,12 +3303,12 @@ async function fetchSystemInfo() {
     store.set({
       diagnosticsSystemInfo: {
         loading: false,
-        podkop_version: "unknown",
-        podkop_latest_version: "unknown",
-        luci_app_version: "unknown",
-        sing_box_version: "unknown",
-        openwrt_version: "unknown",
-        device_model: "unknown"
+        podkop_version: _("unknown"),
+        podkop_latest_version: _("unknown"),
+        luci_app_version: _("unknown"),
+        sing_box_version: _("unknown"),
+        openwrt_version: _("unknown"),
+        device_model: _("unknown")
       }
     });
   }
@@ -3464,8 +3464,7 @@ async function handleShowGlobalCheck() {
   try {
     const globalCheck = await PodkopShellMethods.globalCheck();
     if (globalCheck.success) {
-      console.log("globalCheck", globalCheck.data);
-      ui.showModal("Global check", renderModal(globalCheck.data));
+      ui.showModal(_("Global check"), renderModal(globalCheck.data));
     }
   } catch (e) {
     console.log("handleShowGlobalCheck - e", e);
@@ -3489,8 +3488,7 @@ async function handleViewLogs() {
   try {
     const viewLogs = await PodkopShellMethods.checkLogs();
     if (viewLogs.success) {
-      console.log("viewLogs", viewLogs.data);
-      ui.showModal("View logs", renderModal(viewLogs.data));
+      ui.showModal(_("View logs"), renderModal(viewLogs.data));
     }
   } catch (e) {
     console.log("handleViewLogs - e", e);
@@ -3514,9 +3512,8 @@ async function handleShowSingBoxConfig() {
   try {
     const showSingBoxConfig = await PodkopShellMethods.showSingBoxConfig();
     if (showSingBoxConfig.success) {
-      console.log("showSingBoxConfig", showSingBoxConfig.data);
       ui.showModal(
-        "Show sing-box config",
+        _("Show sing-box config"),
         renderModal(showSingBoxConfig.data)
       );
     }
@@ -3599,7 +3596,7 @@ function renderDiagnosticSystemInfoWidget() {
   const container = document.getElementById("pdk_diagnostic-page-system-info");
   function getPodkopVersionRow() {
     const loading = diagnosticsSystemInfo.loading;
-    const unknown = diagnosticsSystemInfo.podkop_version === "unknown";
+    const unknown = diagnosticsSystemInfo.podkop_version === _("unknown");
     const hasActualVersion = Boolean(
       diagnosticsSystemInfo.podkop_latest_version
     );
@@ -3618,7 +3615,7 @@ function renderDiagnosticSystemInfoWidget() {
         key: "Podkop",
         value: version,
         tag: {
-          label: "Outdated",
+          label: _("Outdated"),
           kind: "warning"
         }
       };
@@ -3627,7 +3624,7 @@ function renderDiagnosticSystemInfoWidget() {
       key: "Podkop",
       value: version,
       tag: {
-        label: "Latest",
+        label: _("Latest"),
         kind: "success"
       }
     };
