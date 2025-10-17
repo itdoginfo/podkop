@@ -2954,8 +2954,35 @@ function renderButton({
   );
 }
 
+// src/helpers/copyToClipboard.ts
+function copyToClipboard(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand("copy");
+  } catch (_err) {
+    console.error("copyToClipboard - e", _err);
+  }
+  document.body.removeChild(textarea);
+}
+
+// src/helpers/downloadAsTxt.ts
+function downloadAsTxt(text, filename) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  const safeName = filename.endsWith(".txt") ? filename : `${filename}.txt`;
+  link.download = safeName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
+
 // src/partials/modal/renderModal.ts
-function renderModal(text) {
+function renderModal(text, name) {
   return E(
     "div",
     { class: "pdk-partial-modal__body" },
@@ -2964,9 +2991,15 @@ function renderModal(text) {
       E("div", { class: "pdk-partial-modal__footer" }, [
         renderButton({
           classNames: ["cbi-button-apply"],
+          text: _("Download"),
+          onClick: () => downloadAsTxt(text, name)
+        }),
+        renderButton({
+          classNames: ["cbi-button-apply"],
           text: _("Copy"),
-          onClick: () => {
-          }
+          onClick: () => copyToClipboard(` \`\`\`${name} 
+ ${text}  
+ \`\`\``)
         }),
         renderButton({
           classNames: ["cbi-button-remove"],
@@ -3464,7 +3497,10 @@ async function handleShowGlobalCheck() {
   try {
     const globalCheck = await PodkopShellMethods.globalCheck();
     if (globalCheck.success) {
-      ui.showModal(_("Global check"), renderModal(globalCheck.data));
+      ui.showModal(
+        _("Global check"),
+        renderModal(globalCheck.data, "global_check")
+      );
     }
   } catch (e) {
     console.log("handleShowGlobalCheck - e", e);
@@ -3488,7 +3524,10 @@ async function handleViewLogs() {
   try {
     const viewLogs = await PodkopShellMethods.checkLogs();
     if (viewLogs.success) {
-      ui.showModal(_("View logs"), renderModal(viewLogs.data));
+      ui.showModal(
+        _("View logs"),
+        renderModal(viewLogs.data, "view_logs")
+      );
     }
   } catch (e) {
     console.log("handleViewLogs - e", e);
@@ -3514,7 +3553,7 @@ async function handleShowSingBoxConfig() {
     if (showSingBoxConfig.success) {
       ui.showModal(
         _("Show sing-box config"),
-        renderModal(showSingBoxConfig.data)
+        renderModal(showSingBoxConfig.data, "show_sing_box_config")
       );
     }
   } catch (e) {

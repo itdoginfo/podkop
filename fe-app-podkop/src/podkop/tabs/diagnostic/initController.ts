@@ -214,7 +214,10 @@ async function handleShowGlobalCheck() {
     const globalCheck = await PodkopShellMethods.globalCheck();
 
     if (globalCheck.success) {
-      ui.showModal(_('Global check'), renderModal(globalCheck.data as string));
+      ui.showModal(
+        _('Global check'),
+        renderModal(globalCheck.data as string, 'global_check'),
+      );
     }
   } catch (e) {
     console.log('handleShowGlobalCheck - e', e);
@@ -241,7 +244,10 @@ async function handleViewLogs() {
     const viewLogs = await PodkopShellMethods.checkLogs();
 
     if (viewLogs.success) {
-      ui.showModal(_('View logs'), renderModal(viewLogs.data as string));
+      ui.showModal(
+        _('View logs'),
+        renderModal(viewLogs.data as string, 'view_logs'),
+      );
     }
   } catch (e) {
     console.log('handleViewLogs - e', e);
@@ -270,7 +276,7 @@ async function handleShowSingBoxConfig() {
     if (showSingBoxConfig.success) {
       ui.showModal(
         _('Show sing-box config'),
-        renderModal(showSingBoxConfig.data as string),
+        renderModal(showSingBoxConfig.data as string, 'show_sing_box_config'),
       );
     }
   } catch (e) {
