@@ -1841,7 +1841,7 @@ check_dns_available() {
     local dns_status=0
     local dns_on_router=0
     local bootstrap_dns_status=0
-    local dhcp_has_dns_server=0
+    local dhcp_config_status=1
     local domain="google.com"
 
     # Mask NextDNS ID if present
@@ -1895,20 +1895,28 @@ check_dns_available() {
     config_foreach check_dhcp_has_podkop_dns dnsmasq
     config_load "$PODKOP_CONFIG"
 
-    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"dns_status\":$dns_status,\"dns_on_router\":$dns_on_router,\"bootstrap_dns_server\":\"$bootstrap_dns_server\",\"bootstrap_dns_status\":$bootstrap_dns_status,\"dhcp_has_dns_server\":$dhcp_has_dns_server}" | jq .
+    echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"dns_status\":$dns_status,\"dns_on_router\":$dns_on_router,\"bootstrap_dns_server\":\"$bootstrap_dns_server\",\"bootstrap_dns_status\":$bootstrap_dns_status,\"dhcp_config_status\":$dhcp_config_status}" | jq .
 }
 
 check_dhcp_has_podkop_dns() {
-    local server_list
+    local server_list cachesize noresolv server_found
     config_get server_list "$1" "server"
+    config_get cachesize "$1" "cachesize"
+    config_get noresolv "$1" "noresolv"
+    
+    server_found=0
     
     if [ -n "$server_list" ]; then
         for server in $server_list; do
             if [ "$server" = "127.0.0.42" ]; then
-                dhcp_has_dns_server=1
-                return 0
+                server_found=1
+                break
             fi
         done
+    fi
+    
+    if [ "$cachesize" != "0" ] || [ "$noresolv" != "1" ] || [ "$server_found" != "1" ]; then
+        dhcp_config_status=0
     fi
 }
 
@@ -2187,50 +2195,229 @@ global_check() {
     print_global "📡 Global check run!"
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🛠️ System info"
-    print_global "🕳️ Podkop:     ${PODKOP_VERSION}"
-    print_global "🕳️ LuCI App:   ${PODKOP_LUCI_VERSION}"
-    print_global "📦 Sing-box:   $(sing-box version | head -n 1 | awk '{print $3}')"
-    print_global "🛜 OpenWrt:    $(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)"
-    print_global "🛜 Device:     $(cat /tmp/sysinfo/model)"
+    
+    local system_info_json
+    system_info_json=$(get_system_info)
+    
+    if [ -n "$system_info_json" ]; then
+        local podkop_version podkop_latest_version luci_app_version sing_box_version openwrt_version device_model
+        
+        podkop_version=$(echo "$system_info_json" | jq -r '.podkop_version // "unknown"')
+        podkop_latest_version=$(echo "$system_info_json" | jq -r '.podkop_latest_version // "unknown"')
+        luci_app_version=$(echo "$system_info_json" | jq -r '.luci_app_version // "unknown"')
+        sing_box_version=$(echo "$system_info_json" | jq -r '.sing_box_version // "unknown"')
+        openwrt_version=$(echo "$system_info_json" | jq -r '.openwrt_version // "unknown"')
+        device_model=$(echo "$system_info_json" | jq -r '.device_model // "unknown"')
+        
+        print_global "🕳️ Podkop:        $podkop_version (latest: $podkop_latest_version)"
+        print_global "🕳️ LuCI App:      $luci_app_version"
+        print_global "📦 Sing-box:      $sing_box_version"
+        print_global "🛜 OpenWrt:       $openwrt_version"
+        print_global "🛜 Device:        $device_model"
+    else
+        print_global "❌ Failed to get system info"
+    fi
+
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "➡️ DNS status"
+    
+    local dns_check_json
+    dns_check_json=$(check_dns_available)
+    
+    if [ -n "$dns_check_json" ]; then
+        local dns_type dns_server dns_status dns_on_router bootstrap_dns_server bootstrap_dns_status dhcp_config_status
+        
+        dns_type=$(echo "$dns_check_json" | jq -r '.dns_type // "unknown"')
+        dns_server=$(echo "$dns_check_json" | jq -r '.dns_server // "unknown"')
+        dns_status=$(echo "$dns_check_json" | jq -r '.dns_status // 0')
+        dns_on_router=$(echo "$dns_check_json" | jq -r '.dns_on_router // 0')
+        bootstrap_dns_server=$(echo "$dns_check_json" | jq -r '.bootstrap_dns_server // ""')
+        bootstrap_dns_status=$(echo "$dns_check_json" | jq -r '.bootstrap_dns_status // 0')
+        dhcp_config_status=$(echo "$dns_check_json" | jq -r '.dhcp_config_status // 0')
+        
+        # Bootstrap DNS
+        if [ -n "$bootstrap_dns_server" ]; then
+            if [ "$bootstrap_dns_status" -eq 1 ]; then
+                print_global "✅ Bootstrap DNS: $bootstrap_dns_server"
+            else
+                print_global "❌ Bootstrap DNS: $bootstrap_dns_server"
+            fi
+        fi
+        
+        # DNS server status
+        if [ "$dns_status" -eq 1 ]; then
+            print_global "✅ Main DNS: $dns_server [$dns_type]"
+        else
+            print_global "❌ Main DNS: $dns_server [$dns_type]"
+        fi
+        
+        # DNS on router
+        if [ "$dns_on_router" -eq 1 ]; then
+            print_global "✅ DNS on router"
+        else
+            print_global "❌ DNS on router"
+        fi
+        
+        # DHCP configuration check
+        local dont_touch_dhcp
+        config_get dont_touch_dhcp "main" "dont_touch_dhcp"
+        
+        if [ "$dont_touch_dhcp" = "1" ]; then
+            print_global "⚠️ dont_touch_dhcp is enabled. 📄 DHCP config:"
+            awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
+        elif [ "$dhcp_config_status" -eq 0 ]; then
+            print_global "❌ DHCP configuration differs from template. 📄 DHCP config:"
+            awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
+        else
+            print_global "✅ /etc/config/dhcp"
+        fi
+    else
+        print_global "❌ Failed to get DNS info"
+    fi
+
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "📦 Sing-box status"
+    
+    local singbox_check_json
+    singbox_check_json=$(check_sing_box)
+    
+    if [ -n "$singbox_check_json" ]; then
+        local sing_box_installed sing_box_version_ok sing_box_service_exist sing_box_autostart_disabled sing_box_process_running sing_box_ports_listening
+        
+        sing_box_installed=$(echo "$singbox_check_json" | jq -r '.sing_box_installed // 0')
+        sing_box_version_ok=$(echo "$singbox_check_json" | jq -r '.sing_box_version_ok // 0')
+        sing_box_service_exist=$(echo "$singbox_check_json" | jq -r '.sing_box_service_exist // 0')
+        sing_box_autostart_disabled=$(echo "$singbox_check_json" | jq -r '.sing_box_autostart_disabled // 0')
+        sing_box_process_running=$(echo "$singbox_check_json" | jq -r '.sing_box_process_running // 0')
+        sing_box_ports_listening=$(echo "$singbox_check_json" | jq -r '.sing_box_ports_listening // 0')
+        
+        if [ "$sing_box_installed" -eq 1 ]; then
+            print_global "✅ Sing-box installed"
+        else
+            print_global "❌ Sing-box installed"
+        fi
+        
+        if [ "$sing_box_version_ok" -eq 1 ]; then
+            print_global "✅ Sing-box version >= 1.12.4"
+        else
+            print_global "❌ Sing-box version >= 1.12.4"
+        fi
+        
+        if [ "$sing_box_service_exist" -eq 1 ]; then
+            print_global "✅ Sing-box service exist"
+        else
+            print_global "❌ Sing-box service exist"
+        fi
+        
+        if [ "$sing_box_autostart_disabled" -eq 1 ]; then
+            print_global "✅ Sing-box autostart disabled"
+        else
+            print_global "❌ Sing-box autostart disabled"
+        fi
+        
+        if [ "$sing_box_process_running" -eq 1 ]; then
+            print_global "✅ Sing-box process running"
+        else
+            print_global "❌ Sing-box process running"
+        fi
+        
+        if [ "$sing_box_ports_listening" -eq 1 ]; then
+            print_global "✅ Sing-box listening ports"
+        else
+            print_global "❌ Sing-box listening ports"
+        fi
+    else
+        print_global "❌ Failed to get sing-box info"
+    fi
+
+    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    print_global "🧱 NFT rules status"
+    
+    local nft_check_json
+    nft_check_json=$(check_nft_rules)
+    
+    if [ -n "$nft_check_json" ]; then
+        local table_exist rules_mangle_exist rules_mangle_counters rules_mangle_output_exist rules_mangle_output_counters rules_proxy_exist rules_proxy_counters rules_other_mark_exist
+        
+        table_exist=$(echo "$nft_check_json" | jq -r '.table_exist // 0')
+        rules_mangle_exist=$(echo "$nft_check_json" | jq -r '.rules_mangle_exist // 0')
+        rules_mangle_counters=$(echo "$nft_check_json" | jq -r '.rules_mangle_counters // 0')
+        rules_mangle_output_exist=$(echo "$nft_check_json" | jq -r '.rules_mangle_output_exist // 0')
+        rules_mangle_output_counters=$(echo "$nft_check_json" | jq -r '.rules_mangle_output_counters // 0')
+        rules_proxy_exist=$(echo "$nft_check_json" | jq -r '.rules_proxy_exist // 0')
+        rules_proxy_counters=$(echo "$nft_check_json" | jq -r '.rules_proxy_counters // 0')
+        rules_other_mark_exist=$(echo "$nft_check_json" | jq -r '.rules_other_mark_exist // 0')
+        
+        if [ "$table_exist" -eq 1 ]; then
+            print_global "✅ Table exist"
+        else
+            print_global "❌ Table exist"
+        fi
+        
+        if [ "$rules_mangle_exist" -eq 1 ]; then
+            print_global "✅ Rules mangle exist"
+        else
+            print_global "❌ Rules mangle exist"
+        fi
+        
+        if [ "$rules_mangle_counters" -eq 1 ]; then
+            print_global "✅ Rules mangle counters"
+        else
+            print_global "⚠️  Rules mangle counters"
+        fi
+        
+        if [ "$rules_mangle_output_exist" -eq 1 ]; then
+            print_global "✅ Rules mangle output exist"
+        else
+            print_global "❌ Rules mangle output exist"
+        fi
+        
+        if [ "$rules_mangle_output_counters" -eq 1 ]; then
+            print_global "✅ Rules mangle output counters"
+        else
+            print_global "⚠️  Rules mangle output counters"
+        fi
+        
+        if [ "$rules_proxy_exist" -eq 1 ]; then
+            print_global "✅ Rules proxy exist"
+        else
+            print_global "❌ Rules proxy exist"
+        fi
+        
+        if [ "$rules_proxy_counters" -eq 1 ]; then
+            print_global "✅ Rules proxy counters"
+        else
+            print_global "⚠️  Rules proxy counters"
+        fi
+        
+        if [ "$rules_other_mark_exist" -eq 1 ]; then
+            print_global "⚠️  Additional marking rules found:"
+            nft list ruleset | awk '/table inet '"$NFT_TABLE_NAME"'/{flag=1; next} /^table/{flag=0} !flag' | grep -E "mark set|meta mark"
+        else
+            print_global "✅ Additional marking rules found"
+        fi
+    else
+        print_global "❌ Failed to get NFT rules info"
+    fi
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "📄 Podkop config"
     show_config
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "🔧 System check"
+    # print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    # print_global "🔧 System check"
 
-    if grep -E "^nameserver\s+([0-9]{1,3}\.){3}[0-9]{1,3}" "$RESOLV_CONF" | grep -vqE "127\.0\.0\.1|0\.0\.0\.0"; then
-        print_global "❌ /etc/resolv.conf contains external nameserver:"
-        cat /etc/resolv.conf
-        echo ""
-    else
-        print_global "✅ /etc/resolv.conf"
-    fi
+    # if grep -E "^nameserver\s+([0-9]{1,3}\.){3}[0-9]{1,3}" "$RESOLV_CONF" | grep -vqE "127\.0\.0\.1|0\.0\.0\.0"; then
+    #     print_global "❌ /etc/resolv.conf contains external nameserver:"
+    #     cat /etc/resolv.conf
+    #     echo ""
+    # else
+    #     print_global "✅ /etc/resolv.conf"
+    # fi
 
-    cachesize="$(uci get dhcp.@dnsmasq[0].cachesize 2> /dev/null)"
-    noresolv="$(uci get dhcp.@dnsmasq[0].noresolv 2> /dev/null)"
-    server="$(uci get dhcp.@dnsmasq[0].server 2> /dev/null)"
-
-    if [ "$cachesize" != "0" ] || [ "$noresolv" != "1" ] || [ "$server" != "127.0.0.42" ]; then
-        print_global "❌ DHCP configuration differs from template. 📄 DHCP config:"
-        awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
-    elif [ "$(uci get podkop.main.dont_touch_dhcp 2> /dev/null)" = "1" ]; then
-        print_global "⚠️ dont_touch_dhcp is enabled. 📄 DHCP config:"
-        awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
-    else
-        print_global "✅ /etc/config/dhcp"
-    fi
-
-    if ! pgrep -f "sing-box" > /dev/null; then
-        print_global "❌ sing-box is not running"
-    else
-        print_global "✅ sing-box is running"
-    fi
-
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "🧱 NFT table"
-    check_nft
+    # print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    # print_global "🧱 NFT table"
+    # check_nft
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "📄 WAN config"
@@ -2273,11 +2460,13 @@ global_check() {
     fi
 
     if uci show network | grep -q route_allowed_ips; then
-        uci show network | grep route_allowed_ips | cut -d"'" -f2 | while read -r value; do
-            if [ "$value" = "1" ]; then
+        uci show network | grep "wireguard_.*\.route_allowed_ips='1'" | cut -d'.' -f1-2 | while read -r peer_section; do
+            local allowed_ips
+            allowed_ips=$(uci get "${peer_section}.allowed_ips" 2>/dev/null)
+            
+            if [ "$allowed_ips" = "0.0.0.0/0" ]; then
                 print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                print_global "⚠️ WG Route allowed IP enabled"
-                continue
+                print_global "⚠️ WG Route allowed IP enabled with 0.0.0.0/0"
             fi
         done
     fi
@@ -2288,33 +2477,32 @@ global_check() {
     fi
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "➡️ DNS status"
-    dns_info=$(check_dns_available)
-    dns_type=$(echo "$dns_info" | jq -r '.dns_type')
-    dns_server=$(echo "$dns_info" | jq -r '.dns_server')
-    status=$(echo "$dns_info" | jq -r '.status')
-    print_global "$dns_type ($dns_server) is $status"
+    print_global "🥸 FakeIP status"
+    
+    local fakeip_check_json
+    fakeip_check_json=$(check_fakeip)
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "🔁 FakeIP"
-
-    print_global "➡️ DNS resolution: system DNS server"
-    nslookup -timeout=2 $FAKEIP_TEST_DOMAIN
-
-    print_global "➡️ DNS resolution: sing-box DNS server (127.0.0.42)"
-    local result
-    result=$(nslookup -timeout=2 $FAKEIP_TEST_DOMAIN 127.0.0.42 2>&1)
-    echo "$result"
-
-    if echo "$result" | grep -q "198.18"; then
-        print_global "✅ FakeIP is working correctly on router (198.18.x.x)"
-    else
-        print_global "❌ FakeIP test failed: Domain did not resolve to FakeIP range"
-        if ! pgrep -f "sing-box" > /dev/null; then
-            print_global " ❌ sing-box is not running"
+    if [ -n "$fakeip_check_json" ]; then
+        local fakeip_status
+        
+        fakeip_status=$(echo "$fakeip_check_json" | jq -r '.fakeip // false')
+        
+        if [ "$fakeip_status" = "true" ]; then
+            print_global "✅ Router DNS is routed through sing-box"
         else
-            print_global " 🤔 sing-box is running"
+            print_global "⚠️ Router DNS is NOT routed through sing-box"
         fi
+    else
+        print_global "❌ Failed to get FakeIP info"
+    fi
+
+    local fakeip_address
+    fakeip_address=$(dig +short @127.0.0.42 $FAKEIP_TEST_DOMAIN)
+    
+    if echo "$fakeip_address" | grep -q "^198\.18\."; then
+        print_global "✅ Sing-box works with FakeIP: $fakeip_address"
+    else
+        print_global "❌ Sing-box does NOT work with FakeIP: $fakeip_address"
     fi
 }
 
@@ -2327,8 +2515,6 @@ Available commands:
     stop                    Stop podkop service
     reload                  Reload podkop configuration
     restart                 Restart podkop service
-    enable                  Enable podkop autostart
-    disable                 Disable podkop autostart
     main                    Run main podkop process
     list_update             Update domain lists
     check_proxy             Check proxy connectivity
