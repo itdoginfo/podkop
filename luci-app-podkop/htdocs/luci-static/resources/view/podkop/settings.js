@@ -214,7 +214,9 @@ function createSettingsContent(section) {
 
     o.rmempty = false;
     o.depends('download_lists_via_proxy', '1');
-
+    o.cfgvalue = function (section_id) {
+        return uci.get('podkop', section_id, 'download_lists_via_proxy_section');
+    };
     o.load = function () {
         const sections = this.map?.data?.state?.values?.podkop ?? {};
 
