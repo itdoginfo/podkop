@@ -1240,6 +1240,13 @@ var PodkopLogWatcher = class _PodkopLogWatcher {
     this.intervalMs = 5e3;
     this.lastLines = /* @__PURE__ */ new Set();
     this.running = false;
+    this.paused = false;
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) this.pause();
+        else this.resume();
+      });
+    }
   }
   static getInstance() {
     if (!_PodkopLogWatcher.instance) {
@@ -1251,10 +1258,18 @@ var PodkopLogWatcher = class _PodkopLogWatcher {
     this.fetcher = fetcher;
     this.onNewLog = options?.onNewLog;
     this.intervalMs = options?.intervalMs ?? 5e3;
+    logger.info(
+      "[PodkopLogWatcher]",
+      `initialized (interval: ${this.intervalMs}ms)`
+    );
   }
   async checkOnce() {
     if (!this.fetcher) {
       logger.warn("[PodkopLogWatcher]", "fetcher not found");
+      return;
+    }
+    if (this.paused) {
+      logger.debug("[PodkopLogWatcher]", "skipped check \u2014 tab not visible");
       return;
     }
     try {
@@ -1263,9 +1278,7 @@ var PodkopLogWatcher = class _PodkopLogWatcher {
       for (const line of lines) {
         if (!this.lastLines.has(line)) {
           this.lastLines.add(line);
-          if (this.onNewLog) {
-            this.onNewLog(line);
-          }
+          this.onNewLog?.(line);
         }
       }
       if (this.lastLines.size > 500) {
@@ -1279,24 +1292,36 @@ var PodkopLogWatcher = class _PodkopLogWatcher {
   start() {
     if (this.running) return;
     if (!this.fetcher) {
-      logger.warn("[PodkopLogWatcher]", "Try to start without fetcher.");
+      logger.warn("[PodkopLogWatcher]", "attempted to start without fetcher");
       return;
     }
     this.running = true;
     this.timer = setInterval(() => this.checkOnce(), this.intervalMs);
     logger.info(
-      `[PodkopLogWatcher]', 'Started with interval ${this.intervalMs} ms`
+      "[PodkopLogWatcher]",
+      `started (interval: ${this.intervalMs}ms)`
     );
   }
   stop() {
     if (!this.running) return;
     this.running = false;
     if (this.timer) clearInterval(this.timer);
-    logger.info("[PodkopLogWatcher]", "Stopped");
+    logger.info("[PodkopLogWatcher]", "stopped");
+  }
+  pause() {
+    if (!this.running || this.paused) return;
+    this.paused = true;
+    logger.info("[PodkopLogWatcher]", "paused (tab not visible)");
+  }
+  resume() {
+    if (!this.running || !this.paused) return;
+    this.paused = false;
+    logger.info("[PodkopLogWatcher]", "resumed (tab active)");
+    this.checkOnce();
   }
   reset() {
     this.lastLines.clear();
-    logger.info("[PodkopLogWatcher]", "logs history was reset");
+    logger.info("[PodkopLogWatcher]", "log history reset");
   }
 };
 
