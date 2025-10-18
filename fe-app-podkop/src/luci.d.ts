@@ -39,6 +39,11 @@ declare global {
   const ui = {
     showModal: (_title: stirng, _content: HtmlElement) => undefined,
     hideModal: () => undefined,
+    addNotification: (
+      _title: string,
+      _children: HtmlElement | HtmlElement[],
+      _className?: string,
+    ) => undefined,
   };
 }
 

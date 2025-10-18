@@ -1234,6 +1234,72 @@ var Logger = class {
 };
 var logger = new Logger();
 
+// src/podkop/services/podkopLogWatcher.service.ts
+var PodkopLogWatcher = class _PodkopLogWatcher {
+  constructor() {
+    this.intervalMs = 5e3;
+    this.lastLines = /* @__PURE__ */ new Set();
+    this.running = false;
+  }
+  static getInstance() {
+    if (!_PodkopLogWatcher.instance) {
+      _PodkopLogWatcher.instance = new _PodkopLogWatcher();
+    }
+    return _PodkopLogWatcher.instance;
+  }
+  init(fetcher, options) {
+    this.fetcher = fetcher;
+    this.onNewLog = options?.onNewLog;
+    this.intervalMs = options?.intervalMs ?? 5e3;
+  }
+  async checkOnce() {
+    if (!this.fetcher) {
+      logger.warn("[PodkopLogWatcher]", "fetcher not found");
+      return;
+    }
+    try {
+      const raw = await this.fetcher();
+      const lines = raw.split("\n").filter(Boolean);
+      for (const line of lines) {
+        if (!this.lastLines.has(line)) {
+          this.lastLines.add(line);
+          if (this.onNewLog) {
+            this.onNewLog(line);
+          }
+        }
+      }
+      if (this.lastLines.size > 500) {
+        const arr = Array.from(this.lastLines);
+        this.lastLines = new Set(arr.slice(-500));
+      }
+    } catch (err) {
+      logger.error("[PodkopLogWatcher]", "failed to read logs:", err);
+    }
+  }
+  start() {
+    if (this.running) return;
+    if (!this.fetcher) {
+      logger.warn("[PodkopLogWatcher]", "Try to start without fetcher.");
+      return;
+    }
+    this.running = true;
+    this.timer = setInterval(() => this.checkOnce(), this.intervalMs);
+    logger.info(
+      `[PodkopLogWatcher]', 'Started with interval ${this.intervalMs} ms`
+    );
+  }
+  stop() {
+    if (!this.running) return;
+    this.running = false;
+    if (this.timer) clearInterval(this.timer);
+    logger.info("[PodkopLogWatcher]", "Stopped");
+  }
+  reset() {
+    this.lastLines.clear();
+    logger.info("[PodkopLogWatcher]", "logs history was reset");
+  }
+};
+
 // src/podkop/services/core.service.ts
 function coreService() {
   TabServiceInstance.onChange((activeId, tabs) => {
@@ -1245,6 +1311,25 @@ function coreService() {
       }
     });
   });
+  const watcher = PodkopLogWatcher.getInstance();
+  watcher.init(
+    async () => {
+      const logs = await PodkopShellMethods.checkLogs();
+      if (logs.success) {
+        return logs.data;
+      }
+      return "";
+    },
+    {
+      intervalMs: 3e3,
+      onNewLog: (line) => {
+        if (line.includes("[critical]")) {
+          ui.addNotification("Podkop Critical", E("div", {}, line), "error");
+        }
+      }
+    }
+  );
+  watcher.start();
 }
 
 // src/podkop/services/socket.service.ts
