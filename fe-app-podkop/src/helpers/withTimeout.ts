@@ -1,3 +1,5 @@
+import { logger } from '../podkop';
+
 export async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -16,6 +18,6 @@ export async function withTimeout<T>(
   } finally {
     clearTimeout(timeoutId);
     const elapsed = performance.now() - start;
-    console.log(`[${operationName}] Execution time: ${elapsed.toFixed(2)} ms`);
+    logger.info('[SHELL]', `[${operationName}] took ${elapsed.toFixed(2)} ms`);
   }
 }

@@ -45,8 +45,6 @@ export async function runDnsCheck() {
     Boolean(data.bootstrap_dns_status) ||
     Boolean(data.dns_status);
 
-  console.log('dnsChecks', dnsChecks);
-
   function getStatus() {
     if (allGood) {
       return 'success';

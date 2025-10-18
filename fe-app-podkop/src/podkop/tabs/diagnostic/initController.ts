@@ -4,7 +4,7 @@ import { runSingBoxCheck } from './checks/runSingBoxCheck';
 import { runNftCheck } from './checks/runNftCheck';
 import { runFakeIPCheck } from './checks/runFakeIPCheck';
 import { loadingDiagnosticsChecksStore } from './diagnostic.store';
-import { store, StoreType } from '../../services';
+import { logger, store, StoreType } from '../../services';
 import {
   IRenderSystemInfoRow,
   renderAvailableActions,
@@ -43,7 +43,7 @@ async function fetchSystemInfo() {
 }
 
 function renderDiagnosticsChecks() {
-  console.log('renderDiagnosticsChecks');
+  logger.debug('[DIAGNOSTIC]', 'renderDiagnosticsChecks');
   const diagnosticsChecks = store
     .get()
     .diagnosticsChecks.sort((a, b) => a.order - b.order);
@@ -59,7 +59,7 @@ function renderDiagnosticsChecks() {
 }
 
 function renderDiagnosticRunActionWidget() {
-  console.log('renderDiagnosticRunActionWidget');
+  logger.debug('[DIAGNOSTIC]', 'renderDiagnosticRunActionWidget');
 
   const { loading } = store.get().diagnosticsRunAction;
   const container = document.getElementById('pdk_diagnostic-page-run-check');
@@ -86,7 +86,7 @@ async function handleRestart() {
   try {
     await PodkopShellMethods.restart();
   } catch (e) {
-    console.log('handleRestart - e', e);
+    logger.error('[DIAGNOSTIC]', 'handleRestart - e', e);
   } finally {
     setTimeout(async () => {
       await fetchServicesInfo();
@@ -113,7 +113,7 @@ async function handleStop() {
   try {
     await PodkopShellMethods.stop();
   } catch (e) {
-    console.log('handleStop - e', e);
+    logger.error('[DIAGNOSTIC]', 'handleStop - e', e);
   } finally {
     await fetchServicesInfo();
     store.set({
@@ -138,7 +138,7 @@ async function handleStart() {
   try {
     await PodkopShellMethods.start();
   } catch (e) {
-    console.log('handleStart - e', e);
+    logger.error('[DIAGNOSTIC]', 'handleStart - e', e);
   } finally {
     setTimeout(async () => {
       await fetchServicesInfo();
@@ -165,7 +165,7 @@ async function handleEnable() {
   try {
     await PodkopShellMethods.enable();
   } catch (e) {
-    console.log('handleEnable - e', e);
+    logger.error('[DIAGNOSTIC]', 'handleEnable - e', e);
   } finally {
     await fetchServicesInfo();
     store.set({
@@ -189,7 +189,7 @@ async function handleDisable() {
   try {
     await PodkopShellMethods.disable();
   } catch (e) {
-    console.log('handleDisable - e', e);
+    logger.error('[DIAGNOSTIC]', 'handleDisable - e', e);
   } finally {
     await fetchServicesInfo();
     store.set({
@@ -220,7 +220,7 @@ async function handleShowGlobalCheck() {
       );
     }
   } catch (e) {
-    console.log('handleShowGlobalCheck - e', e);
+    logger.error('[DIAGNOSTIC]', 'handleShowGlobalCheck - e', e);
   } finally {
     store.set({
       diagnosticsActions: {
@@ -250,7 +250,7 @@ async function handleViewLogs() {
       );
     }
   } catch (e) {
-    console.log('handleViewLogs - e', e);
+    logger.error('[DIAGNOSTIC]', 'handleViewLogs - e', e);
   } finally {
     store.set({
       diagnosticsActions: {
@@ -280,7 +280,7 @@ async function handleShowSingBoxConfig() {
       );
     }
   } catch (e) {
-    console.log('handleViewLogs - e', e);
+    logger.error('[DIAGNOSTIC]', 'handleShowSingBoxConfig - e', e);
   } finally {
     store.set({
       diagnosticsActions: {
@@ -294,7 +294,7 @@ async function handleShowSingBoxConfig() {
 function renderDiagnosticAvailableActionsWidget() {
   const diagnosticsActions = store.get().diagnosticsActions;
   const servicesInfoWidget = store.get().servicesInfoWidget;
-  console.log('renderDiagnosticActionsWidget');
+  logger.debug('[DIAGNOSTIC]', 'renderDiagnosticAvailableActionsWidget');
 
   const podkopEnabled = Boolean(servicesInfoWidget.data.podkop);
   const singBoxRunning = Boolean(servicesInfoWidget.data.singbox);
@@ -363,7 +363,7 @@ function renderDiagnosticAvailableActionsWidget() {
 }
 
 function renderDiagnosticSystemInfoWidget() {
-  console.log('renderDiagnosticSystemInfoWidget');
+  logger.debug('[DIAGNOSTIC]', 'renderDiagnosticSystemInfoWidget');
   const diagnosticsSystemInfo = store.get().diagnosticsSystemInfo;
 
   const container = document.getElementById('pdk_diagnostic-page-system-info');
@@ -471,14 +471,13 @@ async function runChecks() {
 
     await runFakeIPCheck();
   } catch (e) {
-    console.log('runChecks - e', e);
+    logger.error('[DIAGNOSTIC]', 'runChecks - e', e);
   } finally {
     store.set({ diagnosticsRunAction: { loading: false } });
   }
 }
 
 function onPageMount() {
-  console.log('diagnostic controller initialized.');
   // Cleanup before mount
   onPageUnmount();
 
@@ -523,19 +522,29 @@ function registerLifecycleListeners() {
       diff.tabService &&
       next.tabService.current !== prev.tabService.current
     ) {
-      console.log(
-        new Date().toISOString(),
-        '[Active Tab on diagnostics]',
+      logger.debug(
+        '[DIAGNOSTIC]',
+        'active tab diff event, active tab:',
         diff.tabService.current,
       );
-      const isDashboardVisible = next.tabService.current === 'diagnostic';
+      const isDIAGNOSTICVisible = next.tabService.current === 'diagnostic';
 
-      if (isDashboardVisible) {
+      if (isDIAGNOSTICVisible) {
+        logger.debug(
+          '[DIAGNOSTIC]',
+          'registerLifecycleListeners',
+          'onPageMount',
+        );
         return onPageMount();
       }
 
-      if (!isDashboardVisible) {
-        onPageUnmount();
+      if (!isDIAGNOSTICVisible) {
+        logger.debug(
+          '[DIAGNOSTIC]',
+          'registerLifecycleListeners',
+          'onPageUnmount',
+        );
+        return onPageUnmount();
       }
     }
   });
@@ -543,6 +552,7 @@ function registerLifecycleListeners() {
 
 export async function initController(): Promise<void> {
   onMount('diagnostic-status').then(() => {
+    logger.debug('[DIAGNOSTIC]', 'initController', 'onMount');
     onPageMount();
     registerLifecycleListeners();
   });

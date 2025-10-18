@@ -47,8 +47,6 @@ export async function runSingBoxCheck() {
     Boolean(data.sing_box_process_running) ||
     Boolean(data.sing_box_ports_listening);
 
-  console.log('singBoxChecks', singBoxChecks);
-
   function getStatus() {
     if (allGood) {
       return 'success';

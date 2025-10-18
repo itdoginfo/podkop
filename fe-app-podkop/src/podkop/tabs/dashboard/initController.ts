@@ -5,7 +5,7 @@ import {
 } from '../../../helpers';
 import { prettyBytes } from '../../../helpers/prettyBytes';
 import { CustomPodkopMethods, PodkopShellMethods } from '../../methods';
-import { socket, store, StoreType } from '../../services';
+import { logger, socket, store, StoreType } from '../../services';
 import { renderSections, renderWidget } from './partials';
 import { fetchServicesInfo } from '../../fetchers';
 
@@ -24,7 +24,7 @@ async function fetchDashboardSections() {
   const { data, success } = await CustomPodkopMethods.getDashboardSections();
 
   if (!success) {
-    console.log('[fetchDashboardSections]: failed to fetch');
+    logger.error('[DASHBOARD]', 'fetchDashboardSections: failed to fetch');
   }
 
   store.set({
@@ -38,7 +38,6 @@ async function fetchDashboardSections() {
 }
 
 async function connectToClashSockets() {
-  console.log('[SOCKET] connectToClashSockets');
   socket.subscribe(
     `${getClashWsUrl()}/traffic?token=`,
     (msg) => {
@@ -53,8 +52,9 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
-      console.log(
-        '[fetchDashboardSections]: failed to connect',
+      logger.error(
+        '[DASHBOARD]',
+        'connectToClashSockets - traffic: failed to connect to',
         getClashWsUrl(),
       );
       store.set({
@@ -92,8 +92,9 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
-      console.log(
-        '[fetchDashboardSections]: failed to connect',
+      logger.error(
+        '[DASHBOARD]',
+        'connectToClashSockets - connections: failed to connect to',
         getClashWsUrl(),
       );
       store.set({
@@ -163,7 +164,7 @@ async function handleTestProxyLatency(tag: string) {
 // Renderer
 
 async function renderSectionsWidget() {
-  console.log('renderSectionsWidget');
+  logger.debug('[DASHBOARD]', 'renderSectionsWidget');
   const sectionsWidget = store.get().sectionsWidget;
   const container = document.getElementById('dashboard-sections-grid');
 
@@ -212,7 +213,7 @@ async function renderSectionsWidget() {
 }
 
 async function renderBandwidthWidget() {
-  console.log('renderBandwidthWidget');
+  logger.debug('[DASHBOARD]', 'renderBandwidthWidget');
   const traffic = store.get().bandwidthWidget;
 
   const container = document.getElementById('dashboard-widget-traffic');
@@ -242,7 +243,7 @@ async function renderBandwidthWidget() {
 }
 
 async function renderTrafficTotalWidget() {
-  console.log('renderTrafficTotalWidget');
+  logger.debug('[DASHBOARD]', 'renderTrafficTotalWidget');
   const trafficTotalWidget = store.get().trafficTotalWidget;
 
   const container = document.getElementById('dashboard-widget-traffic-total');
@@ -278,7 +279,7 @@ async function renderTrafficTotalWidget() {
 }
 
 async function renderSystemInfoWidget() {
-  console.log('renderSystemInfoWidget');
+  logger.debug('[DASHBOARD]', 'renderSystemInfoWidget');
   const systemInfoWidget = store.get().systemInfoWidget;
 
   const container = document.getElementById('dashboard-widget-system-info');
@@ -314,7 +315,7 @@ async function renderSystemInfoWidget() {
 }
 
 async function renderServicesInfoWidget() {
-  console.log('renderServicesInfoWidget');
+  logger.debug('[DASHBOARD]', 'renderServicesInfoWidget');
   const servicesInfoWidget = store.get().servicesInfoWidget;
 
   const container = document.getElementById('dashboard-widget-service-info');
@@ -422,19 +423,29 @@ function registerLifecycleListeners() {
       diff.tabService &&
       next.tabService.current !== prev.tabService.current
     ) {
-      console.log(
-        new Date().toISOString(),
-        '[Active Tab on dashboard]',
+      logger.debug(
+        '[DASHBOARD]',
+        'active tab diff event, active tab:',
         diff.tabService.current,
       );
       const isDashboardVisible = next.tabService.current === 'dashboard';
 
       if (isDashboardVisible) {
+        logger.debug(
+          '[DASHBOARD]',
+          'registerLifecycleListeners',
+          'onPageMount',
+        );
         return onPageMount();
       }
 
       if (!isDashboardVisible) {
-        onPageUnmount();
+        logger.debug(
+          '[DASHBOARD]',
+          'registerLifecycleListeners',
+          'onPageUnmount',
+        );
+        return onPageUnmount();
       }
     }
   });
@@ -442,6 +453,7 @@ function registerLifecycleListeners() {
 
 export async function initController(): Promise<void> {
   onMount('dashboard-status').then(() => {
+    logger.debug('[DASHBOARD]', 'initController', 'onMount');
     onPageMount();
     registerLifecycleListeners();
   });

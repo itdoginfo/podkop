@@ -54,8 +54,6 @@ export async function runNftCheck() {
     Boolean(data.rules_proxy_counters) ||
     Boolean(data.rules_other_mark_exist);
 
-  console.log('nftablesChecks', nftablesChecks);
-
   function getStatus() {
     if (allGood) {
       return 'success';

@@ -20,12 +20,6 @@ export async function runFakeIPCheck() {
   const checkFakeIPResponse = await RemoteFakeIPMethods.getFakeIpCheck();
   const checkIPResponse = await RemoteFakeIPMethods.getIpCheck();
 
-  console.log('runFakeIPCheck', {
-    routerFakeIPResponse,
-    checkFakeIPResponse,
-    checkIPResponse,
-  });
-
   const checks = {
     router: routerFakeIPResponse.success && routerFakeIPResponse.data.fakeip,
     browserFakeIP:
@@ -35,8 +29,6 @@ export async function runFakeIPCheck() {
       checkIPResponse.success &&
       checkFakeIPResponse.data.IP !== checkIPResponse.data.IP,
   };
-
-  console.log('checks', checks);
 
   const allGood = checks.router || checks.browserFakeIP || checks.differentIP;
   const atLeastOneGood =

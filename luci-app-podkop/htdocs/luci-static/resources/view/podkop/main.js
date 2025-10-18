@@ -1166,9 +1166,78 @@ var initialStore = {
 };
 var store = new StoreService(initialStore);
 
+// src/helpers/downloadAsTxt.ts
+function downloadAsTxt(text, filename) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  const safeName = filename.endsWith(".txt") ? filename : `${filename}.txt`;
+  link.download = safeName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
+
+// src/podkop/services/logger.service.ts
+var Logger = class {
+  constructor() {
+    this.logs = [];
+    this.levels = ["debug", "info", "warn", "error"];
+  }
+  format(level, ...args) {
+    return `[${level.toUpperCase()}] ${args.join(" ")}`;
+  }
+  push(level, ...args) {
+    if (!this.levels.includes(level)) level = "info";
+    const message = this.format(level, ...args);
+    this.logs.push(message);
+    switch (level) {
+      case "error":
+        console.error(message);
+        break;
+      case "warn":
+        console.warn(message);
+        break;
+      case "info":
+        console.info(message);
+        break;
+      default:
+        console.log(message);
+    }
+  }
+  debug(...args) {
+    this.push("debug", ...args);
+  }
+  info(...args) {
+    this.push("info", ...args);
+  }
+  warn(...args) {
+    this.push("warn", ...args);
+  }
+  error(...args) {
+    this.push("error", ...args);
+  }
+  clear() {
+    this.logs = [];
+  }
+  getLogs() {
+    return this.logs.join("\n");
+  }
+  download(filename = "logs.txt") {
+    if (typeof document === "undefined") {
+      console.warn("Logger.download() \u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D \u0442\u043E\u043B\u044C\u043A\u043E \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435");
+      return;
+    }
+    downloadAsTxt(this.getLogs(), filename);
+  }
+};
+var logger = new Logger();
+
 // src/podkop/services/core.service.ts
 function coreService() {
   TabServiceInstance.onChange((activeId, tabs) => {
+    logger.info("[TAB]", activeId);
     store.set({
       tabService: {
         current: activeId || "",
@@ -1199,14 +1268,18 @@ var SocketManager = class _SocketManager {
           ws.close();
         }
       } catch (err) {
-        console.warn(`resetAll: failed to close socket ${url}`, err);
+        logger.error(
+          "[SOCKET]",
+          `resetAll: failed to close socket ${url}`,
+          err
+        );
       }
     }
     this.sockets.clear();
     this.listeners.clear();
     this.errorListeners.clear();
     this.connected.clear();
-    console.info("[SocketManager] All connections and state have been reset.");
+    logger.info("[SOCKET]", "All connections and state have been reset.");
   }
   connect(url) {
     if (this.sockets.has(url)) return;
@@ -1214,7 +1287,11 @@ var SocketManager = class _SocketManager {
     try {
       ws = new WebSocket(url);
     } catch (err) {
-      console.error(`Failed to construct WebSocket for ${url}:`, err);
+      logger.error(
+        "[SOCKET]",
+        `failed to construct WebSocket for ${url}:`,
+        err
+      );
       this.triggerError(url, err instanceof Event ? err : String(err));
       return;
     }
@@ -1224,7 +1301,7 @@ var SocketManager = class _SocketManager {
     this.errorListeners.set(url, /* @__PURE__ */ new Set());
     ws.addEventListener("open", () => {
       this.connected.set(url, true);
-      console.info(`Connected: ${url}`);
+      logger.info("[SOCKET]", "Connected to", url);
     });
     ws.addEventListener("message", (event) => {
       const handlers = this.listeners.get(url);
@@ -1233,18 +1310,18 @@ var SocketManager = class _SocketManager {
           try {
             handler(event.data);
           } catch (err) {
-            console.error(`Handler error for ${url}:`, err);
+            logger.error("[SOCKET]", `Handler error for ${url}:`, err);
           }
         }
       }
     });
     ws.addEventListener("close", () => {
       this.connected.set(url, false);
-      console.warn(`Disconnected: ${url}`);
+      logger.warn("[SOCKET]", `Disconnected: ${url}`);
       this.triggerError(url, "Connection closed");
     });
     ws.addEventListener("error", (err) => {
-      console.error(`Socket error for ${url}:`, err);
+      logger.error("[SOCKET]", `Socket error for ${url}:`, err);
       this.triggerError(url, err);
     });
   }
@@ -1275,7 +1352,7 @@ var SocketManager = class _SocketManager {
     if (ws && this.connected.get(url)) {
       ws.send(typeof data === "string" ? data : JSON.stringify(data));
     } else {
-      console.warn(`Cannot send: not connected to ${url}`);
+      logger.warn("[SOCKET]", `Cannot send: not connected to ${url}`);
       this.triggerError(url, "Not connected");
     }
   }
@@ -1301,7 +1378,7 @@ var SocketManager = class _SocketManager {
         try {
           cb(err);
         } catch (e) {
-          console.error(`Error handler threw for ${url}:`, e);
+          logger.error("[SOCKET]", `Error handler threw for ${url}:`, e);
         }
       }
     }
@@ -1580,7 +1657,7 @@ async function fetchDashboardSections() {
   });
   const { data, success } = await CustomPodkopMethods.getDashboardSections();
   if (!success) {
-    console.log("[fetchDashboardSections]: failed to fetch");
+    logger.error("[DASHBOARD]", "fetchDashboardSections: failed to fetch");
   }
   store.set({
     sectionsWidget: {
@@ -1592,7 +1669,6 @@ async function fetchDashboardSections() {
   });
 }
 async function connectToClashSockets() {
-  console.log("[SOCKET] connectToClashSockets");
   socket.subscribe(
     `${getClashWsUrl()}/traffic?token=`,
     (msg) => {
@@ -1606,8 +1682,9 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
-      console.log(
-        "[fetchDashboardSections]: failed to connect",
+      logger.error(
+        "[DASHBOARD]",
+        "connectToClashSockets - traffic: failed to connect to",
         getClashWsUrl()
       );
       store.set({
@@ -1643,8 +1720,9 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
-      console.log(
-        "[fetchDashboardSections]: failed to connect",
+      logger.error(
+        "[DASHBOARD]",
+        "connectToClashSockets - connections: failed to connect to",
         getClashWsUrl()
       );
       store.set({
@@ -1702,7 +1780,7 @@ async function handleTestProxyLatency(tag) {
   });
 }
 async function renderSectionsWidget() {
-  console.log("renderSectionsWidget");
+  logger.debug("[DASHBOARD]", "renderSectionsWidget");
   const sectionsWidget = store.get().sectionsWidget;
   const container = document.getElementById("dashboard-sections-grid");
   if (sectionsWidget.loading || sectionsWidget.failed) {
@@ -1747,7 +1825,7 @@ async function renderSectionsWidget() {
   });
 }
 async function renderBandwidthWidget() {
-  console.log("renderBandwidthWidget");
+  logger.debug("[DASHBOARD]", "renderBandwidthWidget");
   const traffic = store.get().bandwidthWidget;
   const container = document.getElementById("dashboard-widget-traffic");
   if (traffic.loading || traffic.failed) {
@@ -1771,7 +1849,7 @@ async function renderBandwidthWidget() {
   container.replaceChildren(renderedWidget);
 }
 async function renderTrafficTotalWidget() {
-  console.log("renderTrafficTotalWidget");
+  logger.debug("[DASHBOARD]", "renderTrafficTotalWidget");
   const trafficTotalWidget = store.get().trafficTotalWidget;
   const container = document.getElementById("dashboard-widget-traffic-total");
   if (trafficTotalWidget.loading || trafficTotalWidget.failed) {
@@ -1801,7 +1879,7 @@ async function renderTrafficTotalWidget() {
   container.replaceChildren(renderedWidget);
 }
 async function renderSystemInfoWidget() {
-  console.log("renderSystemInfoWidget");
+  logger.debug("[DASHBOARD]", "renderSystemInfoWidget");
   const systemInfoWidget = store.get().systemInfoWidget;
   const container = document.getElementById("dashboard-widget-system-info");
   if (systemInfoWidget.loading || systemInfoWidget.failed) {
@@ -1831,7 +1909,7 @@ async function renderSystemInfoWidget() {
   container.replaceChildren(renderedWidget);
 }
 async function renderServicesInfoWidget() {
-  console.log("renderServicesInfoWidget");
+  logger.debug("[DASHBOARD]", "renderServicesInfoWidget");
   const servicesInfoWidget = store.get().servicesInfoWidget;
   const container = document.getElementById("dashboard-widget-service-info");
   if (servicesInfoWidget.loading || servicesInfoWidget.failed) {
@@ -1904,23 +1982,34 @@ function onPageUnmount() {
 function registerLifecycleListeners() {
   store.subscribe((next, prev, diff) => {
     if (diff.tabService && next.tabService.current !== prev.tabService.current) {
-      console.log(
-        (/* @__PURE__ */ new Date()).toISOString(),
-        "[Active Tab on dashboard]",
+      logger.debug(
+        "[DASHBOARD]",
+        "active tab diff event, active tab:",
         diff.tabService.current
       );
       const isDashboardVisible = next.tabService.current === "dashboard";
       if (isDashboardVisible) {
+        logger.debug(
+          "[DASHBOARD]",
+          "registerLifecycleListeners",
+          "onPageMount"
+        );
         return onPageMount();
       }
       if (!isDashboardVisible) {
-        onPageUnmount();
+        logger.debug(
+          "[DASHBOARD]",
+          "registerLifecycleListeners",
+          "onPageUnmount"
+        );
+        return onPageUnmount();
       }
     }
   });
 }
 async function initController() {
   onMount("dashboard-status").then(() => {
+    logger.debug("[DASHBOARD]", "initController", "onMount");
     onPageMount();
     registerLifecycleListeners();
   });
@@ -2111,7 +2200,6 @@ async function runDnsCheck() {
   const data = dnsChecks.data;
   const allGood = Boolean(data.dns_on_router) && Boolean(data.dhcp_config_status) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
   const atLeastOneGood = Boolean(data.dns_on_router) || Boolean(data.dhcp_config_status) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
-  console.log("dnsChecks", dnsChecks);
   function getStatus() {
     if (allGood) {
       return "success";
@@ -2186,7 +2274,6 @@ async function runSingBoxCheck() {
   const data = singBoxChecks.data;
   const allGood = Boolean(data.sing_box_installed) && Boolean(data.sing_box_version_ok) && Boolean(data.sing_box_service_exist) && Boolean(data.sing_box_autostart_disabled) && Boolean(data.sing_box_process_running) && Boolean(data.sing_box_ports_listening);
   const atLeastOneGood = Boolean(data.sing_box_installed) || Boolean(data.sing_box_version_ok) || Boolean(data.sing_box_service_exist) || Boolean(data.sing_box_autostart_disabled) || Boolean(data.sing_box_process_running) || Boolean(data.sing_box_ports_listening);
-  console.log("singBoxChecks", singBoxChecks);
   function getStatus() {
     if (allGood) {
       return "success";
@@ -2268,7 +2355,6 @@ async function runNftCheck() {
   const data = nftablesChecks.data;
   const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && Boolean(data.rules_other_mark_exist);
   const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || Boolean(data.rules_other_mark_exist);
-  console.log("nftablesChecks", nftablesChecks);
   function getStatus() {
     if (allGood) {
       return "success";
@@ -2346,17 +2432,11 @@ async function runFakeIPCheck() {
   const routerFakeIPResponse = await PodkopShellMethods.checkFakeIP();
   const checkFakeIPResponse = await RemoteFakeIPMethods.getFakeIpCheck();
   const checkIPResponse = await RemoteFakeIPMethods.getIpCheck();
-  console.log("runFakeIPCheck", {
-    routerFakeIPResponse,
-    checkFakeIPResponse,
-    checkIPResponse
-  });
   const checks = {
     router: routerFakeIPResponse.success && routerFakeIPResponse.data.fakeip,
     browserFakeIP: checkFakeIPResponse.success && checkFakeIPResponse.data.fakeip,
     differentIP: checkFakeIPResponse.success && checkIPResponse.success && checkFakeIPResponse.data.IP !== checkIPResponse.data.IP
   };
-  console.log("checks", checks);
   const allGood = checks.router || checks.browserFakeIP || checks.differentIP;
   const atLeastOneGood = checks.router && checks.browserFakeIP && checks.differentIP;
   function getMeta() {
@@ -3032,19 +3112,6 @@ function copyToClipboard(text) {
   document.body.removeChild(textarea);
 }
 
-// src/helpers/downloadAsTxt.ts
-function downloadAsTxt(text, filename) {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  const safeName = filename.endsWith(".txt") ? filename : `${filename}.txt`;
-  link.download = safeName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
-}
-
 // src/partials/modal/renderModal.ts
 function renderModal(text, name) {
   return E(
@@ -3411,7 +3478,7 @@ async function fetchSystemInfo() {
   }
 }
 function renderDiagnosticsChecks() {
-  console.log("renderDiagnosticsChecks");
+  logger.debug("[DIAGNOSTIC]", "renderDiagnosticsChecks");
   const diagnosticsChecks = store.get().diagnosticsChecks.sort((a, b) => a.order - b.order);
   const container = document.getElementById("pdk_diagnostic-page-checks");
   const renderedDiagnosticsChecks = diagnosticsChecks.map(
@@ -3422,7 +3489,7 @@ function renderDiagnosticsChecks() {
   });
 }
 function renderDiagnosticRunActionWidget() {
-  console.log("renderDiagnosticRunActionWidget");
+  logger.debug("[DIAGNOSTIC]", "renderDiagnosticRunActionWidget");
   const { loading } = store.get().diagnosticsRunAction;
   const container = document.getElementById("pdk_diagnostic-page-run-check");
   const renderedAction = renderRunAction({
@@ -3444,7 +3511,7 @@ async function handleRestart() {
   try {
     await PodkopShellMethods.restart();
   } catch (e) {
-    console.log("handleRestart - e", e);
+    logger.error("[DIAGNOSTIC]", "handleRestart - e", e);
   } finally {
     setTimeout(async () => {
       await fetchServicesInfo();
@@ -3469,7 +3536,7 @@ async function handleStop() {
   try {
     await PodkopShellMethods.stop();
   } catch (e) {
-    console.log("handleStop - e", e);
+    logger.error("[DIAGNOSTIC]", "handleStop - e", e);
   } finally {
     await fetchServicesInfo();
     store.set({
@@ -3492,7 +3559,7 @@ async function handleStart() {
   try {
     await PodkopShellMethods.start();
   } catch (e) {
-    console.log("handleStart - e", e);
+    logger.error("[DIAGNOSTIC]", "handleStart - e", e);
   } finally {
     setTimeout(async () => {
       await fetchServicesInfo();
@@ -3517,7 +3584,7 @@ async function handleEnable() {
   try {
     await PodkopShellMethods.enable();
   } catch (e) {
-    console.log("handleEnable - e", e);
+    logger.error("[DIAGNOSTIC]", "handleEnable - e", e);
   } finally {
     await fetchServicesInfo();
     store.set({
@@ -3539,7 +3606,7 @@ async function handleDisable() {
   try {
     await PodkopShellMethods.disable();
   } catch (e) {
-    console.log("handleDisable - e", e);
+    logger.error("[DIAGNOSTIC]", "handleDisable - e", e);
   } finally {
     await fetchServicesInfo();
     store.set({
@@ -3567,7 +3634,7 @@ async function handleShowGlobalCheck() {
       );
     }
   } catch (e) {
-    console.log("handleShowGlobalCheck - e", e);
+    logger.error("[DIAGNOSTIC]", "handleShowGlobalCheck - e", e);
   } finally {
     store.set({
       diagnosticsActions: {
@@ -3594,7 +3661,7 @@ async function handleViewLogs() {
       );
     }
   } catch (e) {
-    console.log("handleViewLogs - e", e);
+    logger.error("[DIAGNOSTIC]", "handleViewLogs - e", e);
   } finally {
     store.set({
       diagnosticsActions: {
@@ -3621,7 +3688,7 @@ async function handleShowSingBoxConfig() {
       );
     }
   } catch (e) {
-    console.log("handleViewLogs - e", e);
+    logger.error("[DIAGNOSTIC]", "handleShowSingBoxConfig - e", e);
   } finally {
     store.set({
       diagnosticsActions: {
@@ -3634,7 +3701,7 @@ async function handleShowSingBoxConfig() {
 function renderDiagnosticAvailableActionsWidget() {
   const diagnosticsActions = store.get().diagnosticsActions;
   const servicesInfoWidget = store.get().servicesInfoWidget;
-  console.log("renderDiagnosticActionsWidget");
+  logger.debug("[DIAGNOSTIC]", "renderDiagnosticAvailableActionsWidget");
   const podkopEnabled = Boolean(servicesInfoWidget.data.podkop);
   const singBoxRunning = Boolean(servicesInfoWidget.data.singbox);
   const atLeastOneServiceCommandLoading = servicesInfoWidget.loading || diagnosticsActions.restart.loading || diagnosticsActions.start.loading || diagnosticsActions.stop.loading;
@@ -3694,7 +3761,7 @@ function renderDiagnosticAvailableActionsWidget() {
   });
 }
 function renderDiagnosticSystemInfoWidget() {
-  console.log("renderDiagnosticSystemInfoWidget");
+  logger.debug("[DIAGNOSTIC]", "renderDiagnosticSystemInfoWidget");
   const diagnosticsSystemInfo = store.get().diagnosticsSystemInfo;
   const container = document.getElementById("pdk_diagnostic-page-system-info");
   function getPodkopVersionRow() {
@@ -3782,13 +3849,12 @@ async function runChecks() {
     await runNftCheck();
     await runFakeIPCheck();
   } catch (e) {
-    console.log("runChecks - e", e);
+    logger.error("[DIAGNOSTIC]", "runChecks - e", e);
   } finally {
     store.set({ diagnosticsRunAction: { loading: false } });
   }
 }
 function onPageMount2() {
-  console.log("diagnostic controller initialized.");
   onPageUnmount2();
   store.subscribe(onStoreUpdate2);
   renderDiagnosticsChecks();
@@ -3810,23 +3876,34 @@ function onPageUnmount2() {
 function registerLifecycleListeners2() {
   store.subscribe((next, prev, diff) => {
     if (diff.tabService && next.tabService.current !== prev.tabService.current) {
-      console.log(
-        (/* @__PURE__ */ new Date()).toISOString(),
-        "[Active Tab on diagnostics]",
+      logger.debug(
+        "[DIAGNOSTIC]",
+        "active tab diff event, active tab:",
         diff.tabService.current
       );
-      const isDashboardVisible = next.tabService.current === "diagnostic";
-      if (isDashboardVisible) {
+      const isDIAGNOSTICVisible = next.tabService.current === "diagnostic";
+      if (isDIAGNOSTICVisible) {
+        logger.debug(
+          "[DIAGNOSTIC]",
+          "registerLifecycleListeners",
+          "onPageMount"
+        );
         return onPageMount2();
       }
-      if (!isDashboardVisible) {
-        onPageUnmount2();
+      if (!isDIAGNOSTICVisible) {
+        logger.debug(
+          "[DIAGNOSTIC]",
+          "registerLifecycleListeners",
+          "onPageUnmount"
+        );
+        return onPageUnmount2();
       }
     }
   });
 }
 async function initController2() {
   onMount("diagnostic-status").then(() => {
+    logger.debug("[DIAGNOSTIC]", "initController", "onMount");
     onPageMount2();
     registerLifecycleListeners2();
   });
@@ -4139,7 +4216,7 @@ async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = _
   } finally {
     clearTimeout(timeoutId);
     const elapsed = performance.now() - start;
-    console.log(`[${operationName}] Execution time: ${elapsed.toFixed(2)} ms`);
+    logger.info("[SHELL]", `[${operationName}] took ${elapsed.toFixed(2)} ms`);
   }
 }
 
@@ -4268,6 +4345,7 @@ return baseclass.extend({
   FAKEIP_CHECK_DOMAIN,
   FETCH_TIMEOUT,
   IP_CHECK_DOMAIN,
+  Logger,
   PODKOP_LUCI_APP_VERSION,
   PodkopShellMethods,
   REGIONAL_OPTIONS,
@@ -4285,6 +4363,7 @@ return baseclass.extend({
   injectGlobalStyles,
   insertIf,
   insertIfObj,
+  logger,
   maskIP,
   onMount,
   parseQueryString,
