@@ -2298,7 +2298,7 @@ global_check() {
 
         # DHCP configuration check
         local dont_touch_dhcp
-        config_get dont_touch_dhcp "main" "dont_touch_dhcp"
+        config_get dont_touch_dhcp "settings" "dont_touch_dhcp"
 
         if [ "$dont_touch_dhcp" = "1" ]; then
             print_global "⚠️ dont_touch_dhcp is enabled. 📄 DHCP config:"
