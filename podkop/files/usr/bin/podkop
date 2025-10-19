@@ -79,25 +79,25 @@ check_requirements() {
     fi
 }
 
+_check_outbound_section() {
+    local section="$1"
+    local proxy_string interface outbound_json urltest_proxy_links
+
+    config_get proxy_string "$section" "proxy_string"
+    config_get interface "$section" "interface"
+    config_get outbound_json "$section" "outbound_json"
+    config_get urltest_proxy_links "$section" "urltest_proxy_links"
+
+    if [ -n "$proxy_string" ] || [ -n "$interface" ] ||
+        [ -n "$outbound_json" ] || [ -n "$urltest_proxy_links" ]; then
+        section_exists=0
+    fi
+}
+
 has_outbound_section() {
     local section_exists=1
 
-    check_section() {
-        local section="$1"
-        local proxy_string interface outbound_json urltest_proxy_links
-
-        config_get proxy_string "$section" "proxy_string"
-        config_get interface "$section" "interface"
-        config_get outbound_json "$section" "outbound_json"
-        config_get urltest_proxy_links "$section" "urltest_proxy_links"
-
-        if [ -n "$proxy_string" ] || [ -n "$interface" ] ||
-            [ -n "$outbound_json" ] || [ -n "$urltest_proxy_links" ]; then
-            section_exists=0
-        fi
-    }
-
-    config_foreach check_section "section"
+    config_foreach _check_outbound_section "section"
 
     return $section_exists
 }
