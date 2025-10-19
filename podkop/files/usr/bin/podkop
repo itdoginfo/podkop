@@ -71,16 +71,35 @@ check_requirements() {
         log "Detected https-dns-proxy in dhcp config. Edit /etc/config/dhcp" "warn"
     fi
 
-    local proxy_string interface outbound_json urltest_proxy_links
-    config_get proxy_string "main" "proxy_string"
-    config_get interface "main" "interface"
-    config_get outbound_json "main" "outbound_json"
-    config_get urltest_proxy_links "main" "urltest_proxy_links"
-
-    if [ -z "$proxy_string" ] && [ -z "$interface" ] && [ -z "$outbound_json" ] && [ -z "$urltest_proxy_links" ]; then
-        log "Required options (proxy_string, interface, outbound_json, urltest_proxy_links) are missing in 'main' section. Aborted." "error"
+    if has_outbound_section; then
+        log "Outbound section found" "debug"
+    else
+        log "Outbound section not found. Please check your configuration file (missing proxy_string, interface, outbound_json, or urltest_proxy_links). Aborted." "fatal"
         exit 1
     fi
+}
+
+has_outbound_section() {
+    local section_exists=1
+
+    check_section() {
+        local section="$1"
+        local proxy_string interface outbound_json urltest_proxy_links
+
+        config_get proxy_string "$section" "proxy_string"
+        config_get interface "$section" "interface"
+        config_get outbound_json "$section" "outbound_json"
+        config_get urltest_proxy_links "$section" "urltest_proxy_links"
+
+        if [ -n "$proxy_string" ] || [ -n "$interface" ] || \
+           [ -n "$outbound_json" ] || [ -n "$urltest_proxy_links" ]; then
+            section_exists=0
+        fi
+    }
+
+    config_foreach check_section "section"
+
+    return $section_exists
 }
 
 start_main() {
