@@ -91,8 +91,8 @@ has_outbound_section() {
         config_get outbound_json "$section" "outbound_json"
         config_get urltest_proxy_links "$section" "urltest_proxy_links"
 
-        if [ -n "$proxy_string" ] || [ -n "$interface" ] || \
-           [ -n "$outbound_json" ] || [ -n "$urltest_proxy_links" ]; then
+        if [ -n "$proxy_string" ] || [ -n "$interface" ] ||
+            [ -n "$outbound_json" ] || [ -n "$urltest_proxy_links" ]; then
             section_exists=0
         fi
     }
@@ -751,9 +751,10 @@ sing_box_configure_route() {
         config=$(sing_box_cf_add_single_key_reject_rule "$config" "$SB_TPROXY_INBOUND_TAG" "protocol" "quic")
     fi
 
-    config=$(
-        sing_box_cf_proxy_domain "$config" "$SB_TPROXY_INBOUND_TAG" "$CHECK_PROXY_IP_DOMAIN" "$SB_MAIN_OUTBOUND_TAG"
-    )
+    local first_outbound_section
+    first_outbound_section="$(get_first_outbound_section)"
+    first_outbound_tag="$(get_outbound_tag_by_section "$first_outbound_section")"
+    config=$(sing_box_cf_proxy_domain "$config" "$SB_TPROXY_INBOUND_TAG" "$CHECK_PROXY_IP_DOMAIN" "$first_outbound_tag")
     config=$(sing_box_cf_override_domain_port "$config" "$FAKEIP_TEST_DOMAIN" 8443)
 
     config_foreach include_source_ips_in_routing_handler "section"
@@ -1392,6 +1393,25 @@ get_download_detour_tag() {
     fi
 }
 
+_determine_first_outbound_section() {
+    local section="$1"
+
+    local connection_type
+    config_get connection_type "$section" "connection_type"
+
+    if [ "$connection_type" = "proxy" ] || [ "$connection_type" = "vpn" ]; then
+        [ -z "$first_section" ] && first_section="$1"
+    fi
+}
+
+get_first_outbound_section() {
+    local first_section=""
+
+    config_foreach _determine_first_outbound_section "section"
+
+    echo "$first_section"
+}
+
 get_block_sections() {
     uci show podkop | grep "\.connection_type='block'" | cut -d'.' -f2
 }
@@ -1655,10 +1675,10 @@ check_logs() {
         nolog "Error: logread command not found"
         return 1
     fi
-  
+
     local logs
     logs=$(logread | grep -E "podkop|sing-box")
-    
+
     if [ -z "$logs" ]; then
         nolog "Logs not found"
         return 1
@@ -1757,39 +1777,39 @@ show_system_info() {
 
 get_system_info() {
     local podkop_version podkop_latest_version luci_app_version sing_box_version openwrt_version device_model
-    
+
     podkop_version="$PODKOP_VERSION"
-    
+
     podkop_latest_version=$(curl -m 3 -s https://api.github.com/repos/itdoginfo/podkop/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
     [ -z "$podkop_latest_version" ] && podkop_latest_version="unknown"
-    
+
     if [ -f /www/luci-static/resources/view/podkop/main.js ]; then
         luci_app_version=$(grep 'var PODKOP_LUCI_APP_VERSION' /www/luci-static/resources/view/podkop/main.js | cut -d'"' -f2)
     else
         luci_app_version="not installed"
     fi
-    
-    if command -v sing-box >/dev/null 2>&1; then
-        sing_box_version=$(sing-box version 2>/dev/null | head -n 1 | awk '{print $3}')
+
+    if command -v sing-box > /dev/null 2>&1; then
+        sing_box_version=$(sing-box version 2> /dev/null | head -n 1 | awk '{print $3}')
         [ -z "$sing_box_version" ] && sing_box_version="unknown"
     else
         sing_box_version="not installed"
     fi
-    
+
     if [ -f /etc/os-release ]; then
         openwrt_version=$(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)
         [ -z "$openwrt_version" ] && openwrt_version="unknown"
     else
         openwrt_version="unknown"
     fi
-    
+
     if [ -f /tmp/sysinfo/model ]; then
         device_model=$(cat /tmp/sysinfo/model)
         [ -z "$device_model" ] && device_model="unknown"
     else
         device_model="unknown"
     fi
-    
+
     echo "{\"podkop_version\": \"$podkop_version\", \"podkop_latest_version\": \"$podkop_latest_version\", \"luci_app_version\": \"$luci_app_version\", \"sing_box_version\": \"$sing_box_version\", \"openwrt_version\": \"$openwrt_version\", \"device_model\": \"$device_model\"}" | jq .
 }
 
@@ -1922,9 +1942,9 @@ check_dhcp_has_podkop_dns() {
     config_get server_list "$1" "server"
     config_get cachesize "$1" "cachesize"
     config_get noresolv "$1" "noresolv"
-    
+
     server_found=0
-    
+
     if [ -n "$server_list" ]; then
         for server in $server_list; do
             if [ "$server" = "127.0.0.42" ]; then
@@ -1933,7 +1953,7 @@ check_dhcp_has_podkop_dns() {
             fi
         done
     fi
-    
+
     if [ "$cachesize" != "0" ] || [ "$noresolv" != "1" ] || [ "$server_found" != "1" ]; then
         dhcp_config_status=0
     fi
@@ -1948,68 +1968,68 @@ check_nft_rules() {
     local rules_proxy_exist=0
     local rules_proxy_counters=0
     local rules_other_mark_exist=0
-    
+
     # Generate traffic through PodkopTable
     curl -m 3 -s "https://$CHECK_PROXY_IP_DOMAIN/check" > /dev/null 2>&1 &
     local pid1=$!
     curl -m 3 -s "https://$FAKEIP_TEST_DOMAIN/check" > /dev/null 2>&1 &
     local pid2=$!
-    
-    wait $pid1 2>/dev/null
-    wait $pid2 2>/dev/null
+
+    wait $pid1 2> /dev/null
+    wait $pid2 2> /dev/null
     sleep 1
-    
+
     # Check if PodkopTable exists
     if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
         table_exist=1
-        
+
         # Check mangle chain rules
         if nft list chain inet "$NFT_TABLE_NAME" mangle > /dev/null 2>&1; then
             local mangle_output
             mangle_output=$(nft list chain inet "$NFT_TABLE_NAME" mangle)
             if echo "$mangle_output" | grep -q "counter"; then
                 rules_mangle_exist=1
-                
+
                 if echo "$mangle_output" | grep "counter" | grep -qv "packets 0 bytes 0"; then
                     rules_mangle_counters=1
                 fi
             fi
         fi
-        
+
         # Check mangle_output chain rules
         if nft list chain inet "$NFT_TABLE_NAME" mangle_output > /dev/null 2>&1; then
             local mangle_output_output
             mangle_output_output=$(nft list chain inet "$NFT_TABLE_NAME" mangle_output)
             if echo "$mangle_output_output" | grep -q "counter"; then
                 rules_mangle_output_exist=1
-                
+
                 if echo "$mangle_output_output" | grep "counter" | grep -qv "packets 0 bytes 0"; then
                     rules_mangle_output_counters=1
                 fi
             fi
         fi
-        
+
         # Check proxy chain rules
         if nft list chain inet "$NFT_TABLE_NAME" proxy > /dev/null 2>&1; then
             local proxy_output
             proxy_output=$(nft list chain inet "$NFT_TABLE_NAME" proxy)
             if echo "$proxy_output" | grep -q "counter"; then
                 rules_proxy_exist=1
-                
+
                 if echo "$proxy_output" | grep "counter" | grep -qv "packets 0 bytes 0"; then
                     rules_proxy_counters=1
                 fi
             fi
         fi
     fi
-    
+
     # Check for other mark rules outside PodkopTable
-    nft list tables 2>/dev/null | while read -r _ family table_name; do
+    nft list tables 2> /dev/null | while read -r _ family table_name; do
         [ -z "$table_name" ] && continue
-        
+
         [ "$table_name" = "$NFT_TABLE_NAME" ] && continue
-        
-        if nft list table "$family" "$table_name" 2>/dev/null | grep -q "meta mark set"; then
+
+        if nft list table "$family" "$table_name" 2> /dev/null | grep -q "meta mark set"; then
             touch /tmp/podkop_mark_check.$$
             break
         fi
@@ -2019,7 +2039,7 @@ check_nft_rules() {
         rules_other_mark_exist=1
         rm -f /tmp/podkop_mark_check.$$
     fi
-    
+
     echo "{\"table_exist\":$table_exist,\"rules_mangle_exist\":$rules_mangle_exist,\"rules_mangle_counters\":$rules_mangle_counters,\"rules_mangle_output_exist\":$rules_mangle_output_exist,\"rules_mangle_output_counters\":$rules_mangle_output_counters,\"rules_proxy_exist\":$rules_proxy_exist,\"rules_proxy_counters\":$rules_proxy_counters,\"rules_other_mark_exist\":$rules_other_mark_exist}" | jq .
 }
 
@@ -2030,14 +2050,14 @@ check_sing_box() {
     local sing_box_autostart_disabled=0
     local sing_box_process_running=0
     local sing_box_ports_listening=0
-    
+
     # Check if sing-box is installed
     if command -v sing-box > /dev/null 2>&1; then
         sing_box_installed=1
-        
+
         # Check version (must be >= 1.12.4)
         local version
-        version=$(sing-box version 2>/dev/null | head -n 1 | awk '{print $3}')
+        version=$(sing-box version 2> /dev/null | head -n 1 | awk '{print $3}')
         if [ -n "$version" ]; then
             version=$(echo "$version" | sed 's/^v//')
             local major
@@ -2046,11 +2066,11 @@ check_sing_box() {
             major=$(echo "$version" | cut -d. -f1)
             minor=$(echo "$version" | cut -d. -f2)
             patch=$(echo "$version" | cut -d. -f3)
-            
+
             # Compare version: must be >= 1.12.4
-            if [ "$major" -gt 1 ] || \
-               [ "$major" -eq 1 ] && [ "$minor" -gt 12 ] || \
-               [ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]; then
+            if [ "$major" -gt 1 ] ||
+                [ "$major" -eq 1 ] && [ "$minor" -gt 12 ] ||
+                [ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]; then
                 sing_box_version_ok=1
             fi
         fi
@@ -2059,34 +2079,34 @@ check_sing_box() {
     # Check if service exists
     if [ -f /etc/init.d/sing-box ]; then
         sing_box_service_exist=1
-        
-        if ! /etc/init.d/sing-box enabled 2>/dev/null; then
+
+        if ! /etc/init.d/sing-box enabled 2> /dev/null; then
             sing_box_autostart_disabled=1
         fi
     fi
-    
+
     # Check if process is running
     if pgrep "sing-box" > /dev/null 2>&1; then
         sing_box_process_running=1
     fi
-    
+
     # Check if sing-box is listening on required ports
     local port_53_ok=0
     local port_1602_ok=0
-    
-    if netstat -ln 2>/dev/null | grep -q "127.0.0.42:53"; then
+
+    if netstat -ln 2> /dev/null | grep -q "127.0.0.42:53"; then
         port_53_ok=1
     fi
-    
-    if netstat -ln 2>/dev/null | grep -q "127.0.0.1:1602"; then
+
+    if netstat -ln 2> /dev/null | grep -q "127.0.0.1:1602"; then
         port_1602_ok=1
     fi
-    
+
     # Both ports must be listening
     if [ "$port_53_ok" = "1" ] && [ "$port_1602_ok" = "1" ]; then
         sing_box_ports_listening=1
     fi
-    
+
     echo "{\"sing_box_installed\":$sing_box_installed,\"sing_box_version_ok\":$sing_box_version_ok,\"sing_box_service_exist\":$sing_box_service_exist,\"sing_box_autostart_disabled\":$sing_box_autostart_disabled,\"sing_box_process_running\":$sing_box_process_running,\"sing_box_ports_listening\":$sing_box_ports_listening}" | jq .
 }
 
@@ -2113,94 +2133,93 @@ clash_api() {
     local CLASH_URL="127.0.0.1:9090"
     local TEST_URL="https://www.gstatic.com/generate_204"
     local action="$1"
-    
-    case "$action" in
-        get_proxies)
-            curl -s "$CLASH_URL/proxies" | jq .
-            ;;
-            
-        get_proxy_latency)
-            local proxy_tag="$2"
-            local timeout="${3:-2000}"
-            
-            if [ -z "$proxy_tag" ]; then
-                echo '{"error":"proxy_tag required"}' | jq .
-                return 1
-            fi
-            
-            curl -G -s "$CLASH_URL/proxies/$proxy_tag/delay" \
-                --data-urlencode "url=$TEST_URL" \
-                --data-urlencode "timeout=$timeout" | jq .
-            ;;
-            
-        get_group_latency)
-            local group_tag="$2"
-            local timeout="${3:-5000}"
-            
-            if [ -z "$group_tag" ]; then
-                echo '{"error":"group_tag required"}' | jq .
-                return 1
-            fi
-            
-            curl -G -s "$CLASH_URL/group/$group_tag/delay" \
-                --data-urlencode "url=$TEST_URL" \
-                --data-urlencode "timeout=$timeout" | jq .
-            ;;
-            
-        set_group_proxy)
-            local group_tag="$2"
-            local proxy_tag="$3"
-            
-            if [ -z "$group_tag" ] || [ -z "$proxy_tag" ]; then
-                echo '{"error":"group_tag and proxy_tag required"}' | jq .
-                return 1
-            fi
-            
-            local response
-            response=$(curl -X PUT -s -w "\n%{http_code}" "$CLASH_URL/proxies/$group_tag" \
-                --data-raw "{\"name\":\"$proxy_tag\"}")
-            
-            local http_code
-            local body
-            http_code=$(echo "$response" | tail -n 1)
-            body=$(echo "$response" | sed '$d')
-            
-            case "$http_code" in
-                204)
-                    echo "{\"success\":true,\"group\":\"$group_tag\",\"proxy\":\"$proxy_tag\"}" | jq .
-                    ;;
-                404)
-                    echo "{\"success\":false,\"error\":\"group_not_found\",\"message\":\"$group_tag does not exist\"}" | jq .
-                    return 1
-                    ;;
-                400)
-                    if echo "$body" | grep -q "not found"; then
-                        echo "{\"success\":false,\"error\":\"proxy_not_found\",\"message\":\"$proxy_tag not found in group $group_tag\"}" | jq .
-                    else
-                        echo '{"success":false,"error":"bad_request","message":"Invalid request"}' | jq .
-                    fi
-                    return 1
-                    ;;
-                *)
-                    if [ -n "$body" ]; then
-                        local body_json
-                        body_json=$(echo "$body" | jq -c .)
-                        echo "{\"success\":false,\"http_code\":$http_code,\"body\":$body_json}" | jq .
-                    else
-                        echo "{\"success\":false,\"http_code\":$http_code}" | jq .
-                    fi
-                    return 1
-                    ;;
-            esac
-            ;;
 
-        *)
-            echo '{"error":"unknown action","available":["get_proxies","get_proxy_latency","get_group_latency","set_group_proxy"]}' | jq .
+    case "$action" in
+    get_proxies)
+        curl -s "$CLASH_URL/proxies" | jq .
+        ;;
+
+    get_proxy_latency)
+        local proxy_tag="$2"
+        local timeout="${3:-2000}"
+
+        if [ -z "$proxy_tag" ]; then
+            echo '{"error":"proxy_tag required"}' | jq .
+            return 1
+        fi
+
+        curl -G -s "$CLASH_URL/proxies/$proxy_tag/delay" \
+            --data-urlencode "url=$TEST_URL" \
+            --data-urlencode "timeout=$timeout" | jq .
+        ;;
+
+    get_group_latency)
+        local group_tag="$2"
+        local timeout="${3:-5000}"
+
+        if [ -z "$group_tag" ]; then
+            echo '{"error":"group_tag required"}' | jq .
+            return 1
+        fi
+
+        curl -G -s "$CLASH_URL/group/$group_tag/delay" \
+            --data-urlencode "url=$TEST_URL" \
+            --data-urlencode "timeout=$timeout" | jq .
+        ;;
+
+    set_group_proxy)
+        local group_tag="$2"
+        local proxy_tag="$3"
+
+        if [ -z "$group_tag" ] || [ -z "$proxy_tag" ]; then
+            echo '{"error":"group_tag and proxy_tag required"}' | jq .
+            return 1
+        fi
+
+        local response
+        response=$(curl -X PUT -s -w "\n%{http_code}" "$CLASH_URL/proxies/$group_tag" \
+            --data-raw "{\"name\":\"$proxy_tag\"}")
+
+        local http_code
+        local body
+        http_code=$(echo "$response" | tail -n 1)
+        body=$(echo "$response" | sed '$d')
+
+        case "$http_code" in
+        204)
+            echo "{\"success\":true,\"group\":\"$group_tag\",\"proxy\":\"$proxy_tag\"}" | jq .
+            ;;
+        404)
+            echo "{\"success\":false,\"error\":\"group_not_found\",\"message\":\"$group_tag does not exist\"}" | jq .
             return 1
             ;;
+        400)
+            if echo "$body" | grep -q "not found"; then
+                echo "{\"success\":false,\"error\":\"proxy_not_found\",\"message\":\"$proxy_tag not found in group $group_tag\"}" | jq .
+            else
+                echo '{"success":false,"error":"bad_request","message":"Invalid request"}' | jq .
+            fi
+            return 1
+            ;;
+        *)
+            if [ -n "$body" ]; then
+                local body_json
+                body_json=$(echo "$body" | jq -c .)
+                echo "{\"success\":false,\"http_code\":$http_code,\"body\":$body_json}" | jq .
+            else
+                echo "{\"success\":false,\"http_code\":$http_code}" | jq .
+            fi
+            return 1
+            ;;
+        esac
+        ;;
+
+    *)
+        echo '{"error":"unknown action","available":["get_proxies","get_proxy_latency","get_group_latency","set_group_proxy"]}' | jq .
+        return 1
+        ;;
     esac
 }
-
 
 print_global() {
     local message="$1"
@@ -2214,20 +2233,20 @@ global_check() {
     print_global "📡 Global check run!"
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🛠️ System info"
-    
+
     local system_info_json
     system_info_json=$(get_system_info)
-    
+
     if [ -n "$system_info_json" ]; then
         local podkop_version podkop_latest_version luci_app_version sing_box_version openwrt_version device_model
-        
+
         podkop_version=$(echo "$system_info_json" | jq -r '.podkop_version // "unknown"')
         podkop_latest_version=$(echo "$system_info_json" | jq -r '.podkop_latest_version // "unknown"')
         luci_app_version=$(echo "$system_info_json" | jq -r '.luci_app_version // "unknown"')
         sing_box_version=$(echo "$system_info_json" | jq -r '.sing_box_version // "unknown"')
         openwrt_version=$(echo "$system_info_json" | jq -r '.openwrt_version // "unknown"')
         device_model=$(echo "$system_info_json" | jq -r '.device_model // "unknown"')
-        
+
         print_global "🕳️ Podkop:        $podkop_version (latest: $podkop_latest_version)"
         print_global "🕳️ LuCI App:      $luci_app_version"
         print_global "📦 Sing-box:      $sing_box_version"
@@ -2239,13 +2258,13 @@ global_check() {
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "➡️ DNS status"
-    
+
     local dns_check_json
     dns_check_json=$(check_dns_available)
-    
+
     if [ -n "$dns_check_json" ]; then
         local dns_type dns_server dns_status dns_on_router bootstrap_dns_server bootstrap_dns_status dhcp_config_status
-        
+
         dns_type=$(echo "$dns_check_json" | jq -r '.dns_type // "unknown"')
         dns_server=$(echo "$dns_check_json" | jq -r '.dns_server // "unknown"')
         dns_status=$(echo "$dns_check_json" | jq -r '.dns_status // 0')
@@ -2253,7 +2272,7 @@ global_check() {
         bootstrap_dns_server=$(echo "$dns_check_json" | jq -r '.bootstrap_dns_server // ""')
         bootstrap_dns_status=$(echo "$dns_check_json" | jq -r '.bootstrap_dns_status // 0')
         dhcp_config_status=$(echo "$dns_check_json" | jq -r '.dhcp_config_status // 0')
-        
+
         # Bootstrap DNS
         if [ -n "$bootstrap_dns_server" ]; then
             if [ "$bootstrap_dns_status" -eq 1 ]; then
@@ -2262,25 +2281,25 @@ global_check() {
                 print_global "❌ Bootstrap DNS: $bootstrap_dns_server"
             fi
         fi
-        
+
         # DNS server status
         if [ "$dns_status" -eq 1 ]; then
             print_global "✅ Main DNS: $dns_server [$dns_type]"
         else
             print_global "❌ Main DNS: $dns_server [$dns_type]"
         fi
-        
+
         # DNS on router
         if [ "$dns_on_router" -eq 1 ]; then
             print_global "✅ DNS on router"
         else
             print_global "❌ DNS on router"
         fi
-        
+
         # DHCP configuration check
         local dont_touch_dhcp
         config_get dont_touch_dhcp "main" "dont_touch_dhcp"
-        
+
         if [ "$dont_touch_dhcp" = "1" ]; then
             print_global "⚠️ dont_touch_dhcp is enabled. 📄 DHCP config:"
             awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
@@ -2296,50 +2315,50 @@ global_check() {
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "📦 Sing-box status"
-    
+
     local singbox_check_json
     singbox_check_json=$(check_sing_box)
-    
+
     if [ -n "$singbox_check_json" ]; then
         local sing_box_installed sing_box_version_ok sing_box_service_exist sing_box_autostart_disabled sing_box_process_running sing_box_ports_listening
-        
+
         sing_box_installed=$(echo "$singbox_check_json" | jq -r '.sing_box_installed // 0')
         sing_box_version_ok=$(echo "$singbox_check_json" | jq -r '.sing_box_version_ok // 0')
         sing_box_service_exist=$(echo "$singbox_check_json" | jq -r '.sing_box_service_exist // 0')
         sing_box_autostart_disabled=$(echo "$singbox_check_json" | jq -r '.sing_box_autostart_disabled // 0')
         sing_box_process_running=$(echo "$singbox_check_json" | jq -r '.sing_box_process_running // 0')
         sing_box_ports_listening=$(echo "$singbox_check_json" | jq -r '.sing_box_ports_listening // 0')
-        
+
         if [ "$sing_box_installed" -eq 1 ]; then
             print_global "✅ Sing-box installed"
         else
             print_global "❌ Sing-box installed"
         fi
-        
+
         if [ "$sing_box_version_ok" -eq 1 ]; then
             print_global "✅ Sing-box version >= 1.12.4"
         else
             print_global "❌ Sing-box version >= 1.12.4"
         fi
-        
+
         if [ "$sing_box_service_exist" -eq 1 ]; then
             print_global "✅ Sing-box service exist"
         else
             print_global "❌ Sing-box service exist"
         fi
-        
+
         if [ "$sing_box_autostart_disabled" -eq 1 ]; then
             print_global "✅ Sing-box autostart disabled"
         else
             print_global "❌ Sing-box autostart disabled"
         fi
-        
+
         if [ "$sing_box_process_running" -eq 1 ]; then
             print_global "✅ Sing-box process running"
         else
             print_global "❌ Sing-box process running"
         fi
-        
+
         if [ "$sing_box_ports_listening" -eq 1 ]; then
             print_global "✅ Sing-box listening ports"
         else
@@ -2351,13 +2370,13 @@ global_check() {
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🧱 NFT rules status"
-    
+
     local nft_check_json
     nft_check_json=$(check_nft_rules)
-    
+
     if [ -n "$nft_check_json" ]; then
         local table_exist rules_mangle_exist rules_mangle_counters rules_mangle_output_exist rules_mangle_output_counters rules_proxy_exist rules_proxy_counters rules_other_mark_exist
-        
+
         table_exist=$(echo "$nft_check_json" | jq -r '.table_exist // 0')
         rules_mangle_exist=$(echo "$nft_check_json" | jq -r '.rules_mangle_exist // 0')
         rules_mangle_counters=$(echo "$nft_check_json" | jq -r '.rules_mangle_counters // 0')
@@ -2366,49 +2385,49 @@ global_check() {
         rules_proxy_exist=$(echo "$nft_check_json" | jq -r '.rules_proxy_exist // 0')
         rules_proxy_counters=$(echo "$nft_check_json" | jq -r '.rules_proxy_counters // 0')
         rules_other_mark_exist=$(echo "$nft_check_json" | jq -r '.rules_other_mark_exist // 0')
-        
+
         if [ "$table_exist" -eq 1 ]; then
             print_global "✅ Table exist"
         else
             print_global "❌ Table exist"
         fi
-        
+
         if [ "$rules_mangle_exist" -eq 1 ]; then
             print_global "✅ Rules mangle exist"
         else
             print_global "❌ Rules mangle exist"
         fi
-        
+
         if [ "$rules_mangle_counters" -eq 1 ]; then
             print_global "✅ Rules mangle counters"
         else
             print_global "⚠️  Rules mangle counters"
         fi
-        
+
         if [ "$rules_mangle_output_exist" -eq 1 ]; then
             print_global "✅ Rules mangle output exist"
         else
             print_global "❌ Rules mangle output exist"
         fi
-        
+
         if [ "$rules_mangle_output_counters" -eq 1 ]; then
             print_global "✅ Rules mangle output counters"
         else
             print_global "⚠️  Rules mangle output counters"
         fi
-        
+
         if [ "$rules_proxy_exist" -eq 1 ]; then
             print_global "✅ Rules proxy exist"
         else
             print_global "❌ Rules proxy exist"
         fi
-        
+
         if [ "$rules_proxy_counters" -eq 1 ]; then
             print_global "✅ Rules proxy counters"
         else
             print_global "⚠️  Rules proxy counters"
         fi
-        
+
         if [ "$rules_other_mark_exist" -eq 1 ]; then
             print_global "⚠️  Additional marking rules found:"
             nft list ruleset | awk '/table inet '"$NFT_TABLE_NAME"'/{flag=1; next} /^table/{flag=0} !flag' | grep -E "mark set|meta mark"
@@ -2481,8 +2500,8 @@ global_check() {
     if uci show network | grep -q route_allowed_ips; then
         uci show network | grep "wireguard_.*\.route_allowed_ips='1'" | cut -d'.' -f1-2 | while read -r peer_section; do
             local allowed_ips
-            allowed_ips=$(uci get "${peer_section}.allowed_ips" 2>/dev/null)
-            
+            allowed_ips=$(uci get "${peer_section}.allowed_ips" 2> /dev/null)
+
             if [ "$allowed_ips" = "0.0.0.0/0" ]; then
                 print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 print_global "⚠️ WG Route allowed IP enabled with 0.0.0.0/0"
@@ -2497,15 +2516,15 @@ global_check() {
 
     print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     print_global "🥸 FakeIP status"
-    
+
     local fakeip_check_json
     fakeip_check_json=$(check_fakeip)
 
     if [ -n "$fakeip_check_json" ]; then
         local fakeip_status
-        
+
         fakeip_status=$(echo "$fakeip_check_json" | jq -r '.fakeip // false')
-        
+
         if [ "$fakeip_status" = "true" ]; then
             print_global "✅ Router DNS is routed through sing-box"
         else
@@ -2517,7 +2536,7 @@ global_check() {
 
     local fakeip_address
     fakeip_address=$(dig +short @127.0.0.42 $FAKEIP_TEST_DOMAIN)
-    
+
     if echo "$fakeip_address" | grep -q "^198\.18\."; then
         print_global "✅ Sing-box works with FakeIP: $fakeip_address"
     else
