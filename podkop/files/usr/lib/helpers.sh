@@ -128,7 +128,7 @@ get_ruleset_format_by_file_extension() {
     json) format="source" ;;
     srs) format="binary" ;;
     *)
-        log "Unsupported file extension: .$file_extension"
+        log "Unsupported file extension: .$file_extension" "error"
         return 1
         ;;
     esac

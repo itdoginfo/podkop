@@ -34,7 +34,7 @@ sing_box_cf_add_dns_server() {
             "$domain_resolver" "$detour")
         ;;
     *)
-        log "Unsupported DNS server type: $type"
+        log "Unsupported DNS server type: $type. Aborted." "fatal"
         exit 1
         ;;
     esac
@@ -121,7 +121,7 @@ sing_box_cf_add_proxy_outbound() {
         config=$(_add_outbound_transport "$config" "$tag" "$url")
         ;;
     *)
-        log "Unsupported proxy $scheme type"
+        log "Unsupported proxy $scheme type. Aborted." "fatal"
         exit 1
         ;;
     esac
