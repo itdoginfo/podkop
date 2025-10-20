@@ -449,12 +449,12 @@ sing_box_cm_add_direct_outbound() {
 }
 
 #######################################
-# Add a SOCKS5 outbound to the outbounds section of a sing-box JSON configuration.
+# Add a SOCKS outbound to the outbounds section of a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
 #   tag: string, identifier for the outbound
-#   server_address: string, IP address or hostname of the SOCKS5 server
-#   server_port: number, port of the SOCKS5 server
+#   server_address: string, IP address or hostname of the SOCKS server
+#   server_port: number, port of the SOCKS server
 #   version: string, optional SOCKS version
 #   username: string, optional username for authentication
 #   password: string, optional password for authentication
@@ -463,9 +463,9 @@ sing_box_cm_add_direct_outbound() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_add_socks5_outbound "$CONFIG" "socks5-out" "192.168.1.10" 1080)
+#   CONFIG=$(sing_box_cm_add_socks_outbound "$CONFIG" "socks5-out" "192.168.1.10" 1080)
 #######################################
-sing_box_cm_add_socks5_outbound() {
+sing_box_cm_add_socks_outbound() {
     local config="$1"
     local tag="$2"
     local server_address="$3"
