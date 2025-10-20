@@ -80,8 +80,17 @@ sing_box_cf_add_proxy_outbound() {
                 password="${userinfo#*:}"
             fi
         fi
-        config="$(sing_box_cm_add_socks_outbound "$config" "$tag" "$host" "$port" "$version" "$username" "$password" \
-            "" "$udp_over_tcp")"
+        config="$(sing_box_cm_add_socks_outbound \
+            "$config" \
+            "$tag" \
+            "$host" \
+            "$port" \
+            "$version" \
+            "$username" \
+            "$password" \
+            "" \
+            "$([ "$udp_over_tcp" == "1" ] && echo 2)" # if udp_over_tcp is enabled, enable version 2
+        )"
         ;;
     vless)
         local tag host port uuid flow packet_encoding
