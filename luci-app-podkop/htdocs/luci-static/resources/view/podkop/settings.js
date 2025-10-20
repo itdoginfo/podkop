@@ -83,6 +83,15 @@ function createSettingsContent(section) {
 
     o = section.option(
         widgets.DeviceSelect,
+        'output_network_interface',
+        _('Output Network Interface'),
+        _('Select the network interface to which the traffic will originate'),
+    );
+    o.noaliases = true;
+    o.multiple = false;
+
+    o = section.option(
+        widgets.DeviceSelect,
         'source_network_interfaces',
         _('Source Network Interface'),
         _('Select the network interface from which the traffic will originate'),
