@@ -2,6 +2,7 @@ import { ValidationResult } from './types';
 import { validateShadowsocksUrl } from './validateShadowsocksUrl';
 import { validateVlessUrl } from './validateVlessUrl';
 import { validateTrojanUrl } from './validateTrojanUrl';
+import { validateSocksUrl } from './validateSocksUrl';
 
 // TODO refactor current validation and add tests
 export function validateProxyUrl(url: string): ValidationResult {
@@ -17,8 +18,14 @@ export function validateProxyUrl(url: string): ValidationResult {
     return validateTrojanUrl(url);
   }
 
+  if (/^socks(4|4a|5):\/\//.test(url)) {
+    return validateSocksUrl(url);
+  }
+
   return {
     valid: false,
-    message: _('URL must start with vless:// or ss:// or trojan://'),
+    message: _(
+      'URL must start with vless://, ss://, trojan://, or socks4/5://',
+    ),
   };
 }

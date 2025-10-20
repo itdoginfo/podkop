@@ -43,7 +43,7 @@ function createSectionContent(section) {
     o.textarea = true;
     o.rmempty = false;
     o.sectionDescriptions = new Map();
-    o.placeholder = 'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt\n// backup3 trojan://04agAQapcl@127.0.0.1:33641?type=tcp&security=none#trojan-tcp-none';
+    o.placeholder = 'vless://uuid@server:port?type=tcp&security=tls#main\n// backup ss://method:pass@server:port\n// backup2 vless://uuid@server:port?type=grpc&security=reality#alt\n// backup3 trojan://04agAQapcl@127.0.0.1:33641?type=tcp&security=none#trojan-tcp-none \n// socks5://127.0.0.1:1080';
     o.validate = function (section_id, value) {
         // Optional
         if (!value || value.length === 0) {
@@ -102,7 +102,7 @@ function createSectionContent(section) {
         _('URLTest Proxy Links'),
     );
     o.depends('proxy_config_type', 'urltest');
-    o.placeholder = 'vless://, ss://, trojan:// links';
+    o.placeholder = 'vless://, ss://, trojan://, socks4/5:// links';
     o.rmempty = false;
     o.validate = function (section_id, value) {
         // Optional

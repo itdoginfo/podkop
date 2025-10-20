@@ -30,7 +30,10 @@ export function coreService() {
     {
       intervalMs: 3000,
       onNewLog: (line) => {
-        if (line.toLowerCase().includes('[error]') || line.toLowerCase().includes('[fatal]')) {
+        if (
+          line.toLowerCase().includes('[error]') ||
+          line.toLowerCase().includes('[fatal]')
+        ) {
           ui.addNotification('Podkop Error', E('div', {}, line), 'error');
         }
       },
