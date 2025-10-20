@@ -66,6 +66,23 @@ sing_box_cf_add_proxy_outbound() {
 
     local scheme="${url%%://*}"
     case "$scheme" in
+    socks4 | socks4a | socks5)
+        local tag host port version userinfo username password udp_over_tcp
+
+        tag=$(get_outbound_tag_by_section "$section")
+        host=$(url_get_host "$url")
+        port=$(url_get_port "$url")
+        version="${scheme#socks}"
+        if [ "$scheme" = "socks5" ]; then
+            userinfo=$(url_get_userinfo "$url")
+            if [ -n "$userinfo" ]; then
+                username="${userinfo%%:*}"
+                password="${userinfo#*:}"
+            fi
+        fi
+        config="$(sing_box_cm_add_socks_outbound "$config" "$tag" "$host" "$port" "$version" "$username" "$password" \
+            "" "$udp_over_tcp")"
+        ;;
     vless)
         local tag host port uuid flow packet_encoding
         tag=$(get_outbound_tag_by_section "$section")
