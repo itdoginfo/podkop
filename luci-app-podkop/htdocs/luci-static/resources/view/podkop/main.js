@@ -1348,8 +1348,8 @@ function coreService() {
     {
       intervalMs: 3e3,
       onNewLog: (line) => {
-        if (line.includes("[critical]")) {
-          ui.addNotification("Podkop Critical", E("div", {}, line), "error");
+        if (line.toLowerCase().includes("[error]") || line.toLowerCase().includes("[fatal]")) {
+          ui.addNotification("Podkop Error", E("div", {}, line), "error");
         }
       }
     }
