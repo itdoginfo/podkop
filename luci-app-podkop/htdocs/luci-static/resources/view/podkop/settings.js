@@ -43,7 +43,9 @@ function createSettingsContent(section) {
         form.Value,
         'bootstrap_dns_server',
         _('Bootstrap DNS server'),
-        _('The DNS server used to look up the IP address of an upstream DNS server'),
+        _(
+            'The DNS server used to look up the IP address of an upstream DNS server',
+        ),
     );
     Object.entries(main.BOOTSTRAP_DNS_SERVER_OPTIONS).forEach(([key, label]) => {
         o.value(key, _(label));
@@ -82,6 +84,15 @@ function createSettingsContent(section) {
     };
 
     o = section.option(
+        form.Flag,
+        'enable_output_network_interface',
+        _('Enable Output Network Interface'),
+        _('You can select Output Network Interface, by default autodetect'),
+    );
+    o.default = '0';
+    o.rmempty = false;
+
+    o = section.option(
         widgets.DeviceSelect,
         'output_network_interface',
         _('Output Network Interface'),
@@ -89,6 +100,44 @@ function createSettingsContent(section) {
     );
     o.noaliases = true;
     o.multiple = false;
+    o.depends('enable_output_network_interface', '1');
+    o.filter = function (section_id, value) {
+        // Blocked interface names that should never be selectable
+        const blockedInterfaces = ['br-lan'];
+
+        // Reject immediately if the value matches any blocked interface
+        if (blockedInterfaces.includes(value)) {
+            return false;
+        }
+
+        // Reject tun*, wg*, vpn*, awg*, oc*
+        if (
+            value.startsWith('tun') ||
+            value.startsWith('wg') ||
+            value.startsWith('vpn') ||
+            value.startsWith('awg') ||
+            value.startsWith('oc')
+        ) {
+            return false;
+        }
+
+        // Try to find the device object with the given name
+        const device = this.devices.find((dev) => dev.getName() === value);
+
+        // If no device is found, allow the value
+        if (!device) {
+            return true;
+        }
+
+        // Get the device type (e.g., "wifi", "ethernet", etc.)
+        const type = device.getType();
+
+        // Reject wireless-related devices
+        const isWireless =
+            type === 'wifi' || type === 'wireless' || type.includes('wlan');
+
+        return !isWireless;
+    };
 
     o = section.option(
         widgets.DeviceSelect,
@@ -188,7 +237,9 @@ function createSettingsContent(section) {
         form.Flag,
         'disable_quic',
         _('Disable QUIC'),
-        _('Disable the QUIC protocol to improve compatibility or fix issues with video streaming'),
+        _(
+            'Disable the QUIC protocol to improve compatibility or fix issues with video streaming',
+        ),
     );
     o.default = '0';
     o.rmempty = false;
@@ -256,7 +307,9 @@ function createSettingsContent(section) {
         form.ListValue,
         'config_path',
         _('Config File Path'),
-        _('Select path for sing-box config file. Change this ONLY if you know what you are doing'),
+        _(
+            'Select path for sing-box config file. Change this ONLY if you know what you are doing',
+        ),
     );
     o.value('/etc/sing-box/config.json', 'Flash (/etc/sing-box/config.json)');
     o.value('/tmp/sing-box/config.json', 'RAM (/tmp/sing-box/config.json)');
@@ -267,7 +320,9 @@ function createSettingsContent(section) {
         form.Value,
         'cache_path',
         _('Cache File Path'),
-        _('Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing'),
+        _(
+            'Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing',
+        ),
     );
     o.value('/tmp/sing-box/cache.db', 'RAM (/tmp/sing-box/cache.db)');
     o.value(
@@ -301,7 +356,9 @@ function createSettingsContent(section) {
         form.Flag,
         'exclude_ntp',
         _('Exclude NTP'),
-        _('Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN'),
+        _(
+            'Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN',
+        ),
     );
     o.default = '0';
     o.rmempty = false;
@@ -332,6 +389,6 @@ function createSettingsContent(section) {
 
 const EntryPoint = {
     createSettingsContent,
-}
+};
 
 return baseclass.extend(EntryPoint);

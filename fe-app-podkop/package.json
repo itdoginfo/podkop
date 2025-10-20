@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "format": "prettier --write src",
+    "format:js": "prettier --write ../luci-app-podkop/htdocs/luci-static/resources/view/podkop",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "build": "tsup src/main.ts",
