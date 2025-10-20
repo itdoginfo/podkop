@@ -610,7 +610,7 @@ configure_outbound_handler() {
             log "Detected proxy configuration type: url" "debug"
             local proxy_string udp_over_tcp
             config_get proxy_string "$section" "proxy_string"
-            config_get udp_over_tcp "$section" "enable_shadowsocks_udp_over_tcp"
+            config_get udp_over_tcp "$section" "enable_udp_over_tcp"
             # Extract the first non-comment line as the active configuration
             active_proxy_string=$(echo "$proxy_string" | grep -v "^[[:space:]]*\/\/" | head -n 1)
 
@@ -631,7 +631,7 @@ configure_outbound_handler() {
             local urltest_proxy_links udp_over_tcp i urltest_tag selector_tag outbound_tag outbound_tags \
                 urltest_outbounds selector_outbounds
             config_get urltest_proxy_links "$section" "urltest_proxy_links"
-            config_get udp_over_tcp "$section" "enable_shadowsocks_udp_over_tcp"
+            config_get udp_over_tcp "$section" "enable_udp_over_tcp"
 
             if [ -z "$urltest_proxy_links" ]; then
                 log "URLTest proxy links is not set. Aborted." "fatal"
