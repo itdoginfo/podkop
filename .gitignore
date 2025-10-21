@@ -1,3 +1,4 @@
 .idea
 fe-app-podkop/node_modules
 fe-app-podkop/.env
+.DS_Store

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-21 21:31+0300\n"
-"PO-Revision-Date: 2025-10-21 21:31+0300\n"
+"POT-Creation-Date: 2025-10-21 21:44+0300\n"
+"PO-Revision-Date: 2025-10-21 21:44+0300\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -18,10 +18,10 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
 msgid "Successfully copied!"
-msgstr ""
+msgstr "Успешно скопировано!"
 
 msgid "Failed to copy!"
-msgstr ""
+msgstr "Не удалось скопировать!"
 
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
@@ -60,7 +60,7 @@ msgid "Invalid path format. Path must start with \"/\" and contain valid charact
 msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать допустимые символы"
 
 msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
-msgstr ""
+msgstr "Ссылка должна начинаться с vless://, ss://, trojan://, или socks4/5://"
 
 msgid "Invalid Shadowsocks URL: must start with ss://"
 msgstr "Неверный URL Shadowsocks: должен начинаться с ss://"
@@ -93,31 +93,31 @@ msgid "Invalid Shadowsocks URL: parsing failed"
 msgstr "Неверный URL Shadowsocks: ошибка разбора"
 
 msgid "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://"
-msgstr ""
+msgstr "Невалидная SOCKS ссылка: должна начинаться с socks4://, socks4a://, или socks5://"
 
 msgid "Invalid SOCKS URL: must not contain spaces"
-msgstr ""
+msgstr "Невалидная SOCKS ссылка: не должна содержать пробелов"
 
 msgid "Invalid SOCKS URL: missing username"
-msgstr ""
+msgstr "Невалидная SOCKS ссылка: отсуствует имя пользователя"
 
 msgid "Invalid SOCKS URL: missing host and port"
-msgstr ""
+msgstr "Невалидная SOCKS ссылка: отсутствуют хост и порт"
 
 msgid "Invalid SOCKS URL: missing hostname or IP"
-msgstr ""
+msgstr "Невалидная SOCKS ссылка: отсутствуют имя хоста или айпи"
 
 msgid "Invalid SOCKS URL: missing port"
-msgstr ""
+msgstr "Невалидная SOCKS ссылка: отсутствует порт"
 
 msgid "Invalid SOCKS URL: invalid port number"
-msgstr ""
+msgstr "Невалидная SOCKS ссылка: невалидный номер порта"
 
 msgid "Invalid SOCKS URL: invalid host format"
-msgstr ""
+msgstr "Невалидная SOCKS ссылка: невалидный формат хоста"
 
 msgid "Invalid SOCKS URL: parsing failed"
-msgstr ""
+msgstr "Невалидная SOCKS ссылка: не удалось распарсить"
 
 msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
 msgstr "Неверный формат. Используйте X.X.X.X или X.X.X.X/Y"
@@ -147,16 +147,13 @@ msgid "Invalid VLESS URL: parsing failed"
 msgstr "Неверный URL VLESS: ошибка разбора"
 
 msgid "Download"
-msgstr ""
+msgstr "Скачать"
 
 msgid "Copy"
-msgstr ""
+msgstr "Скопировать"
 
 msgid "Close"
 msgstr "Закрыть"
-
-msgid "Fastest"
-msgstr "Самый быстрый"
 
 msgid "Traffic"
 msgstr "Трафик"
@@ -201,82 +198,109 @@ msgid "✘ Stopped"
 msgstr "✘ Остановлен"
 
 msgid "Not running"
-msgstr ""
+msgstr "Не запущен"
 
 msgid "Queued"
-msgstr ""
+msgstr "В очереди"
 
 msgid "unknown"
-msgstr ""
+msgstr "неизвестно"
 
 msgid "Global check"
 msgstr "Глобальная проверка"
 
 msgid "View logs"
-msgstr ""
+msgstr "Посмотреть логи"
 
 msgid "Show sing-box config"
-msgstr ""
+msgstr "Показать sing-box конфиг"
 
 msgid "Outdated"
-msgstr ""
+msgstr "Устаревшая"
 
 msgid "Latest"
-msgstr ""
+msgstr "Последняя"
+
+msgid "Fastest"
+msgstr "Самый быстрый"
 
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
 
 msgid "Test latency"
-msgstr ""
+msgstr "Проверить задержку"
 
 msgid "Currently unavailable"
 msgstr "Временно недоступно"
 
+msgid "Restart podkop"
+msgstr "Перезапустить podkop"
+
+msgid "Stop podkop"
+msgstr "Остановить podkop"
+
+msgid "Start podkop"
+msgstr "Запустить podkop"
+
+msgid "Disable autostart"
+msgstr "Отключить автостарт"
+
+msgid "Enable autostart"
+msgstr "Включить автостарт"
+
+msgid "Get global check"
+msgstr "Получить глобальную проверку"
+
+msgid "Not implement yet"
+msgstr "Не реализовано"
+
+msgid "Run Diagnostic"
+msgstr "Запустить диагностику"
+
 msgid "DNS checks"
-msgstr ""
+msgstr "Проверка DNS"
 
 msgid "Sing-box checks"
-msgstr ""
+msgstr "Проверка Sing-box"
 
 msgid "Nftables checks"
-msgstr ""
+msgstr "Проверка Nftables"
 
 msgid "FakeIP checks"
-msgstr ""
+msgstr "Проверка FakeIP"
 
 msgid "Checking dns, please wait"
-msgstr ""
+msgstr "Проверяем dns, пожалуйста подождите"
 
 msgid "Cannot receive DNS checks result"
-msgstr ""
+msgstr "Не удалось получить результаты проверки DNS"
 
 msgid "DNS checks passed"
-msgstr ""
+msgstr "Проверка DNS прошла"
 
 msgid "Bootsrap DNS"
-msgstr ""
+msgstr "Загрузочный DNS"
 
 msgid "Main DNS"
-msgstr ""
+msgstr "Основной DNS"
 
 msgid "DNS on router"
-msgstr ""
+msgstr "DNS на роутере"
 
 msgid "DHCP has DNS server"
-msgstr ""
+msgstr "DHCP содежрит DNS сервер"
 
 msgid "Checking FakeIP, please wait"
-msgstr ""
+msgstr "Проверяем FakeIP, пожалуйста подождите"
 
 msgid "FakeIP checks passed"
-msgstr ""
+msgstr "Проверка FakeIP прошла"
 
 msgid "FakeIP checks partially passed"
-msgstr ""
+msgstr "Проверка FakeIP частично прошла"
 
 msgid "FakeIP checks failed"
-msgstr ""
+msgstr "Проверка FakeIP не удалась"
 
 msgid "Router DNS is routed through sing-box"
 msgstr ""
@@ -360,30 +384,6 @@ msgid "Sing-box process running"
 msgstr ""
 
 msgid "Sing-box listening ports"
-msgstr ""
-
-msgid "Restart podkop"
-msgstr ""
-
-msgid "Stop podkop"
-msgstr ""
-
-msgid "Start podkop"
-msgstr ""
-
-msgid "Disable autostart"
-msgstr ""
-
-msgid "Enable autostart"
-msgstr ""
-
-msgid "Get global check"
-msgstr ""
-
-msgid "Not implement yet"
-msgstr ""
-
-msgid "Run Diagnostic"
 msgstr ""
 
 msgid "Valid"
@@ -887,9 +887,6 @@ msgstr ""
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
 msgstr "Необходимо указать хотя бы один действительный домен. Содержимое только из комментариев не допускается."
 
-msgid "${validation.value}: ${validation.message}"
-msgstr ""
-
 msgid "Validation errors:"
 msgstr "Ошибки валидации:"
 
@@ -1041,7 +1038,7 @@ msgid "Download Lists via specific proxy section"
 msgstr ""
 
 msgid "Downloading all lists via specific Proxy/VPN"
-msgstr ""
+msgstr "Загрузка всех списков через указанный прокси/VPN"
 
 msgid "Dont Touch My DHCP!"
 msgstr ""

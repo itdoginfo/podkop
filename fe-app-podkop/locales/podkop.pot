@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-21 18:31+0300\n"
-"PO-Revision-Date: 2025-10-21 18:31+0300\n"
+"POT-Creation-Date: 2025-10-21 18:48+0300\n"
+"PO-Revision-Date: 2025-10-21 18:48+0300\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -1247,11 +1247,6 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:356
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
-msgstr ""
-
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:368
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:447
-msgid "${validation.value}: ${validation.message}"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:370

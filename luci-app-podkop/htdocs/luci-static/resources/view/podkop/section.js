@@ -365,7 +365,7 @@ function createSectionContent(section) {
     if (!valid) {
       const errors = results
         .filter((validation) => !validation.valid) // Leave only failed validations
-        .map((validation) => _(`${validation.value}: ${validation.message}`)); // Collect validation errors
+        .map((validation) => `${validation.value}: ${validation.message}`); // Collect validation errors
 
       return [_("Validation errors:"), ...errors].join("\n");
     }
@@ -444,7 +444,7 @@ function createSectionContent(section) {
     if (!valid) {
       const errors = results
         .filter((validation) => !validation.valid) // Leave only failed validations
-        .map((validation) => _(`${validation.value}: ${validation.message}`)); // Collect validation errors
+        .map((validation) => `${validation.value}: ${validation.message}`); // Collect validation errors
 
       return [_("Validation errors:"), ...errors].join("\n");
     }

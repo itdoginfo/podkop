@@ -2103,14 +2103,6 @@
     ]
   },
   {
-    "call": "_(`${validation.value}: ${validation.message}`)",
-    "key": "${validation.value}: ${validation.message}",
-    "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:368",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:447"
-    ]
-  },
-  {
     "call": "_(\"Validation errors:\")",
     "key": "Validation errors:",
     "places": [
