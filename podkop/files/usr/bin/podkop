@@ -611,14 +611,12 @@ configure_outbound_handler() {
             local proxy_string udp_over_tcp
             config_get proxy_string "$section" "proxy_string"
             config_get udp_over_tcp "$section" "enable_udp_over_tcp"
-            # Extract the first non-comment line as the active configuration
-            active_proxy_string=$(echo "$proxy_string" | grep -v "^[[:space:]]*\/\/" | head -n 1)
 
-            if [ -z "$active_proxy_string" ]; then
+            if [ -z "$proxy_string" ]; then
                 log "Proxy string is not set. Aborted." "fatal"
                 exit 1
             fi
-            config=$(sing_box_cf_add_proxy_outbound "$config" "$section" "$active_proxy_string" "$udp_over_tcp")
+            config=$(sing_box_cf_add_proxy_outbound "$config" "$section" "$proxy_string" "$udp_over_tcp")
             ;;
         outbound)
             log "Detected proxy configuration type: outbound" "debug"
