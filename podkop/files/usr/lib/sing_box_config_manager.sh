@@ -644,12 +644,12 @@ sing_box_cm_add_trojan_outbound() {
     local network="$6"
 
     echo "$config" | jq \
-    --arg tag "$tag" \
-    --arg server_address "$server_address" \
-    --arg server_port "$server_port" \
-    --arg password "$password" \
-    --arg network "$network" \
-    '.outbounds += [(
+        --arg tag "$tag" \
+        --arg server_address "$server_address" \
+        --arg server_port "$server_port" \
+        --arg password "$password" \
+        --arg network "$network" \
+        '.outbounds += [(
         {
           type: "trojan",
           tag: $tag,
@@ -969,6 +969,7 @@ sing_box_cm_add_selector_outbound() {
 #   final: string, final outbound tag for unmatched traffic
 #   auto_detect_interface: boolean, enable or disable automatic interface detection
 #   default_domain_resolver: string, default DNS resolver for domain-based routing
+#   default_interface: string, default network interface to use when auto detection is disabled
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -979,18 +980,22 @@ sing_box_cm_configure_route() {
     local final="$2"
     local auto_detect_interface="$3"
     local default_domain_resolver="$4"
+    local default_interface="$5"
 
     echo "$config" | jq \
         --arg final "$final" \
         --argjson auto_detect_interface "$auto_detect_interface" \
         --arg default_domain_resolver "$default_domain_resolver" \
+        --arg default_interface "$default_interface" \
         '.route = {
             rules: (.route.rules // []),
             rule_set: (.route.rule_set // []),
             final: $final,
             auto_detect_interface: $auto_detect_interface,
             default_domain_resolver: $default_domain_resolver
-        }'
+        }
+        + (if $default_interface != "" then { default_interface: $default_interface } else {} end)
+        '
 }
 
 #######################################
