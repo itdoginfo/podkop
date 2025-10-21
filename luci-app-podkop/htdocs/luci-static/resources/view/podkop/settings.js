@@ -84,6 +84,43 @@ function createSettingsContent(section) {
   };
 
   o = section.option(
+    widgets.DeviceSelect,
+    "source_network_interfaces",
+    _("Source Network Interface"),
+    _("Select the network interface from which the traffic will originate"),
+  );
+  o.default = "br-lan";
+  o.noaliases = true;
+  o.nobridges = false;
+  o.noinactive = false;
+  o.multiple = true;
+  o.filter = function (section_id, value) {
+    // Block specific interface names from being selectable
+    const blocked = ["wan", "phy0-ap0", "phy1-ap0", "pppoe-wan"];
+    if (blocked.includes(value)) {
+      return false;
+    }
+
+    // Try to find the device object by its name
+    const device = this.devices.find((dev) => dev.getName() === value);
+
+    // If no device is found, allow the value
+    if (!device) {
+      return true;
+    }
+
+    // Check the type of the device
+    const type = device.getType();
+
+    // Consider any Wi-Fi / wireless / wlan device as invalid
+    const isWireless =
+      type === "wifi" || type === "wireless" || type.includes("wlan");
+
+    // Allow only non-wireless devices
+    return !isWireless;
+  };
+
+  o = section.option(
     form.Flag,
     "enable_output_network_interface",
     _("Enable Output Network Interface"),
@@ -136,43 +173,6 @@ function createSettingsContent(section) {
     const isWireless =
       type === "wifi" || type === "wireless" || type.includes("wlan");
 
-    return !isWireless;
-  };
-
-  o = section.option(
-    widgets.DeviceSelect,
-    "source_network_interfaces",
-    _("Source Network Interface"),
-    _("Select the network interface from which the traffic will originate"),
-  );
-  o.default = "br-lan";
-  o.noaliases = true;
-  o.nobridges = false;
-  o.noinactive = false;
-  o.multiple = true;
-  o.filter = function (section_id, value) {
-    // Block specific interface names from being selectable
-    const blocked = ["wan", "phy0-ap0", "phy1-ap0", "pppoe-wan"];
-    if (blocked.includes(value)) {
-      return false;
-    }
-
-    // Try to find the device object by its name
-    const device = this.devices.find((dev) => dev.getName() === value);
-
-    // If no device is found, allow the value
-    if (!device) {
-      return true;
-    }
-
-    // Check the type of the device
-    const type = device.getType();
-
-    // Consider any Wi-Fi / wireless / wlan device as invalid
-    const isWireless =
-      type === "wifi" || type === "wireless" || type.includes("wlan");
-
-    // Allow only non-wireless devices
     return !isWireless;
   };
 
