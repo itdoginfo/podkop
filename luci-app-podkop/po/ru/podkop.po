@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-21 22:33+0300\n"
-"PO-Revision-Date: 2025-10-21 22:33+0300\n"
+"POT-Creation-Date: 2025-10-21 22:45+0300\n"
+"PO-Revision-Date: 2025-10-21 22:45+0300\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -36,7 +36,7 @@ msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
 
 msgid "Applicable for SOCKS and Shadowsocks proxy"
-msgstr ""
+msgstr "Применимо для SOCKS и Shadowsocks прокси"
 
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
 msgstr "Необходимо указать хотя бы один действительный домен. Содержимое только из комментариев не допускается."
@@ -63,25 +63,25 @@ msgid "Cache file path cannot be empty"
 msgstr "Путь к файлу кэша не может быть пустым"
 
 msgid "Cannot receive DNS checks result"
-msgstr ""
+msgstr "Не удалось получить результаты проверки DNS"
 
 msgid "Cannot receive nftables checks result"
-msgstr ""
+msgstr "Не удалось получить результаты проверки nftables"
 
 msgid "Cannot receive Sing-box checks result"
-msgstr ""
+msgstr "Не удалось получить результаты проверки Sing-box"
 
 msgid "Checking dns, please wait"
-msgstr ""
+msgstr "Проверка dns, пожалуйста подождите"
 
 msgid "Checking FakeIP, please wait"
-msgstr ""
+msgstr "Проверка FakeIP, пожалуйста подождите"
 
 msgid "Checking nftables, please wait"
-msgstr ""
+msgstr "Проверка nftables, пожалуйста подождите"
 
 msgid "Checking sing-box, please wait"
-msgstr ""
+msgstr "Проверка sing-box, пожалуйста подождите"
 
 msgid "CIDR must be between 0 and 32"
 msgstr "CIDR должен быть между 0 и 32"
@@ -96,7 +96,7 @@ msgid "Config File Path"
 msgstr "Путь к файлу конфигурации"
 
 msgid "Configuration for Podkop service"
-msgstr ""
+msgstr "Настройки сервиса Podkop"
 
 msgid "Configuration Type"
 msgstr "Тип конфигурации"
@@ -108,7 +108,7 @@ msgid "Connection URL"
 msgstr "URL подключения"
 
 msgid "Copy"
-msgstr ""
+msgstr "Копировать"
 
 msgid "Currently unavailable"
 msgstr "Временно недоступно"
@@ -126,31 +126,31 @@ msgid "Delay value cannot be empty"
 msgstr "Значение задержки не может быть пустым"
 
 msgid "DHCP has DNS server"
-msgstr ""
+msgstr "DHCP содержит DNS сервер"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
 
 msgid "Disable autostart"
-msgstr ""
+msgstr "Отключить автостарт"
 
 msgid "Disable QUIC"
-msgstr ""
+msgstr "Отключить QUIC"
 
 msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
-msgstr ""
+msgstr "Отключить QUIC протокол для улучшения совместимости или исправления видео стриминга"
 
 msgid "Disabled"
 msgstr "Отключено"
 
 msgid "DNS checks"
-msgstr ""
+msgstr "DNS проверки"
 
 msgid "DNS checks passed"
-msgstr ""
+msgstr "DNS проверки успшено завершены"
 
 msgid "DNS on router"
-msgstr ""
+msgstr "DNS на роутере"
 
 msgid "DNS over HTTPS (DoH)"
 msgstr "DNS через HTTPS (DoH)"
@@ -174,19 +174,19 @@ msgid "Domain Resolver"
 msgstr "Резолвер доменов"
 
 msgid "Dont Touch My DHCP!"
-msgstr ""
+msgstr "Dont Touch My DHCP!"
 
 msgid "Downlink"
 msgstr "Входящий"
 
 msgid "Download"
-msgstr ""
+msgstr "Скачать"
 
 msgid "Download Lists via Proxy/VPN"
-msgstr ""
+msgstr "Скачивать списки через Proxy/VPN"
 
 msgid "Download Lists via specific proxy section"
-msgstr ""
+msgstr "Скачивать списки через выбранную секцию"
 
 msgid "Downloading all lists via main Proxy/VPN"
 msgstr "Загрузка всех списков через основной прокси/VPN"
@@ -198,64 +198,64 @@ msgid "Dynamic List"
 msgstr "Динамический список"
 
 msgid "Enable autostart"
-msgstr ""
+msgstr "Включить автостарт"
 
 msgid "Enable built-in DNS resolver for domains handled by this section"
 msgstr "Включить встроенный DNS-резолвер для доменов, обрабатываемых в этом разделе"
 
 msgid "Enable Mixed Proxy"
-msgstr ""
+msgstr "Включить смешанный прокси"
 
 msgid "Enable Output Network Interface"
-msgstr ""
+msgstr "Включить выходной сетевой интерфейс"
 
 msgid "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies"
-msgstr ""
+msgstr "Включить смешанный прокси-сервер, разрешив этому разделу маршрутизировать трафик как через HTTP, так и через SOCKS-прокси."
 
 msgid "Enable YACD"
-msgstr ""
+msgstr "Включить YACD"
 
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
 
 msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //"
-msgstr ""
+msgstr "Введите доменные имена, разделяя их запятыми, пробелами или переносами строк. Вы можете добавлять комментарии, используя //"
 
 msgid "Enter domain names without protocols, e.g. example.com or sub.example.com"
-msgstr ""
+msgstr "Введите доменные имена без протоколов, например example.com или sub.example.com"
 
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
-msgstr ""
+msgstr "Введите подсети в нотации CIDR (например, 103.21.244.0/22) или отдельные IP-адреса"
 
 msgid "Exclude NTP"
 msgstr "Исключить NTP"
 
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
-msgstr ""
+msgstr "Исключите трафик протокола NTP из туннеля, чтобы предотвратить его маршрутизацию через прокси-сервер или VPN."
 
 msgid "Failed to copy!"
-msgstr ""
+msgstr "Не удалось скопировать!"
 
 msgid "FakeIP checks"
-msgstr ""
+msgstr "Проверка FakeIP"
 
 msgid "FakeIP checks failed"
-msgstr ""
+msgstr "Проверки FakeIP не пройдены"
 
 msgid "FakeIP checks partially passed"
-msgstr ""
+msgstr "Проверка FakeIP частично пройдена"
 
 msgid "FakeIP checks passed"
-msgstr ""
+msgstr "Проверки FakeIP пройдены"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
 
 msgid "Fully Routed IPs"
-msgstr ""
+msgstr "Полностью маршрутизированные IP-адреса"
 
 msgid "Get global check"
-msgstr ""
+msgstr "Получить глобальную проверку"
 
 msgid "Global check"
 msgstr "Глобальная проверка"
@@ -264,13 +264,13 @@ msgid "HTTP error"
 msgstr "Ошибка HTTP"
 
 msgid "Interface Monitoring"
-msgstr ""
+msgstr "Мониторинг интерфейса"
 
 msgid "Interface Monitoring Delay"
 msgstr "Задержка при мониторинге интерфейсов"
 
 msgid "Interface monitoring for Bad WAN"
-msgstr ""
+msgstr "Мониторинг интерфейса для Bad WAN"
 
 msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
 msgstr "Неверный формат DNS-сервера. Примеры: 8.8.8.8, dns.example.com или dns.example.com/nicedns для DoH"
@@ -321,31 +321,31 @@ msgid "Invalid Shadowsocks URL: parsing failed"
 msgstr "Неверный URL Shadowsocks: ошибка разбора"
 
 msgid "Invalid SOCKS URL: invalid host format"
-msgstr ""
+msgstr "Неверный URL SOCKS: неверный формат хоста"
 
 msgid "Invalid SOCKS URL: invalid port number"
-msgstr ""
+msgstr "Неверный URL SOCKS: неверный номер порта"
 
 msgid "Invalid SOCKS URL: missing host and port"
-msgstr ""
+msgstr "Неверный URL SOCKS: отсутствует хост и порт"
 
 msgid "Invalid SOCKS URL: missing hostname or IP"
-msgstr ""
+msgstr "Неверный URL SOCKS: отсутствует имя хоста или IP-адрес"
 
 msgid "Invalid SOCKS URL: missing port"
-msgstr ""
+msgstr "Неверный URL SOCKS: отсутствует порт"
 
 msgid "Invalid SOCKS URL: missing username"
-msgstr ""
+msgstr "Неверный URL SOCKS: отсутствует имя пользователя"
 
 msgid "Invalid SOCKS URL: must not contain spaces"
-msgstr ""
+msgstr "Неверный URL SOCKS: не должен содержать пробелов"
 
 msgid "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://"
-msgstr ""
+msgstr "Неверный URL-адрес SOCKS: должен начинаться с socks4://, socks4a:// или socks5://"
 
 msgid "Invalid SOCKS URL: parsing failed"
-msgstr ""
+msgstr "Неверный URL SOCKS: парсинг не удался"
 
 msgid "Invalid Trojan URL: must not contain spaces"
 msgstr "Неверный URL Trojan: не должен содержать пробелов"
@@ -366,7 +366,7 @@ msgid "IP address 0.0.0.0 is not allowed"
 msgstr "IP-адрес 0.0.0.0 не допускается"
 
 msgid "Latest"
-msgstr ""
+msgstr "Последняя"
 
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
@@ -378,16 +378,16 @@ msgid "Local Subnet Lists"
 msgstr "Локальные списки подсетей"
 
 msgid "Main DNS"
-msgstr ""
+msgstr "Основной DNS"
 
 msgid "Memory Usage"
 msgstr "Использование памяти"
 
 msgid "Mixed Proxy Port"
-msgstr ""
+msgstr "Порт смешанного прокси"
 
 msgid "Monitored Interfaces"
-msgstr ""
+msgstr "Наблюдаемые интерфейсы"
 
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"

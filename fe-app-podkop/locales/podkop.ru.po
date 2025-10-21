@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-21 22:33+0300\n"
-"PO-Revision-Date: 2025-10-21 22:33+0300\n"
+"POT-Creation-Date: 2025-10-21 22:45+0300\n"
+"PO-Revision-Date: 2025-10-21 22:45+0300\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -147,7 +147,7 @@ msgid "DNS checks"
 msgstr "DNS проверки"
 
 msgid "DNS checks passed"
-msgstr "DNS проверки успшено завершены"
+msgstr "DNS проверки успешно завершены"
 
 msgid "DNS on router"
 msgstr "DNS на роутере"
@@ -393,22 +393,22 @@ msgid "Network Interface"
 msgstr "Сетевой интерфейс"
 
 msgid "Nftables checks"
-msgstr ""
+msgstr "Проверки Nftables"
 
 msgid "Nftables checks partially passed"
-msgstr ""
+msgstr "Проверки Nftables частично пройдена"
 
 msgid "Nftables checks passed"
-msgstr ""
+msgstr "Nftables проверки успешно завершены"
 
 msgid "No other marking rules found"
-msgstr ""
+msgstr "Другие правила маркировки не найдены"
 
 msgid "Not implement yet"
-msgstr ""
+msgstr "Ещё не реализовано"
 
 msgid "Not running"
-msgstr ""
+msgstr "Не запущено"
 
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
@@ -423,10 +423,10 @@ msgid "Outbound JSON must contain at least \"type\", \"server\" and \"server_por
 msgstr "JSON должен содержать поля \"type\", \"server\" и \"server_port\""
 
 msgid "Outdated"
-msgstr ""
+msgstr "Устаревшая"
 
 msgid "Output Network Interface"
-msgstr ""
+msgstr "Выходной сетевой интерфейс"
 
 msgid "Path cannot be empty"
 msgstr "Путь не может быть пустым"
@@ -444,22 +444,22 @@ msgid "Podkop"
 msgstr "Podkop"
 
 msgid "Podkop Settings"
-msgstr ""
+msgstr "Настройки podkop"
 
 msgid "Podkop will not modify your DHCP configuration"
-msgstr ""
+msgstr "Podkop не будет изменять вашу конфигурацию DHCP."
 
 msgid "Proxy Configuration URL"
 msgstr "URL конфигурации прокси"
 
 msgid "Proxy traffic is not routed via FakeIP"
-msgstr ""
+msgstr "Прокси-трафик не маршрутизируется через FakeIP"
 
 msgid "Proxy traffic is routed via FakeIP"
-msgstr ""
+msgstr "Прокси-трафик направляется через FakeIP"
 
 msgid "Queued"
-msgstr ""
+msgstr "В очереди"
 
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
@@ -471,46 +471,46 @@ msgid "Remote Subnet Lists"
 msgstr "Удалённые списки подсетей"
 
 msgid "Restart podkop"
-msgstr ""
+msgstr "Перезапустить Podkop"
 
 msgid "Router DNS is not routed through sing-box"
-msgstr ""
+msgstr "DNS роутера не проходит через sing-box"
 
 msgid "Router DNS is routed through sing-box"
-msgstr ""
+msgstr "DNS роутера проходит через sing-box"
 
 msgid "Routing Excluded IPs"
-msgstr ""
+msgstr "Исключённые из маршрутизации IP-адреса"
 
 msgid "Rules mangle counters"
-msgstr ""
+msgstr "Счётчики правил mangle"
 
 msgid "Rules mangle exist"
-msgstr ""
+msgstr "Правила mangle существуют"
 
 msgid "Rules mangle output counters"
-msgstr ""
+msgstr "Счётчики правил mangle output"
 
 msgid "Rules mangle output exist"
-msgstr ""
+msgstr "Правила mangle output существуют"
 
 msgid "Rules proxy counters"
-msgstr ""
+msgstr "Счётчики правил proxy"
 
 msgid "Rules proxy exist"
-msgstr ""
+msgstr "Правила прокси существуют"
 
 msgid "Run Diagnostic"
-msgstr ""
+msgstr "Запустить диагностику"
 
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
 
 msgid "Sections"
-msgstr ""
+msgstr "Секции"
 
 msgid "Select a predefined list for routing"
-msgstr ""
+msgstr "Выберите предопределенный список для маршрутизации"
 
 msgid "Select between VPN and Proxy connection methods for traffic routing"
 msgstr "Выберите между VPN и Proxy методами для маршрутизации трафика"
@@ -519,7 +519,7 @@ msgid "Select DNS protocol to use"
 msgstr "Выберите протокол DNS"
 
 msgid "Select how often the domain or subnet lists are updated automatically"
-msgstr ""
+msgstr "Выберите частоту автоматического обновления списков доменов или подсетей."
 
 msgid "Select how to configure the proxy"
 msgstr "Выберите способ настройки прокси"
@@ -540,16 +540,16 @@ msgid "Select the DNS protocol type for the domain resolver"
 msgstr "Выберите тип протокола DNS для резолвера доменов"
 
 msgid "Select the list type for adding custom domains"
-msgstr ""
+msgstr "Выберите тип списка для добавления пользовательских доменов"
 
 msgid "Select the list type for adding custom subnets"
-msgstr ""
+msgstr "Выберите тип списка для добавления пользовательских подсетей"
 
 msgid "Select the network interface from which the traffic will originate"
 msgstr "Выберите сетевой интерфейс, с которого будет исходить трафик"
 
 msgid "Select the network interface to which the traffic will originate"
-msgstr ""
+msgstr "Выберите сетевой интерфейс, на который будет поступать трафик."
 
 msgid "Select the WAN interfaces to be monitored"
 msgstr "Выберите WAN интерфейсы для мониторинга"
@@ -558,73 +558,73 @@ msgid "Services info"
 msgstr "Информация о сервисах"
 
 msgid "Settings"
-msgstr ""
+msgstr "Настройки"
 
 msgid "Show sing-box config"
-msgstr ""
+msgstr "Показать sing-box конфигурацию"
 
 msgid "Sing-box"
 msgstr "Sing-box"
 
 msgid "Sing-box autostart disabled"
-msgstr ""
+msgstr "Автостарт sing-box отключен"
 
 msgid "Sing-box checks"
-msgstr ""
+msgstr "Sing-box проверки"
 
 msgid "Sing-box checks passed"
-msgstr ""
+msgstr "Sing-box проверки успешно завершены"
 
 msgid "Sing-box installed"
-msgstr ""
+msgstr "Sing-box установлен"
 
 msgid "Sing-box listening ports"
-msgstr ""
+msgstr "Sing-box слушает порты"
 
 msgid "Sing-box process running"
-msgstr ""
+msgstr "Процесс sing-box запущен"
 
 msgid "Sing-box service exist"
-msgstr ""
+msgstr "Сервис sing-box существует"
 
 msgid "Sing-box version >= 1.12.4"
-msgstr ""
+msgstr "Версия sing-box >= 1.12.4"
 
 msgid "Source Network Interface"
 msgstr "Сетевой интерфейс источника"
 
 msgid "Specify a local IP address to be excluded from routing"
-msgstr ""
+msgstr "Укажите локальный IP-адрес, который следует исключить из маршрутизации."
 
 msgid "Specify local IP addresses or subnets whose traffic will always be routed through the configured route"
-msgstr ""
+msgstr "Укажите локальные IP-адреса или подсети, трафик которых всегда будет направляться через настроенный маршрут."
 
 msgid "Specify remote URLs to download and use domain lists"
-msgstr ""
+msgstr "Укажите удаленные URL-адреса для загрузки и использования списков доменов."
 
 msgid "Specify remote URLs to download and use subnet lists"
-msgstr ""
+msgstr "Укажите удаленные URL-адреса для загрузки и использования списков подсетей."
 
 msgid "Specify the path to the list file located on the router filesystem"
-msgstr ""
+msgstr "Укажите путь к файлу списка, расположенному в файловой системе маршрутизатора."
 
 msgid "Start podkop"
-msgstr ""
+msgstr "Запустить podkop"
 
 msgid "Stop podkop"
-msgstr ""
+msgstr "Остановить podkop"
 
 msgid "Successfully copied!"
-msgstr ""
+msgstr "Успешно скопировано!"
 
 msgid "System info"
 msgstr "Системная информация"
 
 msgid "Table exist"
-msgstr ""
+msgstr "Таблица существует"
 
 msgid "Test latency"
-msgstr ""
+msgstr "Измерить задержки"
 
 msgid "Text List"
 msgstr "Текстовый список"
@@ -654,10 +654,10 @@ msgid "UDP (Unprotected DNS)"
 msgstr "UDP (Незащищённый DNS)"
 
 msgid "UDP over TCP"
-msgstr ""
+msgstr "UDP через TCP"
 
 msgid "unknown"
-msgstr ""
+msgstr "неизвестно"
 
 msgid "Unknown error"
 msgstr "Неизвестная ошибка"
@@ -666,7 +666,7 @@ msgid "Uplink"
 msgstr "Исходящий"
 
 msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
-msgstr ""
+msgstr "URL должен начинаться с vless://, ss://, trojan:// или socks4/5://"
 
 msgid "URL must use one of the following protocols:"
 msgstr "URL должен использовать один из следующих протоколов:"
@@ -702,13 +702,13 @@ msgid "Validation errors:"
 msgstr "Ошибки валидации:"
 
 msgid "View logs"
-msgstr ""
+msgstr "Посмотреть логи"
 
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
 
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
-msgstr ""
+msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
 
 msgid "You can select Output Network Interface, by default autodetect"
-msgstr ""
+msgstr "Вы можете выбрать выходной сетевой интерфейс, по умолчанию он определяется автоматически."
