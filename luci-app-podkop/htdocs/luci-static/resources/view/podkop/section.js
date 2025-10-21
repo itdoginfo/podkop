@@ -107,8 +107,8 @@ function createSectionContent(section) {
   o = section.option(
     form.Flag,
     "enable_udp_over_tcp",
-    _("Shadowsocks/Socks UDP over TCP"),
-    _("Apply for socks/Shadowsocks 2022"),
+    _("UDP over TCP"),
+    _("Applicable for SOCKS and Shadowsocks proxy"),
   );
   o.default = "0";
   o.depends("connection_type", "proxy");
