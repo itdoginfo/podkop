@@ -1,93 +1,75 @@
-import fg from 'fast-glob';
 import fs from 'fs/promises';
 import path from 'path';
+import glob from 'fast-glob';
+import { parse } from '@babel/parser';
+import traverse from '@babel/traverse';
+import * as t from '@babel/types';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-const outputFile = 'locales/calls.json';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-const tsSearchGlob = 'src/**/*.ts';
-const jsSearchGlob = '../luci-app-podkop/htdocs/luci-static/resources/view/podkop/**/*.js';
+function stripIllegalReturn(code) {
+    return code.replace(/^\s*return\s+[^;]+;\s*$/gm, (match, offset, input) => {
+        const after = input.slice(offset + match.length).trim();
+        return after === '' ? '' : match;
+    });
+}
 
-function extractAllUnderscoreCallsFromContent(content) {
-    const results = [];
-    let index = 0;
+const files = await glob([
+    'src/**/*.ts',
+    '../luci-app-podkop/htdocs/luci-static/resources/view/podkop/**/*.js',
+], {
+    ignore: [
+        '**/*.test.ts',
+        '**/main.js',
+        '../luci-app-podkop/htdocs/luci-static/resources/view/podkop/main.js',
+    ],
+    absolute: true,
+});
 
-    while (index < content.length) {
-        const start = content.indexOf('_(', index);
-        if (start === -1) break;
+const results = {};
 
-        let i = start + 2;
-        let depth = 1;
+for (const file of files) {
+    const contentRaw = await fs.readFile(file, 'utf8');
+    const content = stripIllegalReturn(contentRaw);
+    const relativePath = path.relative(process.cwd(), file);
 
-        while (i < content.length && depth > 0) {
-            if (content[i] === '(') depth++;
-            else if (content[i] === ')') depth--;
-            i++;
-        }
-
-        const raw = content.slice(start, i);
-        results.push({ raw, index: start });
-        index = i;
+    let ast;
+    try {
+        ast = parse(content, {
+            sourceType: 'module',
+            plugins: file.endsWith('.ts') ? ['typescript'] : [],
+        });
+    } catch (e) {
+        console.warn(`⚠️ Parse error in ${relativePath}, skipping`);
+        continue;
     }
 
-    return results;
-}
+    traverse.default(ast, {
+        CallExpression(path) {
+            if (t.isIdentifier(path.node.callee, { name: '_' })) {
+                const arg = path.node.arguments[0];
+                if (t.isStringLiteral(arg)) {
+                    const key = arg.value.trim();
+                    if (!key) return; // ❌ пропустить пустые ключи
+                    const location = `${relativePath}:${path.node.loc?.start.line ?? '?'}`;
 
-function getLineNumber(content, charIndex) {
-    return content.slice(0, charIndex).split('\n').length;
-}
+                    if (!results[key]) {
+                        results[key] = { call: key, key, places: [] };
+                    }
 
-function extractKey(call) {
-    const match = call.match(/^_\(\s*(['"`])((?:\\\1|.)*?)\1\s*\)$/);
-    return match ? match[2].trim() : null;
-}
-
-function normalizeCall(call) {
-    return call
-        .replace(/\s*\n\s*/g, ' ')
-        .replace(/\s+/g, ' ')
-        .replace(/\(\s+/g, '(')
-        .replace(/\s+\)/g, ')')
-        .replace(/,\s*\)$/, ')')
-        .trim();
-}
-
-async function extractAllUnderscoreCallsWithLocations() {
-    const files = [
-        ...(await fg(tsSearchGlob, { ignore: ['**/*test.ts'], absolute: true })),
-        ...(await fg(jsSearchGlob, { ignore: ['**/main.js'], absolute: true })),
-    ];
-
-    const callMap = new Map();
-
-    for (const file of files) {
-        const content = await fs.readFile(file, 'utf8');
-        const relativePath = path.relative(process.cwd(), file);
-        const extracted = extractAllUnderscoreCallsFromContent(content);
-
-        for (const { raw, index } of extracted) {
-            const line = getLineNumber(content, index);
-            const location = `${relativePath}:${line}`;
-
-            const normalized = normalizeCall(raw);
-            const key = extractKey(normalized);
-
-            if (!callMap.has(normalized)) {
-                callMap.set(normalized, {
-                    call: normalized,
-                    key: key ?? '',
-                    places: [],
-                });
+                    results[key].places.push(location);
+                }
             }
-
-            callMap.get(normalized).places.push(location);
-        }
-    }
-
-    const result = [...callMap.values()];
-    await fs.mkdir(path.dirname(outputFile), { recursive: true });
-    await fs.writeFile(outputFile, JSON.stringify(result, null, 2), 'utf8');
-
-    console.log(`✅ Найдено ${result.length} уникальных вызовов _(...). Сохранено в ${outputFile}`);
+        },
+    });
 }
 
-extractAllUnderscoreCallsWithLocations().catch(console.error);
+const outFile = 'locales/calls.json';
+const sorted = Object.values(results).sort((a, b) => a.key.localeCompare(b.key)); // 🔤 сортировка по ключу
+
+await fs.mkdir(path.dirname(outFile), { recursive: true });
+await fs.writeFile(outFile, JSON.stringify(sorted, null, 2), 'utf8');
+console.log(`✅ Extracted ${sorted.length} translations to ${outFile}`);

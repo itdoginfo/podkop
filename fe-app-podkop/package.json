@@ -20,6 +20,8 @@
     "locales:actualize": "yarn locales:exctract-calls && yarn locales:generate-pot && yarn locales:generate-po:ru && yarn locales:distribute"
   },
   "devDependencies": {
+    "@babel/parser": "7.28.4",
+    "@babel/traverse": "7.28.4",
     "@typescript-eslint/eslint-plugin": "8.45.0",
     "@typescript-eslint/parser": "8.45.0",
     "chokidar": "4.0.3",

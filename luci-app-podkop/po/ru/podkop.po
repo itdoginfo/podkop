@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-21 21:44+0300\n"
-"PO-Revision-Date: 2025-10-21 21:44+0300\n"
+"POT-Creation-Date: 2025-10-21 22:33+0300\n"
+"PO-Revision-Date: 2025-10-21 22:33+0300\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -17,995 +17,107 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-msgid "Successfully copied!"
-msgstr "Успешно скопировано!"
-
-msgid "Failed to copy!"
-msgstr "Не удалось скопировать!"
-
-msgid "Operation timed out"
-msgstr "Время ожидания истекло"
-
-msgid "HTTP error"
-msgstr "Ошибка HTTP"
-
-msgid "Unknown error"
-msgstr "Неизвестная ошибка"
-
-msgid "DNS server address cannot be empty"
-msgstr "Адрес DNS-сервера не может быть пустым"
-
-msgid "Valid"
-msgstr "Валидно"
-
-msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
-msgstr "Неверный формат DNS-сервера. Примеры: 8.8.8.8, dns.example.com или dns.example.com/nicedns для DoH"
-
-msgid "Invalid domain address"
-msgstr "Неверный домен"
-
-msgid "Invalid IP address"
-msgstr "Неверный IP-адрес"
-
-msgid "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields"
-msgstr "JSON должен содержать поля \"type\", \"server\" и \"server_port\""
-
-msgid "Invalid JSON format"
-msgstr "Неверный формат JSON"
-
-msgid "Path cannot be empty"
-msgstr "Путь не может быть пустым"
-
-msgid "Invalid path format. Path must start with \"/\" and contain valid characters"
-msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать допустимые символы"
-
-msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
-msgstr "Ссылка должна начинаться с vless://, ss://, trojan://, или socks4/5://"
-
-msgid "Invalid Shadowsocks URL: must start with ss://"
-msgstr "Неверный URL Shadowsocks: должен начинаться с ss://"
-
-msgid "Invalid Shadowsocks URL: must not contain spaces"
-msgstr "Неверный URL Shadowsocks: не должен содержать пробелов"
-
-msgid "Invalid Shadowsocks URL: missing credentials"
-msgstr "Неверный URL Shadowsocks: отсутствуют учетные данные"
-
-msgid "Invalid Shadowsocks URL: decoded credentials must contain method:password"
-msgstr "Неверный URL Shadowsocks: декодированные данные должны содержать method:password"
-
-msgid "Invalid Shadowsocks URL: missing method and password separator \":\""
-msgstr "Неверный URL Shadowsocks: отсутствует разделитель метода и пароля \":\""
-
-msgid "Invalid Shadowsocks URL: missing server address"
-msgstr "Неверный URL Shadowsocks: отсутствует адрес сервера"
-
-msgid "Invalid Shadowsocks URL: missing server"
-msgstr "Неверный URL Shadowsocks: отсутствует сервер"
-
-msgid "Invalid Shadowsocks URL: missing port"
-msgstr "Неверный URL Shadowsocks: отсутствует порт"
-
-msgid "Invalid port number. Must be between 1 and 65535"
-msgstr "Неверный номер порта. Допустимо от 1 до 65535"
-
-msgid "Invalid Shadowsocks URL: parsing failed"
-msgstr "Неверный URL Shadowsocks: ошибка разбора"
-
-msgid "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://"
-msgstr "Невалидная SOCKS ссылка: должна начинаться с socks4://, socks4a://, или socks5://"
-
-msgid "Invalid SOCKS URL: must not contain spaces"
-msgstr "Невалидная SOCKS ссылка: не должна содержать пробелов"
-
-msgid "Invalid SOCKS URL: missing username"
-msgstr "Невалидная SOCKS ссылка: отсуствует имя пользователя"
-
-msgid "Invalid SOCKS URL: missing host and port"
-msgstr "Невалидная SOCKS ссылка: отсутствуют хост и порт"
-
-msgid "Invalid SOCKS URL: missing hostname or IP"
-msgstr "Невалидная SOCKS ссылка: отсутствуют имя хоста или айпи"
-
-msgid "Invalid SOCKS URL: missing port"
-msgstr "Невалидная SOCKS ссылка: отсутствует порт"
-
-msgid "Invalid SOCKS URL: invalid port number"
-msgstr "Невалидная SOCKS ссылка: невалидный номер порта"
-
-msgid "Invalid SOCKS URL: invalid host format"
-msgstr "Невалидная SOCKS ссылка: невалидный формат хоста"
-
-msgid "Invalid SOCKS URL: parsing failed"
-msgstr "Невалидная SOCKS ссылка: не удалось распарсить"
-
-msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
-msgstr "Неверный формат. Используйте X.X.X.X или X.X.X.X/Y"
-
-msgid "IP address 0.0.0.0 is not allowed"
-msgstr "IP-адрес 0.0.0.0 не допускается"
-
-msgid "CIDR must be between 0 and 32"
-msgstr "CIDR должен быть между 0 и 32"
-
-msgid "Invalid Trojan URL: must start with trojan://"
-msgstr "Неверный URL Trojan: должен начинаться с trojan://"
-
-msgid "Invalid Trojan URL: must not contain spaces"
-msgstr "Неверный URL Trojan: не должен содержать пробелов"
-
-msgid "Invalid Trojan URL: parsing failed"
-msgstr "Неверный URL Trojan: ошибка разбора"
-
-msgid "URL must use one of the following protocols:"
-msgstr "URL должен использовать один из следующих протоколов:"
-
-msgid "Invalid URL format"
-msgstr "Неверный формат URL"
-
-msgid "Invalid VLESS URL: parsing failed"
-msgstr "Неверный URL VLESS: ошибка разбора"
-
-msgid "Download"
-msgstr "Скачать"
-
-msgid "Copy"
-msgstr "Скопировать"
-
-msgid "Close"
-msgstr "Закрыть"
-
-msgid "Traffic"
-msgstr "Трафик"
-
-msgid "Uplink"
-msgstr "Исходящий"
-
-msgid "Downlink"
-msgstr "Входящий"
-
-msgid "Traffic Total"
-msgstr "Всего трафика"
-
-msgid "System info"
-msgstr "Системная информация"
-
-msgid "Active Connections"
-msgstr "Активные соединения"
-
-msgid "Memory Usage"
-msgstr "Использование памяти"
-
-msgid "Services info"
-msgstr "Информация о сервисах"
-
-msgid "Podkop"
-msgstr "Podkop"
-
 msgid "✔ Enabled"
 msgstr "✔ Включено"
-
-msgid "✘ Disabled"
-msgstr "✘ Отключено"
-
-msgid "Sing-box"
-msgstr "Sing-box"
 
 msgid "✔ Running"
 msgstr "✔ Работает"
 
+msgid "✘ Disabled"
+msgstr "✘ Отключено"
+
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
-
-msgid "Not running"
-msgstr "Не запущен"
-
-msgid "Queued"
-msgstr "В очереди"
-
-msgid "unknown"
-msgstr "неизвестно"
-
-msgid "Global check"
-msgstr "Глобальная проверка"
-
-msgid "View logs"
-msgstr "Посмотреть логи"
-
-msgid "Show sing-box config"
-msgstr "Показать sing-box конфиг"
-
-msgid "Outdated"
-msgstr "Устаревшая"
-
-msgid "Latest"
-msgstr "Последняя"
-
-msgid "Fastest"
-msgstr "Самый быстрый"
-
-msgid "Dashboard currently unavailable"
-msgstr "Дашборд сейчас недоступен"
-
-msgid "Test latency"
-msgstr "Проверить задержку"
-
-msgid "Currently unavailable"
-msgstr "Временно недоступно"
-
-msgid "Restart podkop"
-msgstr "Перезапустить podkop"
-
-msgid "Stop podkop"
-msgstr "Остановить podkop"
-
-msgid "Start podkop"
-msgstr "Запустить podkop"
-
-msgid "Disable autostart"
-msgstr "Отключить автостарт"
-
-msgid "Enable autostart"
-msgstr "Включить автостарт"
-
-msgid "Get global check"
-msgstr "Получить глобальную проверку"
-
-msgid "Not implement yet"
-msgstr "Не реализовано"
-
-msgid "Run Diagnostic"
-msgstr "Запустить диагностику"
-
-msgid "DNS checks"
-msgstr "Проверка DNS"
-
-msgid "Sing-box checks"
-msgstr "Проверка Sing-box"
-
-msgid "Nftables checks"
-msgstr "Проверка Nftables"
-
-msgid "FakeIP checks"
-msgstr "Проверка FakeIP"
-
-msgid "Checking dns, please wait"
-msgstr "Проверяем dns, пожалуйста подождите"
-
-msgid "Cannot receive DNS checks result"
-msgstr "Не удалось получить результаты проверки DNS"
-
-msgid "DNS checks passed"
-msgstr "Проверка DNS прошла"
-
-msgid "Bootsrap DNS"
-msgstr "Загрузочный DNS"
-
-msgid "Main DNS"
-msgstr "Основной DNS"
-
-msgid "DNS on router"
-msgstr "DNS на роутере"
-
-msgid "DHCP has DNS server"
-msgstr "DHCP содежрит DNS сервер"
-
-msgid "Checking FakeIP, please wait"
-msgstr "Проверяем FakeIP, пожалуйста подождите"
-
-msgid "FakeIP checks passed"
-msgstr "Проверка FakeIP прошла"
-
-msgid "FakeIP checks partially passed"
-msgstr "Проверка FakeIP частично прошла"
-
-msgid "FakeIP checks failed"
-msgstr "Проверка FakeIP не удалась"
-
-msgid "Router DNS is routed through sing-box"
-msgstr ""
-
-msgid "Router DNS is not routed through sing-box"
-msgstr ""
-
-msgid "Browser is using FakeIP correctly"
-msgstr ""
-
-msgid "Browser is not using FakeIP"
-msgstr ""
-
-msgid "Proxy traffic is routed via FakeIP"
-msgstr ""
-
-msgid "Proxy traffic is not routed via FakeIP"
-msgstr ""
-
-msgid "Checking nftables, please wait"
-msgstr ""
-
-msgid "Cannot receive nftables checks result"
-msgstr ""
-
-msgid "Nftables checks passed"
-msgstr ""
-
-msgid "Nftables checks partially passed"
-msgstr ""
-
-msgid "Table exist"
-msgstr ""
-
-msgid "Rules mangle exist"
-msgstr ""
-
-msgid "Rules mangle counters"
-msgstr ""
-
-msgid "Rules mangle output exist"
-msgstr ""
-
-msgid "Rules mangle output counters"
-msgstr ""
-
-msgid "Rules proxy exist"
-msgstr ""
-
-msgid "Rules proxy counters"
-msgstr ""
-
-msgid "No other marking rules found"
-msgstr ""
-
-msgid "Additional marking rules found"
-msgstr ""
-
-msgid "Checking sing-box, please wait"
-msgstr ""
-
-msgid "Cannot receive Sing-box checks result"
-msgstr ""
-
-msgid "Sing-box checks passed"
-msgstr ""
-
-msgid "Sing-box installed"
-msgstr ""
-
-msgid "Sing-box version >= 1.12.4"
-msgstr ""
-
-msgid "Sing-box service exist"
-msgstr ""
-
-msgid "Sing-box autostart disabled"
-msgstr ""
-
-msgid "Sing-box process running"
-msgstr ""
-
-msgid "Sing-box listening ports"
-msgstr ""
-
-msgid "Valid"
-msgstr "Валидно"
-
-msgid "Invalid IP address"
-msgstr "Неверный IP-адрес"
-
-msgid "Invalid domain address"
-msgstr "Неверный домен"
-
-msgid "DNS server address cannot be empty"
-msgstr "Адрес DNS-сервера не может быть пустым"
-
-msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
-msgstr "Неверный формат DNS-сервера. Примеры: 8.8.8.8, dns.example.com или dns.example.com/nicedns для DoH"
-
-msgid "URL must use one of the following protocols:"
-msgstr "URL должен использовать один из следующих протоколов:"
-
-msgid "Invalid URL format"
-msgstr "Неверный формат URL"
-
-msgid "Path cannot be empty"
-msgstr "Путь не может быть пустым"
-
-msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
-msgstr "Неверный формат. Используйте X.X.X.X или X.X.X.X/Y"
-
-msgid "IP address 0.0.0.0 is not allowed"
-msgstr "IP-адрес 0.0.0.0 не допускается"
-
-msgid "CIDR must be between 0 and 32"
-msgstr "CIDR должен быть между 0 и 32"
-
-msgid "Invalid Shadowsocks URL: must start with ss://"
-msgstr "Неверный URL Shadowsocks: должен начинаться с ss://"
-
-msgid "Invalid Shadowsocks URL: must not contain spaces"
-msgstr "Неверный URL Shadowsocks: не должен содержать пробелов"
-
-msgid "Invalid Shadowsocks URL: missing credentials"
-msgstr "Неверный URL Shadowsocks: отсутствуют учетные данные"
-
-msgid "Invalid Shadowsocks URL: decoded credentials must contain method:password"
-msgstr "Неверный URL Shadowsocks: декодированные данные должны содержать method:password"
-
-msgid "Invalid Shadowsocks URL: missing server address"
-msgstr "Неверный URL Shadowsocks: отсутствует адрес сервера"
-
-msgid "Invalid Shadowsocks URL: missing server"
-msgstr "Неверный URL Shadowsocks: отсутствует сервер"
-
-msgid "Invalid Shadowsocks URL: missing port"
-msgstr "Неверный URL Shadowsocks: отсутствует порт"
-
-msgid "Invalid port number. Must be between 1 and 65535"
-msgstr "Неверный номер порта. Допустимо от 1 до 65535"
-
-msgid "Invalid Shadowsocks URL: parsing failed"
-msgstr "Неверный URL Shadowsocks: ошибка разбора"
-
-msgid "Invalid VLESS URL: parsing failed"
-msgstr "Неверный URL VLESS: ошибка разбора"
-
-msgid "Invalid JSON format"
-msgstr "Неверный формат JSON"
-
-msgid "Invalid Trojan URL: must start with trojan://"
-msgstr "Неверный URL Trojan: должен начинаться с trojan://"
-
-msgid "Invalid Trojan URL: must not contain spaces"
-msgstr "Неверный URL Trojan: не должен содержать пробелов"
-
-msgid "Invalid Trojan URL: parsing failed"
-msgstr "Неверный URL Trojan: ошибка разбора"
-
-msgid "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://"
-msgstr ""
-
-msgid "Invalid SOCKS URL: must not contain spaces"
-msgstr ""
-
-msgid "Invalid SOCKS URL: missing username"
-msgstr ""
-
-msgid "Invalid SOCKS URL: missing host and port"
-msgstr ""
-
-msgid "Invalid SOCKS URL: missing hostname or IP"
-msgstr ""
-
-msgid "Invalid SOCKS URL: missing port"
-msgstr ""
-
-msgid "Invalid SOCKS URL: invalid port number"
-msgstr ""
-
-msgid "Invalid SOCKS URL: invalid host format"
-msgstr ""
-
-msgid "Invalid SOCKS URL: parsing failed"
-msgstr ""
-
-msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
-msgstr ""
-
-msgid "Fastest"
-msgstr "Самый быстрый"
-
-msgid "HTTP error"
-msgstr "Ошибка HTTP"
-
-msgid "Unknown error"
-msgstr "Неизвестная ошибка"
-
-msgid "DNS checks"
-msgstr ""
-
-msgid "Sing-box checks"
-msgstr ""
-
-msgid "Nftables checks"
-msgstr ""
-
-msgid "FakeIP checks"
-msgstr ""
-
-msgid "Not running"
-msgstr ""
-
-msgid "Queued"
-msgstr ""
-
-msgid "Dashboard currently unavailable"
-msgstr "Дашборд сейчас недоступен"
-
-msgid "Test latency"
-msgstr ""
-
-msgid "Currently unavailable"
-msgstr "Временно недоступно"
-
-msgid "Traffic"
-msgstr "Трафик"
-
-msgid "Uplink"
-msgstr "Исходящий"
-
-msgid "Downlink"
-msgstr "Входящий"
-
-msgid "Traffic Total"
-msgstr "Всего трафика"
-
-msgid "System info"
-msgstr "Системная информация"
 
 msgid "Active Connections"
 msgstr "Активные соединения"
 
-msgid "Memory Usage"
-msgstr "Использование памяти"
-
-msgid "Services info"
-msgstr "Информация о сервисах"
-
-msgid "Podkop"
-msgstr "Podkop"
-
-msgid "\\u2714 Enabled"
-msgstr ""
-
-msgid "\\u2718 Disabled"
-msgstr ""
-
-msgid "Sing-box"
-msgstr "Sing-box"
-
-msgid "\\u2714 Running"
-msgstr ""
-
-msgid "\\u2718 Stopped"
-msgstr ""
-
-msgid "Checking dns, please wait"
-msgstr ""
-
-msgid "Cannot receive DNS checks result"
-msgstr ""
-
-msgid "DNS checks passed"
-msgstr ""
-
-msgid "Bootsrap DNS"
-msgstr ""
-
-msgid "Main DNS"
-msgstr ""
-
-msgid "DNS on router"
-msgstr ""
-
-msgid "DHCP has DNS server"
-msgstr ""
-
-msgid "Checking sing-box, please wait"
-msgstr ""
-
-msgid "Cannot receive Sing-box checks result"
-msgstr ""
-
-msgid "Sing-box checks passed"
-msgstr ""
-
-msgid "Sing-box installed"
-msgstr ""
-
-msgid "Sing-box version >= 1.12.4"
-msgstr ""
-
-msgid "Sing-box service exist"
-msgstr ""
-
-msgid "Sing-box autostart disabled"
-msgstr ""
-
-msgid "Sing-box process running"
-msgstr ""
-
-msgid "Sing-box listening ports"
-msgstr ""
-
-msgid "Checking nftables, please wait"
-msgstr ""
-
-msgid "Cannot receive nftables checks result"
-msgstr ""
-
-msgid "Nftables checks passed"
-msgstr ""
-
-msgid "Nftables checks partially passed"
-msgstr ""
-
-msgid "Table exist"
-msgstr ""
-
-msgid "Rules mangle exist"
-msgstr ""
-
-msgid "Rules mangle counters"
-msgstr ""
-
-msgid "Rules mangle output exist"
-msgstr ""
-
-msgid "Rules mangle output counters"
-msgstr ""
-
-msgid "Rules proxy exist"
-msgstr ""
-
-msgid "Rules proxy counters"
-msgstr ""
-
-msgid "No other marking rules found"
-msgstr ""
-
 msgid "Additional marking rules found"
-msgstr ""
-
-msgid "Checking FakeIP, please wait"
-msgstr ""
-
-msgid "FakeIP checks passed"
-msgstr ""
-
-msgid "FakeIP checks partially passed"
-msgstr ""
-
-msgid "FakeIP checks failed"
-msgstr ""
-
-msgid "Router DNS is routed through sing-box"
-msgstr ""
-
-msgid "Router DNS is not routed through sing-box"
-msgstr ""
-
-msgid "Browser is using FakeIP correctly"
-msgstr ""
-
-msgid "Browser is not using FakeIP"
-msgstr ""
-
-msgid "Proxy traffic is routed via FakeIP"
-msgstr ""
-
-msgid "Proxy traffic is not routed via FakeIP"
-msgstr ""
-
-msgid "Successfully copied!"
-msgstr ""
-
-msgid "Failed to copy!"
-msgstr ""
-
-msgid "Download"
-msgstr ""
-
-msgid "Copy"
-msgstr ""
-
-msgid "Close"
-msgstr "Закрыть"
-
-msgid "Restart podkop"
-msgstr ""
-
-msgid "Stop podkop"
-msgstr ""
-
-msgid "Start podkop"
-msgstr ""
-
-msgid "Disable autostart"
-msgstr ""
-
-msgid "Enable autostart"
-msgstr ""
-
-msgid "Get global check"
-msgstr ""
-
-msgid "View logs"
-msgstr ""
-
-msgid "Show sing-box config"
-msgstr ""
-
-msgid "Not implement yet"
-msgstr ""
-
-msgid "Run Diagnostic"
-msgstr ""
-
-msgid "unknown"
-msgstr ""
-
-msgid "Global check"
-msgstr "Глобальная проверка"
-
-msgid "Outdated"
-msgstr ""
-
-msgid "Latest"
-msgstr ""
-
-msgid "Operation timed out"
-msgstr "Время ожидания истекло"
-
-msgid "Podkop Settings"
-msgstr ""
-
-msgid "Configuration for Podkop service"
-msgstr ""
-
-msgid "Sections"
-msgstr ""
-
-msgid "Settings"
-msgstr ""
-
-msgid "Diagnostics"
-msgstr "Диагностика"
-
-msgid "Dashboard"
-msgstr "Дашборд"
-
-msgid "Connection Type"
-msgstr "Тип подключения"
-
-msgid "Select between VPN and Proxy connection methods for traffic routing"
-msgstr "Выберите между VPN и Proxy методами для маршрутизации трафика"
-
-msgid "Configuration Type"
-msgstr "Тип конфигурации"
-
-msgid "Select how to configure the proxy"
-msgstr "Выберите способ настройки прокси"
-
-msgid "Connection URL"
-msgstr "URL подключения"
-
-msgid "Outbound Config"
-msgstr "Конфигурация Outbound"
-
-msgid "URLTest"
-msgstr "URLTest"
-
-msgid "Proxy Configuration URL"
-msgstr "URL конфигурации прокси"
-
-msgid "Outbound Configuration"
-msgstr "Конфигурация исходящего соединения"
-
-msgid "Enter complete outbound configuration in JSON format"
-msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
-
-msgid "URLTest Proxy Links"
-msgstr "Ссылки прокси для URLTest"
-
-msgid "UDP over TCP"
-msgstr ""
+msgstr "Найдены дополнительные правила маркировки"
 
 msgid "Applicable for SOCKS and Shadowsocks proxy"
-msgstr ""
-
-msgid "Network Interface"
-msgstr "Сетевой интерфейс"
-
-msgid "Select network interface for VPN connection"
-msgstr "Выберите сетевой интерфейс для VPN подключения"
-
-msgid "Domain Resolver"
-msgstr "Резолвер доменов"
-
-msgid "Enable built-in DNS resolver for domains handled by this section"
-msgstr "Включить встроенный DNS-резолвер для доменов, обрабатываемых в этом разделе"
-
-msgid "DNS Protocol Type"
-msgstr "Тип протокола DNS"
-
-msgid "Select the DNS protocol type for the domain resolver"
-msgstr "Выберите тип протокола DNS для резолвера доменов"
-
-msgid "DNS over HTTPS (DoH)"
-msgstr "DNS через HTTPS (DoH)"
-
-msgid "DNS over TLS (DoT)"
-msgstr "DNS через TLS (DoT)"
-
-msgid "UDP (Unprotected DNS)"
-msgstr "UDP (Незащищённый DNS)"
-
-msgid "DNS Server"
-msgstr "DNS-сервер"
-
-msgid "Select or enter DNS server address"
-msgstr "Выберите или введите адрес DNS-сервера"
-
-msgid ""
-msgstr ""
-
-msgid "Community Lists"
-msgstr "Списки сообщества"
-
-msgid "Select a predefined list for routing"
-msgstr ""
-
-msgid "Regional options cannot be used together"
-msgstr "Нельзя использовать несколько региональных опций одновременно"
-
-msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
-msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
-
-msgid "Russia inside restrictions"
-msgstr "Ограничения Russia inside"
-
-msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
-msgstr ""
-
-msgid "User Domain List Type"
-msgstr "Тип пользовательского списка доменов"
-
-msgid "Select the list type for adding custom domains"
-msgstr ""
-
-msgid "Disabled"
-msgstr "Отключено"
-
-msgid "Dynamic List"
-msgstr "Динамический список"
-
-msgid "Text List"
-msgstr "Текстовый список"
-
-msgid "User Domains"
-msgstr "Пользовательские домены"
-
-msgid "Enter domain names without protocols, e.g. example.com or sub.example.com"
-msgstr ""
-
-msgid "User Domains List"
-msgstr "Список пользовательских доменов"
-
-msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //"
 msgstr ""
 
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
 msgstr "Необходимо указать хотя бы один действительный домен. Содержимое только из комментариев не допускается."
 
-msgid "Validation errors:"
-msgstr "Ошибки валидации:"
-
-msgid "User Subnet List Type"
-msgstr "Тип пользовательского списка подсетей"
-
-msgid "Select the list type for adding custom subnets"
-msgstr ""
-
-msgid "Text List (comma/space/newline separated)"
-msgstr "Текстовый список (через запятую, пробел или новую строку)"
-
-msgid "User Subnets"
-msgstr "Пользовательские подсети"
-
-msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
-msgstr ""
-
-msgid "User Subnets List"
-msgstr "Список пользовательских подсетей"
-
-msgid "Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. \" + \"You can add comments using //"
-msgstr ""
-
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr "Необходимо указать хотя бы одну действительную подсеть или IP. Только комментарии недопустимы."
 
-msgid "Local Domain Lists"
-msgstr "Локальные списки доменов"
-
-msgid "Specify the path to the list file located on the router filesystem"
-msgstr ""
-
-msgid "Local Subnet Lists"
-msgstr "Локальные списки подсетей"
-
-msgid "Remote Domain Lists"
-msgstr "Удалённые списки доменов"
-
-msgid "Specify remote URLs to download and use domain lists"
-msgstr ""
-
-msgid "Remote Subnet Lists"
-msgstr "Удалённые списки подсетей"
-
-msgid "Specify remote URLs to download and use subnet lists"
-msgstr ""
-
-msgid "Fully Routed IPs"
-msgstr ""
-
-msgid "Specify local IP addresses or subnets whose traffic will always be routed through the configured route"
-msgstr ""
-
-msgid "Enable Mixed Proxy"
-msgstr ""
-
-msgid "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies"
-msgstr ""
-
-msgid "Mixed Proxy Port"
-msgstr ""
-
-msgid "Specify the port number on which the mixed proxy will run for this section. \" + \"Make sure the selected port is not used by another service"
-msgstr ""
-
-msgid "Select DNS protocol to use"
-msgstr "Выберите протокол DNS"
+msgid "Bootsrap DNS"
+msgstr "Bootstrap DNS"
 
 msgid "Bootstrap DNS server"
 msgstr "Bootstrap DNS-сервер"
 
-msgid "The DNS server used to look up the IP address of an upstream DNS server"
-msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
+msgid "Browser is not using FakeIP"
+msgstr "Браузер не использует FakeIP"
 
-msgid "DNS Rewrite TTL"
-msgstr "Перезапись TTL для DNS"
+msgid "Browser is using FakeIP correctly"
+msgstr "Браузер использует FakeIP"
 
-msgid "Time in seconds for DNS record caching (default: 60)"
-msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
+msgid "Cache File Path"
+msgstr "Путь к файлу кэша"
 
-msgid "TTL value cannot be empty"
-msgstr "Значение TTL не может быть пустым"
+msgid "Cache file path cannot be empty"
+msgstr "Путь к файлу кэша не может быть пустым"
 
-msgid "TTL must be a positive number"
-msgstr "TTL должно быть положительным числом"
-
-msgid "Source Network Interface"
-msgstr "Сетевой интерфейс источника"
-
-msgid "Select the network interface from which the traffic will originate"
-msgstr "Выберите сетевой интерфейс, с которого будет исходить трафик"
-
-msgid "Enable Output Network Interface"
+msgid "Cannot receive DNS checks result"
 msgstr ""
 
-msgid "You can select Output Network Interface, by default autodetect"
+msgid "Cannot receive nftables checks result"
 msgstr ""
 
-msgid "Output Network Interface"
+msgid "Cannot receive Sing-box checks result"
 msgstr ""
 
-msgid "Select the network interface to which the traffic will originate"
+msgid "Checking dns, please wait"
 msgstr ""
 
-msgid "Interface Monitoring"
+msgid "Checking FakeIP, please wait"
 msgstr ""
 
-msgid "Interface monitoring for Bad WAN"
+msgid "Checking nftables, please wait"
 msgstr ""
 
-msgid "Monitored Interfaces"
+msgid "Checking sing-box, please wait"
 msgstr ""
 
-msgid "Select the WAN interfaces to be monitored"
-msgstr "Выберите WAN интерфейсы для мониторинга"
+msgid "CIDR must be between 0 and 32"
+msgstr "CIDR должен быть между 0 и 32"
 
-msgid "Interface Monitoring Delay"
-msgstr "Задержка при мониторинге интерфейсов"
+msgid "Close"
+msgstr "Закрыть"
+
+msgid "Community Lists"
+msgstr "Списки сообщества"
+
+msgid "Config File Path"
+msgstr "Путь к файлу конфигурации"
+
+msgid "Configuration for Podkop service"
+msgstr ""
+
+msgid "Configuration Type"
+msgstr "Тип конфигурации"
+
+msgid "Connection Type"
+msgstr "Тип подключения"
+
+msgid "Connection URL"
+msgstr "URL подключения"
+
+msgid "Copy"
+msgstr ""
+
+msgid "Currently unavailable"
+msgstr "Временно недоступно"
+
+msgid "Dashboard"
+msgstr "Дашборд"
+
+msgid "Dashboard currently unavailable"
+msgstr "Дашборд сейчас недоступен"
 
 msgid "Delay in milliseconds before reloading podkop after interface UP"
 msgstr "Задержка в миллисекундах перед перезагрузкой podkop после поднятия интерфейса"
@@ -1013,7 +125,13 @@ msgstr "Задержка в миллисекундах перед перезаг
 msgid "Delay value cannot be empty"
 msgstr "Значение задержки не может быть пустым"
 
-msgid "Enable YACD"
+msgid "DHCP has DNS server"
+msgstr ""
+
+msgid "Diagnostics"
+msgstr "Диагностика"
+
+msgid "Disable autostart"
 msgstr ""
 
 msgid "Disable QUIC"
@@ -1022,53 +140,92 @@ msgstr ""
 msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
 msgstr ""
 
-msgid "List Update Frequency"
-msgstr "Частота обновления списков"
+msgid "Disabled"
+msgstr "Отключено"
 
-msgid "Select how often the domain or subnet lists are updated automatically"
+msgid "DNS checks"
+msgstr ""
+
+msgid "DNS checks passed"
+msgstr ""
+
+msgid "DNS on router"
+msgstr ""
+
+msgid "DNS over HTTPS (DoH)"
+msgstr "DNS через HTTPS (DoH)"
+
+msgid "DNS over TLS (DoT)"
+msgstr "DNS через TLS (DoT)"
+
+msgid "DNS Protocol Type"
+msgstr "Тип протокола DNS"
+
+msgid "DNS Rewrite TTL"
+msgstr "Перезапись TTL для DNS"
+
+msgid "DNS Server"
+msgstr "DNS-сервер"
+
+msgid "DNS server address cannot be empty"
+msgstr "Адрес DNS-сервера не может быть пустым"
+
+msgid "Domain Resolver"
+msgstr "Резолвер доменов"
+
+msgid "Dont Touch My DHCP!"
+msgstr ""
+
+msgid "Downlink"
+msgstr "Входящий"
+
+msgid "Download"
 msgstr ""
 
 msgid "Download Lists via Proxy/VPN"
 msgstr ""
 
-msgid "Downloading all lists via main Proxy/VPN"
-msgstr "Загрузка всех списков через основной прокси/VPN"
-
 msgid "Download Lists via specific proxy section"
 msgstr ""
+
+msgid "Downloading all lists via main Proxy/VPN"
+msgstr "Загрузка всех списков через основной прокси/VPN"
 
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr "Загрузка всех списков через указанный прокси/VPN"
 
-msgid "Dont Touch My DHCP!"
+msgid "Dynamic List"
+msgstr "Динамический список"
+
+msgid "Enable autostart"
 msgstr ""
 
-msgid "Podkop will not modify your DHCP configuration"
+msgid "Enable built-in DNS resolver for domains handled by this section"
+msgstr "Включить встроенный DNS-резолвер для доменов, обрабатываемых в этом разделе"
+
+msgid "Enable Mixed Proxy"
 msgstr ""
 
-msgid "Config File Path"
-msgstr "Путь к файлу конфигурации"
+msgid "Enable Output Network Interface"
+msgstr ""
 
-msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
-msgstr "Выберите путь к файлу конфигурации sing-box. Изменяйте это, ТОЛЬКО если вы знаете, что делаете"
+msgid "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies"
+msgstr ""
 
-msgid "Cache File Path"
-msgstr "Путь к файлу кэша"
+msgid "Enable YACD"
+msgstr ""
 
-msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
-msgstr "Выберите или введите путь к файлу кеша sing-box. Изменяйте это, ТОЛЬКО если вы знаете, что делаете"
+msgid "Enter complete outbound configuration in JSON format"
+msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
 
-msgid "Cache file path cannot be empty"
-msgstr "Путь к файлу кэша не может быть пустым"
+msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //"
+msgstr ""
 
-msgid "Path must be absolute (start with /)"
-msgstr "Путь должен быть абсолютным (начинаться с /)"
+msgid "Enter domain names without protocols, e.g. example.com or sub.example.com"
+msgstr ""
 
-msgid "Path must end with cache.db"
-msgstr "Путь должен заканчиваться на cache.db"
-
-msgid "Path must contain at least one directory (like /tmp/cache.db)"
-msgstr "Путь должен содержать хотя бы одну директорию (например /tmp/cache.db)"
+msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
+msgstr ""
 
 msgid "Exclude NTP"
 msgstr "Исключить NTP"
@@ -1076,8 +233,482 @@ msgstr "Исключить NTP"
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr ""
 
+msgid "Failed to copy!"
+msgstr ""
+
+msgid "FakeIP checks"
+msgstr ""
+
+msgid "FakeIP checks failed"
+msgstr ""
+
+msgid "FakeIP checks partially passed"
+msgstr ""
+
+msgid "FakeIP checks passed"
+msgstr ""
+
+msgid "Fastest"
+msgstr "Самый быстрый"
+
+msgid "Fully Routed IPs"
+msgstr ""
+
+msgid "Get global check"
+msgstr ""
+
+msgid "Global check"
+msgstr "Глобальная проверка"
+
+msgid "HTTP error"
+msgstr "Ошибка HTTP"
+
+msgid "Interface Monitoring"
+msgstr ""
+
+msgid "Interface Monitoring Delay"
+msgstr "Задержка при мониторинге интерфейсов"
+
+msgid "Interface monitoring for Bad WAN"
+msgstr ""
+
+msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
+msgstr "Неверный формат DNS-сервера. Примеры: 8.8.8.8, dns.example.com или dns.example.com/nicedns для DoH"
+
+msgid "Invalid domain address"
+msgstr "Неверный домен"
+
+msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
+msgstr "Неверный формат. Используйте X.X.X.X или X.X.X.X/Y"
+
+msgid "Invalid IP address"
+msgstr "Неверный IP-адрес"
+
+msgid "Invalid JSON format"
+msgstr "Неверный формат JSON"
+
+msgid "Invalid path format. Path must start with \"/\" and contain valid characters"
+msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать допустимые символы"
+
+msgid "Invalid port number. Must be between 1 and 65535"
+msgstr "Неверный номер порта. Допустимо от 1 до 65535"
+
+msgid "Invalid Shadowsocks URL: decoded credentials must contain method:password"
+msgstr "Неверный URL Shadowsocks: декодированные данные должны содержать method:password"
+
+msgid "Invalid Shadowsocks URL: missing credentials"
+msgstr "Неверный URL Shadowsocks: отсутствуют учетные данные"
+
+msgid "Invalid Shadowsocks URL: missing method and password separator \":\""
+msgstr "Неверный URL Shadowsocks: отсутствует разделитель метода и пароля \":\""
+
+msgid "Invalid Shadowsocks URL: missing port"
+msgstr "Неверный URL Shadowsocks: отсутствует порт"
+
+msgid "Invalid Shadowsocks URL: missing server"
+msgstr "Неверный URL Shadowsocks: отсутствует сервер"
+
+msgid "Invalid Shadowsocks URL: missing server address"
+msgstr "Неверный URL Shadowsocks: отсутствует адрес сервера"
+
+msgid "Invalid Shadowsocks URL: must not contain spaces"
+msgstr "Неверный URL Shadowsocks: не должен содержать пробелов"
+
+msgid "Invalid Shadowsocks URL: must start with ss://"
+msgstr "Неверный URL Shadowsocks: должен начинаться с ss://"
+
+msgid "Invalid Shadowsocks URL: parsing failed"
+msgstr "Неверный URL Shadowsocks: ошибка разбора"
+
+msgid "Invalid SOCKS URL: invalid host format"
+msgstr ""
+
+msgid "Invalid SOCKS URL: invalid port number"
+msgstr ""
+
+msgid "Invalid SOCKS URL: missing host and port"
+msgstr ""
+
+msgid "Invalid SOCKS URL: missing hostname or IP"
+msgstr ""
+
+msgid "Invalid SOCKS URL: missing port"
+msgstr ""
+
+msgid "Invalid SOCKS URL: missing username"
+msgstr ""
+
+msgid "Invalid SOCKS URL: must not contain spaces"
+msgstr ""
+
+msgid "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://"
+msgstr ""
+
+msgid "Invalid SOCKS URL: parsing failed"
+msgstr ""
+
+msgid "Invalid Trojan URL: must not contain spaces"
+msgstr "Неверный URL Trojan: не должен содержать пробелов"
+
+msgid "Invalid Trojan URL: must start with trojan://"
+msgstr "Неверный URL Trojan: должен начинаться с trojan://"
+
+msgid "Invalid Trojan URL: parsing failed"
+msgstr "Неверный URL Trojan: ошибка разбора"
+
+msgid "Invalid URL format"
+msgstr "Неверный формат URL"
+
+msgid "Invalid VLESS URL: parsing failed"
+msgstr "Неверный URL VLESS: ошибка разбора"
+
+msgid "IP address 0.0.0.0 is not allowed"
+msgstr "IP-адрес 0.0.0.0 не допускается"
+
+msgid "Latest"
+msgstr ""
+
+msgid "List Update Frequency"
+msgstr "Частота обновления списков"
+
+msgid "Local Domain Lists"
+msgstr "Локальные списки доменов"
+
+msgid "Local Subnet Lists"
+msgstr "Локальные списки подсетей"
+
+msgid "Main DNS"
+msgstr ""
+
+msgid "Memory Usage"
+msgstr "Использование памяти"
+
+msgid "Mixed Proxy Port"
+msgstr ""
+
+msgid "Monitored Interfaces"
+msgstr ""
+
+msgid "Network Interface"
+msgstr "Сетевой интерфейс"
+
+msgid "Nftables checks"
+msgstr ""
+
+msgid "Nftables checks partially passed"
+msgstr ""
+
+msgid "Nftables checks passed"
+msgstr ""
+
+msgid "No other marking rules found"
+msgstr ""
+
+msgid "Not implement yet"
+msgstr ""
+
+msgid "Not running"
+msgstr ""
+
+msgid "Operation timed out"
+msgstr "Время ожидания истекло"
+
+msgid "Outbound Config"
+msgstr "Конфигурация Outbound"
+
+msgid "Outbound Configuration"
+msgstr "Конфигурация исходящего соединения"
+
+msgid "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields"
+msgstr "JSON должен содержать поля \"type\", \"server\" и \"server_port\""
+
+msgid "Outdated"
+msgstr ""
+
+msgid "Output Network Interface"
+msgstr ""
+
+msgid "Path cannot be empty"
+msgstr "Путь не может быть пустым"
+
+msgid "Path must be absolute (start with /)"
+msgstr "Путь должен быть абсолютным (начинаться с /)"
+
+msgid "Path must contain at least one directory (like /tmp/cache.db)"
+msgstr "Путь должен содержать хотя бы одну директорию (например /tmp/cache.db)"
+
+msgid "Path must end with cache.db"
+msgstr "Путь должен заканчиваться на cache.db"
+
+msgid "Podkop"
+msgstr "Podkop"
+
+msgid "Podkop Settings"
+msgstr ""
+
+msgid "Podkop will not modify your DHCP configuration"
+msgstr ""
+
+msgid "Proxy Configuration URL"
+msgstr "URL конфигурации прокси"
+
+msgid "Proxy traffic is not routed via FakeIP"
+msgstr ""
+
+msgid "Proxy traffic is routed via FakeIP"
+msgstr ""
+
+msgid "Queued"
+msgstr ""
+
+msgid "Regional options cannot be used together"
+msgstr "Нельзя использовать несколько региональных опций одновременно"
+
+msgid "Remote Domain Lists"
+msgstr "Удалённые списки доменов"
+
+msgid "Remote Subnet Lists"
+msgstr "Удалённые списки подсетей"
+
+msgid "Restart podkop"
+msgstr ""
+
+msgid "Router DNS is not routed through sing-box"
+msgstr ""
+
+msgid "Router DNS is routed through sing-box"
+msgstr ""
+
 msgid "Routing Excluded IPs"
 msgstr ""
 
+msgid "Rules mangle counters"
+msgstr ""
+
+msgid "Rules mangle exist"
+msgstr ""
+
+msgid "Rules mangle output counters"
+msgstr ""
+
+msgid "Rules mangle output exist"
+msgstr ""
+
+msgid "Rules proxy counters"
+msgstr ""
+
+msgid "Rules proxy exist"
+msgstr ""
+
+msgid "Run Diagnostic"
+msgstr ""
+
+msgid "Russia inside restrictions"
+msgstr "Ограничения Russia inside"
+
+msgid "Sections"
+msgstr ""
+
+msgid "Select a predefined list for routing"
+msgstr ""
+
+msgid "Select between VPN and Proxy connection methods for traffic routing"
+msgstr "Выберите между VPN и Proxy методами для маршрутизации трафика"
+
+msgid "Select DNS protocol to use"
+msgstr "Выберите протокол DNS"
+
+msgid "Select how often the domain or subnet lists are updated automatically"
+msgstr ""
+
+msgid "Select how to configure the proxy"
+msgstr "Выберите способ настройки прокси"
+
+msgid "Select network interface for VPN connection"
+msgstr "Выберите сетевой интерфейс для VPN подключения"
+
+msgid "Select or enter DNS server address"
+msgstr "Выберите или введите адрес DNS-сервера"
+
+msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
+msgstr "Выберите или введите путь к файлу кеша sing-box. Изменяйте это, ТОЛЬКО если вы знаете, что делаете"
+
+msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
+msgstr "Выберите путь к файлу конфигурации sing-box. Изменяйте это, ТОЛЬКО если вы знаете, что делаете"
+
+msgid "Select the DNS protocol type for the domain resolver"
+msgstr "Выберите тип протокола DNS для резолвера доменов"
+
+msgid "Select the list type for adding custom domains"
+msgstr ""
+
+msgid "Select the list type for adding custom subnets"
+msgstr ""
+
+msgid "Select the network interface from which the traffic will originate"
+msgstr "Выберите сетевой интерфейс, с которого будет исходить трафик"
+
+msgid "Select the network interface to which the traffic will originate"
+msgstr ""
+
+msgid "Select the WAN interfaces to be monitored"
+msgstr "Выберите WAN интерфейсы для мониторинга"
+
+msgid "Services info"
+msgstr "Информация о сервисах"
+
+msgid "Settings"
+msgstr ""
+
+msgid "Show sing-box config"
+msgstr ""
+
+msgid "Sing-box"
+msgstr "Sing-box"
+
+msgid "Sing-box autostart disabled"
+msgstr ""
+
+msgid "Sing-box checks"
+msgstr ""
+
+msgid "Sing-box checks passed"
+msgstr ""
+
+msgid "Sing-box installed"
+msgstr ""
+
+msgid "Sing-box listening ports"
+msgstr ""
+
+msgid "Sing-box process running"
+msgstr ""
+
+msgid "Sing-box service exist"
+msgstr ""
+
+msgid "Sing-box version >= 1.12.4"
+msgstr ""
+
+msgid "Source Network Interface"
+msgstr "Сетевой интерфейс источника"
+
 msgid "Specify a local IP address to be excluded from routing"
+msgstr ""
+
+msgid "Specify local IP addresses or subnets whose traffic will always be routed through the configured route"
+msgstr ""
+
+msgid "Specify remote URLs to download and use domain lists"
+msgstr ""
+
+msgid "Specify remote URLs to download and use subnet lists"
+msgstr ""
+
+msgid "Specify the path to the list file located on the router filesystem"
+msgstr ""
+
+msgid "Start podkop"
+msgstr ""
+
+msgid "Stop podkop"
+msgstr ""
+
+msgid "Successfully copied!"
+msgstr ""
+
+msgid "System info"
+msgstr "Системная информация"
+
+msgid "Table exist"
+msgstr ""
+
+msgid "Test latency"
+msgstr ""
+
+msgid "Text List"
+msgstr "Текстовый список"
+
+msgid "Text List (comma/space/newline separated)"
+msgstr "Текстовый список (через запятую, пробел или новую строку)"
+
+msgid "The DNS server used to look up the IP address of an upstream DNS server"
+msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
+
+msgid "Time in seconds for DNS record caching (default: 60)"
+msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
+
+msgid "Traffic"
+msgstr "Трафик"
+
+msgid "Traffic Total"
+msgstr "Всего трафика"
+
+msgid "TTL must be a positive number"
+msgstr "TTL должно быть положительным числом"
+
+msgid "TTL value cannot be empty"
+msgstr "Значение TTL не может быть пустым"
+
+msgid "UDP (Unprotected DNS)"
+msgstr "UDP (Незащищённый DNS)"
+
+msgid "UDP over TCP"
+msgstr ""
+
+msgid "unknown"
+msgstr ""
+
+msgid "Unknown error"
+msgstr "Неизвестная ошибка"
+
+msgid "Uplink"
+msgstr "Исходящий"
+
+msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
+msgstr ""
+
+msgid "URL must use one of the following protocols:"
+msgstr "URL должен использовать один из следующих протоколов:"
+
+msgid "URLTest"
+msgstr "URLTest"
+
+msgid "URLTest Proxy Links"
+msgstr "Ссылки прокси для URLTest"
+
+msgid "User Domain List Type"
+msgstr "Тип пользовательского списка доменов"
+
+msgid "User Domains"
+msgstr "Пользовательские домены"
+
+msgid "User Domains List"
+msgstr "Список пользовательских доменов"
+
+msgid "User Subnet List Type"
+msgstr "Тип пользовательского списка подсетей"
+
+msgid "User Subnets"
+msgstr "Пользовательские подсети"
+
+msgid "User Subnets List"
+msgstr "Список пользовательских подсетей"
+
+msgid "Valid"
+msgstr "Валидно"
+
+msgid "Validation errors:"
+msgstr "Ошибки валидации:"
+
+msgid "View logs"
+msgstr ""
+
+msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
+msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
+
+msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
+msgstr ""
+
+msgid "You can select Output Network Interface, by default autodetect"
 msgstr ""
