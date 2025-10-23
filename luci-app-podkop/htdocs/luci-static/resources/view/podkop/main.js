@@ -308,7 +308,7 @@ function validateVlessUrl(url) {
     if (params.flow === "xtls-rprx-vision-udp443") {
       return {
         valid: false,
-        message: "Invalid VLESS URL: flow xtls-rprx-vision-udp443 does not supported"
+        message: "Invalid VLESS URL: flow xtls-rprx-vision-udp443 is not supported"
       };
     }
     return { valid: true, message: _("Valid") };
