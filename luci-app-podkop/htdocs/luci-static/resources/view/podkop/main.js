@@ -3675,7 +3675,7 @@ function renderWikiDisclaimer(kind) {
       classNames: ["cbi-button-save"],
       text: _("Visit Wiki"),
       onClick: () => window.open(
-        "https://podkop.net/docs/troubleshooting/",
+        "https://podkop.net/docs/troubleshooting/?utm_source=podkop",
         "_blank",
         "noopener,noreferrer"
       )

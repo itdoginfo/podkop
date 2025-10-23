@@ -31,7 +31,7 @@ export function renderWikiDisclaimer(kind: 'default' | 'error' | 'warning') {
       text: _('Visit Wiki'),
       onClick: () =>
         window.open(
-          'https://podkop.net/docs/troubleshooting/',
+          'https://podkop.net/docs/troubleshooting/?utm_source=podkop',
           '_blank',
           'noopener,noreferrer',
         ),
