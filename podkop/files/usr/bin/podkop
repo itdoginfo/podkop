@@ -1613,49 +1613,6 @@ check_nft() {
     nolog "NFT check completed"
 }
 
-check_github() {
-    nolog "Checking GitHub connectivity..."
-
-    if ! curl -m 3 github.com; then
-        nolog "Error: Cannot connect to GitHub"
-        return 1
-    fi
-    nolog "GitHub is accessible"
-
-    nolog "Checking lists availability:"
-    for url in "$DOMAINS_RU_INSIDE" "$DOMAINS_RU_OUTSIDE" "$DOMAINS_UA" "$DOMAINS_YOUTUBE" \
-        "$SUBNETS_TWITTER" "$SUBNETS_META" "$SUBNETS_DISCORD"; do
-        local list_name=$(basename "$url")
-
-        config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" "0"
-        if [ "$download_lists_via_proxy" -eq 1 ]; then
-            http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" wget -q -O /dev/null "$url"
-        else
-            wget -q -O /dev/null "$url"
-        fi
-
-        if [ $? -eq 0 ]; then
-            nolog "- $list_name: available"
-        else
-            nolog "- $list_name: not available"
-        fi
-    done
-}
-
-check_dnsmasq() {
-    nolog "Checking dnsmasq configuration..."
-
-    local config=$(uci show dhcp.@dnsmasq[0])
-    if [ -z "$config" ]; then
-        nolog "No dnsmasq configuration found"
-        return 1
-    fi
-
-    echo "$config" | while IFS='=' read -r key value; do
-        nolog "$key = $value"
-    done
-}
-
 check_logs() {
     if ! command -v logread > /dev/null 2>&1; then
         nolog "Error: logread command not found"
@@ -2545,10 +2502,8 @@ Available commands:
     check_nft               Check NFT rules
     check_nft_rules         Check NFT rules status
     check_sing_box          Check sing-box installation and status
-    check_github            Check GitHub connectivity
     check_logs              Show podkop logs from system journal
     check_sing_box_logs     Show sing-box logs
-    check_dnsmasq           Check DNSMasq configuration
     check_fakeip            Test FakeIP on router
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current podkop configuration
@@ -2595,17 +2550,11 @@ check_nft_rules)
 check_sing_box)
     check_sing_box
     ;;
-check_github)
-    check_github
-    ;;
 check_logs)
     check_logs
     ;;
 check_sing_box_logs)
     check_sing_box_logs
-    ;;
-check_dnsmasq)
-    check_dnsmasq
     ;;
 check_fakeip)
     check_fakeip

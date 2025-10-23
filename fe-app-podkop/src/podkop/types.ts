@@ -34,11 +34,8 @@ export namespace Podkop {
   // check_nft               Check NFT rules
   // check_nft_rules         Check NFT rules status
   // check_sing_box          Check sing-box installation and status
-  // check_github            Check GitHub connectivity
   // check_logs              Show podkop logs from system journal
-  // check_sing_box_connections  Show active sing-box connections
   // check_sing_box_logs     Show sing-box logs
-  // check_dnsmasq           Check DNSMasq configuration
   // check_fakeip            Test FakeIP on router
   // clash_api               Clash API interface for managing proxies and groups
   // show_config             Display current podkop configuration
