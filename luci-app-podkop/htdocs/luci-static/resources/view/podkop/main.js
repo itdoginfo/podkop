@@ -487,7 +487,7 @@ async function callBaseMethod(method, args = [], command = "/usr/bin/podkop") {
   const response = await executeShellCommand({
     command,
     args: [method, ...args],
-    timeout: 1e4
+    timeout: 15e3
   });
   if (response.stdout) {
     try {

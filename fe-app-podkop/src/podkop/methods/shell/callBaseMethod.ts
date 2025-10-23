@@ -9,7 +9,7 @@ export async function callBaseMethod<T>(
   const response = await executeShellCommand({
     command,
     args: [method as string, ...args],
-    timeout: 10000,
+    timeout: 15000,
   });
 
   if (response.stdout) {
