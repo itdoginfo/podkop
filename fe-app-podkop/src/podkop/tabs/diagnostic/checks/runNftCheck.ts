@@ -42,7 +42,7 @@ export async function runNftCheck() {
     Boolean(data.rules_mangle_output_counters) &&
     Boolean(data.rules_proxy_exist) &&
     Boolean(data.rules_proxy_counters) &&
-    Boolean(data.rules_other_mark_exist);
+    !data.rules_other_mark_exist;
 
   const atLeastOneGood =
     Boolean(data.table_exist) ||
@@ -52,7 +52,7 @@ export async function runNftCheck() {
     Boolean(data.rules_mangle_output_counters) ||
     Boolean(data.rules_proxy_exist) ||
     Boolean(data.rules_proxy_counters) ||
-    Boolean(data.rules_other_mark_exist);
+    !data.rules_other_mark_exist;
 
   function getStatus() {
     if (allGood) {
