@@ -2534,8 +2534,8 @@ async function runNftCheck() {
     throw new Error("Nftables checks failed");
   }
   const data = nftablesChecks.data;
-  const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && Boolean(data.rules_other_mark_exist);
-  const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || Boolean(data.rules_other_mark_exist);
+  const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && !data.rules_other_mark_exist;
+  const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || !data.rules_other_mark_exist;
   function getStatus() {
     if (allGood) {
       return "success";

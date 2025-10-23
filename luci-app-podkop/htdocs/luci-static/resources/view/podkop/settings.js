@@ -147,6 +147,13 @@ function createSettingsContent(section) {
       return false;
     }
 
+    // Reject lan*
+    if (
+        value.startsWith("lan")
+    ) {
+      return false;
+    }
+
     // Reject tun*, wg*, vpn*, awg*, oc*
     if (
       value.startsWith("tun") ||
