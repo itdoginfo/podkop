@@ -90,7 +90,6 @@ update_config() {
                 mv /etc/config/podkop /etc/config/podkop-070
                 wget -O /etc/config/podkop https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/podkop/files/etc/config/podkop
                 msg "Podkop config has been reset to default. Your old config saved in /etc/config/podkop-070"
-                break
                 ;;
             *)
                 msg "Exit"
@@ -240,7 +239,7 @@ check_system() {
         exit 1
     fi
 
-    Check version
+    # Check version
     if command -v podkop > /dev/null 2>&1; then
         local version
         version=$(/usr/bin/podkop show_version 2> /dev/null)
