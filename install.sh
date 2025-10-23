@@ -61,6 +61,45 @@ pkg_install() {
     fi
 }
 
+update_config() {
+    printf "\033[48;5;196m\033[1m╔══════════════════════════════════════════════════════════════════════╗\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ ! Обнаружена старая версия podkop.                                   ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Если продолжите обновление, вам потребуется настроить Podkop заново. ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Старая конфигурация будет сохранена в /etc/config/podkop-070         ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Подробности: LINK                                                    ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Точно хотите продолжить?                                             ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m╚══════════════════════════════════════════════════════════════════════╝\033[0m\n"
+
+    echo ""
+
+    printf "\033[48;5;196m\033[1m╔══════════════════════════════════════════════════════════════════════╗\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ ! Detected old podkop version.                                       ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ If you continue the update, you will need to RECONFIGURE podkop.     ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Your old configuration will be saved to /etc/config/podkop-070       ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Details: LINK                                                        ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Are you sure you want to continue?                                   ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m╚══════════════════════════════════════════════════════════════════════╝\033[0m\n"
+
+    msg "Continue? (yes/no)"
+
+    while true; do
+            read -r -p '' CONFIG_UPDATE
+            case $CONFIG_UPDATE in
+
+            yes|y|Y)
+                mv /etc/config/podkop /etc/config/podkop-070
+                wget -O /etc/config/podkop https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/podkop/files/etc/config/podkop
+                msg "Podkop config has been reset to default. Your old config saved in /etc/config/podkop-070"
+                break
+                ;;
+            *)
+                msg "Exit"
+                exit 1
+                ;;
+        esac
+    done
+}
+
 main() {
     check_system
     sing_box
@@ -200,6 +239,35 @@ check_system() {
         msg "DNS not working"
         exit 1
     fi
+
+    # Check version
+    # if command -v podkop > /dev/null 2>&1; then
+    #     local version
+    #     version=$(/usr/bin/podkop show_version 2> /dev/null)
+    #     if [ -n "$version" ]; then
+    #         version=$(echo "$version" | sed 's/^v//')
+    #         local major
+    #         local minor
+    #         local patch
+    #         major=$(echo "$version" | cut -d. -f1)
+    #         minor=$(echo "$version" | cut -d. -f2)
+    #         patch=$(echo "$version" | cut -d. -f3)
+
+    #         # Compare version: must be >= 0.7.0
+    #         if [ "$major" -gt 0 ] ||
+    #             [ "$major" -eq 0 ] && [ "$minor" -gt 7 ] ||
+    #             [ "$major" -eq 0 ] && [ "$minor" -eq 7 ] && [ "$patch" -ge 0 ]; then
+    #             msg "Podkop version >= 0.7.0"
+    #             break
+    #         else
+    #             msg "Podkop version < 0.7.0"
+    #             update_config
+    #         fi
+    #     else
+    #         msg "Unknown podkop version"
+    #         update_config
+    #     fi
+    # fi
 
     if pkg_is_installed https-dns-proxy; then
         msg "Сonflicting package detected: https-dns-proxy. Remove?"
