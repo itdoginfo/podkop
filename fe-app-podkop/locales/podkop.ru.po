@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-23 18:27+0300\n"
-"PO-Revision-Date: 2025-10-23 18:27+0300\n"
+"POT-Creation-Date: 2025-10-23 18:55+0300\n"
+"PO-Revision-Date: 2025-10-23 18:55+0300\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -65,26 +65,23 @@ msgstr "Путь к файлу кэша"
 msgid "Cache file path cannot be empty"
 msgstr "Путь к файлу кэша не может быть пустым"
 
-msgid "Cannot receive DNS checks result"
-msgstr "Не удалось получить результаты проверки DNS"
+msgid "Cannot receive checks result"
+msgstr "Не удалось получить результаты проверки"
 
-msgid "Cannot receive nftables checks result"
-msgstr "Не удалось получить результаты проверки nftables"
+msgid "Checking, please wait"
+msgstr "Проверяем, пожалуйста подождите"
 
-msgid "Cannot receive Sing-box checks result"
-msgstr "Не удалось получить результаты проверки Sing-box"
+msgid "checks"
+msgstr "проверки"
 
-msgid "Checking dns, please wait"
-msgstr "Проверка dns, пожалуйста подождите"
+msgid "Checks failed"
+msgstr "Проверки не пройдены"
 
-msgid "Checking FakeIP, please wait"
-msgstr "Проверка FakeIP, пожалуйста подождите"
+msgid "Checks partially passed"
+msgstr "Проверки пройдены частично"
 
-msgid "Checking nftables, please wait"
-msgstr "Проверка nftables, пожалуйста подождите"
-
-msgid "Checking sing-box, please wait"
-msgstr "Проверка sing-box, пожалуйста подождите"
+msgid "Checks passed"
+msgstr "Проверки пройдены"
 
 msgid "CIDR must be between 0 and 32"
 msgstr "CIDR должен быть между 0 и 32"
@@ -145,12 +142,6 @@ msgstr "Отключить QUIC протокол для улучшения со�
 
 msgid "Disabled"
 msgstr "Отключено"
-
-msgid "DNS checks"
-msgstr "DNS проверки"
-
-msgid "DNS checks passed"
-msgstr "DNS проверки успешно завершены"
 
 msgid "DNS on router"
 msgstr "DNS на роутере"
@@ -238,18 +229,6 @@ msgstr "Исключите трафик протокола NTP из туннел
 
 msgid "Failed to copy!"
 msgstr "Не удалось скопировать!"
-
-msgid "FakeIP checks"
-msgstr "Проверка FakeIP"
-
-msgid "FakeIP checks failed"
-msgstr "Проверки FakeIP не пройдены"
-
-msgid "FakeIP checks partially passed"
-msgstr "Проверка FakeIP частично пройдена"
-
-msgid "FakeIP checks passed"
-msgstr "Проверки FakeIP пройдены"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
@@ -394,15 +373,6 @@ msgstr "Наблюдаемые интерфейсы"
 
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
-
-msgid "Nftables checks"
-msgstr "Проверки Nftables"
-
-msgid "Nftables checks partially passed"
-msgstr "Проверки Nftables частично пройдена"
-
-msgid "Nftables checks passed"
-msgstr "Nftables проверки успешно завершены"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
@@ -571,12 +541,6 @@ msgstr "Sing-box"
 
 msgid "Sing-box autostart disabled"
 msgstr "Автостарт sing-box отключен"
-
-msgid "Sing-box checks"
-msgstr "Sing-box проверки"
-
-msgid "Sing-box checks passed"
-msgstr "Sing-box проверки успешно завершены"
 
 msgid "Sing-box installed"
 msgstr "Sing-box установлен"

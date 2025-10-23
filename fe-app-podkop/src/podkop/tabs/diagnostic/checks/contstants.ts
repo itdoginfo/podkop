@@ -1,3 +1,5 @@
+import { getCheckTitle } from '../helpers/getCheckTitle';
+
 export enum DIAGNOSTICS_CHECKS {
   DNS = 'DNS',
   SINGBOX = 'SINGBOX',
@@ -11,22 +13,22 @@ export const DIAGNOSTICS_CHECKS_MAP: Record<
 > = {
   [DIAGNOSTICS_CHECKS.DNS]: {
     order: 1,
-    title: _('DNS checks'),
+    title: getCheckTitle('DNS'),
     code: DIAGNOSTICS_CHECKS.DNS,
   },
   [DIAGNOSTICS_CHECKS.SINGBOX]: {
     order: 2,
-    title: _('Sing-box checks'),
+    title: getCheckTitle('Sing-box'),
     code: DIAGNOSTICS_CHECKS.SINGBOX,
   },
   [DIAGNOSTICS_CHECKS.NFT]: {
     order: 3,
-    title: _('Nftables checks'),
+    title: getCheckTitle('Nftables'),
     code: DIAGNOSTICS_CHECKS.NFT,
   },
   [DIAGNOSTICS_CHECKS.FAKEIP]: {
     order: 4,
-    title: _('FakeIP checks'),
+    title: getCheckTitle('FakeIP'),
     code: DIAGNOSTICS_CHECKS.FAKEIP,
   },
 };

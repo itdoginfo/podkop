@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-23 15:27+0300\n"
-"PO-Revision-Date: 2025-10-23 15:27+0300\n"
+"POT-Creation-Date: 2025-10-23 15:55+0300\n"
+"PO-Revision-Date: 2025-10-23 15:55+0300\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -36,7 +36,7 @@ msgstr ""
 msgid "Active Connections"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:117
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:106
 msgid "Additional marking rules found"
 msgstr ""
 
@@ -56,7 +56,7 @@ msgstr ""
 msgid "Available actions"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:72
+#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:65
 msgid "Bootsrap DNS"
 msgstr ""
 
@@ -64,11 +64,11 @@ msgstr ""
 msgid "Bootstrap DNS server"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:81
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:58
 msgid "Browser is not using FakeIP"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:80
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:57
 msgid "Browser is using FakeIP correctly"
 msgstr ""
 
@@ -80,32 +80,33 @@ msgstr ""
 msgid "Cache file path cannot be empty"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:26
-msgid "Cannot receive DNS checks result"
+#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:27
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:28
+#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:25
+msgid "Cannot receive checks result"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:27
-msgid "Cannot receive nftables checks result"
+#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:15
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:15
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:13
+#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:13
+msgid "Checking, please wait"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:24
-msgid "Cannot receive Sing-box checks result"
+#: src/podkop/tabs/diagnostic/helpers/getCheckTitle.ts:2
+msgid "checks"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:14
-msgid "Checking dns, please wait"
+#: src/podkop/tabs/diagnostic/helpers/getMeta.ts:26
+msgid "Checks failed"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:14
-msgid "Checking FakeIP, please wait"
+#: src/podkop/tabs/diagnostic/helpers/getMeta.ts:20
+msgid "Checks partially passed"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:12
-msgid "Checking nftables, please wait"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:12
-msgid "Checking sing-box, please wait"
+#: src/podkop/tabs/diagnostic/helpers/getMeta.ts:13
+msgid "Checks passed"
 msgstr ""
 
 #: src/validators/validateSubnet.ts:33
@@ -164,7 +165,7 @@ msgstr ""
 msgid "Delay value cannot be empty"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:89
+#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:82
 msgid "DHCP has DNS server"
 msgstr ""
 
@@ -189,15 +190,7 @@ msgstr ""
 msgid "Disabled"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/contstants.ts:14
-msgid "DNS checks"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:64
-msgid "DNS checks passed"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:84
+#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:77
 msgid "DNS on router"
 msgstr ""
 
@@ -317,22 +310,6 @@ msgstr ""
 
 #: src/helpers/copyToClipboard.ts:12
 msgid "Failed to copy!"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/contstants.ts:29
-msgid "FakeIP checks"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:57
-msgid "FakeIP checks failed"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:51
-msgid "FakeIP checks partially passed"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:44
-msgid "FakeIP checks passed"
 msgstr ""
 
 #: src/podkop/methods/custom/getDashboardSections.ts:117
@@ -484,7 +461,7 @@ msgstr ""
 msgid "Invalid URL format"
 msgstr ""
 
-#: src/validators/validateVlessUrl.ts:109
+#: src/validators/validateVlessUrl.ts:110
 msgid "Invalid VLESS URL: parsing failed"
 msgstr ""
 
@@ -508,7 +485,7 @@ msgstr ""
 msgid "Local Subnet Lists"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:79
+#: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:72
 msgid "Main DNS"
 msgstr ""
 
@@ -528,19 +505,7 @@ msgstr ""
 msgid "Network Interface"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/contstants.ts:24
-msgid "Nftables checks"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:75
-msgid "Nftables checks partially passed"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:74
-msgid "Nftables checks passed"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:116
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:105
 msgid "No other marking rules found"
 msgstr ""
 
@@ -611,11 +576,11 @@ msgstr ""
 msgid "Proxy Configuration URL"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:89
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:66
 msgid "Proxy traffic is not routed via FakeIP"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:88
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:65
 msgid "Proxy traffic is routed via FakeIP"
 msgstr ""
 
@@ -642,11 +607,11 @@ msgstr ""
 msgid "Restart podkop"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:74
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:51
 msgid "Router DNS is not routed through sing-box"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:73
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:50
 msgid "Router DNS is routed through sing-box"
 msgstr ""
 
@@ -654,27 +619,27 @@ msgstr ""
 msgid "Routing Excluded IPs"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:90
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:79
 msgid "Rules mangle counters"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:85
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:74
 msgid "Rules mangle exist"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:100
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:89
 msgid "Rules mangle output counters"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:95
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:84
 msgid "Rules mangle output exist"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:110
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:99
 msgid "Rules proxy counters"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:105
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:94
 msgid "Rules proxy exist"
 msgstr ""
 
@@ -768,35 +733,27 @@ msgstr ""
 msgid "Sing-box"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:86
+#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:77
 msgid "Sing-box autostart disabled"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/contstants.ts:19
-msgid "Sing-box checks"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:66
-msgid "Sing-box checks passed"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:71
+#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:62
 msgid "Sing-box installed"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:96
+#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:87
 msgid "Sing-box listening ports"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:91
+#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:82
 msgid "Sing-box process running"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:81
+#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:72
 msgid "Sing-box service exist"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:76
+#: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:67
 msgid "Sing-box version >= 1.12.4"
 msgstr ""
 
@@ -845,7 +802,7 @@ msgstr ""
 msgid "System information"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:80
+#: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:69
 msgid "Table exist"
 msgstr ""
 
@@ -965,7 +922,7 @@ msgstr ""
 #: src/validators/validateSubnet.ts:38
 #: src/validators/validateTrojanUrl.ts:59
 #: src/validators/validateUrl.ts:16
-#: src/validators/validateVlessUrl.ts:107
+#: src/validators/validateVlessUrl.ts:108
 msgid "Valid"
 msgstr ""
 

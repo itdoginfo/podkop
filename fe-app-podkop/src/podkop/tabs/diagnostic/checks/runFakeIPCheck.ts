@@ -3,6 +3,7 @@ import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 import { PodkopShellMethods, RemoteFakeIPMethods } from '../../../methods';
 import { IDiagnosticsChecksItem } from '../../../services';
 import { updateCheckStore } from './updateCheckStore';
+import { getMeta } from '../helpers/getMeta';
 
 export async function runFakeIPCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.FAKEIP;
@@ -11,7 +12,7 @@ export async function runFakeIPCheck() {
     order,
     code,
     title,
-    description: _('Checking FakeIP, please wait'),
+    description: _('Checking, please wait'),
     state: 'loading',
     items: [],
   });
@@ -34,31 +35,7 @@ export async function runFakeIPCheck() {
   const atLeastOneGood =
     checks.router && checks.browserFakeIP && checks.differentIP;
 
-  function getMeta(): {
-    description: string;
-    state: 'loading' | 'warning' | 'success' | 'error' | 'skipped';
-  } {
-    if (allGood) {
-      return {
-        state: 'success',
-        description: _('FakeIP checks passed'),
-      };
-    }
-
-    if (atLeastOneGood) {
-      return {
-        state: 'warning',
-        description: _('FakeIP checks partially passed'),
-      };
-    }
-
-    return {
-      state: 'error',
-      description: _('FakeIP checks failed'),
-    };
-  }
-
-  const { state, description } = getMeta();
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
 
   updateCheckStore({
     order,

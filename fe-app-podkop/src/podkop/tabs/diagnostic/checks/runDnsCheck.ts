@@ -3,6 +3,7 @@ import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 import { PodkopShellMethods } from '../../../methods';
 import { IDiagnosticsChecksItem } from '../../../services';
 import { updateCheckStore } from './updateCheckStore';
+import { getMeta } from '../helpers/getMeta';
 
 export async function runDnsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
@@ -11,7 +12,7 @@ export async function runDnsCheck() {
     order,
     code,
     title,
-    description: _('Checking dns, please wait'),
+    description: _('Checking, please wait'),
     state: 'loading',
     items: [],
   });
@@ -23,7 +24,7 @@ export async function runDnsCheck() {
       order,
       code,
       title,
-      description: _('Cannot receive DNS checks result'),
+      description: _('Cannot receive checks result'),
       state: 'error',
       items: [],
     });
@@ -45,27 +46,19 @@ export async function runDnsCheck() {
     Boolean(data.bootstrap_dns_status) ||
     Boolean(data.dns_status);
 
-  function getStatus() {
-    if (allGood) {
-      return 'success';
-    }
-
-    if (atLeastOneGood) {
-      return 'warning';
-    }
-
-    return 'error';
-  }
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
 
   updateCheckStore({
     order,
     code,
     title,
-    description: _('DNS checks passed'),
-    state: getStatus(),
+    description,
+    state,
     items: [
       ...insertIf<IDiagnosticsChecksItem>(
-        data.dns_type === 'doh' || data.dns_type === 'dot',
+        data.dns_type === 'doh' ||
+          data.dns_type === 'dot' ||
+          !data.bootstrap_dns_status,
         [
           {
             state: data.bootstrap_dns_status ? 'success' : 'error',

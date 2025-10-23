@@ -979,26 +979,31 @@ var TabService = class _TabService {
 };
 var TabServiceInstance = TabService.getInstance();
 
+// src/podkop/tabs/diagnostic/helpers/getCheckTitle.ts
+function getCheckTitle(name) {
+  return `${name} ${_("checks")}`;
+}
+
 // src/podkop/tabs/diagnostic/checks/contstants.ts
 var DIAGNOSTICS_CHECKS_MAP = {
   ["DNS" /* DNS */]: {
     order: 1,
-    title: _("DNS checks"),
+    title: getCheckTitle("DNS"),
     code: "DNS" /* DNS */
   },
   ["SINGBOX" /* SINGBOX */]: {
     order: 2,
-    title: _("Sing-box checks"),
+    title: getCheckTitle("Sing-box"),
     code: "SINGBOX" /* SINGBOX */
   },
   ["NFT" /* NFT */]: {
     order: 3,
-    title: _("Nftables checks"),
+    title: getCheckTitle("Nftables"),
     code: "NFT" /* NFT */
   },
   ["FAKEIP" /* FAKEIP */]: {
     order: 4,
-    title: _("FakeIP checks"),
+    title: getCheckTitle("FakeIP"),
     code: "FAKEIP" /* FAKEIP */
   }
 };
@@ -2356,6 +2361,26 @@ function updateCheckStore(check, minified) {
   });
 }
 
+// src/podkop/tabs/diagnostic/helpers/getMeta.ts
+function getMeta({ allGood, atLeastOneGood }) {
+  if (allGood) {
+    return {
+      state: "success",
+      description: _("Checks passed")
+    };
+  }
+  if (atLeastOneGood) {
+    return {
+      state: "warning",
+      description: _("Checks partially passed")
+    };
+  }
+  return {
+    state: "error",
+    description: _("Checks failed")
+  };
+}
+
 // src/podkop/tabs/diagnostic/checks/runDnsCheck.ts
 async function runDnsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
@@ -2363,7 +2388,7 @@ async function runDnsCheck() {
     order,
     code,
     title,
-    description: _("Checking dns, please wait"),
+    description: _("Checking, please wait"),
     state: "loading",
     items: []
   });
@@ -2373,7 +2398,7 @@ async function runDnsCheck() {
       order,
       code,
       title,
-      description: _("Cannot receive DNS checks result"),
+      description: _("Cannot receive checks result"),
       state: "error",
       items: []
     });
@@ -2382,24 +2407,16 @@ async function runDnsCheck() {
   const data = dnsChecks.data;
   const allGood = Boolean(data.dns_on_router) && Boolean(data.dhcp_config_status) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
   const atLeastOneGood = Boolean(data.dns_on_router) || Boolean(data.dhcp_config_status) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
-  function getStatus() {
-    if (allGood) {
-      return "success";
-    }
-    if (atLeastOneGood) {
-      return "warning";
-    }
-    return "error";
-  }
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
-    description: _("DNS checks passed"),
-    state: getStatus(),
+    description,
+    state,
     items: [
       ...insertIf(
-        data.dns_type === "doh" || data.dns_type === "dot",
+        data.dns_type === "doh" || data.dns_type === "dot" || !data.bootstrap_dns_status,
         [
           {
             state: data.bootstrap_dns_status ? "success" : "error",
@@ -2437,7 +2454,7 @@ async function runSingBoxCheck() {
     order,
     code,
     title,
-    description: _("Checking sing-box, please wait"),
+    description: _("Checking, please wait"),
     state: "loading",
     items: []
   });
@@ -2447,7 +2464,7 @@ async function runSingBoxCheck() {
       order,
       code,
       title,
-      description: _("Cannot receive Sing-box checks result"),
+      description: _("Cannot receive checks result"),
       state: "error",
       items: []
     });
@@ -2456,21 +2473,13 @@ async function runSingBoxCheck() {
   const data = singBoxChecks.data;
   const allGood = Boolean(data.sing_box_installed) && Boolean(data.sing_box_version_ok) && Boolean(data.sing_box_service_exist) && Boolean(data.sing_box_autostart_disabled) && Boolean(data.sing_box_process_running) && Boolean(data.sing_box_ports_listening);
   const atLeastOneGood = Boolean(data.sing_box_installed) || Boolean(data.sing_box_version_ok) || Boolean(data.sing_box_service_exist) || Boolean(data.sing_box_autostart_disabled) || Boolean(data.sing_box_process_running) || Boolean(data.sing_box_ports_listening);
-  function getStatus() {
-    if (allGood) {
-      return "success";
-    }
-    if (atLeastOneGood) {
-      return "warning";
-    }
-    return "error";
-  }
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
-    description: _("Sing-box checks passed"),
-    state: getStatus(),
+    description,
+    state,
     items: [
       {
         state: data.sing_box_installed ? "success" : "error",
@@ -2516,7 +2525,7 @@ async function runNftCheck() {
     order,
     code,
     title,
-    description: _("Checking nftables, please wait"),
+    description: _("Checking, please wait"),
     state: "loading",
     items: []
   });
@@ -2528,7 +2537,7 @@ async function runNftCheck() {
       order,
       code,
       title,
-      description: _("Cannot receive nftables checks result"),
+      description: _("Cannot receive checks result"),
       state: "error",
       items: []
     });
@@ -2537,21 +2546,13 @@ async function runNftCheck() {
   const data = nftablesChecks.data;
   const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && !data.rules_other_mark_exist;
   const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || !data.rules_other_mark_exist;
-  function getStatus() {
-    if (allGood) {
-      return "success";
-    }
-    if (atLeastOneGood) {
-      return "warning";
-    }
-    return "error";
-  }
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
-    description: allGood ? _("Nftables checks passed") : _("Nftables checks partially passed"),
-    state: getStatus(),
+    description,
+    state,
     items: [
       {
         state: data.table_exist ? "success" : "error",
@@ -2607,7 +2608,7 @@ async function runFakeIPCheck() {
     order,
     code,
     title,
-    description: _("Checking FakeIP, please wait"),
+    description: _("Checking, please wait"),
     state: "loading",
     items: []
   });
@@ -2621,25 +2622,7 @@ async function runFakeIPCheck() {
   };
   const allGood = checks.router || checks.browserFakeIP || checks.differentIP;
   const atLeastOneGood = checks.router && checks.browserFakeIP && checks.differentIP;
-  function getMeta() {
-    if (allGood) {
-      return {
-        state: "success",
-        description: _("FakeIP checks passed")
-      };
-    }
-    if (atLeastOneGood) {
-      return {
-        state: "warning",
-        description: _("FakeIP checks partially passed")
-      };
-    }
-    return {
-      state: "error",
-      description: _("FakeIP checks failed")
-    };
-  }
-  const { state, description } = getMeta();
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,

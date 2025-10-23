@@ -38,7 +38,7 @@
     "call": "Additional marking rules found",
     "key": "Additional marking rules found",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:117"
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:106"
     ]
   },
   {
@@ -73,7 +73,7 @@
     "call": "Bootsrap DNS",
     "key": "Bootsrap DNS",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:72"
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:65"
     ]
   },
   {
@@ -87,14 +87,14 @@
     "call": "Browser is not using FakeIP",
     "key": "Browser is not using FakeIP",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:81"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:58"
     ]
   },
   {
     "call": "Browser is using FakeIP correctly",
     "key": "Browser is using FakeIP correctly",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:80"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:57"
     ]
   },
   {
@@ -112,52 +112,50 @@
     ]
   },
   {
-    "call": "Cannot receive DNS checks result",
-    "key": "Cannot receive DNS checks result",
+    "call": "Cannot receive checks result",
+    "key": "Cannot receive checks result",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:26"
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:27",
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:28",
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:25"
     ]
   },
   {
-    "call": "Cannot receive nftables checks result",
-    "key": "Cannot receive nftables checks result",
+    "call": "Checking, please wait",
+    "key": "Checking, please wait",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:27"
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:15",
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:15",
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:13",
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:13"
     ]
   },
   {
-    "call": "Cannot receive Sing-box checks result",
-    "key": "Cannot receive Sing-box checks result",
+    "call": "checks",
+    "key": "checks",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:24"
+      "src/podkop/tabs/diagnostic/helpers/getCheckTitle.ts:2"
     ]
   },
   {
-    "call": "Checking dns, please wait",
-    "key": "Checking dns, please wait",
+    "call": "Checks failed",
+    "key": "Checks failed",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:14"
+      "src/podkop/tabs/diagnostic/helpers/getMeta.ts:26"
     ]
   },
   {
-    "call": "Checking FakeIP, please wait",
-    "key": "Checking FakeIP, please wait",
+    "call": "Checks partially passed",
+    "key": "Checks partially passed",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:14"
+      "src/podkop/tabs/diagnostic/helpers/getMeta.ts:20"
     ]
   },
   {
-    "call": "Checking nftables, please wait",
-    "key": "Checking nftables, please wait",
+    "call": "Checks passed",
+    "key": "Checks passed",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:12"
-    ]
-  },
-  {
-    "call": "Checking sing-box, please wait",
-    "key": "Checking sing-box, please wait",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:12"
+      "src/podkop/tabs/diagnostic/helpers/getMeta.ts:13"
     ]
   },
   {
@@ -262,7 +260,7 @@
     "call": "DHCP has DNS server",
     "key": "DHCP has DNS server",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:89"
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:82"
     ]
   },
   {
@@ -302,24 +300,10 @@
     ]
   },
   {
-    "call": "DNS checks",
-    "key": "DNS checks",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/contstants.ts:14"
-    ]
-  },
-  {
-    "call": "DNS checks passed",
-    "key": "DNS checks passed",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:64"
-    ]
-  },
-  {
     "call": "DNS on router",
     "key": "DNS on router",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:84"
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:77"
     ]
   },
   {
@@ -522,34 +506,6 @@
     "key": "Failed to copy!",
     "places": [
       "src/helpers/copyToClipboard.ts:12"
-    ]
-  },
-  {
-    "call": "FakeIP checks",
-    "key": "FakeIP checks",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/contstants.ts:29"
-    ]
-  },
-  {
-    "call": "FakeIP checks failed",
-    "key": "FakeIP checks failed",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:57"
-    ]
-  },
-  {
-    "call": "FakeIP checks partially passed",
-    "key": "FakeIP checks partially passed",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:51"
-    ]
-  },
-  {
-    "call": "FakeIP checks passed",
-    "key": "FakeIP checks passed",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:44"
     ]
   },
   {
@@ -816,7 +772,7 @@
     "call": "Invalid VLESS URL: parsing failed",
     "key": "Invalid VLESS URL: parsing failed",
     "places": [
-      "src/validators/validateVlessUrl.ts:109"
+      "src/validators/validateVlessUrl.ts:110"
     ]
   },
   {
@@ -858,7 +814,7 @@
     "call": "Main DNS",
     "key": "Main DNS",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:79"
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:72"
     ]
   },
   {
@@ -890,31 +846,10 @@
     ]
   },
   {
-    "call": "Nftables checks",
-    "key": "Nftables checks",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/contstants.ts:24"
-    ]
-  },
-  {
-    "call": "Nftables checks partially passed",
-    "key": "Nftables checks partially passed",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:75"
-    ]
-  },
-  {
-    "call": "Nftables checks passed",
-    "key": "Nftables checks passed",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:74"
-    ]
-  },
-  {
     "call": "No other marking rules found",
     "key": "No other marking rules found",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:116"
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:105"
     ]
   },
   {
@@ -1036,14 +971,14 @@
     "call": "Proxy traffic is not routed via FakeIP",
     "key": "Proxy traffic is not routed via FakeIP",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:89"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:66"
     ]
   },
   {
     "call": "Proxy traffic is routed via FakeIP",
     "key": "Proxy traffic is routed via FakeIP",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:88"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:65"
     ]
   },
   {
@@ -1088,14 +1023,14 @@
     "call": "Router DNS is not routed through sing-box",
     "key": "Router DNS is not routed through sing-box",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:74"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:51"
     ]
   },
   {
     "call": "Router DNS is routed through sing-box",
     "key": "Router DNS is routed through sing-box",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:73"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:50"
     ]
   },
   {
@@ -1109,42 +1044,42 @@
     "call": "Rules mangle counters",
     "key": "Rules mangle counters",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:90"
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:79"
     ]
   },
   {
     "call": "Rules mangle exist",
     "key": "Rules mangle exist",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:85"
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:74"
     ]
   },
   {
     "call": "Rules mangle output counters",
     "key": "Rules mangle output counters",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:100"
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:89"
     ]
   },
   {
     "call": "Rules mangle output exist",
     "key": "Rules mangle output exist",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:95"
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:84"
     ]
   },
   {
     "call": "Rules proxy counters",
     "key": "Rules proxy counters",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:110"
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:99"
     ]
   },
   {
     "call": "Rules proxy exist",
     "key": "Rules proxy exist",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:105"
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:94"
     ]
   },
   {
@@ -1307,56 +1242,42 @@
     "call": "Sing-box autostart disabled",
     "key": "Sing-box autostart disabled",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:86"
-    ]
-  },
-  {
-    "call": "Sing-box checks",
-    "key": "Sing-box checks",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/contstants.ts:19"
-    ]
-  },
-  {
-    "call": "Sing-box checks passed",
-    "key": "Sing-box checks passed",
-    "places": [
-      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:66"
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:77"
     ]
   },
   {
     "call": "Sing-box installed",
     "key": "Sing-box installed",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:71"
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:62"
     ]
   },
   {
     "call": "Sing-box listening ports",
     "key": "Sing-box listening ports",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:96"
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:87"
     ]
   },
   {
     "call": "Sing-box process running",
     "key": "Sing-box process running",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:91"
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:82"
     ]
   },
   {
     "call": "Sing-box service exist",
     "key": "Sing-box service exist",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:81"
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:72"
     ]
   },
   {
     "call": "Sing-box version >= 1.12.4",
     "key": "Sing-box version >= 1.12.4",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:76"
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:67"
     ]
   },
   {
@@ -1441,7 +1362,7 @@
     "call": "Table exist",
     "key": "Table exist",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:80"
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:69"
     ]
   },
   {
@@ -1636,7 +1557,7 @@
       "src/validators/validateSubnet.ts:38",
       "src/validators/validateTrojanUrl.ts:59",
       "src/validators/validateUrl.ts:16",
-      "src/validators/validateVlessUrl.ts:107"
+      "src/validators/validateVlessUrl.ts:108"
     ]
   },
   {

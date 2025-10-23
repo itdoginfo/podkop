@@ -1,6 +1,7 @@
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 import { RemoteFakeIPMethods, PodkopShellMethods } from '../../../methods';
 import { updateCheckStore } from './updateCheckStore';
+import { getMeta } from '../helpers/getMeta';
 
 export async function runNftCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.NFT;
@@ -9,7 +10,7 @@ export async function runNftCheck() {
     order,
     code,
     title,
-    description: _('Checking nftables, please wait'),
+    description: _('Checking, please wait'),
     state: 'loading',
     items: [],
   });
@@ -24,7 +25,7 @@ export async function runNftCheck() {
       order,
       code,
       title,
-      description: _('Cannot receive nftables checks result'),
+      description: _('Cannot receive checks result'),
       state: 'error',
       items: [],
     });
@@ -54,26 +55,14 @@ export async function runNftCheck() {
     Boolean(data.rules_proxy_counters) ||
     !data.rules_other_mark_exist;
 
-  function getStatus() {
-    if (allGood) {
-      return 'success';
-    }
-
-    if (atLeastOneGood) {
-      return 'warning';
-    }
-
-    return 'error';
-  }
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
 
   updateCheckStore({
     order,
     code,
     title,
-    description: allGood
-      ? _('Nftables checks passed')
-      : _('Nftables checks partially passed'),
-    state: getStatus(),
+    description,
+    state,
     items: [
       {
         state: data.table_exist ? 'success' : 'error',
