@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-23 19:08+0300\n"
-"PO-Revision-Date: 2025-10-23 19:08+0300\n"
+"POT-Creation-Date: 2025-10-23 20:00+0300\n"
+"PO-Revision-Date: 2025-10-23 20:00+0300\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -75,10 +75,7 @@ msgid "checks"
 msgstr "проверки"
 
 msgid "Checks failed"
-msgstr "Проверки не пройдены"
-
-msgid "Checks partially passed"
-msgstr "Проверки пройдены частично"
+msgstr "Проверки не выполнены"
 
 msgid "Checks passed"
 msgstr "Проверки пройдены"
@@ -163,6 +160,9 @@ msgstr "DNS-сервер"
 
 msgid "DNS server address cannot be empty"
 msgstr "Адрес DNS-сервера не может быть пустым"
+
+msgid "Do not panic, everything can be fixed, just..."
+msgstr "Не паникуйте, всё можно исправить, просто..."
 
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
@@ -350,6 +350,9 @@ msgstr "Неверный URL VLESS: ошибка разбора"
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr "IP-адрес 0.0.0.0 не допускается"
 
+msgid "Issues detected"
+msgstr "Обнаружены проблемы"
+
 msgid "Latest"
 msgstr "Последняя"
 
@@ -416,6 +419,9 @@ msgstr "Путь должен содержать хотя бы одну дире
 msgid "Path must end with cache.db"
 msgstr "Путь должен заканчиваться на cache.db"
 
+msgid "Pending"
+msgstr "Ожидает запуска"
+
 msgid "Podkop"
 msgstr "Podkop"
 
@@ -433,9 +439,6 @@ msgstr "Прокси-трафик не маршрутизируется чере
 
 msgid "Proxy traffic is routed via FakeIP"
 msgstr "Прокси-трафик направляется через FakeIP"
-
-msgid "Queued"
-msgstr "В очереди"
 
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
@@ -617,6 +620,9 @@ msgstr "Трафик"
 msgid "Traffic Total"
 msgstr "Всего трафика"
 
+msgid "Troubleshooting"
+msgstr "Устранение неполадок"
+
 msgid "TTL must be a positive number"
 msgstr "TTL должно быть положительным числом"
 
@@ -676,6 +682,9 @@ msgstr "Ошибки валидации:"
 
 msgid "View logs"
 msgstr "Посмотреть логи"
+
+msgid "Visit Wiki"
+msgstr "Перейти в wiki"
 
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."

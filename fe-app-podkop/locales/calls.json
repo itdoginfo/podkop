@@ -145,13 +145,6 @@
     ]
   },
   {
-    "call": "Checks partially passed",
-    "key": "Checks partially passed",
-    "places": [
-      "src/podkop/tabs/diagnostic/helpers/getMeta.ts:20"
-    ]
-  },
-  {
     "call": "Checks passed",
     "key": "Checks passed",
     "places": [
@@ -353,6 +346,13 @@
     ]
   },
   {
+    "call": "Do not panic, everything can be fixed, just...",
+    "key": "Do not panic, everything can be fixed, just...",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderWikiDisclaimer.ts:26"
+    ]
+  },
+  {
     "call": "Domain Resolver",
     "key": "Domain Resolver",
     "places": [
@@ -512,12 +512,12 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/podkop/tabs/diagnostic/initController.ts:225",
-      "src/podkop/tabs/diagnostic/initController.ts:229",
-      "src/podkop/tabs/diagnostic/initController.ts:259",
-      "src/podkop/tabs/diagnostic/initController.ts:263",
-      "src/podkop/tabs/diagnostic/initController.ts:297",
-      "src/podkop/tabs/diagnostic/initController.ts:301"
+      "src/podkop/tabs/diagnostic/initController.ts:226",
+      "src/podkop/tabs/diagnostic/initController.ts:230",
+      "src/podkop/tabs/diagnostic/initController.ts:260",
+      "src/podkop/tabs/diagnostic/initController.ts:264",
+      "src/podkop/tabs/diagnostic/initController.ts:298",
+      "src/podkop/tabs/diagnostic/initController.ts:302"
     ]
   },
   {
@@ -545,7 +545,7 @@
     "call": "Global check",
     "key": "Global check",
     "places": [
-      "src/podkop/tabs/diagnostic/initController.ts:220"
+      "src/podkop/tabs/diagnostic/initController.ts:221"
     ]
   },
   {
@@ -795,10 +795,17 @@
     ]
   },
   {
+    "call": "Issues detected",
+    "key": "Issues detected",
+    "places": [
+      "src/podkop/tabs/diagnostic/helpers/getMeta.ts:20"
+    ]
+  },
+  {
     "call": "Latest",
     "key": "Latest",
     "places": [
-      "src/podkop/tabs/diagnostic/initController.ts:427"
+      "src/podkop/tabs/diagnostic/initController.ts:452"
     ]
   },
   {
@@ -913,7 +920,7 @@
     "call": "Outdated",
     "key": "Outdated",
     "places": [
-      "src/podkop/tabs/diagnostic/initController.ts:417"
+      "src/podkop/tabs/diagnostic/initController.ts:442"
     ]
   },
   {
@@ -949,6 +956,16 @@
     "key": "Path must end with cache.db",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:351"
+    ]
+  },
+  {
+    "call": "Pending",
+    "key": "Pending",
+    "places": [
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:95",
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:103",
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:111",
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:119"
     ]
   },
   {
@@ -991,16 +1008,6 @@
     "key": "Proxy traffic is routed via FakeIP",
     "places": [
       "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:65"
-    ]
-  },
-  {
-    "call": "Queued",
-    "key": "Queued",
-    "places": [
-      "src/podkop/tabs/diagnostic/diagnostic.store.ts:95",
-      "src/podkop/tabs/diagnostic/diagnostic.store.ts:103",
-      "src/podkop/tabs/diagnostic/diagnostic.store.ts:111",
-      "src/podkop/tabs/diagnostic/diagnostic.store.ts:119"
     ]
   },
   {
@@ -1239,7 +1246,7 @@
     "call": "Show sing-box config",
     "key": "Show sing-box config",
     "places": [
-      "src/podkop/tabs/diagnostic/initController.ts:288",
+      "src/podkop/tabs/diagnostic/initController.ts:289",
       "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:116"
     ]
   },
@@ -1427,6 +1434,13 @@
     ]
   },
   {
+    "call": "Troubleshooting",
+    "key": "Troubleshooting",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderWikiDisclaimer.ts:25"
+    ]
+  },
+  {
     "call": "TTL must be a positive number",
     "key": "TTL must be a positive number",
     "places": [
@@ -1459,13 +1473,13 @@
     "call": "unknown",
     "key": "unknown",
     "places": [
-      "src/podkop/tabs/diagnostic/initController.ts:36",
       "src/podkop/tabs/diagnostic/initController.ts:37",
       "src/podkop/tabs/diagnostic/initController.ts:38",
       "src/podkop/tabs/diagnostic/initController.ts:39",
       "src/podkop/tabs/diagnostic/initController.ts:40",
       "src/podkop/tabs/diagnostic/initController.ts:41",
-      "src/podkop/tabs/diagnostic/initController.ts:391"
+      "src/podkop/tabs/diagnostic/initController.ts:42",
+      "src/podkop/tabs/diagnostic/initController.ts:416"
     ]
   },
   {
@@ -1487,7 +1501,7 @@
     "call": "URL must start with vless://, ss://, trojan://, or socks4/5://",
     "key": "URL must start with vless://, ss://, trojan://, or socks4/5://",
     "places": [
-      "src/validators/validateProxyUrl.ts:27"
+      "src/validators/validateProxyUrl.ts:29"
     ]
   },
   {
@@ -1584,8 +1598,15 @@
     "call": "View logs",
     "key": "View logs",
     "places": [
-      "src/podkop/tabs/diagnostic/initController.ts:254",
+      "src/podkop/tabs/diagnostic/initController.ts:255",
       "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:107"
+    ]
+  },
+  {
+    "call": "Visit Wiki",
+    "key": "Visit Wiki",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderWikiDisclaimer.ts:31"
     ]
   },
   {

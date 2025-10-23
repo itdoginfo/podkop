@@ -17,7 +17,7 @@ export function getMeta({ allGood, atLeastOneGood }: IGetMetaProps): {
   if (atLeastOneGood) {
     return {
       state: 'warning',
-      description: _('Checks partially passed'),
+      description: _('Issues detected'),
     };
   }
 

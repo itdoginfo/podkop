@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-23 16:08+0300\n"
-"PO-Revision-Date: 2025-10-23 16:08+0300\n"
+"POT-Creation-Date: 2025-10-23 17:00+0300\n"
+"PO-Revision-Date: 2025-10-23 17:00+0300\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -99,10 +99,6 @@ msgstr ""
 
 #: src/podkop/tabs/diagnostic/helpers/getMeta.ts:26
 msgid "Checks failed"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/helpers/getMeta.ts:20
-msgid "Checks partially passed"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/helpers/getMeta.ts:13
@@ -222,6 +218,10 @@ msgstr ""
 msgid "DNS server address cannot be empty"
 msgstr ""
 
+#: src/podkop/tabs/diagnostic/partials/renderWikiDisclaimer.ts:26
+msgid "Do not panic, everything can be fixed, just..."
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:166
 msgid "Domain Resolver"
 msgstr ""
@@ -312,12 +312,12 @@ msgstr ""
 msgid "Failed to copy!"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:225
-#: src/podkop/tabs/diagnostic/initController.ts:229
-#: src/podkop/tabs/diagnostic/initController.ts:259
-#: src/podkop/tabs/diagnostic/initController.ts:263
-#: src/podkop/tabs/diagnostic/initController.ts:297
-#: src/podkop/tabs/diagnostic/initController.ts:301
+#: src/podkop/tabs/diagnostic/initController.ts:226
+#: src/podkop/tabs/diagnostic/initController.ts:230
+#: src/podkop/tabs/diagnostic/initController.ts:260
+#: src/podkop/tabs/diagnostic/initController.ts:264
+#: src/podkop/tabs/diagnostic/initController.ts:298
+#: src/podkop/tabs/diagnostic/initController.ts:302
 msgid "Failed to execute!"
 msgstr ""
 
@@ -333,7 +333,7 @@ msgstr ""
 msgid "Get global check"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:220
+#: src/podkop/tabs/diagnostic/initController.ts:221
 msgid "Global check"
 msgstr ""
 
@@ -478,7 +478,11 @@ msgstr ""
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:427
+#: src/podkop/tabs/diagnostic/helpers/getMeta.ts:20
+msgid "Issues detected"
+msgstr ""
+
+#: src/podkop/tabs/diagnostic/initController.ts:452
 msgid "Latest"
 msgstr ""
 
@@ -545,7 +549,7 @@ msgstr ""
 msgid "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:417
+#: src/podkop/tabs/diagnostic/initController.ts:442
 msgid "Outdated"
 msgstr ""
 
@@ -567,6 +571,13 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:351
 msgid "Path must end with cache.db"
+msgstr ""
+
+#: src/podkop/tabs/diagnostic/diagnostic.store.ts:95
+#: src/podkop/tabs/diagnostic/diagnostic.store.ts:103
+#: src/podkop/tabs/diagnostic/diagnostic.store.ts:111
+#: src/podkop/tabs/diagnostic/diagnostic.store.ts:119
+msgid "Pending"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:340
@@ -591,13 +602,6 @@ msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:65
 msgid "Proxy traffic is routed via FakeIP"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/diagnostic.store.ts:95
-#: src/podkop/tabs/diagnostic/diagnostic.store.ts:103
-#: src/podkop/tabs/diagnostic/diagnostic.store.ts:111
-#: src/podkop/tabs/diagnostic/diagnostic.store.ts:119
-msgid "Queued"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:245
@@ -733,7 +737,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:288
+#: src/podkop/tabs/diagnostic/initController.ts:289
 #: src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:116
 msgid "Show sing-box config"
 msgstr ""
@@ -843,6 +847,10 @@ msgstr ""
 msgid "Traffic Total"
 msgstr ""
 
+#: src/podkop/tabs/diagnostic/partials/renderWikiDisclaimer.ts:25
+msgid "Troubleshooting"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:80
 msgid "TTL must be a positive number"
 msgstr ""
@@ -860,13 +868,13 @@ msgstr ""
 msgid "UDP over TCP"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:36
 #: src/podkop/tabs/diagnostic/initController.ts:37
 #: src/podkop/tabs/diagnostic/initController.ts:38
 #: src/podkop/tabs/diagnostic/initController.ts:39
 #: src/podkop/tabs/diagnostic/initController.ts:40
 #: src/podkop/tabs/diagnostic/initController.ts:41
-#: src/podkop/tabs/diagnostic/initController.ts:391
+#: src/podkop/tabs/diagnostic/initController.ts:42
+#: src/podkop/tabs/diagnostic/initController.ts:416
 msgid "unknown"
 msgstr ""
 
@@ -879,7 +887,7 @@ msgstr ""
 msgid "Uplink"
 msgstr ""
 
-#: src/validators/validateProxyUrl.ts:27
+#: src/validators/validateProxyUrl.ts:29
 msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
 msgstr ""
 
@@ -940,9 +948,13 @@ msgstr ""
 msgid "Validation errors:"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:254
+#: src/podkop/tabs/diagnostic/initController.ts:255
 #: src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:107
 msgid "View logs"
+msgstr ""
+
+#: src/podkop/tabs/diagnostic/partials/renderWikiDisclaimer.ts:31
+msgid "Visit Wiki"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:247

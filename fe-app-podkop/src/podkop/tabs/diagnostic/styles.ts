@@ -28,6 +28,31 @@ export const styles = `
     grid-row-gap: 10px;
 }
 
+.pdk_diagnostic-page__right-bar__wiki {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__wiki--warning {
+    border: 2px var(--warn-color-medium, orange) solid;
+}
+.pdk_diagnostic-page__right-bar__wiki--error {
+    border: 2px var(--error-color-medium, red) solid;
+}
+
+.pdk_diagnostic-page__right-bar__wiki__content {
+    display: grid;
+    grid-template-columns: 1fr 5fr;
+    grid-column-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__wiki__texts {}
+
 .pdk_diagnostic-page__right-bar__actions {
     border: 2px var(--background-color-low, lightgray) solid;
     border-radius: 4px;

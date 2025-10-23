@@ -452,17 +452,18 @@ function validateSocksUrl(url) {
 
 // src/validators/validateProxyUrl.ts
 function validateProxyUrl(url) {
-  if (url.startsWith("ss://")) {
-    return validateShadowsocksUrl(url);
+  const trimmedUrl = url.trim();
+  if (trimmedUrl.startsWith("ss://")) {
+    return validateShadowsocksUrl(trimmedUrl);
   }
-  if (url.startsWith("vless://")) {
-    return validateVlessUrl(url);
+  if (trimmedUrl.startsWith("vless://")) {
+    return validateVlessUrl(trimmedUrl);
   }
-  if (url.startsWith("trojan://")) {
-    return validateTrojanUrl(url);
+  if (trimmedUrl.startsWith("trojan://")) {
+    return validateTrojanUrl(trimmedUrl);
   }
-  if (/^socks(4|4a|5):\/\//.test(url)) {
-    return validateSocksUrl(url);
+  if (/^socks(4|4a|5):\/\//.test(trimmedUrl)) {
+    return validateSocksUrl(trimmedUrl);
   }
   return {
     valid: false,
@@ -1087,7 +1088,7 @@ var loadingDiagnosticsChecksStore = {
       code: "DNS" /* DNS */,
       title: DIAGNOSTICS_CHECKS_MAP.DNS.title,
       order: DIAGNOSTICS_CHECKS_MAP.DNS.order,
-      description: _("Queued"),
+      description: _("Pending"),
       items: [],
       state: "skipped"
     },
@@ -1095,7 +1096,7 @@ var loadingDiagnosticsChecksStore = {
       code: "SINGBOX" /* SINGBOX */,
       title: DIAGNOSTICS_CHECKS_MAP.SINGBOX.title,
       order: DIAGNOSTICS_CHECKS_MAP.SINGBOX.order,
-      description: _("Queued"),
+      description: _("Pending"),
       items: [],
       state: "skipped"
     },
@@ -1103,7 +1104,7 @@ var loadingDiagnosticsChecksStore = {
       code: "NFT" /* NFT */,
       title: DIAGNOSTICS_CHECKS_MAP.NFT.title,
       order: DIAGNOSTICS_CHECKS_MAP.NFT.order,
-      description: _("Queued"),
+      description: _("Pending"),
       items: [],
       state: "skipped"
     },
@@ -1111,7 +1112,7 @@ var loadingDiagnosticsChecksStore = {
       code: "FAKEIP" /* FAKEIP */,
       title: DIAGNOSTICS_CHECKS_MAP.FAKEIP.title,
       order: DIAGNOSTICS_CHECKS_MAP.FAKEIP.order,
-      description: _("Queued"),
+      description: _("Pending"),
       items: [],
       state: "skipped"
     }
@@ -2341,6 +2342,7 @@ function render2() {
       })
     ]),
     E("div", { class: "pdk_diagnostic-page__right-bar" }, [
+      E("div", { id: "pdk_diagnostic-page-wiki" }),
       E("div", { id: "pdk_diagnostic-page-actions" }),
       E("div", { id: "pdk_diagnostic-page-system-info" })
     ])
@@ -2372,7 +2374,7 @@ function getMeta({ allGood, atLeastOneGood }) {
   if (atLeastOneGood) {
     return {
       state: "warning",
-      description: _("Checks partially passed")
+      description: _("Issues detected")
     };
   }
   return {
@@ -3195,6 +3197,34 @@ function renderSearchIcon24() {
   );
 }
 
+// src/icons/renderBookOpenTextIcon24.ts
+function renderBookOpenTextIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-book-open-text-icon lucide-book-open-text"
+    },
+    [
+      svgEl("path", { d: "M12 7v14" }),
+      svgEl("path", { d: "M16 12h2" }),
+      svgEl("path", { d: "M16 8h2" }),
+      svgEl("path", {
+        d: "M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"
+      }),
+      svgEl("path", { d: "M6 12h2" }),
+      svgEl("path", { d: "M6 8h2" })
+    ]
+  );
+}
+
 // src/partials/button/renderButton.ts
 function renderButton({
   classNames = [],
@@ -3618,6 +3648,41 @@ function normalizeCompiledVersion(version) {
   return version;
 }
 
+// src/podkop/tabs/diagnostic/partials/renderWikiDisclaimer.ts
+function renderWikiDisclaimer(kind) {
+  const iconWrap = E("span", {
+    class: "pdk_diagnostic-page__right-bar__wiki__icon"
+  });
+  iconWrap.appendChild(renderBookOpenTextIcon24());
+  const className = [
+    "pdk_diagnostic-page__right-bar__wiki",
+    ...insertIf(kind === "error", [
+      "pdk_diagnostic-page__right-bar__wiki--error"
+    ]),
+    ...insertIf(kind === "warning", [
+      "pdk_diagnostic-page__right-bar__wiki--warning"
+    ])
+  ].join(" ");
+  return E("div", { class: className }, [
+    E("div", { class: "pdk_diagnostic-page__right-bar__wiki__content" }, [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic-page__right-bar__wiki__texts" }, [
+        E("b", {}, _("Troubleshooting")),
+        E("div", {}, _("Do not panic, everything can be fixed, just..."))
+      ])
+    ]),
+    renderButton({
+      classNames: ["cbi-button-save"],
+      text: _("Visit Wiki"),
+      onClick: () => window.open(
+        "https://podkop.net/docs/troubleshooting/",
+        "_blank",
+        "noopener,noreferrer"
+      )
+    })
+  ]);
+}
+
 // src/podkop/tabs/diagnostic/initController.ts
 async function fetchSystemInfo() {
   const systemInfo = await PodkopShellMethods.getSystemInfo();
@@ -3879,6 +3944,23 @@ async function handleShowSingBoxConfig() {
     });
   }
 }
+function renderWikiDisclaimerWidget() {
+  const diagnosticsChecks = store.get().diagnosticsChecks;
+  function getWikiKind() {
+    const allResults = diagnosticsChecks.map((check) => check.state);
+    if (allResults.includes("error")) {
+      return "error";
+    }
+    if (allResults.includes("warning")) {
+      return "warning";
+    }
+    return "default";
+  }
+  const container = document.getElementById("pdk_diagnostic-page-wiki");
+  return preserveScrollForPage(() => {
+    container.replaceChildren(renderWikiDisclaimer(getWikiKind()));
+  });
+}
 function renderDiagnosticAvailableActionsWidget() {
   const diagnosticsActions = store.get().diagnosticsActions;
   const servicesInfoWidget = store.get().servicesInfoWidget;
@@ -4013,6 +4095,7 @@ function renderDiagnosticSystemInfoWidget() {
 async function onStoreUpdate2(next, prev, diff) {
   if (diff.diagnosticsChecks) {
     renderDiagnosticsChecks();
+    renderWikiDisclaimerWidget();
   }
   if (diff.diagnosticsRunAction) {
     renderDiagnosticRunActionWidget();
@@ -4047,6 +4130,7 @@ function onPageMount2() {
   renderDiagnosticRunActionWidget();
   renderDiagnosticAvailableActionsWidget();
   renderDiagnosticSystemInfoWidget();
+  renderWikiDisclaimerWidget();
   fetchServicesInfo();
   fetchSystemInfo();
 }
@@ -4124,6 +4208,31 @@ var styles4 = `
     grid-template-columns: 1fr;
     grid-row-gap: 10px;
 }
+
+.pdk_diagnostic-page__right-bar__wiki {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__wiki--warning {
+    border: 2px var(--warn-color-medium, orange) solid;
+}
+.pdk_diagnostic-page__right-bar__wiki--error {
+    border: 2px var(--error-color-medium, red) solid;
+}
+
+.pdk_diagnostic-page__right-bar__wiki__content {
+    display: grid;
+    grid-template-columns: 1fr 5fr;
+    grid-column-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__wiki__texts {}
 
 .pdk_diagnostic-page__right-bar__actions {
     border: 2px var(--background-color-low, lightgray) solid;

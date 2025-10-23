@@ -18,6 +18,7 @@ import { normalizeCompiledVersion } from '../../../helpers/normalizeCompiledVers
 import { renderModal } from '../../../partials';
 import { PODKOP_LUCI_APP_VERSION } from '../../../constants';
 import { showToast } from '../../../helpers/showToast';
+import { renderWikiDisclaimer } from './partials/renderWikiDisclaimer';
 
 async function fetchSystemInfo() {
   const systemInfo = await PodkopShellMethods.getSystemInfo();
@@ -309,6 +310,30 @@ async function handleShowSingBoxConfig() {
   }
 }
 
+function renderWikiDisclaimerWidget() {
+  const diagnosticsChecks = store.get().diagnosticsChecks;
+
+  function getWikiKind() {
+    const allResults = diagnosticsChecks.map((check) => check.state);
+
+    if (allResults.includes('error')) {
+      return 'error';
+    }
+
+    if (allResults.includes('warning')) {
+      return 'warning';
+    }
+
+    return 'default';
+  }
+
+  const container = document.getElementById('pdk_diagnostic-page-wiki');
+
+  return preserveScrollForPage(() => {
+    container!.replaceChildren(renderWikiDisclaimer(getWikiKind()));
+  });
+}
+
 function renderDiagnosticAvailableActionsWidget() {
   const diagnosticsActions = store.get().diagnosticsActions;
   const servicesInfoWidget = store.get().servicesInfoWidget;
@@ -464,6 +489,7 @@ async function onStoreUpdate(
 ) {
   if (diff.diagnosticsChecks) {
     renderDiagnosticsChecks();
+    renderWikiDisclaimerWidget();
   }
 
   if (diff.diagnosticsRunAction) {
@@ -518,6 +544,9 @@ function onPageMount() {
 
   // Initial system info render
   renderDiagnosticSystemInfoWidget();
+
+  // Initial Wiki disclaimer render
+  renderWikiDisclaimerWidget();
 
   // Initial services info fetch
   fetchServicesInfo();
