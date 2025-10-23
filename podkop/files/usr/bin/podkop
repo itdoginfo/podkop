@@ -1652,25 +1652,6 @@ check_dnsmasq() {
     done
 }
 
-check_sing_box_connections() {
-    nolog "Checking sing-box connections..."
-
-    if ! command -v netstat > /dev/null 2>&1; then
-        nolog "netstat is not installed"
-        return 1
-    fi
-
-    local connections=$(netstat -tuanp | grep sing-box)
-    if [ -z "$connections" ]; then
-        nolog "No active sing-box connections found"
-        return 1
-    fi
-
-    echo "$connections" | while read -r line; do
-        nolog "$line"
-    done
-}
-
 check_logs() {
     if ! command -v logread > /dev/null 2>&1; then
         nolog "Error: logread command not found"
@@ -2562,7 +2543,6 @@ Available commands:
     check_sing_box          Check sing-box installation and status
     check_github            Check GitHub connectivity
     check_logs              Show podkop logs from system journal
-    check_sing_box_connections  Show active sing-box connections
     check_sing_box_logs     Show sing-box logs
     check_dnsmasq           Check DNSMasq configuration
     check_fakeip            Test FakeIP on router
@@ -2616,9 +2596,6 @@ check_github)
     ;;
 check_logs)
     check_logs
-    ;;
-check_sing_box_connections)
-    check_sing_box_connections
     ;;
 check_sing_box_logs)
     check_sing_box_logs
