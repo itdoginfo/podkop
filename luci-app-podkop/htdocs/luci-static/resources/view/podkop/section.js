@@ -241,7 +241,7 @@ function createSectionContent(section) {
           (v) => v === lastSelected || !main.REGIONAL_OPTIONS.includes(v),
         );
         notifications.push(
-          E("p", { class: "alert-message warning" }, [
+          E("p", {}, [
             E("strong", {}, _("Regional options cannot be used together")),
             E("br"),
             _(

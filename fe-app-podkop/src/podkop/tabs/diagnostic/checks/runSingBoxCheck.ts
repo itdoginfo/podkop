@@ -1,6 +1,7 @@
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 import { PodkopShellMethods } from '../../../methods';
 import { updateCheckStore } from './updateCheckStore';
+import { getMeta } from '../helpers/getMeta';
 
 export async function runSingBoxCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.SINGBOX;
@@ -9,7 +10,7 @@ export async function runSingBoxCheck() {
     order,
     code,
     title,
-    description: _('Checking sing-box, please wait'),
+    description: _('Checking, please wait'),
     state: 'loading',
     items: [],
   });
@@ -21,7 +22,7 @@ export async function runSingBoxCheck() {
       order,
       code,
       title,
-      description: _('Cannot receive Sing-box checks result'),
+      description: _('Cannot receive checks result'),
       state: 'error',
       items: [],
     });
@@ -47,24 +48,14 @@ export async function runSingBoxCheck() {
     Boolean(data.sing_box_process_running) ||
     Boolean(data.sing_box_ports_listening);
 
-  function getStatus() {
-    if (allGood) {
-      return 'success';
-    }
-
-    if (atLeastOneGood) {
-      return 'warning';
-    }
-
-    return 'error';
-  }
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
 
   updateCheckStore({
     order,
     code,
     title,
-    description: _('Sing-box checks passed'),
-    state: getStatus(),
+    description,
+    state,
     items: [
       {
         state: data.sing_box_installed ? 'success' : 'error',

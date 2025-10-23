@@ -40,10 +40,12 @@ function validateDNS(value) {
   if (!value) {
     return { valid: false, message: _("DNS server address cannot be empty") };
   }
-  if (validateIPV4(value).valid) {
+  const cleanedValueWithoutPort = value.replace(/:(\d+)(?=\/|$)/, "");
+  const cleanedIpWithoutPath = cleanedValueWithoutPort.split("/")[0];
+  if (validateIPV4(cleanedIpWithoutPath).valid) {
     return { valid: true, message: _("Valid") };
   }
-  if (validateDomain(value).valid) {
+  if (validateDomain(cleanedValueWithoutPort).valid) {
     return { valid: true, message: _("Valid") };
   }
   return {
@@ -259,7 +261,8 @@ function validateVlessUrl(url) {
       return { valid: false, message: "Invalid VLESS URL: missing hostname" };
     if (!port)
       return { valid: false, message: "Invalid VLESS URL: missing port" };
-    const portNum = Number(port);
+    const cleanedPort = port.replace("/", "");
+    const portNum = Number(cleanedPort);
     if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
       return {
         valid: false,
@@ -451,17 +454,18 @@ function validateSocksUrl(url) {
 
 // src/validators/validateProxyUrl.ts
 function validateProxyUrl(url) {
-  if (url.startsWith("ss://")) {
-    return validateShadowsocksUrl(url);
+  const trimmedUrl = url.trim();
+  if (trimmedUrl.startsWith("ss://")) {
+    return validateShadowsocksUrl(trimmedUrl);
   }
-  if (url.startsWith("vless://")) {
-    return validateVlessUrl(url);
+  if (trimmedUrl.startsWith("vless://")) {
+    return validateVlessUrl(trimmedUrl);
   }
-  if (url.startsWith("trojan://")) {
-    return validateTrojanUrl(url);
+  if (trimmedUrl.startsWith("trojan://")) {
+    return validateTrojanUrl(trimmedUrl);
   }
-  if (/^socks(4|4a|5):\/\//.test(url)) {
-    return validateSocksUrl(url);
+  if (/^socks(4|4a|5):\/\//.test(trimmedUrl)) {
+    return validateSocksUrl(trimmedUrl);
   }
   return {
     valid: false,
@@ -486,7 +490,7 @@ async function callBaseMethod(method, args = [], command = "/usr/bin/podkop") {
   const response = await executeShellCommand({
     command,
     args: [method, ...args],
-    timeout: 1e4
+    timeout: 15e3
   });
   if (response.stdout) {
     try {
@@ -978,26 +982,31 @@ var TabService = class _TabService {
 };
 var TabServiceInstance = TabService.getInstance();
 
+// src/podkop/tabs/diagnostic/helpers/getCheckTitle.ts
+function getCheckTitle(name) {
+  return `${name} ${_("checks")}`;
+}
+
 // src/podkop/tabs/diagnostic/checks/contstants.ts
 var DIAGNOSTICS_CHECKS_MAP = {
   ["DNS" /* DNS */]: {
     order: 1,
-    title: _("DNS checks"),
+    title: getCheckTitle("DNS"),
     code: "DNS" /* DNS */
   },
   ["SINGBOX" /* SINGBOX */]: {
     order: 2,
-    title: _("Sing-box checks"),
+    title: getCheckTitle("Sing-box"),
     code: "SINGBOX" /* SINGBOX */
   },
   ["NFT" /* NFT */]: {
     order: 3,
-    title: _("Nftables checks"),
+    title: getCheckTitle("Nftables"),
     code: "NFT" /* NFT */
   },
   ["FAKEIP" /* FAKEIP */]: {
     order: 4,
-    title: _("FakeIP checks"),
+    title: getCheckTitle("FakeIP"),
     code: "FAKEIP" /* FAKEIP */
   }
 };
@@ -1081,7 +1090,7 @@ var loadingDiagnosticsChecksStore = {
       code: "DNS" /* DNS */,
       title: DIAGNOSTICS_CHECKS_MAP.DNS.title,
       order: DIAGNOSTICS_CHECKS_MAP.DNS.order,
-      description: _("Queued"),
+      description: _("Pending"),
       items: [],
       state: "skipped"
     },
@@ -1089,7 +1098,7 @@ var loadingDiagnosticsChecksStore = {
       code: "SINGBOX" /* SINGBOX */,
       title: DIAGNOSTICS_CHECKS_MAP.SINGBOX.title,
       order: DIAGNOSTICS_CHECKS_MAP.SINGBOX.order,
-      description: _("Queued"),
+      description: _("Pending"),
       items: [],
       state: "skipped"
     },
@@ -1097,7 +1106,7 @@ var loadingDiagnosticsChecksStore = {
       code: "NFT" /* NFT */,
       title: DIAGNOSTICS_CHECKS_MAP.NFT.title,
       order: DIAGNOSTICS_CHECKS_MAP.NFT.order,
-      description: _("Queued"),
+      description: _("Pending"),
       items: [],
       state: "skipped"
     },
@@ -1105,7 +1114,7 @@ var loadingDiagnosticsChecksStore = {
       code: "FAKEIP" /* FAKEIP */,
       title: DIAGNOSTICS_CHECKS_MAP.FAKEIP.title,
       order: DIAGNOSTICS_CHECKS_MAP.FAKEIP.order,
-      description: _("Queued"),
+      description: _("Pending"),
       items: [],
       state: "skipped"
     }
@@ -2335,6 +2344,7 @@ function render2() {
       })
     ]),
     E("div", { class: "pdk_diagnostic-page__right-bar" }, [
+      E("div", { id: "pdk_diagnostic-page-wiki" }),
       E("div", { id: "pdk_diagnostic-page-actions" }),
       E("div", { id: "pdk_diagnostic-page-system-info" })
     ])
@@ -2355,6 +2365,26 @@ function updateCheckStore(check, minified) {
   });
 }
 
+// src/podkop/tabs/diagnostic/helpers/getMeta.ts
+function getMeta({ allGood, atLeastOneGood }) {
+  if (allGood) {
+    return {
+      state: "success",
+      description: _("Checks passed")
+    };
+  }
+  if (atLeastOneGood) {
+    return {
+      state: "warning",
+      description: _("Issues detected")
+    };
+  }
+  return {
+    state: "error",
+    description: _("Checks failed")
+  };
+}
+
 // src/podkop/tabs/diagnostic/checks/runDnsCheck.ts
 async function runDnsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
@@ -2362,7 +2392,7 @@ async function runDnsCheck() {
     order,
     code,
     title,
-    description: _("Checking dns, please wait"),
+    description: _("Checking, please wait"),
     state: "loading",
     items: []
   });
@@ -2372,7 +2402,7 @@ async function runDnsCheck() {
       order,
       code,
       title,
-      description: _("Cannot receive DNS checks result"),
+      description: _("Cannot receive checks result"),
       state: "error",
       items: []
     });
@@ -2381,24 +2411,16 @@ async function runDnsCheck() {
   const data = dnsChecks.data;
   const allGood = Boolean(data.dns_on_router) && Boolean(data.dhcp_config_status) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
   const atLeastOneGood = Boolean(data.dns_on_router) || Boolean(data.dhcp_config_status) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
-  function getStatus() {
-    if (allGood) {
-      return "success";
-    }
-    if (atLeastOneGood) {
-      return "warning";
-    }
-    return "error";
-  }
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
-    description: _("DNS checks passed"),
-    state: getStatus(),
+    description,
+    state,
     items: [
       ...insertIf(
-        data.dns_type === "doh" || data.dns_type === "dot",
+        data.dns_type === "doh" || data.dns_type === "dot" || !data.bootstrap_dns_status,
         [
           {
             state: data.bootstrap_dns_status ? "success" : "error",
@@ -2436,7 +2458,7 @@ async function runSingBoxCheck() {
     order,
     code,
     title,
-    description: _("Checking sing-box, please wait"),
+    description: _("Checking, please wait"),
     state: "loading",
     items: []
   });
@@ -2446,7 +2468,7 @@ async function runSingBoxCheck() {
       order,
       code,
       title,
-      description: _("Cannot receive Sing-box checks result"),
+      description: _("Cannot receive checks result"),
       state: "error",
       items: []
     });
@@ -2455,21 +2477,13 @@ async function runSingBoxCheck() {
   const data = singBoxChecks.data;
   const allGood = Boolean(data.sing_box_installed) && Boolean(data.sing_box_version_ok) && Boolean(data.sing_box_service_exist) && Boolean(data.sing_box_autostart_disabled) && Boolean(data.sing_box_process_running) && Boolean(data.sing_box_ports_listening);
   const atLeastOneGood = Boolean(data.sing_box_installed) || Boolean(data.sing_box_version_ok) || Boolean(data.sing_box_service_exist) || Boolean(data.sing_box_autostart_disabled) || Boolean(data.sing_box_process_running) || Boolean(data.sing_box_ports_listening);
-  function getStatus() {
-    if (allGood) {
-      return "success";
-    }
-    if (atLeastOneGood) {
-      return "warning";
-    }
-    return "error";
-  }
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
-    description: _("Sing-box checks passed"),
-    state: getStatus(),
+    description,
+    state,
     items: [
       {
         state: data.sing_box_installed ? "success" : "error",
@@ -2515,7 +2529,7 @@ async function runNftCheck() {
     order,
     code,
     title,
-    description: _("Checking nftables, please wait"),
+    description: _("Checking, please wait"),
     state: "loading",
     items: []
   });
@@ -2527,7 +2541,7 @@ async function runNftCheck() {
       order,
       code,
       title,
-      description: _("Cannot receive nftables checks result"),
+      description: _("Cannot receive checks result"),
       state: "error",
       items: []
     });
@@ -2536,21 +2550,13 @@ async function runNftCheck() {
   const data = nftablesChecks.data;
   const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && !data.rules_other_mark_exist;
   const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || !data.rules_other_mark_exist;
-  function getStatus() {
-    if (allGood) {
-      return "success";
-    }
-    if (atLeastOneGood) {
-      return "warning";
-    }
-    return "error";
-  }
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
-    description: allGood ? _("Nftables checks passed") : _("Nftables checks partially passed"),
-    state: getStatus(),
+    description,
+    state,
     items: [
       {
         state: data.table_exist ? "success" : "error",
@@ -2606,7 +2612,7 @@ async function runFakeIPCheck() {
     order,
     code,
     title,
-    description: _("Checking FakeIP, please wait"),
+    description: _("Checking, please wait"),
     state: "loading",
     items: []
   });
@@ -2620,25 +2626,7 @@ async function runFakeIPCheck() {
   };
   const allGood = checks.router || checks.browserFakeIP || checks.differentIP;
   const atLeastOneGood = checks.router && checks.browserFakeIP && checks.differentIP;
-  function getMeta() {
-    if (allGood) {
-      return {
-        state: "success",
-        description: _("FakeIP checks passed")
-      };
-    }
-    if (atLeastOneGood) {
-      return {
-        state: "warning",
-        description: _("FakeIP checks partially passed")
-      };
-    }
-    return {
-      state: "error",
-      description: _("FakeIP checks failed")
-    };
-  }
-  const { state, description } = getMeta();
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
@@ -3211,6 +3199,34 @@ function renderSearchIcon24() {
   );
 }
 
+// src/icons/renderBookOpenTextIcon24.ts
+function renderBookOpenTextIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-book-open-text-icon lucide-book-open-text"
+    },
+    [
+      svgEl("path", { d: "M12 7v14" }),
+      svgEl("path", { d: "M16 12h2" }),
+      svgEl("path", { d: "M16 8h2" }),
+      svgEl("path", {
+        d: "M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"
+      }),
+      svgEl("path", { d: "M6 12h2" }),
+      svgEl("path", { d: "M6 8h2" })
+    ]
+  );
+}
+
 // src/partials/button/renderButton.ts
 function renderButton({
   classNames = [],
@@ -3341,7 +3357,7 @@ function renderAvailableActions({
   showSingBoxConfig
 }) {
   return E("div", { class: "pdk_diagnostic-page__right-bar__actions" }, [
-    E("b", {}, "Available actions"),
+    E("b", {}, _("Available actions")),
     ...insertIf(restart.visible, [
       renderButton({
         classNames: ["cbi-button-apply"],
@@ -3599,7 +3615,7 @@ function renderSystemInfo({ items }) {
     E(
       "b",
       { class: "pdk_diagnostic-page__right-bar__system-info__title" },
-      "System information"
+      _("System information")
     ),
     ...items.map((item) => {
       const tagClass = [
@@ -3632,6 +3648,41 @@ function normalizeCompiledVersion(version) {
     return "dev";
   }
   return version;
+}
+
+// src/podkop/tabs/diagnostic/partials/renderWikiDisclaimer.ts
+function renderWikiDisclaimer(kind) {
+  const iconWrap = E("span", {
+    class: "pdk_diagnostic-page__right-bar__wiki__icon"
+  });
+  iconWrap.appendChild(renderBookOpenTextIcon24());
+  const className = [
+    "pdk_diagnostic-page__right-bar__wiki",
+    ...insertIf(kind === "error", [
+      "pdk_diagnostic-page__right-bar__wiki--error"
+    ]),
+    ...insertIf(kind === "warning", [
+      "pdk_diagnostic-page__right-bar__wiki--warning"
+    ])
+  ].join(" ");
+  return E("div", { class: className }, [
+    E("div", { class: "pdk_diagnostic-page__right-bar__wiki__content" }, [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic-page__right-bar__wiki__texts" }, [
+        E("b", {}, _("Troubleshooting")),
+        E("div", {}, _("Do not panic, everything can be fixed, just..."))
+      ])
+    ]),
+    renderButton({
+      classNames: ["cbi-button-save"],
+      text: _("Visit Wiki"),
+      onClick: () => window.open(
+        "https://podkop.net/docs/troubleshooting/?utm_source=podkop",
+        "_blank",
+        "noopener,noreferrer"
+      )
+    })
+  ]);
 }
 
 // src/podkop/tabs/diagnostic/initController.ts
@@ -3813,9 +3864,13 @@ async function handleShowGlobalCheck() {
         _("Global check"),
         renderModal(globalCheck.data, "global_check")
       );
+    } else {
+      logger.error("[DIAGNOSTIC]", "handleShowGlobalCheck - e", globalCheck);
+      showToast(_("Failed to execute!"), "error");
     }
   } catch (e) {
     logger.error("[DIAGNOSTIC]", "handleShowGlobalCheck - e", e);
+    showToast(_("Failed to execute!"), "error");
   } finally {
     store.set({
       diagnosticsActions: {
@@ -3840,9 +3895,13 @@ async function handleViewLogs() {
         _("View logs"),
         renderModal(viewLogs.data, "view_logs")
       );
+    } else {
+      logger.error("[DIAGNOSTIC]", "handleViewLogs - e", viewLogs);
+      showToast(_("Failed to execute!"), "error");
     }
   } catch (e) {
     logger.error("[DIAGNOSTIC]", "handleViewLogs - e", e);
+    showToast(_("Failed to execute!"), "error");
   } finally {
     store.set({
       diagnosticsActions: {
@@ -3867,9 +3926,17 @@ async function handleShowSingBoxConfig() {
         _("Show sing-box config"),
         renderModal(showSingBoxConfig.data, "show_sing_box_config")
       );
+    } else {
+      logger.error(
+        "[DIAGNOSTIC]",
+        "handleShowSingBoxConfig - e",
+        showSingBoxConfig
+      );
+      showToast(_("Failed to execute!"), "error");
     }
   } catch (e) {
     logger.error("[DIAGNOSTIC]", "handleShowSingBoxConfig - e", e);
+    showToast(_("Failed to execute!"), "error");
   } finally {
     store.set({
       diagnosticsActions: {
@@ -3878,6 +3945,23 @@ async function handleShowSingBoxConfig() {
       }
     });
   }
+}
+function renderWikiDisclaimerWidget() {
+  const diagnosticsChecks = store.get().diagnosticsChecks;
+  function getWikiKind() {
+    const allResults = diagnosticsChecks.map((check) => check.state);
+    if (allResults.includes("error")) {
+      return "error";
+    }
+    if (allResults.includes("warning")) {
+      return "warning";
+    }
+    return "default";
+  }
+  const container = document.getElementById("pdk_diagnostic-page-wiki");
+  return preserveScrollForPage(() => {
+    container.replaceChildren(renderWikiDisclaimer(getWikiKind()));
+  });
 }
 function renderDiagnosticAvailableActionsWidget() {
   const diagnosticsActions = store.get().diagnosticsActions;
@@ -3962,6 +4046,11 @@ function renderDiagnosticSystemInfoWidget() {
       };
     }
     if (version !== `v${diagnosticsSystemInfo.podkop_latest_version}`) {
+      logger.debug(
+        "[DIAGNOSTIC]",
+        "diagnosticsSystemInfo",
+        diagnosticsSystemInfo
+      );
       return {
         key: "Podkop",
         value: version,
@@ -3985,7 +4074,7 @@ function renderDiagnosticSystemInfoWidget() {
       getPodkopVersionRow(),
       {
         key: "Luci App",
-        value: normalizeCompiledVersion(diagnosticsSystemInfo.luci_app_version)
+        value: normalizeCompiledVersion(PODKOP_LUCI_APP_VERSION)
       },
       {
         key: "Sing-box",
@@ -4008,6 +4097,7 @@ function renderDiagnosticSystemInfoWidget() {
 async function onStoreUpdate2(next, prev, diff) {
   if (diff.diagnosticsChecks) {
     renderDiagnosticsChecks();
+    renderWikiDisclaimerWidget();
   }
   if (diff.diagnosticsRunAction) {
     renderDiagnosticRunActionWidget();
@@ -4042,6 +4132,7 @@ function onPageMount2() {
   renderDiagnosticRunActionWidget();
   renderDiagnosticAvailableActionsWidget();
   renderDiagnosticSystemInfoWidget();
+  renderWikiDisclaimerWidget();
   fetchServicesInfo();
   fetchSystemInfo();
 }
@@ -4119,6 +4210,31 @@ var styles4 = `
     grid-template-columns: 1fr;
     grid-row-gap: 10px;
 }
+
+.pdk_diagnostic-page__right-bar__wiki {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__wiki--warning {
+    border: 2px var(--warn-color-medium, orange) solid;
+}
+.pdk_diagnostic-page__right-bar__wiki--error {
+    border: 2px var(--error-color-medium, red) solid;
+}
+
+.pdk_diagnostic-page__right-bar__wiki__content {
+    display: grid;
+    grid-template-columns: 1fr 5fr;
+    grid-column-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__wiki__texts {}
 
 .pdk_diagnostic-page__right-bar__actions {
     border: 2px var(--background-color-low, lightgray) solid;

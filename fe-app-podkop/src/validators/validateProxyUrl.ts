@@ -6,20 +6,22 @@ import { validateSocksUrl } from './validateSocksUrl';
 
 // TODO refactor current validation and add tests
 export function validateProxyUrl(url: string): ValidationResult {
-  if (url.startsWith('ss://')) {
-    return validateShadowsocksUrl(url);
+  const trimmedUrl = url.trim();
+
+  if (trimmedUrl.startsWith('ss://')) {
+    return validateShadowsocksUrl(trimmedUrl);
   }
 
-  if (url.startsWith('vless://')) {
-    return validateVlessUrl(url);
+  if (trimmedUrl.startsWith('vless://')) {
+    return validateVlessUrl(trimmedUrl);
   }
 
-  if (url.startsWith('trojan://')) {
-    return validateTrojanUrl(url);
+  if (trimmedUrl.startsWith('trojan://')) {
+    return validateTrojanUrl(trimmedUrl);
   }
 
-  if (/^socks(4|4a|5):\/\//.test(url)) {
-    return validateSocksUrl(url);
+  if (/^socks(4|4a|5):\/\//.test(trimmedUrl)) {
+    return validateSocksUrl(trimmedUrl);
   }
 
   return {

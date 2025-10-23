@@ -40,7 +40,7 @@ export function renderAvailableActions({
   showSingBoxConfig,
 }: IRenderAvailableActionsProps) {
   return E('div', { class: 'pdk_diagnostic-page__right-bar__actions' }, [
-    E('b', {}, 'Available actions'),
+    E('b', {}, _('Available actions')),
     ...insertIf(restart.visible, [
       renderButton({
         classNames: ['cbi-button-apply'],

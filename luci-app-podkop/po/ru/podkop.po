@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-21 23:02+0300\n"
-"PO-Revision-Date: 2025-10-21 23:02+0300\n"
+"POT-Creation-Date: 2025-10-23 20:43+0300\n"
+"PO-Revision-Date: 2025-10-23 20:43+0300\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -44,6 +44,9 @@ msgstr "Необходимо указать хотя бы один действ�
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr "Необходимо указать хотя бы одну действительную подсеть или IP. Только комментарии недопустимы."
 
+msgid "Available actions"
+msgstr "Доступные действия"
+
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
 
@@ -62,26 +65,20 @@ msgstr "Путь к файлу кэша"
 msgid "Cache file path cannot be empty"
 msgstr "Путь к файлу кэша не может быть пустым"
 
-msgid "Cannot receive DNS checks result"
-msgstr "Не удалось получить результаты проверки DNS"
+msgid "Cannot receive checks result"
+msgstr "Не удалось получить результаты проверки"
 
-msgid "Cannot receive nftables checks result"
-msgstr "Не удалось получить результаты проверки nftables"
+msgid "Checking, please wait"
+msgstr "Проверяем, пожалуйста подождите"
 
-msgid "Cannot receive Sing-box checks result"
-msgstr "Не удалось получить результаты проверки Sing-box"
+msgid "checks"
+msgstr "проверки"
 
-msgid "Checking dns, please wait"
-msgstr "Проверка dns, пожалуйста подождите"
+msgid "Checks failed"
+msgstr "Проверки не выполнены"
 
-msgid "Checking FakeIP, please wait"
-msgstr "Проверка FakeIP, пожалуйста подождите"
-
-msgid "Checking nftables, please wait"
-msgstr "Проверка nftables, пожалуйста подождите"
-
-msgid "Checking sing-box, please wait"
-msgstr "Проверка sing-box, пожалуйста подождите"
+msgid "Checks passed"
+msgstr "Проверки пройдены"
 
 msgid "CIDR must be between 0 and 32"
 msgstr "CIDR должен быть между 0 и 32"
@@ -143,12 +140,6 @@ msgstr "Отключить QUIC протокол для улучшения со�
 msgid "Disabled"
 msgstr "Отключено"
 
-msgid "DNS checks"
-msgstr "DNS проверки"
-
-msgid "DNS checks passed"
-msgstr "DNS проверки успешно завершены"
-
 msgid "DNS on router"
 msgstr "DNS на роутере"
 
@@ -169,6 +160,9 @@ msgstr "DNS-сервер"
 
 msgid "DNS server address cannot be empty"
 msgstr "Адрес DNS-сервера не может быть пустым"
+
+msgid "Do not panic, everything can be fixed, just..."
+msgstr "Не паникуйте, всё можно исправить, просто..."
 
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
@@ -236,17 +230,8 @@ msgstr "Исключите трафик протокола NTP из туннел
 msgid "Failed to copy!"
 msgstr "Не удалось скопировать!"
 
-msgid "FakeIP checks"
-msgstr "Проверка FakeIP"
-
-msgid "FakeIP checks failed"
-msgstr "Проверки FakeIP не пройдены"
-
-msgid "FakeIP checks partially passed"
-msgstr "Проверка FakeIP частично пройдена"
-
-msgid "FakeIP checks passed"
-msgstr "Проверки FakeIP пройдены"
+msgid "Failed to execute!"
+msgstr "Не удалось выполнить!"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
@@ -365,6 +350,9 @@ msgstr "Неверный URL VLESS: ошибка разбора"
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr "IP-адрес 0.0.0.0 не допускается"
 
+msgid "Issues detected"
+msgstr "Обнаружены проблемы"
+
 msgid "Latest"
 msgstr "Последняя"
 
@@ -391,15 +379,6 @@ msgstr "Наблюдаемые интерфейсы"
 
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
-
-msgid "Nftables checks"
-msgstr "Проверки Nftables"
-
-msgid "Nftables checks partially passed"
-msgstr "Проверки Nftables частично пройдена"
-
-msgid "Nftables checks passed"
-msgstr "Nftables проверки успешно завершены"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
@@ -440,6 +419,9 @@ msgstr "Путь должен содержать хотя бы одну дире
 msgid "Path must end with cache.db"
 msgstr "Путь должен заканчиваться на cache.db"
 
+msgid "Pending"
+msgstr "Ожидает запуска"
+
 msgid "Podkop"
 msgstr "Podkop"
 
@@ -458,17 +440,14 @@ msgstr "Прокси-трафик не маршрутизируется чере
 msgid "Proxy traffic is routed via FakeIP"
 msgstr "Прокси-трафик направляется через FakeIP"
 
-msgid "Queued"
-msgstr "В очереди"
-
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
 
 msgid "Remote Domain Lists"
-msgstr "Удалённые списки доменов"
+msgstr "Внешние списки доменов"
 
 msgid "Remote Subnet Lists"
-msgstr "Удалённые списки подсетей"
+msgstr "Внешние списки подсетей"
 
 msgid "Restart podkop"
 msgstr "Перезапустить Podkop"
@@ -569,12 +548,6 @@ msgstr "Sing-box"
 msgid "Sing-box autostart disabled"
 msgstr "Автостарт sing-box отключен"
 
-msgid "Sing-box checks"
-msgstr "Sing-box проверки"
-
-msgid "Sing-box checks passed"
-msgstr "Sing-box проверки успешно завершены"
-
 msgid "Sing-box installed"
 msgstr "Sing-box установлен"
 
@@ -600,10 +573,10 @@ msgid "Specify local IP addresses or subnets whose traffic will always be routed
 msgstr "Укажите локальные IP-адреса или подсети, трафик которых всегда будет направляться через настроенный маршрут."
 
 msgid "Specify remote URLs to download and use domain lists"
-msgstr "Укажите удаленные URL-адреса для загрузки и использования списков доменов."
+msgstr "Укажите URL-адреса для загрузки и использования списков доменов."
 
 msgid "Specify remote URLs to download and use subnet lists"
-msgstr "Укажите удаленные URL-адреса для загрузки и использования списков подсетей."
+msgstr "Укажите URL-адреса для загрузки и использования списков подсетей."
 
 msgid "Specify the path to the list file located on the router filesystem"
 msgstr "Укажите путь к файлу списка, расположенному в файловой системе маршрутизатора."
@@ -620,11 +593,14 @@ msgstr "Успешно скопировано!"
 msgid "System info"
 msgstr "Системная информация"
 
+msgid "System information"
+msgstr "Системная информация"
+
 msgid "Table exist"
 msgstr "Таблица существует"
 
 msgid "Test latency"
-msgstr "Измерить задержки"
+msgstr "Тестирование задержки"
 
 msgid "Text List"
 msgstr "Текстовый список"
@@ -643,6 +619,9 @@ msgstr "Трафик"
 
 msgid "Traffic Total"
 msgstr "Всего трафика"
+
+msgid "Troubleshooting"
+msgstr "Устранение неполадок"
 
 msgid "TTL must be a positive number"
 msgstr "TTL должно быть положительным числом"
@@ -703,6 +682,9 @@ msgstr "Ошибки валидации:"
 
 msgid "View logs"
 msgstr "Посмотреть логи"
+
+msgid "Visit Wiki"
+msgstr "Перейти в wiki"
 
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."

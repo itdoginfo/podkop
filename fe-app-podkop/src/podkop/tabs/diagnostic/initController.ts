@@ -16,6 +16,9 @@ import { PodkopShellMethods } from '../../methods';
 import { fetchServicesInfo } from '../../fetchers';
 import { normalizeCompiledVersion } from '../../../helpers/normalizeCompiledVersion';
 import { renderModal } from '../../../partials';
+import { PODKOP_LUCI_APP_VERSION } from '../../../constants';
+import { showToast } from '../../../helpers/showToast';
+import { renderWikiDisclaimer } from './partials/renderWikiDisclaimer';
 
 async function fetchSystemInfo() {
   const systemInfo = await PodkopShellMethods.getSystemInfo();
@@ -218,9 +221,13 @@ async function handleShowGlobalCheck() {
         _('Global check'),
         renderModal(globalCheck.data as string, 'global_check'),
       );
+    } else {
+      logger.error('[DIAGNOSTIC]', 'handleShowGlobalCheck - e', globalCheck);
+      showToast(_('Failed to execute!'), 'error');
     }
   } catch (e) {
     logger.error('[DIAGNOSTIC]', 'handleShowGlobalCheck - e', e);
+    showToast(_('Failed to execute!'), 'error');
   } finally {
     store.set({
       diagnosticsActions: {
@@ -248,9 +255,13 @@ async function handleViewLogs() {
         _('View logs'),
         renderModal(viewLogs.data as string, 'view_logs'),
       );
+    } else {
+      logger.error('[DIAGNOSTIC]', 'handleViewLogs - e', viewLogs);
+      showToast(_('Failed to execute!'), 'error');
     }
   } catch (e) {
     logger.error('[DIAGNOSTIC]', 'handleViewLogs - e', e);
+    showToast(_('Failed to execute!'), 'error');
   } finally {
     store.set({
       diagnosticsActions: {
@@ -278,9 +289,17 @@ async function handleShowSingBoxConfig() {
         _('Show sing-box config'),
         renderModal(showSingBoxConfig.data as string, 'show_sing_box_config'),
       );
+    } else {
+      logger.error(
+        '[DIAGNOSTIC]',
+        'handleShowSingBoxConfig - e',
+        showSingBoxConfig,
+      );
+      showToast(_('Failed to execute!'), 'error');
     }
   } catch (e) {
     logger.error('[DIAGNOSTIC]', 'handleShowSingBoxConfig - e', e);
+    showToast(_('Failed to execute!'), 'error');
   } finally {
     store.set({
       diagnosticsActions: {
@@ -289,6 +308,30 @@ async function handleShowSingBoxConfig() {
       },
     });
   }
+}
+
+function renderWikiDisclaimerWidget() {
+  const diagnosticsChecks = store.get().diagnosticsChecks;
+
+  function getWikiKind() {
+    const allResults = diagnosticsChecks.map((check) => check.state);
+
+    if (allResults.includes('error')) {
+      return 'error';
+    }
+
+    if (allResults.includes('warning')) {
+      return 'warning';
+    }
+
+    return 'default';
+  }
+
+  const container = document.getElementById('pdk_diagnostic-page-wiki');
+
+  return preserveScrollForPage(() => {
+    container!.replaceChildren(renderWikiDisclaimer(getWikiKind()));
+  });
 }
 
 function renderDiagnosticAvailableActionsWidget() {
@@ -387,6 +430,11 @@ function renderDiagnosticSystemInfoWidget() {
     }
 
     if (version !== `v${diagnosticsSystemInfo.podkop_latest_version}`) {
+      logger.debug(
+        '[DIAGNOSTIC]',
+        'diagnosticsSystemInfo',
+        diagnosticsSystemInfo,
+      );
       return {
         key: 'Podkop',
         value: version,
@@ -412,7 +460,7 @@ function renderDiagnosticSystemInfoWidget() {
       getPodkopVersionRow(),
       {
         key: 'Luci App',
-        value: normalizeCompiledVersion(diagnosticsSystemInfo.luci_app_version),
+        value: normalizeCompiledVersion(PODKOP_LUCI_APP_VERSION),
       },
       {
         key: 'Sing-box',
@@ -441,6 +489,7 @@ async function onStoreUpdate(
 ) {
   if (diff.diagnosticsChecks) {
     renderDiagnosticsChecks();
+    renderWikiDisclaimerWidget();
   }
 
   if (diff.diagnosticsRunAction) {
@@ -495,6 +544,9 @@ function onPageMount() {
 
   // Initial system info render
   renderDiagnosticSystemInfoWidget();
+
+  // Initial Wiki disclaimer render
+  renderWikiDisclaimerWidget();
 
   // Initial services info fetch
   fetchServicesInfo();

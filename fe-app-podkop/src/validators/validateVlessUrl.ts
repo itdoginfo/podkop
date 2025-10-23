@@ -43,7 +43,8 @@ export function validateVlessUrl(url: string): ValidationResult {
     if (!port)
       return { valid: false, message: 'Invalid VLESS URL: missing port' };
 
-    const portNum = Number(port);
+    const cleanedPort = port.replace('/', '');
+    const portNum = Number(cleanedPort);
     if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
       return {
         valid: false,
