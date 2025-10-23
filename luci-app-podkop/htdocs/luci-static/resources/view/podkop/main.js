@@ -40,10 +40,12 @@ function validateDNS(value) {
   if (!value) {
     return { valid: false, message: _("DNS server address cannot be empty") };
   }
-  if (validateIPV4(value).valid) {
+  const cleanedValueWithoutPort = value.replace(/:(\d+)(?=\/|$)/, "");
+  const cleanedIpWithoutPath = cleanedValueWithoutPort.split("/")[0];
+  if (validateIPV4(cleanedIpWithoutPath).valid) {
     return { valid: true, message: _("Valid") };
   }
-  if (validateDomain(value).valid) {
+  if (validateDomain(cleanedValueWithoutPort).valid) {
     return { valid: true, message: _("Valid") };
   }
   return {
