@@ -449,12 +449,12 @@ sing_box_cm_add_direct_outbound() {
 }
 
 #######################################
-# Add a SOCKS5 outbound to the outbounds section of a sing-box JSON configuration.
+# Add a SOCKS outbound to the outbounds section of a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
 #   tag: string, identifier for the outbound
-#   server_address: string, IP address or hostname of the SOCKS5 server
-#   server_port: number, port of the SOCKS5 server
+#   server_address: string, IP address or hostname of the SOCKS server
+#   server_port: number, port of the SOCKS server
 #   version: string, optional SOCKS version
 #   username: string, optional username for authentication
 #   password: string, optional password for authentication
@@ -463,9 +463,9 @@ sing_box_cm_add_direct_outbound() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
-#   CONFIG=$(sing_box_cm_add_socks5_outbound "$CONFIG" "socks5-out" "192.168.1.10" 1080)
+#   CONFIG=$(sing_box_cm_add_socks_outbound "$CONFIG" "socks5-out" "192.168.1.10" 1080)
 #######################################
-sing_box_cm_add_socks5_outbound() {
+sing_box_cm_add_socks_outbound() {
     local config="$1"
     local tag="$2"
     local server_address="$3"
@@ -644,12 +644,12 @@ sing_box_cm_add_trojan_outbound() {
     local network="$6"
 
     echo "$config" | jq \
-    --arg tag "$tag" \
-    --arg server_address "$server_address" \
-    --arg server_port "$server_port" \
-    --arg password "$password" \
-    --arg network "$network" \
-    '.outbounds += [(
+        --arg tag "$tag" \
+        --arg server_address "$server_address" \
+        --arg server_port "$server_port" \
+        --arg password "$password" \
+        --arg network "$network" \
+        '.outbounds += [(
         {
           type: "trojan",
           tag: $tag,
@@ -969,6 +969,7 @@ sing_box_cm_add_selector_outbound() {
 #   final: string, final outbound tag for unmatched traffic
 #   auto_detect_interface: boolean, enable or disable automatic interface detection
 #   default_domain_resolver: string, default DNS resolver for domain-based routing
+#   default_interface: string, default network interface to use when auto detection is disabled
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -979,18 +980,22 @@ sing_box_cm_configure_route() {
     local final="$2"
     local auto_detect_interface="$3"
     local default_domain_resolver="$4"
+    local default_interface="$5"
 
     echo "$config" | jq \
         --arg final "$final" \
         --argjson auto_detect_interface "$auto_detect_interface" \
         --arg default_domain_resolver "$default_domain_resolver" \
+        --arg default_interface "$default_interface" \
         '.route = {
             rules: (.route.rules // []),
             rule_set: (.route.rule_set // []),
             final: $final,
             auto_detect_interface: $auto_detect_interface,
             default_domain_resolver: $default_domain_resolver
-        }'
+        }
+        + (if $default_interface != "" then { default_interface: $default_interface } else {} end)
+        '
 }
 
 #######################################

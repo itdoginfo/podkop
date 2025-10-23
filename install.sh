@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck shell=dash
 
 REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
 DOWNLOAD_DIR="/tmp/podkop"
@@ -60,6 +61,45 @@ pkg_install() {
     fi
 }
 
+update_config() {
+    printf "\033[48;5;196m\033[1m╔══════════════════════════════════════════════════════════════════════╗\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ ! Обнаружена старая версия podkop.                                   ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Если продолжите обновление, вам потребуется настроить Podkop заново. ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Старая конфигурация будет сохранена в /etc/config/podkop-070         ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Подробности: LINK                                                    ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Точно хотите продолжить?                                             ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m╚══════════════════════════════════════════════════════════════════════╝\033[0m\n"
+
+    echo ""
+
+    printf "\033[48;5;196m\033[1m╔══════════════════════════════════════════════════════════════════════╗\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ ! Detected old podkop version.                                       ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ If you continue the update, you will need to RECONFIGURE podkop.     ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Your old configuration will be saved to /etc/config/podkop-070       ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Details: LINK                                                        ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Are you sure you want to continue?                                   ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m╚══════════════════════════════════════════════════════════════════════╝\033[0m\n"
+
+    msg "Continue? (yes/no)"
+
+    while true; do
+            read -r -p '' CONFIG_UPDATE
+            case $CONFIG_UPDATE in
+
+            yes|y|Y)
+                mv /etc/config/podkop /etc/config/podkop-070
+                wget -O /etc/config/podkop https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/podkop/files/etc/config/podkop
+                msg "Podkop config has been reset to default. Your old config saved in /etc/config/podkop-070"
+                break
+                ;;
+            *)
+                msg "Exit"
+                exit 1
+                ;;
+        esac
+    done
+}
+
 main() {
     check_system
     sing_box
@@ -74,7 +114,7 @@ main() {
         msg "Installed podkop..."
     fi
 
-    if command -v curl &> /dev/null; then
+    if command -v curl >/dev/null 2>&1; then
         check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
 
         if echo "$check_response" | grep -q 'API rate limit '; then
@@ -90,8 +130,7 @@ main() {
         grep_url_pattern='https://[^"[:space:]]*\.ipk'
     fi
 
-    download_success=0
-    while read -r url; do
+    wget -qO- "$REPO" | grep -o "$grep_url_pattern" | while read -r url; do
         filename=$(basename "$url")
         filepath="$DOWNLOAD_DIR/$filename"
 
@@ -101,7 +140,6 @@ main() {
             if wget -q -O "$filepath" "$url"; then
                 if [ -s "$filepath" ]; then
                     msg "$filename successfully downloaded"
-                    download_success=1
                     break
                 fi
             fi
@@ -113,15 +151,22 @@ main() {
         if [ $attempt -eq $COUNT ]; then
             msg "Failed to download $filename after $COUNT attempts"
         fi
-    done < <(wget -qO- "$REPO" | grep -o "$grep_url_pattern")
+    done
 
-    if [ $download_success -eq 0 ]; then
+    # Check if any files were downloaded
+    if ! ls "$DOWNLOAD_DIR"/*podkop* >/dev/null 2>&1; then
         msg "No packages were downloaded successfully"
         exit 1
     fi
 
     for pkg in podkop luci-app-podkop; do
-        file=$(ls "$DOWNLOAD_DIR" | grep "^$pkg" | head -n 1)
+        file=""
+        for f in "$DOWNLOAD_DIR"/"$pkg"*; do
+            if [ -f "$f" ]; then
+                file=$(basename "$f")
+                break
+            fi
+        done
         if [ -n "$file" ]; then
             msg "Installing $file"
             pkg_install "$DOWNLOAD_DIR/$file"
@@ -129,7 +174,13 @@ main() {
         fi
     done
 
-    ru=$(ls "$DOWNLOAD_DIR" | grep "luci-i18n-podkop-ru" | head -n 1)
+    ru=""
+    for f in "$DOWNLOAD_DIR"/luci-i18n-podkop-ru*; do
+        if [ -f "$f" ]; then
+            ru=$(basename "$f")
+            break
+        fi
+    done
     if [ -n "$ru" ]; then
         if pkg_is_installed luci-i18n-podkop-ru; then
                 msg "Upgraded ru translation..."
@@ -189,6 +240,35 @@ check_system() {
         exit 1
     fi
 
+    # Check version
+    # if command -v podkop > /dev/null 2>&1; then
+    #     local version
+    #     version=$(/usr/bin/podkop show_version 2> /dev/null)
+    #     if [ -n "$version" ]; then
+    #         version=$(echo "$version" | sed 's/^v//')
+    #         local major
+    #         local minor
+    #         local patch
+    #         major=$(echo "$version" | cut -d. -f1)
+    #         minor=$(echo "$version" | cut -d. -f2)
+    #         patch=$(echo "$version" | cut -d. -f3)
+
+    #         # Compare version: must be >= 0.7.0
+    #         if [ "$major" -gt 0 ] ||
+    #             [ "$major" -eq 0 ] && [ "$minor" -gt 7 ] ||
+    #             [ "$major" -eq 0 ] && [ "$minor" -eq 7 ] && [ "$patch" -ge 0 ]; then
+    #             msg "Podkop version >= 0.7.0"
+    #             break
+    #         else
+    #             msg "Podkop version < 0.7.0"
+    #             update_config
+    #         fi
+    #     else
+    #         msg "Unknown podkop version"
+    #         update_config
+    #     fi
+    # fi
+
     if pkg_is_installed https-dns-proxy; then
         msg "Сonflicting package detected: https-dns-proxy. Remove?"
 
@@ -219,7 +299,7 @@ sing_box() {
     sing_box_version=$(sing-box version | head -n 1 | awk '{print $3}')
     required_version="1.12.4"
 
-    if [ "$(echo -e "$sing_box_version\n$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
+    if [ "$(printf '%s\n%s\n' "$sing_box_version" "$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than required $required_version"
         msg "Removing old version..."
         service podkop stop

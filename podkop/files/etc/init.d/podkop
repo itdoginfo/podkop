@@ -1,4 +1,5 @@
 #!/bin/sh /etc/rc.common
+# shellcheck disable=SC2034,SC2154
 
 START=99
 USE_PROCD=1
@@ -10,15 +11,16 @@ config_load "$NAME"
 start_service() {
     echo "Start podkop"
 
-	config_get mon_restart_ifaces "main" "mon_restart_ifaces"
-	config_get restart_ifaces "main" "restart_ifaces"
+    config_get enable_badwan_interface_monitoring "settings" "enable_badwan_interface_monitoring"
+    config_get badwan_monitored_interfaces "settings" "badwan_monitored_interfaces"
 
-	procd_open_instance
-	procd_set_param command /usr/bin/podkop start
-	[ "$mon_restart_ifaces" = "1" ] && [ -n "$restart_ifaces" ] && procd_set_param netdev $restart_ifaces
-	procd_set_param stdout 1
-	procd_set_param stderr 1
-	procd_close_instance
+    procd_open_instance
+    procd_set_param command /usr/bin/podkop start
+    [ "$enable_badwan_interface_monitoring" = "1" ] && [ -n "$badwan_monitored_interfaces" ] &&
+        procd_set_param netdev "$badwan_monitored_interfaces"
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
 }
 
 stop_service() {
@@ -32,19 +34,19 @@ reload_service() {
 service_triggers() {
     echo "service_triggers start"
 
-	config_get mon_restart_ifaces "main" "mon_restart_ifaces"
-	config_get restart_ifaces "main" "restart_ifaces"
-	config_get procd_reload_delay "main" "procd_reload_delay" "2000"
+    config_get enable_badwan_interface_monitoring "settings" "enable_badwan_interface_monitoring"
+    config_get badwan_monitored_interfaces "settings" "badwan_monitored_interfaces"
+    config_get badwan_reload_delay "settings" "badwan_reload_delay" "2000"
 
-    PROCD_RELOAD_DELAY=$procd_reload_delay
+    PROCD_RELOAD_DELAY=$badwan_reload_delay
 
-	procd_open_trigger
-		procd_add_config_trigger "config.change" "$NAME" "$initscript" restart 'on_config_change'
+    procd_open_trigger
+    procd_add_config_trigger "config.change" "$NAME" "$initscript" restart 'on_config_change'
 
-        if [ "$mon_restart_ifaces" = "1" ]; then
-			for iface in $restart_ifaces; do
-            	procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/podkop reload
-			done
-		fi
-	procd_close_trigger
+    if [ "$enable_badwan_interface_monitoring" = "1" ]; then
+        for iface in $badwan_monitored_interfaces; do
+            procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/podkop reload
+        done
+    fi
+    procd_close_trigger
 }

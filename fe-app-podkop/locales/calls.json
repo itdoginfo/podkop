@@ -1,0 +1,1665 @@
+[
+  {
+    "call": "✔ Enabled",
+    "key": "✔ Enabled",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:342"
+    ]
+  },
+  {
+    "call": "✔ Running",
+    "key": "✔ Running",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:353"
+    ]
+  },
+  {
+    "call": "✘ Disabled",
+    "key": "✘ Disabled",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:343"
+    ]
+  },
+  {
+    "call": "✘ Stopped",
+    "key": "✘ Stopped",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:354"
+    ]
+  },
+  {
+    "call": "Active Connections",
+    "key": "Active Connections",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:304"
+    ]
+  },
+  {
+    "call": "Additional marking rules found",
+    "key": "Additional marking rules found",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:117"
+    ]
+  },
+  {
+    "call": "Applicable for SOCKS and Shadowsocks proxy",
+    "key": "Applicable for SOCKS and Shadowsocks proxy",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:111"
+    ]
+  },
+  {
+    "call": "At least one valid domain must be specified. Comments-only content is not allowed.",
+    "key": "At least one valid domain must be specified. Comments-only content is not allowed.",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:356"
+    ]
+  },
+  {
+    "call": "At least one valid subnet or IP must be specified. Comments-only content is not allowed.",
+    "key": "At least one valid subnet or IP must be specified. Comments-only content is not allowed.",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:437"
+    ]
+  },
+  {
+    "call": "Bootsrap DNS",
+    "key": "Bootsrap DNS",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:72"
+    ]
+  },
+  {
+    "call": "Bootstrap DNS server",
+    "key": "Bootstrap DNS server",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:45"
+    ]
+  },
+  {
+    "call": "Browser is not using FakeIP",
+    "key": "Browser is not using FakeIP",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:81"
+    ]
+  },
+  {
+    "call": "Browser is using FakeIP correctly",
+    "key": "Browser is using FakeIP correctly",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:80"
+    ]
+  },
+  {
+    "call": "Cache File Path",
+    "key": "Cache File Path",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:322"
+    ]
+  },
+  {
+    "call": "Cache file path cannot be empty",
+    "key": "Cache file path cannot be empty",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:336"
+    ]
+  },
+  {
+    "call": "Cannot receive DNS checks result",
+    "key": "Cannot receive DNS checks result",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:26"
+    ]
+  },
+  {
+    "call": "Cannot receive nftables checks result",
+    "key": "Cannot receive nftables checks result",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:27"
+    ]
+  },
+  {
+    "call": "Cannot receive Sing-box checks result",
+    "key": "Cannot receive Sing-box checks result",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:24"
+    ]
+  },
+  {
+    "call": "Checking dns, please wait",
+    "key": "Checking dns, please wait",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:14"
+    ]
+  },
+  {
+    "call": "Checking FakeIP, please wait",
+    "key": "Checking FakeIP, please wait",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:14"
+    ]
+  },
+  {
+    "call": "Checking nftables, please wait",
+    "key": "Checking nftables, please wait",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:12"
+    ]
+  },
+  {
+    "call": "Checking sing-box, please wait",
+    "key": "Checking sing-box, please wait",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:12"
+    ]
+  },
+  {
+    "call": "CIDR must be between 0 and 32",
+    "key": "CIDR must be between 0 and 32",
+    "places": [
+      "src/validators/validateSubnet.ts:33"
+    ]
+  },
+  {
+    "call": "Close",
+    "key": "Close",
+    "places": [
+      "src/partials/modal/renderModal.ts:26"
+    ]
+  },
+  {
+    "call": "Community Lists",
+    "key": "Community Lists",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:211"
+    ]
+  },
+  {
+    "call": "Config File Path",
+    "key": "Config File Path",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:309"
+    ]
+  },
+  {
+    "call": "Configuration for Podkop service",
+    "key": "Configuration for Podkop service",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:27"
+    ]
+  },
+  {
+    "call": "Configuration Type",
+    "key": "Configuration Type",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:22"
+    ]
+  },
+  {
+    "call": "Connection Type",
+    "key": "Connection Type",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:12"
+    ]
+  },
+  {
+    "call": "Connection URL",
+    "key": "Connection URL",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:25"
+    ]
+  },
+  {
+    "call": "Copy",
+    "key": "Copy",
+    "places": [
+      "src/partials/modal/renderModal.ts:20"
+    ]
+  },
+  {
+    "call": "Currently unavailable",
+    "key": "Currently unavailable",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderWidget.ts:22"
+    ]
+  },
+  {
+    "call": "Dashboard",
+    "key": "Dashboard",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:80"
+    ]
+  },
+  {
+    "call": "Dashboard currently unavailable",
+    "key": "Dashboard currently unavailable",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:19"
+    ]
+  },
+  {
+    "call": "Delay in milliseconds before reloading podkop after interface UP",
+    "key": "Delay in milliseconds before reloading podkop after interface UP",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:215"
+    ]
+  },
+  {
+    "call": "Delay value cannot be empty",
+    "key": "Delay value cannot be empty",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:222"
+    ]
+  },
+  {
+    "call": "DHCP has DNS server",
+    "key": "DHCP has DNS server",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:89"
+    ]
+  },
+  {
+    "call": "Diagnostics",
+    "key": "Diagnostics",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:65"
+    ]
+  },
+  {
+    "call": "Disable autostart",
+    "key": "Disable autostart",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:79"
+    ]
+  },
+  {
+    "call": "Disable QUIC",
+    "key": "Disable QUIC",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:239"
+    ]
+  },
+  {
+    "call": "Disable the QUIC protocol to improve compatibility or fix issues with video streaming",
+    "key": "Disable the QUIC protocol to improve compatibility or fix issues with video streaming",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:240"
+    ]
+  },
+  {
+    "call": "Disabled",
+    "key": "Disabled",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:302",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:382"
+    ]
+  },
+  {
+    "call": "DNS checks",
+    "key": "DNS checks",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/contstants.ts:14"
+    ]
+  },
+  {
+    "call": "DNS checks passed",
+    "key": "DNS checks passed",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:64"
+    ]
+  },
+  {
+    "call": "DNS on router",
+    "key": "DNS on router",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:84"
+    ]
+  },
+  {
+    "call": "DNS over HTTPS (DoH)",
+    "key": "DNS over HTTPS (DoH)",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:179",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:15"
+    ]
+  },
+  {
+    "call": "DNS over TLS (DoT)",
+    "key": "DNS over TLS (DoT)",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:180",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:16"
+    ]
+  },
+  {
+    "call": "DNS Protocol Type",
+    "key": "DNS Protocol Type",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:176",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:12"
+    ]
+  },
+  {
+    "call": "DNS Rewrite TTL",
+    "key": "DNS Rewrite TTL",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:68"
+    ]
+  },
+  {
+    "call": "DNS Server",
+    "key": "DNS Server",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:189",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:24"
+    ]
+  },
+  {
+    "call": "DNS server address cannot be empty",
+    "key": "DNS server address cannot be empty",
+    "places": [
+      "src/validators/validateDns.ts:7"
+    ]
+  },
+  {
+    "call": "Domain Resolver",
+    "key": "Domain Resolver",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:166"
+    ]
+  },
+  {
+    "call": "Dont Touch My DHCP!",
+    "key": "Dont Touch My DHCP!",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:300"
+    ]
+  },
+  {
+    "call": "Downlink",
+    "key": "Downlink",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:238",
+      "src/podkop/tabs/dashboard/initController.ts:272"
+    ]
+  },
+  {
+    "call": "Download",
+    "key": "Download",
+    "places": [
+      "src/partials/modal/renderModal.ts:15"
+    ]
+  },
+  {
+    "call": "Download Lists via Proxy/VPN",
+    "key": "Download Lists via Proxy/VPN",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:262"
+    ]
+  },
+  {
+    "call": "Download Lists via specific proxy section",
+    "key": "Download Lists via specific proxy section",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:271"
+    ]
+  },
+  {
+    "call": "Downloading all lists via main Proxy/VPN",
+    "key": "Downloading all lists via main Proxy/VPN",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:263"
+    ]
+  },
+  {
+    "call": "Downloading all lists via specific Proxy/VPN",
+    "key": "Downloading all lists via specific Proxy/VPN",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:272"
+    ]
+  },
+  {
+    "call": "Dynamic List",
+    "key": "Dynamic List",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:303",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:383"
+    ]
+  },
+  {
+    "call": "Enable autostart",
+    "key": "Enable autostart",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:89"
+    ]
+  },
+  {
+    "call": "Enable built-in DNS resolver for domains handled by this section",
+    "key": "Enable built-in DNS resolver for domains handled by this section",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:167"
+    ]
+  },
+  {
+    "call": "Enable Mixed Proxy",
+    "key": "Enable Mixed Proxy",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:575"
+    ]
+  },
+  {
+    "call": "Enable Output Network Interface",
+    "key": "Enable Output Network Interface",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:126"
+    ]
+  },
+  {
+    "call": "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies",
+    "key": "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:576"
+    ]
+  },
+  {
+    "call": "Enable YACD",
+    "key": "Enable YACD",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:230"
+    ]
+  },
+  {
+    "call": "Enter complete outbound configuration in JSON format",
+    "key": "Enter complete outbound configuration in JSON format",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:65"
+    ]
+  },
+  {
+    "call": "Enter domain names separated by commas, spaces, or newlines. You can add comments using //",
+    "key": "Enter domain names separated by commas, spaces, or newlines. You can add comments using //",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:338"
+    ]
+  },
+  {
+    "call": "Enter domain names without protocols, e.g. example.com or sub.example.com",
+    "key": "Enter domain names without protocols, e.g. example.com or sub.example.com",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:312"
+    ]
+  },
+  {
+    "call": "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses",
+    "key": "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:392"
+    ]
+  },
+  {
+    "call": "Exclude NTP",
+    "key": "Exclude NTP",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:358"
+    ]
+  },
+  {
+    "call": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
+    "key": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:359"
+    ]
+  },
+  {
+    "call": "Failed to copy!",
+    "key": "Failed to copy!",
+    "places": [
+      "src/helpers/copyToClipboard.ts:12"
+    ]
+  },
+  {
+    "call": "FakeIP checks",
+    "key": "FakeIP checks",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/contstants.ts:29"
+    ]
+  },
+  {
+    "call": "FakeIP checks failed",
+    "key": "FakeIP checks failed",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:57"
+    ]
+  },
+  {
+    "call": "FakeIP checks partially passed",
+    "key": "FakeIP checks partially passed",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:51"
+    ]
+  },
+  {
+    "call": "FakeIP checks passed",
+    "key": "FakeIP checks passed",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:44"
+    ]
+  },
+  {
+    "call": "Fastest",
+    "key": "Fastest",
+    "places": [
+      "src/podkop/methods/custom/getDashboardSections.ts:117"
+    ]
+  },
+  {
+    "call": "Fully Routed IPs",
+    "key": "Fully Routed IPs",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:550"
+    ]
+  },
+  {
+    "call": "Get global check",
+    "key": "Get global check",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:98"
+    ]
+  },
+  {
+    "call": "Global check",
+    "key": "Global check",
+    "places": [
+      "src/podkop/tabs/diagnostic/initController.ts:218"
+    ]
+  },
+  {
+    "call": "HTTP error",
+    "key": "HTTP error",
+    "places": [
+      "src/podkop/api.ts:27"
+    ]
+  },
+  {
+    "call": "Interface Monitoring",
+    "key": "Interface Monitoring",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:182"
+    ]
+  },
+  {
+    "call": "Interface Monitoring Delay",
+    "key": "Interface Monitoring Delay",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:214"
+    ]
+  },
+  {
+    "call": "Interface monitoring for Bad WAN",
+    "key": "Interface monitoring for Bad WAN",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:183"
+    ]
+  },
+  {
+    "call": "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH",
+    "key": "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH",
+    "places": [
+      "src/validators/validateDns.ts:20"
+    ]
+  },
+  {
+    "call": "Invalid domain address",
+    "key": "Invalid domain address",
+    "places": [
+      "src/validators/validateDomain.ts:18",
+      "src/validators/validateDomain.ts:27"
+    ]
+  },
+  {
+    "call": "Invalid format. Use X.X.X.X or X.X.X.X/Y",
+    "key": "Invalid format. Use X.X.X.X or X.X.X.X/Y",
+    "places": [
+      "src/validators/validateSubnet.ts:11"
+    ]
+  },
+  {
+    "call": "Invalid IP address",
+    "key": "Invalid IP address",
+    "places": [
+      "src/validators/validateIp.ts:11"
+    ]
+  },
+  {
+    "call": "Invalid JSON format",
+    "key": "Invalid JSON format",
+    "places": [
+      "src/validators/validateOutboundJson.ts:19"
+    ]
+  },
+  {
+    "call": "Invalid path format. Path must start with \"/\" and contain valid characters",
+    "key": "Invalid path format. Path must start with \"/\" and contain valid characters",
+    "places": [
+      "src/validators/validatePath.ts:22"
+    ]
+  },
+  {
+    "call": "Invalid port number. Must be between 1 and 65535",
+    "key": "Invalid port number. Must be between 1 and 65535",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:85"
+    ]
+  },
+  {
+    "call": "Invalid Shadowsocks URL: decoded credentials must contain method:password",
+    "key": "Invalid Shadowsocks URL: decoded credentials must contain method:password",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:37"
+    ]
+  },
+  {
+    "call": "Invalid Shadowsocks URL: missing credentials",
+    "key": "Invalid Shadowsocks URL: missing credentials",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:27"
+    ]
+  },
+  {
+    "call": "Invalid Shadowsocks URL: missing method and password separator \":\"",
+    "key": "Invalid Shadowsocks URL: missing method and password separator \":\"",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:46"
+    ]
+  },
+  {
+    "call": "Invalid Shadowsocks URL: missing port",
+    "key": "Invalid Shadowsocks URL: missing port",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:76"
+    ]
+  },
+  {
+    "call": "Invalid Shadowsocks URL: missing server",
+    "key": "Invalid Shadowsocks URL: missing server",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:67"
+    ]
+  },
+  {
+    "call": "Invalid Shadowsocks URL: missing server address",
+    "key": "Invalid Shadowsocks URL: missing server address",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:58"
+    ]
+  },
+  {
+    "call": "Invalid Shadowsocks URL: must not contain spaces",
+    "key": "Invalid Shadowsocks URL: must not contain spaces",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:16"
+    ]
+  },
+  {
+    "call": "Invalid Shadowsocks URL: must start with ss://",
+    "key": "Invalid Shadowsocks URL: must start with ss://",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:8"
+    ]
+  },
+  {
+    "call": "Invalid Shadowsocks URL: parsing failed",
+    "key": "Invalid Shadowsocks URL: parsing failed",
+    "places": [
+      "src/validators/validateShadowsocksUrl.ts:91"
+    ]
+  },
+  {
+    "call": "Invalid SOCKS URL: invalid host format",
+    "key": "Invalid SOCKS URL: invalid host format",
+    "places": [
+      "src/validators/validateSocksUrl.ts:73"
+    ]
+  },
+  {
+    "call": "Invalid SOCKS URL: invalid port number",
+    "key": "Invalid SOCKS URL: invalid port number",
+    "places": [
+      "src/validators/validateSocksUrl.ts:63"
+    ]
+  },
+  {
+    "call": "Invalid SOCKS URL: missing host and port",
+    "key": "Invalid SOCKS URL: missing host and port",
+    "places": [
+      "src/validators/validateSocksUrl.ts:42"
+    ]
+  },
+  {
+    "call": "Invalid SOCKS URL: missing hostname or IP",
+    "key": "Invalid SOCKS URL: missing hostname or IP",
+    "places": [
+      "src/validators/validateSocksUrl.ts:51"
+    ]
+  },
+  {
+    "call": "Invalid SOCKS URL: missing port",
+    "key": "Invalid SOCKS URL: missing port",
+    "places": [
+      "src/validators/validateSocksUrl.ts:56"
+    ]
+  },
+  {
+    "call": "Invalid SOCKS URL: missing username",
+    "key": "Invalid SOCKS URL: missing username",
+    "places": [
+      "src/validators/validateSocksUrl.ts:34"
+    ]
+  },
+  {
+    "call": "Invalid SOCKS URL: must not contain spaces",
+    "key": "Invalid SOCKS URL: must not contain spaces",
+    "places": [
+      "src/validators/validateSocksUrl.ts:19"
+    ]
+  },
+  {
+    "call": "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://",
+    "key": "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://",
+    "places": [
+      "src/validators/validateSocksUrl.ts:10"
+    ]
+  },
+  {
+    "call": "Invalid SOCKS URL: parsing failed",
+    "key": "Invalid SOCKS URL: parsing failed",
+    "places": [
+      "src/validators/validateSocksUrl.ts:77"
+    ]
+  },
+  {
+    "call": "Invalid Trojan URL: must not contain spaces",
+    "key": "Invalid Trojan URL: must not contain spaces",
+    "places": [
+      "src/validators/validateTrojanUrl.ts:15"
+    ]
+  },
+  {
+    "call": "Invalid Trojan URL: must start with trojan://",
+    "key": "Invalid Trojan URL: must start with trojan://",
+    "places": [
+      "src/validators/validateTrojanUrl.ts:8"
+    ]
+  },
+  {
+    "call": "Invalid Trojan URL: parsing failed",
+    "key": "Invalid Trojan URL: parsing failed",
+    "places": [
+      "src/validators/validateTrojanUrl.ts:56"
+    ]
+  },
+  {
+    "call": "Invalid URL format",
+    "key": "Invalid URL format",
+    "places": [
+      "src/validators/validateUrl.ts:18"
+    ]
+  },
+  {
+    "call": "Invalid VLESS URL: parsing failed",
+    "key": "Invalid VLESS URL: parsing failed",
+    "places": [
+      "src/validators/validateVlessUrl.ts:109"
+    ]
+  },
+  {
+    "call": "IP address 0.0.0.0 is not allowed",
+    "key": "IP address 0.0.0.0 is not allowed",
+    "places": [
+      "src/validators/validateSubnet.ts:18"
+    ]
+  },
+  {
+    "call": "Latest",
+    "key": "Latest",
+    "places": [
+      "src/podkop/tabs/diagnostic/initController.ts:404"
+    ]
+  },
+  {
+    "call": "List Update Frequency",
+    "key": "List Update Frequency",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:250"
+    ]
+  },
+  {
+    "call": "Local Domain Lists",
+    "key": "Local Domain Lists",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:458"
+    ]
+  },
+  {
+    "call": "Local Subnet Lists",
+    "key": "Local Subnet Lists",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:481"
+    ]
+  },
+  {
+    "call": "Main DNS",
+    "key": "Main DNS",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:79"
+    ]
+  },
+  {
+    "call": "Memory Usage",
+    "key": "Memory Usage",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:308"
+    ]
+  },
+  {
+    "call": "Mixed Proxy Port",
+    "key": "Mixed Proxy Port",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:586"
+    ]
+  },
+  {
+    "call": "Monitored Interfaces",
+    "key": "Monitored Interfaces",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:191"
+    ]
+  },
+  {
+    "call": "Network Interface",
+    "key": "Network Interface",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:120"
+    ]
+  },
+  {
+    "call": "Nftables checks",
+    "key": "Nftables checks",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/contstants.ts:24"
+    ]
+  },
+  {
+    "call": "Nftables checks partially passed",
+    "key": "Nftables checks partially passed",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:75"
+    ]
+  },
+  {
+    "call": "Nftables checks passed",
+    "key": "Nftables checks passed",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:74"
+    ]
+  },
+  {
+    "call": "No other marking rules found",
+    "key": "No other marking rules found",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:116"
+    ]
+  },
+  {
+    "call": "Not implement yet",
+    "key": "Not implement yet",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderCheckSection.ts:189"
+    ]
+  },
+  {
+    "call": "Not running",
+    "key": "Not running",
+    "places": [
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:55",
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:63",
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:71",
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:79"
+    ]
+  },
+  {
+    "call": "Operation timed out",
+    "key": "Operation timed out",
+    "places": [
+      "src/helpers/withTimeout.ts:7"
+    ]
+  },
+  {
+    "call": "Outbound Config",
+    "key": "Outbound Config",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:26"
+    ]
+  },
+  {
+    "call": "Outbound Configuration",
+    "key": "Outbound Configuration",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:64"
+    ]
+  },
+  {
+    "call": "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields",
+    "key": "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields",
+    "places": [
+      "src/validators/validateOutboundJson.ts:11"
+    ]
+  },
+  {
+    "call": "Outdated",
+    "key": "Outdated",
+    "places": [
+      "src/podkop/tabs/diagnostic/initController.ts:394"
+    ]
+  },
+  {
+    "call": "Output Network Interface",
+    "key": "Output Network Interface",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:135"
+    ]
+  },
+  {
+    "call": "Path cannot be empty",
+    "key": "Path cannot be empty",
+    "places": [
+      "src/validators/validatePath.ts:7"
+    ]
+  },
+  {
+    "call": "Path must be absolute (start with /)",
+    "key": "Path must be absolute (start with /)",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:340"
+    ]
+  },
+  {
+    "call": "Path must contain at least one directory (like /tmp/cache.db)",
+    "key": "Path must contain at least one directory (like /tmp/cache.db)",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:349"
+    ]
+  },
+  {
+    "call": "Path must end with cache.db",
+    "key": "Path must end with cache.db",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:344"
+    ]
+  },
+  {
+    "call": "Podkop",
+    "key": "Podkop",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:340"
+    ]
+  },
+  {
+    "call": "Podkop Settings",
+    "key": "Podkop Settings",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:26"
+    ]
+  },
+  {
+    "call": "Podkop will not modify your DHCP configuration",
+    "key": "Podkop will not modify your DHCP configuration",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:301"
+    ]
+  },
+  {
+    "call": "Proxy Configuration URL",
+    "key": "Proxy Configuration URL",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:34"
+    ]
+  },
+  {
+    "call": "Proxy traffic is not routed via FakeIP",
+    "key": "Proxy traffic is not routed via FakeIP",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:89"
+    ]
+  },
+  {
+    "call": "Proxy traffic is routed via FakeIP",
+    "key": "Proxy traffic is routed via FakeIP",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:88"
+    ]
+  },
+  {
+    "call": "Queued",
+    "key": "Queued",
+    "places": [
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:95",
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:103",
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:111",
+      "src/podkop/tabs/diagnostic/diagnostic.store.ts:119"
+    ]
+  },
+  {
+    "call": "Regional options cannot be used together",
+    "key": "Regional options cannot be used together",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:245"
+    ]
+  },
+  {
+    "call": "Remote Domain Lists",
+    "key": "Remote Domain Lists",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:504"
+    ]
+  },
+  {
+    "call": "Remote Subnet Lists",
+    "key": "Remote Subnet Lists",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:527"
+    ]
+  },
+  {
+    "call": "Restart podkop",
+    "key": "Restart podkop",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:49"
+    ]
+  },
+  {
+    "call": "Router DNS is not routed through sing-box",
+    "key": "Router DNS is not routed through sing-box",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:74"
+    ]
+  },
+  {
+    "call": "Router DNS is routed through sing-box",
+    "key": "Router DNS is routed through sing-box",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:73"
+    ]
+  },
+  {
+    "call": "Routing Excluded IPs",
+    "key": "Routing Excluded IPs",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:369"
+    ]
+  },
+  {
+    "call": "Rules mangle counters",
+    "key": "Rules mangle counters",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:90"
+    ]
+  },
+  {
+    "call": "Rules mangle exist",
+    "key": "Rules mangle exist",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:85"
+    ]
+  },
+  {
+    "call": "Rules mangle output counters",
+    "key": "Rules mangle output counters",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:100"
+    ]
+  },
+  {
+    "call": "Rules mangle output exist",
+    "key": "Rules mangle output exist",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:95"
+    ]
+  },
+  {
+    "call": "Rules proxy counters",
+    "key": "Rules proxy counters",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:110"
+    ]
+  },
+  {
+    "call": "Rules proxy exist",
+    "key": "Rules proxy exist",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:105"
+    ]
+  },
+  {
+    "call": "Run Diagnostic",
+    "key": "Run Diagnostic",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderRunAction.ts:15"
+    ]
+  },
+  {
+    "call": "Russia inside restrictions",
+    "key": "Russia inside restrictions",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:264"
+    ]
+  },
+  {
+    "call": "Sections",
+    "key": "Sections",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:36"
+    ]
+  },
+  {
+    "call": "Select a predefined list for routing",
+    "key": "Select a predefined list for routing",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:212"
+    ]
+  },
+  {
+    "call": "Select between VPN and Proxy connection methods for traffic routing",
+    "key": "Select between VPN and Proxy connection methods for traffic routing",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:13"
+    ]
+  },
+  {
+    "call": "Select DNS protocol to use",
+    "key": "Select DNS protocol to use",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:13"
+    ]
+  },
+  {
+    "call": "Select how often the domain or subnet lists are updated automatically",
+    "key": "Select how often the domain or subnet lists are updated automatically",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:251"
+    ]
+  },
+  {
+    "call": "Select how to configure the proxy",
+    "key": "Select how to configure the proxy",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:23"
+    ]
+  },
+  {
+    "call": "Select network interface for VPN connection",
+    "key": "Select network interface for VPN connection",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:121"
+    ]
+  },
+  {
+    "call": "Select or enter DNS server address",
+    "key": "Select or enter DNS server address",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:190",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:25"
+    ]
+  },
+  {
+    "call": "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing",
+    "key": "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:323"
+    ]
+  },
+  {
+    "call": "Select path for sing-box config file. Change this ONLY if you know what you are doing",
+    "key": "Select path for sing-box config file. Change this ONLY if you know what you are doing",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:310"
+    ]
+  },
+  {
+    "call": "Select the DNS protocol type for the domain resolver",
+    "key": "Select the DNS protocol type for the domain resolver",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:177"
+    ]
+  },
+  {
+    "call": "Select the list type for adding custom domains",
+    "key": "Select the list type for adding custom domains",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:300"
+    ]
+  },
+  {
+    "call": "Select the list type for adding custom subnets",
+    "key": "Select the list type for adding custom subnets",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:380"
+    ]
+  },
+  {
+    "call": "Select the network interface from which the traffic will originate",
+    "key": "Select the network interface from which the traffic will originate",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:90"
+    ]
+  },
+  {
+    "call": "Select the network interface to which the traffic will originate",
+    "key": "Select the network interface to which the traffic will originate",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:136"
+    ]
+  },
+  {
+    "call": "Select the WAN interfaces to be monitored",
+    "key": "Select the WAN interfaces to be monitored",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:192"
+    ]
+  },
+  {
+    "call": "Services info",
+    "key": "Services info",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:337"
+    ]
+  },
+  {
+    "call": "Settings",
+    "key": "Settings",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:49"
+    ]
+  },
+  {
+    "call": "Show sing-box config",
+    "key": "Show sing-box config",
+    "places": [
+      "src/podkop/tabs/diagnostic/initController.ts:278",
+      "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:116"
+    ]
+  },
+  {
+    "call": "Sing-box",
+    "key": "Sing-box",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:351"
+    ]
+  },
+  {
+    "call": "Sing-box autostart disabled",
+    "key": "Sing-box autostart disabled",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:86"
+    ]
+  },
+  {
+    "call": "Sing-box checks",
+    "key": "Sing-box checks",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/contstants.ts:19"
+    ]
+  },
+  {
+    "call": "Sing-box checks passed",
+    "key": "Sing-box checks passed",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:66"
+    ]
+  },
+  {
+    "call": "Sing-box installed",
+    "key": "Sing-box installed",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:71"
+    ]
+  },
+  {
+    "call": "Sing-box listening ports",
+    "key": "Sing-box listening ports",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:96"
+    ]
+  },
+  {
+    "call": "Sing-box process running",
+    "key": "Sing-box process running",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:91"
+    ]
+  },
+  {
+    "call": "Sing-box service exist",
+    "key": "Sing-box service exist",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:81"
+    ]
+  },
+  {
+    "call": "Sing-box version >= 1.12.4",
+    "key": "Sing-box version >= 1.12.4",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:76"
+    ]
+  },
+  {
+    "call": "Source Network Interface",
+    "key": "Source Network Interface",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:89"
+    ]
+  },
+  {
+    "call": "Specify a local IP address to be excluded from routing",
+    "key": "Specify a local IP address to be excluded from routing",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:370"
+    ]
+  },
+  {
+    "call": "Specify local IP addresses or subnets whose traffic will always be routed through the configured route",
+    "key": "Specify local IP addresses or subnets whose traffic will always be routed through the configured route",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:551"
+    ]
+  },
+  {
+    "call": "Specify remote URLs to download and use domain lists",
+    "key": "Specify remote URLs to download and use domain lists",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:505"
+    ]
+  },
+  {
+    "call": "Specify remote URLs to download and use subnet lists",
+    "key": "Specify remote URLs to download and use subnet lists",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:528"
+    ]
+  },
+  {
+    "call": "Specify the path to the list file located on the router filesystem",
+    "key": "Specify the path to the list file located on the router filesystem",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:459",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:482"
+    ]
+  },
+  {
+    "call": "Start podkop",
+    "key": "Start podkop",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:69"
+    ]
+  },
+  {
+    "call": "Stop podkop",
+    "key": "Stop podkop",
+    "places": [
+      "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:59"
+    ]
+  },
+  {
+    "call": "Successfully copied!",
+    "key": "Successfully copied!",
+    "places": [
+      "src/helpers/copyToClipboard.ts:10"
+    ]
+  },
+  {
+    "call": "System info",
+    "key": "System info",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:301"
+    ]
+  },
+  {
+    "call": "Table exist",
+    "key": "Table exist",
+    "places": [
+      "src/podkop/tabs/diagnostic/checks/runNftCheck.ts:80"
+    ]
+  },
+  {
+    "call": "Test latency",
+    "key": "Test latency",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:108"
+    ]
+  },
+  {
+    "call": "Text List",
+    "key": "Text List",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:304"
+    ]
+  },
+  {
+    "call": "Text List (comma/space/newline separated)",
+    "key": "Text List (comma/space/newline separated)",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:384"
+    ]
+  },
+  {
+    "call": "The DNS server used to look up the IP address of an upstream DNS server",
+    "key": "The DNS server used to look up the IP address of an upstream DNS server",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:46"
+    ]
+  },
+  {
+    "call": "Time in seconds for DNS record caching (default: 60)",
+    "key": "Time in seconds for DNS record caching (default: 60)",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:69"
+    ]
+  },
+  {
+    "call": "Traffic",
+    "key": "Traffic",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:235"
+    ]
+  },
+  {
+    "call": "Traffic Total",
+    "key": "Traffic Total",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:265"
+    ]
+  },
+  {
+    "call": "TTL must be a positive number",
+    "key": "TTL must be a positive number",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:80"
+    ]
+  },
+  {
+    "call": "TTL value cannot be empty",
+    "key": "TTL value cannot be empty",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:75"
+    ]
+  },
+  {
+    "call": "UDP (Unprotected DNS)",
+    "key": "UDP (Unprotected DNS)",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:181",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:17"
+    ]
+  },
+  {
+    "call": "UDP over TCP",
+    "key": "UDP over TCP",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:110"
+    ]
+  },
+  {
+    "call": "unknown",
+    "key": "unknown",
+    "places": [
+      "src/podkop/tabs/diagnostic/initController.ts:34",
+      "src/podkop/tabs/diagnostic/initController.ts:35",
+      "src/podkop/tabs/diagnostic/initController.ts:36",
+      "src/podkop/tabs/diagnostic/initController.ts:37",
+      "src/podkop/tabs/diagnostic/initController.ts:38",
+      "src/podkop/tabs/diagnostic/initController.ts:39",
+      "src/podkop/tabs/diagnostic/initController.ts:373"
+    ]
+  },
+  {
+    "call": "Unknown error",
+    "key": "Unknown error",
+    "places": [
+      "src/podkop/api.ts:40"
+    ]
+  },
+  {
+    "call": "Uplink",
+    "key": "Uplink",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:237",
+      "src/podkop/tabs/dashboard/initController.ts:268"
+    ]
+  },
+  {
+    "call": "URL must start with vless://, ss://, trojan://, or socks4/5://",
+    "key": "URL must start with vless://, ss://, trojan://, or socks4/5://",
+    "places": [
+      "src/validators/validateProxyUrl.ts:27"
+    ]
+  },
+  {
+    "call": "URL must use one of the following protocols:",
+    "key": "URL must use one of the following protocols:",
+    "places": [
+      "src/validators/validateUrl.ts:13"
+    ]
+  },
+  {
+    "call": "URLTest",
+    "key": "URLTest",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:27"
+    ]
+  },
+  {
+    "call": "URLTest Proxy Links",
+    "key": "URLTest Proxy Links",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:87"
+    ]
+  },
+  {
+    "call": "User Domain List Type",
+    "key": "User Domain List Type",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:299"
+    ]
+  },
+  {
+    "call": "User Domains",
+    "key": "User Domains",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:311"
+    ]
+  },
+  {
+    "call": "User Domains List",
+    "key": "User Domains List",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:337"
+    ]
+  },
+  {
+    "call": "User Subnet List Type",
+    "key": "User Subnet List Type",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:379"
+    ]
+  },
+  {
+    "call": "User Subnets",
+    "key": "User Subnets",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:391"
+    ]
+  },
+  {
+    "call": "User Subnets List",
+    "key": "User Subnets List",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:417"
+    ]
+  },
+  {
+    "call": "Valid",
+    "key": "Valid",
+    "places": [
+      "src/validators/validateDns.ts:11",
+      "src/validators/validateDns.ts:15",
+      "src/validators/validateDomain.ts:13",
+      "src/validators/validateDomain.ts:30",
+      "src/validators/validateIp.ts:8",
+      "src/validators/validateOutboundJson.ts:17",
+      "src/validators/validatePath.ts:16",
+      "src/validators/validateShadowsocksUrl.ts:95",
+      "src/validators/validateSocksUrl.ts:80",
+      "src/validators/validateSubnet.ts:38",
+      "src/validators/validateTrojanUrl.ts:59",
+      "src/validators/validateUrl.ts:16",
+      "src/validators/validateVlessUrl.ts:107"
+    ]
+  },
+  {
+    "call": "Validation errors:",
+    "key": "Validation errors:",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:370",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:449"
+    ]
+  },
+  {
+    "call": "View logs",
+    "key": "View logs",
+    "places": [
+      "src/podkop/tabs/diagnostic/initController.ts:248",
+      "src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:107"
+    ]
+  },
+  {
+    "call": "Warning: %s cannot be used together with %s. Previous selections have been removed.",
+    "key": "Warning: %s cannot be used together with %s. Previous selections have been removed.",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:247"
+    ]
+  },
+  {
+    "call": "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection.",
+    "key": "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection.",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:266"
+    ]
+  },
+  {
+    "call": "You can select Output Network Interface, by default autodetect",
+    "key": "You can select Output Network Interface, by default autodetect",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:127"
+    ]
+  }
+]

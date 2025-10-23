@@ -1,0 +1,49 @@
+name: Differential ShellCheck
+
+on:
+  push:
+    branches:
+      - main
+      - 'rc/**'
+    paths:
+      - 'install.sh'
+      - 'podkop/files/usr/bin/**'
+      - 'podkop/files/usr/lib/**'
+      - '.github/workflows/shellcheck.yml'
+  pull_request:
+    branches:
+      - main
+      - 'rc/**'
+    paths:
+      - 'install.sh'
+      - 'podkop/files/usr/bin/**'
+      - 'podkop/files/usr/lib/**'
+      - '.github/workflows/shellcheck.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: Differential ShellCheck
+    runs-on: ubuntu-24.04
+    
+    permissions:
+      contents: read
+      security-events: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+        with:
+          fetch-depth: 0
+      
+      - name: Differential ShellCheck
+        uses: redhat-plumbers-in-action/differential-shellcheck@v5.5.5
+        with:
+          severity: error
+          include-path: |
+            podkop/files/usr/bin/podkop
+            podkop/files/usr/lib/**.sh
+            install.sh
+          token: ${{ secrets.GITHUB_TOKEN }}

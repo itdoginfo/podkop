@@ -1,4 +1,3 @@
-export * from './getBaseUrl';
 export * from './parseValueList';
 export * from './injectGlobalStyles';
 export * from './withTimeout';
@@ -10,3 +9,5 @@ export * from './getClashApiUrl';
 export * from './splitProxyString';
 export * from './preserveScrollForPage';
 export * from './parseQueryString';
+export * from './svgEl';
+export * from './insertIf';

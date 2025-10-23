@@ -1,3 +1,11 @@
+## Socks
+```
+socks4://127.0.0.1:1080
+socks4a://127.0.0.1:1080
+socks5://127.0.0.1:1080
+socks5://username:password@127.0.0.1:1080
+```
+
 ## Shadowsocks
 ```
 ss://MjAyMi1ibGFrZTMtYWVzLTI1Ni1nY206ZG1DbHkvWmgxNVd3OStzK0dGWGlGVElrcHc3Yy9xQ0lTYUJyYWk3V2hoWT0@127.0.0.1:25144?type=tcp#shadowsocks-no-client

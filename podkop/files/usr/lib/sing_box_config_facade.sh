@@ -34,7 +34,7 @@ sing_box_cf_add_dns_server() {
             "$domain_resolver" "$detour")
         ;;
     *)
-        log "Unsupported DNS server type: $type"
+        log "Unsupported DNS server type: $type. Aborted." "fatal"
         exit 1
         ;;
     esac
@@ -66,6 +66,32 @@ sing_box_cf_add_proxy_outbound() {
 
     local scheme="${url%%://*}"
     case "$scheme" in
+    socks4 | socks4a | socks5)
+        local tag host port version userinfo username password udp_over_tcp
+
+        tag=$(get_outbound_tag_by_section "$section")
+        host=$(url_get_host "$url")
+        port=$(url_get_port "$url")
+        version="${scheme#socks}"
+        if [ "$scheme" = "socks5" ]; then
+            userinfo=$(url_get_userinfo "$url")
+            if [ -n "$userinfo" ]; then
+                username="${userinfo%%:*}"
+                password="${userinfo#*:}"
+            fi
+        fi
+        config="$(sing_box_cm_add_socks_outbound \
+            "$config" \
+            "$tag" \
+            "$host" \
+            "$port" \
+            "$version" \
+            "$username" \
+            "$password" \
+            "" \
+            "$([ "$udp_over_tcp" == "1" ] && echo 2)" # if udp_over_tcp is enabled, enable version 2
+        )"
+        ;;
     vless)
         local tag host port uuid flow packet_encoding
         tag=$(get_outbound_tag_by_section "$section")
@@ -121,7 +147,7 @@ sing_box_cf_add_proxy_outbound() {
         config=$(_add_outbound_transport "$config" "$tag" "$url")
         ;;
     *)
-        log "Unsupported proxy $scheme type"
+        log "Unsupported proxy $scheme type. Aborted." "fatal"
         exit 1
         ;;
     esac

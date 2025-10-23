@@ -1,5 +1,5 @@
 import { ValidationResult } from './types';
-import { parseQueryString } from '../helpers';
+import { parseQueryString } from '../helpers/parseQueryString';
 
 export function validateVlessUrl(url: string): ValidationResult {
   try {
@@ -94,6 +94,14 @@ export function validateVlessUrl(url: string): ValidationResult {
           valid: false,
           message: 'Invalid VLESS URL: missing fp for reality',
         };
+    }
+
+    if (params.flow === 'xtls-rprx-vision-udp443') {
+      return {
+        valid: false,
+        message:
+          'Invalid VLESS URL: flow xtls-rprx-vision-udp443 is not supported',
+      };
     }
 
     return { valid: true, message: _('Valid') };

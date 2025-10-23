@@ -14,7 +14,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/podkop
 	SECTION:=net
 	CATEGORY:=Network
-	DEPENDS:=+sing-box +curl +jq +kmod-nft-tproxy +coreutils-base64
+	DEPENDS:=+sing-box-tiny +curl +jq +kmod-nft-tproxy +coreutils-base64 +bind-dig
 	CONFLICTS:=https-dns-proxy nextdns luci-app-passwall luci-app-passwall2
 	TITLE:=Domain routing app
 	URL:=https://podkop.net

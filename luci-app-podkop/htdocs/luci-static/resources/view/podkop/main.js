@@ -3,6 +3,7 @@
 "require baseclass";
 "require fs";
 "require uci";
+"require ui";
 
 // src/validators/validateIp.ts
 function validateIPV4(ip) {
@@ -210,10 +211,264 @@ function validateShadowsocksUrl(url) {
   return { valid: true, message: _("Valid") };
 }
 
-// src/helpers/getBaseUrl.ts
-function getBaseUrl() {
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}`;
+// src/helpers/parseQueryString.ts
+function parseQueryString(query) {
+  const clean = query.startsWith("?") ? query.slice(1) : query;
+  return clean.split("&").filter(Boolean).reduce(
+    (acc, pair) => {
+      const [rawKey, rawValue = ""] = pair.split("=");
+      if (!rawKey) {
+        return acc;
+      }
+      const key = decodeURIComponent(rawKey);
+      const value = decodeURIComponent(rawValue);
+      return { ...acc, [key]: value };
+    },
+    {}
+  );
+}
+
+// src/validators/validateVlessUrl.ts
+function validateVlessUrl(url) {
+  try {
+    if (!url.startsWith("vless://"))
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: must start with vless://"
+      };
+    if (/\s/.test(url))
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: must not contain spaces"
+      };
+    const body = url.slice("vless://".length);
+    const [mainPart] = body.split("#");
+    const [userHostPort, queryString] = mainPart.split("?");
+    if (!userHostPort)
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: missing host and UUID"
+      };
+    const [userPart, hostPortPart] = userHostPort.split("@");
+    if (!userPart)
+      return { valid: false, message: "Invalid VLESS URL: missing UUID" };
+    if (!hostPortPart)
+      return { valid: false, message: "Invalid VLESS URL: missing server" };
+    const [host, port] = hostPortPart.split(":");
+    if (!host)
+      return { valid: false, message: "Invalid VLESS URL: missing hostname" };
+    if (!port)
+      return { valid: false, message: "Invalid VLESS URL: missing port" };
+    const portNum = Number(port);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: invalid port number"
+      };
+    if (!queryString)
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: missing query parameters"
+      };
+    const params = parseQueryString(queryString);
+    const validTypes = [
+      "tcp",
+      "raw",
+      "udp",
+      "grpc",
+      "http",
+      "httpupgrade",
+      "xhttp",
+      "ws",
+      "kcp"
+    ];
+    const validSecurities = ["tls", "reality", "none"];
+    if (!params.type || !validTypes.includes(params.type))
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: unsupported or missing type"
+      };
+    if (!params.security || !validSecurities.includes(params.security))
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: unsupported or missing security"
+      };
+    if (params.security === "reality") {
+      if (!params.pbk)
+        return {
+          valid: false,
+          message: "Invalid VLESS URL: missing pbk for reality"
+        };
+      if (!params.fp)
+        return {
+          valid: false,
+          message: "Invalid VLESS URL: missing fp for reality"
+        };
+    }
+    if (params.flow === "xtls-rprx-vision-udp443") {
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: flow xtls-rprx-vision-udp443 is not supported"
+      };
+    }
+    return { valid: true, message: _("Valid") };
+  } catch (_e) {
+    return { valid: false, message: _("Invalid VLESS URL: parsing failed") };
+  }
+}
+
+// src/validators/validateOutboundJson.ts
+function validateOutboundJson(value) {
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed.type || !parsed.server || !parsed.server_port) {
+      return {
+        valid: false,
+        message: _(
+          'Outbound JSON must contain at least "type", "server" and "server_port" fields'
+        )
+      };
+    }
+    return { valid: true, message: _("Valid") };
+  } catch {
+    return { valid: false, message: _("Invalid JSON format") };
+  }
+}
+
+// src/validators/validateTrojanUrl.ts
+function validateTrojanUrl(url) {
+  try {
+    if (!url.startsWith("trojan://")) {
+      return {
+        valid: false,
+        message: _("Invalid Trojan URL: must start with trojan://")
+      };
+    }
+    if (!url || /\s/.test(url)) {
+      return {
+        valid: false,
+        message: _("Invalid Trojan URL: must not contain spaces")
+      };
+    }
+    const body = url.slice("trojan://".length);
+    const [mainPart] = body.split("#");
+    const [userHostPort] = mainPart.split("?");
+    const [userPart, hostPortPart] = userHostPort.split("@");
+    if (!userHostPort)
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: missing credentials and host"
+      };
+    if (!userPart)
+      return { valid: false, message: "Invalid Trojan URL: missing password" };
+    if (!hostPortPart)
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: missing hostname and port"
+      };
+    const [host, port] = hostPortPart.split(":");
+    if (!host)
+      return { valid: false, message: "Invalid Trojan URL: missing hostname" };
+    if (!port)
+      return { valid: false, message: "Invalid Trojan URL: missing port" };
+    const portNum = Number(port);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: invalid port number"
+      };
+  } catch (_e) {
+    return { valid: false, message: _("Invalid Trojan URL: parsing failed") };
+  }
+  return { valid: true, message: _("Valid") };
+}
+
+// src/validators/validateSocksUrl.ts
+function validateSocksUrl(url) {
+  try {
+    if (!/^socks(4|4a|5):\/\//.test(url)) {
+      return {
+        valid: false,
+        message: _(
+          "Invalid SOCKS URL: must start with socks4://, socks4a://, or socks5://"
+        )
+      };
+    }
+    if (!url || /\s/.test(url)) {
+      return {
+        valid: false,
+        message: _("Invalid SOCKS URL: must not contain spaces")
+      };
+    }
+    const body = url.replace(/^socks(4|4a|5):\/\//, "");
+    const [authAndHost] = body.split("#");
+    const [credentials, hostPortPart] = authAndHost.includes("@") ? authAndHost.split("@") : [null, authAndHost];
+    if (credentials) {
+      const [username, _password] = credentials.split(":");
+      if (!username) {
+        return {
+          valid: false,
+          message: _("Invalid SOCKS URL: missing username")
+        };
+      }
+    }
+    if (!hostPortPart) {
+      return {
+        valid: false,
+        message: _("Invalid SOCKS URL: missing host and port")
+      };
+    }
+    const [host, port] = hostPortPart.split(":");
+    if (!host) {
+      return {
+        valid: false,
+        message: _("Invalid SOCKS URL: missing hostname or IP")
+      };
+    }
+    if (!port) {
+      return { valid: false, message: _("Invalid SOCKS URL: missing port") };
+    }
+    const portNum = Number(port);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
+      return {
+        valid: false,
+        message: _("Invalid SOCKS URL: invalid port number")
+      };
+    }
+    const ipv4Result = validateIPV4(host);
+    const domainResult = validateDomain(host);
+    if (!ipv4Result.valid && !domainResult.valid) {
+      return {
+        valid: false,
+        message: _("Invalid SOCKS URL: invalid host format")
+      };
+    }
+  } catch (_e) {
+    return { valid: false, message: _("Invalid SOCKS URL: parsing failed") };
+  }
+  return { valid: true, message: _("Valid") };
+}
+
+// src/validators/validateProxyUrl.ts
+function validateProxyUrl(url) {
+  if (url.startsWith("ss://")) {
+    return validateShadowsocksUrl(url);
+  }
+  if (url.startsWith("vless://")) {
+    return validateVlessUrl(url);
+  }
+  if (url.startsWith("trojan://")) {
+    return validateTrojanUrl(url);
+  }
+  if (/^socks(4|4a|5):\/\//.test(url)) {
+    return validateSocksUrl(url);
+  }
+  return {
+    valid: false,
+    message: _(
+      "URL must start with vless://, ss://, trojan://, or socks4/5://"
+    )
+  };
 }
 
 // src/helpers/parseValueList.ts
@@ -221,211 +476,266 @@ function parseValueList(value) {
   return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
 }
 
-// src/styles.ts
-var GlobalStyles = `
-.cbi-value {
-    margin-bottom: 10px !important;
+// src/podkop/methods/custom/getConfigSections.ts
+async function getConfigSections() {
+  return uci.load("podkop").then(() => uci.sections("podkop"));
 }
 
-#diagnostics-status .table > div {
-    background: var(--background-color-primary);
-    border: 1px solid var(--border-color-medium);
-    border-radius: var(--border-radius);
-}
-
-#diagnostics-status .table > div pre,
-#diagnostics-status .table > div div[style*="monospace"] {
-    color: var(--color-text-primary);
-}
-
-#diagnostics-status .alert-message {
-    background: var(--background-color-primary);
-    border-color: var(--border-color-medium);
-}
-
-#cbi-podkop:has(.cbi-tab-disabled[data-tab="basic"]) #cbi-podkop-extra {
-    display: none;
-}
-
-#cbi-podkop-main-_status > div {
-    width: 100%;
-}
-
-/* Dashboard styles */
-
-.pdk_dashboard-page {
-    width: 100%;
-    --dashboard-grid-columns: 4;
-}
-
-@media (max-width: 900px) {
-    .pdk_dashboard-page {
-        --dashboard-grid-columns: 2;
-    }
-}
-
-.pdk_dashboard-page__widgets-section {
-    margin-top: 10px;
-    display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
-    grid-gap: 10px;
-}
-
-.pdk_dashboard-page__widgets-section__item {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-}
-
-.pdk_dashboard-page__widgets-section__item__title {}
-
-.pdk_dashboard-page__widgets-section__item__row {}
-
-.pdk_dashboard-page__widgets-section__item__row--success .pdk_dashboard-page__widgets-section__item__row__value {
-    color: var(--success-color-medium, green);
-}
-
-.pdk_dashboard-page__widgets-section__item__row--error .pdk_dashboard-page__widgets-section__item__row__value {
-    color: var(--error-color-medium, red);
-}
-
-.pdk_dashboard-page__widgets-section__item__row__key {}
-
-.pdk_dashboard-page__widgets-section__item__row__value {}
-
-.pdk_dashboard-page__outbound-section {
-    margin-top: 10px;
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-}
-
-.pdk_dashboard-page__outbound-section__title-section {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.pdk_dashboard-page__outbound-section__title-section__title {
-    color: var(--text-color-high);
-    font-weight: 700;
-}
-
-.pdk_dashboard-page__outbound-grid {
-    margin-top: 5px;
-    display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
-    grid-gap: 10px;
-}
-
-.pdk_dashboard-page__outbound-grid__item {
-    border: 2px var(--background-color-low, lightgray) solid;
-    border-radius: 4px;
-    padding: 10px;
-    transition: border 0.2s ease;
-}
-
-.pdk_dashboard-page__outbound-grid__item--selectable {
-    cursor: pointer;
-}
-
-.pdk_dashboard-page__outbound-grid__item--selectable:hover {
-    border-color: var(--primary-color-high, dodgerblue);
-}
-
-.pdk_dashboard-page__outbound-grid__item--active {
-    border-color: var(--success-color-medium, green);
-}
-
-.pdk_dashboard-page__outbound-grid__item__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 10px;
-}
-
-.pdk_dashboard-page__outbound-grid__item__type {}
-
-.pdk_dashboard-page__outbound-grid__item__latency--empty {
-    color: var(--primary-color-low, lightgray);
-}
-
-.pdk_dashboard-page__outbound-grid__item__latency--green {
-    color: var(--success-color-medium, green);
-}
-
-.pdk_dashboard-page__outbound-grid__item__latency--yellow {
-    color: var(--warn-color-medium, orange);
-}
-
-.pdk_dashboard-page__outbound-grid__item__latency--red {
-    color: var(--error-color-medium, red);
-}
-
-.centered {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Skeleton styles*/
-.skeleton {
-    background-color: var(--background-color-low, #e0e0e0);
-    border-radius: 4px;
-    position: relative;
-    overflow: hidden;
-}
-
-.skeleton::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -150%;
-    width: 150%;
-    height: 100%;
-    background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(255, 255, 255, 0.4),
-            transparent
-    );
-    animation: skeleton-shimmer 1.6s infinite;
-}
-
-@keyframes skeleton-shimmer {
-    100% {
-        left: 150%;
-    }
-}
-`;
-
-// src/helpers/injectGlobalStyles.ts
-function injectGlobalStyles() {
-  document.head.insertAdjacentHTML(
-    "beforeend",
-    `
-        <style>
-          ${GlobalStyles}
-        </style>
-    `
-  );
-}
-
-// src/helpers/withTimeout.ts
-async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = _("Operation timed out")) {
-  let timeoutId;
-  const start = performance.now();
-  const timeoutPromise = new Promise((_2, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+// src/podkop/methods/shell/callBaseMethod.ts
+async function callBaseMethod(method, args = [], command = "/usr/bin/podkop") {
+  const response = await executeShellCommand({
+    command,
+    args: [method, ...args],
+    timeout: 1e4
   });
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    clearTimeout(timeoutId);
-    const elapsed = performance.now() - start;
-    console.log(`[${operationName}] Execution time: ${elapsed.toFixed(2)} ms`);
+  if (response.stdout) {
+    try {
+      return {
+        success: true,
+        data: JSON.parse(response.stdout)
+      };
+    } catch (_e) {
+      return {
+        success: true,
+        data: response.stdout
+      };
+    }
   }
+  return {
+    success: false,
+    error: ""
+  };
 }
+
+// src/podkop/types.ts
+var Podkop;
+((Podkop2) => {
+  let AvailableMethods;
+  ((AvailableMethods2) => {
+    AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
+    AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
+    AvailableMethods2["CHECK_NFT_RULES"] = "check_nft_rules";
+    AvailableMethods2["GET_STATUS"] = "get_status";
+    AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
+    AvailableMethods2["GET_SING_BOX_STATUS"] = "get_sing_box_status";
+    AvailableMethods2["CLASH_API"] = "clash_api";
+    AvailableMethods2["RESTART"] = "restart";
+    AvailableMethods2["START"] = "start";
+    AvailableMethods2["STOP"] = "stop";
+    AvailableMethods2["ENABLE"] = "enable";
+    AvailableMethods2["DISABLE"] = "disable";
+    AvailableMethods2["GLOBAL_CHECK"] = "global_check";
+    AvailableMethods2["SHOW_SING_BOX_CONFIG"] = "show_sing_box_config";
+    AvailableMethods2["CHECK_LOGS"] = "check_logs";
+    AvailableMethods2["GET_SYSTEM_INFO"] = "get_system_info";
+  })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
+  let AvailableClashAPIMethods;
+  ((AvailableClashAPIMethods2) => {
+    AvailableClashAPIMethods2["GET_PROXIES"] = "get_proxies";
+    AvailableClashAPIMethods2["GET_PROXY_LATENCY"] = "get_proxy_latency";
+    AvailableClashAPIMethods2["GET_GROUP_LATENCY"] = "get_group_latency";
+    AvailableClashAPIMethods2["SET_GROUP_PROXY"] = "set_group_proxy";
+  })(AvailableClashAPIMethods = Podkop2.AvailableClashAPIMethods || (Podkop2.AvailableClashAPIMethods = {}));
+})(Podkop || (Podkop = {}));
+
+// src/podkop/methods/shell/index.ts
+var PodkopShellMethods = {
+  checkDNSAvailable: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_DNS_AVAILABLE
+  ),
+  checkFakeIP: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_FAKEIP
+  ),
+  checkNftRules: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_NFT_RULES
+  ),
+  getStatus: async () => callBaseMethod(Podkop.AvailableMethods.GET_STATUS),
+  checkSingBox: async () => callBaseMethod(
+    Podkop.AvailableMethods.CHECK_SING_BOX
+  ),
+  getSingBoxStatus: async () => callBaseMethod(
+    Podkop.AvailableMethods.GET_SING_BOX_STATUS
+  ),
+  getClashApiProxies: async () => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
+    Podkop.AvailableClashAPIMethods.GET_PROXIES
+  ]),
+  getClashApiProxyLatency: async (tag) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
+    Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY,
+    tag
+  ]),
+  getClashApiGroupLatency: async (tag) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
+    Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY,
+    tag
+  ]),
+  setClashApiGroupProxy: async (group, proxy) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
+    Podkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
+    group,
+    proxy
+  ]),
+  restart: async () => callBaseMethod(
+    Podkop.AvailableMethods.RESTART,
+    [],
+    "/etc/init.d/podkop"
+  ),
+  start: async () => callBaseMethod(
+    Podkop.AvailableMethods.START,
+    [],
+    "/etc/init.d/podkop"
+  ),
+  stop: async () => callBaseMethod(
+    Podkop.AvailableMethods.STOP,
+    [],
+    "/etc/init.d/podkop"
+  ),
+  enable: async () => callBaseMethod(
+    Podkop.AvailableMethods.ENABLE,
+    [],
+    "/etc/init.d/podkop"
+  ),
+  disable: async () => callBaseMethod(
+    Podkop.AvailableMethods.DISABLE,
+    [],
+    "/etc/init.d/podkop"
+  ),
+  globalCheck: async () => callBaseMethod(Podkop.AvailableMethods.GLOBAL_CHECK),
+  showSingBoxConfig: async () => callBaseMethod(Podkop.AvailableMethods.SHOW_SING_BOX_CONFIG),
+  checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS),
+  getSystemInfo: async () => callBaseMethod(
+    Podkop.AvailableMethods.GET_SYSTEM_INFO
+  )
+};
+
+// src/podkop/methods/custom/getDashboardSections.ts
+async function getDashboardSections() {
+  const configSections = await getConfigSections();
+  const clashProxies = await PodkopShellMethods.getClashApiProxies();
+  if (!clashProxies.success) {
+    return {
+      success: false,
+      data: []
+    };
+  }
+  const proxies = Object.entries(clashProxies.data.proxies).map(
+    ([key, value]) => ({
+      code: key,
+      value
+    })
+  );
+  const data = configSections.filter(
+    (section) => section.connection_type !== "block" && section[".type"] !== "settings"
+  ).map((section) => {
+    if (section.connection_type === "proxy") {
+      if (section.proxy_config_type === "url") {
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        const activeConfigs = splitProxyString(section.proxy_string);
+        const proxyDisplayName = getProxyUrlName(activeConfigs?.[0]) || outbound?.value?.name || "";
+        return {
+          withTagSelect: false,
+          code: outbound?.code || section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || section[".name"],
+              displayName: proxyDisplayName,
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: true
+            }
+          ]
+        };
+      }
+      if (section.proxy_config_type === "outbound") {
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        const parsedOutbound = JSON.parse(section.outbound_json);
+        const parsedTag = parsedOutbound?.tag ? decodeURIComponent(parsedOutbound?.tag) : void 0;
+        const proxyDisplayName = parsedTag || outbound?.value?.name || "";
+        return {
+          withTagSelect: false,
+          code: outbound?.code || section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || section[".name"],
+              displayName: proxyDisplayName,
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: true
+            }
+          ]
+        };
+      }
+      if (section.proxy_config_type === "urltest") {
+        const selector = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-urltest-out`
+        );
+        const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
+          code: item?.code || "",
+          displayName: getProxyUrlName(section.urltest_proxy_links?.[index]) || item?.value?.name || "",
+          latency: item?.value?.history?.[0]?.delay || 0,
+          type: item?.value?.type || "",
+          selected: selector?.value?.now === item?.code
+        }));
+        return {
+          withTagSelect: true,
+          code: selector?.code || section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || "",
+              displayName: _("Fastest"),
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: selector?.value?.now === outbound?.code
+            },
+            ...outbounds
+          ]
+        };
+      }
+    }
+    if (section.connection_type === "vpn") {
+      const outbound = proxies.find(
+        (proxy) => proxy.code === `${section[".name"]}-out`
+      );
+      return {
+        withTagSelect: false,
+        code: outbound?.code || section[".name"],
+        displayName: section[".name"],
+        outbounds: [
+          {
+            code: outbound?.code || section[".name"],
+            displayName: section.interface || outbound?.value?.name || "",
+            latency: outbound?.value?.history?.[0]?.delay || 0,
+            type: outbound?.value?.type || "",
+            selected: true
+          }
+        ]
+      };
+    }
+    return {
+      withTagSelect: false,
+      code: section[".name"],
+      displayName: section[".name"],
+      outbounds: []
+    };
+  });
+  return {
+    success: true,
+    data
+  };
+}
+
+// src/podkop/methods/custom/index.ts
+var CustomPodkopMethods = {
+  getConfigSections,
+  getDashboardSections
+};
 
 // src/constants.ts
 var STATUS_COLORS = {
@@ -538,286 +848,16 @@ var COMMAND_SCHEDULING = {
   // Lowest priority
 };
 
-// src/helpers/executeShellCommand.ts
-async function executeShellCommand({
-  command,
-  args,
-  timeout = COMMAND_TIMEOUT
-}) {
+// src/podkop/api.ts
+async function createBaseApiRequest(fetchFn, options) {
+  const wrappedFn = () => options?.timeoutMs && options?.operationName ? withTimeout(
+    fetchFn(),
+    options.timeoutMs,
+    options.operationName,
+    options.timeoutMessage
+  ) : fetchFn();
   try {
-    return withTimeout(
-      fs.exec(command, args),
-      timeout,
-      [command, ...args].join(" ")
-    );
-  } catch (err) {
-    const error = err;
-    return { stdout: "", stderr: error?.message, code: 0 };
-  }
-}
-
-// src/helpers/maskIP.ts
-function maskIP(ip = "") {
-  const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-  return ip.replace(ipv4Regex, (_match, _p1, _p2, _p3, p4) => `XX.XX.XX.${p4}`);
-}
-
-// src/helpers/getProxyUrlName.ts
-function getProxyUrlName(url) {
-  try {
-    const [_link, hash] = url.split("#");
-    if (!hash) {
-      return "";
-    }
-    return decodeURIComponent(hash);
-  } catch {
-    return "";
-  }
-}
-
-// src/helpers/onMount.ts
-async function onMount(id) {
-  return new Promise((resolve) => {
-    const el = document.getElementById(id);
-    if (el && el.offsetParent !== null) {
-      return resolve(el);
-    }
-    const observer = new MutationObserver(() => {
-      const target = document.getElementById(id);
-      if (target) {
-        const io = new IntersectionObserver((entries) => {
-          const visible = entries.some((e) => e.isIntersecting);
-          if (visible) {
-            observer.disconnect();
-            io.disconnect();
-            resolve(target);
-          }
-        });
-        io.observe(target);
-      }
-    });
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  });
-}
-
-// src/helpers/getClashApiUrl.ts
-function getClashApiUrl() {
-  const { hostname } = window.location;
-  return `http://${hostname}:9090`;
-}
-function getClashWsUrl() {
-  const { hostname } = window.location;
-  return `ws://${hostname}:9090`;
-}
-function getClashUIUrl() {
-  const { hostname } = window.location;
-  return `http://${hostname}:9090/ui`;
-}
-
-// src/helpers/splitProxyString.ts
-function splitProxyString(str) {
-  return str.split("\n").map((line) => line.trim()).filter((line) => !line.startsWith("//")).filter(Boolean);
-}
-
-// src/helpers/preserveScrollForPage.ts
-function preserveScrollForPage(renderFn) {
-  const scrollY = window.scrollY;
-  renderFn();
-  requestAnimationFrame(() => {
-    window.scrollTo({ top: scrollY });
-  });
-}
-
-// src/helpers/parseQueryString.ts
-function parseQueryString(query) {
-  const clean = query.startsWith("?") ? query.slice(1) : query;
-  return clean.split("&").filter(Boolean).reduce(
-    (acc, pair) => {
-      const [rawKey, rawValue = ""] = pair.split("=");
-      if (!rawKey) {
-        return acc;
-      }
-      const key = decodeURIComponent(rawKey);
-      const value = decodeURIComponent(rawValue);
-      return { ...acc, [key]: value };
-    },
-    {}
-  );
-}
-
-// src/validators/validateVlessUrl.ts
-function validateVlessUrl(url) {
-  try {
-    if (!url.startsWith("vless://"))
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: must start with vless://"
-      };
-    if (/\s/.test(url))
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: must not contain spaces"
-      };
-    const body = url.slice("vless://".length);
-    const [mainPart] = body.split("#");
-    const [userHostPort, queryString] = mainPart.split("?");
-    if (!userHostPort)
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: missing host and UUID"
-      };
-    const [userPart, hostPortPart] = userHostPort.split("@");
-    if (!userPart)
-      return { valid: false, message: "Invalid VLESS URL: missing UUID" };
-    if (!hostPortPart)
-      return { valid: false, message: "Invalid VLESS URL: missing server" };
-    const [host, port] = hostPortPart.split(":");
-    if (!host)
-      return { valid: false, message: "Invalid VLESS URL: missing hostname" };
-    if (!port)
-      return { valid: false, message: "Invalid VLESS URL: missing port" };
-    const portNum = Number(port);
-    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: invalid port number"
-      };
-    if (!queryString)
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: missing query parameters"
-      };
-    const params = parseQueryString(queryString);
-    const validTypes = [
-      "tcp",
-      "raw",
-      "udp",
-      "grpc",
-      "http",
-      "httpupgrade",
-      "xhttp",
-      "ws",
-      "kcp"
-    ];
-    const validSecurities = ["tls", "reality", "none"];
-    if (!params.type || !validTypes.includes(params.type))
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: unsupported or missing type"
-      };
-    if (!params.security || !validSecurities.includes(params.security))
-      return {
-        valid: false,
-        message: "Invalid VLESS URL: unsupported or missing security"
-      };
-    if (params.security === "reality") {
-      if (!params.pbk)
-        return {
-          valid: false,
-          message: "Invalid VLESS URL: missing pbk for reality"
-        };
-      if (!params.fp)
-        return {
-          valid: false,
-          message: "Invalid VLESS URL: missing fp for reality"
-        };
-    }
-    return { valid: true, message: _("Valid") };
-  } catch (_e) {
-    return { valid: false, message: _("Invalid VLESS URL: parsing failed") };
-  }
-}
-
-// src/validators/validateOutboundJson.ts
-function validateOutboundJson(value) {
-  try {
-    const parsed = JSON.parse(value);
-    if (!parsed.type || !parsed.server || !parsed.server_port) {
-      return {
-        valid: false,
-        message: _(
-          'Outbound JSON must contain at least "type", "server" and "server_port" fields'
-        )
-      };
-    }
-    return { valid: true, message: _("Valid") };
-  } catch {
-    return { valid: false, message: _("Invalid JSON format") };
-  }
-}
-
-// src/validators/validateTrojanUrl.ts
-function validateTrojanUrl(url) {
-  try {
-    if (!url.startsWith("trojan://")) {
-      return {
-        valid: false,
-        message: _("Invalid Trojan URL: must start with trojan://")
-      };
-    }
-    if (!url || /\s/.test(url)) {
-      return {
-        valid: false,
-        message: _("Invalid Trojan URL: must not contain spaces")
-      };
-    }
-    const body = url.slice("trojan://".length);
-    const [mainPart] = body.split("#");
-    const [userHostPort] = mainPart.split("?");
-    const [userPart, hostPortPart] = userHostPort.split("@");
-    if (!userHostPort)
-      return {
-        valid: false,
-        message: "Invalid Trojan URL: missing credentials and host"
-      };
-    if (!userPart)
-      return { valid: false, message: "Invalid Trojan URL: missing password" };
-    if (!hostPortPart)
-      return {
-        valid: false,
-        message: "Invalid Trojan URL: missing hostname and port"
-      };
-    const [host, port] = hostPortPart.split(":");
-    if (!host)
-      return { valid: false, message: "Invalid Trojan URL: missing hostname" };
-    if (!port)
-      return { valid: false, message: "Invalid Trojan URL: missing port" };
-    const portNum = Number(port);
-    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
-      return {
-        valid: false,
-        message: "Invalid Trojan URL: invalid port number"
-      };
-  } catch (_e) {
-    return { valid: false, message: _("Invalid Trojan URL: parsing failed") };
-  }
-  return { valid: true, message: _("Valid") };
-}
-
-// src/validators/validateProxyUrl.ts
-function validateProxyUrl(url) {
-  if (url.startsWith("ss://")) {
-    return validateShadowsocksUrl(url);
-  }
-  if (url.startsWith("vless://")) {
-    return validateVlessUrl(url);
-  }
-  if (url.startsWith("trojan://")) {
-    return validateTrojanUrl(url);
-  }
-  return {
-    valid: false,
-    message: _("URL must start with vless:// or ss:// or trojan://")
-  };
-}
-
-// src/clash/methods/createBaseApiRequest.ts
-async function createBaseApiRequest(fetchFn) {
-  try {
-    const response = await fetchFn();
+    const response = await wrappedFn();
     if (!response.ok) {
       return {
         success: false,
@@ -837,238 +877,39 @@ async function createBaseApiRequest(fetchFn) {
   }
 }
 
-// src/clash/methods/getConfig.ts
-async function getClashConfig() {
+// src/podkop/methods/fakeip/getFakeIpCheck.ts
+async function getFakeIpCheck() {
   return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/configs`, {
+    () => fetch(`https://${FAKEIP_CHECK_DOMAIN}/check`, {
       method: "GET",
       headers: { "Content-Type": "application/json" }
-    })
-  );
-}
-
-// src/clash/methods/getGroupDelay.ts
-async function getClashGroupDelay(group, url = "https://www.gstatic.com/generate_204", timeout = 2e3) {
-  const endpoint = `${getClashApiUrl()}/group/${group}/delay?url=${encodeURIComponent(
-    url
-  )}&timeout=${timeout}`;
-  return createBaseApiRequest(
-    () => fetch(endpoint, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    })
-  );
-}
-
-// src/clash/methods/getProxies.ts
-async function getClashProxies() {
-  return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/proxies`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    })
-  );
-}
-
-// src/clash/methods/getVersion.ts
-async function getClashVersion() {
-  return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/version`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" }
-    })
-  );
-}
-
-// src/clash/methods/triggerProxySelector.ts
-async function triggerProxySelector(selector, outbound) {
-  return createBaseApiRequest(
-    () => fetch(`${getClashApiUrl()}/proxies/${selector}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: outbound })
-    })
-  );
-}
-
-// src/clash/methods/triggerLatencyTest.ts
-async function triggerLatencyGroupTest(tag, timeout = 5e3, url = "https://www.gstatic.com/generate_204") {
-  return createBaseApiRequest(
-    () => fetch(
-      `${getClashApiUrl()}/group/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
-      {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      }
-    )
-  );
-}
-async function triggerLatencyProxyTest(tag, timeout = 2e3, url = "https://www.gstatic.com/generate_204") {
-  return createBaseApiRequest(
-    () => fetch(
-      `${getClashApiUrl()}/proxies/${tag}/delay?url=${encodeURIComponent(url)}&timeout=${timeout}`,
-      {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      }
-    )
-  );
-}
-
-// src/podkop/methods/getConfigSections.ts
-async function getConfigSections() {
-  return uci.load("podkop").then(() => uci.sections("podkop"));
-}
-
-// src/podkop/methods/getDashboardSections.ts
-async function getDashboardSections() {
-  const configSections = await getConfigSections();
-  const clashProxies = await getClashProxies();
-  if (!clashProxies.success) {
-    return {
-      success: false,
-      data: []
-    };
-  }
-  const proxies = Object.entries(clashProxies.data.proxies).map(
-    ([key, value]) => ({
-      code: key,
-      value
-    })
-  );
-  const data = configSections.filter((section) => section.mode !== "block").map((section) => {
-    if (section.mode === "proxy") {
-      if (section.proxy_config_type === "url") {
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const activeConfigs = splitProxyString(section.proxy_string);
-        const proxyDisplayName = getProxyUrlName(activeConfigs?.[0]) || outbound?.value?.name || "";
-        return {
-          withTagSelect: false,
-          code: outbound?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds: [
-            {
-              code: outbound?.code || section[".name"],
-              displayName: proxyDisplayName,
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || "",
-              selected: true
-            }
-          ]
-        };
-      }
-      if (section.proxy_config_type === "outbound") {
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const parsedOutbound = JSON.parse(section.outbound_json);
-        const parsedTag = parsedOutbound?.tag ? decodeURIComponent(parsedOutbound?.tag) : void 0;
-        const proxyDisplayName = parsedTag || outbound?.value?.name || "";
-        return {
-          withTagSelect: false,
-          code: outbound?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds: [
-            {
-              code: outbound?.code || section[".name"],
-              displayName: proxyDisplayName,
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || "",
-              selected: true
-            }
-          ]
-        };
-      }
-      if (section.proxy_config_type === "urltest") {
-        const selector = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-urltest-out`
-        );
-        const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
-          code: item?.code || "",
-          displayName: getProxyUrlName(section.urltest_proxy_links?.[index]) || item?.value?.name || "",
-          latency: item?.value?.history?.[0]?.delay || 0,
-          type: item?.value?.type || "",
-          selected: selector?.value?.now === item?.code
-        }));
-        return {
-          withTagSelect: true,
-          code: selector?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds: [
-            {
-              code: outbound?.code || "",
-              displayName: _("Fastest"),
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || "",
-              selected: selector?.value?.now === outbound?.code
-            },
-            ...outbounds
-          ]
-        };
-      }
+    }),
+    {
+      operationName: "getFakeIpCheck",
+      timeoutMs: 5e3
     }
-    if (section.mode === "vpn") {
-      const outbound = proxies.find(
-        (proxy) => proxy.code === `${section[".name"]}-out`
-      );
-      return {
-        withTagSelect: false,
-        code: outbound?.code || section[".name"],
-        displayName: section[".name"],
-        outbounds: [
-          {
-            code: outbound?.code || section[".name"],
-            displayName: section.interface || outbound?.value?.name || "",
-            latency: outbound?.value?.history?.[0]?.delay || 0,
-            type: outbound?.value?.type || "",
-            selected: true
-          }
-        ]
-      };
+  );
+}
+
+// src/podkop/methods/fakeip/getIpCheck.ts
+async function getIpCheck() {
+  return createBaseApiRequest(
+    () => fetch(`https://${IP_CHECK_DOMAIN}/check`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    }),
+    {
+      operationName: "getIpCheck",
+      timeoutMs: 5e3
     }
-    return {
-      withTagSelect: false,
-      code: section[".name"],
-      displayName: section[".name"],
-      outbounds: []
-    };
-  });
-  return {
-    success: true,
-    data
-  };
+  );
 }
 
-// src/podkop/methods/getPodkopStatus.ts
-async function getPodkopStatus() {
-  const response = await executeShellCommand({
-    command: "/usr/bin/podkop",
-    args: ["get_status"],
-    timeout: 1e4
-  });
-  if (response.stdout) {
-    return JSON.parse(response.stdout.replace(/\n/g, ""));
-  }
-  return { enabled: 0, status: "unknown" };
-}
-
-// src/podkop/methods/getSingboxStatus.ts
-async function getSingboxStatus() {
-  const response = await executeShellCommand({
-    command: "/usr/bin/podkop",
-    args: ["get_sing_box_status"],
-    timeout: 1e4
-  });
-  if (response.stdout) {
-    return JSON.parse(response.stdout.replace(/\n/g, ""));
-  }
-  return { running: 0, enabled: 0, status: "unknown" };
-}
+// src/podkop/methods/fakeip/index.ts
+var RemoteFakeIPMethods = {
+  getFakeIpCheck,
+  getIpCheck
+};
 
 // src/podkop/services/tab.service.ts
 var TabService = class _TabService {
@@ -1137,7 +978,141 @@ var TabService = class _TabService {
 };
 var TabServiceInstance = TabService.getInstance();
 
-// src/store.ts
+// src/podkop/tabs/diagnostic/checks/contstants.ts
+var DIAGNOSTICS_CHECKS_MAP = {
+  ["DNS" /* DNS */]: {
+    order: 1,
+    title: _("DNS checks"),
+    code: "DNS" /* DNS */
+  },
+  ["SINGBOX" /* SINGBOX */]: {
+    order: 2,
+    title: _("Sing-box checks"),
+    code: "SINGBOX" /* SINGBOX */
+  },
+  ["NFT" /* NFT */]: {
+    order: 3,
+    title: _("Nftables checks"),
+    code: "NFT" /* NFT */
+  },
+  ["FAKEIP" /* FAKEIP */]: {
+    order: 4,
+    title: _("FakeIP checks"),
+    code: "FAKEIP" /* FAKEIP */
+  }
+};
+
+// src/podkop/tabs/diagnostic/diagnostic.store.ts
+var initialDiagnosticStore = {
+  diagnosticsSystemInfo: {
+    loading: true,
+    podkop_version: "loading",
+    podkop_latest_version: "loading",
+    luci_app_version: "loading",
+    sing_box_version: "loading",
+    openwrt_version: "loading",
+    device_model: "loading"
+  },
+  diagnosticsActions: {
+    restart: {
+      loading: false
+    },
+    start: {
+      loading: false
+    },
+    stop: {
+      loading: false
+    },
+    enable: {
+      loading: false
+    },
+    disable: {
+      loading: false
+    },
+    globalCheck: {
+      loading: false
+    },
+    viewLogs: {
+      loading: false
+    },
+    showSingBoxConfig: {
+      loading: false
+    }
+  },
+  diagnosticsRunAction: { loading: false },
+  diagnosticsChecks: [
+    {
+      code: "DNS" /* DNS */,
+      title: DIAGNOSTICS_CHECKS_MAP.DNS.title,
+      order: DIAGNOSTICS_CHECKS_MAP.DNS.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "SINGBOX" /* SINGBOX */,
+      title: DIAGNOSTICS_CHECKS_MAP.SINGBOX.title,
+      order: DIAGNOSTICS_CHECKS_MAP.SINGBOX.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "NFT" /* NFT */,
+      title: DIAGNOSTICS_CHECKS_MAP.NFT.title,
+      order: DIAGNOSTICS_CHECKS_MAP.NFT.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "FAKEIP" /* FAKEIP */,
+      title: DIAGNOSTICS_CHECKS_MAP.FAKEIP.title,
+      order: DIAGNOSTICS_CHECKS_MAP.FAKEIP.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
+    }
+  ]
+};
+var loadingDiagnosticsChecksStore = {
+  diagnosticsChecks: [
+    {
+      code: "DNS" /* DNS */,
+      title: DIAGNOSTICS_CHECKS_MAP.DNS.title,
+      order: DIAGNOSTICS_CHECKS_MAP.DNS.order,
+      description: _("Queued"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "SINGBOX" /* SINGBOX */,
+      title: DIAGNOSTICS_CHECKS_MAP.SINGBOX.title,
+      order: DIAGNOSTICS_CHECKS_MAP.SINGBOX.order,
+      description: _("Queued"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "NFT" /* NFT */,
+      title: DIAGNOSTICS_CHECKS_MAP.NFT.title,
+      order: DIAGNOSTICS_CHECKS_MAP.NFT.order,
+      description: _("Queued"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "FAKEIP" /* FAKEIP */,
+      title: DIAGNOSTICS_CHECKS_MAP.FAKEIP.title,
+      order: DIAGNOSTICS_CHECKS_MAP.FAKEIP.order,
+      description: _("Queued"),
+      items: [],
+      state: "skipped"
+    }
+  ]
+};
+
+// src/podkop/services/store.service.ts
 function jsonStableStringify(obj) {
   return JSON.stringify(obj, (_2, value) => {
     if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -1159,7 +1134,7 @@ function jsonEqual(a, b) {
     return false;
   }
 }
-var Store = class {
+var StoreService = class {
   constructor(initial) {
     this.listeners = /* @__PURE__ */ new Set();
     this.lastHash = "";
@@ -1182,9 +1157,16 @@ var Store = class {
     }
     this.listeners.forEach((cb) => cb(this.value, prev, diff));
   }
-  reset() {
+  reset(keys) {
     const prev = this.value;
-    const next = structuredClone(this.initial);
+    const next = structuredClone(this.value);
+    if (keys && keys.length > 0) {
+      keys.forEach((key) => {
+        next[key] = structuredClone(this.initial[key]);
+      });
+    } else {
+      Object.assign(next, structuredClone(this.initial));
+    }
     if (jsonEqual(prev, next)) return;
     this.value = next;
     this.lastHash = jsonStableStringify(next);
@@ -1250,13 +1232,174 @@ var initialStore = {
     failed: false,
     latencyFetching: false,
     data: []
+  },
+  ...initialDiagnosticStore
+};
+var store = new StoreService(initialStore);
+
+// src/helpers/downloadAsTxt.ts
+function downloadAsTxt(text, filename) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  const safeName = filename.endsWith(".txt") ? filename : `${filename}.txt`;
+  link.download = safeName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
+
+// src/podkop/services/logger.service.ts
+var Logger = class {
+  constructor() {
+    this.logs = [];
+    this.levels = ["debug", "info", "warn", "error"];
+  }
+  format(level, ...args) {
+    return `[${level.toUpperCase()}] ${args.join(" ")}`;
+  }
+  push(level, ...args) {
+    if (!this.levels.includes(level)) level = "info";
+    const message = this.format(level, ...args);
+    this.logs.push(message);
+    switch (level) {
+      case "error":
+        console.error(message);
+        break;
+      case "warn":
+        console.warn(message);
+        break;
+      case "info":
+        console.info(message);
+        break;
+      default:
+        console.log(message);
+    }
+  }
+  debug(...args) {
+    this.push("debug", ...args);
+  }
+  info(...args) {
+    this.push("info", ...args);
+  }
+  warn(...args) {
+    this.push("warn", ...args);
+  }
+  error(...args) {
+    this.push("error", ...args);
+  }
+  clear() {
+    this.logs = [];
+  }
+  getLogs() {
+    return this.logs.join("\n");
+  }
+  download(filename = "logs.txt") {
+    if (typeof document === "undefined") {
+      console.warn("Logger.download() \u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D \u0442\u043E\u043B\u044C\u043A\u043E \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435");
+      return;
+    }
+    downloadAsTxt(this.getLogs(), filename);
   }
 };
-var store = new Store(initialStore);
+var logger = new Logger();
+
+// src/podkop/services/podkopLogWatcher.service.ts
+var PodkopLogWatcher = class _PodkopLogWatcher {
+  constructor() {
+    this.intervalMs = 5e3;
+    this.lastLines = /* @__PURE__ */ new Set();
+    this.running = false;
+    this.paused = false;
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) this.pause();
+        else this.resume();
+      });
+    }
+  }
+  static getInstance() {
+    if (!_PodkopLogWatcher.instance) {
+      _PodkopLogWatcher.instance = new _PodkopLogWatcher();
+    }
+    return _PodkopLogWatcher.instance;
+  }
+  init(fetcher, options) {
+    this.fetcher = fetcher;
+    this.onNewLog = options?.onNewLog;
+    this.intervalMs = options?.intervalMs ?? 5e3;
+    logger.info(
+      "[PodkopLogWatcher]",
+      `initialized (interval: ${this.intervalMs}ms)`
+    );
+  }
+  async checkOnce() {
+    if (!this.fetcher) {
+      logger.warn("[PodkopLogWatcher]", "fetcher not found");
+      return;
+    }
+    if (this.paused) {
+      logger.debug("[PodkopLogWatcher]", "skipped check \u2014 tab not visible");
+      return;
+    }
+    try {
+      const raw = await this.fetcher();
+      const lines = raw.split("\n").filter(Boolean);
+      for (const line of lines) {
+        if (!this.lastLines.has(line)) {
+          this.lastLines.add(line);
+          this.onNewLog?.(line);
+        }
+      }
+      if (this.lastLines.size > 500) {
+        const arr = Array.from(this.lastLines);
+        this.lastLines = new Set(arr.slice(-500));
+      }
+    } catch (err) {
+      logger.error("[PodkopLogWatcher]", "failed to read logs:", err);
+    }
+  }
+  start() {
+    if (this.running) return;
+    if (!this.fetcher) {
+      logger.warn("[PodkopLogWatcher]", "attempted to start without fetcher");
+      return;
+    }
+    this.running = true;
+    this.timer = setInterval(() => this.checkOnce(), this.intervalMs);
+    logger.info(
+      "[PodkopLogWatcher]",
+      `started (interval: ${this.intervalMs}ms)`
+    );
+  }
+  stop() {
+    if (!this.running) return;
+    this.running = false;
+    if (this.timer) clearInterval(this.timer);
+    logger.info("[PodkopLogWatcher]", "stopped");
+  }
+  pause() {
+    if (!this.running || this.paused) return;
+    this.paused = true;
+    logger.info("[PodkopLogWatcher]", "paused (tab not visible)");
+  }
+  resume() {
+    if (!this.running || !this.paused) return;
+    this.paused = false;
+    logger.info("[PodkopLogWatcher]", "resumed (tab active)");
+    this.checkOnce();
+  }
+  reset() {
+    this.lastLines.clear();
+    logger.info("[PodkopLogWatcher]", "log history reset");
+  }
+};
 
 // src/podkop/services/core.service.ts
 function coreService() {
   TabServiceInstance.onChange((activeId, tabs) => {
+    logger.info("[TAB]", activeId);
     store.set({
       tabService: {
         current: activeId || "",
@@ -1264,9 +1407,167 @@ function coreService() {
       }
     });
   });
+  const watcher = PodkopLogWatcher.getInstance();
+  watcher.init(
+    async () => {
+      const logs = await PodkopShellMethods.checkLogs();
+      if (logs.success) {
+        return logs.data;
+      }
+      return "";
+    },
+    {
+      intervalMs: 3e3,
+      onNewLog: (line) => {
+        if (line.toLowerCase().includes("[error]") || line.toLowerCase().includes("[fatal]")) {
+          ui.addNotification("Podkop Error", E("div", {}, line), "error");
+        }
+      }
+    }
+  );
+  watcher.start();
 }
 
-// src/podkop/tabs/dashboard/renderSections.ts
+// src/podkop/services/socket.service.ts
+var SocketManager = class _SocketManager {
+  constructor() {
+    this.sockets = /* @__PURE__ */ new Map();
+    this.listeners = /* @__PURE__ */ new Map();
+    this.connected = /* @__PURE__ */ new Map();
+    this.errorListeners = /* @__PURE__ */ new Map();
+  }
+  static getInstance() {
+    if (!_SocketManager.instance) {
+      _SocketManager.instance = new _SocketManager();
+    }
+    return _SocketManager.instance;
+  }
+  resetAll() {
+    for (const [url, ws] of this.sockets.entries()) {
+      try {
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
+      } catch (err) {
+        logger.error(
+          "[SOCKET]",
+          `resetAll: failed to close socket ${url}`,
+          err
+        );
+      }
+    }
+    this.sockets.clear();
+    this.listeners.clear();
+    this.errorListeners.clear();
+    this.connected.clear();
+    logger.info("[SOCKET]", "All connections and state have been reset.");
+  }
+  connect(url) {
+    if (this.sockets.has(url)) return;
+    let ws;
+    try {
+      ws = new WebSocket(url);
+    } catch (err) {
+      logger.error(
+        "[SOCKET]",
+        `failed to construct WebSocket for ${url}:`,
+        err
+      );
+      this.triggerError(url, err instanceof Event ? err : String(err));
+      return;
+    }
+    this.sockets.set(url, ws);
+    this.connected.set(url, false);
+    this.listeners.set(url, /* @__PURE__ */ new Set());
+    this.errorListeners.set(url, /* @__PURE__ */ new Set());
+    ws.addEventListener("open", () => {
+      this.connected.set(url, true);
+      logger.info("[SOCKET]", "Connected to", url);
+    });
+    ws.addEventListener("message", (event) => {
+      const handlers = this.listeners.get(url);
+      if (handlers) {
+        for (const handler of handlers) {
+          try {
+            handler(event.data);
+          } catch (err) {
+            logger.error("[SOCKET]", `Handler error for ${url}:`, err);
+          }
+        }
+      }
+    });
+    ws.addEventListener("close", () => {
+      this.connected.set(url, false);
+      logger.warn("[SOCKET]", `Disconnected: ${url}`);
+      this.triggerError(url, "Connection closed");
+    });
+    ws.addEventListener("error", (err) => {
+      logger.error("[SOCKET]", `Socket error for ${url}:`, err);
+      this.triggerError(url, err);
+    });
+  }
+  subscribe(url, listener, onError) {
+    if (!this.errorListeners.has(url)) {
+      this.errorListeners.set(url, /* @__PURE__ */ new Set());
+    }
+    if (onError) {
+      this.errorListeners.get(url)?.add(onError);
+    }
+    if (!this.sockets.has(url)) {
+      this.connect(url);
+    }
+    if (!this.listeners.has(url)) {
+      this.listeners.set(url, /* @__PURE__ */ new Set());
+    }
+    this.listeners.get(url)?.add(listener);
+  }
+  unsubscribe(url, listener, onError) {
+    this.listeners.get(url)?.delete(listener);
+    if (onError) {
+      this.errorListeners.get(url)?.delete(onError);
+    }
+  }
+  // eslint-disable-next-line
+  send(url, data) {
+    const ws = this.sockets.get(url);
+    if (ws && this.connected.get(url)) {
+      ws.send(typeof data === "string" ? data : JSON.stringify(data));
+    } else {
+      logger.warn("[SOCKET]", `Cannot send: not connected to ${url}`);
+      this.triggerError(url, "Not connected");
+    }
+  }
+  disconnect(url) {
+    const ws = this.sockets.get(url);
+    if (ws) {
+      ws.close();
+      this.sockets.delete(url);
+      this.listeners.delete(url);
+      this.errorListeners.delete(url);
+      this.connected.delete(url);
+    }
+  }
+  disconnectAll() {
+    for (const url of this.sockets.keys()) {
+      this.disconnect(url);
+    }
+  }
+  triggerError(url, err) {
+    const handlers = this.errorListeners.get(url);
+    if (handlers) {
+      for (const cb of handlers) {
+        try {
+          cb(err);
+        } catch (e) {
+          logger.error("[SOCKET]", `Error handler threw for ${url}:`, e);
+        }
+      }
+    }
+  }
+};
+var socket = SocketManager.getInstance();
+
+// src/podkop/tabs/dashboard/partials/renderSections.ts
 function renderFailedState() {
   return E(
     "div",
@@ -1274,10 +1575,7 @@ function renderFailedState() {
       class: "pdk_dashboard-page__outbound-section centered",
       style: "height: 127px"
     },
-    E("span", {}, [
-      E("span", {}, _("Dashboard currently unavailable")),
-      E("div", { style: "text-align: center;" }, `API: ${getClashApiUrl()}`)
-    ])
+    E("span", {}, [E("span", {}, _("Dashboard currently unavailable"))])
   );
 }
 function renderLoadingState() {
@@ -1373,7 +1671,7 @@ function renderSections(props) {
   return renderDefaultState(props);
 }
 
-// src/podkop/tabs/dashboard/renderWidget.ts
+// src/podkop/tabs/dashboard/partials/renderWidget.ts
 function renderFailedState2() {
   return E(
     "div",
@@ -1435,8 +1733,8 @@ function renderWidget(props) {
   return renderDefaultState2(props);
 }
 
-// src/podkop/tabs/dashboard/renderDashboard.ts
-function renderDashboard() {
+// src/podkop/tabs/dashboard/render.ts
+function render() {
   return E(
     "div",
     {
@@ -1483,114 +1781,13 @@ function renderDashboard() {
           onTestLatency: () => {
           },
           onChooseOutbound: () => {
-          }
+          },
+          latencyFetching: false
         })
       )
     ]
   );
 }
-
-// src/socket.ts
-var SocketManager = class _SocketManager {
-  constructor() {
-    this.sockets = /* @__PURE__ */ new Map();
-    this.listeners = /* @__PURE__ */ new Map();
-    this.connected = /* @__PURE__ */ new Map();
-    this.errorListeners = /* @__PURE__ */ new Map();
-  }
-  static getInstance() {
-    if (!_SocketManager.instance) {
-      _SocketManager.instance = new _SocketManager();
-    }
-    return _SocketManager.instance;
-  }
-  connect(url) {
-    if (this.sockets.has(url)) return;
-    const ws = new WebSocket(url);
-    this.sockets.set(url, ws);
-    this.connected.set(url, false);
-    this.listeners.set(url, /* @__PURE__ */ new Set());
-    this.errorListeners.set(url, /* @__PURE__ */ new Set());
-    ws.addEventListener("open", () => {
-      this.connected.set(url, true);
-      console.info(`Connected: ${url}`);
-    });
-    ws.addEventListener("message", (event) => {
-      const handlers = this.listeners.get(url);
-      if (handlers) {
-        for (const handler of handlers) {
-          try {
-            handler(event.data);
-          } catch (err) {
-            console.error(`Handler error for ${url}:`, err);
-          }
-        }
-      }
-    });
-    ws.addEventListener("close", () => {
-      this.connected.set(url, false);
-      console.warn(`Disconnected: ${url}`);
-      this.triggerError(url, "Connection closed");
-    });
-    ws.addEventListener("error", (err) => {
-      console.error(`Socket error for ${url}:`, err);
-      this.triggerError(url, err);
-    });
-  }
-  subscribe(url, listener, onError) {
-    if (!this.sockets.has(url)) {
-      this.connect(url);
-    }
-    this.listeners.get(url)?.add(listener);
-    if (onError) {
-      this.errorListeners.get(url)?.add(onError);
-    }
-  }
-  unsubscribe(url, listener, onError) {
-    this.listeners.get(url)?.delete(listener);
-    if (onError) {
-      this.errorListeners.get(url)?.delete(onError);
-    }
-  }
-  // eslint-disable-next-line
-  send(url, data) {
-    const ws = this.sockets.get(url);
-    if (ws && this.connected.get(url)) {
-      ws.send(typeof data === "string" ? data : JSON.stringify(data));
-    } else {
-      console.warn(`Cannot send: not connected to ${url}`);
-      this.triggerError(url, "Not connected");
-    }
-  }
-  disconnect(url) {
-    const ws = this.sockets.get(url);
-    if (ws) {
-      ws.close();
-      this.sockets.delete(url);
-      this.listeners.delete(url);
-      this.errorListeners.delete(url);
-      this.connected.delete(url);
-    }
-  }
-  disconnectAll() {
-    for (const url of this.sockets.keys()) {
-      this.disconnect(url);
-    }
-  }
-  triggerError(url, err) {
-    const handlers = this.errorListeners.get(url);
-    if (handlers) {
-      for (const cb of handlers) {
-        try {
-          cb(err);
-        } catch (e) {
-          console.error(`Error handler threw for ${url}:`, e);
-        }
-      }
-    }
-  }
-};
-var socket = SocketManager.getInstance();
 
 // src/helpers/prettyBytes.ts
 function prettyBytes(n) {
@@ -1604,7 +1801,33 @@ function prettyBytes(n) {
   return n + " " + unit;
 }
 
-// src/podkop/tabs/dashboard/initDashboardController.ts
+// src/podkop/fetchers/fetchServicesInfo.ts
+async function fetchServicesInfo() {
+  const [podkop, singbox] = await Promise.all([
+    PodkopShellMethods.getStatus(),
+    PodkopShellMethods.getSingBoxStatus()
+  ]);
+  if (!podkop.success || !singbox.success) {
+    store.set({
+      servicesInfoWidget: {
+        loading: false,
+        failed: true,
+        data: { singbox: 0, podkop: 0 }
+      }
+    });
+  }
+  if (podkop.success && singbox.success) {
+    store.set({
+      servicesInfoWidget: {
+        loading: false,
+        failed: false,
+        data: { singbox: singbox.data.running, podkop: podkop.data.enabled }
+      }
+    });
+  }
+}
+
+// src/podkop/tabs/dashboard/initController.ts
 async function fetchDashboardSections() {
   const prev = store.get().sectionsWidget;
   store.set({
@@ -1613,9 +1836,9 @@ async function fetchDashboardSections() {
       failed: false
     }
   });
-  const { data, success } = await getDashboardSections();
+  const { data, success } = await CustomPodkopMethods.getDashboardSections();
   if (!success) {
-    console.log("[fetchDashboardSections]: failed to fetch", getClashApiUrl());
+    logger.error("[DASHBOARD]", "fetchDashboardSections: failed to fetch");
   }
   store.set({
     sectionsWidget: {
@@ -1625,30 +1848,6 @@ async function fetchDashboardSections() {
       data
     }
   });
-}
-async function fetchServicesInfo() {
-  try {
-    const [podkop, singbox] = await Promise.all([
-      getPodkopStatus(),
-      getSingboxStatus()
-    ]);
-    store.set({
-      servicesInfoWidget: {
-        loading: false,
-        failed: false,
-        data: { singbox: singbox.running, podkop: podkop.enabled }
-      }
-    });
-  } catch (err) {
-    console.log("[fetchServicesInfo]: failed to fetchServices", err);
-    store.set({
-      servicesInfoWidget: {
-        loading: false,
-        failed: true,
-        data: { singbox: 0, podkop: 0 }
-      }
-    });
-  }
 }
 async function connectToClashSockets() {
   socket.subscribe(
@@ -1664,8 +1863,9 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
-      console.log(
-        "[fetchDashboardSections]: failed to connect",
+      logger.error(
+        "[DASHBOARD]",
+        "connectToClashSockets - traffic: failed to connect to",
         getClashWsUrl()
       );
       store.set({
@@ -1701,8 +1901,9 @@ async function connectToClashSockets() {
       });
     },
     (_err) => {
-      console.log(
-        "[fetchDashboardSections]: failed to connect",
+      logger.error(
+        "[DASHBOARD]",
+        "connectToClashSockets - connections: failed to connect to",
         getClashWsUrl()
       );
       store.set({
@@ -1724,7 +1925,7 @@ async function connectToClashSockets() {
   );
 }
 async function handleChooseOutbound(selector, tag) {
-  await triggerProxySelector(selector, tag);
+  await PodkopShellMethods.setClashApiGroupProxy(selector, tag);
   await fetchDashboardSections();
 }
 async function handleTestGroupLatency(tag) {
@@ -1734,7 +1935,7 @@ async function handleTestGroupLatency(tag) {
       latencyFetching: true
     }
   });
-  await triggerLatencyGroupTest(tag);
+  await PodkopShellMethods.getClashApiGroupLatency(tag);
   await fetchDashboardSections();
   store.set({
     sectionsWidget: {
@@ -1750,7 +1951,7 @@ async function handleTestProxyLatency(tag) {
       latencyFetching: true
     }
   });
-  await triggerLatencyProxyTest(tag);
+  await PodkopShellMethods.getClashApiProxyLatency(tag);
   await fetchDashboardSections();
   store.set({
     sectionsWidget: {
@@ -1760,7 +1961,7 @@ async function handleTestProxyLatency(tag) {
   });
 }
 async function renderSectionsWidget() {
-  console.log("renderSectionsWidget");
+  logger.debug("[DASHBOARD]", "renderSectionsWidget");
   const sectionsWidget = store.get().sectionsWidget;
   const container = document.getElementById("dashboard-sections-grid");
   if (sectionsWidget.loading || sectionsWidget.failed) {
@@ -1805,7 +2006,7 @@ async function renderSectionsWidget() {
   });
 }
 async function renderBandwidthWidget() {
-  console.log("renderBandwidthWidget");
+  logger.debug("[DASHBOARD]", "renderBandwidthWidget");
   const traffic = store.get().bandwidthWidget;
   const container = document.getElementById("dashboard-widget-traffic");
   if (traffic.loading || traffic.failed) {
@@ -1829,7 +2030,7 @@ async function renderBandwidthWidget() {
   container.replaceChildren(renderedWidget);
 }
 async function renderTrafficTotalWidget() {
-  console.log("renderTrafficTotalWidget");
+  logger.debug("[DASHBOARD]", "renderTrafficTotalWidget");
   const trafficTotalWidget = store.get().trafficTotalWidget;
   const container = document.getElementById("dashboard-widget-traffic-total");
   if (trafficTotalWidget.loading || trafficTotalWidget.failed) {
@@ -1859,7 +2060,7 @@ async function renderTrafficTotalWidget() {
   container.replaceChildren(renderedWidget);
 }
 async function renderSystemInfoWidget() {
-  console.log("renderSystemInfoWidget");
+  logger.debug("[DASHBOARD]", "renderSystemInfoWidget");
   const systemInfoWidget = store.get().systemInfoWidget;
   const container = document.getElementById("dashboard-widget-system-info");
   if (systemInfoWidget.loading || systemInfoWidget.failed) {
@@ -1889,7 +2090,7 @@ async function renderSystemInfoWidget() {
   container.replaceChildren(renderedWidget);
 }
 async function renderServicesInfoWidget() {
-  console.log("renderServicesInfoWidget");
+  logger.debug("[DASHBOARD]", "renderServicesInfoWidget");
   const servicesInfoWidget = store.get().servicesInfoWidget;
   const container = document.getElementById("dashboard-widget-service-info");
   if (servicesInfoWidget.loading || servicesInfoWidget.failed) {
@@ -1941,15 +2142,2371 @@ async function onStoreUpdate(next, prev, diff) {
     renderServicesInfoWidget();
   }
 }
-async function initDashboardController() {
-  onMount("dashboard-status").then(() => {
-    store.unsubscribe(onStoreUpdate);
-    store.reset();
-    store.subscribe(onStoreUpdate);
-    fetchDashboardSections();
-    fetchServicesInfo();
-    connectToClashSockets();
+async function onPageMount() {
+  onPageUnmount();
+  store.subscribe(onStoreUpdate);
+  await fetchDashboardSections();
+  await fetchServicesInfo();
+  await connectToClashSockets();
+}
+function onPageUnmount() {
+  store.unsubscribe(onStoreUpdate);
+  store.reset([
+    "bandwidthWidget",
+    "trafficTotalWidget",
+    "systemInfoWidget",
+    "servicesInfoWidget",
+    "sectionsWidget"
+  ]);
+  socket.resetAll();
+}
+function registerLifecycleListeners() {
+  store.subscribe((next, prev, diff) => {
+    if (diff.tabService && next.tabService.current !== prev.tabService.current) {
+      logger.debug(
+        "[DASHBOARD]",
+        "active tab diff event, active tab:",
+        diff.tabService.current
+      );
+      const isDashboardVisible = next.tabService.current === "dashboard";
+      if (isDashboardVisible) {
+        logger.debug(
+          "[DASHBOARD]",
+          "registerLifecycleListeners",
+          "onPageMount"
+        );
+        return onPageMount();
+      }
+      if (!isDashboardVisible) {
+        logger.debug(
+          "[DASHBOARD]",
+          "registerLifecycleListeners",
+          "onPageUnmount"
+        );
+        return onPageUnmount();
+      }
+    }
   });
+}
+async function initController() {
+  onMount("dashboard-status").then(() => {
+    logger.debug("[DASHBOARD]", "initController", "onMount");
+    onPageMount();
+    registerLifecycleListeners();
+  });
+}
+
+// src/podkop/tabs/dashboard/styles.ts
+var styles = `
+#cbi-podkop-dashboard-_mount_node > div {
+    width: 100%;
+}
+
+#cbi-podkop-dashboard > h3 {
+    display: none;
+}
+    
+.pdk_dashboard-page {
+    width: 100%;
+    --dashboard-grid-columns: 4;
+}
+
+@media (max-width: 900px) {
+    .pdk_dashboard-page {
+        --dashboard-grid-columns: 2;
+    }
+}
+
+.pdk_dashboard-page__widgets-section {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-gap: 10px;
+}
+
+.pdk_dashboard-page__widgets-section__item {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__widgets-section__item__title {}
+
+.pdk_dashboard-page__widgets-section__item__row {}
+
+.pdk_dashboard-page__widgets-section__item__row--success .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__widgets-section__item__row--error .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--error-color-medium, red);
+}
+
+.pdk_dashboard-page__widgets-section__item__row__key {}
+
+.pdk_dashboard-page__widgets-section__item__row__value {}
+
+.pdk_dashboard-page__outbound-section {
+    margin-top: 10px;
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__outbound-section__title-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pdk_dashboard-page__outbound-section__title-section__title {
+    color: var(--text-color-high);
+    font-weight: 700;
+}
+
+.pdk_dashboard-page__outbound-grid {
+    margin-top: 5px;
+    display: grid;
+    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-gap: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+    transition: border 0.2s ease;
+}
+
+.pdk_dashboard-page__outbound-grid__item--selectable {
+    cursor: pointer;
+}
+
+.pdk_dashboard-page__outbound-grid__item--selectable:hover {
+    border-color: var(--primary-color-high, dodgerblue);
+}
+
+.pdk_dashboard-page__outbound-grid__item--active {
+    border-color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__outbound-grid__item__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item__type {}
+
+.pdk_dashboard-page__outbound-grid__item__latency--empty {
+    color: var(--primary-color-low, lightgray);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--green {
+    color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--yellow {
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_dashboard-page__outbound-grid__item__latency--red {
+    color: var(--error-color-medium, red);
+}
+
+`;
+
+// src/podkop/tabs/dashboard/index.ts
+var DashboardTab = {
+  render,
+  initController,
+  styles
+};
+
+// src/podkop/tabs/diagnostic/renderDiagnostic.ts
+function render2() {
+  return E("div", { id: "diagnostic-status", class: "pdk_diagnostic-page" }, [
+    E("div", { class: "pdk_diagnostic-page__left-bar" }, [
+      E("div", { id: "pdk_diagnostic-page-run-check" }),
+      E("div", {
+        class: "pdk_diagnostic-page__checks",
+        id: "pdk_diagnostic-page-checks"
+      })
+    ]),
+    E("div", { class: "pdk_diagnostic-page__right-bar" }, [
+      E("div", { id: "pdk_diagnostic-page-actions" }),
+      E("div", { id: "pdk_diagnostic-page-system-info" })
+    ])
+  ]);
+}
+
+// src/podkop/tabs/diagnostic/checks/updateCheckStore.ts
+function updateCheckStore(check, minified) {
+  const diagnosticsChecks = store.get().diagnosticsChecks;
+  const other = diagnosticsChecks.filter((item) => item.code !== check.code);
+  const smallCheck = {
+    ...check,
+    items: check.items.filter((item) => item.state !== "success")
+  };
+  const targetCheck = minified ? smallCheck : check;
+  store.set({
+    diagnosticsChecks: [...other, targetCheck]
+  });
+}
+
+// src/podkop/tabs/diagnostic/checks/runDnsCheck.ts
+async function runDnsCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking dns, please wait"),
+    state: "loading",
+    items: []
+  });
+  const dnsChecks = await PodkopShellMethods.checkDNSAvailable();
+  if (!dnsChecks.success) {
+    updateCheckStore({
+      order,
+      code,
+      title,
+      description: _("Cannot receive DNS checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("DNS checks failed");
+  }
+  const data = dnsChecks.data;
+  const allGood = Boolean(data.dns_on_router) && Boolean(data.dhcp_config_status) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
+  const atLeastOneGood = Boolean(data.dns_on_router) || Boolean(data.dhcp_config_status) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
+  function getStatus() {
+    if (allGood) {
+      return "success";
+    }
+    if (atLeastOneGood) {
+      return "warning";
+    }
+    return "error";
+  }
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("DNS checks passed"),
+    state: getStatus(),
+    items: [
+      ...insertIf(
+        data.dns_type === "doh" || data.dns_type === "dot",
+        [
+          {
+            state: data.bootstrap_dns_status ? "success" : "error",
+            key: _("Bootsrap DNS"),
+            value: data.bootstrap_dns_server
+          }
+        ]
+      ),
+      {
+        state: data.dns_status ? "success" : "error",
+        key: _("Main DNS"),
+        value: `${data.dns_server} [${data.dns_type}]`
+      },
+      {
+        state: data.dns_on_router ? "success" : "error",
+        key: _("DNS on router"),
+        value: ""
+      },
+      {
+        state: data.dhcp_config_status ? "success" : "error",
+        key: _("DHCP has DNS server"),
+        value: ""
+      }
+    ]
+  });
+  if (!atLeastOneGood) {
+    throw new Error("DNS checks failed");
+  }
+}
+
+// src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts
+async function runSingBoxCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.SINGBOX;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking sing-box, please wait"),
+    state: "loading",
+    items: []
+  });
+  const singBoxChecks = await PodkopShellMethods.checkSingBox();
+  if (!singBoxChecks.success) {
+    updateCheckStore({
+      order,
+      code,
+      title,
+      description: _("Cannot receive Sing-box checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("Sing-box checks failed");
+  }
+  const data = singBoxChecks.data;
+  const allGood = Boolean(data.sing_box_installed) && Boolean(data.sing_box_version_ok) && Boolean(data.sing_box_service_exist) && Boolean(data.sing_box_autostart_disabled) && Boolean(data.sing_box_process_running) && Boolean(data.sing_box_ports_listening);
+  const atLeastOneGood = Boolean(data.sing_box_installed) || Boolean(data.sing_box_version_ok) || Boolean(data.sing_box_service_exist) || Boolean(data.sing_box_autostart_disabled) || Boolean(data.sing_box_process_running) || Boolean(data.sing_box_ports_listening);
+  function getStatus() {
+    if (allGood) {
+      return "success";
+    }
+    if (atLeastOneGood) {
+      return "warning";
+    }
+    return "error";
+  }
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Sing-box checks passed"),
+    state: getStatus(),
+    items: [
+      {
+        state: data.sing_box_installed ? "success" : "error",
+        key: _("Sing-box installed"),
+        value: ""
+      },
+      {
+        state: data.sing_box_version_ok ? "success" : "error",
+        key: _("Sing-box version >= 1.12.4"),
+        value: ""
+      },
+      {
+        state: data.sing_box_service_exist ? "success" : "error",
+        key: _("Sing-box service exist"),
+        value: ""
+      },
+      {
+        state: data.sing_box_autostart_disabled ? "success" : "error",
+        key: _("Sing-box autostart disabled"),
+        value: ""
+      },
+      {
+        state: data.sing_box_process_running ? "success" : "error",
+        key: _("Sing-box process running"),
+        value: ""
+      },
+      {
+        state: data.sing_box_ports_listening ? "success" : "error",
+        key: _("Sing-box listening ports"),
+        value: ""
+      }
+    ]
+  });
+  if (!atLeastOneGood || !data.sing_box_process_running) {
+    throw new Error("Sing-box checks failed");
+  }
+}
+
+// src/podkop/tabs/diagnostic/checks/runNftCheck.ts
+async function runNftCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.NFT;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking nftables, please wait"),
+    state: "loading",
+    items: []
+  });
+  await RemoteFakeIPMethods.getFakeIpCheck();
+  await RemoteFakeIPMethods.getIpCheck();
+  const nftablesChecks = await PodkopShellMethods.checkNftRules();
+  if (!nftablesChecks.success) {
+    updateCheckStore({
+      order,
+      code,
+      title,
+      description: _("Cannot receive nftables checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("Nftables checks failed");
+  }
+  const data = nftablesChecks.data;
+  const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && !data.rules_other_mark_exist;
+  const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || !data.rules_other_mark_exist;
+  function getStatus() {
+    if (allGood) {
+      return "success";
+    }
+    if (atLeastOneGood) {
+      return "warning";
+    }
+    return "error";
+  }
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: allGood ? _("Nftables checks passed") : _("Nftables checks partially passed"),
+    state: getStatus(),
+    items: [
+      {
+        state: data.table_exist ? "success" : "error",
+        key: _("Table exist"),
+        value: ""
+      },
+      {
+        state: data.rules_mangle_exist ? "success" : "error",
+        key: _("Rules mangle exist"),
+        value: ""
+      },
+      {
+        state: data.rules_mangle_counters ? "success" : "error",
+        key: _("Rules mangle counters"),
+        value: ""
+      },
+      {
+        state: data.rules_mangle_output_exist ? "success" : "error",
+        key: _("Rules mangle output exist"),
+        value: ""
+      },
+      {
+        state: data.rules_mangle_output_counters ? "success" : "error",
+        key: _("Rules mangle output counters"),
+        value: ""
+      },
+      {
+        state: data.rules_proxy_exist ? "success" : "error",
+        key: _("Rules proxy exist"),
+        value: ""
+      },
+      {
+        state: data.rules_proxy_counters ? "success" : "error",
+        key: _("Rules proxy counters"),
+        value: ""
+      },
+      {
+        state: !data.rules_other_mark_exist ? "success" : "warning",
+        key: !data.rules_other_mark_exist ? _("No other marking rules found") : _("Additional marking rules found"),
+        value: ""
+      }
+    ]
+  });
+  if (!atLeastOneGood) {
+    throw new Error("Nftables checks failed");
+  }
+}
+
+// src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts
+async function runFakeIPCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.FAKEIP;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking FakeIP, please wait"),
+    state: "loading",
+    items: []
+  });
+  const routerFakeIPResponse = await PodkopShellMethods.checkFakeIP();
+  const checkFakeIPResponse = await RemoteFakeIPMethods.getFakeIpCheck();
+  const checkIPResponse = await RemoteFakeIPMethods.getIpCheck();
+  const checks = {
+    router: routerFakeIPResponse.success && routerFakeIPResponse.data.fakeip,
+    browserFakeIP: checkFakeIPResponse.success && checkFakeIPResponse.data.fakeip,
+    differentIP: checkFakeIPResponse.success && checkIPResponse.success && checkFakeIPResponse.data.IP !== checkIPResponse.data.IP
+  };
+  const allGood = checks.router || checks.browserFakeIP || checks.differentIP;
+  const atLeastOneGood = checks.router && checks.browserFakeIP && checks.differentIP;
+  function getMeta() {
+    if (allGood) {
+      return {
+        state: "success",
+        description: _("FakeIP checks passed")
+      };
+    }
+    if (atLeastOneGood) {
+      return {
+        state: "warning",
+        description: _("FakeIP checks partially passed")
+      };
+    }
+    return {
+      state: "error",
+      description: _("FakeIP checks failed")
+    };
+  }
+  const { state, description } = getMeta();
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description,
+    state,
+    items: [
+      {
+        state: checks.router ? "success" : "warning",
+        key: checks.router ? _("Router DNS is routed through sing-box") : _("Router DNS is not routed through sing-box"),
+        value: ""
+      },
+      {
+        state: checks.browserFakeIP ? "success" : "error",
+        key: checks.browserFakeIP ? _("Browser is using FakeIP correctly") : _("Browser is not using FakeIP"),
+        value: ""
+      },
+      ...insertIf(checks.browserFakeIP, [
+        {
+          state: checks.differentIP ? "success" : "error",
+          key: checks.differentIP ? _("Proxy traffic is routed via FakeIP") : _("Proxy traffic is not routed via FakeIP"),
+          value: ""
+        }
+      ])
+    ]
+  });
+}
+
+// src/partials/button/styles.ts
+var styles2 = `
+.pdk-partial-button {
+    text-align: center;
+}
+
+.pdk-partial-button--with-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pdk-partial-button--loading {
+}
+
+.pdk-partial-button--disabled {
+}
+
+.pdk-partial-button__icon {
+    margin-right: 5px;
+}
+
+.pdk-partial-button__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pdk-partial-button__icon svg {
+    width: 16px;
+    height: 16px;
+}
+`;
+
+// src/partials/modal/styles.ts
+var styles3 = `
+
+.pdk-partial-modal__body {}
+
+.pdk-partial-modal__content {
+    max-height: 70vh;
+    overflow: scroll;
+    border-radius: 4px;
+}
+
+.pdk-partial-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.pdk-partial-modal__footer button {
+    margin-left: 10px;
+}
+`;
+
+// src/icons/renderLoaderCircleIcon24.ts
+function renderLoaderCircleIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-loader-circle rotate"
+    },
+    [
+      svgEl("path", {
+        d: "M21 12a9 9 0 1 1-6.219-8.56"
+      }),
+      svgEl("animateTransform", {
+        attributeName: "transform",
+        attributeType: "XML",
+        type: "rotate",
+        from: "0 12 12",
+        to: "360 12 12",
+        dur: "1s",
+        repeatCount: "indefinite"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleAlertIcon24.ts
+function renderCircleAlertIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-alert-icon lucide-circle-alert"
+    },
+    [
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      }),
+      svgEl("line", {
+        x1: "12",
+        y1: "8",
+        x2: "12",
+        y2: "12"
+      }),
+      svgEl("line", {
+        x1: "12",
+        y1: "16",
+        x2: "12.01",
+        y2: "16"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleCheckIcon24.ts
+function renderCircleCheckIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-check-icon lucide-circle-check"
+    },
+    [
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      }),
+      svgEl("path", {
+        d: "M9 12l2 2 4-4"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleSlashIcon24.ts
+function renderCircleSlashIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-slash-icon lucide-circle-slash"
+    },
+    [
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      }),
+      svgEl("line", {
+        x1: "9",
+        y1: "15",
+        x2: "15",
+        y2: "9"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleXIcon24.ts
+function renderCircleXIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-x-icon lucide-circle-x"
+    },
+    [
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      }),
+      svgEl("path", {
+        d: "M15 9L9 15"
+      }),
+      svgEl("path", {
+        d: "M9 9L15 15"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCheckIcon24.ts
+function renderCheckIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-check-icon lucide-check"
+    },
+    [
+      svgEl("path", {
+        d: "M20 6 9 17l-5-5"
+      })
+    ]
+  );
+}
+
+// src/icons/renderXIcon24.ts
+function renderXIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-x-icon lucide-x"
+    },
+    [svgEl("path", { d: "M18 6 6 18" }), svgEl("path", { d: "m6 6 12 12" })]
+  );
+}
+
+// src/icons/renderTriangleAlertIcon24.ts
+function renderTriangleAlertIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-triangle-alert-icon lucide-triangle-alert"
+    },
+    [
+      svgEl("path", {
+        d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"
+      }),
+      svgEl("path", { d: "M12 9v4" }),
+      svgEl("path", { d: "M12 17h.01" })
+    ]
+  );
+}
+
+// src/icons/renderPauseIcon24.ts
+function renderPauseIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-pause-icon lucide-pause"
+    },
+    [
+      svgEl("rect", {
+        x: "14",
+        y: "3",
+        width: "5",
+        height: "18",
+        rx: "1"
+      }),
+      svgEl("rect", {
+        x: "5",
+        y: "3",
+        width: "5",
+        height: "18",
+        rx: "1"
+      })
+    ]
+  );
+}
+
+// src/icons/renderPlayIcon24.ts
+function renderPlayIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-play-icon lucide-play"
+    },
+    [
+      svgEl("path", {
+        d: "M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"
+      })
+    ]
+  );
+}
+
+// src/icons/renderRotateCcwIcon24.ts
+function renderRotateCcwIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-rotate-ccw-icon lucide-rotate-ccw"
+    },
+    [
+      svgEl("path", {
+        d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+      }),
+      svgEl("path", {
+        d: "M3 3v5h5"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleStopIcon24.ts
+function renderCircleStopIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-stop-icon lucide-circle-stop"
+    },
+    [
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      }),
+      svgEl("rect", {
+        x: "9",
+        y: "9",
+        width: "6",
+        height: "6",
+        rx: "1"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCirclePlayIcon24.ts
+function renderCirclePlayIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-play-icon lucide-circle-play"
+    },
+    [
+      svgEl("path", {
+        d: "M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z"
+      }),
+      svgEl("circle", {
+        cx: "12",
+        cy: "12",
+        r: "10"
+      })
+    ]
+  );
+}
+
+// src/icons/renderCircleCheckBigIcon24.ts
+function renderCircleCheckBigIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-circle-check-big-icon lucide-circle-check-big"
+    },
+    [
+      svgEl("path", {
+        d: "M21.801 10A10 10 0 1 1 17 3.335"
+      }),
+      svgEl("path", {
+        d: "m9 11 3 3L22 4"
+      })
+    ]
+  );
+}
+
+// src/icons/renderSquareChartGanttIcon24.ts
+function renderSquareChartGanttIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-square-chart-gantt-icon lucide-square-chart-gantt"
+    },
+    [
+      svgEl("rect", {
+        width: "18",
+        height: "18",
+        x: "3",
+        y: "3",
+        rx: "2"
+      }),
+      svgEl("path", { d: "M9 8h7" }),
+      svgEl("path", { d: "M8 12h6" }),
+      svgEl("path", { d: "M11 16h5" })
+    ]
+  );
+}
+
+// src/icons/renderCogIcon24.ts
+function renderCogIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-cog-icon lucide-cog"
+    },
+    [
+      svgEl("path", { d: "M11 10.27 7 3.34" }),
+      svgEl("path", { d: "m11 13.73-4 6.93" }),
+      svgEl("path", { d: "M12 22v-2" }),
+      svgEl("path", { d: "M12 2v2" }),
+      svgEl("path", { d: "M14 12h8" }),
+      svgEl("path", { d: "m17 20.66-1-1.73" }),
+      svgEl("path", { d: "m17 3.34-1 1.73" }),
+      svgEl("path", { d: "M2 12h2" }),
+      svgEl("path", { d: "m20.66 17-1.73-1" }),
+      svgEl("path", { d: "m20.66 7-1.73 1" }),
+      svgEl("path", { d: "m3.34 17 1.73-1" }),
+      svgEl("path", { d: "m3.34 7 1.73 1" }),
+      svgEl("circle", { cx: "12", cy: "12", r: "2" }),
+      svgEl("circle", { cx: "12", cy: "12", r: "8" })
+    ]
+  );
+}
+
+// src/icons/renderSearchIcon24.ts
+function renderSearchIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-search-icon lucide-search"
+    },
+    [
+      svgEl("path", { d: "m21 21-4.34-4.34" }),
+      svgEl("circle", { cx: "11", cy: "11", r: "8" })
+    ]
+  );
+}
+
+// src/partials/button/renderButton.ts
+function renderButton({
+  classNames = [],
+  disabled,
+  loading,
+  onClick,
+  text,
+  icon
+}) {
+  const hasIcon = !!loading || !!icon;
+  function getWrappedIcon() {
+    const iconWrap = E("span", {
+      class: "pdk-partial-button__icon"
+    });
+    if (loading) {
+      iconWrap.appendChild(renderLoaderCircleIcon24());
+      return iconWrap;
+    }
+    if (icon) {
+      iconWrap.appendChild(icon());
+      return iconWrap;
+    }
+    return iconWrap;
+  }
+  function getClass() {
+    return [
+      "btn",
+      "pdk-partial-button",
+      ...insertIf(Boolean(disabled), ["pdk-partial-button--disabled"]),
+      ...insertIf(Boolean(loading), ["pdk-partial-button--loading"]),
+      ...insertIf(Boolean(hasIcon), ["pdk-partial-button--with-icon"]),
+      ...classNames
+    ].filter(Boolean).join(" ");
+  }
+  function getDisabled() {
+    if (loading || disabled) {
+      return true;
+    }
+    return void 0;
+  }
+  return E(
+    "button",
+    { class: getClass(), disabled: getDisabled(), click: onClick },
+    [...insertIf(hasIcon, [getWrappedIcon()]), E("span", {}, text)]
+  );
+}
+
+// src/helpers/showToast.ts
+function showToast(message, type, duration = 3e3) {
+  let container = document.querySelector(".toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add("visible"), 100);
+  setTimeout(() => {
+    toast.classList.remove("visible");
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// src/helpers/copyToClipboard.ts
+function copyToClipboard(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand("copy");
+    showToast(_("Successfully copied!"), "success");
+  } catch (_err) {
+    showToast(_("Failed to copy!"), "error");
+    console.error("copyToClipboard - e", _err);
+  }
+  document.body.removeChild(textarea);
+}
+
+// src/partials/modal/renderModal.ts
+function renderModal(text, name) {
+  return E(
+    "div",
+    { class: "pdk-partial-modal__body" },
+    E("div", {}, [
+      E("pre", { class: "pdk-partial-modal__content" }, E("code", {}, text)),
+      E("div", { class: "pdk-partial-modal__footer" }, [
+        renderButton({
+          classNames: ["cbi-button-apply"],
+          text: _("Download"),
+          onClick: () => downloadAsTxt(text, name)
+        }),
+        renderButton({
+          classNames: ["cbi-button-apply"],
+          text: _("Copy"),
+          onClick: () => copyToClipboard(` \`\`\`${name} 
+ ${text}  
+ \`\`\``)
+        }),
+        renderButton({
+          classNames: ["cbi-button-remove"],
+          text: _("Close"),
+          onClick: ui.hideModal
+        })
+      ])
+    ])
+  );
+}
+
+// src/partials/index.ts
+var PartialStyles = `
+${styles2}
+${styles3}
+`;
+
+// src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts
+function renderAvailableActions({
+  restart,
+  start,
+  stop,
+  enable,
+  disable,
+  globalCheck,
+  viewLogs,
+  showSingBoxConfig
+}) {
+  return E("div", { class: "pdk_diagnostic-page__right-bar__actions" }, [
+    E("b", {}, "Available actions"),
+    ...insertIf(restart.visible, [
+      renderButton({
+        classNames: ["cbi-button-apply"],
+        onClick: restart.onClick,
+        icon: renderRotateCcwIcon24,
+        text: _("Restart podkop"),
+        loading: restart.loading,
+        disabled: restart.disabled
+      })
+    ]),
+    ...insertIf(stop.visible, [
+      renderButton({
+        classNames: ["cbi-button-remove"],
+        onClick: stop.onClick,
+        icon: renderCircleStopIcon24,
+        text: _("Stop podkop"),
+        loading: stop.loading,
+        disabled: stop.disabled
+      })
+    ]),
+    ...insertIf(start.visible, [
+      renderButton({
+        classNames: ["cbi-button-save"],
+        onClick: start.onClick,
+        icon: renderCirclePlayIcon24,
+        text: _("Start podkop"),
+        loading: start.loading,
+        disabled: start.disabled
+      })
+    ]),
+    ...insertIf(disable.visible, [
+      renderButton({
+        classNames: ["cbi-button-remove"],
+        onClick: disable.onClick,
+        icon: renderPauseIcon24,
+        text: _("Disable autostart"),
+        loading: disable.loading,
+        disabled: disable.disabled
+      })
+    ]),
+    ...insertIf(enable.visible, [
+      renderButton({
+        classNames: ["cbi-button-save"],
+        onClick: enable.onClick,
+        icon: renderPlayIcon24,
+        text: _("Enable autostart"),
+        loading: enable.loading,
+        disabled: enable.disabled
+      })
+    ]),
+    ...insertIf(globalCheck.visible, [
+      renderButton({
+        onClick: globalCheck.onClick,
+        icon: renderCircleCheckBigIcon24,
+        text: _("Get global check"),
+        loading: globalCheck.loading,
+        disabled: globalCheck.disabled
+      })
+    ]),
+    ...insertIf(viewLogs.visible, [
+      renderButton({
+        onClick: viewLogs.onClick,
+        icon: renderSquareChartGanttIcon24,
+        text: _("View logs"),
+        loading: viewLogs.loading,
+        disabled: viewLogs.disabled
+      })
+    ]),
+    ...insertIf(showSingBoxConfig.visible, [
+      renderButton({
+        onClick: showSingBoxConfig.onClick,
+        icon: renderCogIcon24,
+        text: _("Show sing-box config"),
+        loading: showSingBoxConfig.loading,
+        disabled: showSingBoxConfig.disabled
+      })
+    ])
+  ]);
+}
+
+// src/podkop/tabs/diagnostic/partials/renderCheckSection.ts
+function renderCheckSummary(items) {
+  if (!items.length) {
+    return E("div", {}, "");
+  }
+  const renderedItems = items.map((item) => {
+    function getIcon() {
+      const iconWrap = E("span", {
+        class: "pdk_diagnostic_alert__summary__item__icon"
+      });
+      if (item.state === "success") {
+        iconWrap.appendChild(renderCheckIcon24());
+      }
+      if (item.state === "warning") {
+        iconWrap.appendChild(renderTriangleAlertIcon24());
+      }
+      if (item.state === "error") {
+        iconWrap.appendChild(renderXIcon24());
+      }
+      return iconWrap;
+    }
+    return E(
+      "div",
+      {
+        class: `pdk_diagnostic_alert__summary__item pdk_diagnostic_alert__summary__item--${item.state}`
+      },
+      [getIcon(), E("b", {}, item.key), E("div", {}, item.value)]
+    );
+  });
+  return E("div", { class: "pdk_diagnostic_alert__summary" }, renderedItems);
+}
+function renderLoadingState3(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderLoaderCircleIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--loading" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderWarningState(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderCircleAlertIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--warning" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderErrorState(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderCircleXIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--error" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderSuccessState(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderCircleCheckIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--success" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderSkippedState(props) {
+  const iconWrap = E("span", { class: "pdk_diagnostic_alert__icon" });
+  iconWrap.appendChild(renderCircleSlashIcon24());
+  return E(
+    "div",
+    { class: "pdk_diagnostic_alert pdk_diagnostic_alert--skipped" },
+    [
+      iconWrap,
+      E("div", { class: "pdk_diagnostic_alert__content" }, [
+        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E(
+          "div",
+          { class: "pdk_diagnostic_alert__description" },
+          props.description
+        )
+      ]),
+      E("div", {}, ""),
+      renderCheckSummary(props.items)
+    ]
+  );
+}
+function renderCheckSection(props) {
+  if (props.state === "loading") {
+    return renderLoadingState3(props);
+  }
+  if (props.state === "warning") {
+    return renderWarningState(props);
+  }
+  if (props.state === "error") {
+    return renderErrorState(props);
+  }
+  if (props.state === "success") {
+    return renderSuccessState(props);
+  }
+  if (props.state === "skipped") {
+    return renderSkippedState(props);
+  }
+  return E("div", {}, _("Not implement yet"));
+}
+
+// src/podkop/tabs/diagnostic/partials/renderRunAction.ts
+function renderRunAction({
+  loading,
+  click
+}) {
+  return E("div", { class: "pdk_diagnostic-page__run_check_wrapper" }, [
+    renderButton({
+      text: _("Run Diagnostic"),
+      onClick: click,
+      icon: renderSearchIcon24,
+      loading,
+      classNames: ["cbi-button-apply"]
+    })
+  ]);
+}
+
+// src/podkop/tabs/diagnostic/partials/renderSystemInfo.ts
+function renderSystemInfo({ items }) {
+  return E("div", { class: "pdk_diagnostic-page__right-bar__system-info" }, [
+    E(
+      "b",
+      { class: "pdk_diagnostic-page__right-bar__system-info__title" },
+      "System information"
+    ),
+    ...items.map((item) => {
+      const tagClass = [
+        "pdk_diagnostic-page__right-bar__system-info__row__tag",
+        ...insertIf(item.tag?.kind === "warning", [
+          "pdk_diagnostic-page__right-bar__system-info__row__tag--warning"
+        ]),
+        ...insertIf(item.tag?.kind === "success", [
+          "pdk_diagnostic-page__right-bar__system-info__row__tag--success"
+        ])
+      ].filter(Boolean).join(" ");
+      return E(
+        "div",
+        { class: "pdk_diagnostic-page__right-bar__system-info__row" },
+        [
+          E("b", {}, item.key),
+          E("div", {}, [
+            E("span", {}, item.value),
+            E("span", { class: tagClass }, item?.tag?.label)
+          ])
+        ]
+      );
+    })
+  ]);
+}
+
+// src/helpers/normalizeCompiledVersion.ts
+function normalizeCompiledVersion(version) {
+  if (version.includes("COMPILED")) {
+    return "dev";
+  }
+  return version;
+}
+
+// src/podkop/tabs/diagnostic/initController.ts
+async function fetchSystemInfo() {
+  const systemInfo = await PodkopShellMethods.getSystemInfo();
+  if (systemInfo.success) {
+    store.set({
+      diagnosticsSystemInfo: {
+        loading: false,
+        ...systemInfo.data
+      }
+    });
+  } else {
+    store.set({
+      diagnosticsSystemInfo: {
+        loading: false,
+        podkop_version: _("unknown"),
+        podkop_latest_version: _("unknown"),
+        luci_app_version: _("unknown"),
+        sing_box_version: _("unknown"),
+        openwrt_version: _("unknown"),
+        device_model: _("unknown")
+      }
+    });
+  }
+}
+function renderDiagnosticsChecks() {
+  logger.debug("[DIAGNOSTIC]", "renderDiagnosticsChecks");
+  const diagnosticsChecks = store.get().diagnosticsChecks.sort((a, b) => a.order - b.order);
+  const container = document.getElementById("pdk_diagnostic-page-checks");
+  const renderedDiagnosticsChecks = diagnosticsChecks.map(
+    (check) => renderCheckSection(check)
+  );
+  return preserveScrollForPage(() => {
+    container.replaceChildren(...renderedDiagnosticsChecks);
+  });
+}
+function renderDiagnosticRunActionWidget() {
+  logger.debug("[DIAGNOSTIC]", "renderDiagnosticRunActionWidget");
+  const { loading } = store.get().diagnosticsRunAction;
+  const container = document.getElementById("pdk_diagnostic-page-run-check");
+  const renderedAction = renderRunAction({
+    loading,
+    click: () => runChecks()
+  });
+  return preserveScrollForPage(() => {
+    container.replaceChildren(renderedAction);
+  });
+}
+async function handleRestart() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      restart: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.restart();
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "handleRestart - e", e);
+  } finally {
+    setTimeout(async () => {
+      await fetchServicesInfo();
+      store.set({
+        diagnosticsActions: {
+          ...diagnosticsActions,
+          restart: { loading: false }
+        }
+      });
+      store.reset(["diagnosticsChecks"]);
+    }, 5e3);
+  }
+}
+async function handleStop() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      stop: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.stop();
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "handleStop - e", e);
+  } finally {
+    await fetchServicesInfo();
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        stop: { loading: false }
+      }
+    });
+    store.reset(["diagnosticsChecks"]);
+  }
+}
+async function handleStart() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      start: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.start();
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "handleStart - e", e);
+  } finally {
+    setTimeout(async () => {
+      await fetchServicesInfo();
+      store.set({
+        diagnosticsActions: {
+          ...diagnosticsActions,
+          start: { loading: false }
+        }
+      });
+      store.reset(["diagnosticsChecks"]);
+    }, 5e3);
+  }
+}
+async function handleEnable() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      enable: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.enable();
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "handleEnable - e", e);
+  } finally {
+    await fetchServicesInfo();
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        enable: { loading: false }
+      }
+    });
+  }
+}
+async function handleDisable() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      disable: { loading: true }
+    }
+  });
+  try {
+    await PodkopShellMethods.disable();
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "handleDisable - e", e);
+  } finally {
+    await fetchServicesInfo();
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        disable: { loading: false }
+      }
+    });
+  }
+}
+async function handleShowGlobalCheck() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      globalCheck: { loading: true }
+    }
+  });
+  try {
+    const globalCheck = await PodkopShellMethods.globalCheck();
+    if (globalCheck.success) {
+      ui.showModal(
+        _("Global check"),
+        renderModal(globalCheck.data, "global_check")
+      );
+    }
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "handleShowGlobalCheck - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        globalCheck: { loading: false }
+      }
+    });
+  }
+}
+async function handleViewLogs() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      viewLogs: { loading: true }
+    }
+  });
+  try {
+    const viewLogs = await PodkopShellMethods.checkLogs();
+    if (viewLogs.success) {
+      ui.showModal(
+        _("View logs"),
+        renderModal(viewLogs.data, "view_logs")
+      );
+    }
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "handleViewLogs - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        viewLogs: { loading: false }
+      }
+    });
+  }
+}
+async function handleShowSingBoxConfig() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  store.set({
+    diagnosticsActions: {
+      ...diagnosticsActions,
+      showSingBoxConfig: { loading: true }
+    }
+  });
+  try {
+    const showSingBoxConfig = await PodkopShellMethods.showSingBoxConfig();
+    if (showSingBoxConfig.success) {
+      ui.showModal(
+        _("Show sing-box config"),
+        renderModal(showSingBoxConfig.data, "show_sing_box_config")
+      );
+    }
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "handleShowSingBoxConfig - e", e);
+  } finally {
+    store.set({
+      diagnosticsActions: {
+        ...diagnosticsActions,
+        showSingBoxConfig: { loading: false }
+      }
+    });
+  }
+}
+function renderDiagnosticAvailableActionsWidget() {
+  const diagnosticsActions = store.get().diagnosticsActions;
+  const servicesInfoWidget = store.get().servicesInfoWidget;
+  logger.debug("[DIAGNOSTIC]", "renderDiagnosticAvailableActionsWidget");
+  const podkopEnabled = Boolean(servicesInfoWidget.data.podkop);
+  const singBoxRunning = Boolean(servicesInfoWidget.data.singbox);
+  const atLeastOneServiceCommandLoading = servicesInfoWidget.loading || diagnosticsActions.restart.loading || diagnosticsActions.start.loading || diagnosticsActions.stop.loading;
+  const container = document.getElementById("pdk_diagnostic-page-actions");
+  const renderedActions = renderAvailableActions({
+    restart: {
+      loading: diagnosticsActions.restart.loading,
+      visible: true,
+      onClick: handleRestart,
+      disabled: atLeastOneServiceCommandLoading
+    },
+    start: {
+      loading: diagnosticsActions.start.loading,
+      visible: !singBoxRunning,
+      onClick: handleStart,
+      disabled: atLeastOneServiceCommandLoading
+    },
+    stop: {
+      loading: diagnosticsActions.stop.loading,
+      visible: singBoxRunning,
+      onClick: handleStop,
+      disabled: atLeastOneServiceCommandLoading
+    },
+    enable: {
+      loading: diagnosticsActions.enable.loading,
+      visible: !podkopEnabled,
+      onClick: handleEnable,
+      disabled: atLeastOneServiceCommandLoading
+    },
+    disable: {
+      loading: diagnosticsActions.disable.loading,
+      visible: podkopEnabled,
+      onClick: handleDisable,
+      disabled: atLeastOneServiceCommandLoading
+    },
+    globalCheck: {
+      loading: diagnosticsActions.globalCheck.loading,
+      visible: true,
+      onClick: handleShowGlobalCheck,
+      disabled: atLeastOneServiceCommandLoading
+    },
+    viewLogs: {
+      loading: diagnosticsActions.viewLogs.loading,
+      visible: true,
+      onClick: handleViewLogs,
+      disabled: atLeastOneServiceCommandLoading
+    },
+    showSingBoxConfig: {
+      loading: diagnosticsActions.showSingBoxConfig.loading,
+      visible: true,
+      onClick: handleShowSingBoxConfig,
+      disabled: atLeastOneServiceCommandLoading
+    }
+  });
+  return preserveScrollForPage(() => {
+    container.replaceChildren(renderedActions);
+  });
+}
+function renderDiagnosticSystemInfoWidget() {
+  logger.debug("[DIAGNOSTIC]", "renderDiagnosticSystemInfoWidget");
+  const diagnosticsSystemInfo = store.get().diagnosticsSystemInfo;
+  const container = document.getElementById("pdk_diagnostic-page-system-info");
+  function getPodkopVersionRow() {
+    const loading = diagnosticsSystemInfo.loading;
+    const unknown = diagnosticsSystemInfo.podkop_version === _("unknown");
+    const hasActualVersion = Boolean(
+      diagnosticsSystemInfo.podkop_latest_version
+    );
+    const version = normalizeCompiledVersion(
+      diagnosticsSystemInfo.podkop_version
+    );
+    const isDevVersion = version === "dev";
+    if (loading || unknown || !hasActualVersion || isDevVersion) {
+      return {
+        key: "Podkop",
+        value: version
+      };
+    }
+    if (version !== diagnosticsSystemInfo.podkop_latest_version) {
+      return {
+        key: "Podkop",
+        value: version,
+        tag: {
+          label: _("Outdated"),
+          kind: "warning"
+        }
+      };
+    }
+    return {
+      key: "Podkop",
+      value: version,
+      tag: {
+        label: _("Latest"),
+        kind: "success"
+      }
+    };
+  }
+  const renderedSystemInfo = renderSystemInfo({
+    items: [
+      getPodkopVersionRow(),
+      {
+        key: "Luci App",
+        value: normalizeCompiledVersion(diagnosticsSystemInfo.luci_app_version)
+      },
+      {
+        key: "Sing-box",
+        value: diagnosticsSystemInfo.sing_box_version
+      },
+      {
+        key: "OS",
+        value: diagnosticsSystemInfo.openwrt_version
+      },
+      {
+        key: "Device",
+        value: diagnosticsSystemInfo.device_model
+      }
+    ]
+  });
+  return preserveScrollForPage(() => {
+    container.replaceChildren(renderedSystemInfo);
+  });
+}
+async function onStoreUpdate2(next, prev, diff) {
+  if (diff.diagnosticsChecks) {
+    renderDiagnosticsChecks();
+  }
+  if (diff.diagnosticsRunAction) {
+    renderDiagnosticRunActionWidget();
+  }
+  if (diff.diagnosticsActions || diff.servicesInfoWidget) {
+    renderDiagnosticAvailableActionsWidget();
+  }
+  if (diff.diagnosticsSystemInfo) {
+    renderDiagnosticSystemInfoWidget();
+  }
+}
+async function runChecks() {
+  try {
+    store.set({
+      diagnosticsRunAction: { loading: true },
+      diagnosticsChecks: loadingDiagnosticsChecksStore.diagnosticsChecks
+    });
+    await runDnsCheck();
+    await runSingBoxCheck();
+    await runNftCheck();
+    await runFakeIPCheck();
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "runChecks - e", e);
+  } finally {
+    store.set({ diagnosticsRunAction: { loading: false } });
+  }
+}
+function onPageMount2() {
+  onPageUnmount2();
+  store.subscribe(onStoreUpdate2);
+  renderDiagnosticsChecks();
+  renderDiagnosticRunActionWidget();
+  renderDiagnosticAvailableActionsWidget();
+  renderDiagnosticSystemInfoWidget();
+  fetchServicesInfo();
+  fetchSystemInfo();
+}
+function onPageUnmount2() {
+  store.unsubscribe(onStoreUpdate2);
+  store.reset([
+    "diagnosticsActions",
+    "diagnosticsSystemInfo",
+    "diagnosticsChecks",
+    "diagnosticsRunAction"
+  ]);
+}
+function registerLifecycleListeners2() {
+  store.subscribe((next, prev, diff) => {
+    if (diff.tabService && next.tabService.current !== prev.tabService.current) {
+      logger.debug(
+        "[DIAGNOSTIC]",
+        "active tab diff event, active tab:",
+        diff.tabService.current
+      );
+      const isDIAGNOSTICVisible = next.tabService.current === "diagnostic";
+      if (isDIAGNOSTICVisible) {
+        logger.debug(
+          "[DIAGNOSTIC]",
+          "registerLifecycleListeners",
+          "onPageMount"
+        );
+        return onPageMount2();
+      }
+      if (!isDIAGNOSTICVisible) {
+        logger.debug(
+          "[DIAGNOSTIC]",
+          "registerLifecycleListeners",
+          "onPageUnmount"
+        );
+        return onPageUnmount2();
+      }
+    }
+  });
+}
+async function initController2() {
+  onMount("diagnostic-status").then(() => {
+    logger.debug("[DIAGNOSTIC]", "initController", "onMount");
+    onPageMount2();
+    registerLifecycleListeners2();
+  });
+}
+
+// src/podkop/tabs/diagnostic/styles.ts
+var styles4 = `
+
+#cbi-podkop-diagnostic-_mount_node > div {
+    width: 100%;
+}
+
+#cbi-podkop-diagnostic > h3 {
+    display: none;
+}
+
+.pdk_diagnostic-page {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-column-gap: 10px;
+    align-items: start;
+}
+
+@media (max-width: 800px) {
+    .pdk_diagnostic-page {
+        grid-template-columns: 1fr;
+    }
+}
+
+.pdk_diagnostic-page__right-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__actions {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+
+}
+
+.pdk_diagnostic-page__right-bar__system-info {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+
+    display: grid;
+    grid-template-columns: auto;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__right-bar__system-info__title {
+
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-column-gap: 5px;
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row__tag {
+    padding: 2px 4px;
+    border: 1px transparent solid;
+    border-radius: 4px;
+    margin-left: 5px;
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row__tag--warning {
+    border: 1px var(--warn-color-medium, orange) solid;
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic-page__right-bar__system-info__row__tag--success {
+    border: 1px var(--success-color-medium, green) solid;
+    color: var(--success-color-medium, green);
+}
+
+.pdk_diagnostic-page__left-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic-page__run_check_wrapper {}
+
+.pdk_diagnostic-page__run_check_wrapper button {
+    width: 100%;
+}
+
+.pdk_diagnostic-page__checks {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-row-gap: 10px;
+}
+
+.pdk_diagnostic_alert {
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    grid-column-gap: 10px;
+    align-items: center;
+    padding: 10px;
+}
+
+.pdk_diagnostic_alert--loading {
+    border: 2px var(--primary-color-high, dodgerblue) solid;
+}
+
+.pdk_diagnostic_alert--warning {
+    border: 2px var(--warn-color-medium, orange) solid;
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic_alert--error {
+    border: 2px var(--error-color-medium, red) solid;
+    color: var(--error-color-medium, red);
+}
+
+.pdk_diagnostic_alert--success {
+    border: 2px var(--success-color-medium, green) solid;
+    color: var(--success-color-medium, green);
+}
+
+.pdk_diagnostic_alert--skipped {}
+
+.pdk_diagnostic_alert__icon {}
+
+.pdk_diagnostic_alert__content {}
+
+.pdk_diagnostic_alert__title {
+    display: block;
+}
+
+.pdk_diagnostic_alert__description {}
+
+.pdk_diagnostic_alert__summary {
+    margin-top: 10px;
+}
+
+.pdk_diagnostic_alert__summary__item {
+    display: grid;
+    grid-template-columns: 16px auto 1fr;
+    grid-column-gap: 10px;
+}
+
+.pdk_diagnostic_alert__summary__item--error {
+    color: var(--error-color-medium, red);
+}
+
+.pdk_diagnostic_alert__summary__item--warning {
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_diagnostic_alert__summary__item--success {
+    color: var(--success-color-medium, green);
+}
+
+.pdk_diagnostic_alert__summary__item__icon {
+    width: 16px;
+    height: 16px;
+}
+`;
+
+// src/podkop/tabs/diagnostic/index.ts
+var DiagnosticTab = {
+  render: render2,
+  initController: initController2,
+  styles: styles4
+};
+
+// src/styles.ts
+var GlobalStyles = `
+${DashboardTab.styles}
+${DiagnosticTab.styles}
+${PartialStyles}
+
+
+/* Hide extra H3 for settings tab */
+#cbi-podkop-settings > h3 {
+    display: none;
+}
+
+/* Hide extra H3 for sections tab */
+#cbi-podkop-section > h3:nth-child(1) {
+    display: none;
+}
+
+/* Vertical align for remove section action button */
+#cbi-podkop-section > .cbi-section-remove {
+    margin-bottom: -32px;
+}
+
+/* Centered class helper */
+.centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Rotate class helper */
+.rotate {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Skeleton styles*/
+.skeleton {
+    background-color: var(--background-color-low, #e0e0e0);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 150%;
+    height: 100%;
+    background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.4),
+            transparent
+    );
+    animation: skeleton-shimmer 1.6s infinite;
+}
+
+@keyframes skeleton-shimmer {
+    100% {
+        left: 150%;
+    }
+}
+/* Toast */
+.toast-container {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 9999;
+    font-family: system-ui, sans-serif;
+}
+
+.toast {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    padding: 10px 16px;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    min-width: 220px;
+    max-width: 340px;
+    text-align: center;
+}
+
+.toast-success {
+    background-color: #28a745;
+}
+
+.toast-error {
+    background-color: #dc3545;
+}
+
+.toast.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+`;
+
+// src/helpers/injectGlobalStyles.ts
+function injectGlobalStyles() {
+  document.head.insertAdjacentHTML(
+    "beforeend",
+    `
+        <style>
+          ${GlobalStyles}
+        </style>
+    `
+  );
+}
+
+// src/helpers/withTimeout.ts
+async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = _("Operation timed out")) {
+  let timeoutId;
+  const start = performance.now();
+  const timeoutPromise = new Promise((_2, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+    const elapsed = performance.now() - start;
+    logger.info("[SHELL]", `[${operationName}] took ${elapsed.toFixed(2)} ms`);
+  }
+}
+
+// src/helpers/executeShellCommand.ts
+async function executeShellCommand({
+  command,
+  args,
+  timeout = COMMAND_TIMEOUT
+}) {
+  try {
+    return withTimeout(
+      fs.exec(command, args),
+      timeout,
+      [command, ...args].join(" ")
+    );
+  } catch (err) {
+    const error = err;
+    return { stdout: "", stderr: error?.message, code: 0 };
+  }
+}
+
+// src/helpers/maskIP.ts
+function maskIP(ip = "") {
+  const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+  return ip.replace(ipv4Regex, (_match, _p1, _p2, _p3, p4) => `XX.XX.XX.${p4}`);
+}
+
+// src/helpers/getProxyUrlName.ts
+function getProxyUrlName(url) {
+  try {
+    const [_link, hash] = url.split("#");
+    if (!hash) {
+      return "";
+    }
+    return decodeURIComponent(hash);
+  } catch {
+    return "";
+  }
+}
+
+// src/helpers/onMount.ts
+async function onMount(id) {
+  return new Promise((resolve) => {
+    const el = document.getElementById(id);
+    if (el && el.offsetParent !== null) {
+      return resolve(el);
+    }
+    const observer = new MutationObserver(() => {
+      const target = document.getElementById(id);
+      if (target) {
+        const io = new IntersectionObserver((entries) => {
+          const visible = entries.some((e) => e.isIntersecting);
+          if (visible) {
+            observer.disconnect();
+            io.disconnect();
+            resolve(target);
+          }
+        });
+        io.observe(target);
+      }
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
+// src/helpers/getClashApiUrl.ts
+function getClashWsUrl() {
+  const { hostname } = window.location;
+  return `ws://${hostname}:9090`;
+}
+function getClashUIUrl() {
+  const { hostname } = window.location;
+  return `http://${hostname}:9090/ui`;
+}
+
+// src/helpers/splitProxyString.ts
+function splitProxyString(str) {
+  return str.split("\n").map((line) => line.trim()).filter((line) => !line.startsWith("//")).filter(Boolean);
+}
+
+// src/helpers/preserveScrollForPage.ts
+function preserveScrollForPage(renderFn) {
+  const scrollY = window.scrollY;
+  renderFn();
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: scrollY });
+  });
+}
+
+// src/helpers/svgEl.ts
+function svgEl(tag, attrs = {}, children = []) {
+  const NS = "http://www.w3.org/2000/svg";
+  const el = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v != null) el.setAttribute(k, String(v));
+  }
+  (Array.isArray(children) ? children : [children]).filter(Boolean).forEach((ch) => el.appendChild(ch));
+  return el;
+}
+
+// src/helpers/insertIf.ts
+function insertIf(condition, elements) {
+  return condition ? elements : [];
+}
+function insertIfObj(condition, object) {
+  return condition ? object : {};
 }
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
@@ -1958,49 +4515,45 @@ return baseclass.extend({
   CACHE_TIMEOUT,
   COMMAND_SCHEDULING,
   COMMAND_TIMEOUT,
+  CustomPodkopMethods,
   DIAGNOSTICS_INITIAL_DELAY,
   DIAGNOSTICS_UPDATE_INTERVAL,
   DNS_SERVER_OPTIONS,
   DOMAIN_LIST_OPTIONS,
+  DashboardTab,
+  DiagnosticTab,
   ERROR_POLL_INTERVAL,
   FAKEIP_CHECK_DOMAIN,
   FETCH_TIMEOUT,
   IP_CHECK_DOMAIN,
+  Logger,
   PODKOP_LUCI_APP_VERSION,
+  PodkopShellMethods,
   REGIONAL_OPTIONS,
+  RemoteFakeIPMethods,
   STATUS_COLORS,
   TabService,
   TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
   coreService,
-  createBaseApiRequest,
   executeShellCommand,
-  getBaseUrl,
-  getClashApiUrl,
-  getClashConfig,
-  getClashGroupDelay,
-  getClashProxies,
   getClashUIUrl,
-  getClashVersion,
   getClashWsUrl,
-  getConfigSections,
-  getDashboardSections,
-  getPodkopStatus,
   getProxyUrlName,
-  getSingboxStatus,
-  initDashboardController,
   injectGlobalStyles,
+  insertIf,
+  insertIfObj,
+  logger,
   maskIP,
   onMount,
   parseQueryString,
   parseValueList,
   preserveScrollForPage,
-  renderDashboard,
+  socket,
   splitProxyString,
-  triggerLatencyGroupTest,
-  triggerLatencyProxyTest,
-  triggerProxySelector,
+  store,
+  svgEl,
   validateDNS,
   validateDomain,
   validateIPV4,
@@ -2008,6 +4561,7 @@ return baseclass.extend({
   validatePath,
   validateProxyUrl,
   validateShadowsocksUrl,
+  validateSocksUrl,
   validateSubnet,
   validateTrojanUrl,
   validateUrl,
