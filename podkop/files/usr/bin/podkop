@@ -737,8 +737,12 @@ sing_box_configure_route() {
 
     local output_network_interface
     config_get output_network_interface "settings" "output_network_interface"
-    config=$(sing_box_cm_configure_route "$config" "$SB_DIRECT_OUTBOUND_TAG" true "$SB_DNS_SERVER_TAG" \
-        "$output_network_interface")
+    if [ -z "$output_network_interface" ]; then
+        config=$(sing_box_cm_configure_route "$config" "$SB_DIRECT_OUTBOUND_TAG" true "$SB_DNS_SERVER_TAG")
+    else
+        config=$(sing_box_cm_configure_route "$config" "$SB_DIRECT_OUTBOUND_TAG" false "$SB_DNS_SERVER_TAG" \
+            "$output_network_interface")
+    fi
 
     local sniff_inbounds
     sniff_inbounds=$(comma_string_to_json_array "$SB_TPROXY_INBOUND_TAG,$SB_DNS_INBOUND_TAG")
