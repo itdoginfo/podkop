@@ -580,7 +580,7 @@
     "call": "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH",
     "key": "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH",
     "places": [
-      "src/validators/validateDns.ts:20"
+      "src/validators/validateDns.ts:23"
     ]
   },
   {
@@ -1571,8 +1571,8 @@
     "call": "Valid",
     "key": "Valid",
     "places": [
-      "src/validators/validateDns.ts:11",
-      "src/validators/validateDns.ts:15",
+      "src/validators/validateDns.ts:14",
+      "src/validators/validateDns.ts:18",
       "src/validators/validateDomain.ts:13",
       "src/validators/validateDomain.ts:30",
       "src/validators/validateIp.ts:8",

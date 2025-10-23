@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-23 17:02+0300\n"
-"PO-Revision-Date: 2025-10-23 17:02+0300\n"
+"POT-Creation-Date: 2025-10-23 17:43+0300\n"
+"PO-Revision-Date: 2025-10-23 17:43+0300\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -353,7 +353,7 @@ msgstr ""
 msgid "Interface monitoring for Bad WAN"
 msgstr ""
 
-#: src/validators/validateDns.ts:20
+#: src/validators/validateDns.ts:23
 msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
 msgstr ""
 
@@ -927,8 +927,8 @@ msgstr ""
 msgid "User Subnets List"
 msgstr ""
 
-#: src/validators/validateDns.ts:11
-#: src/validators/validateDns.ts:15
+#: src/validators/validateDns.ts:14
+#: src/validators/validateDns.ts:18
 #: src/validators/validateDomain.ts:13
 #: src/validators/validateDomain.ts:30
 #: src/validators/validateIp.ts:8
