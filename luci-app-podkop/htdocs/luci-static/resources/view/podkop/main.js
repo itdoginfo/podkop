@@ -3797,9 +3797,13 @@ async function handleShowGlobalCheck() {
         _("Global check"),
         renderModal(globalCheck.data, "global_check")
       );
+    } else {
+      logger.error("[DIAGNOSTIC]", "handleShowGlobalCheck - e", globalCheck);
+      showToast(_("Failed to execute!"), "error");
     }
   } catch (e) {
     logger.error("[DIAGNOSTIC]", "handleShowGlobalCheck - e", e);
+    showToast(_("Failed to execute!"), "error");
   } finally {
     store.set({
       diagnosticsActions: {
@@ -3824,9 +3828,13 @@ async function handleViewLogs() {
         _("View logs"),
         renderModal(viewLogs.data, "view_logs")
       );
+    } else {
+      logger.error("[DIAGNOSTIC]", "handleViewLogs - e", viewLogs);
+      showToast(_("Failed to execute!"), "error");
     }
   } catch (e) {
     logger.error("[DIAGNOSTIC]", "handleViewLogs - e", e);
+    showToast(_("Failed to execute!"), "error");
   } finally {
     store.set({
       diagnosticsActions: {
@@ -3851,9 +3859,17 @@ async function handleShowSingBoxConfig() {
         _("Show sing-box config"),
         renderModal(showSingBoxConfig.data, "show_sing_box_config")
       );
+    } else {
+      logger.error(
+        "[DIAGNOSTIC]",
+        "handleShowSingBoxConfig - e",
+        showSingBoxConfig
+      );
+      showToast(_("Failed to execute!"), "error");
     }
   } catch (e) {
     logger.error("[DIAGNOSTIC]", "handleShowSingBoxConfig - e", e);
+    showToast(_("Failed to execute!"), "error");
   } finally {
     store.set({
       diagnosticsActions: {
@@ -3946,6 +3962,11 @@ function renderDiagnosticSystemInfoWidget() {
       };
     }
     if (version !== `v${diagnosticsSystemInfo.podkop_latest_version}`) {
+      logger.debug(
+        "[DIAGNOSTIC]",
+        "diagnosticsSystemInfo",
+        diagnosticsSystemInfo
+      );
       return {
         key: "Podkop",
         value: version,
@@ -3969,7 +3990,7 @@ function renderDiagnosticSystemInfoWidget() {
       getPodkopVersionRow(),
       {
         key: "Luci App",
-        value: normalizeCompiledVersion(diagnosticsSystemInfo.luci_app_version)
+        value: normalizeCompiledVersion(PODKOP_LUCI_APP_VERSION)
       },
       {
         key: "Sing-box",

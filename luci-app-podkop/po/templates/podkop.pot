@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-23 15:55+0300\n"
-"PO-Revision-Date: 2025-10-23 15:55+0300\n"
+"POT-Creation-Date: 2025-10-23 16:08+0300\n"
+"PO-Revision-Date: 2025-10-23 16:08+0300\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -312,6 +312,15 @@ msgstr ""
 msgid "Failed to copy!"
 msgstr ""
 
+#: src/podkop/tabs/diagnostic/initController.ts:225
+#: src/podkop/tabs/diagnostic/initController.ts:229
+#: src/podkop/tabs/diagnostic/initController.ts:259
+#: src/podkop/tabs/diagnostic/initController.ts:263
+#: src/podkop/tabs/diagnostic/initController.ts:297
+#: src/podkop/tabs/diagnostic/initController.ts:301
+msgid "Failed to execute!"
+msgstr ""
+
 #: src/podkop/methods/custom/getDashboardSections.ts:117
 msgid "Fastest"
 msgstr ""
@@ -324,7 +333,7 @@ msgstr ""
 msgid "Get global check"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:218
+#: src/podkop/tabs/diagnostic/initController.ts:220
 msgid "Global check"
 msgstr ""
 
@@ -469,7 +478,7 @@ msgstr ""
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:404
+#: src/podkop/tabs/diagnostic/initController.ts:427
 msgid "Latest"
 msgstr ""
 
@@ -536,7 +545,7 @@ msgstr ""
 msgid "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:394
+#: src/podkop/tabs/diagnostic/initController.ts:417
 msgid "Outdated"
 msgstr ""
 
@@ -724,7 +733,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:278
+#: src/podkop/tabs/diagnostic/initController.ts:288
 #: src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:116
 msgid "Show sing-box config"
 msgstr ""
@@ -851,13 +860,13 @@ msgstr ""
 msgid "UDP over TCP"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:34
-#: src/podkop/tabs/diagnostic/initController.ts:35
 #: src/podkop/tabs/diagnostic/initController.ts:36
 #: src/podkop/tabs/diagnostic/initController.ts:37
 #: src/podkop/tabs/diagnostic/initController.ts:38
 #: src/podkop/tabs/diagnostic/initController.ts:39
-#: src/podkop/tabs/diagnostic/initController.ts:373
+#: src/podkop/tabs/diagnostic/initController.ts:40
+#: src/podkop/tabs/diagnostic/initController.ts:41
+#: src/podkop/tabs/diagnostic/initController.ts:391
 msgid "unknown"
 msgstr ""
 
@@ -931,7 +940,7 @@ msgstr ""
 msgid "Validation errors:"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:248
+#: src/podkop/tabs/diagnostic/initController.ts:254
 #: src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:107
 msgid "View logs"
 msgstr ""

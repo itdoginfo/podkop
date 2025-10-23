@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-23 18:55+0300\n"
-"PO-Revision-Date: 2025-10-23 18:55+0300\n"
+"POT-Creation-Date: 2025-10-23 19:08+0300\n"
+"PO-Revision-Date: 2025-10-23 19:08+0300\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -229,6 +229,9 @@ msgstr "Исключите трафик протокола NTP из туннел
 
 msgid "Failed to copy!"
 msgstr "Не удалось скопировать!"
+
+msgid "Failed to execute!"
+msgstr "Не удалось выполнить!"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
