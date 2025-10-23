@@ -259,7 +259,8 @@ function validateVlessUrl(url) {
       return { valid: false, message: "Invalid VLESS URL: missing hostname" };
     if (!port)
       return { valid: false, message: "Invalid VLESS URL: missing port" };
-    const portNum = Number(port);
+    const cleanedPort = port.replace("/", "");
+    const portNum = Number(cleanedPort);
     if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
       return {
         valid: false,
@@ -3341,7 +3342,7 @@ function renderAvailableActions({
   showSingBoxConfig
 }) {
   return E("div", { class: "pdk_diagnostic-page__right-bar__actions" }, [
-    E("b", {}, "Available actions"),
+    E("b", {}, _("Available actions")),
     ...insertIf(restart.visible, [
       renderButton({
         classNames: ["cbi-button-apply"],
@@ -3599,7 +3600,7 @@ function renderSystemInfo({ items }) {
     E(
       "b",
       { class: "pdk_diagnostic-page__right-bar__system-info__title" },
-      "System information"
+      _("System information")
     ),
     ...items.map((item) => {
       const tagClass = [

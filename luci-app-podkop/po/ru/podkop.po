@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-21 23:02+0300\n"
-"PO-Revision-Date: 2025-10-21 23:02+0300\n"
+"POT-Creation-Date: 2025-10-23 18:27+0300\n"
+"PO-Revision-Date: 2025-10-23 18:27+0300\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -43,6 +43,9 @@ msgstr "Необходимо указать хотя бы один действ�
 
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr "Необходимо указать хотя бы одну действительную подсеть или IP. Только комментарии недопустимы."
+
+msgid "Available actions"
+msgstr ""
 
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
@@ -465,10 +468,10 @@ msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
 
 msgid "Remote Domain Lists"
-msgstr "Удалённые списки доменов"
+msgstr "Внешние списки доменов"
 
 msgid "Remote Subnet Lists"
-msgstr "Удалённые списки подсетей"
+msgstr "Внешние списки подсетей"
 
 msgid "Restart podkop"
 msgstr "Перезапустить Podkop"
@@ -600,10 +603,10 @@ msgid "Specify local IP addresses or subnets whose traffic will always be routed
 msgstr "Укажите локальные IP-адреса или подсети, трафик которых всегда будет направляться через настроенный маршрут."
 
 msgid "Specify remote URLs to download and use domain lists"
-msgstr "Укажите удаленные URL-адреса для загрузки и использования списков доменов."
+msgstr "Укажите URL-адреса для загрузки и использования списков доменов."
 
 msgid "Specify remote URLs to download and use subnet lists"
-msgstr "Укажите удаленные URL-адреса для загрузки и использования списков подсетей."
+msgstr "Укажите URL-адреса для загрузки и использования списков подсетей."
 
 msgid "Specify the path to the list file located on the router filesystem"
 msgstr "Укажите путь к файлу списка, расположенному в файловой системе маршрутизатора."
@@ -620,11 +623,14 @@ msgstr "Успешно скопировано!"
 msgid "System info"
 msgstr "Системная информация"
 
+msgid "System information"
+msgstr ""
+
 msgid "Table exist"
 msgstr "Таблица существует"
 
 msgid "Test latency"
-msgstr "Измерить задержки"
+msgstr "Тестировние задержки"
 
 msgid "Text List"
 msgstr "Текстовый список"

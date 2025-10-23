@@ -18,7 +18,7 @@ export function renderSystemInfo({ items }: IRenderSystemInfoProps) {
     E(
       'b',
       { class: 'pdk_diagnostic-page__right-bar__system-info__title' },
-      'System information',
+      _('System information'),
     ),
     ...items.map((item) => {
       const tagClass = [
