@@ -100,7 +100,7 @@ export function validateVlessUrl(url: string): ValidationResult {
       return {
         valid: false,
         message:
-          'Invalid VLESS URL: flow xtls-rprx-vision-udp443 does not supported',
+          'Invalid VLESS URL: flow xtls-rprx-vision-udp443 is not supported',
       };
     }
 
