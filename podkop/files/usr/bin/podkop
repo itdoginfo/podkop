@@ -767,7 +767,7 @@ sing_box_configure_route() {
     configure_common_reject_route_rule
 
     local routing_excluded_ips
-    config_get_bool routing_excluded_ips "settings" "routing_excluded_ips"
+    config_get routing_excluded_ips "settings" "routing_excluded_ips"
     if [ -n "$routing_excluded_ips" ]; then
         rule_tag="$(gen_id)"
         config=$(sing_box_cm_add_route_rule "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$SB_DIRECT_OUTBOUND_TAG")
