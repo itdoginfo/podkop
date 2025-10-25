@@ -19,6 +19,7 @@ import { renderModal } from '../../../partials';
 import { PODKOP_LUCI_APP_VERSION } from '../../../constants';
 import { showToast } from '../../../helpers/showToast';
 import { renderWikiDisclaimer } from './partials/renderWikiDisclaimer';
+import { runSectionsCheck } from './checks/runSectionsCheck';
 
 async function fetchSystemInfo() {
   const systemInfo = await PodkopShellMethods.getSystemInfo();
@@ -517,6 +518,8 @@ async function runChecks() {
     await runSingBoxCheck();
 
     await runNftCheck();
+
+    await runSectionsCheck();
 
     await runFakeIPCheck();
   } catch (e) {
