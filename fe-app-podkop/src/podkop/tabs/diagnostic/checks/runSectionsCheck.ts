@@ -40,21 +40,43 @@ export async function runSectionsCheck() {
             section.code,
           );
 
+          const selectedOutbound = section.outbounds.find(
+            (item) => item.selected,
+          );
+          const isUrlTest = selectedOutbound?.type === 'URLTest';
+
           const success = latencyGroup.success && !latencyGroup.data.message;
 
           if (success) {
-            const latency = Object.values(latencyGroup.data)
-              .map((item) => (item ? `${item}ms` : 'n/a'))
-              .join(' / ');
+            if (isUrlTest) {
+              const latency = Object.values(latencyGroup.data)
+                .map((item) => (item ? `${item}ms` : 'n/a'))
+                .join(' / ');
+
+              return {
+                success: true,
+                latency: `[${_('Fastest')}] ${latency}`,
+              };
+            }
+
+            const selectedProxyDelay =
+              latencyGroup.data?.[selectedOutbound?.code ?? ''];
+
+            if (selectedProxyDelay) {
+              return {
+                success: true,
+                latency: `[${selectedOutbound?.code ?? ''}] ${selectedProxyDelay}ms`,
+              };
+            }
 
             return {
-              success: true,
-              latency,
+              success: false,
+              latency: `[${selectedOutbound?.code ?? ''}] ${_('Not responding')}`,
             };
           }
 
           return {
-            success: true,
+            success: false,
             latency: _('Not responding'),
           };
         }
