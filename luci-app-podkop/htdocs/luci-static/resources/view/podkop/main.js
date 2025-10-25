@@ -563,14 +563,14 @@ var PodkopShellMethods = {
   getClashApiProxies: async () => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
     Podkop.AvailableClashAPIMethods.GET_PROXIES
   ]),
-  getClashApiProxyLatency: async (tag) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
-    Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY,
-    tag
-  ]),
-  getClashApiGroupLatency: async (tag) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
-    Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY,
-    tag
-  ]),
+  getClashApiProxyLatency: async (tag) => callBaseMethod(
+    Podkop.AvailableMethods.CLASH_API,
+    [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag]
+  ),
+  getClashApiGroupLatency: async (tag) => callBaseMethod(
+    Podkop.AvailableMethods.CLASH_API,
+    [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag]
+  ),
   setClashApiGroupProxy: async (group, proxy) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
     Podkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
     group,
@@ -1004,8 +1004,13 @@ var DIAGNOSTICS_CHECKS_MAP = {
     title: getCheckTitle("Nftables"),
     code: "NFT" /* NFT */
   },
-  ["FAKEIP" /* FAKEIP */]: {
+  ["OUTBOUNDS" /* OUTBOUNDS */]: {
     order: 4,
+    title: getCheckTitle("Outbounds"),
+    code: "OUTBOUNDS" /* OUTBOUNDS */
+  },
+  ["FAKEIP" /* FAKEIP */]: {
+    order: 5,
     title: getCheckTitle("FakeIP"),
     code: "FAKEIP" /* FAKEIP */
   }
@@ -1075,6 +1080,14 @@ var initialDiagnosticStore = {
       state: "skipped"
     },
     {
+      code: "OUTBOUNDS" /* OUTBOUNDS */,
+      title: DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS.title,
+      order: DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
+    },
+    {
       code: "FAKEIP" /* FAKEIP */,
       title: DIAGNOSTICS_CHECKS_MAP.FAKEIP.title,
       order: DIAGNOSTICS_CHECKS_MAP.FAKEIP.order,
@@ -1106,6 +1119,14 @@ var loadingDiagnosticsChecksStore = {
       code: "NFT" /* NFT */,
       title: DIAGNOSTICS_CHECKS_MAP.NFT.title,
       order: DIAGNOSTICS_CHECKS_MAP.NFT.order,
+      description: _("Pending"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "OUTBOUNDS" /* OUTBOUNDS */,
+      title: DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS.title,
+      order: DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS.order,
       description: _("Pending"),
       items: [],
       state: "skipped"
@@ -3685,6 +3706,90 @@ function renderWikiDisclaimer(kind) {
   ]);
 }
 
+// src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts
+async function runSectionsCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking, please wait"),
+    state: "loading",
+    items: []
+  });
+  const sections = await getDashboardSections();
+  if (!sections.success) {
+    updateCheckStore({
+      order,
+      code,
+      title,
+      description: _("Cannot receive checks result"),
+      state: "error",
+      items: []
+    });
+    throw new Error("Sections checks failed");
+  }
+  const items = await Promise.all(
+    sections.data.map(async (section) => {
+      async function getLatency() {
+        if (section.withTagSelect) {
+          const latencyGroup = await PodkopShellMethods.getClashApiGroupLatency(
+            section.code
+          );
+          console.log("Latency group", latencyGroup);
+          const success3 = latencyGroup.success && !latencyGroup.data.message;
+          if (success3) {
+            const latency2 = Object.values(latencyGroup.data).map((item) => item ? `${item}ms` : "n/a").join(" / ");
+            return {
+              success: true,
+              latency: latency2
+            };
+          }
+          return {
+            success: true,
+            latency: _("Not responding")
+          };
+        }
+        const latencyProxy = await PodkopShellMethods.getClashApiProxyLatency(
+          section.code
+        );
+        console.log("Latency proxy", latencyProxy);
+        const success2 = latencyProxy.success && !latencyProxy.data.message;
+        if (success2) {
+          return {
+            success: true,
+            latency: `${latencyProxy.data.delay} ms`
+          };
+        }
+        return {
+          success: false,
+          latency: _("Not responding")
+        };
+      }
+      const { latency, success } = await getLatency();
+      return {
+        state: success ? "success" : "error",
+        key: section.displayName,
+        value: latency
+      };
+    })
+  );
+  const allGood = items.every((item) => item.state === "success");
+  const atLeastOneGood = items.some((item) => item.state === "success");
+  const { state, description } = getMeta({ atLeastOneGood, allGood });
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description,
+    state,
+    items
+  });
+  if (!atLeastOneGood) {
+    throw new Error("Sections checks failed");
+  }
+}
+
 // src/podkop/tabs/diagnostic/initController.ts
 async function fetchSystemInfo() {
   const systemInfo = await PodkopShellMethods.getSystemInfo();
@@ -4118,6 +4223,7 @@ async function runChecks() {
     await runDnsCheck();
     await runSingBoxCheck();
     await runNftCheck();
+    await runSectionsCheck();
     await runFakeIPCheck();
   } catch (e) {
     logger.error("[DIAGNOSTIC]", "runChecks - e", e);

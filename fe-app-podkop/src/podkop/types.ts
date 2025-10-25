@@ -196,4 +196,11 @@ export namespace Podkop {
     openwrt_version: string;
     device_model: string;
   }
+
+  export interface GetClashApiProxyLatency {
+    delay: number;
+    message?: string;
+  }
+
+  export type GetClashApiGroupLatency = Record<string, number>;
 }
