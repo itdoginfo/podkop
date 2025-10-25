@@ -1684,16 +1684,10 @@ show_config() {
     tmp_config=$(mktemp)
 
     sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
-        -e 's/\(option outbound_json\).*/\1 '\''MASKED'\''/g' \
-        -e 's/\(option second_proxy_string\).*/\1 '\''MASKED'\''/g' \
-        -e 's/\(option second_outbound_json\).*/\1 '\''MASKED'\''/g' \
-        -e 's/\(vless:\/\/[^@]*@\)/vless:\/\/MASKED@/g' \
-        -e 's/\(ss:\/\/[^@]*@\)/ss:\/\/MASKED@/g' \
-        -e 's/\(pbk=[^&]*\)/pbk=MASKED/g' \
-        -e 's/\(sid=[^&]*\)/sid=MASKED/g' \
-        -e 's/\(option dns_server '\''[^'\'']*\.dns\.nextdns\.io'\''\)/option dns_server '\''MASKED.dns.nextdns.io'\''/g' \
-        -e "s|\(option dns_server 'dns\.nextdns\.io\)/[^']*|\1/MASKED|" \
+        -e '/option outbound_json/,/^}/c\	option outbound_json '\''MASKED'\''' \
         -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
+        -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
+        -e "s@\\(option domain_resolver_dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         "$PODKOP_CONFIG" > "$tmp_config"
 
     cat "$tmp_config"
