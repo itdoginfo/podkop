@@ -3736,7 +3736,6 @@ async function runSectionsCheck() {
           const latencyGroup = await PodkopShellMethods.getClashApiGroupLatency(
             section.code
           );
-          console.log("Latency group", latencyGroup);
           const success3 = latencyGroup.success && !latencyGroup.data.message;
           if (success3) {
             const latency2 = Object.values(latencyGroup.data).map((item) => item ? `${item}ms` : "n/a").join(" / ");
@@ -3753,7 +3752,6 @@ async function runSectionsCheck() {
         const latencyProxy = await PodkopShellMethods.getClashApiProxyLatency(
           section.code
         );
-        console.log("Latency proxy", latencyProxy);
         const success2 = latencyProxy.success && !latencyProxy.data.message;
         if (success2) {
           return {
