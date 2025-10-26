@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-26 12:45+0200\n"
-"PO-Revision-Date: 2025-10-26 12:45+0200\n"
+"POT-Creation-Date: 2025-10-26 12:56+0200\n"
+"PO-Revision-Date: 2025-10-26 12:56+0200\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -250,9 +250,6 @@ msgid "Download Lists via specific proxy section"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:270
-msgid "Downloading all lists via main Proxy/VPN"
-msgstr ""
-
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:279
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr ""

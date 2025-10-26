@@ -415,9 +415,9 @@ function renderDiagnosticSystemInfoWidget() {
   function getPodkopVersionRow(): IRenderSystemInfoRow {
     const loading = diagnosticsSystemInfo.loading;
     const unknown = diagnosticsSystemInfo.podkop_version === _('unknown');
-    const hasActualVersion = Boolean(
-      diagnosticsSystemInfo.podkop_latest_version,
-    );
+    const hasActualVersion =
+      Boolean(diagnosticsSystemInfo.podkop_latest_version) &&
+      diagnosticsSystemInfo.podkop_latest_version !== 'unknown';
     const version = normalizeCompiledVersion(
       diagnosticsSystemInfo.podkop_version,
     );

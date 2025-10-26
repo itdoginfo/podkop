@@ -398,16 +398,10 @@
     ]
   },
   {
-    "call": "Downloading all lists via main Proxy/VPN",
-    "key": "Downloading all lists via main Proxy/VPN",
-    "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:270"
-    ]
-  },
-  {
     "call": "Downloading all lists via specific Proxy/VPN",
     "key": "Downloading all lists via specific Proxy/VPN",
     "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:270",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:279"
     ]
   },
