@@ -526,7 +526,8 @@
     "call": "Fastest",
     "key": "Fastest",
     "places": [
-      "src/podkop/methods/custom/getDashboardSections.ts:117"
+      "src/podkop/methods/custom/getDashboardSections.ts:117",
+      "src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:58"
     ]
   },
   {
@@ -611,7 +612,7 @@
     "call": "Invalid JSON format",
     "key": "Invalid JSON format",
     "places": [
-      "src/validators/validateOutboundJson.ts:19"
+      "src/validators/validateOutboundJson.ts:9"
     ]
   },
   {
@@ -884,8 +885,9 @@
     "call": "Not responding",
     "key": "Not responding",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:59",
-      "src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:79"
+      "src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:74",
+      "src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:80",
+      "src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:99"
     ]
   },
   {
@@ -918,13 +920,6 @@
     "key": "Outbound Configuration",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:64"
-    ]
-  },
-  {
-    "call": "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields",
-    "key": "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields",
-    "places": [
-      "src/validators/validateOutboundJson.ts:11"
     ]
   },
   {
@@ -1588,7 +1583,7 @@
       "src/validators/validateDomain.ts:13",
       "src/validators/validateDomain.ts:30",
       "src/validators/validateIp.ts:8",
-      "src/validators/validateOutboundJson.ts:17",
+      "src/validators/validateOutboundJson.ts:7",
       "src/validators/validatePath.ts:16",
       "src/validators/validateShadowsocksUrl.ts:95",
       "src/validators/validateSocksUrl.ts:80",
