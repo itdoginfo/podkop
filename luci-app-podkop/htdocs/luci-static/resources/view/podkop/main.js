@@ -323,15 +323,7 @@ function validateVlessUrl(url) {
 // src/validators/validateOutboundJson.ts
 function validateOutboundJson(value) {
   try {
-    const parsed = JSON.parse(value);
-    if (!parsed.type || !parsed.server || !parsed.server_port) {
-      return {
-        valid: false,
-        message: _(
-          'Outbound JSON must contain at least "type", "server" and "server_port" fields'
-        )
-      };
-    }
+    JSON.parse(value);
     return { valid: true, message: _("Valid") };
   } catch {
     return { valid: false, message: _("Invalid JSON format") };
@@ -4152,9 +4144,7 @@ function renderDiagnosticSystemInfoWidget() {
   function getPodkopVersionRow() {
     const loading = diagnosticsSystemInfo.loading;
     const unknown = diagnosticsSystemInfo.podkop_version === _("unknown");
-    const hasActualVersion = Boolean(
-      diagnosticsSystemInfo.podkop_latest_version
-    );
+    const hasActualVersion = Boolean(diagnosticsSystemInfo.podkop_latest_version) && diagnosticsSystemInfo.podkop_latest_version !== "unknown";
     const version = normalizeCompiledVersion(
       diagnosticsSystemInfo.podkop_version
     );
@@ -4745,6 +4735,10 @@ function insertIf(condition, elements) {
 function insertIfObj(condition, object) {
   return condition ? object : {};
 }
+
+// src/main.ts
+if (typeof structuredClone !== "function")
+  globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,

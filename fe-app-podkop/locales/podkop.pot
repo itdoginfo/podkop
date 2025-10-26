@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-25 22:08+0300\n"
-"PO-Revision-Date: 2025-10-25 22:08+0300\n"
+"POT-Creation-Date: 2025-10-26 12:56+0200\n"
+"PO-Revision-Date: 2025-10-26 12:56+0200\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -250,9 +250,6 @@ msgid "Download Lists via specific proxy section"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:270
-msgid "Downloading all lists via main Proxy/VPN"
-msgstr ""
-
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:279
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr ""
@@ -324,6 +321,7 @@ msgid "Failed to execute!"
 msgstr ""
 
 #: src/podkop/methods/custom/getDashboardSections.ts:117
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:58
 msgid "Fastest"
 msgstr ""
 
@@ -372,7 +370,7 @@ msgstr ""
 msgid "Invalid IP address"
 msgstr ""
 
-#: src/validators/validateOutboundJson.ts:19
+#: src/validators/validateOutboundJson.ts:9
 msgid "Invalid JSON format"
 msgstr ""
 
@@ -528,8 +526,9 @@ msgstr ""
 msgid "Not implement yet"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:59
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:79
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:74
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:80
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:99
 msgid "Not responding"
 msgstr ""
 
@@ -551,10 +550,6 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:64
 msgid "Outbound Configuration"
-msgstr ""
-
-#: src/validators/validateOutboundJson.ts:11
-msgid "Outbound JSON must contain at least \"type\", \"server\" and \"server_port\" fields"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/initController.ts:443
@@ -941,7 +936,7 @@ msgstr ""
 #: src/validators/validateDomain.ts:13
 #: src/validators/validateDomain.ts:30
 #: src/validators/validateIp.ts:8
-#: src/validators/validateOutboundJson.ts:17
+#: src/validators/validateOutboundJson.ts:7
 #: src/validators/validatePath.ts:16
 #: src/validators/validateShadowsocksUrl.ts:95
 #: src/validators/validateSocksUrl.ts:80

@@ -267,7 +267,7 @@ function createSettingsContent(section) {
     form.Flag,
     "download_lists_via_proxy",
     _("Download Lists via Proxy/VPN"),
-    _("Downloading all lists via main Proxy/VPN"),
+    _("Downloading all lists via specific Proxy/VPN"),
   );
   o.default = "0";
   o.rmempty = false;
