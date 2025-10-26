@@ -4737,6 +4737,10 @@ function insertIf(condition, elements) {
 function insertIfObj(condition, object) {
   return condition ? object : {};
 }
+
+// src/main.ts
+if (typeof structuredClone !== "function")
+  globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
