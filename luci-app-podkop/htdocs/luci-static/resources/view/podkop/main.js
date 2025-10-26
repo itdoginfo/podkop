@@ -3745,12 +3745,12 @@ async function runSectionsCheck() {
             if (selectedProxyDelay) {
               return {
                 success: true,
-                latency: `[${selectedOutbound?.code ?? ""}] ${selectedProxyDelay}ms`
+                latency: `[${selectedOutbound?.displayName ?? ""}] ${selectedProxyDelay}ms`
               };
             }
             return {
               success: false,
-              latency: `[${selectedOutbound?.code ?? ""}] ${_("Not responding")}`
+              latency: `[${selectedOutbound?.displayName ?? ""}] ${_("Not responding")}`
             };
           }
           return {
