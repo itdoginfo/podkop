@@ -84,6 +84,27 @@ function createSettingsContent(section) {
   };
 
   o = section.option(
+    form.Flag,
+    'dns_bind_interface',
+    _('DNS bind interface'),
+    _('Interface for access to DNS server')
+  );
+  o.default = '0';
+  o.rmempty = false;
+
+  o = section.option(
+    widgets.DeviceSelect,
+    'dns_interface',
+    _('Interface for DNS'),
+    _('Select the interface to access the DNS server')
+  );
+  o.depends('dns_bind_interface', '1');
+  o.noaliases = true;
+  o.nobridges = false;
+  o.noinactive = false;
+  o.multiple = false;
+
+  o = section.option(
     widgets.DeviceSelect,
     "source_network_interfaces",
     _("Source Network Interface"),

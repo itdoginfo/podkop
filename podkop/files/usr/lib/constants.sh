@@ -44,6 +44,8 @@ SB_SERVICE_MIXED_INBOUND_ADDRESS="127.0.0.1"
 SB_SERVICE_MIXED_INBOUND_PORT=4534
 # Outbounds
 SB_DIRECT_OUTBOUND_TAG="direct-out"
+# DNS outbound tag
+SB_DNS_OUTBOUND_TAG="dns-out"
 # Route
 SB_REJECT_RULE_TAG="reject-rule-tag"
 # Experimental

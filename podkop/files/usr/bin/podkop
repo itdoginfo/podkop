@@ -524,6 +524,31 @@ list_update() {
     fi
 }
 
+get_dns_bind_interface() {
+    local dns_bind_interface dns_interface
+    
+    config_get_bool dns_bind_interface "settings" "dns_bind_interface" "0"
+    
+    if [ "$dns_bind_interface" -eq 0 ]; then
+        return 1
+    fi
+    
+    config_get dns_interface "settings" "dns_interface"
+    
+    if [ -z "$dns_interface" ]; then
+        log "DNS bind interface enabled but interface not specified" "warn"
+        return 1
+    fi
+    
+    if ! ip link show "$dns_interface" > /dev/null 2>&1; then
+        log "DNS interface '$dns_interface' does not exist" "warn"
+        return 1
+    fi
+    
+    echo "$dns_interface"
+    return 0
+}
+
 # sing-box funcs
 
 sing_box_uci() {
@@ -590,6 +615,13 @@ sing_box_configure_outbounds() {
     log "Configure the outbounds section of a sing-box JSON configuration"
 
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
+
+    # DNS outbound with interface binding
+    local dns_interface
+    if dns_interface=$(get_dns_bind_interface); then
+        log "Adding DNS outbound with bind_interface: $dns_interface"
+        config=$(sing_box_cm_add_interface_outbound "$config" "$SB_DNS_OUTBOUND_TAG" "$dns_interface")
+    fi
 
     config_foreach configure_outbound_handler "section"
 }
@@ -716,8 +748,16 @@ sing_box_configure_dns() {
         dns_domain_resolver=$SB_BOOTSTRAP_SERVER_TAG
     fi
 
+    # Determine DNS detour based on interface binding
+    local dns_detour=""
+    local dns_interface
+    if dns_interface=$(get_dns_bind_interface); then
+        dns_detour="$SB_DNS_OUTBOUND_TAG"
+        log "DNS will use interface: $dns_interface" "debug"
+    fi
+
     config=$(sing_box_cm_add_udp_dns_server "$config" "$SB_BOOTSTRAP_SERVER_TAG" "$bootstrap_dns_server" 53)
-    config=$(sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "$dns_domain_resolver")
+    config=$(sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "$dns_domain_resolver" "$dns_detour")
     config=$(sing_box_cm_add_fakeip_dns_server "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_INET4_RANGE")
 
     log "Adding DNS Rules"
