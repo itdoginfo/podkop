@@ -627,9 +627,12 @@ configure_outbound_handler() {
         urltest)
             log "Detected proxy configuration type: urltest" "debug"
             local urltest_proxy_links udp_over_tcp i urltest_tag selector_tag outbound_tag outbound_tags \
-                urltest_outbounds selector_outbounds
+                urltest_outbounds selector_outbounds urltest_check_interval urltest_tolerance urltest_testing_url
             config_get urltest_proxy_links "$section" "urltest_proxy_links"
             config_get udp_over_tcp "$section" "enable_udp_over_tcp"
+            config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
+            config_get urltest_tolerance "$section" "urltest_tolerance" 50
+            config_get urltest_testing_url "$section" "urltest_testing_url" "https://www.gstatic.com/generate_204"
 
             if [ -z "$urltest_proxy_links" ]; then
                 log "URLTest proxy links is not set. Aborted." "fatal"
@@ -652,7 +655,8 @@ configure_outbound_handler() {
             selector_tag="$(get_outbound_tag_by_section "$section")"
             urltest_outbounds="$(comma_string_to_json_array "$outbound_tags")"
             selector_outbounds="$(comma_string_to_json_array "$outbound_tags,$urltest_tag")"
-            config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds")"
+            config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds" \
+                "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
             config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag")"
             ;;
         *)
@@ -2273,9 +2277,9 @@ global_check() {
         fi
 
         if [ "$sing_box_version_ok" -eq 1 ]; then
-            print_global "✅ Sing-box version >= 1.12.4"
+            print_global "✅ Sing-box version is compatible (newer than 1.12.4)"
         else
-            print_global "❌ Sing-box version >= 1.12.4"
+            print_global "❌ Sing-box version is not compatible (older than 1.12.4)"
         fi
 
         if [ "$sing_box_service_exist" -eq 1 ]; then

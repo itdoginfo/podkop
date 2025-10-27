@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-26 14:56+0200\n"
-"PO-Revision-Date: 2025-10-26 14:56+0200\n"
+"POT-Creation-Date: 2025-10-27 13:15+0200\n"
+"PO-Revision-Date: 2025-10-27 13:15+0200\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -218,6 +218,18 @@ msgstr "Введите доменные имена без протоколов, 
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
 msgstr "Введите подсети в нотации CIDR (например, 103.21.244.0/22) или отдельные IP-адреса"
 
+msgid "Every 1 minute"
+msgstr "Каждую минуту"
+
+msgid "Every 3 minutes"
+msgstr "Каждые 3 минуты"
+
+msgid "Every 30 seconds"
+msgstr "Каждые 30 секунд"
+
+msgid "Every 5 minutes"
+msgstr "Каждые 5 минут"
+
 msgid "Exclude NTP"
 msgstr "Исключить NTP"
 
@@ -373,6 +385,9 @@ msgstr "Порт смешанного прокси"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
+
+msgid "Must be a number in the range of 50 - 1000"
+msgstr "Должно быть числом от 50 до 1000"
 
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
@@ -557,8 +572,8 @@ msgstr "Процесс sing-box запущен"
 msgid "Sing-box service exist"
 msgstr "Сервис sing-box существует"
 
-msgid "Sing-box version >= 1.12.4"
-msgstr "Версия sing-box >= 1.12.4"
+msgid "Sing-box version is compatible (newer than 1.12.4)"
+msgstr "Версия Sing-box совместима (новее 1.12.4)"
 
 msgid "Source Network Interface"
 msgstr "Сетевой интерфейс источника"
@@ -608,6 +623,15 @@ msgstr "Текстовый список (через запятую, пробел
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
 
+msgid "The interval between connectivity tests"
+msgstr "Интервал между тестами подключения"
+
+msgid "The maximum difference in response times (ms) allowed when comparing servers"
+msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
+
+msgid "The URL used to test server connectivity"
+msgstr "URL-адрес, используемый для проверки подключения к серверу"
+
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
 
@@ -650,8 +674,17 @@ msgstr "URL должен использовать один из следующи
 msgid "URLTest"
 msgstr "URLTest"
 
+msgid "URLTest Check Interval"
+msgstr "Интервал проверки URLTest"
+
 msgid "URLTest Proxy Links"
 msgstr "Ссылки прокси для URLTest"
+
+msgid "URLTest Testing URL"
+msgstr "URLTest ссылка для проверки"
+
+msgid "URLTest Tolerance"
+msgstr "URLTest допустимое отклонение"
 
 msgid "User Domain List Type"
 msgstr "Тип пользовательского списка доменов"

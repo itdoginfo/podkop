@@ -16,6 +16,7 @@ const invalidUrls = [
   ['Unsupported protocol (ftp)', 'ftp://example.com'],
   ['Unsupported protocol (ws)', 'ws://example.com'],
   ['Empty string', ''],
+  ['Without tld', 'https://google'],
 ];
 
 describe('validateUrl', () => {

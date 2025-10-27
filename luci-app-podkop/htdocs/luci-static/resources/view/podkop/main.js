@@ -58,18 +58,22 @@ function validateDNS(value) {
 
 // src/validators/validateUrl.ts
 function validateUrl(url, protocols = ["http:", "https:"]) {
-  try {
-    const parsedUrl = new URL(url);
-    if (!protocols.includes(parsedUrl.protocol)) {
-      return {
-        valid: false,
-        message: `${_("URL must use one of the following protocols:")} ${protocols.join(", ")}`
-      };
-    }
-    return { valid: true, message: _("Valid") };
-  } catch (_e) {
+  if (!url.length) {
     return { valid: false, message: _("Invalid URL format") };
   }
+  const hasValidProtocol = protocols.some((p) => url.indexOf(p + "//") === 0);
+  if (!hasValidProtocol)
+    return {
+      valid: false,
+      message: _("URL must use one of the following protocols:") + " " + protocols.join(", ")
+    };
+  const regex = new RegExp(
+    `^(?:${protocols.map((p) => p.replace(":", "")).join("|")})://(?:[A-Za-z0-9-]+\\.)+[A-Za-z]{2,}(?::\\d+)?(?:/[^\\s]*)?$`
+  );
+  if (regex.test(url)) {
+    return { valid: true, message: _("Valid") };
+  }
+  return { valid: false, message: _("Invalid URL format") };
 }
 
 // src/validators/validatePath.ts
@@ -557,11 +561,11 @@ var PodkopShellMethods = {
   ]),
   getClashApiProxyLatency: async (tag) => callBaseMethod(
     Podkop.AvailableMethods.CLASH_API,
-    [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag]
+    [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, "5000"]
   ),
   getClashApiGroupLatency: async (tag) => callBaseMethod(
     Podkop.AvailableMethods.CLASH_API,
-    [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag]
+    [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, "10000"]
   ),
   setClashApiGroupProxy: async (group, proxy) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
     Podkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
@@ -2505,7 +2509,7 @@ async function runSingBoxCheck() {
       },
       {
         state: data.sing_box_version_ok ? "success" : "error",
-        key: _("Sing-box version >= 1.12.4"),
+        key: _("Sing-box version is compatible (newer than 1.12.4)"),
         value: ""
       },
       {

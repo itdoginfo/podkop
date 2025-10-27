@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-26 12:56+0200\n"
-"PO-Revision-Date: 2025-10-26 12:56+0200\n"
+"POT-Creation-Date: 2025-10-27 11:15+0200\n"
+"PO-Revision-Date: 2025-10-27 11:15+0200\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -40,15 +40,15 @@ msgstr ""
 msgid "Additional marking rules found"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:111
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:175
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:356
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:420
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:437
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:501
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr ""
 
@@ -115,7 +115,7 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:211
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:275
 msgid "Community Lists"
 msgstr ""
 
@@ -183,8 +183,8 @@ msgstr ""
 msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:302
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:382
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:366
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:446
 msgid "Disabled"
 msgstr ""
 
@@ -192,17 +192,17 @@ msgstr ""
 msgid "DNS on router"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:179
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:243
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:15
 msgid "DNS over HTTPS (DoH)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:180
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:244
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:16
 msgid "DNS over TLS (DoT)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:176
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:240
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:12
 msgid "DNS Protocol Type"
 msgstr ""
@@ -211,7 +211,7 @@ msgstr ""
 msgid "DNS Rewrite TTL"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:189
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:253
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:24
 msgid "DNS Server"
 msgstr ""
@@ -224,7 +224,7 @@ msgstr ""
 msgid "Do not panic, everything can be fixed, just..."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:166
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:230
 msgid "Domain Resolver"
 msgstr ""
 
@@ -254,8 +254,8 @@ msgstr ""
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:303
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:383
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:367
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:447
 msgid "Dynamic List"
 msgstr ""
 
@@ -263,11 +263,11 @@ msgstr ""
 msgid "Enable autostart"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:167
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:231
 msgid "Enable built-in DNS resolver for domains handled by this section"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:575
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:639
 msgid "Enable Mixed Proxy"
 msgstr ""
 
@@ -275,7 +275,7 @@ msgstr ""
 msgid "Enable Output Network Interface"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:576
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:640
 msgid "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies"
 msgstr ""
 
@@ -287,16 +287,32 @@ msgstr ""
 msgid "Enter complete outbound configuration in JSON format"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:338
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:402
 msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:312
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:376
 msgid "Enter domain names without protocols, e.g. example.com or sub.example.com"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:392
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:456
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:114
+msgid "Every 1 minute"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:115
+msgid "Every 3 minutes"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:113
+msgid "Every 30 seconds"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:116
+msgid "Every 5 minutes"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:365
@@ -321,11 +337,11 @@ msgid "Failed to execute!"
 msgstr ""
 
 #: src/podkop/methods/custom/getDashboardSections.ts:117
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:58
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:59
 msgid "Fastest"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:550
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:614
 msgid "Fully Routed IPs"
 msgstr ""
 
@@ -466,7 +482,8 @@ msgstr ""
 msgid "Invalid Trojan URL: parsing failed"
 msgstr ""
 
-#: src/validators/validateUrl.ts:18
+#: src/validators/validateUrl.ts:8
+#: src/validators/validateUrl.ts:31
 msgid "Invalid URL format"
 msgstr ""
 
@@ -490,11 +507,11 @@ msgstr ""
 msgid "List Update Frequency"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:458
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:522
 msgid "Local Domain Lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:481
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:545
 msgid "Local Subnet Lists"
 msgstr ""
 
@@ -506,7 +523,7 @@ msgstr ""
 msgid "Memory Usage"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:586
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:650
 msgid "Mixed Proxy Port"
 msgstr ""
 
@@ -514,7 +531,11 @@ msgstr ""
 msgid "Monitored Interfaces"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:120
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:140
+msgid "Must be a number in the range of 50 - 1000"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:184
 msgid "Network Interface"
 msgstr ""
 
@@ -526,9 +547,9 @@ msgstr ""
 msgid "Not implement yet"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:74
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:80
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:99
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:75
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:81
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:100
 msgid "Not responding"
 msgstr ""
 
@@ -608,15 +629,15 @@ msgstr ""
 msgid "Proxy traffic is routed via FakeIP"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:245
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:309
 msgid "Regional options cannot be used together"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:504
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:568
 msgid "Remote Domain Lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:527
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:591
 msgid "Remote Subnet Lists"
 msgstr ""
 
@@ -664,7 +685,7 @@ msgstr ""
 msgid "Run Diagnostic"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:264
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:328
 msgid "Russia inside restrictions"
 msgstr ""
 
@@ -672,7 +693,7 @@ msgstr ""
 msgid "Sections"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:212
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:276
 msgid "Select a predefined list for routing"
 msgstr ""
 
@@ -692,11 +713,11 @@ msgstr ""
 msgid "Select how to configure the proxy"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:121
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:185
 msgid "Select network interface for VPN connection"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:190
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:254
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:25
 msgid "Select or enter DNS server address"
 msgstr ""
@@ -709,15 +730,15 @@ msgstr ""
 msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:177
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:241
 msgid "Select the DNS protocol type for the domain resolver"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:300
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:364
 msgid "Select the list type for adding custom domains"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:380
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:444
 msgid "Select the list type for adding custom subnets"
 msgstr ""
 
@@ -771,7 +792,7 @@ msgid "Sing-box service exist"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:67
-msgid "Sing-box version >= 1.12.4"
+msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:89
@@ -782,20 +803,20 @@ msgstr ""
 msgid "Specify a local IP address to be excluded from routing"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:551
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:615
 msgid "Specify local IP addresses or subnets whose traffic will always be routed through the configured route"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:505
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:569
 msgid "Specify remote URLs to download and use domain lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:528
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:592
 msgid "Specify remote URLs to download and use subnet lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:459
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:482
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:523
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:546
 msgid "Specify the path to the list file located on the router filesystem"
 msgstr ""
 
@@ -827,16 +848,28 @@ msgstr ""
 msgid "Test latency"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:304
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:368
 msgid "Text List"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:384
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:448
 msgid "Text List (comma/space/newline separated)"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:46
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:111
+msgid "The interval between connectivity tests"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:124
+msgid "The maximum difference in response times (ms) allowed when comparing servers"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:147
+msgid "The URL used to test server connectivity"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:69
@@ -863,12 +896,12 @@ msgstr ""
 msgid "TTL value cannot be empty"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:181
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:245
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:17
 msgid "UDP (Unprotected DNS)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:110
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:174
 msgid "UDP over TCP"
 msgstr ""
 
@@ -895,7 +928,7 @@ msgstr ""
 msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
 msgstr ""
 
-#: src/validators/validateUrl.ts:13
+#: src/validators/validateUrl.ts:17
 msgid "URL must use one of the following protocols:"
 msgstr ""
 
@@ -903,31 +936,43 @@ msgstr ""
 msgid "URLTest"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:110
+msgid "URLTest Check Interval"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:87
 msgid "URLTest Proxy Links"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:299
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:146
+msgid "URLTest Testing URL"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:123
+msgid "URLTest Tolerance"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:363
 msgid "User Domain List Type"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:311
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:375
 msgid "User Domains"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:337
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:401
 msgid "User Domains List"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:379
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:443
 msgid "User Subnet List Type"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:391
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:455
 msgid "User Subnets"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:417
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:481
 msgid "User Subnets List"
 msgstr ""
 
@@ -942,13 +987,13 @@ msgstr ""
 #: src/validators/validateSocksUrl.ts:80
 #: src/validators/validateSubnet.ts:38
 #: src/validators/validateTrojanUrl.ts:59
-#: src/validators/validateUrl.ts:16
+#: src/validators/validateUrl.ts:28
 #: src/validators/validateVlessUrl.ts:108
 msgid "Valid"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:370
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:449
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:434
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:513
 msgid "Validation errors:"
 msgstr ""
 
@@ -961,11 +1006,11 @@ msgstr ""
 msgid "Visit Wiki"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:247
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:311
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:266
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:330
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
