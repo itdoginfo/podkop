@@ -2277,9 +2277,9 @@ global_check() {
         fi
 
         if [ "$sing_box_version_ok" -eq 1 ]; then
-            print_global "✅ Sing-box version >= 1.12.4"
+            print_global "✅ Sing-box version is compatible (newer than 1.12.4)"
         else
-            print_global "❌ Sing-box version >= 1.12.4"
+            print_global "❌ Sing-box version is not compatible (older than 1.12.4)"
         fi
 
         if [ "$sing_box_service_exist" -eq 1 ]; then

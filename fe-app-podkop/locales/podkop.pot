@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-27 11:06+0200\n"
-"PO-Revision-Date: 2025-10-27 11:06+0200\n"
+"POT-Creation-Date: 2025-10-27 11:15+0200\n"
+"PO-Revision-Date: 2025-10-27 11:15+0200\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -792,7 +792,7 @@ msgid "Sing-box service exist"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:67
-msgid "Sing-box version >= 1.12.4"
+msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:89

@@ -1330,8 +1330,8 @@
     ]
   },
   {
-    "call": "Sing-box version >= 1.12.4",
-    "key": "Sing-box version >= 1.12.4",
+    "call": "Sing-box version is compatible (newer than 1.12.4)",
+    "key": "Sing-box version is compatible (newer than 1.12.4)",
     "places": [
       "src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:67"
     ]
