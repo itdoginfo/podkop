@@ -31,12 +31,12 @@ export const PodkopShellMethods = {
   getClashApiProxyLatency: async (tag: string) =>
     callBaseMethod<Podkop.GetClashApiProxyLatency>(
       Podkop.AvailableMethods.CLASH_API,
-      [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag],
+      [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, '5000'],
     ),
   getClashApiGroupLatency: async (tag: string) =>
     callBaseMethod<Podkop.GetClashApiGroupLatency>(
       Podkop.AvailableMethods.CLASH_API,
-      [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag],
+      [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, '10000'],
     ),
   setClashApiGroupProxy: async (group: string, proxy: string) =>
     callBaseMethod<unknown>(Podkop.AvailableMethods.CLASH_API, [

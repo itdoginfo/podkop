@@ -561,11 +561,11 @@ var PodkopShellMethods = {
   ]),
   getClashApiProxyLatency: async (tag) => callBaseMethod(
     Podkop.AvailableMethods.CLASH_API,
-    [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag]
+    [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, "5000"]
   ),
   getClashApiGroupLatency: async (tag) => callBaseMethod(
     Podkop.AvailableMethods.CLASH_API,
-    [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag]
+    [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, "10000"]
   ),
   setClashApiGroupProxy: async (group, proxy) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
     Podkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
