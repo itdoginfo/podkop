@@ -126,6 +126,19 @@ function createSectionContent(section) {
   o.default = "50"
   o.rmempty = false;
   o.depends("proxy_config_type", "urltest");
+  o.validate = function (section_id, value) {
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const parsed = parseFloat(value);
+
+    if (/^[0-9]+$/.test(value) && !isNaN(parsed) && isFinite(parsed) && parsed >= 50 && parsed <= 1000) {
+      return true;
+    }
+
+    return _('Must be a number in the range of 50 - 1000');
+  };
 
   o = section.option(
     form.Value,
@@ -140,6 +153,20 @@ function createSectionContent(section) {
   o.default = "https://www.gstatic.com/generate_204"
   o.rmempty = false;
   o.depends("proxy_config_type", "urltest");
+
+  o.validate = function (section_id, value) {
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateUrl(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
 
   o = section.option(
     form.Flag,
