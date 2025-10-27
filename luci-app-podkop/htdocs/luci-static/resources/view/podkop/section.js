@@ -149,7 +149,7 @@ function createSectionContent(section) {
   o.value("https://www.gstatic.com/generate_204", "https://www.gstatic.com/generate_204 (Google)");
   o.value("https://cp.cloudflare.com/generate_204", "https://cp.cloudflare.com/generate_204 (Cloudflare)");
   o.value("https://captive.apple.com", "https://captive.apple.com (Apple)");
-  o.value("https://connectivity-check.ubuntu.com", " https://connectivity-check.ubuntu.com (Ubuntu)")
+  o.value("https://connectivity-check.ubuntu.com", "https://connectivity-check.ubuntu.com (Ubuntu)")
   o.default = "https://www.gstatic.com/generate_204"
   o.rmempty = false;
   o.depends("proxy_config_type", "urltest");
