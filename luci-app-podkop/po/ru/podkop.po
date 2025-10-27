@@ -681,10 +681,10 @@ msgid "URLTest Proxy Links"
 msgstr "Ссылки прокси для URLTest"
 
 msgid "URLTest Testing URL"
-msgstr "URLTest ссылка для проверки"
+msgstr "URL для тестирования URLTest"
 
 msgid "URLTest Tolerance"
-msgstr "URLTest допустимое отклонение"
+msgstr "Порог переключения URLTest"
 
 msgid "User Domain List Type"
 msgstr "Тип пользовательского списка доменов"
