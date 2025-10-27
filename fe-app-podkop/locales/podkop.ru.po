@@ -222,7 +222,7 @@ msgid "Every 1 minute"
 msgstr "Каждую минуту"
 
 msgid "Every 3 minutes"
-msgstr "каждые 3 минуты"
+msgstr "Каждые 3 минуты"
 
 msgid "Every 30 seconds"
 msgstr "Каждые 30 секунд"
