@@ -43,6 +43,7 @@ export async function runSectionsCheck() {
           const selectedOutbound = section.outbounds.find(
             (item) => item.selected,
           );
+
           const isUrlTest = selectedOutbound?.type === 'URLTest';
 
           const success = latencyGroup.success && !latencyGroup.data.message;
@@ -65,13 +66,13 @@ export async function runSectionsCheck() {
             if (selectedProxyDelay) {
               return {
                 success: true,
-                latency: `[${selectedOutbound?.code ?? ''}] ${selectedProxyDelay}ms`,
+                latency: `[${selectedOutbound?.displayName ?? ''}] ${selectedProxyDelay}ms`,
               };
             }
 
             return {
               success: false,
-              latency: `[${selectedOutbound?.code ?? ''}] ${_('Not responding')}`,
+              latency: `[${selectedOutbound?.displayName ?? ''}] ${_('Not responding')}`,
             };
           }
 
