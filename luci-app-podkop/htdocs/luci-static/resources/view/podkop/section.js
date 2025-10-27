@@ -114,7 +114,7 @@ function createSectionContent(section) {
   o.value("1m", _("Every 1 minute"));
   o.value("3m", _("Every 3 minutes"));
   o.value("5m", _("Every 5 minutes"));
-  o.default = "3m"
+  o.default = "3m";
   o.depends("proxy_config_type", "urltest");
 
   o = section.option(
@@ -123,7 +123,7 @@ function createSectionContent(section) {
     _("URLTest Tolerance"),
     _("The maximum difference in response times (ms) allowed when comparing servers")
   );
-  o.default = "50"
+  o.default = "50";
   o.rmempty = false;
   o.depends("proxy_config_type", "urltest");
   o.validate = function (section_id, value) {
@@ -150,7 +150,7 @@ function createSectionContent(section) {
   o.value("https://cp.cloudflare.com/generate_204", "https://cp.cloudflare.com/generate_204 (Cloudflare)");
   o.value("https://captive.apple.com", "https://captive.apple.com (Apple)");
   o.value("https://connectivity-check.ubuntu.com", "https://connectivity-check.ubuntu.com (Ubuntu)")
-  o.default = "https://www.gstatic.com/generate_204"
+  o.default = "https://www.gstatic.com/generate_204";
   o.rmempty = false;
   o.depends("proxy_config_type", "urltest");
 
