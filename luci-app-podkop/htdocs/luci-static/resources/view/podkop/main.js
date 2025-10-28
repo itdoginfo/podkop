@@ -58,18 +58,22 @@ function validateDNS(value) {
 
 // src/validators/validateUrl.ts
 function validateUrl(url, protocols = ["http:", "https:"]) {
-  try {
-    const parsedUrl = new URL(url);
-    if (!protocols.includes(parsedUrl.protocol)) {
-      return {
-        valid: false,
-        message: `${_("URL must use one of the following protocols:")} ${protocols.join(", ")}`
-      };
-    }
-    return { valid: true, message: _("Valid") };
-  } catch (_e) {
+  if (!url.length) {
     return { valid: false, message: _("Invalid URL format") };
   }
+  const hasValidProtocol = protocols.some((p) => url.indexOf(p + "//") === 0);
+  if (!hasValidProtocol)
+    return {
+      valid: false,
+      message: _("URL must use one of the following protocols:") + " " + protocols.join(", ")
+    };
+  const regex = new RegExp(
+    `^(?:${protocols.map((p) => p.replace(":", "")).join("|")})://(?:[A-Za-z0-9-]+\\.)+[A-Za-z]{2,}(?::\\d+)?(?:/[^\\s]*)?$`
+  );
+  if (regex.test(url)) {
+    return { valid: true, message: _("Valid") };
+  }
+  return { valid: false, message: _("Invalid URL format") };
 }
 
 // src/validators/validatePath.ts
@@ -323,15 +327,7 @@ function validateVlessUrl(url) {
 // src/validators/validateOutboundJson.ts
 function validateOutboundJson(value) {
   try {
-    const parsed = JSON.parse(value);
-    if (!parsed.type || !parsed.server || !parsed.server_port) {
-      return {
-        valid: false,
-        message: _(
-          'Outbound JSON must contain at least "type", "server" and "server_port" fields'
-        )
-      };
-    }
+    JSON.parse(value);
     return { valid: true, message: _("Valid") };
   } catch {
     return { valid: false, message: _("Invalid JSON format") };
@@ -565,11 +561,11 @@ var PodkopShellMethods = {
   ]),
   getClashApiProxyLatency: async (tag) => callBaseMethod(
     Podkop.AvailableMethods.CLASH_API,
-    [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag]
+    [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, "5000"]
   ),
   getClashApiGroupLatency: async (tag) => callBaseMethod(
     Podkop.AvailableMethods.CLASH_API,
-    [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag]
+    [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, "10000"]
   ),
   setClashApiGroupProxy: async (group, proxy) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
     Podkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
@@ -2513,7 +2509,7 @@ async function runSingBoxCheck() {
       },
       {
         state: data.sing_box_version_ok ? "success" : "error",
-        key: _("Sing-box version >= 1.12.4"),
+        key: _("Sing-box version is compatible (newer than 1.12.4)"),
         value: ""
       },
       {
@@ -3753,12 +3749,12 @@ async function runSectionsCheck() {
             if (selectedProxyDelay) {
               return {
                 success: true,
-                latency: `[${selectedOutbound?.code ?? ""}] ${selectedProxyDelay}ms`
+                latency: `[${selectedOutbound?.displayName ?? ""}] ${selectedProxyDelay}ms`
               };
             }
             return {
               success: false,
-              latency: `[${selectedOutbound?.code ?? ""}] ${_("Not responding")}`
+              latency: `[${selectedOutbound?.displayName ?? ""}] ${_("Not responding")}`
             };
           }
           return {
@@ -4152,9 +4148,7 @@ function renderDiagnosticSystemInfoWidget() {
   function getPodkopVersionRow() {
     const loading = diagnosticsSystemInfo.loading;
     const unknown = diagnosticsSystemInfo.podkop_version === _("unknown");
-    const hasActualVersion = Boolean(
-      diagnosticsSystemInfo.podkop_latest_version
-    );
+    const hasActualVersion = Boolean(diagnosticsSystemInfo.podkop_latest_version) && diagnosticsSystemInfo.podkop_latest_version !== "unknown";
     const version = normalizeCompiledVersion(
       diagnosticsSystemInfo.podkop_version
     );
@@ -4745,6 +4739,10 @@ function insertIf(condition, elements) {
 function insertIfObj(condition, object) {
   return condition ? object : {};
 }
+
+// src/main.ts
+if (typeof structuredClone !== "function")
+  globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
 return baseclass.extend({
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
