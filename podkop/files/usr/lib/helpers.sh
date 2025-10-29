@@ -293,10 +293,10 @@ convert_crlf_to_lf() {
     local filepath="$1"
 
     if grep -q $'\r' "$filepath"; then
-        log "Downloaded file has Windows line endings (CRLF). Converting to Unix (LF)" "debug"
+        log "File '$filepath' contains CRLF line endings. Converting to LF..." "debug"
         local tmpfile
         tmpfile=$(mktemp)
-        tr -d '\r' < "$filepath" > "$tmpfile" && mv "$tmpfile" "$filepath"
+        tr -d '\r' < "$filepath" > "$tmpfile" && mv "$tmpfile" "$filepath" || rm -f "$tmpfile"
     fi
 }
 
