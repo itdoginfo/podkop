@@ -268,25 +268,6 @@ migration_rename_config_key() {
     fi
 }
 
-# Download URL content directly
-download_to_stream() {
-    local url="$1"
-    local http_proxy_address="$2"
-    local retries="${3:-3}"
-    local wait="${4:-2}"
-
-    for attempt in $(seq 1 "$retries"); do
-        if [ -n "$http_proxy_address" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -qO- "$url" | sed 's/\r$//' && break
-        else
-            wget -qO- "$url" | sed 's/\r$//' && break
-        fi
-
-        log "Attempt $attempt/$retries to download $url failed" "warn"
-        sleep "$wait"
-    done
-}
-
 # Download URL to file
 download_to_file() {
     local url="$1"
