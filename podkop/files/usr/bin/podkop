@@ -1307,6 +1307,7 @@ import_domains_or_subnets_from_remote_file() {
     http_proxy_address="$(get_service_proxy_address)"
 
     download_to_file "$url" "$tmpfile" "$http_proxy_address"
+    convert_crlf_to_lf "$tmpfile"
 
     if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
         log "Download $url list failed" "error"

@@ -305,10 +305,17 @@ download_to_file() {
         log "Attempt $attempt/$retries to download $url failed" "warn"
         sleep "$wait"
     done
+}
+
+# Converts Windows-style line endings (CRLF) to Unix-style (LF)
+convert_crlf_to_lf() {
+    local filepath="$1"
 
     if grep -q $'\r' "$filepath"; then
-        log "Downloaded file has Windows line endings (CRLF). Converting to Unix (LF)"
-        sed -i 's/\r$//' "$filepath"
+        log "Downloaded file has Windows line endings (CRLF). Converting to Unix (LF)" "debug"
+        local tmpfile
+        tmpfile=$(mktemp)
+        tr -d '\r' < "$filepath" > "$tmpfile" && mv "$tmpfile" "$filepath"
     fi
 }
 
