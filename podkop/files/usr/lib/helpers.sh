@@ -388,3 +388,17 @@ parse_domain_or_subnet_file_to_comma_string() {
 
     echo "$result"
 }
+
+# Extracts all ip_cidr entries from a JSON ruleset file and writes them to an output file.
+extract_ip_cidr_from_json_ruleset_to_file() {
+    local json_file="$1"
+    local output_file="$2"
+
+    if [ ! -f "$json_file" ]; then
+        log "JSON file not found: $json_file" "error"
+        return 1
+    fi
+
+    log "Extracting ip_cidr entries from $json_file to $output_file" "debug"
+    jq -r '.rules[].ip_cidr[]' "$json_file" > "$output_file"
+}
