@@ -731,10 +731,18 @@ async function getDashboardSections() {
   };
 }
 
+// src/podkop/methods/custom/getClashApiSecret.ts
+async function getClashApiSecret() {
+  const sections = await getConfigSections();
+  const settings = sections.find((section) => section[".type"] === "settings");
+  return settings?.yacd_secret_key || "";
+}
+
 // src/podkop/methods/custom/index.ts
 var CustomPodkopMethods = {
   getConfigSections,
-  getDashboardSections
+  getDashboardSections,
+  getClashApiSecret
 };
 
 // src/constants.ts
@@ -1876,8 +1884,9 @@ async function fetchDashboardSections() {
   });
 }
 async function connectToClashSockets() {
+  const clashApiSecret = await getClashApiSecret();
   socket.subscribe(
-    `${getClashWsUrl()}/traffic?token=`,
+    `${getClashWsUrl()}/traffic?token=${clashApiSecret}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
       store.set({
@@ -1904,7 +1913,7 @@ async function connectToClashSockets() {
     }
   );
   socket.subscribe(
-    `${getClashWsUrl()}/connections?token=`,
+    `${getClashWsUrl()}/connections?token=${clashApiSecret}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
       store.set({

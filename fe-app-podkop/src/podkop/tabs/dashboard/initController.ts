@@ -8,6 +8,7 @@ import { CustomPodkopMethods, PodkopShellMethods } from '../../methods';
 import { logger, socket, store, StoreType } from '../../services';
 import { renderSections, renderWidget } from './partials';
 import { fetchServicesInfo } from '../../fetchers';
+import { getClashApiSecret } from '../../methods/custom/getClashApiSecret';
 
 // Fetchers
 
@@ -38,8 +39,10 @@ async function fetchDashboardSections() {
 }
 
 async function connectToClashSockets() {
+  const clashApiSecret = await getClashApiSecret();
+
   socket.subscribe(
-    `${getClashWsUrl()}/traffic?token=`,
+    `${getClashWsUrl()}/traffic?token=${clashApiSecret}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
 
@@ -68,7 +71,7 @@ async function connectToClashSockets() {
   );
 
   socket.subscribe(
-    `${getClashWsUrl()}/connections?token=`,
+    `${getClashWsUrl()}/connections?token=${clashApiSecret}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
 

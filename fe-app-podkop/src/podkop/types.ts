@@ -126,6 +126,7 @@ export namespace Podkop {
   export type ConfigSection = ConfigBaseSection & {
     '.name': string;
     '.type': 'settings' | 'section';
+    yacd_secret_key?: string;
   };
 
   export interface MethodSuccessResponse<T> {
