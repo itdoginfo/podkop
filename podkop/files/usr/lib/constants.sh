@@ -38,7 +38,6 @@ SB_TPROXY_INBOUND_PORT=1602
 SB_DNS_INBOUND_TAG="dns-in"
 SB_DNS_INBOUND_ADDRESS="127.0.0.42"
 SB_DNS_INBOUND_PORT=53
-SB_MIXED_INBOUND_ADDRESS="0.0.0.0" # TODO(ampetelin): maybe to determine address?
 SB_SERVICE_MIXED_INBOUND_TAG="service-mixed-in"
 SB_SERVICE_MIXED_INBOUND_ADDRESS="127.0.0.1"
 SB_SERVICE_MIXED_INBOUND_PORT=4534
@@ -47,7 +46,7 @@ SB_DIRECT_OUTBOUND_TAG="direct-out"
 # Route
 SB_REJECT_RULE_TAG="reject-rule-tag"
 # Experimental
-SB_CLASH_API_CONTROLLER="0.0.0.0:9090"
+SB_CLASH_API_CONTROLLER_PORT=9090
 
 ## Lists
 GITHUB_RAW_URL="https://raw.githubusercontent.com/itdoginfo/allow-domains/main"
