@@ -1342,7 +1342,7 @@ sing_box_cm_configure_cache_file() {
 #   config: string, JSON configuration
 #   external_controller: string, API listening address; Clash API will be disabled if empty
 #   external_ui: string, Optional path to static web resources to serve at http://{{external-controller}}/ui
-#   secret: string, Optional secret for the RESTful API Authenticate by spedifying HTTP header
+#   secret: string, Optional secret for the RESTful API Authenticate by specifying HTTP header
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
