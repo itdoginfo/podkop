@@ -246,7 +246,7 @@ function createSettingsContent(section) {
     _("Enable YACD WAN Access"),
     _("Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."),
   );
-  o.depends("enable_yacd", "1")
+  o.depends("enable_yacd", "1");
   o.default = "0";
   o.rmempty = false;
 
@@ -256,7 +256,7 @@ function createSettingsContent(section) {
     _("YACD Secret Key"),
     _("Secret key for authenticating remote access to YACD when WAN access is enabled."),
   );
-  o.depends("enable_yacd_wan_access", "1")
+  o.depends("enable_yacd_wan_access", "1");
   o.rmempty = false;
 
   o = section.option(
