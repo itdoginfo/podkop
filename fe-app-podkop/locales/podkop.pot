@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-27 11:15+0200\n"
-"PO-Revision-Date: 2025-10-27 11:15+0200\n"
+"POT-Creation-Date: 2025-11-06 14:19+0200\n"
+"PO-Revision-Date: 2025-11-06 14:19+0200\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -38,6 +38,10 @@ msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:106
 msgid "Additional marking rules found"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:247
+msgid "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:175
@@ -72,11 +76,11 @@ msgstr ""
 msgid "Browser is using FakeIP correctly"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:329
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:348
 msgid "Cache File Path"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:343
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:362
 msgid "Cache file path cannot be empty"
 msgstr ""
 
@@ -119,7 +123,7 @@ msgstr ""
 msgid "Community Lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:316
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:335
 msgid "Config File Path"
 msgstr ""
 
@@ -175,11 +179,11 @@ msgstr ""
 msgid "Disable autostart"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:246
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:265
 msgid "Disable QUIC"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:247
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:266
 msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
 msgstr ""
 
@@ -228,7 +232,7 @@ msgstr ""
 msgid "Domain Resolver"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:307
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:326
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
@@ -241,16 +245,16 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:269
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:288
 msgid "Download Lists via Proxy/VPN"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:278
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:297
 msgid "Download Lists via specific proxy section"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:270
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:279
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:289
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:298
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr ""
 
@@ -281,6 +285,10 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:237
 msgid "Enable YACD"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:246
+msgid "Enable YACD WAN Access"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:65
@@ -315,11 +323,11 @@ msgstr ""
 msgid "Every 5 minutes"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:365
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:384
 msgid "Exclude NTP"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:366
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:385
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr ""
 
@@ -503,7 +511,7 @@ msgstr ""
 msgid "Latest"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:257
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:276
 msgid "List Update Frequency"
 msgstr ""
 
@@ -585,15 +593,15 @@ msgstr ""
 msgid "Path cannot be empty"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:347
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:366
 msgid "Path must be absolute (start with /)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:356
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:375
 msgid "Path must contain at least one directory (like /tmp/cache.db)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:351
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:370
 msgid "Path must end with cache.db"
 msgstr ""
 
@@ -613,7 +621,7 @@ msgstr ""
 msgid "Podkop Settings"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:308
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:327
 msgid "Podkop will not modify your DHCP configuration"
 msgstr ""
 
@@ -653,7 +661,7 @@ msgstr ""
 msgid "Router DNS is routed through sing-box"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:376
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:395
 msgid "Routing Excluded IPs"
 msgstr ""
 
@@ -689,6 +697,10 @@ msgstr ""
 msgid "Russia inside restrictions"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:257
+msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:36
 msgid "Sections"
 msgstr ""
@@ -705,7 +717,7 @@ msgstr ""
 msgid "Select DNS protocol to use"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:258
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:277
 msgid "Select how often the domain or subnet lists are updated automatically"
 msgstr ""
 
@@ -722,11 +734,11 @@ msgstr ""
 msgid "Select or enter DNS server address"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:330
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:349
 msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:317
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:336
 msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
 msgstr ""
 
@@ -799,7 +811,7 @@ msgstr ""
 msgid "Source Network Interface"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:377
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:396
 msgid "Specify a local IP address to be excluded from routing"
 msgstr ""
 
@@ -1012,6 +1024,10 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:330
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:256
+msgid "YACD Secret Key"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:127

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-27 13:15+0200\n"
-"PO-Revision-Date: 2025-10-27 13:15+0200\n"
+"POT-Creation-Date: 2025-11-06 16:19+0200\n"
+"PO-Revision-Date: 2025-11-06 16:19+0200\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -34,6 +34,9 @@ msgstr "Активные соединения"
 
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
+
+msgid "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."
+msgstr "Обеспечивает доступ к YACD из WAN. Убедитесь, что в брандмауэре открыт соответствующий порт."
 
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
@@ -205,6 +208,9 @@ msgstr "Включить смешанный прокси-сервер, разр�
 
 msgid "Enable YACD"
 msgstr "Включить YACD"
+
+msgid "Enable YACD WAN Access"
+msgstr "Включить доступ YACD WAN"
 
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
@@ -497,6 +503,9 @@ msgstr "Запустить диагностику"
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
 
+msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
+msgstr "Секретный ключ для аутентификации удаленного доступа к YACD при включенном доступе через WAN."
+
 msgid "Sections"
 msgstr "Секции"
 
@@ -681,10 +690,10 @@ msgid "URLTest Proxy Links"
 msgstr "Ссылки прокси для URLTest"
 
 msgid "URLTest Testing URL"
-msgstr "URL для тестирования URLTest"
+msgstr "URLTest ссылка для проверки"
 
 msgid "URLTest Tolerance"
-msgstr "Порог переключения URLTest"
+msgstr "URLTest допустимое отклонение"
 
 msgid "User Domain List Type"
 msgstr "Тип пользовательского списка доменов"
@@ -721,6 +730,9 @@ msgstr "Предупреждение: %s нельзя использовать �
 
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
+
+msgid "YACD Secret Key"
+msgstr "Секретный ключ YACD"
 
 msgid "You can select Output Network Interface, by default autodetect"
 msgstr "Вы можете выбрать выходной сетевой интерфейс, по умолчанию он определяется автоматически."
