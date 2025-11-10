@@ -1079,16 +1079,39 @@ sing_box_configure_experimental() {
     config_get cache_file "settings" "cache_path" "/tmp/sing-box/cache.db"
     config=$(sing_box_cm_configure_cache_file "$config" true "$cache_file" true)
 
-    local enable_yacd external_controller_ui
-    config_get_bool enable_yacd "settings" "enable_yacd" 0
     log "Configuring Clash API"
+    local enable_yacd enable_yacd_wan_access clash_api_controller_address
+    config_get_bool enable_yacd "settings" "enable_yacd" 0
+    config_get_bool enable_yacd_wan_access "settings" "enable_yacd_wan_access" 0
+
+    if [ "$enable_yacd" -eq 1 ] && [ "$enable_yacd_wan_access" -eq 1 ]; then
+        clash_api_controller_address="0.0.0.0"
+    else
+        clash_api_controller_address="$(get_service_listen_address)"
+        if [ -z "$clash_api_controller_address" ]; then
+            log "Could not determine the listening IP address for the Clash API controller. It will run only on localhost." "warn"
+            clash_api_controller_address="127.0.0.1"
+        fi
+    fi
+
     if [ "$enable_yacd" -eq 1 ]; then
         log "YACD is enabled, enabling Clash API with downloadable YACD" "debug"
-        local external_controller_ui="ui"
-        config=$(sing_box_cm_configure_clash_api "$config" "$SB_CLASH_API_CONTROLLER" "$external_controller_ui")
+        local yacd_secret_key external_controller_ui
+        config_get yacd_secret_key "settings" "yacd_secret_key"
+        external_controller_ui="ui"
+
+        config=$(
+            sing_box_cm_configure_clash_api \
+                "$config" \
+                "$clash_api_controller_address:$SB_CLASH_API_CONTROLLER_PORT" \
+                "$external_controller_ui" \
+                "$yacd_secret_key"
+        )
     else
         log "YACD is disabled, enabling Clash API in online mode" "debug"
-        config=$(sing_box_cm_configure_clash_api "$config" "$SB_CLASH_API_CONTROLLER")
+        config=$(
+            sing_box_cm_configure_clash_api "$config" "$clash_api_controller_address:$SB_CLASH_API_CONTROLLER_PORT"
+        )
     fi
 }
 
@@ -1117,8 +1140,13 @@ sing_box_additional_inbounds() {
 configure_section_mixed_proxy() {
     local section="$1"
 
-    local mixed_inbound_enabled mixed_proxy_port mixed_inbound_tag mixed_outbound_tag
+    local mixed_inbound_enabled mixed_proxy_port mixed_inbound_tag mixed_outbound_tag mixed_proxy_address
     config_get_bool mixed_inbound_enabled "$section" "mixed_proxy_enabled" 0
+    mixed_proxy_address="$(get_service_listen_address)"
+    if [ -z "$mixed_proxy_address" ]; then
+        log "Could not determine the listening IP address for the Mixed Proxy. The proxy will not be created." "warn"
+        return 1
+    fi
     config_get mixed_proxy_port "$section" "mixed_proxy_port"
     if [ "$mixed_inbound_enabled" -eq 1 ]; then
         mixed_inbound_tag="$(get_inbound_tag_by_section "$section-mixed")"
@@ -1127,7 +1155,7 @@ configure_section_mixed_proxy() {
             sing_box_cf_add_mixed_inbound_and_route_rule \
                 "$config" \
                 "$mixed_inbound_tag" \
-                "$SB_MIXED_INBOUND_ADDRESS" \
+                "$mixed_proxy_address" \
                 "$mixed_proxy_port" \
                 "$mixed_outbound_tag"
         )
@@ -1460,6 +1488,23 @@ section_has_enabled_lists() {
     fi
 }
 
+get_service_listen_address() {
+    local service_listen_address
+
+    service_listen_address="$(uci_get "network" "lan" "ipaddr")"
+
+    if [ -z "$service_listen_address" ]; then
+        config_get service_listen_address "settings" "service_listen_address" # TODO(ampetelin): Remove after testing
+    fi
+
+    if [ -z "$service_listen_address" ]; then
+        log "Failed to determine the listening IP address. Please open an issue to report this problem: https://github.com/itdoginfo/podkop/issues" "error"
+        return 1
+    fi
+
+    echo "$service_listen_address"
+}
+
 ## nftables
 nft_list_all_traffic_from_ip() {
     local ip="$1"
@@ -1671,7 +1716,7 @@ check_logs() {
         nolog "Logs not found"
         return 1
     fi
-    ы
+
     # Find the last occurrence of "Starting podkop"
     local start_line
     start_line=$(echo "$logs" | grep -n "podkop.*Starting podkop" | tail -n 1 | cut -d: -f1)
@@ -1733,6 +1778,7 @@ show_config() {
         -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e "s@\\(option domain_resolver_dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
+        -e 's/\(option yacd_secret_key\).*/\1 '\''MASKED'\''/g' \
         "$PODKOP_CONFIG" > "$tmp_config"
 
     cat "$tmp_config"
@@ -2112,13 +2158,28 @@ check_fakeip() {
 #######################################
 
 clash_api() {
-    local CLASH_URL="127.0.0.1:9090"
-    local TEST_URL="https://www.gstatic.com/generate_204"
     local action="$1"
+    local clash_api_controller_address CLASH_URL TEST_URL
+    clash_api_controller_address="$(get_service_listen_address)"
+    if [ -z "$clash_api_controller_address" ]; then
+        clash_api_controller_address="127.0.0.1"
+    fi
+    CLASH_URL="$clash_api_controller_address:$SB_CLASH_API_CONTROLLER_PORT"
+    TEST_URL="https://www.gstatic.com/generate_204"
+
+    local enable_yacd_wan_access yacd_secret_key auth_header
+    config_get_bool enable_yacd_wan_access "settings" "enable_yacd_wan_access" 0
+    config_get yacd_secret_key "settings" "yacd_secret_key"
+
+    if [ "$enable_yacd_wan_access" -eq 1 ]; then
+        auth_header="Authorization: Bearer $yacd_secret_key"
+    else
+        auth_header=""
+    fi
 
     case "$action" in
     get_proxies)
-        curl -s "$CLASH_URL/proxies" | jq .
+        curl -s --header "$auth_header" "$CLASH_URL/proxies" | jq .
         ;;
 
     get_proxy_latency)
@@ -2131,6 +2192,7 @@ clash_api() {
         fi
 
         curl -G -s "$CLASH_URL/proxies/$proxy_tag/delay" \
+            --header "$auth_header" \
             --data-urlencode "url=$TEST_URL" \
             --data-urlencode "timeout=$timeout" | jq .
         ;;
@@ -2145,6 +2207,7 @@ clash_api() {
         fi
 
         curl -G -s "$CLASH_URL/group/$group_tag/delay" \
+            --header "$auth_header" \
             --data-urlencode "url=$TEST_URL" \
             --data-urlencode "timeout=$timeout" | jq .
         ;;
@@ -2159,8 +2222,11 @@ clash_api() {
         fi
 
         local response
-        response=$(curl -X PUT -s -w "\n%{http_code}" "$CLASH_URL/proxies/$group_tag" \
-            --data-raw "{\"name\":\"$proxy_tag\"}")
+        response=$(
+            curl -X PUT -s -w "\n%{http_code}" "$CLASH_URL/proxies/$group_tag" \
+                --header "$auth_header" \
+                --data-raw "{\"name\":\"$proxy_tag\"}"
+        )
 
         local http_code
         local body

@@ -1339,9 +1339,10 @@ sing_box_cm_configure_cache_file() {
 #######################################
 # Configure the experimental clash_api section of a sing-box JSON configuration.
 # Arguments:
-#   config: JSON configuration (string)
-#   external_controller: API listening address; Clash API will be disabled if empty
-#   external_ui: Optional path to static web resources to serve at http://{{external-controller}}/ui
+#   config: string, JSON configuration
+#   external_controller: string, API listening address; Clash API will be disabled if empty
+#   external_ui: string, Optional path to static web resources to serve at http://{{external-controller}}/ui
+#   secret: string, Optional secret for the RESTful API Authenticate by specifying HTTP header
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -1351,14 +1352,17 @@ sing_box_cm_configure_clash_api() {
     local config="$1"
     local external_controller="$2"
     local external_ui="$3"
+    local secret="$4"
 
     echo "$config" | jq \
         --arg external_controller "$external_controller" \
         --arg external_ui "$external_ui" \
+        --arg secret "$secret" \
         '.experimental.clash_api = {
             external_controller: $external_controller,
         }
-        + (if $external_ui != "" then { external_ui: $external_ui } else {} end)'
+        + (if $external_ui != "" then { external_ui: $external_ui } else {} end)
+        + (if $secret != "" then { secret: $secret } else {} end)'
 }
 
 #######################################
