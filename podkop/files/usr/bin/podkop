@@ -840,7 +840,7 @@ configure_routing_for_section_lists() {
     fi
 
     local community_lists user_domain_list_type user_subnet_list_type local_domain_lists local_subnet_lists \
-        remote_domain_lists remote_subnet_lists section_connection_type route_rule_tag
+        remote_domain_lists remote_subnet_lists direct_domain_list_type section_connection_type route_rule_tag
     config_get community_lists "$section" "community_lists"
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
     config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
@@ -848,7 +848,14 @@ configure_routing_for_section_lists() {
     config_get local_subnet_lists "$section" "local_subnet_lists"
     config_get remote_domain_lists "$section" "remote_domain_lists"
     config_get remote_subnet_lists "$section" "remote_subnet_lists"
+    config_get direct_domain_list_type "$section" "direct_domain_list_type" "disabled"
     config_get section_connection_type "$section" "connection_type"
+
+
+    if [ "$direct_domain_list_type" != "disabled" ]; then
+        log "Processing direct routing domains for '$section' section"
+        configure_direct_domain_list "$section" "$direct_domain_list_type"
+    fi
 
     if [ "$section_connection_type" = "block" ]; then
         route_rule_tag="$SB_REJECT_RULE_TAG"
@@ -1069,6 +1076,49 @@ configure_remote_domain_or_subnet_list_handler() {
         log "Detected file extension: '$file_extension' → no processing needed, managed on list_update" "debug"
         ;;
     esac
+}
+
+configure_direct_domain_list() {
+    local section="$1"
+    local direct_domain_list_type="$2"
+
+    local items ruleset_tag ruleset_filename ruleset_filepath json_array
+
+    case "$direct_domain_list_type" in
+    dynamic) config_get items "$section" "direct_domains" ;;
+    text) config_get items "$section" "direct_domains_text" ;;
+    *) log "Unsupported direct domain list type: $direct_domain_list_type" "error"; return 1 ;;
+    esac
+
+    # Parse items to get comma-separated string
+    items="$(parse_domain_or_subnet_string_to_commas_string "$items" "domains")"
+
+    # If no items found, skip
+    if [ -z "$items" ]; then
+        log "No valid direct domains found for section '$section'" "warn"
+        return 0
+    fi
+
+    # Create ruleset for direct domains
+    ruleset_tag=$(get_ruleset_tag "$section" "direct" "domains")
+    ruleset_filename="$ruleset_tag.json"
+    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
+
+    # Create the ruleset file
+    sing_box_cm_create_local_source_ruleset "$ruleset_filepath"
+    config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
+
+    # Add domains to the ruleset
+    json_array="$(comma_string_to_json_array "$items")"
+    sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
+
+    # Create a routing rule that routes direct domains to the "direct" outbound (bypassing proxy/vpn)
+    local direct_route_rule_tag
+    direct_route_rule_tag=$(get_ruleset_tag "$section" "direct" "route_rule")
+    config=$(sing_box_cm_add_route_rule "$config" "$direct_route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$SB_DIRECT_OUTBOUND_TAG")
+    config=$(sing_box_cm_patch_route_rule "$config" "$direct_route_rule_tag" "rule_set" "$ruleset_tag")
+
+    log "Configured direct routing for domains from section '$section'" "debug"
 }
 
 sing_box_configure_experimental() {
@@ -1465,7 +1515,7 @@ block_section_exists() {
 section_has_enabled_lists() {
     local section="$1"
     local community_lists user_domain_list_type user_subnet_list_type local_domain_lists local_subnet_lists \
-        remote_domain_lists remote_subnet_lists
+        remote_domain_lists remote_subnet_lists direct_domain_list_type
 
     config_get community_lists "$section" "community_lists"
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
@@ -1474,6 +1524,7 @@ section_has_enabled_lists() {
     config_get local_subnet_lists "$section" "local_subnet_lists"
     config_get remote_domain_lists "$section" "remote_domain_lists"
     config_get remote_subnet_lists "$section" "remote_subnet_lists"
+    config_get direct_domain_list_type "$section" "direct_domain_list_type" "disabled"
 
     if [ -n "$community_lists" ] ||
         [ "$user_domain_list_type" != "disabled" ] ||
@@ -1481,7 +1532,8 @@ section_has_enabled_lists() {
         [ -n "$local_domain_lists" ] ||
         [ -n "$local_subnet_lists" ] ||
         [ -n "$remote_domain_lists" ] ||
-        [ -n "$remote_subnet_lists" ]; then
+        [ -n "$remote_subnet_lists" ] ||
+        [ "$direct_domain_list_type" != "disabled" ]; then
         return 0
     else
         return 1

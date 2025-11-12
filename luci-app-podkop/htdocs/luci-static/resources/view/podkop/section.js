@@ -634,6 +634,86 @@ function createSectionContent(section) {
   };
 
   o = section.option(
+    form.ListValue,
+    "direct_domain_list_type",
+    _("Direct Routing Domain List Type"),
+    _("Select the list type for domains that should always route directly (not through proxy/VPN)"),
+  );
+  o.value("disabled", _("Disabled"));
+  o.value("dynamic", _("Dynamic List"));
+  o.value("text", _("Text List"));
+  o.default = "disabled";
+  o.rmempty = false;
+
+  o = section.option(
+    form.DynamicList,
+    "direct_domains",
+    _("Direct Routing Domains"),
+    _(
+      "Enter domain names that should route directly. Domains will bypass the configured proxy/VPN",
+    ),
+  );
+  o.placeholder = "example.com";
+  o.depends("direct_domain_list_type", "dynamic");
+  o.rmempty = false;
+  o.validate = function (section_id, value) {
+    // Optional
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateDomain(value, true);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.option(
+    form.TextValue,
+    "direct_domains_text",
+    _("Direct Routing Domains List"),
+    _(
+      "Enter domain names separated by commas, spaces, or newlines. Domains will bypass the configured proxy/VPN. You can add comments using //",
+    ),
+  );
+  o.placeholder =
+    "example.com, test.com\n// Local domains\nlocal.com";
+  o.depends("direct_domain_list_type", "text");
+  o.rows = 8;
+  o.rmempty = false;
+  o.validate = function (section_id, value) {
+    // Optional
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const domains = main.parseValueList(value);
+
+    if (!domains.length) {
+      return _(
+        "At least one valid domain must be specified. Comments-only content is not allowed.",
+      );
+    }
+
+    const { valid, results } = main.bulkValidate(domains, (row) =>
+      main.validateDomain(row, true),
+    );
+
+    if (!valid) {
+      const errors = results
+        .filter((validation) => !validation.valid)
+        .map((validation) => `${validation.value}: ${validation.message}`);
+
+      return [_("Validation errors:"), ...errors].join("\n");
+    }
+
+    return true;
+  };
+
+  o = section.option(
     form.Flag,
     "mixed_proxy_enabled",
     _("Enable Mixed Proxy"),
