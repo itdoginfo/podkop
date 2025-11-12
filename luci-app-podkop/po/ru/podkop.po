@@ -736,3 +736,21 @@ msgstr "Секретный ключ YACD"
 
 msgid "You can select Output Network Interface, by default autodetect"
 msgstr "Вы можете выбрать выходной сетевой интерфейс, по умолчанию он определяется автоматически."
+
+msgid "Direct Routing Domain List Type"
+msgstr "Тип списка доменов для прямой маршрутизации"
+
+msgid "Select the list type for domains that should always route directly (not through proxy/VPN)"
+msgstr "Выберите тип списка для доменов, которые должны всегда маршрутизироваться напрямую (не через прокси/VPN)"
+
+msgid "Direct Routing Domains"
+msgstr "Домены для прямой маршрутизации"
+
+msgid "Enter domain names that should route directly. Domains will bypass the configured proxy/VPN"
+msgstr "Введите имена доменов, которые должны маршрутизироваться напрямую. Эти домены будут обходить настроенный прокси/VPN"
+
+msgid "Direct Routing Domains List"
+msgstr "Список доменов для прямой маршрутизации"
+
+msgid "Enter domain names separated by commas, spaces, or newlines. Domains will bypass the configured proxy/VPN. You can add comments using //"
+msgstr "Введите имена доменов, разделенные запятыми, пробелами или новыми строками. Эти домены будут обходить настроенный прокси/VPN. Вы можете добавить комментарии, используя //"

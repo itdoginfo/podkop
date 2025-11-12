@@ -1033,3 +1033,27 @@ msgstr ""
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:127
 msgid "You can select Output Network Interface, by default autodetect"
 msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:638
+msgid "Direct Routing Domain List Type"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:640
+msgid "Select the list type for domains that should always route directly (not through proxy/VPN)"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:650
+msgid "Direct Routing Domains"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:653
+msgid "Enter domain names that should route directly. Domains will bypass the configured proxy/VPN"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:676
+msgid "Direct Routing Domains List"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:679
+msgid "Enter domain names separated by commas, spaces, or newlines. Domains will bypass the configured proxy/VPN. You can add comments using //"
+msgstr ""
