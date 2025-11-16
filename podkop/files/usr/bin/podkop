@@ -909,16 +909,19 @@ prepare_common_ruleset() {
 
     log "Preparing a common $type ruleset for '$section' section" "debug"
     ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
-    ruleset_filepath=$(create_source_rule_set "$ruleset_tag")
-    config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
-    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-    case "$type" in
-    domains)
-        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
-        ;;
-    subnets) ;;
-    *) log "Unsupported remote rule set type: $type" "error" ;;
-    esac
+    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
+    create_source_rule_set "$ruleset_filepath"
+    if [ $? -eq 0 ]; then
+        config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
+        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+        case "$type" in
+        domains)
+            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+            ;;
+        subnets) ;;
+        *) log "Unsupported remote rule set type: $type" "error" ;;
+        esac
+    fi
 }
 
 configure_community_list_handler() {
@@ -983,7 +986,8 @@ configure_local_domain_or_subnet_lists() {
 
     local ruleset_tag ruleset_filepath
     ruleset_tag="$(get_ruleset_tag "$section" "local" "$type")"
-    ruleset_filepath=$(create_source_rule_set "$ruleset_tag")
+    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
+    create_source_rule_set "$ruleset_filepath"
     config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
 
@@ -1282,9 +1286,33 @@ import_domains_from_remote_domain_list_handler() {
         ;;
     *)
         log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
-        import_domains_or_subnets_from_remote_file "$url" "$section" "domains"
+        import_domains_from_remote_plain_file "$url" "$section" "domains"
         ;;
     esac
+}
+
+import_domains_from_remote_plain_file() {
+    local url="$1"
+    local section="$2"
+    local type="$3"
+
+    local tmpfile http_proxy_address items json_array
+    tmpfile=$(mktemp)
+    http_proxy_address="$(get_service_proxy_address)"
+
+    download_to_file "$url" "$tmpfile" "$http_proxy_address"
+
+    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
+        log "Download $url list failed" "error"
+        return 1
+    fi
+
+    convert_crlf_to_lf "$tmpfile"
+    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
+    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
+    import_plain_domain_list_to_local_source_ruleset_chunked "$tmpfile" "$ruleset_filepath"
+
+    rm -f "$tmpfile"
 }
 
 import_subnets_from_remote_subnet_lists() {
@@ -1316,48 +1344,9 @@ import_subnets_from_remote_subnet_list_handler() {
         ;;
     *)
         log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
-        import_domains_or_subnets_from_remote_file "$url" "$section" "subnets"
+        import_subnets_from_remote_plain_file "$url" "$section" "subnets"
         ;;
     esac
-}
-
-import_domains_or_subnets_from_remote_file() {
-    local url="$1"
-    local section="$2"
-    local type="$3"
-
-    local tmpfile http_proxy_address items json_array
-    tmpfile=$(mktemp)
-    http_proxy_address="$(get_service_proxy_address)"
-
-    download_to_file "$url" "$tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
-        log "Download $url list failed" "error"
-        return 1
-    fi
-
-    convert_crlf_to_lf "$tmpfile"
-    items="$(parse_domain_or_subnet_file_to_comma_string "$tmpfile" "$type")"
-
-    if [ -z "$items" ]; then
-        log "No valid $type found in $url" "warn"
-        return 0
-    fi
-
-    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
-    ruleset_filename="$ruleset_tag.json"
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
-    json_array="$(comma_string_to_json_array "$items")"
-    case "$type" in
-    domains) patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
-    subnets)
-        patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
-        nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
-        ;;
-    esac
-
-    rm -f "$tmpfile"
 }
 
 import_subnets_from_remote_json_file() {
@@ -1403,6 +1392,32 @@ import_subnets_from_remote_srs_file() {
     extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"
     nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
     rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
+}
+
+import_subnets_from_remote_plain_file() {
+    local url="$1"
+    local section="$2"
+    local type="$3"
+
+    local tmpfile http_proxy_address items json_array
+    tmpfile=$(mktemp)
+    http_proxy_address="$(get_service_proxy_address)"
+
+    download_to_file "$url" "$tmpfile" "$http_proxy_address"
+
+    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
+        log "Download $url list failed" "error"
+        return 1
+    fi
+
+    convert_crlf_to_lf "$tmpfile"
+
+    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
+    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
+    import_plain_subnet_list_to_local_source_ruleset_chunked "$tmpfile" "$ruleset_filepath"
+    nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
+
+    rm -f "$tmpfile"
 }
 
 ## Support functions

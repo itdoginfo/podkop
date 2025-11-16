@@ -14,18 +14,14 @@ get_ruleset_tag() {
 
 # Creates a new ruleset JSON file if it doesn't already exist and outputs its path.
 create_source_rule_set() {
-    local ruleset_name="$1"
+    local ruleset_filepath="$1"
 
-    ruleset_filename="$ruleset_name.json"
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
     if file_exists "$ruleset_filepath"; then
-        log "Ruleset $ruleset_filepath already exists. Skipping." "debug"
-        return 0
+        log "Source ruleset $ruleset_filepath already exists" "debug"
+        return 1
     fi
 
     jq -n '{version: 3, rules: []}' > "$ruleset_filepath"
-
-    echo "$ruleset_filepath"
 }
 
 #######################################
