@@ -18,6 +18,7 @@ check_required_file "$PODKOP_LIB/helpers.sh"
 check_required_file "$PODKOP_LIB/sing_box_config_manager.sh"
 check_required_file "$PODKOP_LIB/sing_box_config_facade.sh"
 check_required_file "$PODKOP_LIB/logging.sh"
+check_required_file "$PODKOP_LIB/rulesets.sh"
 . /lib/config/uci.sh
 . /lib/functions.sh
 . "$PODKOP_LIB/constants.sh"
@@ -26,6 +27,7 @@ check_required_file "$PODKOP_LIB/logging.sh"
 . "$PODKOP_LIB/sing_box_config_manager.sh"
 . "$PODKOP_LIB/sing_box_config_facade.sh"
 . "$PODKOP_LIB/logging.sh"
+. "$PODKOP_LIB/rulesets.sh"
 
 config_load "$PODKOP_CONFIG"
 
@@ -907,22 +909,16 @@ prepare_common_ruleset() {
 
     log "Preparing a common $type ruleset for '$section' section" "debug"
     ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
-    ruleset_filename="$ruleset_tag.json"
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
-    if file_exists "$ruleset_filepath"; then
-        log "Ruleset $ruleset_filepath already exists. Skipping." "debug"
-    else
-        sing_box_cm_create_local_source_ruleset "$ruleset_filepath"
-        config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
-        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-        case "$type" in
-        domains)
-            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
-            ;;
-        subnets) ;;
-        *) log "Unsupported remote rule set type: $type" "error" ;;
-        esac
-    fi
+    ruleset_filepath=$(create_source_rule_set "$ruleset_tag")
+    config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
+    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+    case "$type" in
+    domains)
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+        ;;
+    subnets) ;;
+    *) log "Unsupported remote rule set type: $type" "error" ;;
+    esac
 }
 
 configure_community_list_handler() {
@@ -972,9 +968,9 @@ configure_user_domain_or_subnets_list() {
     items="$(parse_domain_or_subnet_string_to_commas_string "$items" "$type")"
     json_array="$(comma_string_to_json_array "$items")"
     case "$type" in
-    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
+    domains) patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
     subnets)
-        sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
+        patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
         nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$items"
         ;;
     esac
@@ -985,56 +981,57 @@ configure_local_domain_or_subnet_lists() {
     local type="$2"
     local route_rule_tag="$3"
 
-    local ruleset_tag ruleset_filename ruleset_filepath
+    local ruleset_tag ruleset_filepath
     ruleset_tag="$(get_ruleset_tag "$section" "local" "$type")"
-    ruleset_filename="$ruleset_tag.json"
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
-
-    sing_box_cm_create_local_source_ruleset "$ruleset_filepath"
+    ruleset_filepath=$(create_source_rule_set "$ruleset_tag")
     config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
 
     case "$type" in
     domains)
-        config_list_foreach "$section" "local_domain_lists" import_local_domain_or_subnet_list "$type" \
-            "$section" "$ruleset_filepath"
+        config_list_foreach "$section" "local_domain_lists" import_local_domain_list "$ruleset_filepath"
         config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
         ;;
     subnets)
-        config_list_foreach "$section" "local_subnet_lists" import_local_domain_or_subnet_list "$type" \
-            "$section" "$ruleset_filepath"
+        config_list_foreach "$section" "local_subnet_lists" import_local_subnets_list "$ruleset_filepath"
         ;;
     *) log "Unsupported local rule set type: $type" "error" ;;
     esac
 }
 
-import_local_domain_or_subnet_list() {
-    local filepath="$1"
-    local type="$2"
-    local section="$3"
-    local ruleset_filepath="$4"
+import_local_domain_list() {
+    local local_domain_list_filepath="$1"
+    local ruleset_filepath="$2"
 
-    if ! file_exists "$filepath"; then
-        log "File $filepath not found" "error"
+    if ! file_exists "$local_domain_list_filepath"; then
+        log "Local domain list file $local_domain_list_filepath not found" "error"
         return 1
     fi
 
-    local items json_array
-    items="$(parse_domain_or_subnet_file_to_comma_string "$filepath" "$type")"
-
-    if [ -z "$items" ]; then
-        log "No valid $type found in $filepath" "warn"
-        return 0
+    if ! file_exists "$ruleset_filepath"; then
+        log "Target ruleset file $ruleset_filepath not found" "error"
+        return 1
     fi
 
-    json_array="$(comma_string_to_json_array "$items")"
-    case "$type" in
-    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
-    subnets)
-        sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
-        nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
-        ;;
-    esac
+    import_plain_domain_list_to_local_source_ruleset_chunked "$local_domain_list_filepath" "$ruleset_filepath"
+}
+
+import_local_subnets_list() {
+    local local_subnet_list_filepath="$1"
+    local ruleset_filepath="$2"
+
+    if ! file_exists "$local_subnet_list_filepath"; then
+        log "Local subnet list file $local_subnet_list_filepath not found" "error"
+        return 1
+    fi
+
+    if ! file_exists "$ruleset_filepath"; then
+        log "Target ruleset file $ruleset_filepath not found" "error"
+        return 1
+    fi
+
+    import_plain_subnet_list_to_local_source_ruleset_chunked "$local_subnet_list_filepath" "$ruleset_filepath"
+    nft_add_set_elements_from_file_chunked "$local_subnet_list_filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
 }
 
 configure_remote_domain_or_subnet_list_handler() {
@@ -1353,9 +1350,9 @@ import_domains_or_subnets_from_remote_file() {
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
     json_array="$(comma_string_to_json_array "$items")"
     case "$type" in
-    domains) sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
+    domains) patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
     subnets)
-        sing_box_cm_patch_local_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
+        patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
         nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
         ;;
     esac
@@ -1398,8 +1395,8 @@ import_subnets_from_remote_srs_file() {
         return 1
     fi
 
-    if ! decompile_srs_file "$binary_tmpfile" "$json_tmpfile"; then
-        log "Failed to decompile SRS file" "error"
+    if ! decompile_binary_ruleset "$binary_tmpfile" "$json_tmpfile"; then
+        log "Failed to decompile binary rule set file" "error"
         return 1
     fi
 
@@ -1513,46 +1510,6 @@ nft_list_all_traffic_from_ip() {
         nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" meta l4proto tcp meta mark set 0x105 counter
         nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" meta l4proto udp meta mark set 0x105 counter
         nft insert rule inet "$NFT_TABLE_NAME" mangle ip saddr "$ip" ip daddr @localv4 return
-    fi
-}
-
-nft_add_set_elements_from_file_chunked() {
-    local filepath="$1"
-    local nft_table_name="$2"
-    local nft_set_name="$3"
-    local chunk_size="${4:-5000}"
-
-    local array count
-    count=0
-    while IFS= read -r line; do
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-        [ -z "$line" ] && continue
-
-        if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
-            log "'$line' is not IPv4 or IPv4 CIDR" "debug"
-            continue
-        fi
-
-        if [ -z "$array" ]; then
-            array="$line"
-        else
-            array="$array,$line"
-        fi
-
-        count=$((count + 1))
-
-        if [ "$count" = "$chunk_size" ]; then
-            log "Adding $count elements to nft set $nft_set_name" "debug"
-            nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array"
-            array=""
-            count=0
-        fi
-    done < "$filepath"
-
-    if [ -n "$array" ]; then
-        log "Adding $count elements to nft set $nft_set_name" "debug"
-        nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array"
     fi
 }
 
