@@ -867,60 +867,34 @@ configure_routing_for_section_lists() {
 
     if [ "$user_domain_list_type" != "disabled" ]; then
         log "Processing user domains routing rules for '$section' section"
-        prepare_common_ruleset "$section" "domains" "$route_rule_tag"
-        configure_user_domain_or_subnets_list "$section" "domains" "$route_rule_tag"
+        configure_user_domain_list "$section" "$route_rule_tag"
     fi
 
     if [ "$user_subnet_list_type" != "disabled" ]; then
         log "Processing user subnets routing rules for '$section' section"
-        prepare_common_ruleset "$section" "subnets" "$route_rule_tag"
-        configure_user_domain_or_subnets_list "$section" "subnets" "$route_rule_tag"
+        configure_user_subnet_list "$section" "$route_rule_tag"
     fi
 
     if [ -n "$local_domain_lists" ]; then
         log "Processing local domains routing rules for '$section' section"
-        configure_local_domain_or_subnet_lists "$section" "domains" "$route_rule_tag"
+        configure_local_domain_lists "$section" "$route_rule_tag"
     fi
 
     if [ -n "$local_subnet_lists" ]; then
         log "Processing local subnets routing rules for '$section' section"
-        configure_local_domain_or_subnet_lists "$section" "subnets" "$route_rule_tag"
+        configure_local_subnet_lists "$section" "$route_rule_tag"
     fi
 
     if [ -n "$remote_domain_lists" ]; then
         log "Processing remote domains routing rules for '$section' section"
-        prepare_common_ruleset "$section" "domains" "$route_rule_tag"
         config_list_foreach "$section" "remote_domain_lists" configure_remote_domain_or_subnet_list_handler \
             "domains" "$section" "$route_rule_tag"
     fi
 
     if [ -n "$remote_subnet_lists" ]; then
         log "Processing remote subnets routing rules for '$section' section"
-        prepare_common_ruleset "$section" "subnets" "$route_rule_tag"
         config_list_foreach "$section" "remote_subnet_lists" configure_remote_domain_or_subnet_list_handler \
             "subnets" "$section" "$route_rule_tag"
-    fi
-}
-
-prepare_common_ruleset() {
-    local section="$1"
-    local type="$2"
-    local route_rule_tag="$3"
-
-    log "Preparing a common $type ruleset for '$section' section" "debug"
-    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
-    create_source_rule_set "$ruleset_filepath"
-    if [ $? -eq 0 ]; then
-        config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
-        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-        case "$type" in
-        domains)
-            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
-            ;;
-        subnets) ;;
-        *) log "Unsupported remote rule set type: $type" "error" ;;
-        esac
     fi
 }
 
@@ -941,69 +915,82 @@ configure_community_list_handler() {
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
 }
 
-configure_user_domain_or_subnets_list() {
+prepare_source_ruleset() {
     local section="$1"
-    local type="$2"
+    local name="$2"
+    local type="$3"
+    local route_rule_tag="$4"
 
-    local items ruleset_tag ruleset_filename ruleset_filepath json_array
-    case "$type" in
-    domains)
-        local user_domain_list_type
-        config_get user_domain_list_type "$section" "user_domain_list_type"
-        case "$user_domain_list_type" in
-        dynamic) config_get items "$section" "user_domains" ;;
-        text) config_get items "$section" "user_domains_text" ;;
-        esac
-        ;;
-    subnets)
-        local user_subnet_list_type
-        config_get user_subnet_list_type "$section" "user_subnet_list_type"
-        case "$user_subnet_list_type" in
-        dynamic) config_get items "$section" "user_subnets" ;;
-        text) config_get items "$section" "user_subnets_text" ;;
-        esac
-        ;;
-    esac
-
-    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
-    ruleset_filename="$ruleset_tag.json"
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_filename"
-    items="$(parse_domain_or_subnet_string_to_commas_string "$items" "$type")"
-    json_array="$(comma_string_to_json_array "$items")"
-    case "$type" in
-    domains) patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array" ;;
-    subnets)
-        patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
-        nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$items"
-        ;;
-    esac
-}
-
-configure_local_domain_or_subnet_lists() {
-    local section="$1"
-    local type="$2"
-    local route_rule_tag="$3"
-
-    local ruleset_tag ruleset_filepath
-    ruleset_tag="$(get_ruleset_tag "$section" "local" "$type")"
+    log "Preparing a $name $type rule set for '$section' section" "debug"
+    ruleset_tag=$(get_ruleset_tag "$section" "$name" "$type")
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
     create_source_rule_set "$ruleset_filepath"
-    config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
-    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-
-    case "$type" in
-    domains)
-        config_list_foreach "$section" "local_domain_lists" import_local_domain_list "$ruleset_filepath"
-        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+    case $? in
+    0)
+        config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
+        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+        case "$type" in
+        domains)
+            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+            ;;
+        subnets) ;;
+        *)
+            log "Unsupported remote rule set type: $type" "error"
+            return 1
+            ;;
+        esac
         ;;
-    subnets)
-        config_list_foreach "$section" "local_subnet_lists" import_local_subnets_list "$ruleset_filepath"
-        ;;
-    *) log "Unsupported local rule set type: $type" "error" ;;
+    3) log "Source rule set $ruleset_filepath already exists, skipping." "debug" ;;
     esac
 }
 
-import_local_domain_list() {
+configure_user_domain_list() {
+    local section="$1"
+    local route_rule_tag="$2"
+
+    prepare_source_ruleset "$section" "user" "domains" "$route_rule_tag"
+
+    local user_domain_list_type items json_array
+    config_get user_domain_list_type "$section" "user_domain_list_type"
+    case "$user_domain_list_type" in
+    dynamic) config_get items "$section" "user_domains" ;;
+    text) config_get items "$section" "user_domains_text" ;;
+    esac
+
+    items="$(parse_domain_or_subnet_string_to_commas_string "$items" "domains")"
+    json_array="$(comma_string_to_json_array "$items")"
+    patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
+}
+
+configure_user_subnet_list() {
+    local section="$1"
+    local route_rule_tag="$2"
+
+    prepare_source_ruleset "$section" "user" "subnets" "$route_rule_tag"
+
+    local user_subnet_list_type items json_array
+    config_get user_subnet_list_type "$section" "user_subnet_list_type"
+    case "$user_subnet_list_type" in
+    dynamic) config_get items "$section" "user_subnets" ;;
+    text) config_get items "$section" "user_subnets_text" ;;
+    esac
+
+    items="$(parse_domain_or_subnet_string_to_commas_string "$items" "subnets")"
+    json_array="$(comma_string_to_json_array "$items")"
+    patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
+    nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$items"
+}
+
+configure_local_domain_lists() {
+    local section="$1"
+    local route_rule_tag="$2"
+
+    prepare_source_ruleset "$section" "local" "domains" "$route_rule_tag"
+
+    config_list_foreach "$section" "local_domain_lists" import_local_domain_list_handler "$ruleset_filepath"
+}
+
+import_local_domain_list_handler() {
     local local_domain_list_filepath="$1"
     local ruleset_filepath="$2"
 
@@ -1012,25 +999,24 @@ import_local_domain_list() {
         return 1
     fi
 
-    if ! file_exists "$ruleset_filepath"; then
-        log "Target ruleset file $ruleset_filepath not found" "error"
-        return 1
-    fi
-
     import_plain_domain_list_to_local_source_ruleset_chunked "$local_domain_list_filepath" "$ruleset_filepath"
 }
 
-import_local_subnets_list() {
+configure_local_subnet_lists() {
+    local section="$1"
+    local route_rule_tag="$2"
+
+    prepare_source_ruleset "$section" "local" "subnets" "$route_rule_tag"
+
+    config_list_foreach "$section" "local_subnet_lists" import_local_subnets_list_handler "$ruleset_filepath"
+}
+
+import_local_subnets_list_handler() {
     local local_subnet_list_filepath="$1"
     local ruleset_filepath="$2"
 
     if ! file_exists "$local_subnet_list_filepath"; then
         log "Local subnet list file $local_subnet_list_filepath not found" "error"
-        return 1
-    fi
-
-    if ! file_exists "$ruleset_filepath"; then
-        log "Target ruleset file $ruleset_filepath not found" "error"
         return 1
     fi
 
@@ -1046,9 +1032,10 @@ configure_remote_domain_or_subnet_list_handler() {
 
     local file_extension
     file_extension=$(url_get_file_extension "$url")
+    log "Detected file extension: '$file_extension'" "debug"
     case "$file_extension" in
     json | srs)
-        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+        log "Creating a remote $type ruleset from the source URL" "info"
         local basename ruleset_tag format detour update_interval
         basename=$(url_get_basename "$url")
         ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
@@ -1067,7 +1054,7 @@ configure_remote_domain_or_subnet_list_handler() {
         esac
         ;;
     *)
-        log "Detected file extension: '$file_extension' → no processing needed, managed on list_update" "debug"
+        prepare_source_ruleset "$section" "remote" "$type" "$route_rule_tag"
         ;;
     esac
 }
@@ -1280,13 +1267,14 @@ import_domains_from_remote_domain_list_handler() {
 
     local file_extension
     file_extension=$(url_get_file_extension "$url")
+    log "Detected file extension: '$file_extension'" "debug"
     case "$file_extension" in
     json | srs)
-        log "Detected file extension: '$file_extension' → no update needed, sing-box manages updates" "debug"
+        log "No update needed - sing-box manages updates automatically."
         ;;
     *)
-        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
-        import_domains_from_remote_plain_file "$url" "$section" "domains"
+        log "Import domains from a remote plain-text list"
+        import_domains_from_remote_plain_file "$url" "$section"
         ;;
     esac
 }
@@ -1294,7 +1282,6 @@ import_domains_from_remote_domain_list_handler() {
 import_domains_from_remote_plain_file() {
     local url="$1"
     local section="$2"
-    local type="$3"
 
     local tmpfile http_proxy_address items json_array
     tmpfile=$(mktemp)
@@ -1308,7 +1295,7 @@ import_domains_from_remote_plain_file() {
     fi
 
     convert_crlf_to_lf "$tmpfile"
-    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
+    ruleset_tag=$(get_ruleset_tag "$section" "remote" "domains")
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
     import_plain_domain_list_to_local_source_ruleset_chunked "$tmpfile" "$ruleset_filepath"
 
@@ -1333,18 +1320,19 @@ import_subnets_from_remote_subnet_list_handler() {
 
     local file_extension
     file_extension="$(url_get_file_extension "$url")"
+    log "Detected file extension: '$file_extension'" "debug"
     case "$file_extension" in
     json)
-        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+        log "Import subnets from a remote JSON list" "info"
         import_subnets_from_remote_json_file "$url"
         ;;
     srs)
-        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
+        log "Import subnets from a remote SRS list" "info"
         import_subnets_from_remote_srs_file "$url"
         ;;
     *)
-        log "Detected file extension: '$file_extension' → proceeding with processing" "debug"
-        import_subnets_from_remote_plain_file "$url" "$section" "subnets"
+        log "Import subnets from a remote plain-text list" "info"
+        import_subnets_from_remote_plain_file "$url" "$section"
         ;;
     esac
 }
@@ -1397,7 +1385,6 @@ import_subnets_from_remote_srs_file() {
 import_subnets_from_remote_plain_file() {
     local url="$1"
     local section="$2"
-    local type="$3"
 
     local tmpfile http_proxy_address items json_array
     tmpfile=$(mktemp)
@@ -1412,7 +1399,7 @@ import_subnets_from_remote_plain_file() {
 
     convert_crlf_to_lf "$tmpfile"
 
-    ruleset_tag=$(get_ruleset_tag "$section" "common" "$type")
+    ruleset_tag=$(get_ruleset_tag "$section" "remote" "subnets")
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
     import_plain_subnet_list_to_local_source_ruleset_chunked "$tmpfile" "$ruleset_filepath"
     nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"

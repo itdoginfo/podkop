@@ -12,13 +12,12 @@ get_ruleset_tag() {
     fi
 }
 
-# Creates a new ruleset JSON file if it doesn't already exist and outputs its path.
+# Creates a new ruleset JSON file if it doesn't already exist
 create_source_rule_set() {
     local ruleset_filepath="$1"
 
     if file_exists "$ruleset_filepath"; then
-        log "Source ruleset $ruleset_filepath already exists" "debug"
-        return 1
+        return 3
     fi
 
     jq -n '{version: 3, rules: []}' > "$ruleset_filepath"
@@ -39,14 +38,22 @@ patch_source_ruleset_rules() {
     local key="$2"
     local value="$3"
 
-    local content
-    content="$(cat "$filepath")"
+    local tmpfile=$(mktemp)
 
-    echo "$content" | jq \
-        --arg key "$key" \
-        --argjson value "$value" '
-        .rules += [{ ($key): $value }]
-        ' > "$filepath"
+    jq --arg key "$key" --argjson value "$value" \
+        '( .rules | map(has($key)) | index(true) ) as $idx |
+        if $idx != null then
+            .rules[$idx][$key] = (.rules[$idx][$key] + $value | unique)
+        else
+            .rules += [{ ($key): $value }]
+        end' "$filepath" > "$tmpfile"
+
+    if [ $? -ne 0 ]; then
+        rm -f "$tmpfile"
+        return 1
+    fi
+
+    mv "$tmpfile" "$filepath"
 }
 
 # Imports a plain domain list into a ruleset in chunks, validating domains and appending them as domain_suffix rules
