@@ -445,7 +445,7 @@ function createSectionContent(section) {
   );
   o.value("disabled", _("Disabled"));
   o.value("dynamic", _("Dynamic List"));
-  o.value("text", _("Text List (comma/space/newline separated)"));
+  o.value("text", _("Text List"));
   o.default = "disabled";
   o.rmempty = false;
 
