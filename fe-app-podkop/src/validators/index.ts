@@ -11,3 +11,4 @@ export * from './validateOutboundJson';
 export * from './validateTrojanUrl';
 export * from './validateProxyUrl';
 export * from './validateSocksUrl';
+export * from './validateHysteria2Url';

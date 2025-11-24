@@ -662,6 +662,66 @@ sing_box_cm_add_trojan_outbound() {
 }
 
 #######################################
+# Add a Hysteria2 outbound to the outbounds section of a sing-box JSON configuration.
+# Arguments:
+#   config: JSON configuration (string)
+#   tag: string, identifier for the outbound
+#   server_address: string, IP address or hostname of the Hysteria2 server
+#   server_port: number, port of the Hysteria2 server
+#   password: string, password for authentication
+#   up_mbps: string, optional upload speed in Mbps
+#   down_mbps: string, optional download speed in Mbps
+#   obfs_type: string, optional obfuscation type (only "salamander" supported)
+#   obfs_password: string, optional obfuscation password
+#   network: string, optional network type (e.g., "tcp", "udp")
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_hysteria2_outbound "$CONFIG" "hy2-out" "example.com" 443 "password123")
+#######################################
+sing_box_cm_add_hysteria2_outbound() {
+    local config="$1"
+    local tag="$2"
+    local server_address="$3"
+    local server_port="$4"
+    local password="$5"
+    local up_mbps="$6"
+    local down_mbps="$7"
+    local obfs_type="$8"
+    local obfs_password="$9"
+    local network="${10}"
+
+    echo "$config" | jq \
+        --arg tag "$tag" \
+        --arg server_address "$server_address" \
+        --arg server_port "$server_port" \
+        --arg password "$password" \
+        --arg up_mbps "$up_mbps" \
+        --arg down_mbps "$down_mbps" \
+        --arg obfs_type "$obfs_type" \
+        --arg obfs_password "$obfs_password" \
+        --arg network "$network" \
+        '.outbounds += [(
+            {
+              type: "hysteria2",
+              tag: $tag,
+              server: $server_address,
+              server_port: ($server_port | tonumber),
+              password: $password
+            }
+            + (if $up_mbps != "" then {up_mbps: ($up_mbps | tonumber)} else {} end)
+            + (if $down_mbps != "" then {down_mbps: ($down_mbps | tonumber)} else {} end)
+            + (if $obfs_type != "" and $obfs_password != "" then {
+                obfs: {
+                    type: $obfs_type,
+                    password: $obfs_password
+                }
+            } else {} end)
+            + (if $network != "" then {network: $network} else {} end)
+        )]'
+}
+
+#######################################
 # Set gRPC transport settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: JSON configuration (string)
