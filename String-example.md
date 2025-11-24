@@ -82,3 +82,45 @@ trojan://ou8pLSyx9N@127.0.0.1:17737?type=httpupgrade&path=%2Fhttpupgradepath&hos
 # XHTTP
 trojan://VEetltxLtw@127.0.0.1:59072?type=xhttp&path=%2Fxhttppath&host=google.com&mode=auto&security=none#trojan-xhttp
 ```
+
+## Hysteria2
+
+hysteria2://
+```
+# Basic (no authentication)
+hysteria2://127.0.0.1:443/#hysteria2-basic
+hysteria2://127.0.0.1:443/?insecure=1#hysteria2-basic-insecure
+
+# With password
+hysteria2://password@example.com:443/#hysteria2-password
+hysteria2://password@example.com:443/?insecure=0#hysteria2-password-insecure
+
+# With SNI
+hysteria2://password@example.com:443/?sni=example.com#hysteria2-password-sni
+
+# With obfuscation
+hysteria2://password@example.com:443/?obfs=salamander&obfs-password=obfspassword#hysteria2-obfs
+
+# All parameters combined
+hysteria2://mypassword@example.com:8443/?sni=example.com&obfs=salamander&obfs-password=obfspass&insecure=0#hysteria2-all-params
+```
+
+hy2://
+```
+# Basic (no authentication)
+hy2://127.0.0.1:443/#hysteria2-basic
+hy2://127.0.0.1:443/?insecure=1#hysteria2-basic-insecure
+
+# With password
+hy2://password@example.com:443/#hysteria2-password
+hy2://password@example.com:443/?insecure=0#hysteria2-password-insecure
+
+# With SNI
+hy2://password@example.com:443/?sni=example.com#hysteria2-password-sni
+
+# With obfuscation
+hy2://password@example.com:443/?obfs=salamander&obfs-password=obfspassword#hysteria2-obfs
+
+# All parameters combined
+hy2://mypassword@example.com:8443/?sni=example.com&obfs=salamander&obfs-password=obfspass&insecure=0#hysteria2-all-params
+```
