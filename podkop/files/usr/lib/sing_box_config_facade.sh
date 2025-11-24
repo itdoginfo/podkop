@@ -146,6 +146,22 @@ sing_box_cf_add_proxy_outbound() {
         config=$(_add_outbound_security "$config" "$tag" "$url")
         config=$(_add_outbound_transport "$config" "$tag" "$url")
         ;;
+    hysteria2)
+        local tag host port password up_mbps down_mbps obfs_type obfs_password
+        tag=$(get_outbound_tag_by_section "$section")
+        host=$(url_get_host "$url")
+        port=$(url_get_port "$url")
+        password=$(url_get_userinfo "$url")
+
+        # Extract Hysteria2 specific parameters
+        up_mbps=$(url_get_query_param "$url" "upmbps")
+        down_mbps=$(url_get_query_param "$url" "downmbps")
+        obfs_type=$(url_get_query_param "$url" "obfs")
+        obfs_password=$(url_get_query_param "$url" "obfspassword")
+
+        config=$(sing_box_cm_add_hysteria2_outbound "$config" "$tag" "$host" "$port" "$password" \
+            "$up_mbps" "$down_mbps" "$obfs_type" "$obfs_password")
+        ;;
     *)
         log "Unsupported proxy $scheme type. Aborted." "fatal"
         exit 1
