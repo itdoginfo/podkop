@@ -178,8 +178,15 @@ _add_outbound_security() {
     local outbound_tag="$2"
     local url="$3"
 
-    local security
+    local security scheme
     security=$(url_get_query_param "$url" "security")
+    scheme="${url%%://*}"
+
+    # For Hysteria2, TLS is required by default
+    if [ "$scheme" = "hysteria2" ] && [ -z "$security" ]; then
+        security="tls"
+    fi
+
     case "$security" in
     tls | reality)
         local sni insecure alpn fingerprint public_key short_id
