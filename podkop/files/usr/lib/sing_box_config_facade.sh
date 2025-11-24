@@ -191,11 +191,20 @@ _add_outbound_security() {
     tls | reality)
         local sni insecure alpn fingerprint public_key short_id
         sni=$(url_get_query_param "$url" "sni")
-        insecure=$(url_get_query_param "$url" "allowInsecure")
+        # Support both insecure and allowInsecure parameters
+        insecure=$(url_get_query_param "$url" "insecure")
+        if [ -z "$insecure" ]; then
+            insecure=$(url_get_query_param "$url" "allowInsecure")
+        fi
         alpn=$(comma_string_to_json_array "$(url_get_query_param "$url" "alpn")")
         fingerprint=$(url_get_query_param "$url" "fp")
         public_key=$(url_get_query_param "$url" "pbk")
         short_id=$(url_get_query_param "$url" "sid")
+
+        # For Hysteria2 with insecure=1, set sni to host if not specified
+        if [ "$scheme" = "hysteria2" ] && [ "$insecure" == "1" ] && [ -z "$sni" ]; then
+            sni=$(url_get_host "$url")
+        fi
 
         config=$(
             sing_box_cm_set_tls_for_outbound \
@@ -217,6 +226,7 @@ _add_outbound_security() {
 
     echo "$config"
 }
+
 
 _add_outbound_transport() {
     local config="$1"
