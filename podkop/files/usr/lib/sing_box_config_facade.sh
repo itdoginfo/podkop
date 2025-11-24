@@ -160,7 +160,7 @@ sing_box_cf_add_proxy_outbound() {
         obfs_password=$(url_get_query_param "$url" "obfspassword")
 
         config=$(sing_box_cm_add_hysteria2_outbound "$config" "$tag" "$host" "$port" "$password" \
-            "$up_mbps" "$down_mbps" "$obfs_type" "$obfs_password")
+            "$up_mbps" "$down_mbps" "$obfs_type" "$obfs_password" "")
         ;;
     *)
         log "Unsupported proxy $scheme type. Aborted." "fatal"
