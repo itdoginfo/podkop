@@ -1366,51 +1366,6 @@ sing_box_cm_configure_clash_api() {
 }
 
 #######################################
-# Create a local source ruleset JSON file for sing-box.
-# Arguments:
-#   filepath: path to the JSON file to create
-# Example:
-#   sing_box_cm_create_local_source_ruleset "/tmp/sing-box/ruleset.json"
-#######################################
-sing_box_cm_create_local_source_ruleset() {
-    local filepath="$1"
-
-    jq -n '{version: 3, rules: []}' > "$filepath"
-}
-
-#######################################
-# Patch a local source ruleset JSON file for sing-box by adding unique! values to a given key.
-# Arguments:
-#   filepath: path to the JSON file to patch
-#   key: the ruleset key to update (e.g., "ip_cidr")
-#   value: a JSON array of values to add to the key
-# Example:
-#   sing_box_cm_patch_local_source_ruleset_rules "/tmp/sing-box/ruleset.json" "ip_cidr" '["1.1.1.1","2.2.2.2"]'
-#######################################
-sing_box_cm_patch_local_source_ruleset_rules() {
-    local filepath="$1"
-    local key="$2"
-    local value="$3"
-
-    value=$(_normalize_arg "$value")
-
-    local content
-    content="$(cat "$filepath")"
-
-    echo "$content" | jq \
-        --arg key "$key" \
-        --argjson value "$value" '
-        ([.rules[]?[$key][]] | unique) as $existing
-        | ($value - $existing) as $value
-        | if ($value | length) > 0 then
-            .rules += [{($key): $value}]
-          else
-            .
-          end
-        ' > "$filepath"
-}
-
-#######################################
 # Save a sing-box JSON configuration to a file, removing service-specific tags.
 # Arguments:
 #   config: JSON configuration (string)
