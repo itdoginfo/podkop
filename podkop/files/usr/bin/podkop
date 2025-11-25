@@ -126,7 +126,7 @@ start() {
     # base
     route_table_rule_mark
     create_nft_rules
-    sing_box_uci
+    sing_box_configure_service
 
     # sing-box
     sing_box_init_config
@@ -526,29 +526,30 @@ list_update() {
 }
 
 # sing-box funcs
-sing_box_uci() {
+sing_box_configure_service() {
     local sing_box_enabled sing_box_user sing_box_config_path sing_box_conffile
-    sing_box_enabled=$(uci get "sing-box.main.enabled")
-    sing_box_user=$(uci get "sing-box.main.user")
+    sing_box_enabled="$(uci_get "sing-box" "main" "enabled")"
+    sing_box_user="$(uci_get "sing-box" "main" "user")"
+
     if [ "$sing_box_enabled" -ne 1 ]; then
-        uci set "sing-box.main.enabled=1"
-        uci commit "sing-box"
+        uci_set "sing-box" "main" "enabled" 1
+        uci_commit "sing-box"
         log "sing-box service has been enabled"
     fi
 
     if [ "$sing_box_user" != "root" ]; then
-        uci set "sing-box.main.user=root"
-        uci commit "sing-box"
+        uci_set "sing-box" "main" "user" "root"
+        uci_commit "sing-box"
         log "sing-box service user has been changed to root"
     fi
 
     config_get sing_box_config_path "settings" "config_path"
-    sing_box_conffile=$(uci get "sing-box.main.conffile")
+    sing_box_conffile="$(uci_get "sing-box" "main" "conffile")"
     log "sing-box config path: $sing_box_config_path" "debug"
     log "sing-box service conffile: $sing_box_conffile" "debug"
     if [ "$sing_box_conffile" != "$sing_box_config_path" ]; then
-        uci set "sing-box.main.conffile=$sing_box_config_path"
-        uci commit "sing-box"
+        uci_set "sing-box" "main" "conffile" "$sing_box_config_path"
+        uci_commit "sing-box"
         log "Configuration file path has been set to $sing_box_config_path"
     fi
 
