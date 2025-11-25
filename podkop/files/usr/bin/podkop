@@ -190,7 +190,7 @@ stop() {
     /etc/init.d/sing-box stop
 
     uci_set "podkop" "settings" "shutdown_correctly" 1
-    uci commit "podkop"
+    uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
 reload() {
