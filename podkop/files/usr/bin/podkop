@@ -104,7 +104,7 @@ has_outbound_section() {
     return $section_exists
 }
 
-start_main() {
+start() {
     log "Starting podkop"
 
     check_requirements
@@ -125,37 +125,31 @@ start_main() {
 
     # base
     route_table_rule_mark
-    create_nft_table
+    create_nft_rules
     sing_box_uci
 
     # sing-box
     sing_box_init_config
     config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
-
-    local exclude_ntp
-    config_get_bool exclude_ntp "settings" "exclude_ntp" "0"
-    if [ "$exclude_ntp" -eq 1 ]; then
-        log "NTP traffic exclude for proxy"
-        nft insert rule inet "$NFT_TABLE_NAME" mangle udp dport 123 return
+    if [ $? -ne 0 ]; then
+        echo "Failed to start sing-box service"
+        exit 1
     fi
+
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    if [ "$dont_touch_dhcp" -eq 0 ]; then
+        dnsmasq_configure
+    fi
+    uci_set "podkop" "settings" "shutdown_correctly" 0
+    uci commit "podkop" && config_load "$PODKOP_CONFIG"
 
     log "Nice"
     list_update &
     echo $! > /var/run/podkop_list_update.pid
 }
 
-start() {
-    start_main
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dnsmasq_add_resolver
-    fi
-    uci_set "podkop" "settings" "shutdown_correctly" 0
-    uci commit "podkop" && config_load "$PODKOP_CONFIG"
-}
-
-stop_main() {
+stop() {
     log "Stopping the podkop"
 
     if [ -f /var/run/podkop_list_update.pid ]; then
@@ -186,25 +180,23 @@ stop_main() {
         ip route flush table podkop
     fi
 
-    log "Stop sing-box"
-    /etc/init.d/sing-box stop
-}
-
-stop() {
     local dont_touch_dhcp
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_restore
     fi
-    stop_main
+
+    log "Stop sing-box"
+    /etc/init.d/sing-box stop
+
     uci_set "podkop" "settings" "shutdown_correctly" 1
-    uci commit "podkop" && config_load "$PODKOP_CONFIG"
+    uci commit "podkop"
 }
 
 reload() {
     log "Podkop reload"
-    stop_main
-    start_main
+    stop
+    start
 }
 
 restart() {
@@ -281,7 +273,7 @@ nft_init_interfaces_set() {
     done
 }
 
-create_nft_table() {
+create_nft_rules() {
     log "Create nft table"
     nft_create_table "$NFT_TABLE_NAME"
 
@@ -329,6 +321,13 @@ create_nft_table() {
     nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set 0x105 counter
     nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set 0x105 counter
     nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set 0x105 counter
+
+    local exclude_ntp
+    config_get_bool exclude_ntp "settings" "exclude_ntp" "0"
+    if [ "$exclude_ntp" -eq 1 ]; then
+        log "NTP traffic exclude for proxy"
+        nft insert rule inet "$NFT_TABLE_NAME" mangle udp dport 123 return
+    fi
 }
 
 backup_dnsmasq_config_option() {
@@ -342,7 +341,7 @@ backup_dnsmasq_config_option() {
     fi
 }
 
-dnsmasq_add_resolver() {
+dnsmasq_configure() {
     local shutdown_correctly
     config_get shutdown_correctly "settings" "shutdown_correctly"
     if [ "$shutdown_correctly" -eq 0 ]; then
@@ -527,7 +526,6 @@ list_update() {
 }
 
 # sing-box funcs
-
 sing_box_uci() {
     local sing_box_enabled sing_box_user sing_box_config_path sing_box_conffile
     sing_box_enabled=$(uci get "sing-box.main.enabled")
