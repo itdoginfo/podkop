@@ -473,42 +473,55 @@ remove_cron_job() {
 list_update() {
     echolog "🔄 Starting lists update..."
 
+    local nslookup_timeout=3
+    local nslookup_attempts=10
+    local curl_timeout=5
+    local curl_attempts=10
+    local curl_max_timeout=10
+    local delay=3
     local i
 
-    for i in $(seq 1 60); do
-        if nslookup -timeout=1 openwrt.org > /dev/null 2>&1; then
+    # DNS Check
+    for i in $(seq 1 $nslookup_timeout); do
+        if nslookup -timeout=$nslookup_timeout openwrt.org > /dev/null 2>&1; then
             echolog "✅ DNS check passed"
             break
         fi
-        log "DNS is unavailable [$i/60]"
-        sleep 3
+        echolog "DNS is unavailable [$i/$nslookup_attempts]"
+        sleep $delay
     done
 
-    if [ "$i" -eq 60 ]; then
-        echolog "❌ DNS check failed after 60 attempts"
+    if [ "$i" -eq $nslookup_attempts ]; then
+        echolog "❌ DNS check failed after $nslookup_attempts attempts"
         return 1
     fi
 
-    for i in $(seq 1 60); do
-        config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" "0"
-        if [ "$download_lists_via_proxy" -eq 1 ]; then
-            if http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" curl -s -m 3 https://github.com > /dev/null; then
+    # Github Check
+    for i in $(seq 1 $curl_attempts); do
+        local service_proxy_address
+        service_proxy_address="$(get_service_proxy_address)"
+
+        if [ -n "$http_proxy_address" ]; then
+            if curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed (via proxy)"
                 break
             fi
         else
-            if curl -s -m 3 https://github.com > /dev/null; then
+            if curl -s -m $curl_timeout https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed"
                 break
             fi
         fi
 
-        echolog "GitHub is unavailable [$i/60]"
-        sleep 3
+        echolog "GitHub is unavailable [$i/$curl_attempts] (max-timeout=$curl_timeout)"
+        if [ "$curl_timeout" -lt $curl_max_timeout ]; then
+            curl_timeout=$((curl_timeout + 1))
+        fi
+        sleep $delay
     done
 
-    if [ "$i" -eq 60 ]; then
-        echolog "❌ GitHub connection check failed after 60 attempts"
+    if [ "$i" -eq $curl_attempts ]; then
+        echolog "❌ GitHub connection check failed after $curl_attempts attempts"
         return 1
     fi
 
