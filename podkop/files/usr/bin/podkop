@@ -137,9 +137,6 @@ start_main() {
         exit 1
     fi
 
-    uci_set "podkop" "settings" "shutdown_correctly" 0
-    uci commit "podkop" && config_load "$PODKOP_CONFIG"
-
     log "Nice"
     list_update &
     echo $! > /var/run/podkop_list_update.pid
@@ -178,17 +175,18 @@ stop_main() {
 
     log "Stop sing-box"
     /etc/init.d/sing-box stop
-
-    uci_set "podkop" "settings" "shutdown_correctly" 1
-    uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
 start() {
     start_main
+
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_configure
     fi
+
+    uci_set "podkop" "settings" "shutdown_correctly" 0
+    uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
 stop() {
@@ -197,7 +195,11 @@ stop() {
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_restore
     fi
+
     stop_main
+
+    uci_set "podkop" "settings" "shutdown_correctly" 1
+    uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
 reload() {
