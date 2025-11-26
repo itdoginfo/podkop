@@ -214,7 +214,12 @@ _add_outbound_transport() {
         ;;
     grpc)
         # TODO(ampetelin): Add handling of optional gRPC parameters; example links are needed.
-        config=$(sing_box_cm_set_grpc_transport_for_outbound "$config" "$outbound_tag")
+        local grpc_service_name
+        grpc_service_name=$(url_get_query_param "$url" "serviceName")
+
+        config=$(
+            sing_box_cm_set_grpc_transport_for_outbound "$config" "$outbound_tag" "$grpc_service_name"
+        )
         ;;
     *)
         log "Unknown transport '$transport' detected." "error"
