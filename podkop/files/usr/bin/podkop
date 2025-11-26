@@ -133,7 +133,7 @@ start_main() {
     config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
     if [ $? -ne 0 ]; then
-        echo "Failed to start sing-box service"
+        echolog "Failed to start sing-box service"
         exit 1
     fi
 
