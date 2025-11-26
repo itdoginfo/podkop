@@ -104,7 +104,7 @@ has_outbound_section() {
     return $section_exists
 }
 
-start() {
+start_main() {
     log "Starting podkop"
 
     check_requirements
@@ -137,10 +137,6 @@ start() {
         exit 1
     fi
 
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dnsmasq_configure
-    fi
     uci_set "podkop" "settings" "shutdown_correctly" 0
     uci commit "podkop" && config_load "$PODKOP_CONFIG"
 
@@ -149,7 +145,7 @@ start() {
     echo $! > /var/run/podkop_list_update.pid
 }
 
-stop() {
+stop_main() {
     log "Stopping the podkop"
 
     if [ -f /var/run/podkop_list_update.pid ]; then
@@ -180,12 +176,6 @@ stop() {
         ip route flush table podkop
     fi
 
-    local dont_touch_dhcp
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dnsmasq_restore
-    fi
-
     log "Stop sing-box"
     /etc/init.d/sing-box stop
 
@@ -193,10 +183,27 @@ stop() {
     uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
+start() {
+    start_main
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    if [ "$dont_touch_dhcp" -eq 0 ]; then
+        dnsmasq_configure
+    fi
+}
+
+stop() {
+    local dont_touch_dhcp
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    if [ "$dont_touch_dhcp" -eq 0 ]; then
+        dnsmasq_restore
+    fi
+    stop_main
+}
+
 reload() {
     log "Podkop reload"
-    stop
-    start
+    stop_main
+    start_main
 }
 
 restart() {
