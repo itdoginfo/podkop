@@ -132,10 +132,6 @@ start_main() {
     sing_box_init_config
     config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
-    if [ $? -ne 0 ]; then
-        echolog "Failed to start sing-box service"
-        exit 1
-    fi
 
     log "Nice"
     list_update &
