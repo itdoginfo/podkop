@@ -125,34 +125,17 @@ start_main() {
 
     # base
     route_table_rule_mark
-    create_nft_table
-    sing_box_uci
+    create_nft_rules
+    sing_box_configure_service
 
     # sing-box
     sing_box_init_config
     config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
 
-    local exclude_ntp
-    config_get_bool exclude_ntp "settings" "exclude_ntp" "0"
-    if [ "$exclude_ntp" -eq 1 ]; then
-        log "NTP traffic exclude for proxy"
-        nft insert rule inet "$NFT_TABLE_NAME" mangle udp dport 123 return
-    fi
-
     log "Nice"
     list_update &
     echo $! > /var/run/podkop_list_update.pid
-}
-
-start() {
-    start_main
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dnsmasq_add_resolver
-    fi
-    uci_set "podkop" "settings" "shutdown_correctly" 0
-    uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
 
 stop_main() {
@@ -190,13 +173,27 @@ stop_main() {
     /etc/init.d/sing-box stop
 }
 
+start() {
+    start_main
+
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    if [ "$dont_touch_dhcp" -eq 0 ]; then
+        dnsmasq_configure
+    fi
+
+    uci_set "podkop" "settings" "shutdown_correctly" 0
+    uci commit "podkop" && config_load "$PODKOP_CONFIG"
+}
+
 stop() {
     local dont_touch_dhcp
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_restore
     fi
+
     stop_main
+
     uci_set "podkop" "settings" "shutdown_correctly" 1
     uci commit "podkop" && config_load "$PODKOP_CONFIG"
 }
@@ -281,7 +278,7 @@ nft_init_interfaces_set() {
     done
 }
 
-create_nft_table() {
+create_nft_rules() {
     log "Create nft table"
     nft_create_table "$NFT_TABLE_NAME"
 
@@ -329,6 +326,13 @@ create_nft_table() {
     nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set 0x105 counter
     nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set 0x105 counter
     nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set 0x105 counter
+
+    local exclude_ntp
+    config_get_bool exclude_ntp "settings" "exclude_ntp" "0"
+    if [ "$exclude_ntp" -eq 1 ]; then
+        log "NTP traffic exclude for proxy"
+        nft insert rule inet "$NFT_TABLE_NAME" mangle udp dport 123 return
+    fi
 }
 
 backup_dnsmasq_config_option() {
@@ -342,7 +346,7 @@ backup_dnsmasq_config_option() {
     fi
 }
 
-dnsmasq_add_resolver() {
+dnsmasq_configure() {
     local shutdown_correctly
     config_get shutdown_correctly "settings" "shutdown_correctly"
     if [ "$shutdown_correctly" -eq 0 ]; then
@@ -474,42 +478,55 @@ remove_cron_job() {
 list_update() {
     echolog "🔄 Starting lists update..."
 
+    local nslookup_timeout=3
+    local nslookup_attempts=10
+    local curl_timeout=5
+    local curl_attempts=10
+    local curl_max_timeout=10
+    local delay=3
     local i
 
-    for i in $(seq 1 60); do
-        if nslookup -timeout=1 openwrt.org > /dev/null 2>&1; then
+    # DNS Check
+    for i in $(seq 1 $nslookup_timeout); do
+        if nslookup -timeout=$nslookup_timeout openwrt.org > /dev/null 2>&1; then
             echolog "✅ DNS check passed"
             break
         fi
-        log "DNS is unavailable [$i/60]"
-        sleep 3
+        echolog "DNS is unavailable [$i/$nslookup_attempts]"
+        sleep $delay
     done
 
-    if [ "$i" -eq 60 ]; then
-        echolog "❌ DNS check failed after 60 attempts"
+    if [ "$i" -eq $nslookup_attempts ]; then
+        echolog "❌ DNS check failed after $nslookup_attempts attempts"
         return 1
     fi
 
-    for i in $(seq 1 60); do
-        config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" "0"
-        if [ "$download_lists_via_proxy" -eq 1 ]; then
-            if http_proxy="http://127.0.0.1:4534" https_proxy="http://127.0.0.1:4534" curl -s -m 3 https://github.com > /dev/null; then
+    # Github Check
+    for i in $(seq 1 $curl_attempts); do
+        local service_proxy_address
+        service_proxy_address="$(get_service_proxy_address)"
+
+        if [ -n "$http_proxy_address" ]; then
+            if curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed (via proxy)"
                 break
             fi
         else
-            if curl -s -m 3 https://github.com > /dev/null; then
+            if curl -s -m $curl_timeout https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed"
                 break
             fi
         fi
 
-        echolog "GitHub is unavailable [$i/60]"
-        sleep 3
+        echolog "GitHub is unavailable [$i/$curl_attempts] (max-timeout=$curl_timeout)"
+        if [ "$curl_timeout" -lt $curl_max_timeout ]; then
+            curl_timeout=$((curl_timeout + 1))
+        fi
+        sleep $delay
     done
 
-    if [ "$i" -eq 60 ]; then
-        echolog "❌ GitHub connection check failed after 60 attempts"
+    if [ "$i" -eq $curl_attempts ]; then
+        echolog "❌ GitHub connection check failed after $curl_attempts attempts"
         return 1
     fi
 
@@ -527,30 +544,30 @@ list_update() {
 }
 
 # sing-box funcs
-
-sing_box_uci() {
+sing_box_configure_service() {
     local sing_box_enabled sing_box_user sing_box_config_path sing_box_conffile
-    sing_box_enabled=$(uci get "sing-box.main.enabled")
-    sing_box_user=$(uci get "sing-box.main.user")
+    sing_box_enabled="$(uci_get "sing-box" "main" "enabled")"
+    sing_box_user="$(uci_get "sing-box" "main" "user")"
+
     if [ "$sing_box_enabled" -ne 1 ]; then
-        uci set "sing-box.main.enabled=1"
-        uci commit "sing-box"
+        uci_set "sing-box" "main" "enabled" 1
+        uci_commit "sing-box"
         log "sing-box service has been enabled"
     fi
 
     if [ "$sing_box_user" != "root" ]; then
-        uci set "sing-box.main.user=root"
-        uci commit "sing-box"
+        uci_set "sing-box" "main" "user" "root"
+        uci_commit "sing-box"
         log "sing-box service user has been changed to root"
     fi
 
     config_get sing_box_config_path "settings" "config_path"
-    sing_box_conffile=$(uci get "sing-box.main.conffile")
+    sing_box_conffile="$(uci_get "sing-box" "main" "conffile")"
     log "sing-box config path: $sing_box_config_path" "debug"
     log "sing-box service conffile: $sing_box_conffile" "debug"
     if [ "$sing_box_conffile" != "$sing_box_config_path" ]; then
-        uci set "sing-box.main.conffile=$sing_box_config_path"
-        uci commit "sing-box"
+        uci_set "sing-box" "main" "conffile" "$sing_box_config_path"
+        uci_commit "sing-box"
         log "Configuration file path has been set to $sing_box_config_path"
     fi
 
