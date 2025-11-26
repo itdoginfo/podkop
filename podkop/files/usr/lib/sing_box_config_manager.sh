@@ -662,6 +662,67 @@ sing_box_cm_add_trojan_outbound() {
 }
 
 #######################################
+# Add a Hysteria2 outbound to the outbounds section of a sing-box JSON configuration.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   tag: string, identifier for the outbound
+#   server_address: string, IP address or hostname of the Hysteria2 server
+#   server_port: integer, port of the Hysteria2 server
+#   password: string, password for authentication
+#   obfuscator_type: string, obfuscation type (optional)
+#   obfuscator_password: string, obfuscation password (optional)
+#   upload_mbps: integer, upload bandwidth limit in Mbps (optional)
+#   download_mbps: integer, download bandwidth limit in Mbps (optional)
+#   network: string, network type (e.g., "udp") (optional)
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_hysteria2_outbound "$CONFIG" "hysteria2-out" "example.com" 443 "supersecret" \
+#       "salamander" "obfs-pass" "50" "200" "udp")
+#######################################
+sing_box_cm_add_hysteria2_outbound() {
+    local config="$1"
+    local tag="$2"
+    local server_address="$3"
+    local server_port="$4"
+    local password="$5"
+    local obfuscator_type="$6"
+    local obfuscator_password="$7"
+    local upload_mbps="$8"
+    local download_mbps="$9"
+    local network="${10}"
+
+    echo "$config" | jq \
+        --arg tag "$tag" \
+        --arg server_address "$server_address" \
+        --arg server_port "$server_port" \
+        --arg password "$password" \
+        --arg obfuscator_type "$obfuscator_type" \
+        --arg obfuscator_password "$obfuscator_password" \
+        --arg upload_mbps "$upload_mbps" \
+        --arg download_mbps "$download_mbps" \
+        --arg network "$network" \
+        '.outbounds += [(
+        {
+          type: "hysteria2",
+          tag: $tag,
+          server: $server_address,
+          server_port: ($server_port | tonumber),
+          password: $password
+        }
+        + (if $obfuscator_type != "" and $obfuscator_password != "" then {
+            obfs: {
+                type: $obfuscator_type,
+                password: $obfuscator_password
+            }
+        } else {} end)
+        + (if $upload_mbps != "" then {up_mbps: ($upload_mbps | tonumber)} else {} end)
+        + (if $download_mbps != "" then {down_mbps: ($download_mbps | tonumber)} else {} end)
+        + (if $network != "" then {network: $network} else {} end)
+    )]'
+}
+
+#######################################
 # Set gRPC transport settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
