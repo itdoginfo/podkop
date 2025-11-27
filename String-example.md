@@ -34,6 +34,7 @@ vless://4d21ce62-8723-4c4d-93e3-d586b107aa40@127.0.0.1:51394?type=ws&encryption=
 # gRPC
 vless://974b39e3-f7bf-42b9-933c-16699c635e77@127.0.0.1:15633?type=grpc&encryption=none&serviceName=TunService&authority=&security=none#vless-gRPC-none
 vless://651e7eca-5152-46f1-baf2-d502e0af7b27@127.0.0.1:28535?type=grpc&encryption=none&serviceName=TunService&authority=authority&security=reality&pbk=nhZ7NiKfcqESa5ZeBFfsq9o18W-OWOAHLln9UmuVXSk&fp=chrome&sni=google.com&sid=11cbaeaa&spx=%2F#vless-gRPC-reality
+vless://221ff905-b783-41a0-a6a6-8089eaf3b34b@abc.def.xyz:443?security=reality&type=grpc&headerType=&authority=abc.def.xyz&serviceName=name&mode=gun&sni=abc.def.xyz&fp=chrome&pbk=C3nhDJw02ZU_rjx4GbC54Sp79-ysF5lWIQVWdY4FOnE&sid=#vless-gRPC-reality-mode
 vless://af1f8b5f-26c9-4fe8-8ce7-6d6366c5c9ce@127.0.0.1:47904?type=grpc&encryption=none&serviceName=TunService&authority=authority&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#vless-gRPC-tls
 vless://95f2c4bb-abcb-47ba-bfad-e181c03e4659@127.0.0.1:34530?type=grpc&encryption=none&serviceName=TunService&authority=authority&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&allowInsecure=1&sni=google.com#vless-gRPC-tls-insecure
 vless://bd39490f-9a4f-49b2-96b6-824190cf89e9@127.0.0.1:27779?type=grpc&encryption=none&serviceName=TunService&authority=authority&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com&ech=AF3%2BDQBZAAAgACBc%2FiNdo4QkTt9eQCQgkOiJVSfA9G6UWAyipaBFtBD%2FVQAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D#vless-gRPC-tls-ech
