@@ -102,11 +102,10 @@ update_config() {
 
 main() {
     check_system
-    sing_box
 
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
 
-    pkg_list_update || { echo "Packages list update failed"; exit 1; }
+    pkg_list_update || { msg "Проблема доступности репозиториев, повторите позже или проверьте distfeeds.conf"; exit 1; }
 
     if [ -f "/etc/init.d/podkop" ]; then
         msg "Podkop is already installed. Upgraded..."
@@ -153,10 +152,60 @@ main() {
         fi
     done
 
-    # Check if any files were downloaded
     if ! ls "$DOWNLOAD_DIR"/*podkop* >/dev/null 2>&1; then
-        msg "No packages were downloaded successfully"
+        msg "Проблема загрузки релиза с GitHub"
         exit 1
+    fi
+
+    sing_box
+
+    if command -v podkop > /dev/null 2>&1; then
+        local version
+        version=$(/usr/bin/podkop show_version 2> /dev/null)
+        if [ -n "$version" ]; then
+            version=$(echo "$version" | sed 's/^v//')
+            local major
+            local minor
+            local patch
+            major=$(echo "$version" | cut -d. -f1)
+            minor=$(echo "$version" | cut -d. -f2)
+            patch=$(echo "$version" | cut -d. -f3)
+
+            # Compare version: must be >= 0.7.0
+            if [ "$major" -gt 0 ] ||
+                [ "$major" -eq 0 ] && [ "$minor" -gt 7 ] ||
+                [ "$major" -eq 0 ] && [ "$minor" -eq 7 ] && [ "$patch" -ge 0 ]; then
+                msg "Podkop version >= 0.7.0"
+                break
+            else
+                msg "Podkop version < 0.7.0"
+                update_config
+            fi
+        else
+            msg "Unknown podkop version"
+            update_config
+        fi
+    fi
+
+    if pkg_is_installed https-dns-proxy; then
+        msg "Сonflicting package detected: https-dns-proxy. Remove?"
+
+        while true; do
+                read -r -p '' DNSPROXY
+                case $DNSPROXY in
+
+                yes|y|Y)
+                    pkg_remove luci-app-https-dns-proxy
+                    pkg_remove https-dns-proxy
+                    pkg_remove luci-i18n-https-dns-proxy*
+                    break
+                    ;;
+                *)
+                    msg "Exit"
+                    exit 1
+                    ;;
+        esac
+    done
     fi
 
     for pkg in podkop luci-app-podkop; do
@@ -239,56 +288,6 @@ check_system() {
         msg "DNS not working"
         exit 1
     fi
-
-    # Check version
-    if command -v podkop > /dev/null 2>&1; then
-        local version
-        version=$(/usr/bin/podkop show_version 2> /dev/null)
-        if [ -n "$version" ]; then
-            version=$(echo "$version" | sed 's/^v//')
-            local major
-            local minor
-            local patch
-            major=$(echo "$version" | cut -d. -f1)
-            minor=$(echo "$version" | cut -d. -f2)
-            patch=$(echo "$version" | cut -d. -f3)
-
-            # Compare version: must be >= 0.7.0
-            if [ "$major" -gt 0 ] ||
-                [ "$major" -eq 0 ] && [ "$minor" -gt 7 ] ||
-                [ "$major" -eq 0 ] && [ "$minor" -eq 7 ] && [ "$patch" -ge 0 ]; then
-                msg "Podkop version >= 0.7.0"
-                break
-            else
-                msg "Podkop version < 0.7.0"
-                update_config
-            fi
-        else
-            msg "Unknown podkop version"
-            update_config
-        fi
-    fi
-
-    if pkg_is_installed https-dns-proxy; then
-        msg "Сonflicting package detected: https-dns-proxy. Remove?"
-
-        while true; do
-                read -r -p '' DNSPROXY
-                case $DNSPROXY in
-
-                yes|y|Y)
-                    pkg_remove luci-app-https-dns-proxy
-                    pkg_remove https-dns-proxy
-                    pkg_remove luci-i18n-https-dns-proxy*
-                    break
-                    ;;
-                *)
-                    msg "Exit"
-                    exit 1
-                    ;;
-        esac
-    done
-    fi
 }
 
 sing_box() {
@@ -303,7 +302,7 @@ sing_box() {
         msg "sing-box version $sing_box_version is older than required $required_version"
         msg "Removing old version..."
         service podkop stop
-        pkg_remove sing-box
+        pkg_remove sing-box || { msg "Error removing old sing-box. Halting update."; exit 1; }
     fi
 }
 
