@@ -3,6 +3,7 @@ import { validateShadowsocksUrl } from './validateShadowsocksUrl';
 import { validateVlessUrl } from './validateVlessUrl';
 import { validateTrojanUrl } from './validateTrojanUrl';
 import { validateSocksUrl } from './validateSocksUrl';
+import { validateHysteria2Url } from './validateHysteriaUrl';
 
 // TODO refactor current validation and add tests
 export function validateProxyUrl(url: string): ValidationResult {
@@ -22,6 +23,13 @@ export function validateProxyUrl(url: string): ValidationResult {
 
   if (/^socks(4|4a|5):\/\//.test(trimmedUrl)) {
     return validateSocksUrl(trimmedUrl);
+  }
+
+  if (
+    trimmedUrl.startsWith('hysteria2://') ||
+    trimmedUrl.startsWith('hy2://')
+  ) {
+    return validateHysteria2Url(trimmedUrl);
   }
 
   return {
