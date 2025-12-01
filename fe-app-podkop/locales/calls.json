@@ -641,7 +641,7 @@
     "call": "Invalid HY2 URL: insecure must be 0 or 1",
     "key": "Invalid HY2 URL: insecure must be 0 or 1",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:73"
+      "src/validators/validateHysteriaUrl.ts:76"
     ]
   },
   {
@@ -701,17 +701,31 @@
     ]
   },
   {
+    "call": "Invalid HY2 URL: obfs-password required when obfs is set",
+    "key": "Invalid HY2 URL: obfs-password required when obfs is set",
+    "places": [
+      "src/validators/validateHysteriaUrl.ts:99"
+    ]
+  },
+  {
     "call": "Invalid HY2 URL: parsing failed",
     "key": "Invalid HY2 URL: parsing failed",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:103"
+      "src/validators/validateHysteriaUrl.ts:113"
+    ]
+  },
+  {
+    "call": "Invalid HY2 URL: sni cannot be empty",
+    "key": "Invalid HY2 URL: sni cannot be empty",
+    "places": [
+      "src/validators/validateHysteriaUrl.ts:106"
     ]
   },
   {
     "call": "Invalid HY2 URL: unsupported obfs type",
     "key": "Invalid HY2 URL: unsupported obfs type",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:82"
+      "src/validators/validateHysteriaUrl.ts:88"
     ]
   },
   {
@@ -1648,8 +1662,8 @@
     ]
   },
   {
-    "call": "URL must start with vless://, ss://, trojan://, or socks4/5://",
-    "key": "URL must start with vless://, ss://, trojan://, or socks4/5://",
+    "call": "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://",
+    "key": "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://",
     "places": [
       "src/validators/validateProxyUrl.ts:37"
     ]
@@ -1746,7 +1760,7 @@
       "src/validators/validateDns.ts:18",
       "src/validators/validateDomain.ts:13",
       "src/validators/validateDomain.ts:30",
-      "src/validators/validateHysteriaUrl.ts:101",
+      "src/validators/validateHysteriaUrl.ts:111",
       "src/validators/validateIp.ts:8",
       "src/validators/validateOutboundJson.ts:7",
       "src/validators/validatePath.ts:16",

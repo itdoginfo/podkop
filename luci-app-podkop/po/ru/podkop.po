@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-30 18:34+0200\n"
-"PO-Revision-Date: 2025-11-30 18:34+0200\n"
+"POT-Creation-Date: 2025-12-01 16:30+0200\n"
+"PO-Revision-Date: 2025-12-01 16:30+0200\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -308,8 +308,14 @@ msgstr "Неверный URL Hysteria2: не должен содержать п�
 msgid "Invalid HY2 URL: must start with hysteria2:// or hy2://"
 msgstr "Неверный URL Hysteria2: должен начинаться с hysteria2:// или hy2://"
 
+msgid "Invalid HY2 URL: obfs-password required when obfs is set"
+msgstr "Неверный URL Hysteria2: требуется obfs-password, когда установлен obfs"
+
 msgid "Invalid HY2 URL: parsing failed"
 msgstr "Неверный URL Hysteria2: ошибка разбора"
+
+msgid "Invalid HY2 URL: sni cannot be empty"
+msgstr "Неверный URL Hysteria2: sni не может быть пустым"
 
 msgid "Invalid HY2 URL: unsupported obfs type"
 msgstr "Неверный URL Hysteria2: неподдерживаемый тип obfs"
@@ -704,8 +710,8 @@ msgstr "Неизвестная ошибка"
 msgid "Uplink"
 msgstr "Исходящий"
 
-msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
-msgstr "URL должен начинаться с vless://, ss://, trojan:// или socks4/5://"
+msgid "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
+msgstr "URL должен начинаться с vless://, ss://, trojan://, socks4/5:// или hysteria2:// hy2://"
 
 msgid "URL must use one of the following protocols:"
 msgstr "URL должен использовать один из следующих протоколов:"

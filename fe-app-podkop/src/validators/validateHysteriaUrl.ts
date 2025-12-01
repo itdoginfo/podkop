@@ -96,14 +96,16 @@ export function validateHysteria2Url(url: string): ValidationResult {
       ) {
         return {
           valid: false,
-          message: 'Invalid HY2 URL: obfs-password required when obfs is set',
+          message: _(
+            'Invalid HY2 URL: obfs-password required when obfs is set',
+          ),
         };
       }
 
       if (paramsKeys.includes('sni') && !params.sni) {
         return {
           valid: false,
-          message: 'Invalid HY2 URL: sni cannot be empty',
+          message: _('Invalid HY2 URL: sni cannot be empty'),
         };
       }
     }

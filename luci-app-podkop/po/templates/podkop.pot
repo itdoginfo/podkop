@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-30 16:34+0200\n"
-"PO-Revision-Date: 2025-11-30 16:34+0200\n"
+"POT-Creation-Date: 2025-12-01 14:30+0200\n"
+"PO-Revision-Date: 2025-12-01 14:30+0200\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -390,7 +390,7 @@ msgstr ""
 msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
 msgstr ""
 
-#: src/validators/validateHysteriaUrl.ts:73
+#: src/validators/validateHysteriaUrl.ts:76
 msgid "Invalid HY2 URL: insecure must be 0 or 1"
 msgstr ""
 
@@ -426,11 +426,19 @@ msgstr ""
 msgid "Invalid HY2 URL: must start with hysteria2:// or hy2://"
 msgstr ""
 
-#: src/validators/validateHysteriaUrl.ts:103
+#: src/validators/validateHysteriaUrl.ts:99
+msgid "Invalid HY2 URL: obfs-password required when obfs is set"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:113
 msgid "Invalid HY2 URL: parsing failed"
 msgstr ""
 
-#: src/validators/validateHysteriaUrl.ts:82
+#: src/validators/validateHysteriaUrl.ts:106
+msgid "Invalid HY2 URL: sni cannot be empty"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:88
 msgid "Invalid HY2 URL: unsupported obfs type"
 msgstr ""
 
@@ -978,7 +986,7 @@ msgid "Uplink"
 msgstr ""
 
 #: src/validators/validateProxyUrl.ts:37
-msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
+msgid "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
 msgstr ""
 
 #: src/validators/validateUrl.ts:17
@@ -1033,7 +1041,7 @@ msgstr ""
 #: src/validators/validateDns.ts:18
 #: src/validators/validateDomain.ts:13
 #: src/validators/validateDomain.ts:30
-#: src/validators/validateHysteriaUrl.ts:101
+#: src/validators/validateHysteriaUrl.ts:111
 #: src/validators/validateIp.ts:8
 #: src/validators/validateOutboundJson.ts:7
 #: src/validators/validatePath.ts:16

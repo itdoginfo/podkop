@@ -516,13 +516,15 @@ function validateHysteria2Url(url) {
       if (paramsKeys.includes("obfs") && params.obfs !== "none" && !params["obfs-password"]) {
         return {
           valid: false,
-          message: "Invalid HY2 URL: obfs-password required when obfs is set"
+          message: _(
+            "Invalid HY2 URL: obfs-password required when obfs is set"
+          )
         };
       }
       if (paramsKeys.includes("sni") && !params.sni) {
         return {
           valid: false,
-          message: "Invalid HY2 URL: sni cannot be empty"
+          message: _("Invalid HY2 URL: sni cannot be empty")
         };
       }
     }
@@ -553,7 +555,7 @@ function validateProxyUrl(url) {
   return {
     valid: false,
     message: _(
-      "URL must start with vless://, ss://, trojan://, or socks4/5://"
+      "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
     )
   };
 }
