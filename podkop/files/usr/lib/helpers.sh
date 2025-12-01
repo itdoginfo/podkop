@@ -125,6 +125,12 @@ url_decode() {
     printf '%b' "$(echo "$encoded" | sed 's/+/ /g; s/%/\\x/g')"
 }
 
+# Returns the scheme (protocol) part of a URL
+url_get_scheme() {
+    local url="$1"
+    echo "${url%%://*}"
+}
+
 # Extracts the userinfo (username[:password]) part from a URL
 url_get_userinfo() {
     local url="$1"
@@ -134,13 +140,23 @@ url_get_userinfo() {
 # Extracts the host part from a URL
 url_get_host() {
     local url="$1"
-    echo "$url" | sed -n -e 's#^[^:/?]*://##' -e 's#^[^/]*@##' -e 's#\([:/].*\|$\)##p'
+
+    url="${url#*://}"
+    url="${url#*@}"
+    url="${url%%[/?#]*}"
+
+    echo "${url%%:*}"
 }
 
 # Extracts the port number from a URL
 url_get_port() {
     local url="$1"
-    echo "$url" | sed -n -e 's#^[^:/?]*://##' -e 's#^[^/]*@##' -e 's#^[^/]*:\([0-9][0-9]*\).*#\1#p'
+
+    url="${url#*://}"
+    url="${url#*@}"
+    url="${url%%[/?#]*}"
+
+    [[ "$url" == *:* ]] && echo "${url#*:}" || echo ""
 }
 
 # Extracts the path from a URL (without query or fragment; returns "/" if empty)

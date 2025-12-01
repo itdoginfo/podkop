@@ -87,7 +87,7 @@ function createSectionContent(section) {
     _("URLTest Proxy Links"),
   );
   o.depends("proxy_config_type", "urltest");
-  o.placeholder = "vless://, ss://, trojan://, socks4/5:// links";
+  o.placeholder = "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links";
   o.rmempty = false;
   o.validate = function (section_id, value) {
     // Optional

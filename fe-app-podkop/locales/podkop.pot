@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-06 14:19+0200\n"
-"PO-Revision-Date: 2025-11-06 14:19+0200\n"
+"POT-Creation-Date: 2025-12-01 14:30+0200\n"
+"PO-Revision-Date: 2025-12-01 14:30+0200\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -16,23 +16,23 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/podkop/tabs/dashboard/initController.ts:342
+#: src/podkop/tabs/dashboard/initController.ts:345
 msgid "✔ Enabled"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:353
+#: src/podkop/tabs/dashboard/initController.ts:356
 msgid "✔ Running"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:343
+#: src/podkop/tabs/dashboard/initController.ts:346
 msgid "✘ Disabled"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:354
+#: src/podkop/tabs/dashboard/initController.ts:357
 msgid "✘ Stopped"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:304
+#: src/podkop/tabs/dashboard/initController.ts:307
 msgid "Active Connections"
 msgstr ""
 
@@ -236,8 +236,8 @@ msgstr ""
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:238
-#: src/podkop/tabs/dashboard/initController.ts:272
+#: src/podkop/tabs/dashboard/initController.ts:241
+#: src/podkop/tabs/dashboard/initController.ts:275
 msgid "Downlink"
 msgstr ""
 
@@ -390,6 +390,58 @@ msgstr ""
 msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
 msgstr ""
 
+#: src/validators/validateHysteriaUrl.ts:76
+msgid "Invalid HY2 URL: insecure must be 0 or 1"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:62
+msgid "Invalid HY2 URL: invalid port number"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:32
+msgid "Invalid HY2 URL: missing credentials/server"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:49
+msgid "Invalid HY2 URL: missing host"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:43
+msgid "Invalid HY2 URL: missing host & port"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:38
+msgid "Invalid HY2 URL: missing password"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:53
+msgid "Invalid HY2 URL: missing port"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:19
+msgid "Invalid HY2 URL: must not contain spaces"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:12
+msgid "Invalid HY2 URL: must start with hysteria2:// or hy2://"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:99
+msgid "Invalid HY2 URL: obfs-password required when obfs is set"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:113
+msgid "Invalid HY2 URL: parsing failed"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:106
+msgid "Invalid HY2 URL: sni cannot be empty"
+msgstr ""
+
+#: src/validators/validateHysteriaUrl.ts:88
+msgid "Invalid HY2 URL: unsupported obfs type"
+msgstr ""
+
 #: src/validators/validateIp.ts:11
 msgid "Invalid IP address"
 msgstr ""
@@ -527,7 +579,7 @@ msgstr ""
 msgid "Main DNS"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:308
+#: src/podkop/tabs/dashboard/initController.ts:311
 msgid "Memory Usage"
 msgstr ""
 
@@ -613,7 +665,7 @@ msgstr ""
 msgid "Pending"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:340
+#: src/podkop/tabs/dashboard/initController.ts:343
 msgid "Podkop"
 msgstr ""
 
@@ -766,7 +818,7 @@ msgstr ""
 msgid "Select the WAN interfaces to be monitored"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:337
+#: src/podkop/tabs/dashboard/initController.ts:340
 msgid "Services info"
 msgstr ""
 
@@ -779,7 +831,7 @@ msgstr ""
 msgid "Show sing-box config"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:351
+#: src/podkop/tabs/dashboard/initController.ts:354
 msgid "Sing-box"
 msgstr ""
 
@@ -844,7 +896,7 @@ msgstr ""
 msgid "Successfully copied!"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:301
+#: src/podkop/tabs/dashboard/initController.ts:304
 msgid "System info"
 msgstr ""
 
@@ -861,11 +913,8 @@ msgid "Test latency"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:368
-msgid "Text List"
-msgstr ""
-
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:448
-msgid "Text List (comma/space/newline separated)"
+msgid "Text List"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:46
@@ -888,11 +937,11 @@ msgstr ""
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:235
+#: src/podkop/tabs/dashboard/initController.ts:238
 msgid "Traffic"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:265
+#: src/podkop/tabs/dashboard/initController.ts:268
 msgid "Traffic Total"
 msgstr ""
 
@@ -931,13 +980,13 @@ msgstr ""
 msgid "Unknown error"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:237
-#: src/podkop/tabs/dashboard/initController.ts:268
+#: src/podkop/tabs/dashboard/initController.ts:240
+#: src/podkop/tabs/dashboard/initController.ts:271
 msgid "Uplink"
 msgstr ""
 
-#: src/validators/validateProxyUrl.ts:29
-msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
+#: src/validators/validateProxyUrl.ts:37
+msgid "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
 msgstr ""
 
 #: src/validators/validateUrl.ts:17
@@ -992,6 +1041,7 @@ msgstr ""
 #: src/validators/validateDns.ts:18
 #: src/validators/validateDomain.ts:13
 #: src/validators/validateDomain.ts:30
+#: src/validators/validateHysteriaUrl.ts:111
 #: src/validators/validateIp.ts:8
 #: src/validators/validateOutboundJson.ts:7
 #: src/validators/validatePath.ts:16

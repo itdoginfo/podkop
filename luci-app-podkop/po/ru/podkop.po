@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-06 16:19+0200\n"
-"PO-Revision-Date: 2025-11-06 16:19+0200\n"
+"POT-Creation-Date: 2025-12-01 16:30+0200\n"
+"PO-Revision-Date: 2025-12-01 16:30+0200\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -280,6 +280,45 @@ msgstr "Неверный домен"
 
 msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
 msgstr "Неверный формат. Используйте X.X.X.X или X.X.X.X/Y"
+
+msgid "Invalid HY2 URL: insecure must be 0 or 1"
+msgstr "Неверный URL Hysteria2: параметр insecure должен быть 0 или 1"
+
+msgid "Invalid HY2 URL: invalid port number"
+msgstr "Неверный URL Hysteria2: неверный номер порта"
+
+msgid "Invalid HY2 URL: missing credentials/server"
+msgstr "Неверный URL Hysteria2: отсутствуют учетные данные/сервер"
+
+msgid "Invalid HY2 URL: missing host"
+msgstr "Неверный URL Hysteria2: отсутствует хост"
+
+msgid "Invalid HY2 URL: missing host & port"
+msgstr "Неверный URL Hysteria2: отсутствуют хост и порт"
+
+msgid "Invalid HY2 URL: missing password"
+msgstr "Неверный URL Hysteria2: отсутствует пароль"
+
+msgid "Invalid HY2 URL: missing port"
+msgstr "Неверный URL Hysteria2: отсутствует порт"
+
+msgid "Invalid HY2 URL: must not contain spaces"
+msgstr "Неверный URL Hysteria2: не должен содержать пробелов"
+
+msgid "Invalid HY2 URL: must start with hysteria2:// or hy2://"
+msgstr "Неверный URL Hysteria2: должен начинаться с hysteria2:// или hy2://"
+
+msgid "Invalid HY2 URL: obfs-password required when obfs is set"
+msgstr "Неверный URL Hysteria2: требуется obfs-password, когда установлен obfs"
+
+msgid "Invalid HY2 URL: parsing failed"
+msgstr "Неверный URL Hysteria2: ошибка разбора"
+
+msgid "Invalid HY2 URL: sni cannot be empty"
+msgstr "Неверный URL Hysteria2: sni не может быть пустым"
+
+msgid "Invalid HY2 URL: unsupported obfs type"
+msgstr "Неверный URL Hysteria2: неподдерживаемый тип obfs"
 
 msgid "Invalid IP address"
 msgstr "Неверный IP-адрес"
@@ -626,9 +665,6 @@ msgstr "Тестирование задержки"
 msgid "Text List"
 msgstr "Текстовый список"
 
-msgid "Text List (comma/space/newline separated)"
-msgstr "Текстовый список (через запятую, пробел или новую строку)"
-
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
 
@@ -674,8 +710,8 @@ msgstr "Неизвестная ошибка"
 msgid "Uplink"
 msgstr "Исходящий"
 
-msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
-msgstr "URL должен начинаться с vless://, ss://, trojan:// или socks4/5://"
+msgid "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
+msgstr "URL должен начинаться с vless://, ss://, trojan://, socks4/5:// или hysteria2:// hy2://"
 
 msgid "URL must use one of the following protocols:"
 msgstr "URL должен использовать один из следующих протоколов:"
