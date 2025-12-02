@@ -109,16 +109,16 @@ main() {
     pkg_list_update || { echo "Packages list update failed"; exit 1; }
 
     if [ -f "/etc/init.d/podkop" ]; then
-        msg "Podkop is already installed. Upgraded..."
+        msg "Podkop is already installed. Upgrading..."
     else
-        msg "Installed podkop..."
+        msg "Installing podkop..."
     fi
 
     if command -v curl >/dev/null 2>&1; then
         check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
 
         if echo "$check_response" | grep -q 'API rate limit '; then
-            msg "You've reached rate limit from GitHub. Repeat in five minutes."
+            msg "You've reached the GitHub rate limit. Repeat in five minutes."
             exit 1
         fi
     fi
@@ -143,7 +143,7 @@ main() {
                     break
                 fi
             fi
-            msg "Download error $filename. Retry..."
+            msg "Download error for $filename. Retrying..."
             rm -f "$filepath"
             attempt=$((attempt+1))
         done
@@ -168,7 +168,7 @@ main() {
             fi
         done
         if [ -n "$file" ]; then
-            msg "Installing $file"
+            msg "Installing $file..."
             pkg_install "$DOWNLOAD_DIR/$file"
             sleep 3
         fi
@@ -183,11 +183,11 @@ main() {
     done
     if [ -n "$ru" ]; then
         if pkg_is_installed luci-i18n-podkop-ru; then
-                msg "Upgraded ru translation..."
+                msg "Upgrading Russian translation..."
                 pkg_remove luci-i18n-podkop*
                 pkg_install "$DOWNLOAD_DIR/$ru"
         else
-            msg "Русский язык интерфейса ставим? y/n (Need a Russian translation?)"
+            msg "Русский язык интерфейса ставим? y/n (Install the Russian interface language?)"
             while true; do
                 read -r -p '' RUS
                 case $RUS in
@@ -236,7 +236,7 @@ check_system() {
     fi
 
     if ! nslookup google.com >/dev/null 2>&1; then
-        msg "DNS not working"
+        msg "DNS is not working."
         exit 1
     fi
 
@@ -270,7 +270,7 @@ check_system() {
     fi
 
     if pkg_is_installed https-dns-proxy; then
-        msg "Сonflicting package detected: https-dns-proxy. Remove?"
+        msg "Conflicting package detected: https-dns-proxy. Remove?"
 
         while true; do
                 read -r -p '' DNSPROXY
@@ -300,7 +300,7 @@ sing_box() {
     required_version="1.12.4"
 
     if [ "$(printf '%s\n%s\n' "$sing_box_version" "$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
-        msg "sing-box version $sing_box_version is older than required $required_version"
+        msg "sing-box version $sing_box_version is older than the required version $required_version."
         msg "Removing old version..."
         service podkop stop
         pkg_remove sing-box
