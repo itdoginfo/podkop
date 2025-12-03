@@ -1512,7 +1512,7 @@ get_service_listen_address() {
         return 0
     fi
 
-    service_listen_address="$(uci_get "network" "lan" "ipaddr")"
+    service_listen_address="$(uci_get "network" "lan" "ipaddr" | awk '{print $1}' | cut -d'/' -f1)"
 
     if [ -z "$service_listen_address" ]; then
         log "Failed to determine the listening IP address. Please open an issue to report this problem: https://github.com/itdoginfo/podkop/issues" "error"
