@@ -1505,11 +1505,14 @@ section_has_enabled_lists() {
 get_service_listen_address() {
     local service_listen_address
 
-    service_listen_address="$(uci_get "network" "lan" "ipaddr")"
-
-    if [ -z "$service_listen_address" ]; then
-        config_get service_listen_address "settings" "service_listen_address" # TODO(ampetelin): Remove after testing
+    config_get service_listen_address "settings" "service_listen_address"
+    if [ -n "$service_listen_address" ]; then
+        log "Attention! The service_listen_address option is being used, overriding the automatic detection of the listening IP address!" "warn"
+        echo "$service_listen_address"
+        return 0
     fi
+
+    service_listen_address="$(uci_get "network" "lan" "ipaddr")"
 
     if [ -z "$service_listen_address" ]; then
         log "Failed to determine the listening IP address. Please open an issue to report this problem: https://github.com/itdoginfo/podkop/issues" "error"
