@@ -2056,7 +2056,7 @@ check_sing_box() {
     local sing_box_process_running=0
     local sing_box_ports_listening=0
 
-# Check if sing-box is installed
+    # Check if sing-box is installed
     if command -v sing-box > /dev/null 2>&1; then
         sing_box_installed=1
 
