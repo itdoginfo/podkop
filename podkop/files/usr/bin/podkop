@@ -2056,7 +2056,7 @@ check_sing_box() {
     local sing_box_process_running=0
     local sing_box_ports_listening=0
 
-    # Check if sing-box is installed
+# Check if sing-box is installed
     if command -v sing-box > /dev/null 2>&1; then
         sing_box_installed=1
 
@@ -2064,7 +2064,7 @@ check_sing_box() {
         local version
         version=$(sing-box version 2> /dev/null | head -n 1 | awk '{print $3}')
         if [ -n "$version" ]; then
-            version=$(echo "$version" | sed 's/^v//')
+            version=$(echo "$version" | sed 's/^v//' | sed 's/-.*//')
             local major
             local minor
             local patch
@@ -2074,8 +2074,8 @@ check_sing_box() {
 
             # Compare version: must be >= 1.12.4
             if [ "$major" -gt 1 ] ||
-                [ "$major" -eq 1 ] && [ "$minor" -gt 12 ] ||
-                [ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]; then
+               ([ "$major" -eq 1 ] && [ "$minor" -gt 12 ]) ||
+               ([ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]); then
                 sing_box_version_ok=1
             fi
         fi
