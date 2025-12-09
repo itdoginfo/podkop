@@ -12,6 +12,7 @@ check_required_file() {
 PODKOP_LIB="/usr/lib/podkop"
 check_required_file /lib/functions.sh
 check_required_file /lib/config/uci.sh
+check_required_file /lib/functions/network.sh
 check_required_file "$PODKOP_LIB/constants.sh"
 check_required_file "$PODKOP_LIB/nft.sh"
 check_required_file "$PODKOP_LIB/helpers.sh"
@@ -19,8 +20,9 @@ check_required_file "$PODKOP_LIB/sing_box_config_manager.sh"
 check_required_file "$PODKOP_LIB/sing_box_config_facade.sh"
 check_required_file "$PODKOP_LIB/logging.sh"
 check_required_file "$PODKOP_LIB/rulesets.sh"
-. /lib/config/uci.sh
 . /lib/functions.sh
+. /lib/config/uci.sh
+. /lib/functions/network.sh
 . "$PODKOP_LIB/constants.sh"
 . "$PODKOP_LIB/nft.sh"
 . "$PODKOP_LIB/helpers.sh"
@@ -1512,7 +1514,8 @@ get_service_listen_address() {
         return 0
     fi
 
-    service_listen_address="$(uci_get "network" "lan" "ipaddr" | awk '{print $1}' | cut -d'/' -f1)"
+    local interface="lan"
+    network_get_ipaddr service_listen_address "$interface"
 
     if [ -z "$service_listen_address" ]; then
         log "Failed to determine the listening IP address. Please open an issue to report this problem: https://github.com/itdoginfo/podkop/issues" "error"
