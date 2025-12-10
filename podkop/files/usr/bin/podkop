@@ -590,7 +590,9 @@ sing_box_init_config() {
 sing_box_configure_log() {
     log "Configure the log section of a sing-box JSON configuration"
 
-    config=$(sing_box_cm_configure_log "$config" false "$SB_DEFAULT_LOG_LEVEL" false)
+    local log_level
+    config_get log_level "settings" "log_level"
+    config=$(sing_box_cm_configure_log "$config" false "$log_level" false)
 }
 
 sing_box_configure_inbounds() {

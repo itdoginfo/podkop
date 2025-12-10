@@ -379,6 +379,24 @@ function createSettingsContent(section) {
   };
 
   o = section.option(
+    form.ListValue,
+    "log_level",
+    _("Log Level"),
+    _(
+      "Select the log level for sing-box",
+    ),
+  );
+  o.value("trace", "Trace");
+  o.value("debug", "Debug");
+  o.value("info", "Info");
+  o.value("warn", "Warn");
+  o.value("error", "Error");
+  o.value("fatal", "Fatal");
+  o.value("panic", "Panic");
+  o.default = "warn";
+  o.rmempty = false;
+
+  o = section.option(
     form.Flag,
     "exclude_ntp",
     _("Exclude NTP"),
