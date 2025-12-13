@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-01 16:30+0200\n"
-"PO-Revision-Date: 2025-12-01 16:30+0200\n"
+"POT-Creation-Date: 2025-12-13 18:15+0200\n"
+"PO-Revision-Date: 2025-12-13 18:15+0200\n"
 "Last-Translator: divocat\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -419,6 +419,9 @@ msgstr "Локальные списки доменов"
 msgid "Local Subnet Lists"
 msgstr "Локальные списки подсетей"
 
+msgid "Log Level"
+msgstr "Уровень логов"
+
 msgid "Main DNS"
 msgstr "Основной DNS"
 
@@ -583,6 +586,9 @@ msgstr "Выберите тип списка для добавления пол�
 
 msgid "Select the list type for adding custom subnets"
 msgstr "Выберите тип списка для добавления пользовательских подсетей"
+
+msgid "Select the log level for sing-box"
+msgstr "Выберите уровень логов для sing-box"
 
 msgid "Select the network interface from which the traffic will originate"
 msgstr "Выберите сетевой интерфейс, с которого будет исходить трафик"

@@ -590,7 +590,9 @@ sing_box_init_config() {
 sing_box_configure_log() {
     log "Configure the log section of a sing-box JSON configuration"
 
-    config=$(sing_box_cm_configure_log "$config" false "$SB_DEFAULT_LOG_LEVEL" false)
+    local log_level
+    config_get log_level "settings" "log_level"
+    config=$(sing_box_cm_configure_log "$config" false "$log_level" false)
 }
 
 sing_box_configure_inbounds() {
@@ -785,8 +787,6 @@ sing_box_configure_route() {
     config=$(sing_box_cf_proxy_domain "$config" "$SB_TPROXY_INBOUND_TAG" "$CHECK_PROXY_IP_DOMAIN" "$first_outbound_tag")
     config=$(sing_box_cf_override_domain_port "$config" "$FAKEIP_TEST_DOMAIN" 8443)
 
-    config_foreach include_source_ips_in_routing_handler "section"
-
     configure_common_reject_route_rule
 
     local routing_excluded_ips
@@ -796,6 +796,8 @@ sing_box_configure_route() {
         config=$(sing_box_cm_add_route_rule "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$SB_DIRECT_OUTBOUND_TAG")
         config_list_foreach "settings" "routing_excluded_ips" exclude_source_ip_from_routing_handler "$rule_tag"
     fi
+
+    config_foreach include_source_ips_in_routing_handler "section"
 
     config_foreach configure_routing_for_section_lists "section"
 }

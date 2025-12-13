@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-01 14:30+0200\n"
-"PO-Revision-Date: 2025-12-01 14:30+0200\n"
+"POT-Creation-Date: 2025-12-13 16:15+0200\n"
+"PO-Revision-Date: 2025-12-13 16:15+0200\n"
 "Last-Translator: divocat <divocatt@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -323,11 +323,11 @@ msgstr ""
 msgid "Every 5 minutes"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:384
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:402
 msgid "Exclude NTP"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:385
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:403
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr ""
 
@@ -430,11 +430,11 @@ msgstr ""
 msgid "Invalid HY2 URL: obfs-password required when obfs is set"
 msgstr ""
 
-#: src/validators/validateHysteriaUrl.ts:113
+#: src/validators/validateHysteriaUrl.ts:115
 msgid "Invalid HY2 URL: parsing failed"
 msgstr ""
 
-#: src/validators/validateHysteriaUrl.ts:106
+#: src/validators/validateHysteriaUrl.ts:108
 msgid "Invalid HY2 URL: sni cannot be empty"
 msgstr ""
 
@@ -575,6 +575,10 @@ msgstr ""
 msgid "Local Subnet Lists"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:384
+msgid "Log Level"
+msgstr ""
+
 #: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:72
 msgid "Main DNS"
 msgstr ""
@@ -713,7 +717,7 @@ msgstr ""
 msgid "Router DNS is routed through sing-box"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:395
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:413
 msgid "Routing Excluded IPs"
 msgstr ""
 
@@ -806,6 +810,10 @@ msgstr ""
 msgid "Select the list type for adding custom subnets"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:385
+msgid "Select the log level for sing-box"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:90
 msgid "Select the network interface from which the traffic will originate"
 msgstr ""
@@ -863,7 +871,7 @@ msgstr ""
 msgid "Source Network Interface"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:396
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:414
 msgid "Specify a local IP address to be excluded from routing"
 msgstr ""
 
@@ -1041,7 +1049,7 @@ msgstr ""
 #: src/validators/validateDns.ts:18
 #: src/validators/validateDomain.ts:13
 #: src/validators/validateDomain.ts:30
-#: src/validators/validateHysteriaUrl.ts:111
+#: src/validators/validateHysteriaUrl.ts:113
 #: src/validators/validateIp.ts:8
 #: src/validators/validateOutboundJson.ts:7
 #: src/validators/validatePath.ts:16
