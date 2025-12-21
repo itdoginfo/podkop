@@ -529,14 +529,14 @@
     "call": "Exclude NTP",
     "key": "Exclude NTP",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:384"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:402"
     ]
   },
   {
     "call": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "key": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:385"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:403"
     ]
   },
   {
@@ -711,14 +711,14 @@
     "call": "Invalid HY2 URL: parsing failed",
     "key": "Invalid HY2 URL: parsing failed",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:113"
+      "src/validators/validateHysteriaUrl.ts:115"
     ]
   },
   {
     "call": "Invalid HY2 URL: sni cannot be empty",
     "key": "Invalid HY2 URL: sni cannot be empty",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:106"
+      "src/validators/validateHysteriaUrl.ts:108"
     ]
   },
   {
@@ -961,6 +961,13 @@
     ]
   },
   {
+    "call": "Log Level",
+    "key": "Log Level",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:384"
+    ]
+  },
+  {
     "call": "Main DNS",
     "key": "Main DNS",
     "places": [
@@ -1198,7 +1205,7 @@
     "call": "Routing Excluded IPs",
     "key": "Routing Excluded IPs",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:395"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:413"
     ]
   },
   {
@@ -1357,6 +1364,13 @@
     ]
   },
   {
+    "call": "Select the log level for sing-box",
+    "key": "Select the log level for sing-box",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:385"
+    ]
+  },
+  {
     "call": "Select the network interface from which the traffic will originate",
     "key": "Select the network interface from which the traffic will originate",
     "places": [
@@ -1459,7 +1473,7 @@
     "call": "Specify a local IP address to be excluded from routing",
     "key": "Specify a local IP address to be excluded from routing",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:396"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:414"
     ]
   },
   {
@@ -1760,7 +1774,7 @@
       "src/validators/validateDns.ts:18",
       "src/validators/validateDomain.ts:13",
       "src/validators/validateDomain.ts:30",
-      "src/validators/validateHysteriaUrl.ts:111",
+      "src/validators/validateHysteriaUrl.ts:113",
       "src/validators/validateIp.ts:8",
       "src/validators/validateOutboundJson.ts:7",
       "src/validators/validatePath.ts:16",

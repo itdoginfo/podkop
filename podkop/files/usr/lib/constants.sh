@@ -22,8 +22,6 @@ NFT_INTERFACE_SET_NAME="interfaces"
 
 ## sing-box
 SB_REQUIRED_VERSION="1.12.0"
-# Log
-SB_DEFAULT_LOG_LEVEL="warn"
 # DNS
 SB_DNS_SERVER_TAG="dns-server"
 SB_FAKEIP_DNS_SERVER_TAG="fakeip-server"
