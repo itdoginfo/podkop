@@ -757,6 +757,30 @@ async function getDashboardSections() {
           ]
         };
       }
+      if (section.proxy_config_type === "selector") {
+        const selector = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        const links = section.selector_proxy_links ?? [];
+        const outbounds = links.map((link, index) => ({
+          link,
+          outbound: proxies.find(
+            (item) => item.code === `${section[".name"]}-${index + 1}-out`
+          )
+        })).map((item) => ({
+          code: item?.outbound?.code || "",
+          displayName: getProxyUrlName(item.link) || item?.outbound?.value?.name || "",
+          latency: item?.outbound?.value?.history?.[0]?.delay || 0,
+          type: item?.outbound?.value?.type || "",
+          selected: selector?.value?.now === item?.outbound?.code
+        }));
+        return {
+          withTagSelect: true,
+          code: selector?.code || section[".name"],
+          displayName: section[".name"],
+          outbounds
+        };
+      }
       if (section.proxy_config_type === "urltest") {
         const selector = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-out`

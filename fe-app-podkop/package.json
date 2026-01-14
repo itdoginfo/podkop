@@ -13,11 +13,11 @@
     "test": "vitest",
     "ci": "yarn format && yarn lint --max-warnings=0 && yarn test --run && yarn build",
     "watch:sftp": "node watch-upload.js",
-    "locales:exctract-calls": "node extract-calls.js",
+    "locales:extract-calls": "node extract-calls.js",
     "locales:generate-pot": "node generate-pot.js",
     "locales:generate-po:ru": "node generate-po.js ru",
     "locales:distribute": "node distribute-locales.js",
-    "locales:actualize": "yarn locales:exctract-calls && yarn locales:generate-pot && yarn locales:generate-po:ru && yarn locales:distribute"
+    "locales:actualize": "yarn locales:extract-calls && yarn locales:generate-pot && yarn locales:generate-po:ru && yarn locales:distribute"
   },
   "devDependencies": {
     "@babel/parser": "7.28.4",
