@@ -21,6 +21,7 @@ NFT_COMMON_SET_NAME="podkop_subnets"
 NFT_DISCORD_SET_NAME="podkop_discord_subnets"
 NFT_INTERFACE_SET_NAME="interfaces"
 NFT_FAKEIP_MARK="0x80000"
+NFT_OUTBOUND_MARK="0x90000"
 
 ## sing-box
 SB_REQUIRED_VERSION="1.12.0"
