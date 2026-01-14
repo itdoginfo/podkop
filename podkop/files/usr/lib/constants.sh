@@ -12,6 +12,7 @@ TMP_RULESET_FOLDER="$TMP_SING_BOX_FOLDER/rulesets"
 CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"
+RT_TABLE_NAME="podkop"
 
 ## nft
 NFT_TABLE_NAME="PodkopTable"
@@ -19,6 +20,7 @@ NFT_LOCALV4_SET_NAME="localv4"
 NFT_COMMON_SET_NAME="podkop_subnets"
 NFT_DISCORD_SET_NAME="podkop_discord_subnets"
 NFT_INTERFACE_SET_NAME="interfaces"
+NFT_FAKEIP_MARK="0x80000"
 
 ## sing-box
 SB_REQUIRED_VERSION="1.12.0"
