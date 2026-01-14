@@ -1,15 +1,15 @@
 # RU translations for PODKOP package.
-# Copyright (C) 2025 THE PODKOP'S COPYRIGHT HOLDER
+# Copyright (C) 2026 THE PODKOP'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PODKOP package.
-# divocat, 2025.
+# divocatt, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-13 18:15+0200\n"
-"PO-Revision-Date: 2025-12-13 18:15+0200\n"
-"Last-Translator: divocat\n"
+"POT-Creation-Date: 2026-01-14 20:21+0200\n"
+"PO-Revision-Date: 2026-01-14 20:21+0200\n"
+"Last-Translator: divocatt\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -599,6 +599,12 @@ msgstr "Выберите сетевой интерфейс, на который 
 msgid "Select the WAN interfaces to be monitored"
 msgstr "Выберите WAN интерфейсы для мониторинга"
 
+msgid "Selector"
+msgstr "Selector"
+
+msgid "Selector Proxy Links"
+msgstr "Ссылки прокси для Selector"
+
 msgid "Services info"
 msgstr "Информация о сервисах"
 
@@ -766,6 +772,9 @@ msgstr "Посмотреть логи"
 
 msgid "Visit Wiki"
 msgstr "Перейти в wiki"
+
+msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
+msgstr ""
 
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
