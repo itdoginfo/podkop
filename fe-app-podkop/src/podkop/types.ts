@@ -95,6 +95,12 @@ export namespace Podkop {
     urltest_proxy_links: string[];
   }
 
+  export interface ConfigProxySelectorSection {
+    connection_type: 'proxy';
+    proxy_config_type: 'selector';
+    selector_proxy_links: string[];
+  }
+
   export interface ConfigProxyUrlSection {
     connection_type: 'proxy';
     proxy_config_type: 'url';
@@ -118,6 +124,7 @@ export namespace Podkop {
 
   export type ConfigBaseSection =
     | ConfigProxyUrlTestSection
+    | ConfigProxySelectorSection
     | ConfigProxyUrlSection
     | ConfigProxyOutboundSection
     | ConfigVpnSection
