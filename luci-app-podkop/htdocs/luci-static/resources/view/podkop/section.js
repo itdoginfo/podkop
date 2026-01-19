@@ -15,6 +15,7 @@ function createSectionContent(section) {
   o.value("proxy", "Proxy");
   o.value("vpn", "VPN");
   o.value("block", "Block");
+  o.value("exclusion", "Exclusion")
 
   o = section.option(
     form.ListValue,
@@ -641,6 +642,8 @@ function createSectionContent(section) {
   );
   o.placeholder = "192.168.1.2 or 192.168.1.0/24";
   o.rmempty = true;
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
   o.validate = function (section_id, value) {
     // Optional
     if (!value || value.length === 0) {
@@ -666,6 +669,8 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
 
   o = section.option(
     form.Value,

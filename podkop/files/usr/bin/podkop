@@ -748,6 +748,9 @@ configure_outbound_handler() {
     block)
         log "Connection type 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
         ;;
+    exclusion)
+        log "Connection type 'exclusion' detected for the $section section – no outbound will be created (handled via route rules)"
+        ;;
     *)
         log "Unknown connection type '$connection_type' for the $section section. Aborted." "fatal"
         exit 1
@@ -817,6 +820,7 @@ sing_box_configure_route() {
     config=$(sing_box_cf_override_domain_port "$config" "$FAKEIP_TEST_DOMAIN" 8443)
 
     configure_common_reject_route_rule
+    configure_common_direct_route_rule
 
     local routing_excluded_ips
     config_get routing_excluded_ips "settings" "routing_excluded_ips"
@@ -848,7 +852,7 @@ include_source_ips_in_routing_handler() {
 
 configure_common_reject_route_rule() {
     local block_sections block_section_lists_enabled
-    block_sections="$(get_block_sections)"
+    block_sections="$(get_sections_by_connection_type "block")"
     block_section_lists_enabled=0
 
     if [ -n "$block_sections" ]; then
@@ -862,6 +866,27 @@ configure_common_reject_route_rule() {
             config=$(sing_box_cm_add_reject_route_rule "$config" "$SB_REJECT_RULE_TAG" "$SB_TPROXY_INBOUND_TAG")
         else
             log "Block sections does not have any enabled list, reject rule is not required" "warn"
+        fi
+    fi
+}
+
+configure_common_direct_route_rule() {
+    local exclusion_sections exclusion_section_list_enabled
+    exclusion_sections="$(get_sections_by_connection_type "exclusion")"
+    exclusion_section_list_enabled=0
+
+    if [ -n "$exclusion_sections" ]; then
+        for exclusion_section in $exclusion_sections; do
+            if section_has_enabled_lists "$exclusion_section"; then
+                exclusion_section_list_enabled=1
+                break
+            fi
+        done
+        if [ "$exclusion_section_list_enabled" -eq 1 ]; then
+            config=$(sing_box_cm_add_route_rule "$config" "$SB_EXCLUSION_RULE_TAG" "$SB_TPROXY_INBOUND_TAG" \
+                "$SB_DIRECT_OUTBOUND_TAG")
+        else
+            log "Exclusion sections does not have any enabled list, route rule is not required" "warn"
         fi
     fi
 }
@@ -900,13 +925,23 @@ configure_routing_for_section_lists() {
     config_get remote_subnet_lists "$section" "remote_subnet_lists"
     config_get section_connection_type "$section" "connection_type"
 
-    if [ "$section_connection_type" = "block" ]; then
-        route_rule_tag="$SB_REJECT_RULE_TAG"
-    else
+    case "$section_connection_type" in
+    proxy | vpn)
         route_rule_tag="$(gen_id)"
         outbound_tag=$(get_outbound_tag_by_section "$section")
         config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
-    fi
+        ;;
+    block)
+        route_rule_tag="$SB_REJECT_RULE_TAG"
+        ;;
+    exclusion)
+        route_rule_tag="$SB_EXCLUSION_RULE_TAG"
+        ;;
+    *)
+        log "Unsupported '$section_connection_type' connection type. Skipping routing for '$section' section" "fatal"
+        exit 1
+        ;;
+    esac
 
     if [ -n "$community_lists" ]; then
         log "Processing community list routing rules for '$section' section"
@@ -1497,12 +1532,16 @@ get_first_outbound_section() {
     echo "$first_section"
 }
 
-get_block_sections() {
-    uci show podkop | grep "\.connection_type='block'" | cut -d'.' -f2
+get_sections_by_connection_type() {
+    local connection_type="$1"
+
+    uci show podkop | grep "\.connection_type='$connection_type'" | cut -d'.' -f2
 }
 
-block_section_exists() {
-    if uci show podkop | grep -q "\.connection_type='block'"; then
+section_by_connection_type_exists() {
+    local connection_type="$1"
+
+    if uci show podkop | grep -q "\.connection_type='$connection_type'"; then
         return 0
     else
         return 1
