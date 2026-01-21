@@ -46,6 +46,7 @@ SB_SERVICE_MIXED_INBOUND_PORT=4534
 SB_DIRECT_OUTBOUND_TAG="direct-out"
 # Route
 SB_REJECT_RULE_TAG="reject-rule-tag"
+SB_EXCLUSION_RULE_TAG="exclusion-rule-tag"
 # Experimental
 SB_CLASH_API_CONTROLLER_PORT=9090
 
