@@ -1309,6 +1309,9 @@ import_community_service_subnet_list_handler() {
         nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr \
             "@$NFT_DISCORD_SET_NAME" udp dport '{ 50000-65535 }' meta mark set "$NFT_FAKEIP_MARK" counter
         ;;
+    "roblox")
+        URL=$SUBNETS_ROBLOX
+        ;;
     *) return 0 ;;
     esac
 
