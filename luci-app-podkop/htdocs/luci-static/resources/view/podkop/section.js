@@ -15,7 +15,7 @@ function createSectionContent(section) {
   o.value("proxy", "Proxy");
   o.value("vpn", "VPN");
   o.value("block", "Block");
-  o.value("exclusion", "Exclusion")
+  o.value("exclusion", "Exclusion");
 
   o = section.option(
     form.ListValue,
