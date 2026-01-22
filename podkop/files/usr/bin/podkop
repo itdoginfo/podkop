@@ -1765,7 +1765,7 @@ check_logs() {
     fi
 
     local logs
-    logs=$(logread | grep -E "podkop|sing-box")
+    logs=$(logread | grep -E "podkop|sing-box" | sed 's/\x1b\[[0-9;]*m//g')
 
     if [ -z "$logs" ]; then
         nolog "Logs not found"
