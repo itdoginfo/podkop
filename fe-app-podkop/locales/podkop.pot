@@ -1087,7 +1087,7 @@ msgstr ""
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:36
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:88
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:111
-msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
+msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links. Use #name for naming, at the end of link"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:334

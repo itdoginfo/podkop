@@ -773,8 +773,8 @@ msgstr "Посмотреть логи"
 msgid "Visit Wiki"
 msgstr "Перейти в wiki"
 
-msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
-msgstr ""
+msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links. Use #name for naming, at the end of link"
+msgstr "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links. Используйте #имя для именования, в конце ссылки"
 
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
