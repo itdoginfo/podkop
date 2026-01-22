@@ -785,5 +785,5 @@ msgstr "Предупреждение: Russia inside может быть испо
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
 
-msgid "You can select Output Network Interface, by default autodetect"
+msgid "You can select the Output Network Interface; by default, it is set to autodetect"
 msgstr "Вы можете выбрать выходной сетевой интерфейс, по умолчанию он определяется автоматически."

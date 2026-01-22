@@ -1103,5 +1103,5 @@ msgid "YACD Secret Key"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:127
-msgid "You can select Output Network Interface, by default autodetect"
+msgid "You can select the Output Network Interface; by default, it is set to autodetect"
 msgstr ""
