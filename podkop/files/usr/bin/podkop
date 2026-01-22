@@ -1787,7 +1787,6 @@ check_logs() {
 show_sing_box_config() {
     local sing_box_config_path
     config_get sing_box_config_path "settings" "config_path"
-    nolog "Current sing-box configuration:"
 
     if [ ! -f "$sing_box_config_path" ]; then
         nolog "Configuration file not found"
