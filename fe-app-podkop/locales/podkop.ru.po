@@ -632,8 +632,8 @@ msgstr "Процесс sing-box запущен"
 msgid "Sing-box service exist"
 msgstr "Сервис sing-box существует"
 
-msgid "Sing-box version is compatible (newer than 1.12.4)"
-msgstr "Версия Sing-box совместима (новее 1.12.4)"
+msgid "Sing-box version is compatible (1.12.4 or newer)"
+msgstr "Версия Sing-box совместима (1.12.4 или новее)"
 
 msgid "Source Network Interface"
 msgstr "Сетевой интерфейс источника"
