@@ -323,7 +323,7 @@ function createSettingsContent(section) {
   o = section.option(
     form.Flag,
     "dont_touch_dhcp",
-    _("Dont Touch My DHCP!"),
+    _("Don't Touch My DHCP!"),
     _("Podkop will not modify your DHCP configuration"),
   );
   o.default = "0";

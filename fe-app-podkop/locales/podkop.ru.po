@@ -170,8 +170,8 @@ msgstr "Не паникуйте, всё можно исправить, прос�
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
 
-msgid "Dont Touch My DHCP!"
-msgstr "Dont Touch My DHCP!"
+msgid "Don't Touch My DHCP!"
+msgstr "Don't Touch My DHCP!"
 
 msgid "Downlink"
 msgstr "Входящий"

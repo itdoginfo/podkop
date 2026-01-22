@@ -233,7 +233,7 @@ msgid "Domain Resolver"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:326
-msgid "Dont Touch My DHCP!"
+msgid "Don't Touch My DHCP!"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:241
