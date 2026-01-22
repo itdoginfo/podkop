@@ -2653,7 +2653,7 @@ async function runSingBoxCheck() {
       },
       {
         state: data.sing_box_ports_listening ? "success" : "error",
-        key: _("Sing-box listening ports"),
+        key: _("Sing-box is listening ports"),
         value: ""
       }
     ]

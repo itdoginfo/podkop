@@ -623,7 +623,7 @@ msgstr "Автостарт sing-box отключен"
 msgid "Sing-box installed"
 msgstr "Sing-box установлен"
 
-msgid "Sing-box listening ports"
+msgid "Sing-box is listening ports"
 msgstr "Sing-box слушает порты"
 
 msgid "Sing-box process running"

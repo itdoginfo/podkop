@@ -860,7 +860,7 @@ msgid "Sing-box installed"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:87
-msgid "Sing-box listening ports"
+msgid "Sing-box is listening ports"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:82

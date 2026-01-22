@@ -2463,9 +2463,9 @@ global_check() {
         fi
 
         if [ "$sing_box_ports_listening" -eq 1 ]; then
-            print_global "✅ Sing-box listening ports"
+            print_global "✅ Sing-box is listening ports"
         else
-            print_global "❌ Sing-box listening ports"
+            print_global "❌ Sing-box is listening ports"
         fi
     else
         print_global "❌ Failed to get sing-box info"
