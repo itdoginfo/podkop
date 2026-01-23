@@ -253,7 +253,7 @@ br_netfilter_disable() {
 route_table_rule_mark() {
     grep -q "105 $RT_TABLE_NAME" /etc/iproute2/rt_tables || echo "105 $RT_TABLE_NAME" >> /etc/iproute2/rt_tables
 
-    if ! ip route list table "$RT_TABLE_NAME" 2>/dev/null | grep -q "local default dev lo scope host"; then
+    if ! ip route list table "$RT_TABLE_NAME" 2> /dev/null | grep -q "local default dev lo scope host"; then
         log "Added route for tproxy" "debug"
         ip route add local 0.0.0.0/0 dev lo table "$RT_TABLE_NAME"
     else
@@ -400,7 +400,6 @@ dnsmasq_restore() {
     log "Restoring noresolv" "debug"
     noresolv="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_noresolv")"
     if [ -z "$noresolv" ]; then
-        uci_remove "dhcp" "@dnsmasq[0]" "noresolv"
         uci_set "dhcp" "@dnsmasq[0]" "noresolv" 0
     else
         uci_set "dhcp" "@dnsmasq[0]" "noresolv" "$noresolv"
@@ -419,6 +418,10 @@ dnsmasq_restore() {
     elif file_exists "$resolvfile"; then
         log "Backup DNS servers not found, using default resolvfile" "debug"
         uci_set "dhcp" "@dnsmasq[0]" "resolvfile" "$resolvfile"
+        if [ -n "$noresolv" ] && [ "$noresolv" -eq 1 ]; then
+            log "Disabling noresolv option to use system resolvfile" "debug"
+            uci_set "dhcp" "@dnsmasq[0]" "noresolv" 0
+        fi
     else
         log "Backup DNS servers and default resolvfile not found, possible resolving issues" "warn"
     fi
@@ -1831,6 +1834,7 @@ show_config() {
     sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e '/option outbound_json/,/^}/c\	option outbound_json '\''MASKED'\''' \
         -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(list selector_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e "s@\\(option domain_resolver_dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e 's/\(option yacd_secret_key\).*/\1 '\''MASKED'\''/g' \
