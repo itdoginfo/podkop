@@ -490,7 +490,7 @@ list_update() {
     local i
 
     # DNS Check
-    for i in $(seq 1 $nslookup_timeout); do
+    for i in $(seq 1 $nslookup_attempts); do
         if nslookup -timeout=$nslookup_timeout openwrt.org > /dev/null 2>&1; then
             echolog "✅ DNS check passed"
             break
