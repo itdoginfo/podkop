@@ -64,7 +64,7 @@ export async function runSingBoxCheck() {
       },
       {
         state: data.sing_box_version_ok ? 'success' : 'error',
-        key: _('Sing-box version is compatible (newer than 1.12.4)'),
+        key: _('Sing-box version is compatible (1.12.4 or newer)'),
         value: '',
       },
       {
@@ -84,7 +84,7 @@ export async function runSingBoxCheck() {
       },
       {
         state: data.sing_box_ports_listening ? 'success' : 'error',
-        key: _('Sing-box listening ports'),
+        key: _('Sing-box is listening ports'),
         value: '',
       },
     ],

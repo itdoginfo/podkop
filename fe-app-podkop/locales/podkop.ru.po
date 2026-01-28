@@ -170,8 +170,8 @@ msgstr "Не паникуйте, всё можно исправить, прос�
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
 
-msgid "Dont Touch My DHCP!"
-msgstr "Dont Touch My DHCP!"
+msgid "Don't Touch My DHCP!"
+msgstr "Don't Touch My DHCP!"
 
 msgid "Downlink"
 msgstr "Входящий"
@@ -623,7 +623,7 @@ msgstr "Автостарт sing-box отключен"
 msgid "Sing-box installed"
 msgstr "Sing-box установлен"
 
-msgid "Sing-box listening ports"
+msgid "Sing-box is listening ports"
 msgstr "Sing-box слушает порты"
 
 msgid "Sing-box process running"
@@ -632,8 +632,8 @@ msgstr "Процесс sing-box запущен"
 msgid "Sing-box service exist"
 msgstr "Сервис sing-box существует"
 
-msgid "Sing-box version is compatible (newer than 1.12.4)"
-msgstr "Версия Sing-box совместима (новее 1.12.4)"
+msgid "Sing-box version is compatible (1.12.4 or newer)"
+msgstr "Версия Sing-box совместима (1.12.4 или новее)"
 
 msgid "Source Network Interface"
 msgstr "Сетевой интерфейс источника"
@@ -773,8 +773,8 @@ msgstr "Посмотреть логи"
 msgid "Visit Wiki"
 msgstr "Перейти в wiki"
 
-msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
-msgstr ""
+msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links. Use #name for naming, at the end of link"
+msgstr "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links. Используйте #имя для именования, в конце ссылки"
 
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
@@ -785,5 +785,5 @@ msgstr "Предупреждение: Russia inside может быть испо
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
 
-msgid "You can select Output Network Interface, by default autodetect"
+msgid "You can select the Output Network Interface; by default, it is set to autodetect"
 msgstr "Вы можете выбрать выходной сетевой интерфейс, по умолчанию он определяется автоматически."

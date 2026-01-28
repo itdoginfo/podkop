@@ -124,7 +124,7 @@ function createSettingsContent(section) {
     form.Flag,
     "enable_output_network_interface",
     _("Enable Output Network Interface"),
-    _("You can select Output Network Interface, by default autodetect"),
+    _("You can select the Output Network Interface; by default, it is set to autodetect"),
   );
   o.default = "0";
   o.rmempty = false;
@@ -323,7 +323,7 @@ function createSettingsContent(section) {
   o = section.option(
     form.Flag,
     "dont_touch_dhcp",
-    _("Dont Touch My DHCP!"),
+    _("Don't Touch My DHCP!"),
     _("Podkop will not modify your DHCP configuration"),
   );
   o.default = "0";
