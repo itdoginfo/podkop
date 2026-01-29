@@ -1,6 +1,6 @@
 config settings 'settings'
         option dns_type 'udp'
-        option dns_server '8.8.8.8'
+        option dns_server '77.88.8.8'
         option bootstrap_dns_server '77.88.8.8'
         option dns_rewrite_ttl '60'
         list source_network_interfaces 'br-lan'
