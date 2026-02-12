@@ -12,6 +12,7 @@ check_required_file() {
 PODKOP_LIB="/usr/lib/podkop"
 check_required_file /lib/functions.sh
 check_required_file /lib/config/uci.sh
+check_required_file /lib/functions/network.sh
 check_required_file "$PODKOP_LIB/constants.sh"
 check_required_file "$PODKOP_LIB/nft.sh"
 check_required_file "$PODKOP_LIB/helpers.sh"
@@ -19,8 +20,9 @@ check_required_file "$PODKOP_LIB/sing_box_config_manager.sh"
 check_required_file "$PODKOP_LIB/sing_box_config_facade.sh"
 check_required_file "$PODKOP_LIB/logging.sh"
 check_required_file "$PODKOP_LIB/rulesets.sh"
-. /lib/config/uci.sh
 . /lib/functions.sh
+. /lib/config/uci.sh
+. /lib/functions/network.sh
 . "$PODKOP_LIB/constants.sh"
 . "$PODKOP_LIB/nft.sh"
 . "$PODKOP_LIB/helpers.sh"
@@ -76,7 +78,7 @@ check_requirements() {
     if has_outbound_section; then
         log "Outbound section found" "debug"
     else
-        log "Outbound section not found. Please check your configuration file (missing proxy_string, interface, outbound_json, or urltest_proxy_links). Aborted." "error"
+        log "Outbound section not found. Please check your configuration file (missing proxy_string, selector_proxy_links, urltest_proxy_links, outbound_json, or interface). Aborted." "error"
         exit 1
     fi
 }
@@ -86,12 +88,13 @@ _check_outbound_section() {
     local proxy_string interface outbound_json urltest_proxy_links
 
     config_get proxy_string "$section" "proxy_string"
-    config_get interface "$section" "interface"
-    config_get outbound_json "$section" "outbound_json"
+    config_get selector_proxy_links "$section" "selector_proxy_links"
     config_get urltest_proxy_links "$section" "urltest_proxy_links"
+    config_get outbound_json "$section" "outbound_json"
+    config_get interface "$section" "interface"
 
-    if [ -n "$proxy_string" ] || [ -n "$interface" ] ||
-        [ -n "$outbound_json" ] || [ -n "$urltest_proxy_links" ]; then
+    if [ -n "$proxy_string" ] || [ -n "$selector_proxy_links" ] || [ -n "$urltest_proxy_links" ] ||
+        [ -n "$outbound_json" ] || [ -n "$interface" ]; then
         section_exists=0
     fi
 }
@@ -161,12 +164,12 @@ stop_main() {
 
     log "Flush ip rule"
     if ip rule list | grep -q "podkop"; then
-        ip rule del fwmark 0x105 table podkop priority 105
+        ip rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105
     fi
 
     log "Flush ip route"
-    if ip route list table podkop > /dev/null 2>&1; then
-        ip route flush table podkop
+    if ip route list table "$RT_TABLE_NAME" > /dev/null 2>&1; then
+        ip route flush table "$RT_TABLE_NAME"
     fi
 
     log "Stop sing-box"
@@ -248,20 +251,18 @@ br_netfilter_disable() {
 # Main funcs
 
 route_table_rule_mark() {
-    local table=podkop
+    grep -q "105 $RT_TABLE_NAME" /etc/iproute2/rt_tables || echo "105 $RT_TABLE_NAME" >> /etc/iproute2/rt_tables
 
-    grep -q "105 $table" /etc/iproute2/rt_tables || echo "105 $table" >> /etc/iproute2/rt_tables
-
-    if ! ip route list table $table | grep -q "local default dev lo scope host"; then
+    if ! ip route list table "$RT_TABLE_NAME" 2> /dev/null | grep -q "local default dev lo scope host"; then
         log "Added route for tproxy" "debug"
-        ip route add local 0.0.0.0/0 dev lo table $table
+        ip route add local 0.0.0.0/0 dev lo table "$RT_TABLE_NAME"
     else
         log "Route for tproxy exists" "debug"
     fi
 
-    if ! ip rule list | grep -q "from all fwmark 0x105 lookup $table"; then
+    if ! ip rule list | grep -q "from all fwmark $NFT_FAKEIP_MARK/$NFT_FAKEIP_MARK lookup $RT_TABLE_NAME"; then
         log "Create marking rule" "debug"
-        ip -4 rule add fwmark 0x105 table $table priority 105
+        ip -4 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105
     else
         log "Marking rule exist" "debug"
     fi
@@ -311,19 +312,20 @@ create_nft_rules() {
     nft add chain inet "$NFT_TABLE_NAME" mangle_output '{ type route hook output priority -150; policy accept; }'
     nft add chain inet "$NFT_TABLE_NAME" proxy '{ type filter hook prerouting priority -100; policy accept; }'
 
-    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto tcp meta mark set 0x105 counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set 0x105 counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set 0x105 counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set 0x105 counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
 
-    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark 0x105 meta l4proto tcp tproxy ip to 127.0.0.1:1602 counter
-    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark 0x105 meta l4proto udp tproxy ip to 127.0.0.1:1602 counter
+    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto tcp tproxy ip to 127.0.0.1:1602 counter
+    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto udp tproxy ip to 127.0.0.1:1602 counter
 
     nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_LOCALV4_SET_NAME" return
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto tcp meta mark set 0x105 counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set 0x105 counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set 0x105 counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set 0x105 counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output meta mark "$NFT_OUTBOUND_MARK" counter return
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
 
     local exclude_ntp
     config_get_bool exclude_ntp "settings" "exclude_ntp" "0"
@@ -398,7 +400,6 @@ dnsmasq_restore() {
     log "Restoring noresolv" "debug"
     noresolv="$(uci_get "dhcp" "@dnsmasq[0]" "podkop_noresolv")"
     if [ -z "$noresolv" ]; then
-        uci_remove "dhcp" "@dnsmasq[0]" "noresolv"
         uci_set "dhcp" "@dnsmasq[0]" "noresolv" 0
     else
         uci_set "dhcp" "@dnsmasq[0]" "noresolv" "$noresolv"
@@ -417,6 +418,10 @@ dnsmasq_restore() {
     elif file_exists "$resolvfile"; then
         log "Backup DNS servers not found, using default resolvfile" "debug"
         uci_set "dhcp" "@dnsmasq[0]" "resolvfile" "$resolvfile"
+        if [ -n "$noresolv" ] && [ "$noresolv" -eq 1 ]; then
+            log "Disabling noresolv option to use system resolvfile" "debug"
+            uci_set "dhcp" "@dnsmasq[0]" "noresolv" 0
+        fi
     else
         log "Backup DNS servers and default resolvfile not found, possible resolving issues" "warn"
     fi
@@ -485,7 +490,7 @@ list_update() {
     local i
 
     # DNS Check
-    for i in $(seq 1 $nslookup_timeout); do
+    for i in $(seq 1 $nslookup_attempts); do
         if nslookup -timeout=$nslookup_timeout openwrt.org > /dev/null 2>&1; then
             echolog "✅ DNS check passed"
             break
@@ -588,7 +593,9 @@ sing_box_init_config() {
 sing_box_configure_log() {
     log "Configure the log section of a sing-box JSON configuration"
 
-    config=$(sing_box_cm_configure_log "$config" false "$SB_DEFAULT_LOG_LEVEL" false)
+    local log_level
+    config_get log_level "settings" "log_level" "warn"
+    config=$(sing_box_cm_configure_log "$config" false "$log_level" false)
 }
 
 sing_box_configure_inbounds() {
@@ -640,6 +647,35 @@ configure_outbound_handler() {
             local json_outbound
             config_get json_outbound "$section" "outbound_json"
             config=$(sing_box_cf_add_json_outbound "$config" "$section" "$json_outbound")
+            ;;
+        selector)
+            log "Detected proxy configuration type: selector" "debug"
+            local selector_proxy_links udp_over_tcp i outbound_tags outbound_tag default_outbound
+            config_get selector_proxy_links "$section" "selector_proxy_links"
+            config_get udp_over_tcp "$section" "enable_udp_over_tcp"
+
+            if [ -z "$selector_proxy_links" ]; then
+                log "URLTest proxy links is not set. Aborted." "fatal"
+                exit 1
+            fi
+
+            i=1
+            for link in $selector_proxy_links; do
+                config="$(sing_box_cf_add_proxy_outbound "$config" "$section-$i" "$link" "$udp_over_tcp")"
+                outbound_tag="$(get_outbound_tag_by_section "$section-$i")"
+                if [ -z "$outbound_tags" ]; then
+                    outbound_tags="$outbound_tag"
+                    default_outbound="$outbound_tag"
+                else
+                    outbound_tags="$outbound_tags,$outbound_tag"
+                fi
+                i=$((i + 1))
+            done
+
+            selector_tag="$(get_outbound_tag_by_section "$section")"
+            selector_outbounds="$(comma_string_to_json_array "$outbound_tags")"
+            config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" \
+                "$default_outbound")"
             ;;
         urltest)
             log "Detected proxy configuration type: urltest" "debug"
@@ -715,6 +751,9 @@ configure_outbound_handler() {
     block)
         log "Connection type 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
         ;;
+    exclusion)
+        log "Connection type 'exclusion' detected for the $section section – no outbound will be created (handled via route rules)"
+        ;;
     *)
         log "Unknown connection type '$connection_type' for the $section section. Aborted." "fatal"
         exit 1
@@ -783,9 +822,8 @@ sing_box_configure_route() {
     config=$(sing_box_cf_proxy_domain "$config" "$SB_TPROXY_INBOUND_TAG" "$CHECK_PROXY_IP_DOMAIN" "$first_outbound_tag")
     config=$(sing_box_cf_override_domain_port "$config" "$FAKEIP_TEST_DOMAIN" 8443)
 
-    config_foreach include_source_ips_in_routing_handler "section"
-
     configure_common_reject_route_rule
+    configure_common_direct_route_rule
 
     local routing_excluded_ips
     config_get routing_excluded_ips "settings" "routing_excluded_ips"
@@ -794,6 +832,8 @@ sing_box_configure_route() {
         config=$(sing_box_cm_add_route_rule "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$SB_DIRECT_OUTBOUND_TAG")
         config_list_foreach "settings" "routing_excluded_ips" exclude_source_ip_from_routing_handler "$rule_tag"
     fi
+
+    config_foreach include_source_ips_in_routing_handler "section"
 
     config_foreach configure_routing_for_section_lists "section"
 }
@@ -815,7 +855,7 @@ include_source_ips_in_routing_handler() {
 
 configure_common_reject_route_rule() {
     local block_sections block_section_lists_enabled
-    block_sections="$(get_block_sections)"
+    block_sections="$(get_sections_by_connection_type "block")"
     block_section_lists_enabled=0
 
     if [ -n "$block_sections" ]; then
@@ -829,6 +869,27 @@ configure_common_reject_route_rule() {
             config=$(sing_box_cm_add_reject_route_rule "$config" "$SB_REJECT_RULE_TAG" "$SB_TPROXY_INBOUND_TAG")
         else
             log "Block sections does not have any enabled list, reject rule is not required" "warn"
+        fi
+    fi
+}
+
+configure_common_direct_route_rule() {
+    local exclusion_sections exclusion_section_list_enabled
+    exclusion_sections="$(get_sections_by_connection_type "exclusion")"
+    exclusion_section_list_enabled=0
+
+    if [ -n "$exclusion_sections" ]; then
+        for exclusion_section in $exclusion_sections; do
+            if section_has_enabled_lists "$exclusion_section"; then
+                exclusion_section_list_enabled=1
+                break
+            fi
+        done
+        if [ "$exclusion_section_list_enabled" -eq 1 ]; then
+            config=$(sing_box_cm_add_route_rule "$config" "$SB_EXCLUSION_RULE_TAG" "$SB_TPROXY_INBOUND_TAG" \
+                "$SB_DIRECT_OUTBOUND_TAG")
+        else
+            log "Exclusion sections does not have any enabled list, route rule is not required" "warn"
         fi
     fi
 }
@@ -867,13 +928,23 @@ configure_routing_for_section_lists() {
     config_get remote_subnet_lists "$section" "remote_subnet_lists"
     config_get section_connection_type "$section" "connection_type"
 
-    if [ "$section_connection_type" = "block" ]; then
-        route_rule_tag="$SB_REJECT_RULE_TAG"
-    else
+    case "$section_connection_type" in
+    proxy | vpn)
         route_rule_tag="$(gen_id)"
         outbound_tag=$(get_outbound_tag_by_section "$section")
         config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
-    fi
+        ;;
+    block)
+        route_rule_tag="$SB_REJECT_RULE_TAG"
+        ;;
+    exclusion)
+        route_rule_tag="$SB_EXCLUSION_RULE_TAG"
+        ;;
+    *)
+        log "Unsupported '$section_connection_type' connection type. Skipping routing for '$section' section" "fatal"
+        exit 1
+        ;;
+    esac
 
     if [ -n "$community_lists" ]; then
         log "Processing community list routing rules for '$section' section"
@@ -1239,7 +1310,10 @@ import_community_service_subnet_list_handler() {
         URL=$SUBNETS_DISCORD
         nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
         nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr \
-            "@$NFT_DISCORD_SET_NAME" udp dport '{ 50000-65535 }' meta mark set 0x105 counter
+            "@$NFT_DISCORD_SET_NAME" udp dport '{ 50000-65535 }' meta mark set "$NFT_FAKEIP_MARK" counter
+        ;;
+    "roblox")
+        URL=$SUBNETS_ROBLOX
         ;;
     *) return 0 ;;
     esac
@@ -1464,12 +1538,16 @@ get_first_outbound_section() {
     echo "$first_section"
 }
 
-get_block_sections() {
-    uci show podkop | grep "\.connection_type='block'" | cut -d'.' -f2
+get_sections_by_connection_type() {
+    local connection_type="$1"
+
+    uci show podkop | grep "\.connection_type='$connection_type'" | cut -d'.' -f2
 }
 
-block_section_exists() {
-    if uci show podkop | grep -q "\.connection_type='block'"; then
+section_by_connection_type_exists() {
+    local connection_type="$1"
+
+    if uci show podkop | grep -q "\.connection_type='$connection_type'"; then
         return 0
     else
         return 1
@@ -1512,7 +1590,8 @@ get_service_listen_address() {
         return 0
     fi
 
-    service_listen_address="$(uci_get "network" "lan" "ipaddr" | awk '{print $1}' | cut -d'/' -f1)"
+    local interface="lan"
+    network_get_ipaddr service_listen_address "$interface"
 
     if [ -z "$service_listen_address" ]; then
         log "Failed to determine the listening IP address. Please open an issue to report this problem: https://github.com/itdoginfo/podkop/issues" "error"
@@ -1527,8 +1606,10 @@ nft_list_all_traffic_from_ip() {
     local ip="$1"
 
     if ! nft list chain inet "$NFT_TABLE_NAME" mangle | grep -q "ip saddr $ip"; then
-        nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" meta l4proto tcp meta mark set 0x105 counter
-        nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" meta l4proto udp meta mark set 0x105 counter
+        nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" \
+            meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+        nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" \
+            meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
         nft insert rule inet "$NFT_TABLE_NAME" mangle ip saddr "$ip" ip daddr @localv4 return
     fi
 }
@@ -1753,6 +1834,7 @@ show_config() {
     sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e '/option outbound_json/,/^}/c\	option outbound_json '\''MASKED'\''' \
         -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(list selector_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e "s@\\(option domain_resolver_dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e 's/\(option yacd_secret_key\).*/\1 '\''MASKED'\''/g' \
@@ -2064,18 +2146,18 @@ check_sing_box() {
         local version
         version=$(sing-box version 2> /dev/null | head -n 1 | awk '{print $3}')
         if [ -n "$version" ]; then
-            version=$(echo "$version" | sed 's/^v//' | sed 's/-.*//')
+            version=$(echo "$version" | sed 's/^v//')
             local major
             local minor
             local patch
             major=$(echo "$version" | cut -d. -f1)
             minor=$(echo "$version" | cut -d. -f2)
-            patch=$(echo "$version" | cut -d. -f3)
+            patch=$(echo "$version" | cut -d. -f3 | cut -d- -f1)
 
             # Compare version: must be >= 1.12.4
-            if [ "$major" -gt 1 ] ||
-               ([ "$major" -eq 1 ] && [ "$minor" -gt 12 ]) ||
-               ([ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]); then
+            if [ "$major" -gt 1 ] 2>/dev/null ||
+                { [ "$major" -eq 1 ] && [ "$minor" -gt 12 ]; } 2>/dev/null ||
+                { [ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]; } 2>/dev/null; then
                 sing_box_version_ok=1
             fi
         fi
