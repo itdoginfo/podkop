@@ -690,7 +690,7 @@ sing_box_cm_add_hysteria2_outbound() {
     local obfuscator_password="$7"
     local upload_mbps="$8"
     local download_mbps="$9"
-    local network="${10}"
+    local network="${10:-}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
