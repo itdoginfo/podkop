@@ -31,13 +31,15 @@ const EntryPoint = {
 
     // Sections tab
     const sectionsSection = podkopMap.section(
-      form.TypedSection,
+      form.GridSection,
       "section",
       _("Sections"),
     );
     sectionsSection.anonymous = false;
     sectionsSection.addremove = true;
-    sectionsSection.template = "cbi/simpleform";
+    sectionsSection.sortable = true;
+    sectionsSection.nodescriptions = true;
+    sectionsSection.modaltitle = _("Edit Section");
 
     // Render section content
     section.createSectionContent(sectionsSection);

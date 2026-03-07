@@ -254,6 +254,18 @@ msgstr "Самый быстрый"
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
 
+msgid "Source IP Filter (Include)"
+msgstr "Фильтр исходных IP-адресов (Включение)"
+
+msgid "Apply this section's routing rules ONLY for traffic originating from these IP addresses or subnets. Leave empty to apply rules to all source IPs. Can be combined with Exclude filter to create more complex filtering."
+msgstr "Применять правила маршрутизации этой секции ТОЛЬКО для трафика, исходящего от этих IP-адресов или подсетей. Оставьте пустым для применения правил ко всем исходным IP. Можно комбинировать с фильтром исключения для создания более сложной фильтрации."
+
+msgid "Source IP Filter (Exclude)"
+msgstr "Фильтр исходных IP-адресов (Исключение)"
+
+msgid "Do NOT apply this section's routing rules for traffic from these IP addresses or subnets. Leave empty to not exclude any source IPs. Can be combined with Include filter for complex filtering."
+msgstr "НЕ применять правила маршрутизации этой секции для трафика от этих IP-адресов или подсетей. Оставьте пустым, чтобы не исключать никакие исходные IP. Можно комбинировать с фильтром включения для сложной фильтрации."
+
 msgid "Get global check"
 msgstr "Получить глобальную проверку"
 

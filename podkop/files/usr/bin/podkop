@@ -982,6 +982,93 @@ configure_routing_for_section_lists() {
         config_list_foreach "$section" "remote_subnet_lists" configure_remote_domain_or_subnet_list_handler \
             "subnets" "$section" "$route_rule_tag"
     fi
+
+    # Apply source IP filters to the route rule
+    apply_source_ip_filters "$section" "$route_rule_tag"
+}
+
+apply_source_ip_filters() {
+    local section="$1"
+    local route_rule_tag="$2"
+
+    local source_include_ips source_exclude_ips
+    config_get source_include_ips "$section" "source_include_ips"
+    config_get source_exclude_ips "$section" "source_exclude_ips"
+
+    # Apply include filter (whitelist mode)
+    if [ -n "$source_include_ips" ]; then
+        log "Applying source IP include filter for '$section' section"
+        config_list_foreach "$section" "source_include_ips" apply_source_include_filter_handler "$route_rule_tag"
+    fi
+
+    # Apply exclude filter (blacklist mode with invert)
+    # If both include and exclude are set, create a separate rule for exclude
+    if [ -n "$source_exclude_ips" ]; then
+        local exclude_rule_tag="$route_rule_tag"
+        
+        if [ -n "$source_include_ips" ]; then
+            # Both include and exclude are set - create a new rule for exclude
+            log "Both include and exclude filters are set for '$section' section - creating separate exclude rule"
+            exclude_rule_tag="$(gen_id)"
+            local outbound_tag inbound_tag
+            
+            # Get outbound and inbound from the original rule to create a duplicate
+            outbound_tag=$(echo "$config" | jq -r \
+                --arg service_tag "$SERVICE_TAG" \
+                --arg tag "$route_rule_tag" \
+                '.route.rules[] | select(.[$service_tag] == $tag) | .outbound')
+            inbound_tag=$(echo "$config" | jq -r \
+                --arg service_tag "$SERVICE_TAG" \
+                --arg tag "$route_rule_tag" \
+                '.route.rules[] | select(.[$service_tag] == $tag) | .inbound')
+            
+            # Create a new rule for exclude with the same outbound and inbound
+            config=$(sing_box_cm_add_route_rule "$config" "$exclude_rule_tag" "$inbound_tag" "$outbound_tag")
+            
+            # Copy rule_set from the original rule to the new exclude rule
+            local rule_sets
+            rule_sets=$(echo "$config" | jq -c \
+                --arg service_tag "$SERVICE_TAG" \
+                --arg tag "$route_rule_tag" \
+                '.route.rules[] | select(.[$service_tag] == $tag) | .rule_set // []')
+            
+            if [ "$rule_sets" != "[]" ]; then
+                echo "$rule_sets" | jq -r '.[]' | while read -r ruleset; do
+                    config=$(sing_box_cm_patch_route_rule "$config" "$exclude_rule_tag" "rule_set" "$ruleset")
+                done
+            fi
+        fi
+        
+        log "Applying source IP exclude filter for '$section' section"
+        config_list_foreach "$section" "source_exclude_ips" apply_source_exclude_filter_handler "$exclude_rule_tag"
+    fi
+}
+
+apply_source_include_filter_handler() {
+    local source_ip="$1"
+    local route_rule_tag="$2"
+
+    log "Adding source IP include filter: $source_ip to rule $route_rule_tag" "debug"
+    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "source_ip_cidr" "$source_ip")
+}
+
+apply_source_exclude_filter_handler() {
+    local source_ip="$1"
+    local route_rule_tag="$2"
+
+    log "Adding source IP exclude filter: $source_ip to rule $route_rule_tag" "debug"
+    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "source_ip_cidr" "$source_ip")
+    # Set invert to true as a JSON boolean
+    config=$(echo "$config" | jq \
+        --arg service_tag "$SERVICE_TAG" \
+        --arg tag "$route_rule_tag" \
+        '.route.rules |= map(
+            if .[$service_tag] == $tag then
+                . + { invert: true }
+            else
+                .
+            end
+        )')
 }
 
 configure_community_list_handler() {

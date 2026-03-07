@@ -7,6 +7,15 @@
 
 function createSectionContent(section) {
   let o = section.option(
+    form.Value,
+    "description",
+    _("Description"),
+    _("Optional description for this section"),
+  );
+  o.rmempty = true;
+  o.placeholder = _("Add description...");
+
+  o = section.option(
     form.ListValue,
     "connection_type",
     _("Connection Type"),
@@ -23,6 +32,7 @@ function createSectionContent(section) {
     _("Configuration Type"),
     _("Select how to configure the proxy"),
   );
+  o.modalonly = true;
   o.value("url", _("Connection URL"));
   o.value("selector", _("Selector"));
   o.value("urltest", _("URLTest"));
@@ -36,6 +46,7 @@ function createSectionContent(section) {
     _("Proxy Configuration URL"),
     _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
   );
+  o.modalonly = true;
   o.depends("proxy_config_type", "url");
   o.rows = 5;
   // Enable soft wrapping for multi-line proxy URLs (e.g., for URLTest proxy links)
@@ -65,6 +76,7 @@ function createSectionContent(section) {
     _("Outbound Configuration"),
     _("Enter complete outbound configuration in JSON format"),
   );
+  o.modalonly = true;
   o.depends("proxy_config_type", "outbound");
   o.rows = 10;
   o.validate = function (section_id, value) {
@@ -88,6 +100,7 @@ function createSectionContent(section) {
     _("Selector Proxy Links"),
     _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
   );
+  o.modalonly = true;
   o.depends("proxy_config_type", "selector");
   o.rmempty = false;
   o.validate = function (section_id, value) {
@@ -111,6 +124,7 @@ function createSectionContent(section) {
     _("URLTest Proxy Links"),
     _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
   );
+  o.modalonly = true;
   o.depends("proxy_config_type", "urltest");
   o.rmempty = false;
   o.validate = function (section_id, value) {
@@ -134,6 +148,7 @@ function createSectionContent(section) {
     _("URLTest Check Interval"),
     _("The interval between connectivity tests")
   );
+  o.modalonly = true;
   o.value("30s", _("Every 30 seconds"));
   o.value("1m", _("Every 1 minute"));
   o.value("3m", _("Every 3 minutes"));
@@ -147,6 +162,7 @@ function createSectionContent(section) {
     _("URLTest Tolerance"),
     _("The maximum difference in response times (ms) allowed when comparing servers")
   );
+  o.modalonly = true;
   o.default = "50";
   o.rmempty = false;
   o.depends("proxy_config_type", "urltest");
@@ -170,6 +186,7 @@ function createSectionContent(section) {
     _("URLTest Testing URL"),
     _("The URL used to test server connectivity")
   );
+  o.modalonly = true;
   o.value("https://www.gstatic.com/generate_204", "https://www.gstatic.com/generate_204 (Google)");
   o.value("https://cp.cloudflare.com/generate_204", "https://cp.cloudflare.com/generate_204 (Cloudflare)");
   o.value("https://captive.apple.com", "https://captive.apple.com (Apple)");
@@ -198,6 +215,7 @@ function createSectionContent(section) {
     _("UDP over TCP"),
     _("Applicable for SOCKS and Shadowsocks proxy"),
   );
+  o.modalonly = true;
   o.default = "0";
   o.depends("connection_type", "proxy");
   o.rmempty = false;
@@ -208,6 +226,7 @@ function createSectionContent(section) {
     _("Network Interface"),
     _("Select network interface for VPN connection"),
   );
+  o.modalonly = true;
   o.depends("connection_type", "vpn");
   o.noaliases = true;
   o.nobridges = false;
@@ -254,6 +273,7 @@ function createSectionContent(section) {
     _("Domain Resolver"),
     _("Enable built-in DNS resolver for domains handled by this section"),
   );
+  o.modalonly = true;
   o.default = "0";
   o.rmempty = false;
   o.depends("connection_type", "vpn");
@@ -264,6 +284,7 @@ function createSectionContent(section) {
     _("DNS Protocol Type"),
     _("Select the DNS protocol type for the domain resolver"),
   );
+  o.modalonly = true;
   o.value("doh", _("DNS over HTTPS (DoH)"));
   o.value("dot", _("DNS over TLS (DoT)"));
   o.value("udp", _("UDP (Unprotected DNS)"));
@@ -277,6 +298,7 @@ function createSectionContent(section) {
     _("DNS Server"),
     _("Select or enter DNS server address"),
   );
+  o.modalonly = true;
   Object.entries(main.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
     o.value(key, _(label));
   });
@@ -300,6 +322,7 @@ function createSectionContent(section) {
     _("Select a predefined list for routing") +
       ' <a href="https://github.com/itdoginfo/allow-domains" target="_blank">github.com/itdoginfo/allow-domains</a>',
   );
+  o.modalonly = true;
   o.placeholder = "Service list";
   Object.entries(main.DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
     o.value(key, _(label));
@@ -387,6 +410,7 @@ function createSectionContent(section) {
     _("User Domain List Type"),
     _("Select the list type for adding custom domains"),
   );
+  o.modalonly = true;
   o.value("disabled", _("Disabled"));
   o.value("dynamic", _("Dynamic List"));
   o.value("text", _("Text List"));
@@ -401,6 +425,7 @@ function createSectionContent(section) {
       "Enter domain names without protocols, e.g. example.com or sub.example.com",
     ),
   );
+  o.modalonly = true;
   o.placeholder = "Domains list";
   o.depends("user_domain_list_type", "dynamic");
   o.rmempty = false;
@@ -427,6 +452,7 @@ function createSectionContent(section) {
       "Enter domain names separated by commas, spaces, or newlines. You can add comments using //",
     ),
   );
+  o.modalonly = true;
   o.placeholder =
     "example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains";
   o.depends("user_domain_list_type", "text");
@@ -467,6 +493,7 @@ function createSectionContent(section) {
     _("User Subnet List Type"),
     _("Select the list type for adding custom subnets"),
   );
+  o.modalonly = true;
   o.value("disabled", _("Disabled"));
   o.value("dynamic", _("Dynamic List"));
   o.value("text", _("Text List"));
@@ -481,6 +508,7 @@ function createSectionContent(section) {
       "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses",
     ),
   );
+  o.modalonly = true;
   o.placeholder = "IP or subnet";
   o.depends("user_subnet_list_type", "dynamic");
   o.rmempty = false;
@@ -508,6 +536,7 @@ function createSectionContent(section) {
         "You can add comments using //",
     ),
   );
+  o.modalonly = true;
   o.placeholder =
     "103.21.244.0/22\n// Google DNS\n8.8.8.8\n1.1.1.1/32, 9.9.9.9 // Cloudflare and Quad9";
   o.depends("user_subnet_list_type", "text");
@@ -546,6 +575,7 @@ function createSectionContent(section) {
     _("Local Domain Lists"),
     _("Specify the path to the list file located on the router filesystem"),
   );
+  o.modalonly = true;
   o.placeholder = "/path/file.lst";
   o.rmempty = true;
   o.validate = function (section_id, value) {
@@ -569,6 +599,7 @@ function createSectionContent(section) {
     _("Local Subnet Lists"),
     _("Specify the path to the list file located on the router filesystem"),
   );
+  o.modalonly = true;
   o.placeholder = "/path/file.lst";
   o.rmempty = true;
   o.validate = function (section_id, value) {
@@ -592,6 +623,7 @@ function createSectionContent(section) {
     _("Remote Domain Lists"),
     _("Specify remote URLs to download and use domain lists"),
   );
+  o.modalonly = true;
   o.placeholder = "https://example.com/domains.srs";
   o.rmempty = true;
   o.validate = function (section_id, value) {
@@ -615,6 +647,7 @@ function createSectionContent(section) {
     _("Remote Subnet Lists"),
     _("Specify remote URLs to download and use subnet lists"),
   );
+  o.modalonly = true;
   o.placeholder = "https://example.com/subnets.srs";
   o.rmempty = true;
   o.validate = function (section_id, value) {
@@ -633,6 +666,27 @@ function createSectionContent(section) {
   };
 
   o = section.option(
+    form.Value,
+    "source_summary",
+    _("Source"),
+  );
+  o.modalonly = false;
+  o.readonly = true;
+  o.rmempty = true;
+  o.cfgvalue = function (section_id) {
+    const uciGet = (key) => {
+      const raw = this.map.data.get("podkop", section_id, key);
+      return Array.isArray(raw) ? raw.filter(Boolean) : (raw ? [raw] : []);
+    };
+    const fullyRouted = uciGet("fully_routed_ips");
+    const include = uciGet("source_include_ips");
+    const exclude = uciGet("source_exclude_ips").map((v) => "!" + v);
+    const all = [...fullyRouted, ...include, ...exclude];
+    return all.length ? all.join(", ") : "";
+  };
+  o.write = function () {};
+
+  o = section.option(
     form.DynamicList,
     "fully_routed_ips",
     _("Fully Routed IPs"),
@@ -640,10 +694,73 @@ function createSectionContent(section) {
       "Specify local IP addresses or subnets whose traffic will always be routed through the configured route",
     ),
   );
+  o.modalonly = true;
   o.placeholder = "192.168.1.2 or 192.168.1.0/24";
   o.rmempty = true;
   o.depends("connection_type", "proxy");
   o.depends("connection_type", "vpn");
+  o.validate = function (section_id, value) {
+    // Optional
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateSubnet(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.option(
+    form.DynamicList,
+    "source_include_ips",
+    _("Source IP Filter (Include)"),
+    _(
+      "Apply this section's routing rules ONLY for traffic originating from these IP addresses or subnets. " +
+        "Leave empty to apply rules to all source IPs. Can be combined with Exclude filter to create more complex filtering.",
+    ),
+  );
+  o.modalonly = true;
+  o.placeholder = "192.168.1.100 or 192.168.1.0/24";
+  o.rmempty = true;
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
+  o.depends("connection_type", "block");
+  o.depends("connection_type", "exclusion");
+  o.validate = function (section_id, value) {
+    // Optional
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateSubnet(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.option(
+    form.DynamicList,
+    "source_exclude_ips",
+    _("Source IP Filter (Exclude)"),
+    _(
+      "Do NOT apply this section's routing rules for traffic from these IP addresses or subnets. " +
+        "Leave empty to not exclude any source IPs. Can be combined with Include filter for complex filtering.",
+    ),
+  );
+  o.modalonly = true;
+  o.placeholder = "192.168.1.50";
+  o.rmempty = true;
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
+  o.depends("connection_type", "block");
+  o.depends("connection_type", "exclusion");
   o.validate = function (section_id, value) {
     // Optional
     if (!value || value.length === 0) {
@@ -667,6 +784,7 @@ function createSectionContent(section) {
       "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies",
     ),
   );
+  o.modalonly = true;
   o.default = "0";
   o.rmempty = false;
   o.depends("connection_type", "proxy");
@@ -681,6 +799,7 @@ function createSectionContent(section) {
         "Make sure the selected port is not used by another service",
     ),
   );
+  o.modalonly = true;
   o.rmempty = false;
   o.depends("mixed_proxy_enabled", "1");
 }
