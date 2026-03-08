@@ -537,7 +537,7 @@ sing_box_cm_add_shadowsocks_outbound() {
     local network="$7"
     local udp_over_tcp="$8"
     local plugin="$9"
-    local plugin_opts="${10}"
+    local plugin_opts="${10:-}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -690,7 +690,7 @@ sing_box_cm_add_hysteria2_outbound() {
     local obfuscator_password="$7"
     local upload_mbps="$8"
     local download_mbps="$9"
-    local network="${10}"
+    local network="${10:-}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -781,6 +781,31 @@ sing_box_cm_set_grpc_transport_for_outbound() {
 # Example:
 #   CONFIG=$(sing_box_cm_set_ws_transport_for_outbound "$CONFIG" "vless-tls-ws-out" "/path" "example.com")
 #######################################
+sing_box_cm_set_httpupgrade_transport_for_outbound() {
+    local config="$1"
+    local tag="$2"
+    local host="$3"
+    local path="$4"
+
+    echo "$config" | jq \
+        --arg tag "$tag" \
+        --arg host "$host" \
+        --arg path "$path" \
+        '.outbounds |= map(
+            if .tag == $tag then
+                . + {
+                    transport: (
+                        { type: "httpupgrade" }
+                        + (if $host != "" then {host: $host} else {} end)
+                        + (if $path != "" then {path: $path} else {} end)
+                    )
+                }
+            else
+                .
+            end
+        )'
+}
+
 sing_box_cm_set_ws_transport_for_outbound() {
     local config="$1"
     local tag="$2"

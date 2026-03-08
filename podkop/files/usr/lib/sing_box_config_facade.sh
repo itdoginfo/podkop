@@ -256,6 +256,15 @@ _add_outbound_transport() {
             sing_box_cm_set_grpc_transport_for_outbound "$config" "$outbound_tag" "$grpc_service_name"
         )
         ;;
+    httpupgrade)
+        local hu_host hu_path
+        hu_host=$(url_get_query_param "$url" "host")
+        hu_path=$(url_get_query_param "$url" "path")
+
+        config=$(
+            sing_box_cm_set_httpupgrade_transport_for_outbound "$config" "$outbound_tag" "$hu_host" "$hu_path"
+        )
+        ;;
     *)
         log "Unknown transport '$transport' detected." "error"
         ;;

@@ -312,6 +312,9 @@ create_nft_rules() {
     nft add chain inet "$NFT_TABLE_NAME" mangle_output '{ type route hook output priority -150; policy accept; }'
     nft add chain inet "$NFT_TABLE_NAME" proxy '{ type filter hook prerouting priority -100; policy accept; }'
 
+    # Skip DNAT'd traffic (port-forwarded connections) to avoid breaking WAN->LAN forwarding (#291)
+    nft add rule inet "$NFT_TABLE_NAME" mangle ct status dnat return
+
     nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
     nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
     nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
@@ -1593,6 +1596,24 @@ get_service_listen_address() {
     local interface="lan"
     network_get_ipaddr service_listen_address "$interface"
 
+    # Fallback: try interfaces from source_network_interfaces setting
+    if [ -z "$service_listen_address" ]; then
+        local source_interfaces
+        config_get source_interfaces "settings" "source_network_interfaces"
+        for iface in $source_interfaces; do
+            # Try to find the UCI network interface corresponding to this device
+            local net_iface
+            for net_iface in $(ubus list network.interface.* 2>/dev/null | sed 's/network.interface.//'); do
+                local dev
+                dev=$(ubus call network.interface."$net_iface" status 2>/dev/null | jsonfilter -e '@.device' 2>/dev/null)
+                if [ "$dev" = "$iface" ]; then
+                    network_get_ipaddr service_listen_address "$net_iface"
+                    [ -n "$service_listen_address" ] && break 2
+                fi
+            done
+        done
+    fi
+
     if [ -z "$service_listen_address" ]; then
         log "Failed to determine the listening IP address. Please open an issue to report this problem: https://github.com/itdoginfo/podkop/issues" "error"
         return 1
@@ -2216,6 +2237,14 @@ check_fakeip() {
 #   clash_api set_group_proxy <group_tag> <proxy_tag>
 #######################################
 
+_get_first_urltest_testing_url() {
+    local section="$1"
+    [ -n "$TEST_URL" ] && return
+    local url
+    config_get url "$section" "urltest_testing_url"
+    [ -n "$url" ] && TEST_URL="$url"
+}
+
 clash_api() {
     local action="$1"
     local clash_api_controller_address CLASH_URL TEST_URL
@@ -2224,7 +2253,11 @@ clash_api() {
         clash_api_controller_address="127.0.0.1"
     fi
     CLASH_URL="$clash_api_controller_address:$SB_CLASH_API_CONTROLLER_PORT"
-    TEST_URL="https://www.gstatic.com/generate_204"
+
+    # Use user-configured URLTest URL if available, otherwise fall back to default (#250)
+    TEST_URL=""
+    config_foreach _get_first_urltest_testing_url "section"
+    [ -z "$TEST_URL" ] && TEST_URL="https://www.gstatic.com/generate_204"
 
     local enable_yacd_wan_access yacd_secret_key auth_header
     config_get_bool enable_yacd_wan_access "settings" "enable_yacd_wan_access" 0
