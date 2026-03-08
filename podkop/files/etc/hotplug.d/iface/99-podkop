@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Restore podkop ip rules and routes after network restart (#190)
+# When the network service restarts, kernel flushes ip rules and routes,
+# but podkop is not notified to recreate them.
+
+[ "$ACTION" = "ifup" ] || exit 0
+
+# Only act if podkop service is running
+[ -f /var/run/podkop.pid ] || pgrep -f "/usr/bin/podkop" > /dev/null 2>&1 || exit 0
+
+# Check if the fwmark rule is missing
+if ! ip rule list | grep -q "fwmark 0x00100000/0x00100000 lookup podkop"; then
+    logger -t podkop "ip rules missing after interface $INTERFACE came up, restoring"
+    /etc/init.d/podkop reload
+fi

@@ -118,6 +118,17 @@ start_main() {
 
     br_netfilter_disable
 
+    # Wait for WAN connectivity before NTP sync (#195)
+    local wan_wait=0
+    while [ $wan_wait -lt 30 ]; do
+        if ip route show default 2>/dev/null | grep -q .; then
+            break
+        fi
+        log "Waiting for WAN (default route)... ($wan_wait/30)" "debug"
+        sleep 1
+        wan_wait=$((wan_wait + 1))
+    done
+
     # Sync time for DoH/DoT
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
 
