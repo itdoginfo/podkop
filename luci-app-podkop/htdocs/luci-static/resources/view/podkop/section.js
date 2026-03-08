@@ -7,6 +7,15 @@
 
 function createSectionContent(section) {
   let o = section.option(
+    form.Flag,
+    "enabled",
+    _("Enabled"),
+    _("Enable or disable this section without deleting it"),
+  );
+  o.default = "1";
+  o.rmempty = false;
+
+  o = section.option(
     form.ListValue,
     "connection_type",
     _("Connection Type"),

@@ -20,6 +20,13 @@
       ]
     },
     "write": {
+      "ubus": {
+        "uci": [
+          "commit",
+          "apply",
+          "confirm"
+        ]
+      },
       "uci": [
         "podkop"
       ]

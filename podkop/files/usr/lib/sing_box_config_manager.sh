@@ -598,6 +598,7 @@ sing_box_cm_add_vless_outbound() {
     local flow="$6"
     local network="$7"
     local packet_encoding="$8"
+    local tcp_multi_path="${9:-}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -607,6 +608,7 @@ sing_box_cm_add_vless_outbound() {
         --arg flow "$flow" \
         --arg network "$network" \
         --arg packet_encoding "$packet_encoding" \
+        --arg tcp_multi_path "$tcp_multi_path" \
         '.outbounds += [(
             {
               type: "vless",
@@ -618,6 +620,7 @@ sing_box_cm_add_vless_outbound() {
             + (if $flow != "" then {flow: $flow} else {} end)
             + (if $network != "" then {network: $network} else {} end)
             + (if $packet_encoding != "" then {packet_encoding: $packet_encoding} else {} end)
+            + (if $tcp_multi_path == "true" or $tcp_multi_path == "1" then {tcp_multi_path: true} else {} end)
         )]'
 }
 

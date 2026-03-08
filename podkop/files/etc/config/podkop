@@ -22,6 +22,7 @@ config settings 'settings'
         #list routing_excluded_ips '192.168.1.3'
 
 config section 'main'
+        option enabled '1'
         option connection_type 'proxy'
         option proxy_config_type 'url'
         option proxy_string ''
