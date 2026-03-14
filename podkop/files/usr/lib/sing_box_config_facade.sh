@@ -340,6 +340,7 @@ sing_box_cf_add_single_key_reject_rule() {
 # Outputs:
 #   Writes updated JSON configuration to stdout
 #   Sets global variable SUBSCRIPTION_OUTBOUND_TAGS (comma-separated list of tags)
+#   Sets global variable SUBSCRIPTION_OUTBOUND_TAGS_JSON (JSON array of tags, ASCII-escaped)
 #   Sets global variable SUBSCRIPTION_OUTBOUND_NAMES (newline-separated list of display names)
 #######################################
 sing_box_cf_add_subscription_outbounds() {
@@ -348,6 +349,7 @@ sing_box_cf_add_subscription_outbounds() {
     local subscription_json_path="$3"
 
     SUBSCRIPTION_OUTBOUND_TAGS=""
+    SUBSCRIPTION_OUTBOUND_TAGS_JSON="[]"
     SUBSCRIPTION_OUTBOUND_NAMES=""
     SING_BOX_CF_LAST_CONFIG="$config"
 
@@ -452,6 +454,14 @@ sing_box_cf_add_subscription_outbounds() {
             SUBSCRIPTION_OUTBOUND_TAGS="$outbound_tag"
         else
             SUBSCRIPTION_OUTBOUND_TAGS="$SUBSCRIPTION_OUTBOUND_TAGS,$outbound_tag"
+        fi
+
+        # Keep a JSON representation to avoid Unicode corruption in shell string processing.
+        SUBSCRIPTION_OUTBOUND_TAGS_JSON=$(
+            printf '%s' "$SUBSCRIPTION_OUTBOUND_TAGS_JSON" | jq -ac --arg tag "$outbound_tag" '. + [$tag]' 2>/dev/null
+        )
+        if [ -z "$SUBSCRIPTION_OUTBOUND_TAGS_JSON" ]; then
+            SUBSCRIPTION_OUTBOUND_TAGS_JSON="[]"
         fi
 
         if [ -z "$SUBSCRIPTION_OUTBOUND_NAMES" ]; then

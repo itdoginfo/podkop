@@ -833,9 +833,9 @@ sing_box_get_unique_outbound_tag() {
 }
 
 sing_box_build_subscription_country_groups() {
-    local subscription_outbound_tags="$1"
+    local subscription_outbound_tags_json="$1"
 
-    printf '%s' "$subscription_outbound_tags" | jq -Rrc '
+    printf '%s' "$subscription_outbound_tags_json" | jq -c '
         def is_regional_indicator: . >= 127462 and . <= 127487;
         def extract_country_flag:
             (. | explode) as $codepoints
@@ -846,7 +846,7 @@ sing_box_build_subscription_country_groups() {
               else ""
               end;
 
-        (split(",") | map(select(length > 0))) as $tags
+        (if type == "array" then . else [] end) as $tags
         | reduce $tags[] as $tag (
             {country_order: [], country_groups: {}, ungrouped: []};
             ($tag | extract_country_flag) as $country_flag
@@ -975,7 +975,8 @@ configure_outbound_handler() {
             log "Detected proxy configuration type: subscription" "debug"
             local subscription_url subscription_json_path urltest_tag selector_tag \
                 urltest_outbounds selector_outbounds urltest_check_interval urltest_tolerance \
-                urltest_testing_url subscription_group_by_countries subscription_group_by_countries_raw
+                urltest_testing_url subscription_group_by_countries subscription_group_by_countries_raw \
+                subscription_outbound_tags_json
 
             config_get subscription_url "$section" "subscription_url"
             config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
@@ -1050,13 +1051,19 @@ configure_outbound_handler() {
                 exit 1
             fi
 
+            subscription_outbound_tags_json="$SUBSCRIPTION_OUTBOUND_TAGS_JSON"
+            if [ -z "$subscription_outbound_tags_json" ] || [ "$subscription_outbound_tags_json" = "[]" ]; then
+                # Fallback for backward compatibility with older facade versions.
+                subscription_outbound_tags_json="$(comma_string_to_json_array "$SUBSCRIPTION_OUTBOUND_TAGS")"
+            fi
+
             selector_tag="$(get_outbound_tag_by_section "$section")"
 
             if [ "$subscription_group_by_countries" -eq 1 ]; then
                 local grouping_json country_flag country_group_outbounds country_group_tag \
-                    selector_outbound_tags selector_default ungrouped_outbound_tags grouped_count ungrouped_count
+                    selector_outbounds_json selector_default ungrouped_outbounds_json grouped_count ungrouped_count
 
-                grouping_json="$(sing_box_build_subscription_country_groups "$SUBSCRIPTION_OUTBOUND_TAGS")"
+                grouping_json="$(sing_box_build_subscription_country_groups "$subscription_outbound_tags_json")"
                 if [ -z "$grouping_json" ]; then
                     log "Failed to build grouped subscription outbounds for section '$section'. Aborted." "fatal"
                     exit 1
@@ -1065,6 +1072,8 @@ configure_outbound_handler() {
                 grouped_count="$(echo "$grouping_json" | jq -r '.country_order | length' 2>/dev/null)"
                 ungrouped_count="$(echo "$grouping_json" | jq -r '.ungrouped | length' 2>/dev/null)"
                 log "Country grouping prepared for section '$section': groups=$grouped_count, ungrouped=$ungrouped_count" "debug"
+
+                selector_outbounds_json="[]"
 
                 for country_flag in $(echo "$grouping_json" | jq -r '.country_order[]' 2>/dev/null); do
                     country_group_outbounds="$(echo "$grouping_json" | jq -c --arg country_flag "$country_flag" '.country_groups[$country_flag] // []' 2>/dev/null)"
@@ -1076,36 +1085,48 @@ configure_outbound_handler() {
                     config="$(sing_box_cm_add_urltest_outbound "$config" "$country_group_tag" "$country_group_outbounds" \
                         "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
 
-                    if [ -z "$selector_outbound_tags" ]; then
-                        selector_outbound_tags="$country_group_tag"
-                        selector_default="$country_group_tag"
-                    else
-                        selector_outbound_tags="$selector_outbound_tags,$country_group_tag"
-                    fi
+                    selector_outbounds_json=$(
+                        printf '%s' "$selector_outbounds_json" | jq -ac --arg tag "$country_group_tag" '. + [$tag]' 2>/dev/null
+                    )
                 done
 
-                ungrouped_outbound_tags="$(echo "$grouping_json" | jq -r '.ungrouped | join(",")' 2>/dev/null)"
-                if [ -n "$ungrouped_outbound_tags" ]; then
-                    if [ -z "$selector_outbound_tags" ]; then
-                        selector_outbound_tags="$ungrouped_outbound_tags"
-                        selector_default="${ungrouped_outbound_tags%%,*}"
-                    else
-                        selector_outbound_tags="$selector_outbound_tags,$ungrouped_outbound_tags"
-                    fi
+                if [ -z "$selector_outbounds_json" ]; then
+                    selector_outbounds_json="[]"
                 fi
 
-                if [ -z "$selector_outbound_tags" ]; then
+                ungrouped_outbounds_json="$(echo "$grouping_json" | jq -c '.ungrouped // []' 2>/dev/null)"
+                if [ -n "$ungrouped_outbounds_json" ] && [ "$ungrouped_outbounds_json" != "[]" ]; then
+                    selector_outbounds_json=$(
+                        jq -acn --argjson selector "$selector_outbounds_json" --argjson ungrouped "$ungrouped_outbounds_json" \
+                            '$selector + $ungrouped' 2>/dev/null
+                    )
+                fi
+
+                if [ -z "$selector_outbounds_json" ] || [ "$selector_outbounds_json" = "[]" ]; then
                     log "No selector outbounds available after grouping subscription outbounds for section '$section'. Aborted." "fatal"
                     exit 1
                 fi
 
-                selector_outbounds="$(comma_string_to_json_array "$selector_outbound_tags")"
+                selector_default="$(echo "$selector_outbounds_json" | jq -r '.[0] // ""' 2>/dev/null)"
+                if [ -z "$selector_default" ] || [ "$selector_default" = "null" ]; then
+                    log "Unable to determine default selector outbound for section '$section'. Aborted." "fatal"
+                    exit 1
+                fi
+
+                selector_outbounds="$selector_outbounds_json"
                 config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$selector_default" "true")"
             else
                 # Create urltest + selector (default subscription behaviour)
                 urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
-                urltest_outbounds="$(comma_string_to_json_array "$SUBSCRIPTION_OUTBOUND_TAGS")"
-                selector_outbounds="$(comma_string_to_json_array "$SUBSCRIPTION_OUTBOUND_TAGS,$urltest_tag")"
+                urltest_outbounds="$subscription_outbound_tags_json"
+                selector_outbounds=$(
+                    jq -acn --argjson outbounds "$subscription_outbound_tags_json" --arg tag "$urltest_tag" \
+                        '$outbounds + [$tag]' 2>/dev/null
+                )
+                if [ -z "$selector_outbounds" ]; then
+                    log "Failed to build selector outbounds for subscription section '$section'. Aborted." "fatal"
+                    exit 1
+                fi
                 config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds" \
                     "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
                 config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag" "true")"
