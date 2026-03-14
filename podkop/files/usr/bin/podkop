@@ -864,6 +864,19 @@ sing_box_build_subscription_country_groups() {
     ' 2>/dev/null
 }
 
+is_truthy_option() {
+    local value="$1"
+
+    case "$value" in
+    1|true|TRUE|True|on|ON|yes|YES|enabled|ENABLED)
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
 configure_outbound_handler() {
     local section="$1"
 
@@ -962,13 +975,25 @@ configure_outbound_handler() {
             log "Detected proxy configuration type: subscription" "debug"
             local subscription_url subscription_json_path urltest_tag selector_tag \
                 urltest_outbounds selector_outbounds urltest_check_interval urltest_tolerance \
-                urltest_testing_url subscription_group_by_countries
+                urltest_testing_url subscription_group_by_countries subscription_group_by_countries_raw
 
             config_get subscription_url "$section" "subscription_url"
             config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
             config_get urltest_tolerance "$section" "urltest_tolerance" 50
             config_get urltest_testing_url "$section" "urltest_testing_url" "https://www.gstatic.com/generate_204"
-            config_get_bool subscription_group_by_countries "$section" "subscription_group_by_countries" 0
+            config_get subscription_group_by_countries_raw "$section" "subscription_group_by_countries" ""
+            if [ -z "$subscription_group_by_countries_raw" ]; then
+                # Backward-compatible alias in case custom builds used another key
+                config_get subscription_group_by_countries_raw "$section" "group_by_countries" ""
+            fi
+
+            if is_truthy_option "$subscription_group_by_countries_raw"; then
+                subscription_group_by_countries=1
+            else
+                subscription_group_by_countries=0
+            fi
+
+            log "Subscription country grouping for section '$section': raw='${subscription_group_by_countries_raw:-<empty>}', enabled=$subscription_group_by_countries" "debug"
 
             if [ -z "$subscription_url" ]; then
                 log "Subscription URL is not set. Aborted." "fatal"
@@ -1029,13 +1054,17 @@ configure_outbound_handler() {
 
             if [ "$subscription_group_by_countries" -eq 1 ]; then
                 local grouping_json country_flag country_group_outbounds country_group_tag \
-                    selector_outbound_tags selector_default ungrouped_outbound_tags
+                    selector_outbound_tags selector_default ungrouped_outbound_tags grouped_count ungrouped_count
 
                 grouping_json="$(sing_box_build_subscription_country_groups "$SUBSCRIPTION_OUTBOUND_TAGS")"
                 if [ -z "$grouping_json" ]; then
                     log "Failed to build grouped subscription outbounds for section '$section'. Aborted." "fatal"
                     exit 1
                 fi
+
+                grouped_count="$(echo "$grouping_json" | jq -r '.country_order | length' 2>/dev/null)"
+                ungrouped_count="$(echo "$grouping_json" | jq -r '.ungrouped | length' 2>/dev/null)"
+                log "Country grouping prepared for section '$section': groups=$grouped_count, ungrouped=$ungrouped_count" "debug"
 
                 for country_flag in $(echo "$grouping_json" | jq -r '.country_order[]' 2>/dev/null); do
                     country_group_outbounds="$(echo "$grouping_json" | jq -c --arg country_flag "$country_flag" '.country_groups[$country_flag] // []' 2>/dev/null)"
