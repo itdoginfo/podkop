@@ -417,6 +417,7 @@ download_subscription() {
     local http_proxy_address="$3"
     local retries="${4:-3}"
     local wait="${5:-2}"
+    local timeout="${6:-10}"
 
     local sb_version device_model kernel_version hwid
     sb_version="$(get_sing_box_version)"
@@ -424,24 +425,100 @@ download_subscription() {
     kernel_version="$(get_kernel_version)"
     hwid="$(generate_hwid)"
 
-    local header_args=""
-    header_args="--header='User-Agent: singbox/$sb_version'"
-    header_args="$header_args --header='X-HWID: $hwid'"
-    header_args="$header_args --header='X-Device-OS: OpenWrt Linux'"
-    header_args="$header_args --header='X-Device-Model: $device_model'"
-    header_args="$header_args --header='X-Ver-OS: $kernel_version'"
-    header_args="$header_args --header='Accept-Language: ru-RU,en,*'"
-    header_args="$header_args --header='X-Device-Locale: EN'"
+    local tmpfile
+    tmpfile="${filepath}.part.$$"
+    rm -f "$tmpfile"
 
     for attempt in $(seq 1 "$retries"); do
         if [ -n "$http_proxy_address" ]; then
             http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                eval wget -O "$filepath" $header_args "$url" && break
+                wget -T "$timeout" -t 1 -O "$tmpfile" \
+                    --header "User-Agent: singbox/$sb_version" \
+                    --header "X-HWID: $hwid" \
+                    --header "X-Device-OS: OpenWrt Linux" \
+                    --header "X-Device-Model: $device_model" \
+                    --header "X-Ver-OS: $kernel_version" \
+                    --header "Accept-Language: ru-RU,en,*" \
+                    --header "X-Device-Locale: EN" \
+                    "$url"
         else
-            eval wget -O "$filepath" $header_args "$url" && break
+            wget -T "$timeout" -t 1 -O "$tmpfile" \
+                --header "User-Agent: singbox/$sb_version" \
+                --header "X-HWID: $hwid" \
+                --header "X-Device-OS: OpenWrt Linux" \
+                --header "X-Device-Model: $device_model" \
+                --header "X-Ver-OS: $kernel_version" \
+                --header "Accept-Language: ru-RU,en,*" \
+                --header "X-Device-Locale: EN" \
+                "$url"
         fi
 
+        if [ $? -eq 0 ] && [ -s "$tmpfile" ]; then
+            mv "$tmpfile" "$filepath"
+            return 0
+        fi
+
+        rm -f "$tmpfile"
         log "Attempt $attempt/$retries to download subscription from $url failed" "warn"
         sleep "$wait"
     done
+
+    rm -f "$tmpfile"
+    return 1
+}
+
+check_subscription_connectivity() {
+    local url="$1"
+    local http_proxy_address="$2"
+    local retries="${3:-3}"
+    local wait="${4:-2}"
+    local timeout="${5:-5}"
+
+    local sb_version device_model kernel_version hwid
+    sb_version="$(get_sing_box_version)"
+    device_model="$(get_device_model)"
+    kernel_version="$(get_kernel_version)"
+    hwid="$(generate_hwid)"
+
+    local attempt
+    for attempt in $(seq 1 "$retries"); do
+        if [ -n "$http_proxy_address" ]; then
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                wget -q -T "$timeout" -t 1 -O /dev/null \
+                    --header "User-Agent: singbox/$sb_version" \
+                    --header "X-HWID: $hwid" \
+                    --header "X-Device-OS: OpenWrt Linux" \
+                    --header "X-Device-Model: $device_model" \
+                    --header "X-Ver-OS: $kernel_version" \
+                    --header "Accept-Language: ru-RU,en,*" \
+                    --header "X-Device-Locale: EN" \
+                    "$url" && return 0
+        else
+            wget -q -T "$timeout" -t 1 -O /dev/null \
+                --header "User-Agent: singbox/$sb_version" \
+                --header "X-HWID: $hwid" \
+                --header "X-Device-OS: OpenWrt Linux" \
+                --header "X-Device-Model: $device_model" \
+                --header "X-Ver-OS: $kernel_version" \
+                --header "Accept-Language: ru-RU,en,*" \
+                --header "X-Device-Locale: EN" \
+                "$url" && return 0
+        fi
+
+        [ "$attempt" -lt "$retries" ] && sleep "$wait"
+    done
+
+    return 1
+}
+
+validate_subscription_file() {
+    local filepath="$1"
+
+    [ -s "$filepath" ] || return 1
+
+    jq -e '
+        type == "object" and
+        (.outbounds | type == "array") and
+        ((.outbounds | length) > 0)
+    ' "$filepath" > /dev/null 2>&1
 }
