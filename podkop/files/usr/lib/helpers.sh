@@ -432,7 +432,7 @@ download_subscription() {
     for attempt in $(seq 1 "$retries"); do
         if [ -n "$http_proxy_address" ]; then
             http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                wget -T "$timeout" -t 1 -O "$tmpfile" \
+                wget -T "$timeout" -O "$tmpfile" \
                     --header "User-Agent: singbox/$sb_version" \
                     --header "X-HWID: $hwid" \
                     --header "X-Device-OS: OpenWrt Linux" \
@@ -442,7 +442,7 @@ download_subscription() {
                     --header "X-Device-Locale: EN" \
                     "$url"
         else
-            wget -T "$timeout" -t 1 -O "$tmpfile" \
+            wget -T "$timeout" -O "$tmpfile" \
                 --header "User-Agent: singbox/$sb_version" \
                 --header "X-HWID: $hwid" \
                 --header "X-Device-OS: OpenWrt Linux" \
@@ -484,7 +484,7 @@ check_subscription_connectivity() {
     for attempt in $(seq 1 "$retries"); do
         if [ -n "$http_proxy_address" ]; then
             http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                wget -q -T "$timeout" -t 1 -O /dev/null \
+                wget -q -T "$timeout" -O /dev/null \
                     --header "User-Agent: singbox/$sb_version" \
                     --header "X-HWID: $hwid" \
                     --header "X-Device-OS: OpenWrt Linux" \
@@ -494,7 +494,7 @@ check_subscription_connectivity() {
                     --header "X-Device-Locale: EN" \
                     "$url" && return 0
         else
-            wget -q -T "$timeout" -t 1 -O /dev/null \
+            wget -q -T "$timeout" -O /dev/null \
                 --header "User-Agent: singbox/$sb_version" \
                 --header "X-HWID: $hwid" \
                 --header "X-Device-OS: OpenWrt Linux" \
