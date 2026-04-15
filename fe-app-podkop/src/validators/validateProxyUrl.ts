@@ -1,5 +1,6 @@
 import { ValidationResult } from './types';
 import { validateShadowsocksUrl } from './validateShadowsocksUrl';
+import { validateShadowsocksConfigUrl } from './validateShadowsocksConfigUrl';
 import { validateVlessUrl } from './validateVlessUrl';
 import { validateTrojanUrl } from './validateTrojanUrl';
 import { validateSocksUrl } from './validateSocksUrl';
@@ -8,6 +9,10 @@ import { validateHysteria2Url } from './validateHysteriaUrl';
 // TODO refactor current validation and add tests
 export function validateProxyUrl(url: string): ValidationResult {
   const trimmedUrl = url.trim();
+
+  if (trimmedUrl.startsWith('ssconf://')) {
+    return validateShadowsocksConfigUrl(trimmedUrl);
+  }
 
   if (trimmedUrl.startsWith('ss://')) {
     return validateShadowsocksUrl(trimmedUrl);
@@ -35,7 +40,7 @@ export function validateProxyUrl(url: string): ValidationResult {
   return {
     valid: false,
     message: _(
-      'URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://',
+      'URL must start with vless://, ssconf://, ss://, trojan://, socks4/5://, or hysteria2://hy2://',
     ),
   };
 }

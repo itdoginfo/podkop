@@ -1,15 +1,15 @@
 # RU translations for PODKOP package.
 # Copyright (C) 2026 THE PODKOP'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PODKOP package.
-# divocatt, 2026.
+# Oleg Sherbakov, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-14 20:21+0200\n"
-"PO-Revision-Date: 2026-01-14 20:21+0200\n"
-"Last-Translator: divocatt\n"
+"POT-Creation-Date: 2026-04-15 10:27+0400\n"
+"PO-Revision-Date: 2026-04-15 10:27+0400\n"
+"Last-Translator: Oleg Sherbakov\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -331,6 +331,15 @@ msgstr "Неверный формат пути. Путь должен начин
 
 msgid "Invalid port number. Must be between 1 and 65535"
 msgstr "Неверный номер порта. Допустимо от 1 до 65535"
+
+msgid "Invalid Shadowsocks Config URL: must not contain spaces"
+msgstr "Неверный URL Shadowsocks Config: не должен содержать пробелов"
+
+msgid "Invalid Shadowsocks Config URL: must start with ssconf://"
+msgstr "Неверный URL Shadowsocks Config: должен начинаться с ssconf://"
+
+msgid "Invalid Shadowsocks Config URL: parsing failed"
+msgstr "Неверный URL Shadowsocks Config: ошибка разбора"
 
 msgid "Invalid Shadowsocks URL: decoded credentials must contain method:password"
 msgstr "Неверный URL Shadowsocks: декодированные данные должны содержать method:password"
@@ -722,8 +731,8 @@ msgstr "Неизвестная ошибка"
 msgid "Uplink"
 msgstr "Исходящий"
 
-msgid "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
-msgstr "URL должен начинаться с vless://, ss://, trojan://, socks4/5:// или hysteria2:// hy2://"
+msgid "URL must start with vless://, ssconf://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
+msgstr "URL должен начинаться с vless://, ssconf://, ss://, trojan://, socks4/5:// или hysteria2:// hy2://"
 
 msgid "URL must use one of the following protocols:"
 msgstr "URL должен использовать один из следующих протоколов:"
@@ -773,7 +782,7 @@ msgstr "Посмотреть логи"
 msgid "Visit Wiki"
 msgstr "Перейти в wiki"
 
-msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
+msgid "vless://, ssconf://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
 msgstr ""
 
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."

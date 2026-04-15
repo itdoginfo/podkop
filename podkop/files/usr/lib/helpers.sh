@@ -354,3 +354,53 @@ parse_domain_or_subnet_file_to_comma_string() {
 
     echo "$result"
 }
+
+url_get_ss_from_ssconf() {
+    local config_url="$1"
+
+    # replace ssconf:// to https://
+    config_http_url="${config_url/ssconf:/https:}"
+    tmpfile=$(mktemp)
+
+    download_to_file "$config_http_url" "$tmpfile"
+
+    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
+        log "Download $config_url failed" "error"
+        return 1
+    fi
+
+    method=$(cat "$tmpfile" | grep -o '"method":"[^"]*' | cut -d'"' -f4)
+    echo "$method:dasdsada"
+    if [ -z "$method" ]; then
+        log "Extracting of method from $config_url failed" "error"
+        return 1
+    fi
+
+    password=$(cat "$tmpfile" | grep -o '"password":"[^"]*' | cut -d'"' -f4)
+    if [ -z "$password" ]; then
+        log "Extracting of password from $config_url failed" "error"
+        return 1
+    fi
+
+    server=$(cat "$tmpfile" | grep -o '"server":"[^"]*' | cut -d'"' -f4)
+    if [ -z "$server" ]; then
+        log "Extracting of server from $config_url failed" "error"
+        return 1
+    fi
+
+    port=$(cat "$tmpfile" | grep -o '"server_port":[^,]*' | cut -d':' -f2)
+    if [ -z "$port" ]; then
+        log "Extracting of server_port from $config_url failed" "error"
+        return 1
+    fi
+
+    tag=$(cat "$tmpfile" | grep -o '"tag":"[^"]*' | cut -d'"' -f4)
+    userinfo=$(printf "$method:$password" | base64)
+
+    result="ss://$userinfo@$server:$port/"
+    if [ ! -z "$tag" ]; then
+        result="$result#$tag"
+    fi;
+
+    echo "$result"
+}
