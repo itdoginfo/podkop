@@ -106,8 +106,12 @@ sing_box_cf_add_proxy_outbound() {
         config=$(_add_outbound_security "$config" "$tag" "$url")
         config=$(_add_outbound_transport "$config" "$tag" "$url")
         ;;
-    ss)
+    ss | ssconf)
         local userinfo tag host port method password udp_over_tcp
+
+       if [ "$scheme" = "ssconf" ]; then
+         url=$(url_get_ss_from_ssconf "$url")
+       fi;
 
         userinfo=$(url_get_userinfo "$url")
         if ! is_shadowsocks_userinfo_format "$userinfo"; then

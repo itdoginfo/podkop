@@ -382,6 +382,30 @@ function validateTrojanUrl(url) {
   return { valid: true, message: _("Valid") };
 }
 
+// src/validators/validateShadowsocksConfigUrl.ts
+function validateShadowsocksConfigUrl(url) {
+  if (!url.startsWith("ssconf://")) {
+    return {
+      valid: false,
+      message: _("Invalid Shadowsocks Config URL: must start with ssconf://")
+    };
+  }
+  try {
+    if (!url || /\s/.test(url)) {
+      return {
+        valid: false,
+        message: _("Invalid Shadowsocks Config URL: must not contain spaces")
+      };
+    }
+  } catch (_e) {
+    return {
+      valid: false,
+      message: _("Invalid Shadowsocks Config URL: parsing failed")
+    };
+  }
+  return { valid: true, message: _("Valid") };
+}
+
 // src/validators/validateSocksUrl.ts
 function validateSocksUrl(url) {
   try {
@@ -537,6 +561,9 @@ function validateHysteria2Url(url) {
 // src/validators/validateProxyUrl.ts
 function validateProxyUrl(url) {
   const trimmedUrl = url.trim();
+  if (trimmedUrl.startsWith("ssconf://")) {
+    return validateShadowsocksConfigUrl(trimmedUrl);
+  }
   if (trimmedUrl.startsWith("ss://")) {
     return validateShadowsocksUrl(trimmedUrl);
   }
@@ -555,7 +582,7 @@ function validateProxyUrl(url) {
   return {
     valid: false,
     message: _(
-      "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
+      "URL must start with vless://, ssconf://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
     )
   };
 }
