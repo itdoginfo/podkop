@@ -998,7 +998,9 @@ configure_community_list_handler() {
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+    if [ "$route_rule_tag" != "$SB_EXCLUSION_RULE_TAG" ]; then
++        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+    fi
 }
 
 prepare_source_ruleset() {
@@ -1017,7 +1019,9 @@ prepare_source_ruleset() {
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
         domains)
-            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+            if [ "$route_rule_tag" != "$SB_EXCLUSION_RULE_TAG" ]; then
++                config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
++          fi
             ;;
         subnets) ;;
         *)
@@ -1133,7 +1137,9 @@ configure_remote_domain_or_subnet_list_handler() {
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
         domains)
-            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+            if [ "$route_rule_tag" != "$SB_EXCLUSION_RULE_TAG" ]; then
++                config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
++          fi
             ;;
         subnets) ;;
         *) log "Unsupported remote rule set type: $type" "error" ;;
