@@ -2443,7 +2443,7 @@ global_check() {
         fi
 
         if [ "$sing_box_version_ok" -eq 1 ]; then
-            print_global "✅ Sing-box version is compatible (newer than 1.12.4)"
+            print_global "✅ Sing-box version is compatible (1.12.4 or newer)"
         else
             print_global "❌ Sing-box version is not compatible (older than 1.12.4)"
         fi
@@ -2467,9 +2467,9 @@ global_check() {
         fi
 
         if [ "$sing_box_ports_listening" -eq 1 ]; then
-            print_global "✅ Sing-box listening ports"
+            print_global "✅ Sing-box is listening ports"
         else
-            print_global "❌ Sing-box listening ports"
+            print_global "❌ Sing-box is listening ports"
         fi
     else
         print_global "❌ Failed to get sing-box info"
