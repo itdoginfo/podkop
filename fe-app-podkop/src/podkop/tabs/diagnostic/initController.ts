@@ -288,7 +288,10 @@ async function handleShowSingBoxConfig() {
     if (showSingBoxConfig.success) {
       ui.showModal(
         _('Show sing-box config'),
-        renderModal(showSingBoxConfig.data as string, 'show_sing_box_config'),
+        renderModal(
+          JSON.stringify(showSingBoxConfig.data, null, 2),
+          'show_sing_box_config',
+        ),
       );
     } else {
       logger.error(

@@ -18,7 +18,9 @@ nolog() {
     local timestamp
     timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
-    echo -e "${COLOR_CYAN}[$timestamp]${COLOR_RESET} ${COLOR_GREEN}$message${COLOR_RESET}"
+    if [ -t 1 ]; then
+        echo -e "${COLOR_CYAN}[$timestamp]${COLOR_RESET} ${COLOR_GREEN}$message${COLOR_RESET}"
+    fi
 }
 
 echolog() {
