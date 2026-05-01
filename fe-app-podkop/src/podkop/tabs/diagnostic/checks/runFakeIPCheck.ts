@@ -1,6 +1,10 @@
 import { insertIf } from '../../../../helpers';
 import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
-import { PodkopShellMethods, RemoteFakeIPMethods } from '../../../methods';
+import {
+  CustomPodkopMethods,
+  PodkopShellMethods,
+  RemoteFakeIPMethods,
+} from '../../../methods';
 import { IDiagnosticsChecksItem } from '../../../services';
 import { updateCheckStore } from './updateCheckStore';
 import { getMeta } from '../helpers/getMeta';
@@ -16,6 +20,25 @@ export async function runFakeIPCheck() {
     state: 'loading',
     items: [],
   });
+
+  const fakeIpDisabled = await CustomPodkopMethods.getDisableFakeip();
+  if (fakeIpDisabled) {
+    updateCheckStore({
+      order,
+      code,
+      title,
+      description: _('FakeIP is intentionally disabled in Additional Settings'),
+      state: 'skipped',
+      items: [
+        {
+          state: 'success',
+          key: _('FakeIP disabled'),
+          value: '',
+        },
+      ],
+    });
+    return;
+  }
 
   const routerFakeIPResponse = await PodkopShellMethods.checkFakeIP();
   const checkFakeIPResponse = await RemoteFakeIPMethods.getFakeIpCheck();

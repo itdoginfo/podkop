@@ -271,6 +271,17 @@ function createSettingsContent(section) {
   o.rmempty = false;
 
   o = section.option(
+    form.Flag,
+    "disable_fakeip",
+    _("Don't use FAKE IP"),
+    _(
+      "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. Note: domains with ECH (Encrypted Client Hello) enabled may not be matched.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.option(
     form.ListValue,
     "update_interval",
     _("List Update Frequency"),

@@ -1,15 +1,15 @@
 # RU translations for PODKOP package.
 # Copyright (C) 2026 THE PODKOP'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PODKOP package.
-# divocatt, 2026.
+# aiserrock, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-14 20:21+0200\n"
-"PO-Revision-Date: 2026-01-14 20:21+0200\n"
-"Last-Translator: divocatt\n"
+"POT-Creation-Date: 2026-05-01 18:50+0300\n"
+"PO-Revision-Date: 2026-05-01 18:50+0300\n"
+"Last-Translator: aiserrock\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -134,6 +134,9 @@ msgstr "Диагностика"
 msgid "Disable autostart"
 msgstr "Отключить автостарт"
 
+msgid "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. Note: domains with ECH (Encrypted Client Hello) enabled may not be matched."
+msgstr "Отключить FakeIP-резолв DNS и использовать sniff-based маршрутизацию. Требуется, если корпоративный VPN-клиент (например, FortiClient на macOS) переопределяет DNS на устройстве и не может быть установлен на роутер. Примечание: домены с включённым ECH (Encrypted Client Hello) могут не сматчиться."
+
 msgid "Disable QUIC"
 msgstr "Отключить QUIC"
 
@@ -169,6 +172,9 @@ msgstr "Не паникуйте, всё можно исправить, прос�
 
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
+
+msgid "Don't use FAKE IP"
+msgstr "Не использовать FAKE IP"
 
 msgid "Dont Touch My DHCP!"
 msgstr "Dont Touch My DHCP!"
@@ -247,6 +253,12 @@ msgstr "Не удалось скопировать!"
 
 msgid "Failed to execute!"
 msgstr "Не удалось выполнить!"
+
+msgid "FakeIP disabled"
+msgstr "FakeIP отключён"
+
+msgid "FakeIP is intentionally disabled in Additional Settings"
+msgstr "FakeIP намеренно отключён в дополнительных настройках"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
