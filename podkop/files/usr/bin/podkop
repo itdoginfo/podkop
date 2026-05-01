@@ -321,16 +321,18 @@ create_nft_rules() {
         nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
         nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
     else
-        log "FakeIP disabled: marking all LAN traffic for sniff-based routing"
+        log "FakeIP disabled: marking all IPv4 LAN traffic for sniff-based routing"
         # Skip local destinations early (LAN→LAN, multicast, link-local, etc.)
         nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_LOCALV4_SET_NAME" return
-        # Mark every other TCP/UDP packet from the configured interfaces; sing-box decides proxy vs direct via sniff.
-        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
-        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
+        # Mark every other IPv4 TCP/UDP packet from the configured interfaces; sing-box decides proxy vs direct via sniff.
+        # IPv6 is intentionally not marked here: the tproxy listens on 127.0.0.1 (v4 only), so v6 traffic must continue
+        # to flow directly to avoid being silently dropped by a v4-only redirect.
+        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" meta nfproto ipv4 meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" meta nfproto ipv4 meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
     fi
 
-    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto tcp tproxy ip to 127.0.0.1:1602 counter
-    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto udp tproxy ip to 127.0.0.1:1602 counter
+    nft add rule inet "$NFT_TABLE_NAME" proxy iifname "@$NFT_INTERFACE_SET_NAME" meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto tcp tproxy ip to 127.0.0.1:1602 counter
+    nft add rule inet "$NFT_TABLE_NAME" proxy iifname "@$NFT_INTERFACE_SET_NAME" meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto udp tproxy ip to 127.0.0.1:1602 counter
 
     nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_LOCALV4_SET_NAME" return
     nft add rule inet "$NFT_TABLE_NAME" mangle_output meta mark "$NFT_OUTBOUND_MARK" counter return

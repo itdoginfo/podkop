@@ -21,7 +21,14 @@ export async function runFakeIPCheck() {
     items: [],
   });
 
-  const fakeIpDisabled = await CustomPodkopMethods.getDisableFakeip();
+  let fakeIpDisabled = false;
+  try {
+    fakeIpDisabled = await CustomPodkopMethods.getDisableFakeip();
+  } catch {
+    // If reading UCI fails for any reason, fall back to running the regular FakeIP check
+    // instead of crashing the whole diagnostic pipeline.
+    fakeIpDisabled = false;
+  }
   if (fakeIpDisabled) {
     updateCheckStore({
       order,

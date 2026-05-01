@@ -94,14 +94,14 @@
     "call": "Browser is not using FakeIP",
     "key": "Browser is not using FakeIP",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:81"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:88"
     ]
   },
   {
     "call": "Browser is using FakeIP correctly",
     "key": "Browser is using FakeIP correctly",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:80"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:87"
     ]
   },
   {
@@ -280,8 +280,8 @@
     ]
   },
   {
-    "call": "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. Note: domains with ECH (Encrypted Client Hello) enabled may not be matched.",
-    "key": "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. Note: domains with ECH (Encrypted Client Hello) enabled may not be matched.",
+    "call": "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. IMPORTANT: in this mode all IPv4 TCP/UDP traffic from the selected Source Network Interfaces is routed through sing-box - make sure the list contains only trusted LAN bridges (e.g. br-lan), never WAN. Limitations: domains with ECH (Encrypted Client Hello) cannot be matched, and IPv6 traffic continues to flow directly (no proxying).",
+    "key": "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. IMPORTANT: in this mode all IPv4 TCP/UDP traffic from the selected Source Network Interfaces is routed through sing-box - make sure the list contains only trusted LAN bridges (e.g. br-lan), never WAN. Limitations: domains with ECH (Encrypted Client Hello) cannot be matched, and IPv6 traffic continues to flow directly (no proxying).",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:277"
     ]
@@ -576,14 +576,14 @@
     "call": "FakeIP disabled",
     "key": "FakeIP disabled",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:35"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:42"
     ]
   },
   {
     "call": "FakeIP is intentionally disabled in Additional Settings",
     "key": "FakeIP is intentionally disabled in Additional Settings",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:30"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:37"
     ]
   },
   {
@@ -1177,14 +1177,14 @@
     "call": "Proxy traffic is not routed via FakeIP",
     "key": "Proxy traffic is not routed via FakeIP",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:89"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:96"
     ]
   },
   {
     "call": "Proxy traffic is routed via FakeIP",
     "key": "Proxy traffic is routed via FakeIP",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:88"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:95"
     ]
   },
   {
@@ -1219,14 +1219,14 @@
     "call": "Router DNS is not routed through sing-box",
     "key": "Router DNS is not routed through sing-box",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:74"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:81"
     ]
   },
   {
     "call": "Router DNS is routed through sing-box",
     "key": "Router DNS is routed through sing-box",
     "places": [
-      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:73"
+      "src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:80"
     ]
   },
   {

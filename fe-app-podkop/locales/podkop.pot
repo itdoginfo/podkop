@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-01 15:50+0300\n"
-"PO-Revision-Date: 2026-05-01 15:50+0300\n"
+"POT-Creation-Date: 2026-05-01 19:32+0300\n"
+"PO-Revision-Date: 2026-05-01 19:32+0300\n"
 "Last-Translator: aiserrock <aicserrock@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -68,11 +68,11 @@ msgstr ""
 msgid "Bootstrap DNS server"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:81
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:88
 msgid "Browser is not using FakeIP"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:80
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:87
 msgid "Browser is using FakeIP correctly"
 msgstr ""
 
@@ -180,7 +180,7 @@ msgid "Disable autostart"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:277
-msgid "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. Note: domains with ECH (Encrypted Client Hello) enabled may not be matched."
+msgid "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. IMPORTANT: in this mode all IPv4 TCP/UDP traffic from the selected Source Network Interfaces is routed through sing-box - make sure the list contains only trusted LAN bridges (e.g. br-lan), never WAN. Limitations: domains with ECH (Encrypted Client Hello) cannot be matched, and IPv6 traffic continues to flow directly (no proxying)."
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:265
@@ -352,11 +352,11 @@ msgstr ""
 msgid "Failed to execute!"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:35
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:42
 msgid "FakeIP disabled"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:30
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:37
 msgid "FakeIP is intentionally disabled in Additional Settings"
 msgstr ""
 
@@ -701,11 +701,11 @@ msgstr ""
 msgid "Proxy Configuration URL"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:89
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:96
 msgid "Proxy traffic is not routed via FakeIP"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:88
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:95
 msgid "Proxy traffic is routed via FakeIP"
 msgstr ""
 
@@ -725,11 +725,11 @@ msgstr ""
 msgid "Restart podkop"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:74
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:81
 msgid "Router DNS is not routed through sing-box"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:73
+#: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:80
 msgid "Router DNS is routed through sing-box"
 msgstr ""
 

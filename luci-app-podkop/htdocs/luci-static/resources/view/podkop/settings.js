@@ -275,7 +275,7 @@ function createSettingsContent(section) {
     "disable_fakeip",
     _("Don't use FAKE IP"),
     _(
-      "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. Note: domains with ECH (Encrypted Client Hello) enabled may not be matched.",
+      "Disable FakeIP DNS resolution and use sniff-based routing instead. Required when a corporate VPN client (e.g., FortiClient on macOS) overrides DNS on the device and cannot be installed on the router. IMPORTANT: in this mode all IPv4 TCP/UDP traffic from the selected Source Network Interfaces is routed through sing-box - make sure the list contains only trusted LAN bridges (e.g. br-lan), never WAN. Limitations: domains with ECH (Encrypted Client Hello) cannot be matched, and IPv6 traffic continues to flow directly (no proxying).",
     ),
   );
   o.default = "0";
