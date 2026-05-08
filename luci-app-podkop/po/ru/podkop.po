@@ -431,6 +431,12 @@ msgstr "Использование памяти"
 msgid "Mixed Proxy Port"
 msgstr "Порт смешанного прокси"
 
+msgid "Resolve real IP for routing"
+msgstr "Получать реальный IP при роутинге"
+
+msgid "Enable DNS resolve to get real IP when routing"
+msgstr "Включить разрешение DNS вне FakeIP для получения реальных IP-адресов при маршрутизации"
+
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
 

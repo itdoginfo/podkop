@@ -918,7 +918,7 @@ configure_routing_for_section_lists() {
     fi
 
     local community_lists user_domain_list_type user_subnet_list_type local_domain_lists local_subnet_lists \
-        remote_domain_lists remote_subnet_lists section_connection_type route_rule_tag
+        remote_domain_lists remote_subnet_lists section_connection_type route_rule_tag resolve_real_ip_for_routing
     config_get community_lists "$section" "community_lists"
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
     config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
@@ -927,6 +927,7 @@ configure_routing_for_section_lists() {
     config_get remote_domain_lists "$section" "remote_domain_lists"
     config_get remote_subnet_lists "$section" "remote_subnet_lists"
     config_get section_connection_type "$section" "connection_type"
+    config_get_bool resolve_real_ip_for_routing "$section" "resolve_real_ip_for_routing" 0
 
     case "$section_connection_type" in
     proxy | vpn)
@@ -981,6 +982,11 @@ configure_routing_for_section_lists() {
         log "Processing remote subnets routing rules for '$section' section"
         config_list_foreach "$section" "remote_subnet_lists" configure_remote_domain_or_subnet_list_handler \
             "subnets" "$section" "$route_rule_tag"
+    fi
+
+    if [ "$resolve_real_ip_for_routing" -eq 1 ]; then
+        config=$(sing_box_cm_add_resolve_rule "$config" "$route_rule_tag" "$(gen_id)" "$SB_DNS_SERVER_TAG")
+        log "Added resolve rule for '$section' section" "debug"
     fi
 }
 

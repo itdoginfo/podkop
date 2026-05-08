@@ -283,6 +283,14 @@ msgstr ""
 msgid "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:678
+msgid "Resolve real IP for routing"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:679
+msgid "Enable DNS resolve to get real IP when routing"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:237
 msgid "Enable YACD"
 msgstr ""

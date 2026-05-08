@@ -1091,6 +1091,42 @@ sing_box_cm_add_route_rule() {
 }
 
 #######################################
+# Insert a resolve rule immediately before a route rule.
+# Copies rule_set from the target route rule.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   route_rule_tag: string, tag of the route rule to precede
+#   resolve_rule_tag: string, tag for the new resolve rule
+#   server: string, DNS server tag (optional, default: "dns-server")
+# Outputs:
+#   Updated JSON config to stdout
+#######################################
+sing_box_cm_add_resolve_rule() {
+    local config="$1"
+    local route_rule_tag="$2"
+    local resolve_rule_tag="$3"
+    local server="${4:-dns-server}"
+
+    echo "$config" | jq \
+        --arg service_tag "$SERVICE_TAG" \
+        --arg route_tag "$route_rule_tag" \
+        --arg resolve_tag "$resolve_rule_tag" \
+        --arg server "$server" \
+        '.route.rules |= [
+            .[] | 
+            if .[$service_tag] == $route_tag then
+                {
+                    action: "resolve",
+                    rule_set: (.rule_set // []),
+                    server: $server,
+                    ($service_tag): $resolve_tag
+                }, .
+            else .
+            end
+        ]'
+}
+
+#######################################
 # Patch a routing rule in the route section of a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
