@@ -1,15 +1,15 @@
 # RU translations for PODKOP package.
 # Copyright (C) 2026 THE PODKOP'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PODKOP package.
-# divocatt, 2026.
+# romanvht, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-14 20:21+0200\n"
-"PO-Revision-Date: 2026-01-14 20:21+0200\n"
-"Last-Translator: divocatt\n"
+"POT-Creation-Date: 2026-05-09 12:50+1000\n"
+"PO-Revision-Date: 2026-05-09 12:50+1000\n"
+"Last-Translator: romanvht\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -196,6 +196,9 @@ msgstr "Включить автостарт"
 
 msgid "Enable built-in DNS resolver for domains handled by this section"
 msgstr "Включить встроенный DNS-резолвер для доменов, обрабатываемых в этом разделе"
+
+msgid "Enable DNS resolve to get real IP when routing"
+msgstr "Включить разрешение DNS вне FakeIP для получения реальных IP-адресов при маршрутизации"
 
 msgid "Enable Mixed Proxy"
 msgstr "Включить смешанный прокси"
@@ -508,6 +511,9 @@ msgstr "Внешние списки доменов"
 
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
+
+msgid "Resolve real IP for routing"
+msgstr "Получать реальный IP при роутинге"
 
 msgid "Restart podkop"
 msgstr "Перезапустить Podkop"
