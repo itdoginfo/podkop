@@ -198,7 +198,7 @@ msgid "Enable built-in DNS resolver for domains handled by this section"
 msgstr "Включить встроенный DNS-резолвер для доменов, обрабатываемых в этом разделе"
 
 msgid "Enable DNS resolve to get real IP when routing"
-msgstr "Включить разрешение DNS вне FakeIP для получения реальных IP-адресов при маршрутизации"
+msgstr "Разрешать домены в реальные IP-адреса перед маршрутизацией в outbound"
 
 msgid "Enable Mixed Proxy"
 msgstr "Включить смешанный прокси"
@@ -513,7 +513,7 @@ msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
 
 msgid "Resolve real IP for routing"
-msgstr "Получать реальный IP при роутинге"
+msgstr "Разрешение реальных IP-адресов"
 
 msgid "Restart podkop"
 msgstr "Перезапустить Podkop"
