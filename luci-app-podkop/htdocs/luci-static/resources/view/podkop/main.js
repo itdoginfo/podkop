@@ -3929,10 +3929,13 @@ async function runSectionsCheck() {
 var removeVersionPrefix = (v) => v.replace(/^v/, "");
 
 // src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts
+function isUnknownVersion(version) {
+  return version === "unknown" || version === _("unknown");
+}
 function getPodkopVersionRow(diagnosticsSystemInfo) {
   const loading = diagnosticsSystemInfo.loading;
-  const unknown = diagnosticsSystemInfo.podkop_version === _("unknown");
-  const hasActualVersion = Boolean(diagnosticsSystemInfo.podkop_latest_version) && diagnosticsSystemInfo.podkop_latest_version !== "unknown";
+  const unknown = isUnknownVersion(diagnosticsSystemInfo.podkop_version);
+  const hasActualVersion = Boolean(diagnosticsSystemInfo.podkop_latest_version) && !isUnknownVersion(diagnosticsSystemInfo.podkop_latest_version);
   const version = normalizeCompiledVersion(
     diagnosticsSystemInfo.podkop_version
   );
