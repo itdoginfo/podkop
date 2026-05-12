@@ -3926,7 +3926,9 @@ async function runSectionsCheck() {
 }
 
 // src/helpers/removeVersionPrefix.ts
-var removeVersionPrefix = (v) => v.replace(/^v/, "");
+function removeVersionPrefix(version) {
+  return version.replace(/^v/, "");
+}
 
 // src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts
 function isUnknownVersion(version) {
