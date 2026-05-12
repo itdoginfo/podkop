@@ -6,7 +6,6 @@ import { runFakeIPCheck } from './checks/runFakeIPCheck';
 import { loadingDiagnosticsChecksStore } from './diagnostic.store';
 import { logger, store, StoreType } from '../../services';
 import {
-  IRenderSystemInfoRow,
   renderAvailableActions,
   renderCheckSection,
   renderRunAction,
@@ -20,6 +19,7 @@ import { PODKOP_LUCI_APP_VERSION } from '../../../constants';
 import { showToast } from '../../../helpers/showToast';
 import { renderWikiDisclaimer } from './partials/renderWikiDisclaimer';
 import { runSectionsCheck } from './checks/runSectionsCheck';
+import { getPodkopVersionRow } from './helpers/getPodkopVersionRow';
 
 async function fetchSystemInfo() {
   const systemInfo = await PodkopShellMethods.getSystemInfo();
@@ -415,53 +415,9 @@ function renderDiagnosticSystemInfoWidget() {
 
   const container = document.getElementById('pdk_diagnostic-page-system-info');
 
-  function getPodkopVersionRow(): IRenderSystemInfoRow {
-    const loading = diagnosticsSystemInfo.loading;
-    const unknown = diagnosticsSystemInfo.podkop_version === _('unknown');
-    const hasActualVersion =
-      Boolean(diagnosticsSystemInfo.podkop_latest_version) &&
-      diagnosticsSystemInfo.podkop_latest_version !== 'unknown';
-    const version = normalizeCompiledVersion(
-      diagnosticsSystemInfo.podkop_version,
-    );
-    const isDevVersion = version === 'dev';
-
-    if (loading || unknown || !hasActualVersion || isDevVersion) {
-      return {
-        key: 'Podkop',
-        value: version,
-      };
-    }
-
-    if (version !== diagnosticsSystemInfo.podkop_latest_version) {
-      logger.debug(
-        '[DIAGNOSTIC]',
-        'diagnosticsSystemInfo',
-        diagnosticsSystemInfo,
-      );
-      return {
-        key: 'Podkop',
-        value: version,
-        tag: {
-          label: _('Outdated'),
-          kind: 'warning',
-        },
-      };
-    }
-
-    return {
-      key: 'Podkop',
-      value: version,
-      tag: {
-        label: _('Latest'),
-        kind: 'success',
-      },
-    };
-  }
-
   const renderedSystemInfo = renderSystemInfo({
     items: [
-      getPodkopVersionRow(),
+      getPodkopVersionRow(diagnosticsSystemInfo),
       {
         key: 'Luci App',
         value: normalizeCompiledVersion(PODKOP_LUCI_APP_VERSION),
