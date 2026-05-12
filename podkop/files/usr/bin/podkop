@@ -2158,12 +2158,12 @@ check_sing_box() {
             local patch
             major=$(echo "$version" | cut -d. -f1)
             minor=$(echo "$version" | cut -d. -f2)
-            patch=$(echo "$version" | cut -d. -f3)
+            patch=$(echo "$version" | cut -d. -f3 | cut -d- -f1)
 
             # Compare version: must be >= 1.12.4
-            if [ "$major" -gt 1 ] ||
-                [ "$major" -eq 1 ] && [ "$minor" -gt 12 ] ||
-                [ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]; then
+            if [ "$major" -gt 1 ] 2>/dev/null ||
+                { [ "$major" -eq 1 ] && [ "$minor" -gt 12 ]; } 2>/dev/null ||
+                { [ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]; } 2>/dev/null; then
                 sing_box_version_ok=1
             fi
         fi
