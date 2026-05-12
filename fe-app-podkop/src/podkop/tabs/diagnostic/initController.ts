@@ -433,7 +433,7 @@ function renderDiagnosticSystemInfoWidget() {
       };
     }
 
-    if (version !== `v${diagnosticsSystemInfo.podkop_latest_version}`) {
+    if (version !== diagnosticsSystemInfo.podkop_latest_version) {
       logger.debug(
         '[DIAGNOSTIC]',
         'diagnosticsSystemInfo',
