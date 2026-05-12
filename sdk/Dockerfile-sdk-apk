@@ -1,4 +1,4 @@
-FROM openwrt/sdk:x86-64-SNAPSHOT
+FROM openwrt/sdk:x86_64-v25.12.3
 WORKDIR /builder
 RUN ./setup.sh \
     && ./scripts/feeds update -a \
