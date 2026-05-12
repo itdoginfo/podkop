@@ -3,14 +3,18 @@ import { removeVersionPrefix } from '../../../../helpers/removeVersionPrefix';
 import type { StoreType } from '../../../services/store.service';
 import type { IRenderSystemInfoRow } from '../partials';
 
+function isUnknownVersion(version?: string | null): boolean {
+  return version === 'unknown' || version === _('unknown');
+}
+
 export function getPodkopVersionRow(
   diagnosticsSystemInfo: StoreType['diagnosticsSystemInfo'],
 ): IRenderSystemInfoRow {
   const loading = diagnosticsSystemInfo.loading;
-  const unknown = diagnosticsSystemInfo.podkop_version === _('unknown');
+  const unknown = isUnknownVersion(diagnosticsSystemInfo.podkop_version);
   const hasActualVersion =
     Boolean(diagnosticsSystemInfo.podkop_latest_version) &&
-    diagnosticsSystemInfo.podkop_latest_version !== 'unknown';
+    !isUnknownVersion(diagnosticsSystemInfo.podkop_latest_version);
   const version = normalizeCompiledVersion(
     diagnosticsSystemInfo.podkop_version,
   );
