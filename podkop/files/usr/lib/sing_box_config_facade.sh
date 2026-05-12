@@ -328,3 +328,154 @@ sing_box_cf_add_single_key_reject_rule() {
 
     echo "$config"
 }
+
+#######################################
+# Parse a sing-box subscription JSON and add all proxy outbounds to the configuration.
+# Filters out non-proxy types (selector, urltest, direct, dns, block).
+# Uses 'tag' field (or 'remark' if present) as display name for each outbound.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   section: string, the UCI section name
+#   subscription_json_path: string, path to the downloaded subscription JSON file
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#   Sets global variable SUBSCRIPTION_OUTBOUND_TAGS (comma-separated list of tags)
+#   Sets global variable SUBSCRIPTION_OUTBOUND_TAGS_JSON (JSON array of tags, ASCII-escaped)
+#   Sets global variable SUBSCRIPTION_OUTBOUND_NAMES (newline-separated list of display names)
+#######################################
+sing_box_cf_add_subscription_outbounds() {
+    local config="$1"
+    local section="$2"
+    local subscription_json_path="$3"
+
+    SUBSCRIPTION_OUTBOUND_TAGS=""
+    SUBSCRIPTION_OUTBOUND_TAGS_JSON="[]"
+    SUBSCRIPTION_OUTBOUND_NAMES=""
+    SING_BOX_CF_LAST_CONFIG="$config"
+
+    if [ ! -f "$subscription_json_path" ]; then
+        log "Subscription JSON file not found: $subscription_json_path" "error"
+        echo "$config"
+        return 1
+    fi
+
+    # Extract proxy outbounds from subscription JSON
+    # Filter out non-proxy types: selector, urltest, direct, dns, block
+    local outbounds_count
+    outbounds_count=$(jq -r '[.outbounds[] | select(
+        .type != "selector" and
+        .type != "urltest" and
+        .type != "direct" and
+        .type != "dns" and
+        .type != "block"
+    )] | length' "$subscription_json_path" 2>/dev/null)
+
+    if [ -z "$outbounds_count" ] || [ "$outbounds_count" -eq 0 ]; then
+        log "No proxy outbounds found in subscription JSON" "error"
+        echo "$config"
+        return 1
+    fi
+
+    log "Found $outbounds_count proxy outbounds in subscription" "info"
+
+    local i=1
+    local added_count=0
+    local outbound_json display_name outbound_tag outbound_type outbound_tls_enabled preferred_tag base_tag tag_suffix
+
+    while [ "$i" -le "$outbounds_count" ]; do
+        # Extract the i-th proxy outbound as raw JSON
+        outbound_json=$(jq -c "[.outbounds[] | select(
+            .type != \"selector\" and
+            .type != \"urltest\" and
+            .type != \"direct\" and
+            .type != \"dns\" and
+            .type != \"block\"
+        )][$i - 1]" "$subscription_json_path" 2>/dev/null)
+
+        if [ -z "$outbound_json" ] || [ "$outbound_json" = "null" ]; then
+            i=$((i + 1))
+            continue
+        fi
+
+        # Get display name: prefer remark, then tag, then fallback
+        display_name=$(echo "$outbound_json" | jq -r '.remark // .tag // "server-'"$i"'"' 2>/dev/null)
+
+        outbound_type=$(echo "$outbound_json" | jq -r '.type // ""' 2>/dev/null)
+        outbound_tls_enabled=$(echo "$outbound_json" | jq -r '.tls.enabled // false' 2>/dev/null)
+
+        # sing-box does not support top-level tls field for shadowsocks outbound.
+        if [ "$outbound_type" = "shadowsocks" ] && [ "$outbound_tls_enabled" = "true" ]; then
+            log "Skip unsupported Shadowsocks outbound with tls: '$display_name'" "warn"
+            i=$((i + 1))
+            continue
+        fi
+
+        # Keep original tag from the subscription for dashboard readability.
+        preferred_tag=$(echo "$outbound_json" | jq -r '.tag // .remark // "server-'"$i"'"' 2>/dev/null)
+        if [ -z "$preferred_tag" ] || [ "$preferred_tag" = "null" ]; then
+            preferred_tag="server-$i"
+        fi
+
+        base_tag="$preferred_tag"
+        outbound_tag="$base_tag"
+        tag_suffix=1
+        while printf '%s' "$config" | jq -e --arg tag "$outbound_tag" '.outbounds[]? | select(.tag == $tag)' > /dev/null 2>&1; do
+            outbound_tag="${base_tag}-$tag_suffix"
+            tag_suffix=$((tag_suffix + 1))
+        done
+
+        # Remove tag from raw outbound (it will be set by sing_box_cm_add_raw_outbound)
+        local clean_outbound
+        clean_outbound=$(echo "$outbound_json" | jq -c 'del(.tag) | del(.remark)' 2>/dev/null)
+
+        local updated_config
+        updated_config=$(sing_box_cm_add_raw_outbound "$config" "$outbound_tag" "$clean_outbound" 2>/dev/null)
+        if [ -z "$updated_config" ]; then
+            log "Skip invalid outbound from subscription: '$display_name'" "warn"
+            i=$((i + 1))
+            continue
+        fi
+
+        # Validate against current sing-box version and skip unsupported outbounds.
+        local validation_tmp
+        validation_tmp="$(mktemp)"
+        sing_box_cm_save_config_to_file "$updated_config" "$validation_tmp"
+        if ! sing-box -c "$validation_tmp" check > /dev/null 2>&1; then
+            rm -f "$validation_tmp"
+            log "Skip unsupported outbound for current sing-box: '$display_name'" "warn"
+            i=$((i + 1))
+            continue
+        fi
+        rm -f "$validation_tmp"
+
+        config="$updated_config"
+
+        if [ -z "$SUBSCRIPTION_OUTBOUND_TAGS" ]; then
+            SUBSCRIPTION_OUTBOUND_TAGS="$outbound_tag"
+        else
+            SUBSCRIPTION_OUTBOUND_TAGS="$SUBSCRIPTION_OUTBOUND_TAGS,$outbound_tag"
+        fi
+
+        # Keep a JSON representation to avoid Unicode corruption in shell string processing.
+        SUBSCRIPTION_OUTBOUND_TAGS_JSON=$(
+            printf '%s' "$SUBSCRIPTION_OUTBOUND_TAGS_JSON" | jq -ac --arg tag "$outbound_tag" '. + [$tag]' 2>/dev/null
+        )
+        if [ -z "$SUBSCRIPTION_OUTBOUND_TAGS_JSON" ]; then
+            SUBSCRIPTION_OUTBOUND_TAGS_JSON="[]"
+        fi
+
+        if [ -z "$SUBSCRIPTION_OUTBOUND_NAMES" ]; then
+            SUBSCRIPTION_OUTBOUND_NAMES="$display_name"
+        else
+            SUBSCRIPTION_OUTBOUND_NAMES="$(printf '%s\n%s' "$SUBSCRIPTION_OUTBOUND_NAMES" "$display_name")"
+        fi
+
+        added_count=$((added_count + 1))
+        i=$((i + 1))
+    done
+
+    log "Added $added_count subscription outbounds for section '$section'" "info"
+    SING_BOX_CF_LAST_CONFIG="$config"
+
+    echo "$config"
+}

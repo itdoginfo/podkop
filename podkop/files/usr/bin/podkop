@@ -78,23 +78,63 @@ check_requirements() {
     if has_outbound_section; then
         log "Outbound section found" "debug"
     else
-        log "Outbound section not found. Please check your configuration file (missing proxy_string, selector_proxy_links, urltest_proxy_links, outbound_json, or interface). Aborted." "error"
+        log "Outbound section not found. Please check your configuration file (missing proxy_string, selector_proxy_links, urltest_proxy_links, subscription_url, outbound_json, or interface according to connection_type/proxy_config_type). Aborted." "error"
         exit 1
     fi
 }
 
+section_has_configured_outbound() {
+    local section="$1"
+    local connection_type proxy_config_type
+
+    config_get connection_type "$section" "connection_type"
+
+    case "$connection_type" in
+    proxy)
+        config_get proxy_config_type "$section" "proxy_config_type" "url"
+
+        case "$proxy_config_type" in
+        url)
+            local proxy_string
+            config_get proxy_string "$section" "proxy_string"
+            [ -n "$proxy_string" ] && return 0
+            ;;
+        selector)
+            local selector_proxy_links
+            config_get selector_proxy_links "$section" "selector_proxy_links"
+            [ -n "$selector_proxy_links" ] && return 0
+            ;;
+        urltest)
+            local urltest_proxy_links
+            config_get urltest_proxy_links "$section" "urltest_proxy_links"
+            [ -n "$urltest_proxy_links" ] && return 0
+            ;;
+        outbound)
+            local outbound_json
+            config_get outbound_json "$section" "outbound_json"
+            [ -n "$outbound_json" ] && return 0
+            ;;
+        subscription)
+            local subscription_url
+            config_get subscription_url "$section" "subscription_url"
+            [ -n "$subscription_url" ] && return 0
+            ;;
+        esac
+        ;;
+    vpn)
+        local interface
+        config_get interface "$section" "interface"
+        [ -n "$interface" ] && return 0
+        ;;
+    esac
+
+    return 1
+}
+
 _check_outbound_section() {
     local section="$1"
-    local proxy_string interface outbound_json urltest_proxy_links
 
-    config_get proxy_string "$section" "proxy_string"
-    config_get selector_proxy_links "$section" "selector_proxy_links"
-    config_get urltest_proxy_links "$section" "urltest_proxy_links"
-    config_get outbound_json "$section" "outbound_json"
-    config_get interface "$section" "interface"
-
-    if [ -n "$proxy_string" ] || [ -n "$selector_proxy_links" ] || [ -n "$urltest_proxy_links" ] ||
-        [ -n "$outbound_json" ] || [ -n "$interface" ]; then
+    if section_has_configured_outbound "$section"; then
         section_exists=0
     fi
 }
@@ -105,6 +145,213 @@ has_outbound_section() {
     config_foreach _check_outbound_section "section"
 
     return $section_exists
+}
+
+get_subscription_json_path() {
+    local section="$1"
+
+    echo "$TMP_SUBSCRIPTION_FOLDER/${section}.json"
+}
+
+get_subscription_url_cache_path() {
+    local section="$1"
+
+    echo "$TMP_SUBSCRIPTION_FOLDER/${section}.url"
+}
+
+subscription_cache_is_usable() {
+    local subscription_json_path="$1"
+
+    [ -s "$subscription_json_path" ] || return 1
+
+    validate_subscription_file "$subscription_json_path"
+}
+
+wait_for_subscription_connectivity() {
+    local section="$1"
+    local subscription_url="$2"
+    local service_proxy_address="$3"
+    local attempts="${4:-12}"
+    local wait="${5:-5}"
+    local timeout="${6:-5}"
+    local attempt
+
+    for attempt in $(seq 1 "$attempts"); do
+        if check_subscription_connectivity "$subscription_url" "$service_proxy_address" 1 0 "$timeout"; then
+            log "Subscription connectivity check passed for section '$section'" "info"
+            return 0
+        fi
+
+        log "Subscription source is unavailable for section '$section' [$attempt/$attempts]" "warn"
+        [ "$attempt" -lt "$attempts" ] && sleep "$wait"
+    done
+
+    log "Subscription connectivity check failed for section '$section' after $attempts attempts" "error"
+    return 1
+}
+
+download_subscription_into_cache() {
+    local section="$1"
+    local subscription_url="$2"
+    local subscription_json_path="$3"
+    local subscription_url_cache_path="$4"
+    local service_proxy_address="$5"
+    local tmpfile
+
+    mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
+    tmpfile="$(mktemp "$TMP_SUBSCRIPTION_FOLDER/${section}.download.XXXXXX")" || return 1
+
+    if ! download_subscription "$subscription_url" "$tmpfile" "$service_proxy_address" 3 2 10; then
+        rm -f "$tmpfile"
+        return 1
+    fi
+
+    if ! validate_subscription_file "$tmpfile"; then
+        log "Downloaded subscription for section '$section' is invalid" "error"
+        rm -f "$tmpfile"
+        return 1
+    fi
+
+    if [ -f "$subscription_json_path" ] && cmp -s "$tmpfile" "$subscription_json_path"; then
+        rm -f "$tmpfile"
+        printf '%s' "$subscription_url" > "$subscription_url_cache_path"
+        log "Subscription for section '$section' is unchanged" "info"
+        return 2
+    fi
+
+    mv "$tmpfile" "$subscription_json_path" || {
+        rm -f "$tmpfile"
+        return 1
+    }
+
+    printf '%s' "$subscription_url" > "$subscription_url_cache_path"
+    return 0
+}
+
+prepare_subscription_cache_for_startup() {
+    local section="$1"
+    local connection_type proxy_config_type subscription_url subscription_json_path subscription_url_cache_path
+    local cached_subscription_url service_proxy_address had_usable_cache cache_needs_refresh
+
+    config_get connection_type "$section" "connection_type"
+    [ "$connection_type" = "proxy" ] || return 0
+
+    config_get proxy_config_type "$section" "proxy_config_type"
+    [ "$proxy_config_type" = "subscription" ] || return 0
+
+    config_get subscription_url "$section" "subscription_url"
+    if [ -z "$subscription_url" ]; then
+        log "Subscription URL is not set for section '$section'. Aborted." "fatal"
+        exit 1
+    fi
+
+    subscription_json_path="$(get_subscription_json_path "$section")"
+    subscription_url_cache_path="$(get_subscription_url_cache_path "$section")"
+    cached_subscription_url=""
+    had_usable_cache=0
+    cache_needs_refresh=0
+
+    if subscription_cache_is_usable "$subscription_json_path"; then
+        had_usable_cache=1
+    else
+        rm -f "$subscription_json_path"
+    fi
+
+    if [ -f "$subscription_url_cache_path" ]; then
+        cached_subscription_url="$(cat "$subscription_url_cache_path" 2> /dev/null)"
+    fi
+
+    if [ "$had_usable_cache" -eq 0 ] || [ "$cached_subscription_url" != "$subscription_url" ]; then
+        cache_needs_refresh=1
+    fi
+
+    if [ "$cache_needs_refresh" -eq 0 ]; then
+        return 0
+    fi
+
+    service_proxy_address="$(get_service_proxy_address 2>/dev/null || echo '')"
+
+    if wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address"; then
+        if download_subscription_into_cache \
+            "$section" "$subscription_url" "$subscription_json_path" "$subscription_url_cache_path" "$service_proxy_address"; then
+            return 0
+        fi
+    fi
+
+    if [ "$had_usable_cache" -eq 1 ]; then
+        log "Keeping cached subscription for section '$section' until a fresh download succeeds" "warn"
+        return 0
+    fi
+
+    log "No usable subscription cache for section '$section'; podkop startup will wait for internet connectivity" "warn"
+    subscription_startup_blocked=1
+    return 1
+}
+
+prepare_subscription_caches_for_startup() {
+    subscription_startup_blocked=0
+    config_foreach prepare_subscription_cache_for_startup "section"
+
+    [ "$subscription_startup_blocked" -eq 0 ]
+}
+
+stop_subscription_startup_retry_worker() {
+    local pidfile="/var/run/podkop_subscription_retry.pid"
+
+    if [ -f "$pidfile" ]; then
+        pid="$(cat "$pidfile" 2> /dev/null)"
+        if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
+            kill "$pid" 2> /dev/null
+            log "Stopped deferred startup recovery worker"
+        fi
+        rm -f "$pidfile"
+    fi
+}
+
+start_subscription_startup_retry_worker() {
+    local pidfile="/var/run/podkop_subscription_retry.pid"
+
+    if [ -f "$pidfile" ]; then
+        pid="$(cat "$pidfile" 2> /dev/null)"
+        if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
+            log "Deferred startup recovery worker is already running" "debug"
+            return 0
+        fi
+        rm -f "$pidfile"
+    fi
+
+    (
+        trap 'rm -f "'"$pidfile"'"' EXIT INT TERM
+
+        while true; do
+            config_load "$PODKOP_CONFIG"
+
+            if prepare_subscription_caches_for_startup; then
+                log "Subscription cache is ready, resuming deferred podkop startup" "info"
+                rm -f "$pidfile"
+                start_main
+                start_rc=$?
+
+                if [ "$start_rc" -eq 0 ]; then
+                    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+                    if [ "$dont_touch_dhcp" -eq 0 ]; then
+                        dnsmasq_configure
+                    fi
+
+                    uci_set "podkop" "settings" "shutdown_correctly" 0
+                    uci commit "podkop" && config_load "$PODKOP_CONFIG"
+                fi
+
+                exit "$start_rc"
+            fi
+
+            log "Deferred podkop startup is still waiting for subscription connectivity" "warn"
+            sleep 10
+        done
+    ) &
+
+    echo $! > "$pidfile"
+    log "Started deferred startup recovery worker with PID $!" "warn"
 }
 
 start_main() {
@@ -125,6 +372,15 @@ start_main() {
 
     mkdir -p "$TMP_SING_BOX_FOLDER"
     mkdir -p "$TMP_RULESET_FOLDER"
+    mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
+
+    if ! prepare_subscription_caches_for_startup; then
+        log "Podkop startup is deferred until the subscription source becomes reachable" "warn"
+        start_subscription_startup_retry_worker
+        return 2
+    fi
+
+    stop_subscription_startup_retry_worker
 
     # base
     route_table_rule_mark
@@ -134,6 +390,7 @@ start_main() {
     # sing-box
     sing_box_init_config
     config_foreach add_cron_job "section"
+    config_foreach add_subscription_cron_job "section"
     /etc/init.d/sing-box start
 
     log "Nice"
@@ -143,6 +400,8 @@ start_main() {
 
 stop_main() {
     log "Stopping the podkop"
+
+    stop_subscription_startup_retry_worker
 
     if [ -f /var/run/podkop_list_update.pid ]; then
         pid=$(cat /var/run/podkop_list_update.pid)
@@ -178,6 +437,15 @@ stop_main() {
 
 start() {
     start_main
+    start_rc=$?
+
+    if [ "$start_rc" -eq 2 ]; then
+        return 0
+    fi
+
+    if [ "$start_rc" -ne 0 ]; then
+        return "$start_rc"
+    fi
 
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
@@ -203,8 +471,8 @@ stop() {
 
 reload() {
     log "Podkop reload"
-    stop_main
-    start_main
+    stop
+    start
 }
 
 restart() {
@@ -474,12 +742,78 @@ add_cron_job() {
 }
 
 remove_cron_job() {
-    (crontab -l | grep -v "/usr/bin/podkop list_update") | crontab -
+    (crontab -l | grep -v "/usr/bin/podkop list_update" | grep -v "/usr/bin/podkop subscription_update") | crontab -
     log "The cron job removed"
 }
 
+add_subscription_cron_job() {
+    local section="$1"
+    local connection_type proxy_config_type subscription_update_interval cron_job
+
+    config_get connection_type "$section" "connection_type"
+    if [ "$connection_type" != "proxy" ]; then
+        return
+    fi
+
+    config_get proxy_config_type "$section" "proxy_config_type"
+    if [ "$proxy_config_type" != "subscription" ]; then
+        return
+    fi
+
+    config_get subscription_update_interval "$section" "subscription_update_interval" "1h"
+
+    case "$subscription_update_interval" in
+    "30m")
+        cron_job="*/30 * * * * /usr/bin/podkop subscription_update"
+        ;;
+    "1h")
+        cron_job="17 * * * * /usr/bin/podkop subscription_update"
+        ;;
+    "3h")
+        cron_job="17 */3 * * * /usr/bin/podkop subscription_update"
+        ;;
+    "6h")
+        cron_job="17 */6 * * * /usr/bin/podkop subscription_update"
+        ;;
+    "12h")
+        cron_job="17 */12 * * * /usr/bin/podkop subscription_update"
+        ;;
+    "1d")
+        cron_job="17 9 * * * /usr/bin/podkop subscription_update"
+        ;;
+    *)
+        log "Invalid subscription_update_interval value: $subscription_update_interval"
+        return
+        ;;
+    esac
+
+    # Avoid duplicate subscription cron
+    (crontab -l | grep -v "/usr/bin/podkop subscription_update") | {
+        cat
+        echo "$cron_job"
+    } | crontab -
+    log "The subscription cron job has been created: $cron_job"
+}
+ensure_nft_ready_for_list_update() {
+    if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
+        return 0
+    fi
+
+    log "NFT table '$NFT_TABLE_NAME' is missing before lists update, recreating nft rules" "warn"
+    route_table_rule_mark
+    create_nft_rules
+
+    if ! nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
+        log "Failed to recreate NFT table '$NFT_TABLE_NAME'" "error"
+        return 1
+    fi
+
+    return 0
+}
+
+
 list_update() {
-    echolog "🔄 Starting lists update..."
+    echolog "рџ”„ Starting lists update..."
 
     local nslookup_timeout=3
     local nslookup_attempts=10
@@ -492,7 +826,7 @@ list_update() {
     # DNS Check
     for i in $(seq 1 $nslookup_attempts); do
         if nslookup -timeout=$nslookup_timeout openwrt.org > /dev/null 2>&1; then
-            echolog "✅ DNS check passed"
+            echolog "вњ… DNS check passed"
             break
         fi
         echolog "DNS is unavailable [$i/$nslookup_attempts]"
@@ -500,7 +834,7 @@ list_update() {
     done
 
     if [ "$i" -eq $nslookup_attempts ]; then
-        echolog "❌ DNS check failed after $nslookup_attempts attempts"
+        echolog "вќЊ DNS check failed after $nslookup_attempts attempts"
         return 1
     fi
 
@@ -509,14 +843,14 @@ list_update() {
         local service_proxy_address
         service_proxy_address="$(get_service_proxy_address)"
 
-        if [ -n "$http_proxy_address" ]; then
+        if [ -n "$service_proxy_address" ]; then
             if curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
-                echolog "✅ GitHub connection check passed (via proxy)"
+                echolog "вњ… GitHub connection check passed (via proxy)"
                 break
             fi
         else
             if curl -s -m $curl_timeout https://github.com > /dev/null; then
-                echolog "✅ GitHub connection check passed"
+                echolog "вњ… GitHub connection check passed"
                 break
             fi
         fi
@@ -529,20 +863,148 @@ list_update() {
     done
 
     if [ "$i" -eq $curl_attempts ]; then
-        echolog "❌ GitHub connection check failed after $curl_attempts attempts"
+        echolog "вќЊ GitHub connection check failed after $curl_attempts attempts"
         return 1
     fi
 
-    echolog "📥 Downloading and processing lists..."
+    if ! ensure_nft_ready_for_list_update; then
+        echolog "вќЊ NFT table is unavailable, cannot update lists"
+        return 1
+    fi
 
-    config_foreach import_community_subnet_lists "section"
-    config_foreach import_domains_from_remote_domain_lists "section"
-    config_foreach import_subnets_from_remote_subnet_lists "section"
+    echolog "рџ“Ґ Downloading and processing lists..."
 
-    if [ $? -eq 0 ]; then
-        echolog "✅ Lists update completed successfully"
+    local update_failed=0
+    config_foreach import_community_subnet_lists "section" || update_failed=1
+    config_foreach import_domains_from_remote_domain_lists "section" || update_failed=1
+    config_foreach import_subnets_from_remote_subnet_lists "section" || update_failed=1
+
+    if [ "$update_failed" -eq 0 ]; then
+        echolog "вњ… Lists update completed successfully"
     else
-        echolog "❌ Lists update failed"
+        echolog "вќЊ Lists update failed"
+        return 1
+    fi
+}
+
+subscription_update() {
+    echolog "рџ”„ Starting subscription update..."
+
+    local has_subscription=0
+    local updated_sections=0
+    local failed_sections=0
+
+    _check_subscription_section() {
+        local section="$1"
+        local connection_type proxy_config_type
+
+        config_get connection_type "$section" "connection_type"
+        if [ "$connection_type" != "proxy" ]; then
+            return
+        fi
+
+        config_get proxy_config_type "$section" "proxy_config_type"
+        if [ "$proxy_config_type" = "subscription" ]; then
+            has_subscription=1
+        fi
+    }
+    config_foreach _check_subscription_section "section"
+
+    if [ "$has_subscription" -eq 0 ]; then
+        echolog "в„№пёЏ No subscription sections found, nothing to update"
+        return 0
+    fi
+
+    _update_subscription_for_section() {
+        local section="$1"
+        local connection_type proxy_config_type subscription_url subscription_json_path
+        local subscription_url_cache_path service_proxy_address update_result outbounds_count
+
+        config_get connection_type "$section" "connection_type"
+        if [ "$connection_type" != "proxy" ]; then
+            return
+        fi
+
+
+        config_get proxy_config_type "$section" "proxy_config_type"
+        if [ "$proxy_config_type" != "subscription" ]; then
+            return
+        fi
+
+        config_get subscription_url "$section" "subscription_url"
+        if [ -z "$subscription_url" ]; then
+            echolog "вќЊ Subscription URL not set for section '$section'"
+            failed_sections=$((failed_sections + 1))
+            return
+        fi
+
+        mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
+        subscription_json_path="$(get_subscription_json_path "$section")"
+        subscription_url_cache_path="$(get_subscription_url_cache_path "$section")"
+
+        echolog "рџ“Ґ Updating subscription for section '$section'..."
+
+        service_proxy_address="$(get_service_proxy_address 2>/dev/null || echo '')"
+
+        if ! wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address" 6 5 5; then
+            echolog "вќЊ Failed to download subscription for section '$section'"
+            failed_sections=$((failed_sections + 1))
+            return
+        fi
+
+        download_subscription_into_cache \
+            "$section" "$subscription_url" "$subscription_json_path" "$subscription_url_cache_path" "$service_proxy_address"
+        update_result=$?
+
+        case "$update_result" in
+        0)
+            updated_sections=$((updated_sections + 1))
+            ;;
+        2)
+            echolog "в„№пёЏ Subscription for section '$section' is unchanged"
+            return
+            ;;
+        *)
+            echolog "вќЊ Failed to download subscription for section '$section'"
+            failed_sections=$((failed_sections + 1))
+            return
+            ;;
+        esac
+
+        outbounds_count=$(jq -r '[.outbounds[] | select(
+            .type != "selector" and
+            .type != "urltest" and
+            .type != "direct" and
+            .type != "dns" and
+            .type != "block"
+        )] | length' "$subscription_json_path" 2>/dev/null)
+
+        echolog "вњ… Subscription updated for section '$section': $outbounds_count outbounds"
+    }
+    config_foreach _update_subscription_for_section "section"
+
+    if [ "$updated_sections" -eq 0 ]; then
+        if [ "$failed_sections" -gt 0 ]; then
+            echolog "вќЊ Subscription update finished with errors; keeping the last working cache"
+            return 1
+        fi
+
+        echolog "в„№пёЏ Subscription update completed: no changes detected"
+        return 0
+    fi
+
+    echolog "рџ”„ Restarting podkop to apply updated subscriptions..."
+    restart
+    restart_rc=$?
+    if [ "$restart_rc" -ne 0 ]; then
+        echolog "вќЊ Subscription was downloaded, but podkop restart failed"
+        return "$restart_rc"
+    fi
+
+    if [ "$failed_sections" -gt 0 ]; then
+        echolog "вњ… Subscription update applied for changed sections; failed sections kept their previous cache"
+    else
+        echolog "вњ… Subscription update completed"
     fi
 }
 
@@ -618,6 +1080,65 @@ sing_box_configure_outbounds() {
     config_foreach configure_outbound_handler "section"
 }
 
+sing_box_get_unique_outbound_tag() {
+    local config="$1"
+    local base_tag="$2"
+    local candidate="$base_tag"
+    local tag_suffix=1
+
+    while printf '%s' "$config" | jq -e --arg tag "$candidate" '.outbounds[]? | select(.tag == $tag)' > /dev/null 2>&1; do
+        candidate="${base_tag}-${tag_suffix}"
+        tag_suffix=$((tag_suffix + 1))
+    done
+
+    echo "$candidate"
+}
+
+sing_box_build_subscription_country_groups() {
+    local subscription_outbound_tags_json="$1"
+
+    printf '%s' "$subscription_outbound_tags_json" | jq -c '
+        def is_regional_indicator: . >= 127462 and . <= 127487;
+        def extract_country_flag:
+            (. | explode) as $codepoints
+            | if ($codepoints | length) >= 2
+                and ($codepoints[0] | is_regional_indicator)
+                and ($codepoints[1] | is_regional_indicator)
+              then ($codepoints[0:2] | implode)
+              else ""
+              end;
+
+        (if type == "array" then . else [] end) as $tags
+        | reduce $tags[] as $tag (
+            {country_order: [], country_groups: {}, ungrouped: []};
+            ($tag | extract_country_flag) as $country_flag
+            | if $country_flag == "" then
+                .ungrouped += [$tag]
+              else
+                .country_groups[$country_flag] = ((.country_groups[$country_flag] // []) + [$tag])
+                | if (.country_order | index($country_flag)) == null then
+                    .country_order += [$country_flag]
+                  else
+                    .
+                  end
+              end
+        )
+    ' 2>/dev/null
+}
+
+is_truthy_option() {
+    local value="$1"
+
+    case "$value" in
+    1|true|TRUE|True|on|ON|yes|YES|enabled|ENABLED)
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
 configure_outbound_handler() {
     local section="$1"
 
@@ -675,7 +1196,7 @@ configure_outbound_handler() {
             selector_tag="$(get_outbound_tag_by_section "$section")"
             selector_outbounds="$(comma_string_to_json_array "$outbound_tags")"
             config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" \
-                "$default_outbound")"
+                "$default_outbound" "true")"
             ;;
         urltest)
             log "Detected proxy configuration type: urltest" "debug"
@@ -710,7 +1231,178 @@ configure_outbound_handler() {
             selector_outbounds="$(comma_string_to_json_array "$outbound_tags,$urltest_tag")"
             config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds" \
                 "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
-            config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag")"
+            config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag" "true")"
+            ;;
+        subscription)
+            log "Detected proxy configuration type: subscription" "debug"
+            local subscription_url subscription_json_path urltest_tag selector_tag \
+                urltest_outbounds selector_outbounds urltest_check_interval urltest_tolerance \
+                urltest_testing_url subscription_group_by_countries subscription_group_by_countries_raw \
+                subscription_outbound_tags_json
+
+            config_get subscription_url "$section" "subscription_url"
+            config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
+            config_get urltest_tolerance "$section" "urltest_tolerance" 50
+            config_get urltest_testing_url "$section" "urltest_testing_url" "https://www.gstatic.com/generate_204"
+            config_get subscription_group_by_countries_raw "$section" "subscription_group_by_countries" ""
+            if [ -z "$subscription_group_by_countries_raw" ]; then
+                # Backward-compatible alias in case custom builds used another key
+                config_get subscription_group_by_countries_raw "$section" "group_by_countries" ""
+            fi
+
+            if is_truthy_option "$subscription_group_by_countries_raw"; then
+                subscription_group_by_countries=1
+            else
+                subscription_group_by_countries=0
+            fi
+
+            log "Subscription country grouping for section '$section': raw='${subscription_group_by_countries_raw:-<empty>}', enabled=$subscription_group_by_countries" "debug"
+
+            if [ -z "$subscription_url" ]; then
+                log "Subscription URL is not set. Aborted." "fatal"
+                exit 1
+            fi
+
+            mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
+            subscription_json_path="$(get_subscription_json_path "$section")"
+            local subscription_url_cache_path cached_subscription_url should_download had_usable_cache
+            subscription_url_cache_path="$(get_subscription_url_cache_path "$section")"
+            should_download=0
+            had_usable_cache=0
+
+            if subscription_cache_is_usable "$subscription_json_path"; then
+                had_usable_cache=1
+            else
+                rm -f "$subscription_json_path"
+                should_download=1
+            fi
+
+            if [ -f "$subscription_url_cache_path" ]; then
+                cached_subscription_url="$(cat "$subscription_url_cache_path" 2>/dev/null)"
+            else
+                cached_subscription_url=""
+            fi
+
+            if [ "$cached_subscription_url" != "$subscription_url" ]; then
+                if [ -n "$cached_subscription_url" ]; then
+                    log "Subscription URL changed for section '$section'" "warn"
+                fi
+                if [ "$had_usable_cache" -eq 0 ]; then
+                    should_download=1
+                else
+                    log "Using cached subscription for section '$section' until a fresh download succeeds" "warn"
+                fi
+            fi
+
+            if [ "$should_download" -eq 1 ]; then
+                log "Downloading subscription for section '$section'"
+                local service_proxy_address
+                service_proxy_address="$(get_service_proxy_address 2>/dev/null || echo '')"
+
+                if ! wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address" 6 5 5 ||
+                    ! download_subscription_into_cache \
+                        "$section" "$subscription_url" "$subscription_json_path" "$subscription_url_cache_path" "$service_proxy_address"; then
+                    if [ "$had_usable_cache" -eq 1 ]; then
+                        log "Failed to refresh subscription for section '$section', continuing with cached data" "warn"
+                    else
+                        log "Failed to download subscription for section '$section'. Aborted." "fatal"
+                        exit 1
+                    fi
+                fi
+            fi
+
+            # Parse subscription outbounds
+            if ! sing_box_cf_add_subscription_outbounds "$config" "$section" "$subscription_json_path" > /dev/null; then
+                log "No proxy outbounds found in subscription for section '$section'. Aborted." "fatal"
+                exit 1
+            fi
+            config="$SING_BOX_CF_LAST_CONFIG"
+
+            if [ -z "$SUBSCRIPTION_OUTBOUND_TAGS" ]; then
+                log "No proxy outbounds found in subscription for section '$section'. Aborted." "fatal"
+                exit 1
+            fi
+
+            subscription_outbound_tags_json="$SUBSCRIPTION_OUTBOUND_TAGS_JSON"
+            if [ -z "$subscription_outbound_tags_json" ] || [ "$subscription_outbound_tags_json" = "[]" ]; then
+                # Fallback for backward compatibility with older facade versions.
+                subscription_outbound_tags_json="$(comma_string_to_json_array "$SUBSCRIPTION_OUTBOUND_TAGS")"
+            fi
+
+            selector_tag="$(get_outbound_tag_by_section "$section")"
+
+            if [ "$subscription_group_by_countries" -eq 1 ]; then
+                local grouping_json country_flag country_group_outbounds country_group_tag \
+                    selector_outbounds_json selector_default ungrouped_outbounds_json grouped_count ungrouped_count
+
+                grouping_json="$(sing_box_build_subscription_country_groups "$subscription_outbound_tags_json")"
+                if [ -z "$grouping_json" ]; then
+                    log "Failed to build grouped subscription outbounds for section '$section'. Aborted." "fatal"
+                    exit 1
+                fi
+
+                grouped_count="$(echo "$grouping_json" | jq -r '.country_order | length' 2>/dev/null)"
+                ungrouped_count="$(echo "$grouping_json" | jq -r '.ungrouped | length' 2>/dev/null)"
+                log "Country grouping prepared for section '$section': groups=$grouped_count, ungrouped=$ungrouped_count" "debug"
+
+                selector_outbounds_json="[]"
+
+                for country_flag in $(echo "$grouping_json" | jq -r '.country_order[]' 2>/dev/null); do
+                    country_group_outbounds="$(echo "$grouping_json" | jq -c --arg country_flag "$country_flag" '.country_groups[$country_flag] // []' 2>/dev/null)"
+                    if [ -z "$country_group_outbounds" ] || [ "$country_group_outbounds" = "[]" ]; then
+                        continue
+                    fi
+
+                    country_group_tag="$(sing_box_get_unique_outbound_tag "$config" "$country_flag Fastest")"
+                    config="$(sing_box_cm_add_urltest_outbound "$config" "$country_group_tag" "$country_group_outbounds" \
+                        "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
+
+                    selector_outbounds_json=$(
+                        printf '%s' "$selector_outbounds_json" | jq -ac --arg tag "$country_group_tag" '. + [$tag]' 2>/dev/null
+                    )
+                done
+
+                if [ -z "$selector_outbounds_json" ]; then
+                    selector_outbounds_json="[]"
+                fi
+
+                ungrouped_outbounds_json="$(echo "$grouping_json" | jq -c '.ungrouped // []' 2>/dev/null)"
+                if [ -n "$ungrouped_outbounds_json" ] && [ "$ungrouped_outbounds_json" != "[]" ]; then
+                    selector_outbounds_json=$(
+                        jq -acn --argjson selector "$selector_outbounds_json" --argjson ungrouped "$ungrouped_outbounds_json" \
+                            '$selector + $ungrouped' 2>/dev/null
+                    )
+                fi
+
+                if [ -z "$selector_outbounds_json" ] || [ "$selector_outbounds_json" = "[]" ]; then
+                    log "No selector outbounds available after grouping subscription outbounds for section '$section'. Aborted." "fatal"
+                    exit 1
+                fi
+
+                selector_default="$(echo "$selector_outbounds_json" | jq -r '.[0] // ""' 2>/dev/null)"
+                if [ -z "$selector_default" ] || [ "$selector_default" = "null" ]; then
+                    log "Unable to determine default selector outbound for section '$section'. Aborted." "fatal"
+                    exit 1
+                fi
+
+                selector_outbounds="$selector_outbounds_json"
+                config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$selector_default" "true")"
+            else
+                # Create urltest + selector (default subscription behaviour)
+                urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
+                urltest_outbounds="$subscription_outbound_tags_json"
+                selector_outbounds=$(
+                    jq -acn --argjson outbounds "$subscription_outbound_tags_json" --arg tag "$urltest_tag" \
+                        '$outbounds + [$tag]' 2>/dev/null
+                )
+                if [ -z "$selector_outbounds" ]; then
+                    log "Failed to build selector outbounds for subscription section '$section'. Aborted." "fatal"
+                    exit 1
+                fi
+                config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds" \
+                    "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
+                config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag" "true")"
+            fi
             ;;
         *)
             log "Unknown proxy configuration type: '$proxy_config_type'. Aborted." "fatal"
@@ -749,10 +1441,10 @@ configure_outbound_handler() {
         config=$(sing_box_cm_add_interface_outbound "$config" "$outbound_tag" "$interface_name" "$domain_resolver_tag")
         ;;
     block)
-        log "Connection type 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
+        log "Connection type 'block' detected for the $section section вЂ“ no outbound will be created (handled via reject route rules)"
         ;;
     exclusion)
-        log "Connection type 'exclusion' detected for the $section section – no outbound will be created (handled via route rules)"
+        log "Connection type 'exclusion' detected for the $section section вЂ“ no outbound will be created (handled via route rules)"
         ;;
     *)
         log "Unknown connection type '$connection_type' for the $section section. Aborted." "fatal"
@@ -1227,7 +1919,19 @@ configure_section_mixed_proxy() {
         log "Could not determine the listening IP address for the Mixed Proxy. The proxy will not be created." "warn"
         return 1
     fi
-    config_get mixed_proxy_port "$section" "mixed_proxy_port"
+    config_get mixed_proxy_port "$section" "mixed_proxy_port" "2080"
+
+    case "$mixed_proxy_port" in
+    '' | *[!0-9]*)
+        log "Invalid mixed_proxy_port '$mixed_proxy_port' for section '$section'. Falling back to 2080." "warn"
+        mixed_proxy_port="2080"
+        ;;
+    esac
+
+    if [ "$mixed_proxy_port" -lt 1 ] || [ "$mixed_proxy_port" -gt 65535 ]; then
+        log "mixed_proxy_port '$mixed_proxy_port' for section '$section' is out of range (1-65535). Falling back to 2080." "warn"
+        mixed_proxy_port="2080"
+    fi
     if [ "$mixed_inbound_enabled" -eq 1 ]; then
         mixed_inbound_tag="$(get_inbound_tag_by_section "$section-mixed")"
         mixed_outbound_tag="$(get_outbound_tag_by_section "$section")"
@@ -1314,9 +2018,14 @@ import_community_service_subnet_list_handler() {
         ;;
     "discord")
         URL=$SUBNETS_DISCORD
-        nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
-        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr \
-            "@$NFT_DISCORD_SET_NAME" udp dport '{ 50000-65535 }' meta mark set "$NFT_FAKEIP_MARK" counter
+        if ! nft list set inet "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME" > /dev/null 2>&1; then
+            nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
+        fi
+        if ! nft list chain inet "$NFT_TABLE_NAME" mangle 2> /dev/null | \
+            grep -Fq "@$NFT_DISCORD_SET_NAME udp dport { 50000-65535 }"; then
+            nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr \
+                "@$NFT_DISCORD_SET_NAME" udp dport '{ 50000-65535 }' meta mark set "$NFT_FAKEIP_MARK" counter
+        fi
         ;;
     "roblox")
         URL=$SUBNETS_ROBLOX
@@ -1528,11 +2237,8 @@ get_download_detour_tag() {
 _determine_first_outbound_section() {
     local section="$1"
 
-    local connection_type
-    config_get connection_type "$section" "connection_type"
-
-    if [ "$connection_type" = "proxy" ] || [ "$connection_type" = "vpn" ]; then
-        [ -z "$first_section" ] && first_section="$1"
+    if section_has_configured_outbound "$section"; then
+        [ -z "$first_section" ] && first_section="$section"
     fi
 }
 
@@ -1600,7 +2306,7 @@ get_service_listen_address() {
     network_get_ipaddr service_listen_address "$interface"
 
     if [ -z "$service_listen_address" ]; then
-        log "Failed to determine the listening IP address. Please open an issue to report this problem: https://github.com/itdoginfo/podkop/issues" "error"
+        log "Failed to determine the listening IP address. Please open an issue to report this problem: https://github.com/yandexru45/podkop-evolution/issues" "error"
         return 1
     fi
 
@@ -1705,7 +2411,7 @@ check_nft() {
 
     # Check if table exists
     if ! nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
-        nolog "❌ $NFT_TABLE_NAME not found"
+        nolog "вќЊ $NFT_TABLE_NAME not found"
         return 1
     fi
 
@@ -1873,7 +2579,7 @@ get_system_info() {
 
     podkop_version="$PODKOP_VERSION"
 
-    podkop_latest_version=$(curl -m 3 -s https://api.github.com/repos/itdoginfo/podkop/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+    podkop_latest_version=$(curl -m 3 -s https://api.github.com/repos/yandexru45/podkop-evolution/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
     [ -z "$podkop_latest_version" ] && podkop_latest_version="unknown"
 
     if [ -f /www/luci-static/resources/view/podkop/main.js ]; then
@@ -2249,6 +2955,7 @@ clash_api() {
 
     get_proxy_latency)
         local proxy_tag="$2"
+        local encoded_proxy_tag
         local timeout="${3:-2000}"
 
         if [ -z "$proxy_tag" ]; then
@@ -2256,7 +2963,9 @@ clash_api() {
             return 1
         fi
 
-        curl -G -s "$CLASH_URL/proxies/$proxy_tag/delay" \
+        encoded_proxy_tag=$(printf '%s' "$proxy_tag" | jq -sRr @uri)
+
+        curl -G -s "$CLASH_URL/proxies/$encoded_proxy_tag/delay" \
             --header "$auth_header" \
             --data-urlencode "url=$TEST_URL" \
             --data-urlencode "timeout=$timeout" | jq .
@@ -2264,6 +2973,7 @@ clash_api() {
 
     get_group_latency)
         local group_tag="$2"
+        local encoded_group_tag
         local timeout="${3:-5000}"
 
         if [ -z "$group_tag" ]; then
@@ -2271,7 +2981,9 @@ clash_api() {
             return 1
         fi
 
-        curl -G -s "$CLASH_URL/group/$group_tag/delay" \
+        encoded_group_tag=$(printf '%s' "$group_tag" | jq -sRr @uri)
+
+        curl -G -s "$CLASH_URL/group/$encoded_group_tag/delay" \
             --header "$auth_header" \
             --data-urlencode "url=$TEST_URL" \
             --data-urlencode "timeout=$timeout" | jq .
@@ -2281,6 +2993,10 @@ clash_api() {
         local group_tag="$2"
         local proxy_tag="$3"
 
+        local encoded_group_tag payload
+        encoded_group_tag=$(printf '%s' "$group_tag" | jq -sRr @uri)
+        payload=$(jq -cn --arg name "$proxy_tag" '{name:$name}')
+
         if [ -z "$group_tag" ] || [ -z "$proxy_tag" ]; then
             echo '{"error":"group_tag and proxy_tag required"}' | jq .
             return 1
@@ -2288,9 +3004,10 @@ clash_api() {
 
         local response
         response=$(
-            curl -X PUT -s -w "\n%{http_code}" "$CLASH_URL/proxies/$group_tag" \
+            curl -X PUT -s -w "\n%{http_code}" "$CLASH_URL/proxies/$encoded_group_tag" \
                 --header "$auth_header" \
-                --data-raw "{\"name\":\"$proxy_tag\"}"
+                --header "Content-Type: application/json" \
+                --data-raw "$payload"
         )
 
         local http_code
@@ -2300,15 +3017,15 @@ clash_api() {
 
         case "$http_code" in
         204)
-            echo "{\"success\":true,\"group\":\"$group_tag\",\"proxy\":\"$proxy_tag\"}" | jq .
+            jq -n --arg group "$group_tag" --arg proxy "$proxy_tag" '{success:true,group:$group,proxy:$proxy}'
             ;;
         404)
-            echo "{\"success\":false,\"error\":\"group_not_found\",\"message\":\"$group_tag does not exist\"}" | jq .
+            jq -n --arg group "$group_tag" '{success:false,error:"group_not_found",message:($group + " does not exist")}'
             return 1
             ;;
         400)
             if echo "$body" | grep -q "not found"; then
-                echo "{\"success\":false,\"error\":\"proxy_not_found\",\"message\":\"$proxy_tag not found in group $group_tag\"}" | jq .
+                jq -n --arg proxy "$proxy_tag" --arg group "$group_tag" '{success:false,error:"proxy_not_found",message:($proxy + " not found in group " + $group)}'
             else
                 echo '{"success":false,"error":"bad_request","message":"Invalid request"}' | jq .
             fi
@@ -2343,9 +3060,9 @@ global_check() {
     local PODKOP_LUCI_VERSION="Unknown"
     [ -n "$1" ] && PODKOP_LUCI_VERSION="$1"
 
-    print_global "📡 Global check run!"
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "🛠️ System info"
+    print_global "рџ“Ў Global check run!"
+    print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+    print_global "рџ› пёЏ System info"
 
     local system_info_json
     system_info_json=$(get_system_info)
@@ -2360,17 +3077,17 @@ global_check() {
         openwrt_version=$(echo "$system_info_json" | jq -r '.openwrt_version // "unknown"')
         device_model=$(echo "$system_info_json" | jq -r '.device_model // "unknown"')
 
-        print_global "🕳️ Podkop:        $podkop_version (latest: $podkop_latest_version)"
-        print_global "🕳️ LuCI App:      $luci_app_version"
-        print_global "📦 Sing-box:      $sing_box_version"
-        print_global "🛜 OpenWrt:       $openwrt_version"
-        print_global "🛜 Device:        $device_model"
+        print_global "рџ•іпёЏ Podkop:        $podkop_version (latest: $podkop_latest_version)"
+        print_global "рџ•іпёЏ LuCI App:      $luci_app_version"
+        print_global "рџ“¦ Sing-box:      $sing_box_version"
+        print_global "рџ›њ OpenWrt:       $openwrt_version"
+        print_global "рџ›њ Device:        $device_model"
     else
-        print_global "❌ Failed to get system info"
+        print_global "вќЊ Failed to get system info"
     fi
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "➡️ DNS status"
+    print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+    print_global "вћЎпёЏ DNS status"
 
     local dns_check_json
     dns_check_json=$(check_dns_available)
@@ -2389,24 +3106,24 @@ global_check() {
         # Bootstrap DNS
         if [ -n "$bootstrap_dns_server" ]; then
             if [ "$bootstrap_dns_status" -eq 1 ]; then
-                print_global "✅ Bootstrap DNS: $bootstrap_dns_server"
+                print_global "вњ… Bootstrap DNS: $bootstrap_dns_server"
             else
-                print_global "❌ Bootstrap DNS: $bootstrap_dns_server"
+                print_global "вќЊ Bootstrap DNS: $bootstrap_dns_server"
             fi
         fi
 
         # DNS server status
         if [ "$dns_status" -eq 1 ]; then
-            print_global "✅ Main DNS: $dns_server [$dns_type]"
+            print_global "вњ… Main DNS: $dns_server [$dns_type]"
         else
-            print_global "❌ Main DNS: $dns_server [$dns_type]"
+            print_global "вќЊ Main DNS: $dns_server [$dns_type]"
         fi
 
         # DNS on router
         if [ "$dns_on_router" -eq 1 ]; then
-            print_global "✅ DNS on router"
+            print_global "вњ… DNS on router"
         else
-            print_global "❌ DNS on router"
+            print_global "вќЊ DNS on router"
         fi
 
         # DHCP configuration check
@@ -2414,20 +3131,20 @@ global_check() {
         config_get dont_touch_dhcp "settings" "dont_touch_dhcp"
 
         if [ "$dont_touch_dhcp" = "1" ]; then
-            print_global "⚠️ dont_touch_dhcp is enabled. 📄 DHCP config:"
+            print_global "вљ пёЏ dont_touch_dhcp is enabled. рџ“„ DHCP config:"
             awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
         elif [ "$dhcp_config_status" -eq 0 ]; then
-            print_global "❌ DHCP configuration differs from template. 📄 DHCP config:"
+            print_global "вќЊ DHCP configuration differs from template. рџ“„ DHCP config:"
             awk '/^config /{p=($2=="dnsmasq")} p' /etc/config/dhcp
         else
-            print_global "✅ /etc/config/dhcp"
+            print_global "вњ… /etc/config/dhcp"
         fi
     else
-        print_global "❌ Failed to get DNS info"
+        print_global "вќЊ Failed to get DNS info"
     fi
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "📦 Sing-box status"
+    print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+    print_global "рџ“¦ Sing-box status"
 
     local singbox_check_json
     singbox_check_json=$(check_sing_box)
@@ -2443,46 +3160,46 @@ global_check() {
         sing_box_ports_listening=$(echo "$singbox_check_json" | jq -r '.sing_box_ports_listening // 0')
 
         if [ "$sing_box_installed" -eq 1 ]; then
-            print_global "✅ Sing-box installed"
+            print_global "вњ… Sing-box installed"
         else
-            print_global "❌ Sing-box installed"
+            print_global "вќЊ Sing-box installed"
         fi
 
         if [ "$sing_box_version_ok" -eq 1 ]; then
-            print_global "✅ Sing-box version is compatible (newer than 1.12.4)"
+            print_global "вњ… Sing-box version is compatible (newer than 1.12.4)"
         else
-            print_global "❌ Sing-box version is not compatible (older than 1.12.4)"
+            print_global "вќЊ Sing-box version is not compatible (older than 1.12.4)"
         fi
 
         if [ "$sing_box_service_exist" -eq 1 ]; then
-            print_global "✅ Sing-box service exist"
+            print_global "вњ… Sing-box service exist"
         else
-            print_global "❌ Sing-box service exist"
+            print_global "вќЊ Sing-box service exist"
         fi
 
         if [ "$sing_box_autostart_disabled" -eq 1 ]; then
-            print_global "✅ Sing-box autostart disabled"
+            print_global "вњ… Sing-box autostart disabled"
         else
-            print_global "❌ Sing-box autostart disabled"
+            print_global "вќЊ Sing-box autostart disabled"
         fi
 
         if [ "$sing_box_process_running" -eq 1 ]; then
-            print_global "✅ Sing-box process running"
+            print_global "вњ… Sing-box process running"
         else
-            print_global "❌ Sing-box process running"
+            print_global "вќЊ Sing-box process running"
         fi
 
         if [ "$sing_box_ports_listening" -eq 1 ]; then
-            print_global "✅ Sing-box listening ports"
+            print_global "вњ… Sing-box listening ports"
         else
-            print_global "❌ Sing-box listening ports"
+            print_global "вќЊ Sing-box listening ports"
         fi
     else
-        print_global "❌ Failed to get sing-box info"
+        print_global "вќЊ Failed to get sing-box info"
     fi
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "🧱 NFT rules status"
+    print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+    print_global "рџ§± NFT rules status"
 
     local nft_check_json
     nft_check_json=$(check_nft_rules)
@@ -2500,78 +3217,78 @@ global_check() {
         rules_other_mark_exist=$(echo "$nft_check_json" | jq -r '.rules_other_mark_exist // 0')
 
         if [ "$table_exist" -eq 1 ]; then
-            print_global "✅ Table exist"
+            print_global "вњ… Table exist"
         else
-            print_global "❌ Table exist"
+            print_global "вќЊ Table exist"
         fi
 
         if [ "$rules_mangle_exist" -eq 1 ]; then
-            print_global "✅ Rules mangle exist"
+            print_global "вњ… Rules mangle exist"
         else
-            print_global "❌ Rules mangle exist"
+            print_global "вќЊ Rules mangle exist"
         fi
 
         if [ "$rules_mangle_counters" -eq 1 ]; then
-            print_global "✅ Rules mangle counters"
+            print_global "вњ… Rules mangle counters"
         else
-            print_global "⚠️  Rules mangle counters"
+            print_global "вљ пёЏ  Rules mangle counters"
         fi
 
         if [ "$rules_mangle_output_exist" -eq 1 ]; then
-            print_global "✅ Rules mangle output exist"
+            print_global "вњ… Rules mangle output exist"
         else
-            print_global "❌ Rules mangle output exist"
+            print_global "вќЊ Rules mangle output exist"
         fi
 
         if [ "$rules_mangle_output_counters" -eq 1 ]; then
-            print_global "✅ Rules mangle output counters"
+            print_global "вњ… Rules mangle output counters"
         else
-            print_global "⚠️  Rules mangle output counters"
+            print_global "вљ пёЏ  Rules mangle output counters"
         fi
 
         if [ "$rules_proxy_exist" -eq 1 ]; then
-            print_global "✅ Rules proxy exist"
+            print_global "вњ… Rules proxy exist"
         else
-            print_global "❌ Rules proxy exist"
+            print_global "вќЊ Rules proxy exist"
         fi
 
         if [ "$rules_proxy_counters" -eq 1 ]; then
-            print_global "✅ Rules proxy counters"
+            print_global "вњ… Rules proxy counters"
         else
-            print_global "⚠️  Rules proxy counters"
+            print_global "вљ пёЏ  Rules proxy counters"
         fi
 
         if [ "$rules_other_mark_exist" -eq 1 ]; then
-            print_global "⚠️  Additional marking rules found:"
+            print_global "вљ пёЏ  Additional marking rules found:"
             nft list ruleset | awk '/table inet '"$NFT_TABLE_NAME"'/{flag=1; next} /^table/{flag=0} !flag' | grep -E "mark set|meta mark"
         else
-            print_global "✅ Additional marking rules found"
+            print_global "вњ… Additional marking rules found"
         fi
     else
-        print_global "❌ Failed to get NFT rules info"
+        print_global "вќЊ Failed to get NFT rules info"
     fi
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "📄 Podkop config"
+    print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+    print_global "рџ“„ Podkop config"
     show_config
 
-    # print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    # print_global "🔧 System check"
+    # print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+    # print_global "рџ”§ System check"
 
     # if grep -E "^nameserver\s+([0-9]{1,3}\.){3}[0-9]{1,3}" "$RESOLV_CONF" | grep -vqE "127\.0\.0\.1|0\.0\.0\.0"; then
-    #     print_global "❌ /etc/resolv.conf contains external nameserver:"
+    #     print_global "вќЊ /etc/resolv.conf contains external nameserver:"
     #     cat /etc/resolv.conf
     #     echo ""
     # else
-    #     print_global "✅ /etc/resolv.conf"
+    #     print_global "вњ… /etc/resolv.conf"
     # fi
 
-    # print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    # print_global "🧱 NFT table"
+    # print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+    # print_global "рџ§± NFT table"
     # check_nft
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "📄 WAN config"
+    print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+    print_global "рџ“„ WAN config"
     if uci show network.wan > /dev/null 2>&1; then
         awk '
             /^config / {
@@ -2592,20 +3309,20 @@ global_check() {
             }
         ' /etc/config/network
     else
-        print_global "❌ WAN configuration not found"
+        print_global "вќЊ WAN configuration not found"
     fi
 
     if uci show network | grep -q endpoint_host; then
         uci show network | grep endpoint_host | cut -d'=' -f2 | tr -d "'\" " | while read -r host; do
             if [ "$host" = "engage.cloudflareclient.com" ]; then
-                print_global "⚠️ WARP detected: $host"
+                print_global "вљ пёЏ WARP detected: $host"
                 continue
             fi
 
             ip_prefix=$(echo "$host" | cut -d'.' -f1,2)
             if echo "$CLOUDFLARE_OCTETS" | grep -wq "$ip_prefix"; then
-                print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                print_global "⚠️ WARP detected: $host"
+                print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+                print_global "вљ пёЏ WARP detected: $host"
             fi
         done
     fi
@@ -2616,19 +3333,19 @@ global_check() {
             allowed_ips=$(uci get "${peer_section}.allowed_ips" 2> /dev/null)
 
             if [ "$allowed_ips" = "0.0.0.0/0" ]; then
-                print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                print_global "⚠️ WG Route allowed IP enabled with 0.0.0.0/0"
+                print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+                print_global "вљ пёЏ WG Route allowed IP enabled with 0.0.0.0/0"
             fi
         done
     fi
 
     if [ -f "/etc/init.d/zapret" ]; then
-        print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        print_global "⚠️ Zapret detected"
+        print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+        print_global "вљ пёЏ Zapret detected"
     fi
 
-    print_global "━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_global "🥸 FakeIP status"
+    print_global "в”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓв”Ѓ"
+    print_global "рџҐё FakeIP status"
 
     local fakeip_check_json
     fakeip_check_json=$(check_fakeip)
@@ -2639,21 +3356,21 @@ global_check() {
         fakeip_status=$(echo "$fakeip_check_json" | jq -r '.fakeip // false')
 
         if [ "$fakeip_status" = "true" ]; then
-            print_global "✅ Router DNS is routed through sing-box"
+            print_global "вњ… Router DNS is routed through sing-box"
         else
-            print_global "⚠️ Router DNS is NOT routed through sing-box"
+            print_global "вљ пёЏ Router DNS is NOT routed through sing-box"
         fi
     else
-        print_global "❌ Failed to get FakeIP info"
+        print_global "вќЊ Failed to get FakeIP info"
     fi
 
     local fakeip_address
     fakeip_address=$(dig +short @127.0.0.42 $FAKEIP_TEST_DOMAIN)
 
     if echo "$fakeip_address" | grep -q "^198\.18\."; then
-        print_global "✅ Sing-box works with FakeIP: $fakeip_address"
+        print_global "вњ… Sing-box works with FakeIP: $fakeip_address"
     else
-        print_global "❌ Sing-box does NOT work with FakeIP: $fakeip_address"
+        print_global "вќЊ Sing-box does NOT work with FakeIP: $fakeip_address"
     fi
 }
 
@@ -2668,6 +3385,7 @@ Available commands:
     restart                 Restart podkop service
     main                    Run main podkop process
     list_update             Update domain lists
+    subscription_update     Update subscription proxies
     check_proxy             Check proxy connectivity
     check_nft               Check NFT rules
     check_nft_rules         Check NFT rules status
@@ -2707,6 +3425,9 @@ main)
     ;;
 list_update)
     list_update
+    ;;
+subscription_update)
+    subscription_update
     ;;
 check_proxy)
     check_proxy

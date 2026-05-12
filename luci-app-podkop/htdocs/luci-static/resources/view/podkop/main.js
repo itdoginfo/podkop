@@ -579,9 +579,17 @@ async function callBaseMethod(method, args = [], command = "/usr/bin/podkop") {
   });
   if (response.stdout) {
     try {
+      const data = JSON.parse(response.stdout);
+      if (data && typeof data === "object" && data.success === false) {
+        return {
+          success: false,
+          data,
+          error: data.message || data.error || ""
+        };
+      }
       return {
         success: true,
-        data: JSON.parse(response.stdout)
+        data
       };
     } catch (_e) {
       return {
@@ -617,6 +625,7 @@ var Podkop;
     AvailableMethods2["SHOW_SING_BOX_CONFIG"] = "show_sing_box_config";
     AvailableMethods2["CHECK_LOGS"] = "check_logs";
     AvailableMethods2["GET_SYSTEM_INFO"] = "get_system_info";
+    AvailableMethods2["SUBSCRIPTION_UPDATE"] = "subscription_update";
   })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
   let AvailableClashAPIMethods;
   ((AvailableClashAPIMethods2) => {
@@ -691,7 +700,8 @@ var PodkopShellMethods = {
   checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS),
   getSystemInfo: async () => callBaseMethod(
     Podkop.AvailableMethods.GET_SYSTEM_INFO
-  )
+  ),
+  subscriptionUpdate: async () => callBaseMethod(Podkop.AvailableMethods.SUBSCRIPTION_UPDATE)
 };
 
 // src/podkop/methods/custom/getDashboardSections.ts
@@ -776,7 +786,7 @@ async function getDashboardSections() {
         }));
         return {
           withTagSelect: true,
-          code: selector?.code || section[".name"],
+          code: selector?.code || section[".name"] + "-out",
           displayName: section[".name"],
           outbounds
         };
@@ -797,7 +807,7 @@ async function getDashboardSections() {
         }));
         return {
           withTagSelect: true,
-          code: selector?.code || section[".name"],
+          code: selector?.code || section[".name"] + "-out",
           displayName: section[".name"],
           outbounds: [
             {
@@ -809,6 +819,66 @@ async function getDashboardSections() {
             },
             ...outbounds
           ]
+        };
+      }
+      if (section.proxy_config_type === "subscription") {
+        const selector = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        const fallbackUrltest = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-urltest-out`
+        );
+        const selectorOutbounds = (selector?.value?.all ?? []).flatMap((code) => {
+          const item = proxies.find((proxy) => proxy.code === code);
+          if (!item) {
+            return [];
+          }
+          const isLegacyFastest = item.code === `${section[".name"]}-urltest-out`;
+          return [{
+            code: item.code,
+            displayName: isLegacyFastest ? _("Fastest") : item?.value?.name || "",
+            latency: item?.value?.history?.[0]?.delay || 0,
+            type: item?.value?.type || "",
+            selected: selector?.value?.now === item.code
+          }];
+        });
+        const outbounds = [
+          ...selectorOutbounds.filter(
+            (item) => item.type?.toLowerCase() === "urltest"
+          ),
+          ...selectorOutbounds.filter(
+            (item) => item.type?.toLowerCase() !== "urltest"
+          )
+        ];
+        if (outbounds.length === 0 && fallbackUrltest) {
+          const fallbackOutbounds = (fallbackUrltest?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item) => ({
+            code: item?.code || "",
+            displayName: item?.value?.name || "",
+            latency: item?.value?.history?.[0]?.delay || 0,
+            type: item?.value?.type || "",
+            selected: selector?.value?.now === item?.code
+          }));
+          return {
+            withTagSelect: true,
+            code: selector?.code || section[".name"] + "-out",
+            displayName: section[".name"],
+            outbounds: [
+              {
+                code: fallbackUrltest?.code || "",
+                displayName: _("Fastest"),
+                latency: fallbackUrltest?.value?.history?.[0]?.delay || 0,
+                type: fallbackUrltest?.value?.type || "",
+                selected: selector?.value?.now === fallbackUrltest?.code
+              },
+              ...fallbackOutbounds
+            ]
+          };
+        }
+        return {
+          withTagSelect: true,
+          code: selector?.code || section[".name"] + "-out",
+          displayName: section[".name"],
+          outbounds
         };
       }
     }
@@ -920,6 +990,14 @@ var UPDATE_INTERVAL_OPTIONS = {
   "12h": "Every 12 hours",
   "1d": "Every day",
   "3d": "Every 3 days"
+};
+var SUBSCRIPTION_UPDATE_INTERVAL_OPTIONS = {
+  "30m": "Every 30 minutes",
+  "1h": "Every hour",
+  "3h": "Every 3 hours",
+  "6h": "Every 6 hours",
+  "12h": "Every 12 hours",
+  "1d": "Every day"
 };
 var DNS_SERVER_OPTIONS = {
   "1.1.1.1": "1.1.1.1 (Cloudflare)",
@@ -2075,7 +2153,10 @@ async function connectToClashSockets() {
   );
 }
 async function handleChooseOutbound(selector, tag) {
-  await PodkopShellMethods.setClashApiGroupProxy(selector, tag);
+  const response = await PodkopShellMethods.setClashApiGroupProxy(selector, tag);
+  if (!response.success || response.data?.success === false) {
+    showToast(response.data?.message || _("Failed to switch proxy"), "error");
+  }
   await fetchDashboardSections();
 }
 async function handleTestGroupLatency(tag) {

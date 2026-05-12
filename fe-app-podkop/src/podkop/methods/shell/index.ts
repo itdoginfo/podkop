@@ -84,4 +84,6 @@ export const PodkopShellMethods = {
     callBaseMethod<Podkop.GetSystemInfo>(
       Podkop.AvailableMethods.GET_SYSTEM_INFO,
     ),
+  subscriptionUpdate: async () =>
+    callBaseMethod<unknown>(Podkop.AvailableMethods.SUBSCRIPTION_UPDATE),
 };

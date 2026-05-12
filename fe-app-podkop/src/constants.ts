@@ -66,6 +66,15 @@ export const UPDATE_INTERVAL_OPTIONS = {
   '3d': 'Every 3 days',
 };
 
+export const SUBSCRIPTION_UPDATE_INTERVAL_OPTIONS = {
+  '30m': 'Every 30 minutes',
+  '1h': 'Every hour',
+  '3h': 'Every 3 hours',
+  '6h': 'Every 6 hours',
+  '12h': 'Every 12 hours',
+  '1d': 'Every day',
+};
+
 export const DNS_SERVER_OPTIONS = {
   '1.1.1.1': '1.1.1.1 (Cloudflare)',
   '8.8.8.8': '8.8.8.8 (Google)',

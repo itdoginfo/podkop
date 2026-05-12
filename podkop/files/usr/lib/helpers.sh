@@ -354,3 +354,171 @@ parse_domain_or_subnet_file_to_comma_string() {
 
     echo "$result"
 }
+
+# Returns the device model from OpenWrt sysinfo, or "OpenWrt Router" as fallback
+get_device_model() {
+    local model=""
+    if [ -f /tmp/sysinfo/model ]; then
+        model="$(cat /tmp/sysinfo/model 2>/dev/null)"
+    fi
+    echo "${model:-OpenWrt Router}"
+}
+
+# Returns the Linux kernel version
+get_kernel_version() {
+    uname -r
+}
+
+# Returns the sing-box version number (e.g. "1.12.0")
+get_sing_box_version() {
+    local version=""
+    if command -v sing-box >/dev/null 2>&1; then
+        version="$(sing-box version 2>/dev/null | head -1 | awk '{print $NF}')"
+    fi
+    echo "${version:-1.0}"
+}
+
+# Generates a deterministic HWID based on WAN MAC address and device model
+# Format: xxxx-xxxx-xxxx-xxxx
+# Same router always produces the same HWID
+generate_hwid() {
+    local mac="" model="" raw_hash=""
+
+    # Try to get WAN MAC address
+    if [ -f /sys/class/net/eth0/address ]; then
+        mac="$(cat /sys/class/net/eth0/address 2>/dev/null)"
+    elif [ -f /sys/class/net/br-lan/address ]; then
+        mac="$(cat /sys/class/net/br-lan/address 2>/dev/null)"
+    fi
+
+    model="$(get_device_model)"
+
+    # Generate hash from MAC + model
+    raw_hash="$(printf '%s-%s' "$mac" "$model" | md5sum | cut -c1-16)"
+
+    # Format as xxxx-xxxx-xxxx-xxxx
+    printf '%s-%s-%s-%s' \
+        "$(echo "$raw_hash" | cut -c1-4)" \
+        "$(echo "$raw_hash" | cut -c5-8)" \
+        "$(echo "$raw_hash" | cut -c9-12)" \
+        "$(echo "$raw_hash" | cut -c13-16)"
+}
+
+# Downloads a subscription JSON from the given URL with custom headers
+# Arguments:
+#   $1 - subscription URL
+#   $2 - output file path
+#   $3 - http proxy address (optional)
+#   $4 - retries (optional, default 3)
+#   $5 - wait between retries (optional, default 2)
+download_subscription() {
+    local url="$1"
+    local filepath="$2"
+    local http_proxy_address="$3"
+    local retries="${4:-3}"
+    local wait="${5:-2}"
+    local timeout="${6:-10}"
+
+    local sb_version device_model kernel_version hwid
+    sb_version="$(get_sing_box_version)"
+    device_model="$(get_device_model)"
+    kernel_version="$(get_kernel_version)"
+    hwid="$(generate_hwid)"
+
+    local tmpfile
+    tmpfile="${filepath}.part.$$"
+    rm -f "$tmpfile"
+
+    for attempt in $(seq 1 "$retries"); do
+        if [ -n "$http_proxy_address" ]; then
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                wget -T "$timeout" -O "$tmpfile" \
+                    --header "User-Agent: singbox/$sb_version" \
+                    --header "X-HWID: $hwid" \
+                    --header "X-Device-OS: OpenWrt Linux" \
+                    --header "X-Device-Model: $device_model" \
+                    --header "X-Ver-OS: $kernel_version" \
+                    --header "Accept-Language: ru-RU,en,*" \
+                    --header "X-Device-Locale: EN" \
+                    "$url"
+        else
+            wget -T "$timeout" -O "$tmpfile" \
+                --header "User-Agent: singbox/$sb_version" \
+                --header "X-HWID: $hwid" \
+                --header "X-Device-OS: OpenWrt Linux" \
+                --header "X-Device-Model: $device_model" \
+                --header "X-Ver-OS: $kernel_version" \
+                --header "Accept-Language: ru-RU,en,*" \
+                --header "X-Device-Locale: EN" \
+                "$url"
+        fi
+
+        if [ $? -eq 0 ] && [ -s "$tmpfile" ]; then
+            mv "$tmpfile" "$filepath"
+            return 0
+        fi
+
+        rm -f "$tmpfile"
+        log "Attempt $attempt/$retries to download subscription from $url failed" "warn"
+        sleep "$wait"
+    done
+
+    rm -f "$tmpfile"
+    return 1
+}
+
+check_subscription_connectivity() {
+    local url="$1"
+    local http_proxy_address="$2"
+    local retries="${3:-3}"
+    local wait="${4:-2}"
+    local timeout="${5:-5}"
+
+    local sb_version device_model kernel_version hwid
+    sb_version="$(get_sing_box_version)"
+    device_model="$(get_device_model)"
+    kernel_version="$(get_kernel_version)"
+    hwid="$(generate_hwid)"
+
+    local attempt
+    for attempt in $(seq 1 "$retries"); do
+        if [ -n "$http_proxy_address" ]; then
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                wget -q -T "$timeout" -O /dev/null \
+                    --header "User-Agent: singbox/$sb_version" \
+                    --header "X-HWID: $hwid" \
+                    --header "X-Device-OS: OpenWrt Linux" \
+                    --header "X-Device-Model: $device_model" \
+                    --header "X-Ver-OS: $kernel_version" \
+                    --header "Accept-Language: ru-RU,en,*" \
+                    --header "X-Device-Locale: EN" \
+                    "$url" && return 0
+        else
+            wget -q -T "$timeout" -O /dev/null \
+                --header "User-Agent: singbox/$sb_version" \
+                --header "X-HWID: $hwid" \
+                --header "X-Device-OS: OpenWrt Linux" \
+                --header "X-Device-Model: $device_model" \
+                --header "X-Ver-OS: $kernel_version" \
+                --header "Accept-Language: ru-RU,en,*" \
+                --header "X-Device-Locale: EN" \
+                "$url" && return 0
+        fi
+
+        [ "$attempt" -lt "$retries" ] && sleep "$wait"
+    done
+
+    return 1
+}
+
+validate_subscription_file() {
+    local filepath="$1"
+
+    [ -s "$filepath" ] || return 1
+
+    jq -e '
+        type == "object" and
+        (.outbounds | type == "array") and
+        ((.outbounds | length) > 0)
+    ' "$filepath" > /dev/null 2>&1
+}

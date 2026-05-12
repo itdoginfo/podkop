@@ -1,7 +1,7 @@
 #!/bin/sh
 # shellcheck shell=dash
 
-REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
+REPO="https://api.github.com/repos/yandexru45/podkop-evolution/releases/latest"
 DOWNLOAD_DIR="/tmp/podkop"
 COUNT=3
 
@@ -66,7 +66,7 @@ update_config() {
     printf "\033[48;5;196m\033[1m║ ! Обнаружена старая версия podkop.                                   ║\033[0m\n"
     printf "\033[48;5;196m\033[1m║ Если продолжите обновление, вам потребуется настроить Podkop заново. ║\033[0m\n"
     printf "\033[48;5;196m\033[1m║ Старая конфигурация будет сохранена в /etc/config/podkop-070         ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ Подробности: https://github.com/itdoginfo/podkop                     ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Подробности: https://github.com/yandexru45/podkop-evolution         ║\033[0m\n"
     printf "\033[48;5;196m\033[1m║ Точно хотите продолжить?                                             ║\033[0m\n"
     printf "\033[48;5;196m\033[1m╚══════════════════════════════════════════════════════════════════════╝\033[0m\n"
 
@@ -76,7 +76,7 @@ update_config() {
     printf "\033[48;5;196m\033[1m║ ! Detected old podkop version.                                       ║\033[0m\n"
     printf "\033[48;5;196m\033[1m║ If you continue the update, you will need to RECONFIGURE podkop.     ║\033[0m\n"
     printf "\033[48;5;196m\033[1m║ Your old configuration will be saved to /etc/config/podkop-070       ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ Details: https://github.com/itdoginfo/podkop                         ║\033[0m\n"
+    printf "\033[48;5;196m\033[1m║ Details: https://github.com/yandexru45/podkop-evolution              ║\033[0m\n"
     printf "\033[48;5;196m\033[1m║ Are you sure you want to continue?                                   ║\033[0m\n"
     printf "\033[48;5;196m\033[1m╚══════════════════════════════════════════════════════════════════════╝\033[0m\n"
 
@@ -88,7 +88,7 @@ update_config() {
 
             yes|y|Y)
                 mv /etc/config/podkop /etc/config/podkop-070
-                wget -O /etc/config/podkop https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/podkop/files/etc/config/podkop
+                wget -O /etc/config/podkop https://raw.githubusercontent.com/yandexru45/podkop-evolution/refs/heads/main/podkop/files/etc/config/podkop
                 msg "Podkop config has been reset to default. Your old config saved in /etc/config/podkop-070"
                 break
                 ;;
@@ -115,7 +115,7 @@ main() {
     fi
 
     if command -v curl >/dev/null 2>&1; then
-        check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
+        check_response=$(curl -s "https://api.github.com/repos/yandexru45/podkop-evolution/releases/latest")
 
         if echo "$check_response" | grep -q 'API rate limit '; then
             msg "You've reached the GitHub rate limit. Repeat in five minutes."

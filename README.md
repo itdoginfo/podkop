@@ -1,3 +1,11 @@
+# Podkop Evolution
+
+> **Podkop's fork with HWID and Subscription URL support**
+>
+> Этот форк добавляет поддержку ссылок подписки (subscription URL) с кастомными заголовками (HWID, Device-OS, Device-Model) и автоматическим обновлением. Основан на [itdoginfo/podkop](https://github.com/itdoginfo/podkop).
+
+---
+
 # Вещи, которые вам нужно знать перед установкой
 
 - Это бета-версия, которая находится в активной разработке. Из версии в версию что-то может меняться.
@@ -16,12 +24,45 @@
 # Документация
 https://podkop.net/
 
-# Установка Podkop
+# Установка Podkop Evolution
 Полная информация в [документации](https://podkop.net/docs/install/)
 
 Вкратце, достаточно одного скрипта для установки и обновления:
 ```
-sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
+sh <(wget -O - https://raw.githubusercontent.com/yandexru45/podkop-evolution/refs/heads/main/install.sh)
+```
+
+## Новое в этом форке: Подписки (Subscription)
+
+Добавлена поддержка subscription URL — ссылки подписки от провайдера прокси. При выборе типа конфигурации **Subscription** в LuCI:
+
+- Введите URL подписки от вашего провайдера
+- Выберите интервал автообновления (от 30 минут до 1 дня)
+- Все серверы из подписки автоматически появятся в дашборде
+- Автоматический выбор лучшего сервера по задержке (URLTest)
+- Ручное переключение между серверами через дашборд
+
+При скачивании подписки отправляются заголовки:
+- `User-Agent: singbox/<версия>`
+- `X-HWID` — уникальный идентификатор роутера
+- `X-Device-OS: OpenWrt Linux`
+- `X-Device-Model` — модель роутера
+- `X-Ver-OS` — версия ядра
+
+Пример конфигурации через UCI:
+```
+uci set podkop.my_sub=section
+uci set podkop.my_sub.connection_type='proxy'
+uci set podkop.my_sub.proxy_config_type='subscription'
+uci set podkop.my_sub.subscription_url='https://your-provider.com/api/sub'
+uci set podkop.my_sub.subscription_update_interval='1h'
+uci add_list podkop.my_sub.community_lists='russia_inside'
+uci commit podkop
+```
+
+Ручное обновление подписки:
+```
+/usr/bin/podkop subscription_update
 ```
 
 ## Изменения 0.7.0
@@ -38,7 +79,7 @@ mv /etc/config/podkop /etc/config/podkop-070
 ```
 2. Стянуть новый дефолтный конфиг:
 ```
-wget -O /etc/config/podkop https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/podkop/files/etc/config/podkop
+wget -O /etc/config/podkop https://raw.githubusercontent.com/yandexru45/podkop-evolution/refs/heads/main/podkop/files/etc/config/podkop
 ```
 3. Настроить заново ваш Podkop через Luci или UCI.
 
@@ -48,14 +89,12 @@ wget -O /etc/config/podkop https://raw.githubusercontent.com/itdoginfo/podkop/re
 > PR принимаются только по согласованию с авторами в ТГ-чате. Остальные PR на данный момент не рассматриваются. Не тратьте зря своё время.
 
 ## Будущее
-- [ ] [Подписка](https://github.com/itdoginfo/podkop/issues/118). Здесь нужна реализация, чтоб для каждой секции помимо ручного выбора, был выбор фильтрации по тегу. Например, для main выбираем ключевые слова NL, DE, FI. А для extra секции фильтруем по RU. И создаётся outbound c urltest в которых перечислены outbound из фильтров.
+- [x] [Подписка](https://github.com/itdoginfo/podkop/issues/118) — **реализовано в этом форке!**
 - [ ] Весь трафик в sing-box и маршрутизация полностью на его уровне.
-- [ ] При успешном запуске переходит в фоновый режим и следит за состоянием sing-box. Если вдруг идёт exit 1, выполняется dnsmasq restore и снова следит за состоянием. Вопрос в том, как это искусственно провернуть. Попробовать положить прокси и посмотреть, останется ли работать DNS в этом случае. И здесь, вероятно, можно обойтись триггером в init.d. [Issue](https://github.com/itdoginfo/podkop/issues/111)
+- [ ] При успешном запуске переходит в фоновый режим и следит за состоянием sing-box. Если вдруг идёт exit 1, выполняется dnsmasq restore и снова следит за состоянием. [Issue](https://github.com/itdoginfo/podkop/issues/111)
 - [ ] Галочка, которая режет доступ к doh серверам.
 - [ ] IPv6. Только после наполнения Wiki.
 
 ## Тесты
 - [ ] Unit тесты (BATS)
 - [ ] Интеграционные тесты бекенда (OpenWrt rootfs + BATS)
-
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/itdoginfo/podkop)

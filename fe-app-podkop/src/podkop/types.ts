@@ -65,6 +65,7 @@ export namespace Podkop {
     SHOW_SING_BOX_CONFIG = 'show_sing_box_config',
     CHECK_LOGS = 'check_logs',
     GET_SYSTEM_INFO = 'get_system_info',
+    SUBSCRIPTION_UPDATE = 'subscription_update',
   }
 
   export enum AvailableClashAPIMethods {
@@ -113,6 +114,14 @@ export namespace Podkop {
     outbound_json: string;
   }
 
+  export interface ConfigProxySubscriptionSection {
+    connection_type: 'proxy';
+    proxy_config_type: 'subscription';
+    subscription_url: string;
+    subscription_update_interval?: string;
+    subscription_group_by_countries?: '0' | '1';
+  }
+
   export interface ConfigVpnSection {
     connection_type: 'vpn';
     interface: string;
@@ -127,6 +136,7 @@ export namespace Podkop {
     | ConfigProxySelectorSection
     | ConfigProxyUrlSection
     | ConfigProxyOutboundSection
+    | ConfigProxySubscriptionSection
     | ConfigVpnSection
     | ConfigBlockSection;
 
