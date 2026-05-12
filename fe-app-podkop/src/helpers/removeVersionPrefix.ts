@@ -1,1 +1,3 @@
-export const removeVersionPrefix = (v: string) => v.replace(/^v/, '');
+export function removeVersionPrefix(version: string) {
+  return version.replace(/^v/, '');
+}
