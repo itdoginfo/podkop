@@ -6,7 +6,7 @@ on:
 
 jobs:
   close-invalid:
-    if: github.event.label.name == 'invalid'
+    if: github.event.label.name == 'Close as invalid'
     runs-on: ubuntu-latest
     permissions:
       issues: write
