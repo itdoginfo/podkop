@@ -269,7 +269,14 @@ prepare_subscription_cache_for_startup() {
         return 0
     fi
 
-    service_proxy_address="$(get_service_proxy_address 2>/dev/null || echo '')"
+    # Bootstrap subscription directly: sing-box (and its service proxy) is not
+    # running yet at this stage, so download_lists_via_proxy would deadlock here.
+    service_proxy_address=""
+    local _download_lists_via_proxy
+    config_get_bool _download_lists_via_proxy "settings" "download_lists_via_proxy" 0
+    if [ "$_download_lists_via_proxy" -eq 1 ]; then
+        log "download_lists_via_proxy is set, but sing-box is not running yet during startup. Bootstrapping subscription for section '$section' over a direct connection" "info"
+    fi
 
     if wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address"; then
         if download_subscription_into_cache \
