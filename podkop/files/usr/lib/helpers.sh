@@ -256,22 +256,57 @@ migration_rename_config_key() {
 # Download URL to file
 redact_url_for_log() {
     local url="$1"
-    local sanitized
+    local scheme rest authority suffix userinfo_flag path_flag query_flag fragment_flag
 
-    sanitized="${url%%#*}"
-    sanitized="${sanitized%%\?*}"
+    scheme=""
+    rest="$url"
+    userinfo_flag=0
+    path_flag=0
+    query_flag=0
+    fragment_flag=0
 
-    case "$sanitized" in
-    *://*@*)
-        sanitized="${sanitized%%://*}://***@${sanitized#*@}"
+    case "$url" in
+    *'#'*) fragment_flag=1 ;;
+    esac
+    rest="${rest%%#*}"
+
+    case "$url" in
+    *\?*) query_flag=1 ;;
+    esac
+    rest="${rest%%\?*}"
+
+    case "$rest" in
+    *://*)
+        scheme="${rest%%://*}://"
+        rest="${rest#*://}"
         ;;
     esac
 
-    case "$url" in
-    *\?*) sanitized="$sanitized?<redacted>" ;;
+    authority="${rest%%/*}"
+    if [ "$authority" != "$rest" ]; then
+        path_flag=1
+    fi
+
+    case "$authority" in
+    *@*)
+        userinfo_flag=1
+        authority="${authority##*@}"
+        ;;
     esac
 
-    printf '%s\n' "$sanitized"
+    suffix=""
+    [ "$path_flag" -eq 1 ] && suffix="$suffix/<redacted>"
+    [ "$query_flag" -eq 1 ] && suffix="$suffix?<redacted>"
+    [ "$fragment_flag" -eq 1 ] && suffix="$suffix#<redacted>"
+
+    if [ -z "$authority" ]; then
+        printf 'redacted-url(has_path=%s,has_query=%s,has_userinfo=%s,has_fragment=%s)\n' \
+            "$path_flag" "$query_flag" "$userinfo_flag" "$fragment_flag"
+        return 0
+    fi
+
+    printf '%s%s%s(has_path=%s,has_query=%s,has_userinfo=%s,has_fragment=%s)\n' \
+        "$scheme" "$authority" "$suffix" "$path_flag" "$query_flag" "$userinfo_flag" "$fragment_flag"
 }
 
 url_host_for_log() {
@@ -363,11 +398,31 @@ should_force_wget_ipv4() {
 
 format_wget_error() {
     local errfile="$1"
+    local url="$2"
     local message
 
     message="$(tr '\n' ' ' < "$errfile" 2>/dev/null | sed 's/[[:space:]][[:space:]]*/ /g; s/^ //; s/ $//' | cut -c1-220)"
+    message="$(printf '%s' "$message" | sed 's#[Hh][Tt][Tt][Pp][Ss]\{0,1\}://[^[:space:]]*#<redacted-url>#g')"
     [ -n "$message" ] || message="no stderr from wget"
     printf '%s\n' "$message"
+}
+
+wget_error_class() {
+    local err="$1"
+
+    if echo "$err" | grep -qi 'Operation not permitted'; then
+        echo "operation_not_permitted"
+    elif echo "$err" | grep -qi 'not an http or ftp url\|bad address\|unable to resolve\|Name or service not known'; then
+        echo "dns_or_bad_url"
+    elif echo "$err" | grep -qi 'timed out\|timeout'; then
+        echo "timeout"
+    elif echo "$err" | grep -qi 'certificate\|SSL\|TLS'; then
+        echo "tls"
+    elif echo "$err" | grep -qi '404\|403\|401\|500\|502\|503\|HTTP'; then
+        echo "http"
+    else
+        echo "unknown"
+    fi
 }
 
 log_wget_failure() {
@@ -380,7 +435,7 @@ log_wget_failure() {
     local timeout="$7"
     local http_proxy_address="$8"
     local family="$9"
-    local mode err host
+    local mode err host err_class
 
     if [ -n "$http_proxy_address" ]; then
         mode="proxy $http_proxy_address"
@@ -388,12 +443,13 @@ log_wget_failure() {
         mode="direct"
     fi
 
-    err="$(format_wget_error "$errfile")"
+    err="$(format_wget_error "$errfile" "$url")"
     host="$(url_host_for_log "$url")"
+    err_class="$(wget_error_class "$err")"
 
-    log "$operation failed [$attempt/$retries]: wget rc=$rc, mode=$mode, family=$family, timeout=${timeout}s, host=${host:-unknown}, url=$(redact_url_for_log "$url"), error=\"$err\"" "warn"
+    log "$operation failed [$attempt/$retries]: wget rc=$rc, mode=$mode, family=$family, timeout=${timeout}s, host=${host:-unknown}, url=$(redact_url_for_log "$url"), error_class=$err_class, error=\"$err\"" "warn"
     if echo "$err" | grep -qi 'Operation not permitted'; then
-        log "$operation got 'Operation not permitted'. On OpenWrt this often means broken IPv6/default route/firewall while WAN is IPv4-only; podkop will prefer IPv4 when wget supports -4." "warn"
+        log "$operation got 'Operation not permitted'. On OpenWrt this can indicate firewall, routing, or IPv6 preference issues; podkop will retry with IPv4 when supported." "warn"
     fi
 }
 
@@ -663,9 +719,17 @@ download_subscription() {
 
         rc=$?
         if [ "$rc" -eq 0 ] && [ -s "$tmpfile" ]; then
-            mv "$tmpfile" "$filepath"
+            if ! mv "$tmpfile" "$filepath"; then
+                log "Subscription download succeeded but failed to move temporary file to destination" "error"
+                rm -f "$tmpfile" "$errfile"
+                return 1
+            fi
             rm -f "$errfile"
             return 0
+        fi
+
+        if [ "$rc" -eq 0 ] && [ ! -s "$tmpfile" ]; then
+            log "Subscription download returned success but produced an empty file: host=$(url_host_for_log "$url"), url=$(redact_url_for_log "$url")" "warn"
         fi
 
         rm -f "$tmpfile"
@@ -698,9 +762,16 @@ download_subscription() {
             fi
             rc=$?
             if [ "$rc" -eq 0 ] && [ -s "$tmpfile" ]; then
-                mv "$tmpfile" "$filepath"
+                if ! mv "$tmpfile" "$filepath"; then
+                    log "Subscription download IPv4 retry succeeded but failed to move temporary file to destination" "error"
+                    rm -f "$tmpfile" "$errfile"
+                    return 1
+                fi
                 rm -f "$errfile"
                 return 0
+            fi
+            if [ "$rc" -eq 0 ] && [ ! -s "$tmpfile" ]; then
+                log "Subscription download IPv4 retry returned success but produced an empty file: host=$(url_host_for_log "$url"), url=$(redact_url_for_log "$url")" "warn"
             fi
             log_wget_failure "Subscription download IPv4 retry" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
         fi
@@ -710,6 +781,7 @@ download_subscription() {
 
     rm -f "$tmpfile"
     rm -f "$errfile"
+    log "Subscription download failed after $retries attempts: host=$(url_host_for_log "$url"), url=$(redact_url_for_log "$url")" "error"
     return 1
 }
 
@@ -843,4 +915,39 @@ validate_subscription_file() {
             .type != "block"
         )] | length > 0)
     ' "$filepath" > /dev/null 2>&1
+}
+
+describe_subscription_validation_failure() {
+    local filepath="$1"
+    local total usable
+
+    if [ ! -s "$filepath" ]; then
+        echo "downloaded file is empty"
+        return 0
+    fi
+
+    if ! jq -e '.' "$filepath" >/dev/null 2>&1; then
+        echo "downloaded file is not valid JSON"
+        return 0
+    fi
+
+    if ! jq -e 'type == "object"' "$filepath" >/dev/null 2>&1; then
+        echo "subscription root is not a JSON object"
+        return 0
+    fi
+
+    if ! jq -e '.outbounds | type == "array"' "$filepath" >/dev/null 2>&1; then
+        echo "subscription has no outbounds array"
+        return 0
+    fi
+
+    total="$(jq -r '.outbounds | length' "$filepath" 2>/dev/null)"
+    usable="$(jq -r '[.outbounds[] | select(
+        .type != "selector" and
+        .type != "urltest" and
+        .type != "direct" and
+        .type != "dns" and
+        .type != "block"
+    )] | length' "$filepath" 2>/dev/null)"
+    echo "subscription contains no usable proxy outbounds: total=${total:-unknown}, usable=${usable:-unknown}"
 }

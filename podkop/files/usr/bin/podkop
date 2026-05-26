@@ -323,21 +323,35 @@ download_subscription_into_cache() {
     local subscription_json_path="$3"
     local subscription_url_cache_path="$4"
     local service_proxy_address="$5"
-    local tmpfile persist_tmpfile url_tmpfile rejected_cache_path tmp_hash rejected_hash
+    local tmpfile persist_tmpfile url_tmpfile rejected_cache_path tmp_hash rejected_hash validation_reason file_size
 
-    ensure_subscription_cache_dir || return 1
-    mkdir -p "$TMP_SUBSCRIPTION_DOWNLOAD_FOLDER" || return 1
-    tmpfile="$(mktemp "$TMP_SUBSCRIPTION_DOWNLOAD_FOLDER/${section}.download.XXXXXX")" || return 1
+    ensure_subscription_cache_dir || {
+        log "Failed to prepare persistent subscription cache directory '$SUBSCRIPTION_CACHE_FOLDER' for section '$section'" "error"
+        return 10
+    }
+    mkdir -p "$TMP_SUBSCRIPTION_DOWNLOAD_FOLDER" || {
+        log "Failed to create temporary subscription download directory '$TMP_SUBSCRIPTION_DOWNLOAD_FOLDER' for section '$section'" "error"
+        return 11
+    }
+    tmpfile="$(mktemp "$TMP_SUBSCRIPTION_DOWNLOAD_FOLDER/${section}.download.XXXXXX")" || {
+        log "Failed to create temporary subscription download file in '$TMP_SUBSCRIPTION_DOWNLOAD_FOLDER' for section '$section'" "error"
+        return 11
+    }
 
     if ! download_subscription "$subscription_url" "$tmpfile" "$service_proxy_address" 3 2 10; then
+        log "Subscription body download failed for section '$section' after retries" "error"
         rm -f "$tmpfile"
-        return 1
+        return 12
     fi
 
+    file_size="$(wc -c < "$tmpfile" 2>/dev/null | tr -d ' ')"
+    log "Downloaded subscription body for section '$section': bytes=${file_size:-unknown}" "debug"
+
     if ! validate_subscription_file "$tmpfile"; then
-        log "Downloaded subscription for section '$section' is invalid" "error"
+        validation_reason="$(describe_subscription_validation_failure "$tmpfile")"
+        log "Downloaded subscription for section '$section' is invalid: ${validation_reason:-unknown validation error}" "error"
         rm -f "$tmpfile"
-        return 1
+        return 13
     fi
 
     rejected_cache_path="$(get_subscription_rejected_cache_path "$section")"
@@ -346,15 +360,19 @@ download_subscription_into_cache() {
     if [ -n "$tmp_hash" ] && [ "$tmp_hash" = "$rejected_hash" ]; then
         log "Downloaded subscription for section '$section' is unchanged and was previously rejected because it contains no usable sing-box outbounds" "warn"
         rm -f "$tmpfile"
-        return 1
+        return 14
     fi
 
     if [ -f "$subscription_json_path" ] && cmp -s "$tmpfile" "$subscription_json_path"; then
         rm -f "$tmpfile"
         if [ "$(cat "$subscription_url_cache_path" 2>/dev/null)" != "$subscription_url" ]; then
             url_tmpfile="${subscription_url_cache_path}.tmp.$$"
-            printf '%s' "$subscription_url" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path"
-            chmod 600 "$subscription_url_cache_path" 2>/dev/null
+            if printf '%s' "$subscription_url" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path"; then
+                chmod 600 "$subscription_url_cache_path" 2>/dev/null
+            else
+                log "Subscription content for section '$section' is unchanged, but URL metadata could not be persisted; the next refresh may download it again" "warn"
+                rm -f "$url_tmpfile"
+            fi
         fi
         log "Subscription for section '$section' is unchanged" "info"
         return 2
@@ -362,14 +380,21 @@ download_subscription_into_cache() {
 
     persist_tmpfile="${subscription_json_path}.tmp.$$"
     cp "$tmpfile" "$persist_tmpfile" && mv "$persist_tmpfile" "$subscription_json_path" || {
+        log "Failed to persist subscription cache for section '$section' to '$subscription_json_path'" "error"
         rm -f "$tmpfile" "$persist_tmpfile"
-        return 1
+        return 15
     }
     rm -f "$tmpfile"
     rm -f "$rejected_cache_path"
 
     url_tmpfile="${subscription_url_cache_path}.tmp.$$"
-    printf '%s' "$subscription_url" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path"
+    printf '%s' "$subscription_url" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path" || {
+        # The valid JSON cache has already been atomically installed. Treat
+        # metadata failure as non-fatal so recovery reloads and applies it;
+        # only refresh deduplication is degraded until metadata can be written.
+        log "Subscription cache for section '$section' was updated, but URL metadata could not be persisted; applying the cache and retrying metadata on a later refresh" "warn"
+        rm -f "$url_tmpfile"
+    }
     chmod 600 "$subscription_json_path" "$subscription_url_cache_path" 2>/dev/null
     return 0
 }
@@ -488,13 +513,15 @@ start_subscription_startup_retry_worker() {
 
             # Run in a child process: a successful subscription_update performs
             # its own restart, which stops this worker via the pidfile safely.
-            if /usr/bin/podkop subscription_update >/dev/null 2>&1; then
+            # Keep diagnostics visible in syslog; subscription URLs are redacted
+            # in the lower-level download helpers.
+            if /usr/bin/podkop subscription_update; then
                 log "Deferred subscription refresh succeeded; updated configuration is being applied" "info"
                 rm -f "$pidfile"
                 exit 0
             fi
 
-            log "Deferred subscription refresh is still waiting for connectivity" "warn"
+            log "Deferred subscription refresh has not completed yet; retrying in background" "warn"
             sleep 30
         done
     ) &
@@ -1098,10 +1125,15 @@ subscription_update() {
 
         echolog "рџ“Ґ Updating subscription for section '$section'..."
 
-        service_proxy_address="$(get_subscription_download_proxy_address "$section" "runtime" 2>/dev/null || echo '')"
+        service_proxy_address="$(get_subscription_download_proxy_address "$section" "runtime" || echo '')"
+        if [ -n "$service_proxy_address" ]; then
+            log "Updating subscription for section '$section' via service proxy $service_proxy_address" "info"
+        else
+            log "Updating subscription for section '$section' directly" "info"
+        fi
 
         if ! wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address" 6 5 5; then
-            echolog "вќЊ Failed to download subscription for section '$section'"
+            echolog "вќЊ Subscription source is not reachable for section '$section'"
             failed_sections=$((failed_sections + 1))
             return
         fi
@@ -1113,27 +1145,47 @@ subscription_update() {
         case "$update_result" in
         0)
             updated_sections=$((updated_sections + 1))
+            outbounds_count=$(jq -r '[.outbounds[] | select(
+                .type != "selector" and
+                .type != "urltest" and
+                .type != "direct" and
+                .type != "dns" and
+                .type != "block"
+            )] | length' "$subscription_json_path" 2>/dev/null)
+
+            echolog "вњ… Subscription updated for section '$section': $outbounds_count outbounds"
             ;;
         2)
             echolog "в„№пёЏ Subscription for section '$section' is unchanged"
             return
             ;;
+        10)
+            echolog "вќЊ Failed to prepare subscription cache for section '$section'"
+            ;;
+        11)
+            echolog "вќЊ Failed to create temporary subscription download file for section '$section'"
+            ;;
+        12)
+            echolog "вќЊ Failed to download subscription body for section '$section'"
+            ;;
+        13)
+            echolog "вќЊ Downloaded subscription for section '$section' is invalid"
+            ;;
+        14)
+            echolog "вќЊ Downloaded subscription for section '$section' is unchanged and still has no usable outbounds"
+            ;;
+        15)
+            echolog "вќЊ Failed to persist subscription cache for section '$section'"
+            ;;
         *)
-            echolog "вќЊ Failed to download subscription for section '$section'"
-            failed_sections=$((failed_sections + 1))
-            return
+            echolog "вќЊ Failed to update subscription for section '$section': internal error rc=$update_result"
             ;;
         esac
 
-        outbounds_count=$(jq -r '[.outbounds[] | select(
-            .type != "selector" and
-            .type != "urltest" and
-            .type != "direct" and
-            .type != "dns" and
-            .type != "block"
-        )] | length' "$subscription_json_path" 2>/dev/null)
-
-        echolog "вњ… Subscription updated for section '$section': $outbounds_count outbounds"
+        if [ "$update_result" -ne 0 ]; then
+            failed_sections=$((failed_sections + 1))
+            return
+        fi
     }
     config_foreach _update_subscription_for_section "section"
 
