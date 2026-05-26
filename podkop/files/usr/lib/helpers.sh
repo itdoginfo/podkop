@@ -254,23 +254,203 @@ migration_rename_config_key() {
 }
 
 # Download URL to file
+redact_url_for_log() {
+    local url="$1"
+    local sanitized
+
+    sanitized="${url%%#*}"
+    sanitized="${sanitized%%\?*}"
+
+    case "$sanitized" in
+    *://*@*)
+        sanitized="${sanitized%%://*}://***@${sanitized#*@}"
+        ;;
+    esac
+
+    case "$url" in
+    *\?*) sanitized="$sanitized?<redacted>" ;;
+    esac
+
+    printf '%s\n' "$sanitized"
+}
+
+url_host_for_log() {
+    local url="$1"
+    local host
+
+    host="${url#*://}"
+    host="${host%%/*}"
+    host="${host%%\?*}"
+    host="${host%%#*}"
+    host="${host##*@}"
+
+    case "$host" in
+    \[*\]*)
+        host="${host#\[}"
+        host="${host%%\]*}"
+        ;;
+    *)
+        host="${host%%:*}"
+        ;;
+    esac
+
+    printf '%s\n' "$host"
+}
+
+url_is_ipv6_literal() {
+    case "$1" in
+    *://\[*\]*) return 0 ;;
+    esac
+    return 1
+}
+
+wget_supports_ipv4_flag() {
+    wget --help 2>&1 | grep -Eq -- 'Use IPv4 only|(^|[[:space:]])-4([[:space:],]|$)'
+}
+
+has_ipv4_default_route() {
+    ip -4 route show default 2>/dev/null | grep -q '^default'
+}
+
+has_ipv6_default_route() {
+    ip -6 route show default 2>/dev/null | grep -q '^default'
+}
+
+has_global_ipv6_addr() {
+    ip -6 addr show scope global 2>/dev/null | grep -q 'inet6 '
+}
+
+ipv6_route_usable() {
+    ip -6 route get 2606:4700:4700::1111 >/dev/null 2>&1
+}
+
+ipv6_appears_usable() {
+    has_ipv6_default_route && has_global_ipv6_addr && ipv6_route_usable
+}
+
+get_wget_ipv4_mode() {
+    local mode
+    config_get mode "settings" "wget_ipv4_mode" "auto" 2>/dev/null
+    case "$mode" in
+    off | force | auto) echo "$mode" ;;
+    *) echo "auto" ;;
+    esac
+}
+
+should_force_wget_ipv4() {
+    local url="$1"
+    local mode
+
+    url_is_ipv6_literal "$url" && return 1
+    wget_supports_ipv4_flag || return 1
+
+    mode="$(get_wget_ipv4_mode)"
+    case "$mode" in
+    off)
+        return 1
+        ;;
+    force)
+        has_ipv4_default_route
+        return $?
+        ;;
+    auto | *)
+        has_ipv4_default_route || return 1
+        ipv6_appears_usable && return 1
+        return 0
+        ;;
+    esac
+}
+
+format_wget_error() {
+    local errfile="$1"
+    local message
+
+    message="$(tr '\n' ' ' < "$errfile" 2>/dev/null | sed 's/[[:space:]][[:space:]]*/ /g; s/^ //; s/ $//' | cut -c1-220)"
+    [ -n "$message" ] || message="no stderr from wget"
+    printf '%s\n' "$message"
+}
+
+log_wget_failure() {
+    local operation="$1"
+    local url="$2"
+    local errfile="$3"
+    local rc="$4"
+    local attempt="$5"
+    local retries="$6"
+    local timeout="$7"
+    local http_proxy_address="$8"
+    local family="$9"
+    local mode err host
+
+    if [ -n "$http_proxy_address" ]; then
+        mode="proxy $http_proxy_address"
+    else
+        mode="direct"
+    fi
+
+    err="$(format_wget_error "$errfile")"
+    host="$(url_host_for_log "$url")"
+
+    log "$operation failed [$attempt/$retries]: wget rc=$rc, mode=$mode, family=$family, timeout=${timeout}s, host=${host:-unknown}, url=$(redact_url_for_log "$url"), error=\"$err\"" "warn"
+    if echo "$err" | grep -qi 'Operation not permitted'; then
+        log "$operation got 'Operation not permitted'. On OpenWrt this often means broken IPv6/default route/firewall while WAN is IPv4-only; podkop will prefer IPv4 when wget supports -4." "warn"
+    fi
+}
+
 download_to_file() {
     local url="$1"
     local filepath="$2"
     local http_proxy_address="$3"
     local retries="${4:-3}"
     local wait="${5:-2}"
+    local timeout="${6:-10}"
+    local attempt errfile rc family
 
     for attempt in $(seq 1 "$retries"); do
-        if [ -n "$http_proxy_address" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -O "$filepath" "$url" && break
+        errfile="${filepath}.wget.err.$$"
+        family="any"
+        if should_force_wget_ipv4 "$url"; then
+            family="ipv4"
+            if [ -n "$http_proxy_address" ]; then
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -4 -T "$timeout" -O "$filepath" "$url" 2>"$errfile"
+            else
+                wget -4 -T "$timeout" -O "$filepath" "$url" 2>"$errfile"
+            fi
+        elif [ -n "$http_proxy_address" ]; then
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -T "$timeout" -O "$filepath" "$url" 2>"$errfile"
         else
-            wget -O "$filepath" "$url" && break
+            wget -T "$timeout" -O "$filepath" "$url" 2>"$errfile"
+        fi
+        rc=$?
+        if [ "$rc" -eq 0 ]; then
+            rm -f "$errfile"
+            return 0
         fi
 
-        log "Attempt $attempt/$retries to download $url failed" "warn"
-        sleep "$wait"
+        log_wget_failure "Download" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
+        rm -f "$errfile"
+
+        if [ "$family" != "ipv4" ] && has_ipv4_default_route && wget_supports_ipv4_flag; then
+            errfile="${filepath}.wget.err.$$"
+            log "Retrying download over IPv4-only after generic wget failure" "warn"
+            if [ -n "$http_proxy_address" ]; then
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -4 -T "$timeout" -O "$filepath" "$url" 2>"$errfile"
+            else
+                wget -4 -T "$timeout" -O "$filepath" "$url" 2>"$errfile"
+            fi
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+                rm -f "$errfile"
+                return 0
+            fi
+            log_wget_failure "Download IPv4 retry" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "ipv4"
+            rm -f "$errfile"
+        fi
+
+        [ "$attempt" -lt "$retries" ] && sleep "$wait"
     done
+
+    return 1
 }
 
 # Converts Windows-style line endings (CRLF) to Unix-style (LF)
@@ -425,13 +605,50 @@ download_subscription() {
     kernel_version="$(get_kernel_version)"
     hwid="$(generate_hwid)"
 
-    local tmpfile
+    local tmpfile errfile rc family
     tmpfile="${filepath}.part.$$"
-    rm -f "$tmpfile"
+    errfile="${filepath}.err.$$"
+    rm -f "$tmpfile" "$errfile"
 
     for attempt in $(seq 1 "$retries"); do
-        if [ -n "$http_proxy_address" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+        family="any"
+        if should_force_wget_ipv4 "$url"; then
+            family="ipv4"
+            if [ -n "$http_proxy_address" ]; then
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                    wget -4 -T "$timeout" -O "$tmpfile" \
+                        --header "User-Agent: singbox/$sb_version" \
+                        --header "X-HWID: $hwid" \
+                        --header "X-Device-OS: OpenWrt Linux" \
+                        --header "X-Device-Model: $device_model" \
+                        --header "X-Ver-OS: $kernel_version" \
+                        --header "Accept-Language: ru-RU,en,*" \
+                        --header "X-Device-Locale: EN" \
+                        "$url" 2>"$errfile"
+            else
+                wget -4 -T "$timeout" -O "$tmpfile" \
+                    --header "User-Agent: singbox/$sb_version" \
+                    --header "X-HWID: $hwid" \
+                    --header "X-Device-OS: OpenWrt Linux" \
+                    --header "X-Device-Model: $device_model" \
+                    --header "X-Ver-OS: $kernel_version" \
+                    --header "Accept-Language: ru-RU,en,*" \
+                    --header "X-Device-Locale: EN" \
+                    "$url" 2>"$errfile"
+            fi
+        else
+            if [ -n "$http_proxy_address" ]; then
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                    wget -T "$timeout" -O "$tmpfile" \
+                        --header "User-Agent: singbox/$sb_version" \
+                        --header "X-HWID: $hwid" \
+                        --header "X-Device-OS: OpenWrt Linux" \
+                        --header "X-Device-Model: $device_model" \
+                        --header "X-Ver-OS: $kernel_version" \
+                        --header "Accept-Language: ru-RU,en,*" \
+                        --header "X-Device-Locale: EN" \
+                        "$url" 2>"$errfile"
+            else
                 wget -T "$timeout" -O "$tmpfile" \
                     --header "User-Agent: singbox/$sb_version" \
                     --header "X-HWID: $hwid" \
@@ -440,30 +657,59 @@ download_subscription() {
                     --header "X-Ver-OS: $kernel_version" \
                     --header "Accept-Language: ru-RU,en,*" \
                     --header "X-Device-Locale: EN" \
-                    "$url"
-        else
-            wget -T "$timeout" -O "$tmpfile" \
-                --header "User-Agent: singbox/$sb_version" \
-                --header "X-HWID: $hwid" \
-                --header "X-Device-OS: OpenWrt Linux" \
-                --header "X-Device-Model: $device_model" \
-                --header "X-Ver-OS: $kernel_version" \
-                --header "Accept-Language: ru-RU,en,*" \
-                --header "X-Device-Locale: EN" \
-                "$url"
+                    "$url" 2>"$errfile"
+            fi
         fi
 
-        if [ $? -eq 0 ] && [ -s "$tmpfile" ]; then
+        rc=$?
+        if [ "$rc" -eq 0 ] && [ -s "$tmpfile" ]; then
             mv "$tmpfile" "$filepath"
+            rm -f "$errfile"
             return 0
         fi
 
         rm -f "$tmpfile"
-        log "Attempt $attempt/$retries to download subscription from $url failed" "warn"
+        log_wget_failure "Subscription download" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
+
+        if [ "$family" != "ipv4" ] && has_ipv4_default_route && wget_supports_ipv4_flag; then
+            family="ipv4"
+            log "Retrying subscription download over IPv4-only" "warn"
+            if [ -n "$http_proxy_address" ]; then
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                    wget -4 -T "$timeout" -O "$tmpfile" \
+                        --header "User-Agent: singbox/$sb_version" \
+                        --header "X-HWID: $hwid" \
+                        --header "X-Device-OS: OpenWrt Linux" \
+                        --header "X-Device-Model: $device_model" \
+                        --header "X-Ver-OS: $kernel_version" \
+                        --header "Accept-Language: ru-RU,en,*" \
+                        --header "X-Device-Locale: EN" \
+                        "$url" 2>"$errfile"
+            else
+                wget -4 -T "$timeout" -O "$tmpfile" \
+                    --header "User-Agent: singbox/$sb_version" \
+                    --header "X-HWID: $hwid" \
+                    --header "X-Device-OS: OpenWrt Linux" \
+                    --header "X-Device-Model: $device_model" \
+                    --header "X-Ver-OS: $kernel_version" \
+                    --header "Accept-Language: ru-RU,en,*" \
+                    --header "X-Device-Locale: EN" \
+                    "$url" 2>"$errfile"
+            fi
+            rc=$?
+            if [ "$rc" -eq 0 ] && [ -s "$tmpfile" ]; then
+                mv "$tmpfile" "$filepath"
+                rm -f "$errfile"
+                return 0
+            fi
+            log_wget_failure "Subscription download IPv4 retry" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
+        fi
+
         sleep "$wait"
     done
 
     rm -f "$tmpfile"
+    rm -f "$errfile"
     return 1
 }
 
@@ -480,10 +726,48 @@ check_subscription_connectivity() {
     kernel_version="$(get_kernel_version)"
     hwid="$(generate_hwid)"
 
-    local attempt
+    local attempt errfile rc family
+    errfile="/tmp/podkop-subscription-check.$$"
+    rm -f "$errfile"
     for attempt in $(seq 1 "$retries"); do
-        if [ -n "$http_proxy_address" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+        family="any"
+        if should_force_wget_ipv4 "$url"; then
+            family="ipv4"
+            if [ -n "$http_proxy_address" ]; then
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                    wget -q -4 -T "$timeout" -O /dev/null \
+                        --header "User-Agent: singbox/$sb_version" \
+                        --header "X-HWID: $hwid" \
+                        --header "X-Device-OS: OpenWrt Linux" \
+                        --header "X-Device-Model: $device_model" \
+                        --header "X-Ver-OS: $kernel_version" \
+                        --header "Accept-Language: ru-RU,en,*" \
+                        --header "X-Device-Locale: EN" \
+                        "$url" 2>"$errfile"
+            else
+                wget -q -4 -T "$timeout" -O /dev/null \
+                    --header "User-Agent: singbox/$sb_version" \
+                    --header "X-HWID: $hwid" \
+                    --header "X-Device-OS: OpenWrt Linux" \
+                    --header "X-Device-Model: $device_model" \
+                    --header "X-Ver-OS: $kernel_version" \
+                    --header "Accept-Language: ru-RU,en,*" \
+                    --header "X-Device-Locale: EN" \
+                    "$url" 2>"$errfile"
+            fi
+        else
+            if [ -n "$http_proxy_address" ]; then
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                    wget -q -T "$timeout" -O /dev/null \
+                        --header "User-Agent: singbox/$sb_version" \
+                        --header "X-HWID: $hwid" \
+                        --header "X-Device-OS: OpenWrt Linux" \
+                        --header "X-Device-Model: $device_model" \
+                        --header "X-Ver-OS: $kernel_version" \
+                        --header "Accept-Language: ru-RU,en,*" \
+                        --header "X-Device-Locale: EN" \
+                        "$url" 2>"$errfile"
+            else
                 wget -q -T "$timeout" -O /dev/null \
                     --header "User-Agent: singbox/$sb_version" \
                     --header "X-HWID: $hwid" \
@@ -492,22 +776,54 @@ check_subscription_connectivity() {
                     --header "X-Ver-OS: $kernel_version" \
                     --header "Accept-Language: ru-RU,en,*" \
                     --header "X-Device-Locale: EN" \
-                    "$url" && return 0
-        else
-            wget -q -T "$timeout" -O /dev/null \
-                --header "User-Agent: singbox/$sb_version" \
-                --header "X-HWID: $hwid" \
-                --header "X-Device-OS: OpenWrt Linux" \
-                --header "X-Device-Model: $device_model" \
-                --header "X-Ver-OS: $kernel_version" \
-                --header "Accept-Language: ru-RU,en,*" \
-                --header "X-Device-Locale: EN" \
-                "$url" && return 0
+                    "$url" 2>"$errfile"
+            fi
+        fi
+
+        rc=$?
+        if [ "$rc" -eq 0 ]; then
+            rm -f "$errfile"
+            return 0
+        fi
+
+        log_wget_failure "Subscription connectivity" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
+
+        if [ "$family" != "ipv4" ] && has_ipv4_default_route && wget_supports_ipv4_flag; then
+            family="ipv4"
+            if [ -n "$http_proxy_address" ]; then
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                    wget -q -4 -T "$timeout" -O /dev/null \
+                        --header "User-Agent: singbox/$sb_version" \
+                        --header "X-HWID: $hwid" \
+                        --header "X-Device-OS: OpenWrt Linux" \
+                        --header "X-Device-Model: $device_model" \
+                        --header "X-Ver-OS: $kernel_version" \
+                        --header "Accept-Language: ru-RU,en,*" \
+                        --header "X-Device-Locale: EN" \
+                        "$url" 2>"$errfile"
+            else
+                wget -q -4 -T "$timeout" -O /dev/null \
+                    --header "User-Agent: singbox/$sb_version" \
+                    --header "X-HWID: $hwid" \
+                    --header "X-Device-OS: OpenWrt Linux" \
+                    --header "X-Device-Model: $device_model" \
+                    --header "X-Ver-OS: $kernel_version" \
+                    --header "Accept-Language: ru-RU,en,*" \
+                    --header "X-Device-Locale: EN" \
+                    "$url" 2>"$errfile"
+            fi
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+                rm -f "$errfile"
+                return 0
+            fi
+            log_wget_failure "Subscription connectivity IPv4 retry" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
         fi
 
         [ "$attempt" -lt "$retries" ] && sleep "$wait"
     done
 
+    rm -f "$errfile"
     return 1
 }
 
@@ -519,6 +835,12 @@ validate_subscription_file() {
     jq -e '
         type == "object" and
         (.outbounds | type == "array") and
-        ((.outbounds | length) > 0)
+        ([.outbounds[] | select(
+            .type != "selector" and
+            .type != "urltest" and
+            .type != "direct" and
+            .type != "dns" and
+            .type != "block"
+        )] | length > 0)
     ' "$filepath" > /dev/null 2>&1
 }

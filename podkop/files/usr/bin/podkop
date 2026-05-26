@@ -150,21 +150,148 @@ has_outbound_section() {
 get_subscription_json_path() {
     local section="$1"
 
-    echo "$TMP_SUBSCRIPTION_FOLDER/${section}.json"
+    echo "$SUBSCRIPTION_CACHE_FOLDER/${section}.json"
 }
 
 get_subscription_url_cache_path() {
     local section="$1"
 
-    echo "$TMP_SUBSCRIPTION_FOLDER/${section}.url"
+    echo "$SUBSCRIPTION_CACHE_FOLDER/${section}.url"
+}
+
+get_subscription_rejected_cache_path() {
+    local section="$1"
+
+    echo "$SUBSCRIPTION_CACHE_FOLDER/${section}.rejected"
+}
+
+ensure_subscription_cache_dir() {
+    local state_dir_created=0 cache_dir_created=0
+
+    [ -d "$PODKOP_STATE_DIR" ] || state_dir_created=1
+    [ -d "$SUBSCRIPTION_CACHE_FOLDER" ] || cache_dir_created=1
+    mkdir -p "$SUBSCRIPTION_CACHE_FOLDER" || return 1
+    [ "$state_dir_created" -eq 1 ] && chmod 700 "$PODKOP_STATE_DIR" 2>/dev/null
+    [ "$cache_dir_created" -eq 1 ] && chmod 700 "$SUBSCRIPTION_CACHE_FOLDER" 2>/dev/null
+}
+
+migrate_subscription_cache_from_tmp() {
+    local src_json src_url dst_json dst_url
+
+    [ -d "$TMP_SUBSCRIPTION_FOLDER" ] || return 0
+    ensure_subscription_cache_dir || return 0
+
+    for src_json in "$TMP_SUBSCRIPTION_FOLDER"/*.json; do
+        [ -e "$src_json" ] || continue
+        src_url="${src_json%.json}.url"
+        dst_json="$(get_subscription_json_path "$(basename "${src_json%.json}")")"
+        dst_url="$(get_subscription_url_cache_path "$(basename "${src_json%.json}")")"
+
+        if [ ! -e "$dst_json" ] && subscription_cache_is_usable "$src_json"; then
+            cp "$src_json" "$dst_json" 2>/dev/null
+            [ -f "$src_url" ] && cp "$src_url" "$dst_url" 2>/dev/null
+            chmod 600 "$dst_json" "$dst_url" 2>/dev/null
+            log "Migrated subscription cache for section '$(basename "${src_json%.json}")' to persistent storage" "info"
+        fi
+    done
+}
+
+mark_subscription_outbound_unavailable() {
+    local section="$1"
+    local subscription_json_path rejected_cache_path rejected_hash
+
+    case " $SUBSCRIPTION_UNAVAILABLE_SECTIONS " in
+    *" $section "*) ;;
+    *) SUBSCRIPTION_UNAVAILABLE_SECTIONS="$SUBSCRIPTION_UNAVAILABLE_SECTIONS $section" ;;
+    esac
+
+    log "Subscription cache for section '$section' is unavailable; matching traffic for this section will be rejected until refresh succeeds" "warn"
+    # A structurally valid subscription can still contain no sing-box usable
+    # proxy outbounds. Remember its hash so the retry worker does not persist,
+    # restart and reject exactly the same unusable feed in a flash-writing loop.
+    subscription_json_path="$(get_subscription_json_path "$section")"
+    rejected_cache_path="$(get_subscription_rejected_cache_path "$section")"
+    rejected_hash="$(md5sum "$subscription_json_path" 2>/dev/null | awk '{print $1}')"
+    if [ -n "$rejected_hash" ] && [ "$(cat "$rejected_cache_path" 2>/dev/null)" != "$rejected_hash" ]; then
+        printf '%s' "$rejected_hash" > "${rejected_cache_path}.tmp.$$" && mv "${rejected_cache_path}.tmp.$$" "$rejected_cache_path"
+        chmod 600 "$rejected_cache_path" 2>/dev/null
+    fi
+    subscription_startup_blocked=1
+}
+
+subscription_outbound_is_unavailable() {
+    local section="$1"
+
+    case " $SUBSCRIPTION_UNAVAILABLE_SECTIONS " in
+    *" $section "*) return 0 ;;
+    esac
+    return 1
+}
+
+get_subscription_download_proxy_address() {
+    local section="$1"
+    local phase="$2"
+    local download_lists_via_proxy download_lists_via_proxy_section
+
+    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
+    [ "$download_lists_via_proxy" -eq 1 ] || return 0
+
+    config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
+    if [ -z "$download_lists_via_proxy_section" ]; then
+        log "download_lists_via_proxy is enabled but no proxy section is selected; using direct mode for $phase subscription download" "warn"
+        return 0
+    fi
+
+    if [ "$phase" = "bootstrap" ]; then
+        if [ "$download_lists_via_proxy_section" = "$section" ]; then
+            log "Cannot bootstrap subscription for section '$section' through itself before cache exists; using direct mode" "warn"
+        else
+            log "download_lists_via_proxy is configured, but bootstrap subscription download for section '$section' must use direct mode until sing-box starts" "info"
+        fi
+        return 0
+    fi
+
+    if [ "$download_lists_via_proxy_section" = "$section" ]; then
+        if subscription_cache_is_usable "$(get_subscription_json_path "$section")"; then
+            log "Updating subscription for section '$section' through its currently active cached proxy" "info"
+            echo "$(get_service_proxy_address 2>/dev/null || echo '')"
+            return 0
+        fi
+
+        log "Subscription section '$section' is selected as its own download proxy, but no usable cache exists yet; falling back to direct mode for bootstrap" "warn"
+        return 0
+    fi
+
+    local selected_connection_type selected_proxy_config_type
+    config_get selected_connection_type "$download_lists_via_proxy_section" "connection_type"
+    config_get selected_proxy_config_type "$download_lists_via_proxy_section" "proxy_config_type"
+    if [ "$selected_connection_type" = "proxy" ] && [ "$selected_proxy_config_type" = "subscription" ] && \
+        ! subscription_cache_is_usable "$(get_subscription_json_path "$download_lists_via_proxy_section")"; then
+        log "Selected download proxy section '$download_lists_via_proxy_section' has no usable subscription cache; using direct mode for recovery of '$section'" "warn"
+        return 0
+    fi
+
+    echo "$(get_service_proxy_address 2>/dev/null || echo '')"
 }
 
 subscription_cache_is_usable() {
     local subscription_json_path="$1"
+    local rejected_cache_path current_hash rejected_hash
 
     [ -s "$subscription_json_path" ] || return 1
 
-    validate_subscription_file "$subscription_json_path"
+    validate_subscription_file "$subscription_json_path" || return 1
+
+    rejected_cache_path="${subscription_json_path%.json}.rejected"
+    if [ -s "$rejected_cache_path" ]; then
+        current_hash="$(md5sum "$subscription_json_path" 2>/dev/null | awk '{print $1}')"
+        rejected_hash="$(cat "$rejected_cache_path" 2>/dev/null)"
+        if [ -n "$current_hash" ] && [ "$current_hash" = "$rejected_hash" ]; then
+            return 1
+        fi
+    fi
+
+    return 0
 }
 
 wait_for_subscription_connectivity() {
@@ -196,10 +323,11 @@ download_subscription_into_cache() {
     local subscription_json_path="$3"
     local subscription_url_cache_path="$4"
     local service_proxy_address="$5"
-    local tmpfile
+    local tmpfile persist_tmpfile url_tmpfile rejected_cache_path tmp_hash rejected_hash
 
-    mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
-    tmpfile="$(mktemp "$TMP_SUBSCRIPTION_FOLDER/${section}.download.XXXXXX")" || return 1
+    ensure_subscription_cache_dir || return 1
+    mkdir -p "$TMP_SUBSCRIPTION_DOWNLOAD_FOLDER" || return 1
+    tmpfile="$(mktemp "$TMP_SUBSCRIPTION_DOWNLOAD_FOLDER/${section}.download.XXXXXX")" || return 1
 
     if ! download_subscription "$subscription_url" "$tmpfile" "$service_proxy_address" 3 2 10; then
         rm -f "$tmpfile"
@@ -212,19 +340,37 @@ download_subscription_into_cache() {
         return 1
     fi
 
+    rejected_cache_path="$(get_subscription_rejected_cache_path "$section")"
+    tmp_hash="$(md5sum "$tmpfile" 2>/dev/null | awk '{print $1}')"
+    rejected_hash="$(cat "$rejected_cache_path" 2>/dev/null)"
+    if [ -n "$tmp_hash" ] && [ "$tmp_hash" = "$rejected_hash" ]; then
+        log "Downloaded subscription for section '$section' is unchanged and was previously rejected because it contains no usable sing-box outbounds" "warn"
+        rm -f "$tmpfile"
+        return 1
+    fi
+
     if [ -f "$subscription_json_path" ] && cmp -s "$tmpfile" "$subscription_json_path"; then
         rm -f "$tmpfile"
-        printf '%s' "$subscription_url" > "$subscription_url_cache_path"
+        if [ "$(cat "$subscription_url_cache_path" 2>/dev/null)" != "$subscription_url" ]; then
+            url_tmpfile="${subscription_url_cache_path}.tmp.$$"
+            printf '%s' "$subscription_url" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path"
+            chmod 600 "$subscription_url_cache_path" 2>/dev/null
+        fi
         log "Subscription for section '$section' is unchanged" "info"
         return 2
     fi
 
-    mv "$tmpfile" "$subscription_json_path" || {
-        rm -f "$tmpfile"
+    persist_tmpfile="${subscription_json_path}.tmp.$$"
+    cp "$tmpfile" "$persist_tmpfile" && mv "$persist_tmpfile" "$subscription_json_path" || {
+        rm -f "$tmpfile" "$persist_tmpfile"
         return 1
     }
+    rm -f "$tmpfile"
+    rm -f "$rejected_cache_path"
 
-    printf '%s' "$subscription_url" > "$subscription_url_cache_path"
+    url_tmpfile="${subscription_url_cache_path}.tmp.$$"
+    printf '%s' "$subscription_url" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path"
+    chmod 600 "$subscription_json_path" "$subscription_url_cache_path" 2>/dev/null
     return 0
 }
 
@@ -251,6 +397,9 @@ prepare_subscription_cache_for_startup() {
     had_usable_cache=0
     cache_needs_refresh=0
 
+    ensure_subscription_cache_dir || true
+    migrate_subscription_cache_from_tmp
+
     if subscription_cache_is_usable "$subscription_json_path"; then
         had_usable_cache=1
     else
@@ -270,7 +419,7 @@ prepare_subscription_cache_for_startup() {
     fi
 
     # Bootstrap subscription directly: sing-box (and its service proxy) is not
-    # running yet at this stage, so download_lists_via_proxy would deadlock here.
+    # running yet at this stage, so proxy-based bootstrap would deadlock here.
     service_proxy_address=""
     local _download_lists_via_proxy
     config_get_bool _download_lists_via_proxy "settings" "download_lists_via_proxy" 0
@@ -278,7 +427,7 @@ prepare_subscription_cache_for_startup() {
         log "download_lists_via_proxy is set, but sing-box is not running yet during startup. Bootstrapping subscription for section '$section' over a direct connection" "info"
     fi
 
-    if wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address"; then
+    if wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address" 2 2 5; then
         if download_subscription_into_cache \
             "$section" "$subscription_url" "$subscription_json_path" "$subscription_url_cache_path" "$service_proxy_address"; then
             return 0
@@ -287,12 +436,12 @@ prepare_subscription_cache_for_startup() {
 
     if [ "$had_usable_cache" -eq 1 ]; then
         log "Keeping cached subscription for section '$section' until a fresh download succeeds" "warn"
-        return 0
+    else
+        log "No usable subscription cache for section '$section'; startup will continue with a temporary blocked outbound until subscription becomes reachable" "warn"
+        subscription_startup_blocked=1
     fi
 
-    log "No usable subscription cache for section '$section'; podkop startup will wait for internet connectivity" "warn"
-    subscription_startup_blocked=1
-    return 1
+    return 0
 }
 
 prepare_subscription_caches_for_startup() {
@@ -330,30 +479,23 @@ start_subscription_startup_retry_worker() {
     (
         trap 'rm -f "'"$pidfile"'"' EXIT INT TERM
 
+        # Let the primary sing-box instance come up first, so a configured
+        # service proxy can be used for the post-bootstrap refresh.
+        sleep 10
+
         while true; do
             config_load "$PODKOP_CONFIG"
 
-            if prepare_subscription_caches_for_startup; then
-                log "Subscription cache is ready, resuming deferred podkop startup" "info"
+            # Run in a child process: a successful subscription_update performs
+            # its own restart, which stops this worker via the pidfile safely.
+            if /usr/bin/podkop subscription_update >/dev/null 2>&1; then
+                log "Deferred subscription refresh succeeded; updated configuration is being applied" "info"
                 rm -f "$pidfile"
-                start_main
-                start_rc=$?
-
-                if [ "$start_rc" -eq 0 ]; then
-                    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-                    if [ "$dont_touch_dhcp" -eq 0 ]; then
-                        dnsmasq_configure
-                    fi
-
-                    uci_set "podkop" "settings" "shutdown_correctly" 0
-                    uci commit "podkop" && config_load "$PODKOP_CONFIG"
-                fi
-
-                exit "$start_rc"
+                exit 0
             fi
 
-            log "Deferred podkop startup is still waiting for subscription connectivity" "warn"
-            sleep 10
+            log "Deferred subscription refresh is still waiting for connectivity" "warn"
+            sleep 30
         done
     ) &
 
@@ -380,13 +522,13 @@ start_main() {
     mkdir -p "$TMP_SING_BOX_FOLDER"
     mkdir -p "$TMP_RULESET_FOLDER"
     mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
+    ensure_subscription_cache_dir
+    migrate_subscription_cache_from_tmp
 
-    if ! prepare_subscription_caches_for_startup; then
-        log "Podkop startup is deferred until the subscription source becomes reachable" "warn"
-        start_subscription_startup_retry_worker
-        return 2
+    prepare_subscription_caches_for_startup
+    if [ "$subscription_startup_blocked" -ne 0 ]; then
+        log "Podkop startup continues with temporary blocked subscription outbounds until sources become reachable" "warn"
     fi
-
     stop_subscription_startup_retry_worker
 
     # base
@@ -399,6 +541,10 @@ start_main() {
     config_foreach add_cron_job "section"
     config_foreach add_subscription_cron_job "section"
     /etc/init.d/sing-box start
+
+    if [ "$subscription_startup_blocked" -ne 0 ]; then
+        start_subscription_startup_retry_worker
+    fi
 
     log "Nice"
     list_update &
@@ -946,12 +1092,13 @@ subscription_update() {
         fi
 
         mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
+        ensure_subscription_cache_dir
         subscription_json_path="$(get_subscription_json_path "$section")"
         subscription_url_cache_path="$(get_subscription_url_cache_path "$section")"
 
         echolog "рџ“Ґ Updating subscription for section '$section'..."
 
-        service_proxy_address="$(get_service_proxy_address 2>/dev/null || echo '')"
+        service_proxy_address="$(get_subscription_download_proxy_address "$section" "runtime" 2>/dev/null || echo '')"
 
         if ! wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address" 6 5 5; then
             echolog "вќЊ Failed to download subscription for section '$section'"
@@ -1082,6 +1229,7 @@ sing_box_configure_inbounds() {
 sing_box_configure_outbounds() {
     log "Configure the outbounds section of a sing-box JSON configuration"
 
+    SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
     config_foreach configure_outbound_handler "section"
@@ -1245,7 +1393,7 @@ configure_outbound_handler() {
             local subscription_url subscription_json_path urltest_tag selector_tag \
                 urltest_outbounds selector_outbounds urltest_check_interval urltest_tolerance \
                 urltest_testing_url subscription_group_by_countries subscription_group_by_countries_raw \
-                subscription_outbound_tags_json
+                subscription_outbound_tags_json service_proxy_address subscription_ready
 
             config_get subscription_url "$section" "subscription_url"
             config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
@@ -1303,112 +1451,113 @@ configure_outbound_handler() {
 
             if [ "$should_download" -eq 1 ]; then
                 log "Downloading subscription for section '$section'"
-                local service_proxy_address
-                service_proxy_address="$(get_service_proxy_address 2>/dev/null || echo '')"
+                # Config generation runs before sing-box is started. Never use
+                # its local download proxy here; runtime refresh will use it.
+                service_proxy_address="$(get_subscription_download_proxy_address "$section" "bootstrap" 2>/dev/null || echo '')"
 
-                if ! wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address" 6 5 5 ||
+                if ! wait_for_subscription_connectivity "$section" "$subscription_url" "$service_proxy_address" 1 0 5 ||
                     ! download_subscription_into_cache \
                         "$section" "$subscription_url" "$subscription_json_path" "$subscription_url_cache_path" "$service_proxy_address"; then
                     if [ "$had_usable_cache" -eq 1 ]; then
                         log "Failed to refresh subscription for section '$section', continuing with cached data" "warn"
                     else
-                        log "Failed to download subscription for section '$section'. Aborted." "fatal"
+                        log "Failed to download subscription for section '$section'; using a temporary blocked outbound" "warn"
+                    fi
+                fi
+            fi
+
+            subscription_ready=0
+            if subscription_cache_is_usable "$subscription_json_path"; then
+                if sing_box_cf_add_subscription_outbounds "$config" "$section" "$subscription_json_path" > /dev/null; then
+                    if [ -n "$SUBSCRIPTION_OUTBOUND_TAGS" ]; then
+                        config="$SING_BOX_CF_LAST_CONFIG"
+                        subscription_ready=1
+                    fi
+                fi
+            fi
+
+            if [ "$subscription_ready" -eq 0 ]; then
+                log "Subscription cache for section '$section' is unavailable or empty; using a temporary blocked outbound" "warn"
+                mark_subscription_outbound_unavailable "$section"
+            else
+                selector_tag="$(get_outbound_tag_by_section "$section")"
+                subscription_outbound_tags_json="$SUBSCRIPTION_OUTBOUND_TAGS_JSON"
+                if [ -z "$subscription_outbound_tags_json" ] || [ "$subscription_outbound_tags_json" = "[]" ]; then
+                    subscription_outbound_tags_json="$(comma_string_to_json_array "$SUBSCRIPTION_OUTBOUND_TAGS")"
+                fi
+
+                if [ "$subscription_group_by_countries" -eq 1 ]; then
+                    local grouping_json country_flag country_group_outbounds country_group_tag \
+                        selector_outbounds_json selector_default ungrouped_outbounds_json grouped_count ungrouped_count
+
+                    grouping_json="$(sing_box_build_subscription_country_groups "$subscription_outbound_tags_json")"
+                    if [ -z "$grouping_json" ]; then
+                        log "Failed to build grouped subscription outbounds for section '$section'. Aborted." "fatal"
                         exit 1
                     fi
-                fi
-            fi
 
-            # Parse subscription outbounds
-            if ! sing_box_cf_add_subscription_outbounds "$config" "$section" "$subscription_json_path" > /dev/null; then
-                log "No proxy outbounds found in subscription for section '$section'. Aborted." "fatal"
-                exit 1
-            fi
-            config="$SING_BOX_CF_LAST_CONFIG"
+                    grouped_count="$(echo "$grouping_json" | jq -r '.country_order | length' 2>/dev/null)"
+                    ungrouped_count="$(echo "$grouping_json" | jq -r '.ungrouped | length' 2>/dev/null)"
+                    log "Country grouping prepared for section '$section': groups=$grouped_count, ungrouped=$ungrouped_count" "debug"
 
-            if [ -z "$SUBSCRIPTION_OUTBOUND_TAGS" ]; then
-                log "No proxy outbounds found in subscription for section '$section'. Aborted." "fatal"
-                exit 1
-            fi
+                    selector_outbounds_json="[]"
 
-            subscription_outbound_tags_json="$SUBSCRIPTION_OUTBOUND_TAGS_JSON"
-            if [ -z "$subscription_outbound_tags_json" ] || [ "$subscription_outbound_tags_json" = "[]" ]; then
-                # Fallback for backward compatibility with older facade versions.
-                subscription_outbound_tags_json="$(comma_string_to_json_array "$SUBSCRIPTION_OUTBOUND_TAGS")"
-            fi
+                    for country_flag in $(echo "$grouping_json" | jq -r '.country_order[]' 2>/dev/null); do
+                        country_group_outbounds="$(echo "$grouping_json" | jq -c --arg country_flag "$country_flag" '.country_groups[$country_flag] // []' 2>/dev/null)"
+                        if [ -z "$country_group_outbounds" ] || [ "$country_group_outbounds" = "[]" ]; then
+                            continue
+                        fi
 
-            selector_tag="$(get_outbound_tag_by_section "$section")"
+                        country_group_tag="$(sing_box_get_unique_outbound_tag "$config" "$country_flag Fastest")"
+                        config="$(sing_box_cm_add_urltest_outbound "$config" "$country_group_tag" "$country_group_outbounds" \
+                            "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
 
-            if [ "$subscription_group_by_countries" -eq 1 ]; then
-                local grouping_json country_flag country_group_outbounds country_group_tag \
-                    selector_outbounds_json selector_default ungrouped_outbounds_json grouped_count ungrouped_count
+                        selector_outbounds_json=$(
+                            printf '%s' "$selector_outbounds_json" | jq -ac --arg tag "$country_group_tag" '. + [$tag]' 2>/dev/null
+                        )
+                    done
 
-                grouping_json="$(sing_box_build_subscription_country_groups "$subscription_outbound_tags_json")"
-                if [ -z "$grouping_json" ]; then
-                    log "Failed to build grouped subscription outbounds for section '$section'. Aborted." "fatal"
-                    exit 1
-                fi
-
-                grouped_count="$(echo "$grouping_json" | jq -r '.country_order | length' 2>/dev/null)"
-                ungrouped_count="$(echo "$grouping_json" | jq -r '.ungrouped | length' 2>/dev/null)"
-                log "Country grouping prepared for section '$section': groups=$grouped_count, ungrouped=$ungrouped_count" "debug"
-
-                selector_outbounds_json="[]"
-
-                for country_flag in $(echo "$grouping_json" | jq -r '.country_order[]' 2>/dev/null); do
-                    country_group_outbounds="$(echo "$grouping_json" | jq -c --arg country_flag "$country_flag" '.country_groups[$country_flag] // []' 2>/dev/null)"
-                    if [ -z "$country_group_outbounds" ] || [ "$country_group_outbounds" = "[]" ]; then
-                        continue
+                    if [ -z "$selector_outbounds_json" ]; then
+                        selector_outbounds_json="[]"
                     fi
 
-                    country_group_tag="$(sing_box_get_unique_outbound_tag "$config" "$country_flag Fastest")"
-                    config="$(sing_box_cm_add_urltest_outbound "$config" "$country_group_tag" "$country_group_outbounds" \
+                    ungrouped_outbounds_json="$(echo "$grouping_json" | jq -c '.ungrouped // []' 2>/dev/null)"
+                    if [ -n "$ungrouped_outbounds_json" ] && [ "$ungrouped_outbounds_json" != "[]" ]; then
+                        selector_outbounds_json=$(
+                            jq -acn --argjson selector "$selector_outbounds_json" --argjson ungrouped "$ungrouped_outbounds_json" \
+                                '$selector + $ungrouped' 2>/dev/null
+                        )
+                    fi
+
+                    if [ -z "$selector_outbounds_json" ] || [ "$selector_outbounds_json" = "[]" ]; then
+                        log "No selector outbounds available after grouping subscription outbounds for section '$section'. Aborted." "fatal"
+                        exit 1
+                    fi
+
+                    selector_default="$(echo "$selector_outbounds_json" | jq -r '.[0] // ""' 2>/dev/null)"
+                    if [ -z "$selector_default" ] || [ "$selector_default" = "null" ]; then
+                        log "Unable to determine default selector outbound for section '$section'. Aborted." "fatal"
+                        exit 1
+                    fi
+
+                    selector_outbounds="$selector_outbounds_json"
+                    config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$selector_default" "true")"
+                else
+                    # Create urltest + selector (default subscription behaviour)
+                    urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
+                    urltest_outbounds="$subscription_outbound_tags_json"
+                    selector_outbounds=$(
+                        jq -acn --argjson outbounds "$subscription_outbound_tags_json" --arg tag "$urltest_tag" \
+                            '$outbounds + [$tag]' 2>/dev/null
+                    )
+                    if [ -z "$selector_outbounds" ]; then
+                        log "Failed to build selector outbounds for subscription section '$section'. Aborted." "fatal"
+                        exit 1
+                    fi
+                    config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds" \
                         "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
-
-                    selector_outbounds_json=$(
-                        printf '%s' "$selector_outbounds_json" | jq -ac --arg tag "$country_group_tag" '. + [$tag]' 2>/dev/null
-                    )
-                done
-
-                if [ -z "$selector_outbounds_json" ]; then
-                    selector_outbounds_json="[]"
+                    config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag" "true")"
                 fi
-
-                ungrouped_outbounds_json="$(echo "$grouping_json" | jq -c '.ungrouped // []' 2>/dev/null)"
-                if [ -n "$ungrouped_outbounds_json" ] && [ "$ungrouped_outbounds_json" != "[]" ]; then
-                    selector_outbounds_json=$(
-                        jq -acn --argjson selector "$selector_outbounds_json" --argjson ungrouped "$ungrouped_outbounds_json" \
-                            '$selector + $ungrouped' 2>/dev/null
-                    )
-                fi
-
-                if [ -z "$selector_outbounds_json" ] || [ "$selector_outbounds_json" = "[]" ]; then
-                    log "No selector outbounds available after grouping subscription outbounds for section '$section'. Aborted." "fatal"
-                    exit 1
-                fi
-
-                selector_default="$(echo "$selector_outbounds_json" | jq -r '.[0] // ""' 2>/dev/null)"
-                if [ -z "$selector_default" ] || [ "$selector_default" = "null" ]; then
-                    log "Unable to determine default selector outbound for section '$section'. Aborted." "fatal"
-                    exit 1
-                fi
-
-                selector_outbounds="$selector_outbounds_json"
-                config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$selector_default" "true")"
-            else
-                # Create urltest + selector (default subscription behaviour)
-                urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
-                urltest_outbounds="$subscription_outbound_tags_json"
-                selector_outbounds=$(
-                    jq -acn --argjson outbounds "$subscription_outbound_tags_json" --arg tag "$urltest_tag" \
-                        '$outbounds + [$tag]' 2>/dev/null
-                )
-                if [ -z "$selector_outbounds" ]; then
-                    log "Failed to build selector outbounds for subscription section '$section'. Aborted." "fatal"
-                    exit 1
-                fi
-                config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds" \
-                    "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
-                config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag" "true")"
             fi
             ;;
         *)
@@ -1517,8 +1666,17 @@ sing_box_configure_route() {
 
     local first_outbound_section
     first_outbound_section="$(get_first_outbound_section)"
-    first_outbound_tag="$(get_outbound_tag_by_section "$first_outbound_section")"
-    config=$(sing_box_cf_proxy_domain "$config" "$SB_TPROXY_INBOUND_TAG" "$CHECK_PROXY_IP_DOMAIN" "$first_outbound_tag")
+    if subscription_outbound_is_unavailable "$first_outbound_section"; then
+        log "First configured outbound section '$first_outbound_section' is unavailable; proxy test traffic will be rejected until its subscription refresh succeeds" "warn"
+        first_outbound_tag=""
+    else
+        first_outbound_tag="$(get_outbound_tag_by_section "$first_outbound_section")"
+    fi
+    if [ -n "$first_outbound_tag" ]; then
+        config=$(sing_box_cf_proxy_domain "$config" "$SB_TPROXY_INBOUND_TAG" "$CHECK_PROXY_IP_DOMAIN" "$first_outbound_tag")
+    else
+        config=$(sing_box_cf_add_single_key_reject_rule "$config" "$SB_TPROXY_INBOUND_TAG" "domain" "$CHECK_PROXY_IP_DOMAIN")
+    fi
     config=$(sing_box_cf_override_domain_port "$config" "$FAKEIP_TEST_DOMAIN" 8443)
 
     configure_common_reject_route_rule
@@ -1544,10 +1702,14 @@ include_source_ips_in_routing_handler() {
     config_get fully_routed_ips "$section" "fully_routed_ips"
     if [ -n "$fully_routed_ips" ]; then
         rule_tag="$(gen_id)"
-        config=$(
-            sing_box_cm_add_route_rule \
-                "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$(get_outbound_tag_by_section "$section")"
-        )
+        if subscription_outbound_is_unavailable "$section"; then
+            config="$(sing_box_cm_add_reject_route_rule "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG")"
+        else
+            config=$(
+                sing_box_cm_add_route_rule \
+                    "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$(get_outbound_tag_by_section "$section")"
+            )
+        fi
         config_list_foreach "$section" "fully_routed_ips" include_source_ip_in_routing_handler "$rule_tag"
     fi
 }
@@ -1630,8 +1792,12 @@ configure_routing_for_section_lists() {
     case "$section_connection_type" in
     proxy | vpn)
         route_rule_tag="$(gen_id)"
-        outbound_tag=$(get_outbound_tag_by_section "$section")
-        config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
+        if subscription_outbound_is_unavailable "$section"; then
+            config="$(sing_box_cm_add_reject_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG")"
+        else
+            outbound_tag=$(get_outbound_tag_by_section "$section")
+            config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
+        fi
         ;;
     block)
         route_rule_tag="$SB_REJECT_RULE_TAG"
@@ -1896,15 +2062,21 @@ sing_box_additional_inbounds() {
     if [ "$download_lists_via_proxy" -eq 1 ]; then
         local download_lists_via_proxy_section section_outbound_tag
         config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
-        section_outbound_tag="$(get_outbound_tag_by_section "$download_lists_via_proxy_section")"
-        config=$(
-            sing_box_cf_add_mixed_inbound_and_route_rule \
-                "$config" \
-                "$SB_SERVICE_MIXED_INBOUND_TAG" \
-                "$SB_SERVICE_MIXED_INBOUND_ADDRESS" \
-                "$SB_SERVICE_MIXED_INBOUND_PORT" \
-                "$section_outbound_tag"
-        )
+        if subscription_outbound_is_unavailable "$download_lists_via_proxy_section"; then
+            log "Service download proxy section '$download_lists_via_proxy_section' is unavailable; rejecting proxy requests until its subscription refresh succeeds" "warn"
+            config="$(sing_box_cm_add_mixed_inbound "$config" "$SB_SERVICE_MIXED_INBOUND_TAG" "$SB_SERVICE_MIXED_INBOUND_ADDRESS" "$SB_SERVICE_MIXED_INBOUND_PORT")"
+            config="$(sing_box_cm_add_reject_route_rule "$config" "$(gen_id)" "$SB_SERVICE_MIXED_INBOUND_TAG")"
+        else
+            section_outbound_tag="$(get_outbound_tag_by_section "$download_lists_via_proxy_section")"
+            config=$(
+                sing_box_cf_add_mixed_inbound_and_route_rule \
+                    "$config" \
+                    "$SB_SERVICE_MIXED_INBOUND_TAG" \
+                    "$SB_SERVICE_MIXED_INBOUND_ADDRESS" \
+                    "$SB_SERVICE_MIXED_INBOUND_PORT" \
+                    "$section_outbound_tag"
+            )
+        fi
     fi
 
     config_foreach configure_section_mixed_proxy "section"
@@ -1935,15 +2107,20 @@ configure_section_mixed_proxy() {
     fi
     if [ "$mixed_inbound_enabled" -eq 1 ]; then
         mixed_inbound_tag="$(get_inbound_tag_by_section "$section-mixed")"
-        mixed_outbound_tag="$(get_outbound_tag_by_section "$section")"
-        config=$(
-            sing_box_cf_add_mixed_inbound_and_route_rule \
-                "$config" \
-                "$mixed_inbound_tag" \
-                "$mixed_proxy_address" \
-                "$mixed_proxy_port" \
-                "$mixed_outbound_tag"
-        )
+        if subscription_outbound_is_unavailable "$section"; then
+            config="$(sing_box_cm_add_mixed_inbound "$config" "$mixed_inbound_tag" "$mixed_proxy_address" "$mixed_proxy_port")"
+            config="$(sing_box_cm_add_reject_route_rule "$config" "$(gen_id)" "$mixed_inbound_tag")"
+        else
+            mixed_outbound_tag="$(get_outbound_tag_by_section "$section")"
+            config=$(
+                sing_box_cf_add_mixed_inbound_and_route_rule \
+                    "$config" \
+                    "$mixed_inbound_tag" \
+                    "$mixed_proxy_address" \
+                    "$mixed_proxy_port" \
+                    "$mixed_outbound_tag"
+            )
+        fi
     fi
 }
 
@@ -2228,6 +2405,11 @@ get_download_detour_tag() {
     if [ "$download_lists_via_proxy" -eq 1 ]; then
         local download_lists_via_proxy_section section_outbound_tag
         config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
+        if subscription_outbound_is_unavailable "$download_lists_via_proxy_section"; then
+            log "Download detour section '$download_lists_via_proxy_section' is unavailable; using direct detour until subscription refresh succeeds" "warn"
+            echo ""
+            return 0
+        fi
         section_outbound_tag="$(get_outbound_tag_by_section "$download_lists_via_proxy_section")"
         echo "$section_outbound_tag"
     else
