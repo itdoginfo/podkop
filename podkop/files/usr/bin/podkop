@@ -167,12 +167,31 @@ get_subscription_rejected_cache_path() {
 
 ensure_subscription_cache_dir() {
     local state_dir_created=0 cache_dir_created=0
+    local mkdir_errfile mkdir_rc
 
     [ -d "$PODKOP_STATE_DIR" ] || state_dir_created=1
     [ -d "$SUBSCRIPTION_CACHE_FOLDER" ] || cache_dir_created=1
-    mkdir -p "$SUBSCRIPTION_CACHE_FOLDER" || return 1
-    [ "$state_dir_created" -eq 1 ] && chmod 700 "$PODKOP_STATE_DIR" 2>/dev/null
-    [ "$cache_dir_created" -eq 1 ] && chmod 700 "$SUBSCRIPTION_CACHE_FOLDER" 2>/dev/null
+    mkdir_errfile="/tmp/podkop-subscription-cache-mkdir.$$"
+    if mkdir -p "$SUBSCRIPTION_CACHE_FOLDER" 2>"$mkdir_errfile"; then
+        rm -f "$mkdir_errfile"
+    else
+        mkdir_rc=$?
+        if [ -d "$SUBSCRIPTION_CACHE_FOLDER" ]; then
+            log "Subscription cache directory '$SUBSCRIPTION_CACHE_FOLDER' already exists; continuing after mkdir rc=$mkdir_rc" "warn"
+            rm -f "$mkdir_errfile"
+        else
+            local mkdir_err
+            mkdir_err="$(tr '\n' ' ' < "$mkdir_errfile" 2>/dev/null | sed 's/[[:space:]][[:space:]]*/ /g; s/^ //; s/ $//' | cut -c1-220)"
+            rm -f "$mkdir_errfile"
+            log "Failed to prepare subscription cache directory '$SUBSCRIPTION_CACHE_FOLDER': mkdir rc=$mkdir_rc, state_dir_created=$state_dir_created, cache_dir_created=$cache_dir_created, error=\"${mkdir_err:-no stderr}\"" "error"
+            return 1
+        fi
+    fi
+
+    if [ "$state_dir_created" -eq 1 ] || [ "$cache_dir_created" -eq 1 ]; then
+        chmod 700 "$PODKOP_STATE_DIR" 2>/dev/null
+        chmod 700 "$SUBSCRIPTION_CACHE_FOLDER" 2>/dev/null
+    fi
 }
 
 migrate_subscription_cache_from_tmp() {
@@ -1119,7 +1138,11 @@ subscription_update() {
         fi
 
         mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
-        ensure_subscription_cache_dir
+        if ! ensure_subscription_cache_dir; then
+            echolog "вќЊ Subscription cache directory is unavailable for section '$section'"
+            failed_sections=$((failed_sections + 1))
+            return
+        fi
         subscription_json_path="$(get_subscription_json_path "$section")"
         subscription_url_cache_path="$(get_subscription_url_cache_path "$section")"
 
