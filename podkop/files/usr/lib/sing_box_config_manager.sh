@@ -1230,7 +1230,7 @@ sing_box_cm_add_hijack_dns_route_rule() {
         --arg key "$key" \
         --argjson value "$value" \
         '.route.rules += [{
-            action: "hijack-dns",
+            action: "hijack-dns", inbound: "dns-in",
             ($key): $value
         }]'
 }
