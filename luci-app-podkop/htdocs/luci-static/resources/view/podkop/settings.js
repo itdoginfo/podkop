@@ -309,6 +309,8 @@ function createSettingsContent(section) {
     this.keylist = [];
     this.vallist = [];
 
+    console.log('sections', {sections})
+
     for (const secName in sections) {
       const sec = sections[secName];
       if (sec[".type"] === "section") {
