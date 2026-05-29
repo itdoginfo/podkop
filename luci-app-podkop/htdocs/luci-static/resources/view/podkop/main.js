@@ -453,18 +453,16 @@ function validateHysteria2Url(url) {
   try {
     const isHY2 = url.startsWith("hysteria2://");
     const isHY2Short = url.startsWith("hy2://");
-    if (!isHY2 && !isHY2Short) {
+    if (!isHY2 && !isHY2Short)
       return {
         valid: false,
         message: _("Invalid HY2 URL: must start with hysteria2:// or hy2://")
       };
-    }
-    if (/\s/.test(url)) {
+    if (/\s/.test(url))
       return {
         valid: false,
         message: _("Invalid HY2 URL: must not contain spaces")
       };
-    }
     const prefix = isHY2 ? "hysteria2://" : "hy2://";
     const body = url.slice(prefix.length);
     const [mainPart] = body.split("#");
@@ -483,50 +481,57 @@ function validateHysteria2Url(url) {
         message: _("Invalid HY2 URL: missing host & port")
       };
     const [host, port] = hostPortPart.split(":");
-    if (!host) {
+    if (!host)
       return { valid: false, message: _("Invalid HY2 URL: missing host") };
-    }
-    if (!port) {
+    if (!port)
       return { valid: false, message: _("Invalid HY2 URL: missing port") };
-    }
     const cleanedPort = port.replace("/", "");
-    const portNum = Number(cleanedPort);
-    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
+    const portEntries = cleanedPort.split(",");
+    const isValidPortNumber = (value) => {
+      if (!/^\d+$/.test(value)) return false;
+      const num = Number(value);
+      return num >= 1 && num <= 65535;
+    };
+    const isValidPortEntry = (entry) => {
+      if (!entry) return false;
+      if (!entry.includes("-")) return isValidPortNumber(entry);
+      const rangeParts = entry.split("-");
+      if (rangeParts.length !== 2) return false;
+      const [start, end] = rangeParts;
+      if (!isValidPortNumber(start) || !isValidPortNumber(end)) return false;
+      return Number(start) <= Number(end);
+    };
+    if (!portEntries.every(isValidPortEntry))
       return {
         valid: false,
         message: _("Invalid HY2 URL: invalid port number")
       };
-    }
     if (queryString) {
       const params = parseQueryString(queryString);
       const paramsKeys = Object.keys(params);
-      if (paramsKeys.includes("insecure") && !["0", "1"].includes(params.insecure)) {
+      if (paramsKeys.includes("insecure") && !["0", "1"].includes(params.insecure))
         return {
           valid: false,
           message: _("Invalid HY2 URL: insecure must be 0 or 1")
         };
-      }
       const validObfsTypes = ["none", "salamander"];
-      if (paramsKeys.includes("obfs") && !validObfsTypes.includes(params.obfs)) {
+      if (paramsKeys.includes("obfs") && !validObfsTypes.includes(params.obfs))
         return {
           valid: false,
           message: _("Invalid HY2 URL: unsupported obfs type")
         };
-      }
-      if (paramsKeys.includes("obfs") && params.obfs !== "none" && !params["obfs-password"]) {
+      if (paramsKeys.includes("obfs") && params.obfs !== "none" && !params["obfs-password"])
         return {
           valid: false,
           message: _(
             "Invalid HY2 URL: obfs-password required when obfs is set"
           )
         };
-      }
-      if (paramsKeys.includes("sni") && !params.sni) {
+      if (paramsKeys.includes("sni") && !params.sni)
         return {
           valid: false,
           message: _("Invalid HY2 URL: sni cannot be empty")
         };
-      }
     }
     return { valid: true, message: _("Valid") };
   } catch (_e) {

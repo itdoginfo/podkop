@@ -648,56 +648,56 @@
     "call": "Invalid HY2 URL: insecure must be 0 or 1",
     "key": "Invalid HY2 URL: insecure must be 0 or 1",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:76"
+      "src/validators/validateHysteriaUrl.ts:90"
     ]
   },
   {
     "call": "Invalid HY2 URL: invalid port number",
     "key": "Invalid HY2 URL: invalid port number",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:62"
+      "src/validators/validateHysteriaUrl.ts:77"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing credentials/server",
     "key": "Invalid HY2 URL: missing credentials/server",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:32"
+      "src/validators/validateHysteriaUrl.ts:30"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing host",
     "key": "Invalid HY2 URL: missing host",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:49"
+      "src/validators/validateHysteriaUrl.ts:47"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing host & port",
     "key": "Invalid HY2 URL: missing host & port",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:43"
+      "src/validators/validateHysteriaUrl.ts:41"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing password",
     "key": "Invalid HY2 URL: missing password",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:38"
+      "src/validators/validateHysteriaUrl.ts:36"
     ]
   },
   {
     "call": "Invalid HY2 URL: missing port",
     "key": "Invalid HY2 URL: missing port",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:53"
+      "src/validators/validateHysteriaUrl.ts:50"
     ]
   },
   {
     "call": "Invalid HY2 URL: must not contain spaces",
     "key": "Invalid HY2 URL: must not contain spaces",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:19"
+      "src/validators/validateHysteriaUrl.ts:18"
     ]
   },
   {
@@ -711,28 +711,28 @@
     "call": "Invalid HY2 URL: obfs-password required when obfs is set",
     "key": "Invalid HY2 URL: obfs-password required when obfs is set",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:99"
+      "src/validators/validateHysteriaUrl.ts:108"
     ]
   },
   {
     "call": "Invalid HY2 URL: parsing failed",
     "key": "Invalid HY2 URL: parsing failed",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:115"
+      "src/validators/validateHysteriaUrl.ts:122"
     ]
   },
   {
     "call": "Invalid HY2 URL: sni cannot be empty",
     "key": "Invalid HY2 URL: sni cannot be empty",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:108"
+      "src/validators/validateHysteriaUrl.ts:116"
     ]
   },
   {
     "call": "Invalid HY2 URL: unsupported obfs type",
     "key": "Invalid HY2 URL: unsupported obfs type",
     "places": [
-      "src/validators/validateHysteriaUrl.ts:88"
+      "src/validators/validateHysteriaUrl.ts:98"
     ]
   },
   {
@@ -943,7 +943,7 @@
     "call": "Latest",
     "key": "Latest",
     "places": [
-      "src/podkop/tabs/diagnostic/initController.ts:456"
+      "src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:48"
     ]
   },
   {
@@ -1075,7 +1075,7 @@
     "call": "Outdated",
     "key": "Outdated",
     "places": [
-      "src/podkop/tabs/diagnostic/initController.ts:446"
+      "src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:38"
     ]
   },
   {
@@ -1685,7 +1685,7 @@
       "src/podkop/tabs/diagnostic/initController.ts:41",
       "src/podkop/tabs/diagnostic/initController.ts:42",
       "src/podkop/tabs/diagnostic/initController.ts:43",
-      "src/podkop/tabs/diagnostic/initController.ts:420"
+      "src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:7"
     ]
   },
   {
@@ -1802,7 +1802,7 @@
       "src/validators/validateDns.ts:18",
       "src/validators/validateDomain.ts:13",
       "src/validators/validateDomain.ts:30",
-      "src/validators/validateHysteriaUrl.ts:113",
+      "src/validators/validateHysteriaUrl.ts:120",
       "src/validators/validateIp.ts:8",
       "src/validators/validateOutboundJson.ts:7",
       "src/validators/validatePath.ts:16",
