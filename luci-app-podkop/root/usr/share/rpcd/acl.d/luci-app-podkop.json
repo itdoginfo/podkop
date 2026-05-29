@@ -22,7 +22,12 @@
     "write": {
       "uci": [
         "podkop"
-      ]
+      ],
+      "ubus": {
+        "uci": [
+          "commit"
+        ]
+      }
     }
   }
 }
