@@ -622,6 +622,7 @@ var Podkop;
     AvailableMethods2["SHOW_SING_BOX_CONFIG"] = "show_sing_box_config";
     AvailableMethods2["CHECK_LOGS"] = "check_logs";
     AvailableMethods2["GET_SYSTEM_INFO"] = "get_system_info";
+    AvailableMethods2["GET_SUBSCRIPTION_OUTBOUNDS"] = "get_subscription_outbounds";
   })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
   let AvailableClashAPIMethods;
   ((AvailableClashAPIMethods2) => {
@@ -696,6 +697,10 @@ var PodkopShellMethods = {
   checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS),
   getSystemInfo: async () => callBaseMethod(
     Podkop.AvailableMethods.GET_SYSTEM_INFO
+  ),
+  getSubscriptionOutbounds: async (subscriptionUrl) => callBaseMethod(
+    Podkop.AvailableMethods.GET_SUBSCRIPTION_OUTBOUNDS,
+    [subscriptionUrl]
   )
 };
 
@@ -747,6 +752,26 @@ async function getDashboardSections() {
         const parsedOutbound = JSON.parse(section.outbound_json);
         const parsedTag = parsedOutbound?.tag ? decodeURIComponent(parsedOutbound?.tag) : void 0;
         const proxyDisplayName = parsedTag || outbound?.value?.name || "";
+        return {
+          withTagSelect: false,
+          code: outbound?.code || section[".name"],
+          displayName: section[".name"],
+          outbounds: [
+            {
+              code: outbound?.code || section[".name"],
+              displayName: proxyDisplayName,
+              latency: outbound?.value?.history?.[0]?.delay || 0,
+              type: outbound?.value?.type || "",
+              selected: true
+            }
+          ]
+        };
+      }
+      if (section.proxy_config_type === "subscription") {
+        const outbound = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        const proxyDisplayName = getProxyUrlName(section.subscription_proxy_link) || outbound?.value?.name || "";
         return {
           withTagSelect: false,
           code: outbound?.code || section[".name"],
