@@ -1,0 +1,36 @@
+# Netshift Evolution — .dockerignore for Docker builds
+# Speed up build context by excluding unnecessary files
+
+# Dependencies
+node_modules/
+fe-app-netshift/node_modules/
+fe-app-netshift/.yarn/
+
+# Build artifacts
+fe-app-netshift/dist/
+*.ipk
+*.apk
+
+# Git
+.git/
+.gitattributes
+.gitignore
+.github/
+
+# Documentation
+*.md
+!README.md
+agent/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests (excluded from build, mounted separately)
+tests/test-results/

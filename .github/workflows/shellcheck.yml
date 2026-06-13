@@ -7,8 +7,8 @@ on:
       - 'rc/**'
     paths:
       - 'install.sh'
-      - 'podkop/files/usr/bin/**'
-      - 'podkop/files/usr/lib/**'
+      - 'netshift/files/usr/bin/**'
+      - 'netshift/files/usr/lib/**'
       - '.github/workflows/shellcheck.yml'
   pull_request:
     branches:
@@ -16,8 +16,8 @@ on:
       - 'rc/**'
     paths:
       - 'install.sh'
-      - 'podkop/files/usr/bin/**'
-      - 'podkop/files/usr/lib/**'
+      - 'netshift/files/usr/bin/**'
+      - 'netshift/files/usr/lib/**'
       - '.github/workflows/shellcheck.yml'
 
 permissions:
@@ -43,7 +43,7 @@ jobs:
         with:
           severity: error
           include-path: |
-            podkop/files/usr/bin/podkop
-            podkop/files/usr/lib/**.sh
+            netshift/files/usr/bin/netshift
+            netshift/files/usr/lib/**.sh
             install.sh
           token: ${{ secrets.GITHUB_TOKEN }}

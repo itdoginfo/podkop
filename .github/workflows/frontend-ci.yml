@@ -3,7 +3,7 @@ name: Frontend CI
 on:
   pull_request:
     paths:
-      - 'fe-app-podkop/**'
+      - 'fe-app-netshift/**'
       - '.github/workflows/frontend-ci.yml'
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-24.04
     defaults:
       run:
-        working-directory: fe-app-podkop
+        working-directory: fe-app-netshift
 
     steps:
       - name: Checkout code
@@ -28,14 +28,14 @@ jobs:
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
-        working-directory: fe-app-podkop
+        working-directory: fe-app-netshift
         run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
 
       - name: Cache yarn dependencies
         uses: actions/cache@v4.3.0
         with:
           path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('fe-app-podkop/yarn.lock') }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('fe-app-netshift/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
 

@@ -1,0 +1,14 @@
+{
+  "admin/services/netshift": {
+    "title": "NetShift",
+    "order": 42,
+    "action": {
+      "type": "view",
+      "path": "netshift/netshift"
+    },
+    "depends": {
+			"acl": [ "luci-app-netshift" ],
+			"uci": { "netshift": true }
+		}
+  }
+}

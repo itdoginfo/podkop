@@ -11,7 +11,7 @@ body:
         Спасибо за создание отчета об ошибке!
         
         Перед отправкой, пожалуйста:
-        - Проверьте [существующие issues](https://github.com/itdoginfo/podkop/issues)
+        - Проверьте [существующие issues](https://github.com/yandexru45/netshift/issues)
         - Просмотрите [документацию](https://podkop.net)
 
   - type: textarea
@@ -53,7 +53,7 @@ body:
         Информация о вашей системе (заполните всё применимое)
       value: |
         - **OpenWrt версия**: 
-        - **Podkop версия**: 
+        - **NetShift версия**: 
         - **Роутер модель**: 
         - **Sing-box версия**: 
       render: markdown
@@ -68,7 +68,7 @@ body:
         Релевантные части конфигурации (удалите чувствительную информацию!)
       placeholder: |
         Например:
-        - Содержимое /etc/config/podkop
+        - Содержимое /etc/config/netshift
         - Конфигурация sing-box (если релевантно)
         - Дополнительные конфиги, которые потребуются wireless/network/dhcp и т.д.
       render: shell

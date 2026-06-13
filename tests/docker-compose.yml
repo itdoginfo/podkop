@@ -1,0 +1,66 @@
+# ──────────────────────────────────────────────────────────────────
+# Netshift Evolution — Docker Compose Test Environment
+#
+# Launch:
+#   docker compose -f tests/docker-compose.yml build
+#   docker compose -f tests/docker-compose.yml up
+#
+# Run specific test:
+#   docker compose -f tests/docker-compose.yml run --rm netshift-test <test-name>
+#
+# Test names: all, deps, syntax, config, helpers, jq, cm, sb, nft,
+#             nftv6, selmark, isolation, monfd, unsupported, diagnostics, subscription, fastest, insecure, rejected,
+#             jobstate, selfheal, dnsdetour, suburlopt, globalproxy, stablecheck,
+#             extcheck, netshiftcheck, latesttag, ghredirect, selfupdate,
+#             backupguard
+# ──────────────────────────────────────────────────────────────────
+
+services:
+  netshift-test:
+    build:
+      context: ..
+      dockerfile: tests/Dockerfile
+      args:
+        - NETSHIFT_VERSION=test
+    image: netshift-evolution:test
+    container_name: netshift-test
+    hostname: OpenWrt
+
+    # ── Kernel capabilities for nftables ────────────────────────
+    cap_add:
+      - NET_ADMIN      # nftables table/rule management
+      - NET_RAW        # raw socket operations
+      - SYS_ADMIN      # needed for some nft operations in containers
+
+    # ── Network ─────────────────────────────────────────────────
+    # host mode gives us full network access for DNS/subscription tests.
+    # Remove 'network_mode: host' if you don't need real network.
+    network_mode: host
+    # Alternative: use bridge mode with DNS configured
+    # dns:
+    #   - 8.8.8.8
+    #   - 1.1.1.1
+
+    # ── Volumes (source code bind mount) ─────────────────────────
+    volumes:
+      - ../netshift/files:/netshift/files:ro
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - ./test-results:/tmp/test-results
+
+    # ── Environment ──────────────────────────────────────────────
+    environment:
+      - NETSHIFT_VERSION=test
+      - TEST_SKIP_NETWORK=${TEST_SKIP_NETWORK:-0}
+      - TEST_VERBOSE=${TEST_VERBOSE:-0}
+
+    # ── Health check ─────────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "entrypoint"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Don't restart — this is a test container
+    restart: "no"
+    stdin_open: true
+    tty: true

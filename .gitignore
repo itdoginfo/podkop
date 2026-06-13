@@ -1,4 +1,17 @@
 .idea
-fe-app-podkop/node_modules
-fe-app-podkop/.env
+fe-app-netshift/node_modules
+fe-app-netshift/.env
 .DS_Store
+*.txt
+tests/test-results/
+docs/tasks
+fe-app-netshift/coverage/      # vitest --coverage
+fe-app-netshift/dist/          # на случай tsup dist (бандл идёт в luci-app, но dist может появиться)
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+fe-app-netshift/.yarn/
+fe-app-netshift/.yarnrc.yml
+fe-app-netshift/.pnp.*
+agent/

@@ -1,0 +1,90 @@
+config settings 'settings'
+        option dns_type 'udp'
+        option dns_server '77.88.8.8'
+        option bootstrap_dns_server '77.88.8.8'
+        option dns_rewrite_ttl '60'
+        list source_network_interfaces 'br-lan'
+        option enable_output_network_interface '0'
+        #option output_network_interface 'wan'
+        option enable_badwan_interface_monitoring '0'
+        #list badwan_monitored_interfaces 'wan'
+        #option badwan_reload_delay '2000'
+        option enable_yacd '0'
+        option disable_quic '0'
+        option update_interval '1d'
+        option download_lists_via_proxy '0'
+        #option dns_via_outbound '0'
+        #option dns_outbound_section 'main'
+        option dont_touch_dhcp '0'
+        option config_path '/etc/sing-box/config.json'
+        option cache_path '/tmp/sing-box/cache.db'
+        option log_level 'warn'
+        option exclude_ntp '0'
+        option shutdown_correctly '0'
+        option block_doh '0'
+        option enable_ipv6 '0'
+        #list routing_excluded_ips '192.168.1.3'
+
+config section 'main'
+        option connection_type 'proxy'
+        option proxy_config_type 'url'
+        option proxy_string ''
+        option enable_udp_over_tcp '0'
+        option global_proxy '0'
+        list community_lists 'russia_inside'
+        #option user_domain_list_type 'dynamic'
+        #list user_domains '2ip.ru'
+        #option user_subnet_list_type 'dynamic'
+        #list user_subnets '1.1.1.1'
+        #list local_domain_lists '/tmp/domains.lst'
+        #list local_subnet_lists '/tmp/subnets.lst'
+        #list remote_domain_lists 'https://example.com/domains.srs'
+        #list remote_subnet_lists 'https://example.com/subnets.srs'
+        #list fully_routed_ips '192.168.1.2'
+        #option mixed_proxy_enabled '1'
+        #option mixed_proxy_port '2080'
+
+#config section 'subscription_example'
+#        option connection_type 'proxy'
+#        option proxy_config_type 'subscription'
+#        # subscription_url may be a single option (legacy, still supported) or a
+#        # UCI list of one or more feed URLs. With multiple URLs every feed is
+#        # downloaded/validated independently and all nodes are MERGED into one
+#        # selector/urltest group (same-named nodes auto-deduped). A dead feed
+#        # never breaks the others; the section is blocked only if ALL feeds fail.
+#        option subscription_url 'https://example.com/api/sub'
+#        #list subscription_url 'https://example.com/api/sub'
+#        #list subscription_url 'https://another-panel.example/api/sub'
+#        # Allow insecure TLS for the subscription fetch (default 0). Set to 1 to
+#        # add wget --no-check-certificate for IP-host panels whose HTTPS cert is
+#        # invalid/self-signed/missing-SAN. Disables certificate verification.
+#        #option subscription_insecure '0'
+#        # Force a specific client User-Agent for the fetch. When set, ONLY this
+#        # UA is used (no probing). Leave unset to auto-probe well-known clients.
+#        #option subscription_user_agent 'Happ'
+#        # Preferred body FORMAT to probe first (auto|xray|singbox, default auto).
+#        # Panels often serve a different config per User-Agent. 'xray' tries the
+#        # Xray-JSON UAs (Happ/v2rayN) FIRST to recover xhttp nodes a panel only
+#        # exposes in its Xray JSON; 'singbox' keeps the singbox/<ver> UA first;
+#        # 'auto' preserves the default order. Ignored when subscription_user_agent
+#        # is set (an explicit UA always wins).
+#        #option subscription_format_preference 'auto'
+#        option subscription_update_interval '1h'
+#        # Node grouping: off | country | prefix. 'country' clusters by leading
+#        # flag emoji; 'prefix' clusters by the first N codepoints of each node
+#        # name (N = subscription_group_prefix_len). subscription_group_mode
+#        # outranks the legacy subscription_group_by_countries boolean below.
+#        #option subscription_group_mode 'off'
+#        #option subscription_group_prefix_len '2'
+#        #option subscription_group_by_countries '0'
+#        #option urltest_check_interval '3m'
+#        #option urltest_tolerance '50'
+#        #option urltest_testing_url 'https://www.gstatic.com/generate_204'
+#        # Keyword whitelist: keep only nodes whose display name contains any of
+#        # these (OR). Empty/absent = keep all. Substring, ASCII case-insensitive.
+#        #list subscription_filter_include_keywords '🤖'
+#        #list subscription_filter_include_keywords 'grpc'
+#        # Keyword blacklist: drop any node whose display name contains any of
+#        # these (OR). Empty/absent = no exclusion.
+#        #list subscription_filter_exclude_keywords 'expired'
+#        list community_lists 'russia_inside'

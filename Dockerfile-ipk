@@ -1,11 +1,11 @@
 FROM itdoginfo/openwrt-sdk-ipk:24.10.6
 
-ARG PODKOP_VERSION
+ARG NETSHIFT_VERSION
+ENV NETSHIFT_VERSION=${NETSHIFT_VERSION}
 
-COPY ./podkop /builder/package/feeds/utilities/podkop
-COPY ./luci-app-podkop /builder/package/feeds/luci/luci-app-podkop
+COPY ./netshift /builder/package/feeds/utilities/netshift
+COPY ./luci-app-netshift /builder/package/feeds/luci/luci-app-netshift
 
-RUN export PODKOP_VERSION="v${PODKOP_VERSION}" && \
-    make defconfig && \
-    make package/podkop/compile V=s -j4 && \
-    make package/luci-app-podkop/compile V=s -j4
+RUN make defconfig && \
+    make package/netshift/compile V=s -j4 && \
+    make package/luci-app-netshift/compile V=s -j4

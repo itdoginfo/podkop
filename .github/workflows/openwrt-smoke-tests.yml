@@ -1,0 +1,61 @@
+name: OpenWrt Smoke Tests
+
+on:
+  push:
+    branches:
+      - main
+      - 'rc/**'
+    paths:
+      - 'netshift/**'
+      - 'luci-app-netshift/**'
+      - 'tests/**'
+      - 'install.sh'
+      - 'Dockerfile-ipk'
+      - 'Dockerfile-apk'
+      - '.dockerignore'
+      - '.github/workflows/openwrt-smoke-tests.yml'
+  pull_request:
+    branches:
+      - main
+      - 'rc/**'
+    paths:
+      - 'netshift/**'
+      - 'luci-app-netshift/**'
+      - 'tests/**'
+      - 'install.sh'
+      - 'Dockerfile-ipk'
+      - 'Dockerfile-apk'
+      - '.dockerignore'
+      - '.github/workflows/openwrt-smoke-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-tests:
+    name: OpenWrt rootfs smoke tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+
+      - name: Build OpenWrt smoke test image
+        run: docker compose -f tests/docker-compose.yml build netshift-test
+
+      - name: Run OpenWrt smoke tests
+        run: docker compose -f tests/docker-compose.yml run --rm netshift-test all
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: openwrt-smoke-test-results
+          path: tests/test-results
+          if-no-files-found: ignore
+          retention-days: 7

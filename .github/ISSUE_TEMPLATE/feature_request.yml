@@ -1,6 +1,6 @@
 ---
 name: ✨ Запрос новой функции
-description: Предложите новую функцию или улучшение для Podkop
+description: Предложите новую функцию или улучшение для NetShift
 title: "[FEATURE] "
 labels: ["enhancement", "needs-discussion"]
 assignees: []
@@ -11,7 +11,7 @@ body:
         Спасибо за предложение новой функции!
         
         Перед отправкой, пожалуйста:
-        - Проверьте [существующие запросы](https://github.com/itdoginfo/podkop/issues?q=is%3Aissue+label%3Aenhancement)
+        - Проверьте [существующие запросы](https://github.com/yandexru45/netshift/issues?q=is%3Aissue+label%3Aenhancement)
         - Убедитесь, что функции не существует в [документации](https://podkop.net)
 
   - type: textarea
@@ -40,7 +40,7 @@ body:
       label: 💡 Предлагаемое решение
       description: Четкое и краткое описание того, что вы хотите реализовать
       placeholder: |
-        Я хочу, чтобы Podkop мог [...]
+        Я хочу, чтобы NetShift мог [...]
         Предлагаю добавить функцию, которая [...]
         Можно было бы улучшить [...] путем [...]
     validations:
