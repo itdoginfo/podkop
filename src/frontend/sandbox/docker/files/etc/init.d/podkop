@@ -1,0 +1,32 @@
+#!/bin/sh /etc/rc.common
+# Service stub. No daemon behind it — just enough for the Start/Stop/Restart/
+# Enable/Disable buttons to go through rpcd and change observable state.
+START=99
+USE_PROCD=0
+
+STATE=/tmp/podkop-service-state
+
+start() {
+	echo running >"$STATE"
+	echo '{"result":"started"}'
+}
+
+stop() {
+	echo stopped >"$STATE"
+	echo '{"result":"stopped"}'
+}
+
+restart() {
+	echo running >"$STATE"
+	echo '{"result":"restarted"}'
+}
+
+enable() {
+	touch /etc/rc.d/S99podkop 2>/dev/null
+	echo '{"result":"enabled"}'
+}
+
+disable() {
+	rm -f /etc/rc.d/S99podkop 2>/dev/null
+	echo '{"result":"disabled"}'
+}

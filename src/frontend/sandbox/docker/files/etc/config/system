@@ -1,0 +1,9 @@
+config system
+	option hostname 'OpenWrt'
+	option timezone 'UTC'
+	option ttylogin '0'
+	option log_size '64'
+	option urandom_seed '0'
+
+config timeserver 'ntp'
+	option enabled '0'

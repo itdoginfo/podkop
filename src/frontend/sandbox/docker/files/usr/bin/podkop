@@ -1,0 +1,203 @@
+#!/bin/sh
+# Backend stub for the dev stand. The real backend is being rewritten in Go.
+#
+# The mock boundary sits here rather than in JS, so rpcd, ACL, fs.exec, uci and
+# LuCI's require loader all stay real.
+#
+# Commands mirror what main.js actually calls, nothing more.
+#
+# Scenario is read from a file (see docker/scenario.sh):
+#   ok       everything works (default)
+#   fail     commands fail with empty stdout
+#   stopped  services down, Clash unreachable
+SCENARIO_FILE=/tmp/podkop-scenario
+SCENARIO=$(cat "$SCENARIO_FILE" 2>/dev/null || echo ok)
+
+# Latency tests and node selection must persist between calls
+LATENCY_DIR=/tmp/podkop-latency
+SELECTED_DIR=/tmp/podkop-selected
+mkdir -p "$LATENCY_DIR" "$SELECTED_DIR"
+
+# Empty stdout is how the frontend detects failure
+die_if_failing() {
+	[ "$SCENARIO" = "fail" ] && exit 1
+	return 0
+}
+
+# 40..2000 ms. Not `date +%s%N` (%N is not portable, emits a literal "N") and
+# not `od` (absent from the OpenWrt image; empty output pinned every node to 40).
+rand_latency() {
+	_r="$RANDOM"
+
+	if [ -z "$_r" ]; then
+		_r=$(awk 'BEGIN{srand();print int(rand()*32768)}')
+	fi
+
+	echo $((_r % 1960 + 40))
+}
+
+latency_of() { # $1=code $2=fallback
+	if [ -f "$LATENCY_DIR/$1" ]; then cat "$LATENCY_DIR/$1"; else echo "$2"; fi
+}
+
+selected_of() { # $1=group $2=fallback
+	if [ -f "$SELECTED_DIR/$1" ]; then cat "$SELECTED_DIR/$1"; else echo "$2"; fi
+}
+
+history_of() { # $1=delay
+	if [ "$1" -eq 0 ]; then
+		echo '[]'
+	else
+		echo "[{\"time\":\"2026-07-20T10:00:00Z\",\"delay\":$1}]"
+	fi
+}
+
+proxy_json() { # $1=name $2=type $3=delay
+	printf '"%s":{"type":"%s","name":"%s","udp":true,"history":%s}' \
+		"$1" "$2" "$1" "$(history_of "$3")"
+}
+
+group_json() { # $1=name $2=type $3=now $4=all(json) $5=delay
+	printf '"%s":{"type":"%s","name":"%s","udp":false,"now":"%s","all":%s,"history":%s}' \
+		"$1" "$2" "$1" "$3" "$4" "$(history_of "$5")"
+}
+
+# Mirrors the sections in /etc/config/podkop; covers every parse branch on the
+# dashboard: url / outbound / selector / urltest / vpn.
+emit_proxies() {
+	printf '{"proxies":{'
+	proxy_json 'youtube-out' 'vless' "$(latency_of youtube-out 142)"
+	printf ','
+	proxy_json 'netflix-out' 'shadowsocks' "$(latency_of netflix-out 980)"
+	printf ','
+	group_json 'media-out' 'Selector' "$(selected_of media-out 'media-2-out')" \
+		'["media-1-out","media-2-out","media-3-out"]' 0
+	printf ','
+	proxy_json 'media-1-out' 'vless' "$(latency_of media-1-out 210)"
+	printf ','
+	proxy_json 'media-2-out' 'vless' "$(latency_of media-2-out 1320)"
+	printf ','
+	proxy_json 'media-3-out' 'trojan' "$(latency_of media-3-out 2400)"
+	printf ','
+	group_json 'fast-out' 'Selector' "$(selected_of fast-out 'fast-urltest-out')" \
+		'["fast-urltest-out","fast-1-out","fast-2-out"]' 0
+	printf ','
+	group_json 'fast-urltest-out' 'URLTest' '' \
+		'["fast-1-out","fast-2-out"]' "$(latency_of fast-urltest-out 96)"
+	printf ','
+	proxy_json 'fast-1-out' 'vless' "$(latency_of fast-1-out 96)"
+	printf ','
+	proxy_json 'fast-2-out' 'vless' "$(latency_of fast-2-out 0)"
+	printf ','
+	proxy_json 'home_vpn-out' 'wireguard' "$(latency_of home_vpn-out 18)"
+	printf '}}\n'
+}
+
+members_of() {
+	case "$1" in
+	media-out) echo 'media-1-out media-2-out media-3-out' ;;
+	fast-out) echo 'fast-urltest-out fast-1-out fast-2-out' ;;
+	fast-urltest-out) echo 'fast-1-out fast-2-out' ;;
+	*) echo '' ;;
+	esac
+}
+
+clash_api() {
+	[ "$SCENARIO" = "stopped" ] && exit 1
+
+	case "$1" in
+	get_proxies)
+		emit_proxies
+		;;
+	get_proxy_latency)
+		delay=$(rand_latency)
+		echo "$delay" >"$LATENCY_DIR/$2"
+		echo "{\"delay\":$delay}"
+		;;
+	get_group_latency)
+		i=0
+		printf '{'
+		for member in $(members_of "$2"); do
+			i=$((i + 1))
+			delay=$(rand_latency)
+			echo "$delay" >"$LATENCY_DIR/$member"
+			[ "$i" -gt 1 ] && printf ','
+			printf '"%s":%s' "$member" "$delay"
+		done
+		printf '}\n'
+		;;
+	set_group_proxy)
+		echo "$3" >"$SELECTED_DIR/$2"
+		echo '{"ok":true}'
+		;;
+	*)
+		echo "{\"error\":\"unknown clash_api method: $1\"}"
+		;;
+	esac
+}
+
+die_if_failing
+
+case "$1" in
+get_status)
+	# Reads the autostart flag so Enable/Disable have a visible effect
+	if [ "$SCENARIO" = "stopped" ] || [ ! -e /etc/rc.d/S99podkop ]; then
+		echo '{"enabled":0,"status":"disabled"}'
+	else
+		echo '{"enabled":1,"status":"enabled"}'
+	fi
+	;;
+
+get_sing_box_status)
+	# Same for Start/Stop/Restart
+	if [ "$SCENARIO" = "stopped" ] ||
+		[ "$(cat /tmp/podkop-service-state 2>/dev/null)" = "stopped" ]; then
+		echo '{"running":0,"enabled":0,"status":"stopped"}'
+	else
+		echo '{"running":1,"enabled":1,"status":"running"}'
+	fi
+	;;
+
+get_system_info)
+	echo '{"podkop_version":"0.8.1-dev","podkop_latest_version":"0.8.2","luci_app_version":"0.8.1-dev","sing_box_version":"1.11.4","openwrt_version":"OpenWrt 25.12.4","device_model":"Docker dev stand"}'
+	;;
+
+check_dns_available)
+	echo '{"dns_type":"doh","dns_server":"dns.adguard-dns.com","dns_status":1,"dns_on_router":1,"bootstrap_dns_server":"1.1.1.1","bootstrap_dns_status":1,"dhcp_config_status":1}'
+	;;
+
+check_nft_rules)
+	# No tproxy here: OpenWrt kernel modules cannot load in a container, so some
+	# rules are reported missing on purpose.
+	echo '{"table_exist":1,"rules_mangle_exist":1,"rules_mangle_counters":1,"rules_mangle_output_exist":1,"rules_mangle_output_counters":0,"rules_proxy_exist":1,"rules_proxy_counters":0,"rules_other_mark_exist":0}'
+	;;
+
+check_sing_box)
+	echo '{"sing_box_installed":1,"sing_box_version_ok":1,"sing_box_service_exist":1,"sing_box_autostart_disabled":1,"sing_box_process_running":1,"sing_box_ports_listening":1}'
+	;;
+
+check_fakeip)
+	echo '{"fakeip":true,"IP":"198.18.0.1"}'
+	;;
+
+check_logs)
+	echo "$(date '+%a %b %e %H:%M:%S %Y') [info] podkop dev stand: backend stub"
+	echo "$(date '+%a %b %e %H:%M:%S %Y') [info] scenario: $SCENARIO"
+	;;
+
+global_check)
+	echo '{"result":"ok","note":"dev stand"}'
+	;;
+
+show_sing_box_config)
+	echo '{"log":{"level":"info"},"experimental":{"clash_api":{"external_controller":"0.0.0.0:9090"}},"note":"dev stand stub"}'
+	;;
+
+clash_api)
+	clash_api "$2" "$3" "$4"
+	;;
+
+*)
+	echo "{\"error\":\"unknown method: $1\"}"
+	;;
+esac

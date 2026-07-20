@@ -1,0 +1,28 @@
+{
+  "luci-app-podkop": {
+    "description": "Grant UCI and RPC access to LuCI app podkop",
+    "read": {
+      "file": {
+        "/etc/init.d/podkop": [
+          "exec"
+        ],
+        "/usr/bin/podkop": [
+          "exec"
+        ]
+      },
+      "ubus": {
+        "service": [
+          "list"
+        ]
+      },
+      "uci": [
+        "podkop"
+      ]
+    },
+    "write": {
+      "uci": [
+        "podkop"
+      ]
+    }
+  }
+}

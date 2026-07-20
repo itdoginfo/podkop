@@ -1,0 +1,9 @@
+# Seed runtime state for the backend stub.
+#
+# Not in the entrypoint: that runs before procd, which mounts a tmpfs over /tmp
+# and wipes anything written there earlier.
+
+echo ok >/tmp/podkop-scenario
+echo running >/tmp/podkop-service-state
+
+exit 0

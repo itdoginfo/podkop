@@ -1,0 +1,37 @@
+name: podkop-dev
+
+services:
+    router:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            args:
+                # No multiarch manifest — one tag per arch. Set by ./up.sh.
+                OPENWRT_TAG: ${OPENWRT_TAG:-x86-64-25.12.4}
+        # The arm image declares OpenWrt's own arch name (aarch64_generic),
+        # which Docker does not match to linux/arm64 on its own.
+        platform: ${OPENWRT_PLATFORM:-linux/amd64}
+        container_name: podkop-dev-router
+        hostname: OpenWrt
+        privileged: true # procd as PID 1
+        init: false
+        restart: unless-stopped
+        ports:
+            - '8080:80'
+        volumes:
+            # Mounted from the host: edit js, hit F5, no rebuild.
+            - ../htdocs/luci-static/resources/view/podkop:/www/luci-static/resources/view/podkop:ro
+            - ../root/usr/share/luci/menu.d/luci-app-podkop.json:/usr/share/luci/menu.d/luci-app-podkop.json:ro
+            - ../root/usr/share/rpcd/acl.d/luci-app-podkop.json:/usr/share/rpcd/acl.d/luci-app-podkop.json:ro
+
+    # Nothing in the OpenWrt container can serve a websocket (sing-box is
+    # deliberately absent), so Clash API metrics live in their own service.
+    clash-mock:
+        image: node:22-alpine
+        container_name: podkop-dev-clash
+        restart: unless-stopped
+        ports:
+            - '9090:9090'
+        volumes:
+            - ./clash-mock:/app:ro
+        command: ['node', '/app/server.mjs']

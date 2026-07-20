@@ -1,0 +1,47 @@
+# uci fixture for the dev stand.
+#
+# Required: menu.d declares "depends": { "uci": { "podkop": true } }, so LuCI
+# hides the menu entry until this file exists.
+#
+# Sections cover every parse branch on the dashboard — url / outbound /
+# selector / urltest / vpn — plus block and exclusion, which must be filtered out.
+
+config settings 'settings'
+	option enable_yacd '1'
+	option yacd_secret_key 'dev-stand-secret'
+	option dns_type 'doh'
+	option dns_server 'dns.adguard-dns.com'
+
+config section 'youtube'
+	option connection_type 'proxy'
+	option proxy_config_type 'url'
+	option proxy_string 'vless://uuid@example.com:443?type=tcp#YouTube%20VLESS'
+	list domain_list 'youtube'
+
+config section 'netflix'
+	option connection_type 'proxy'
+	option proxy_config_type 'outbound'
+	option outbound_json '{"tag":"Netflix%20Shadowsocks","type":"shadowsocks"}'
+
+config section 'media'
+	option connection_type 'proxy'
+	option proxy_config_type 'selector'
+	list selector_proxy_links 'vless://uuid@nl.example.com:443#Netherlands'
+	list selector_proxy_links 'vless://uuid@de.example.com:443#Germany'
+	list selector_proxy_links 'trojan://uuid@fi.example.com:443#Finland'
+
+config section 'fast'
+	option connection_type 'proxy'
+	option proxy_config_type 'urltest'
+	list urltest_proxy_links 'vless://uuid@se.example.com:443#Sweden'
+	list urltest_proxy_links 'vless://uuid@pl.example.com:443#Poland'
+
+config section 'home_vpn'
+	option connection_type 'vpn'
+	option interface 'wg0'
+
+config section 'ads'
+	option connection_type 'block'
+
+config section 'local'
+	option connection_type 'exclusion'

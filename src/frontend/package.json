@@ -1,0 +1,12 @@
+{
+  "name": "podkop-frontend",
+  "version": "0.8.0",
+  "private": true,
+  "scripts": {
+    "dev:sandbox": "cd sandbox/docker && ./up.sh",
+    "sandbox:down": "cd sandbox/docker && docker compose down",
+    "sandbox:logs": "cd sandbox/docker && docker compose logs -f",
+    "sandbox:shell": "docker exec -it podkop-dev-router sh",
+    "sandbox:scenario": "cd sandbox/docker && ./scenario.sh"
+  }
+}
