@@ -1,6 +1,7 @@
 import { ValidationResult } from './types';
+import { splitHostPort } from '../helpers/splitHostPort';
 import { validateDomain } from './validateDomain';
-import { validateIPV4 } from './validateIp';
+import { validateIPV4, validateIPV6 } from './validateIp';
 
 export function validateSocksUrl(url: string): ValidationResult {
   try {
@@ -43,7 +44,7 @@ export function validateSocksUrl(url: string): ValidationResult {
       };
     }
 
-    const [host, port] = hostPortPart.split(':');
+    const [host, port] = splitHostPort(hostPortPart);
 
     if (!host) {
       return {
@@ -65,9 +66,10 @@ export function validateSocksUrl(url: string): ValidationResult {
     }
 
     const ipv4Result = validateIPV4(host);
+    const ipv6Result = validateIPV6(host);
     const domainResult = validateDomain(host);
 
-    if (!ipv4Result.valid && !domainResult.valid) {
+    if (!ipv4Result.valid && !ipv6Result.valid && !domainResult.valid) {
       return {
         valid: false,
         message: _('Invalid SOCKS URL: invalid host format'),

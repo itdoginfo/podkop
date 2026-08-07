@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { validateSocksUrl } from '../validateSocksUrl';
 
 const validUrls = [
+  ['socks5 with IPv6', 'socks5://[2001:db8::1]:1080'],
+  ['socks5 with IPv6 loopback', 'socks5://[::1]:1080'],
+  ['socks5 with IPv6 and credentials', 'socks5://user:pass@[2001:db8::1]:1080'],
   ['socks4 basic', 'socks4://127.0.0.1:1080'],
   ['socks4a basic', 'socks4a://127.0.0.1:1080'],
   ['socks5 basic', 'socks5://127.0.0.1:1080'],

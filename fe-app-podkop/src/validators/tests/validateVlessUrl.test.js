@@ -2,6 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { validateVlessUrl } from '../validateVlessUrl';
 
 const validUrls = [
+  // IPv6 literals
+  [
+    'IPv6 + tcp + reality',
+    'vless://e95163dc-905e-480a-afe5-20b146288679@[2001:db8::1]:16399?type=tcp&encryption=none&security=reality&pbk=tqhSkeDR6jsqC-BYCnZWBrdL33g705ba8tV5-ZboWTM&fp=chrome&sni=google.com&sid=f6&spx=%2F#vless-ipv6-reality',
+  ],
+  [
+    'IPv6 loopback + tcp + none',
+    'vless://94792286-7bbe-4f33-8b36-18d1bbf70723@[::1]:34520?type=tcp&encryption=none&security=none#vless-ipv6-none',
+  ],
   // TCP
   [
     'tcp + none',

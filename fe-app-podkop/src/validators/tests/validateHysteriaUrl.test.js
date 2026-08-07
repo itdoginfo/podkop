@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { validateHysteria2Url } from '../validateHysteriaUrl.js';
 
 const validUrls = [
+  // IPv6 literals
+  ['IPv6 password basic', 'hysteria2://pass@[2001:db8::1]:443/#hy2-ipv6'],
+  ['IPv6 loopback', 'hy2://pass@[::1]:443/#hy2-ipv6-loopback'],
   // Basic password-only
   ['password basic', 'hysteria2://pass@example.com:443/#hy2-basic'],
 
