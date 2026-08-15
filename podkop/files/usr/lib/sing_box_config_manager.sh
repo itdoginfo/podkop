@@ -692,6 +692,11 @@ sing_box_cm_add_hysteria2_outbound() {
     local download_mbps="$9"
     local network="${10}"
 
+    local is_multi_port="false"
+    case "$server_port" in
+        *","*|*"-"*) is_multi_port="true" ;;
+    esac
+
     echo "$config" | jq \
         --arg tag "$tag" \
         --arg server_address "$server_address" \
@@ -702,14 +707,25 @@ sing_box_cm_add_hysteria2_outbound() {
         --arg upload_mbps "$upload_mbps" \
         --arg download_mbps "$download_mbps" \
         --arg network "$network" \
-        '.outbounds += [(
+        --argjson is_multi_port "$is_multi_port" \
+        '
+        def parse_port_entry:
+            if index("-") then split("-") | join(":")
+            else . + ":" + .
+            end;
+
+        .outbounds += [(
         {
           type: "hysteria2",
           tag: $tag,
           server: $server_address,
-          server_port: ($server_port | tonumber),
           password: $password
         }
+        + (if $is_multi_port then {
+                server_ports: ($server_port | split(",") | map(ltrimstr(" ") | rtrimstr(" ") | parse_port_entry))
+            } else {
+                server_port: ($server_port | tonumber)
+            } end)
         + (if $obfuscator_type != "" and $obfuscator_password != "" then {
             obfs: {
                 type: $obfuscator_type,
@@ -1088,6 +1104,42 @@ sing_box_cm_add_route_rule() {
             outbound: $outbound,
             $service_tag: $tag
         }]'
+}
+
+#######################################
+# Insert a resolve rule immediately before a route rule.
+# Copies rule_set from the target route rule.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   route_rule_tag: string, tag of the route rule to precede
+#   resolve_rule_tag: string, tag for the new resolve rule
+#   server: string, DNS server tag (optional, default: "dns-server")
+# Outputs:
+#   Updated JSON config to stdout
+#######################################
+sing_box_cm_add_resolve_rule() {
+    local config="$1"
+    local route_rule_tag="$2"
+    local resolve_rule_tag="$3"
+    local server="${4:-dns-server}"
+
+    echo "$config" | jq \
+        --arg service_tag "$SERVICE_TAG" \
+        --arg route_tag "$route_rule_tag" \
+        --arg resolve_tag "$resolve_rule_tag" \
+        --arg server "$server" \
+        '.route.rules |= [
+            .[] | 
+            if .[$service_tag] == $route_tag then
+                {
+                    action: "resolve",
+                    rule_set: (.rule_set // []),
+                    server: $server,
+                    ($service_tag): $resolve_tag
+                }, .
+            else .
+            end
+        ]'
 }
 
 #######################################

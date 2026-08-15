@@ -122,13 +122,18 @@ export namespace Podkop {
     connection_type: 'block';
   }
 
+  export interface ConfigExclusionSection {
+    connection_type: 'exclusion';
+  }
+
   export type ConfigBaseSection =
     | ConfigProxyUrlTestSection
     | ConfigProxySelectorSection
     | ConfigProxyUrlSection
     | ConfigProxyOutboundSection
     | ConfigVpnSection
-    | ConfigBlockSection;
+    | ConfigBlockSection
+    | ConfigExclusionSection;
 
   export type ConfigSection = ConfigBaseSection & {
     '.name': string;

@@ -28,6 +28,11 @@ const validUrls = [
 
   // Explicit obfs=none (valid)
   ['obfs none = ok', 'hysteria2://pw@example.com:443/?obfs=none#hy2-none'],
+
+  [
+    'port range 5000-6000',
+    'hysteria2://letmein@example.com:123,5000-6000/?insecure=1&obfs=salamander&obfs-password=gawrgura&pinSHA256=deadbeef&sni=real.example.com',
+  ],
 ];
 
 const invalidUrls = [

@@ -1,4 +1,4 @@
-FROM itdoginfo/openwrt-sdk-ipk:24.10.3
+FROM itdoginfo/openwrt-sdk-ipk:24.10.6
 
 ARG PODKOP_VERSION
 

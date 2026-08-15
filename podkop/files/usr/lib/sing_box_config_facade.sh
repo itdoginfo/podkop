@@ -178,8 +178,9 @@ _add_outbound_security() {
 
     local security scheme
     security=$(url_get_query_param "$url" "security")
+    scheme="$(url_get_scheme "$url")"
+
     if [ -z "$security" ]; then
-        scheme="$(url_get_scheme "$url")"
         if [ "$scheme" = "hysteria2" ] || [ "$scheme" = "hy2" ]; then
             security="tls"
         fi
@@ -194,6 +195,10 @@ _add_outbound_security() {
         fingerprint=$(url_get_query_param "$url" "fp")
         public_key=$(url_get_query_param "$url" "pbk")
         short_id=$(url_get_query_param "$url" "sid")
+
+        if [ "$scheme" = "hysteria2" ] || [ "$scheme" = "hy2" ]; then
+                fingerprint=""
+        fi
 
         config=$(
             sing_box_cm_set_tls_for_outbound \

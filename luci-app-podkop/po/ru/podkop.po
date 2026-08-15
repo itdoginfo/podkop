@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-14 20:21+0200\n"
-"PO-Revision-Date: 2026-01-14 20:21+0200\n"
+"POT-Creation-Date: 2026-05-29 16:40+0300\n"
+"PO-Revision-Date: 2026-05-29 16:40+0300\n"
 "Last-Translator: divocatt\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -196,6 +196,9 @@ msgstr "Включить автостарт"
 
 msgid "Enable built-in DNS resolver for domains handled by this section"
 msgstr "Включить встроенный DNS-резолвер для доменов, обрабатываемых в этом разделе"
+
+msgid "Enable DNS resolve to get real IP when routing"
+msgstr "Разрешать домены в реальные IP-адреса перед маршрутизацией в outbound"
 
 msgid "Enable Mixed Proxy"
 msgstr "Включить смешанный прокси"
@@ -508,6 +511,9 @@ msgstr "Внешние списки доменов"
 
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
+
+msgid "Resolve real IP for routing"
+msgstr "Разрешение реальных IP-адресов"
 
 msgid "Restart podkop"
 msgstr "Перезапустить Podkop"
