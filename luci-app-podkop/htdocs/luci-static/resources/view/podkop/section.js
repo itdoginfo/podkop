@@ -86,10 +86,11 @@ function createSectionContent(section) {
     form.DynamicList,
     "selector_proxy_links",
     _("Selector Proxy Links"),
-    _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
+    _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"),
   );
   o.depends("proxy_config_type", "selector");
   o.rmempty = false;
+  enableSelectorProxyLinksEditor(o);
   o.validate = function (section_id, value) {
     // Optional
     if (!value || value.length === 0) {
@@ -694,6 +695,151 @@ function createSectionContent(section) {
   o.rmempty = false;
   o.depends("connection_type", "proxy");
   o.depends("connection_type", "vpn");
+}
+
+function showSelectorProxyLinkEditor(option, section_id, item) {
+  const input = item.querySelector('input[type="hidden"]');
+
+  if (!input) {
+    return;
+  }
+
+  const editor = E("textarea", {
+    class: "cbi-input-textarea pdk-selector-link-editor__input",
+    rows: 6,
+  });
+  editor.value = input.value;
+
+  const error = E("div", {
+    class: "pdk-selector-link-editor__error hidden",
+  });
+
+  function showError(message) {
+    error.textContent = message;
+    error.classList.remove("hidden");
+  }
+
+  function save() {
+    const value = editor.value.trim();
+
+    if (!value) {
+      showError(_("Proxy link cannot be empty"));
+      return;
+    }
+
+    const validation = main.validateProxyUrl(value);
+
+    if (!validation.valid) {
+      showError(validation.message);
+      return;
+    }
+
+    if (value === input.value) {
+      ui.hideModal();
+      return;
+    }
+
+    const widget = option.getUIElement(section_id);
+    const currentValues = widget?.getValue?.() || [];
+
+    if (currentValues.includes(value)) {
+      showError(_("This proxy link is already in the list"));
+      return;
+    }
+
+    input.value = value;
+    item.querySelector("span").textContent = value;
+    widget.node.dispatchEvent(
+      new CustomEvent("cbi-dynlist-change", {
+        bubbles: true,
+        detail: {
+          instance: widget,
+          element: widget.node,
+          value,
+          add: true,
+        },
+      }),
+    );
+    ui.hideModal();
+  }
+
+  ui.showModal(
+    _("Edit Selector Proxy Link"),
+    E("div", { class: "pdk-selector-link-editor" }, [
+      editor,
+      error,
+      E("div", { class: "right" }, [
+        E(
+          "button",
+          {
+            type: "button",
+            class: "btn cbi-button cbi-button-neutral",
+            click: ui.hideModal,
+          },
+          _("Cancel"),
+        ),
+        E(
+          "button",
+          {
+            type: "button",
+            class: "btn cbi-button cbi-button-positive important",
+            click: save,
+          },
+          _("Save"),
+        ),
+      ]),
+    ]),
+  );
+
+  editor.focus();
+  editor.setSelectionRange(editor.value.length, editor.value.length);
+}
+
+function decorateSelectorProxyLinks(option, section_id, widget) {
+  Array.from(widget.children)
+    .filter((item) => item.classList.contains("item"))
+    .forEach((item) => {
+      if (item.querySelector(".pdk-selector-link-edit")) {
+        return;
+      }
+
+      const editButton = E(
+        "button",
+        {
+          type: "button",
+          class: "pdk-selector-link-edit cbi-button cbi-button-edit",
+          title: _("Edit"),
+          "aria-label": _("Edit"),
+          click: (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            showSelectorProxyLinkEditor(option, section_id, item);
+          },
+        },
+        _("Edit"),
+      );
+
+      item.querySelector('input[type="hidden"]')?.before(editButton);
+    });
+}
+
+function enableSelectorProxyLinksEditor(option) {
+  const renderWidget = option.renderWidget;
+
+  option.renderWidget = function (section_id, option_index, cfgvalue) {
+    const widget = renderWidget.apply(this, [
+      section_id,
+      option_index,
+      cfgvalue,
+    ]);
+
+    decorateSelectorProxyLinks(this, section_id, widget);
+    widget.addEventListener("cbi-dynlist-change", () =>
+      decorateSelectorProxyLinks(this, section_id, widget),
+    );
+
+    return widget;
+  };
 }
 
 const EntryPoint = {

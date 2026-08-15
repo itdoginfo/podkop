@@ -1,15 +1,15 @@
 # RU translations for PODKOP package.
 # Copyright (C) 2026 THE PODKOP'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PODKOP package.
-# divocatt, 2026.
+# Alexander Ilinykh, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-29 16:40+0300\n"
-"PO-Revision-Date: 2026-05-29 16:40+0300\n"
-"Last-Translator: divocatt\n"
+"POT-Creation-Date: 2026-08-15 11:42+0500\n"
+"PO-Revision-Date: 2026-08-15 11:42+0500\n"
+"Last-Translator: Alexander Ilinykh\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -50,6 +50,12 @@ msgstr "Необходимо указать хотя бы одну действ�
 msgid "Available actions"
 msgstr "Доступные действия"
 
+msgid "Base URL for community SRS downloads"
+msgstr ""
+
+msgid "Base URL for community subnet source lists"
+msgstr ""
+
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
 
@@ -67,6 +73,9 @@ msgstr "Путь к файлу кэша"
 
 msgid "Cache file path cannot be empty"
 msgstr "Путь к файлу кэша не может быть пустым"
+
+msgid "Cancel"
+msgstr "Отмена"
 
 msgid "Cannot receive checks result"
 msgstr "Не удалось получить результаты проверки"
@@ -191,6 +200,12 @@ msgstr "Загрузка всех списков через указанный �
 msgid "Dynamic List"
 msgstr "Динамический список"
 
+msgid "Edit"
+msgstr "Изменить"
+
+msgid "Edit Selector Proxy Link"
+msgstr "Изменить прокси-ссылку Selector"
+
 msgid "Enable autostart"
 msgstr "Включить автостарт"
 
@@ -259,6 +274,9 @@ msgstr "Полностью маршрутизированные IP-адреса"
 
 msgid "Get global check"
 msgstr "Получить глобальную проверку"
+
+msgid "GitHub Raw URL"
+msgstr ""
 
 msgid "Global check"
 msgstr "Глобальная проверка"
@@ -497,6 +515,9 @@ msgstr "Podkop не будет изменять вашу конфигураци�
 msgid "Proxy Configuration URL"
 msgstr "URL конфигурации прокси"
 
+msgid "Proxy link cannot be empty"
+msgstr "Прокси-ссылка не может быть пустой"
+
 msgid "Proxy traffic is not routed via FakeIP"
 msgstr "Прокси-трафик не маршрутизируется через FakeIP"
 
@@ -550,6 +571,9 @@ msgstr "Запустить диагностику"
 
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
+
+msgid "Save"
+msgstr "Сохранить"
 
 msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
 msgstr "Секретный ключ для аутентификации удаленного доступа к YACD при включенном доступе через WAN."
@@ -659,6 +683,9 @@ msgstr "Укажите URL-адреса для загрузки и исполь�
 msgid "Specify the path to the list file located on the router filesystem"
 msgstr "Укажите путь к файлу списка, расположенному в файловой системе маршрутизатора."
 
+msgid "SRS Main URL"
+msgstr ""
+
 msgid "Start podkop"
 msgstr "Запустить podkop"
 
@@ -694,6 +721,9 @@ msgstr "Максимально допустимая разница во врем
 
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"
+
+msgid "This proxy link is already in the list"
+msgstr "Эта прокси-ссылка уже есть в списке"
 
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"

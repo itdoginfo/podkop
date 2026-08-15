@@ -23,6 +23,41 @@ ${PartialStyles}
     margin-bottom: -32px;
 }
 
+/* Selector proxy link editor */
+.cbi-dynlist[id$='.selector_proxy_links'] > .item > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdk-selector-link-edit {
+    flex: 0 0 auto;
+    margin-left: auto;
+    margin-right: 1.5rem;
+    padding: 0.15rem 0.5rem;
+}
+
+.pdk-selector-link-editor__input {
+    box-sizing: border-box;
+    min-height: 8rem;
+    width: 100%;
+    resize: vertical;
+    overflow-wrap: anywhere;
+}
+
+.pdk-selector-link-editor__error {
+    margin: 0.5rem 0;
+    color: var(--danger-color, #d12f2f);
+}
+
+.pdk-selector-link-editor .right {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
 /* Centered class helper */
 .centered {
     display: flex;
