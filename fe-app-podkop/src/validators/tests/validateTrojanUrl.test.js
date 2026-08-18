@@ -2,6 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { validateTrojanUrl } from '../validateTrojanUrl';
 
 const validUrls = [
+  // IPv6 literals
+  [
+    'IPv6 + tcp + none',
+    'trojan://04agAQapcl@[2001:db8::1]:33641?type=tcp&security=none#trojan-ipv6-none',
+  ],
   // TCP
   [
     'tcp + none',

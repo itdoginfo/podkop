@@ -3,6 +3,10 @@ import { validateShadowsocksUrl } from '../validateShadowsocksUrl';
 
 const validUrls = [
   [
+    'IPv6 no-client',
+    'ss://MjAyMi1ibGFrZTMtYWVzLTI1Ni1nY206ZG1DbHkvWmgxNVd3OStzK0dGWGlGVElrcHc3Yy9xQ0lTYUJyYWk3V2hoWT0@[2001:db8::1]:25144?type=tcp#shadowsocks-ipv6',
+  ],
+  [
     'no-client',
     'ss://MjAyMi1ibGFrZTMtYWVzLTI1Ni1nY206ZG1DbHkvWmgxNVd3OStzK0dGWGlGVElrcHc3Yy9xQ0lTYUJyYWk3V2hoWT0@127.0.0.1:25144?type=tcp#shadowsocks-no-client',
   ],

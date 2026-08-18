@@ -138,6 +138,7 @@ url_get_userinfo() {
 }
 
 # Extracts the host part from a URL
+# IPv6 literals are bracketed ([2001:db8::1]:443); the brackets are stripped
 url_get_host() {
     local url="$1"
 
@@ -145,10 +146,19 @@ url_get_host() {
     url="${url#*@}"
     url="${url%%[/?#]*}"
 
-    echo "${url%%:*}"
+    case "$url" in
+    \[*\]*)
+        url="${url%%\]*}"
+        echo "${url#\[}"
+        ;;
+    *)
+        echo "${url%%:*}"
+        ;;
+    esac
 }
 
 # Extracts the port number from a URL
+# For bracketed IPv6 literals the port is whatever follows the closing bracket
 url_get_port() {
     local url="$1"
 
@@ -156,7 +166,12 @@ url_get_port() {
     url="${url#*@}"
     url="${url%%[/?#]*}"
 
-    [[ "$url" == *:* ]] && echo "${url#*:}" || echo ""
+    case "$url" in
+    \[*\]:*) echo "${url##*\]:}" ;;
+    \[*\]) echo "" ;;
+    *:*) echo "${url#*:}" ;;
+    *) echo "" ;;
+    esac
 }
 
 # Extracts the path from a URL (without query or fragment; returns "/" if empty)

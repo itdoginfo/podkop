@@ -1,4 +1,5 @@
 import { ValidationResult } from './types';
+import { splitHostPort } from '../helpers/splitHostPort';
 import { parseQueryString } from '../helpers/parseQueryString';
 
 export function validateVlessUrl(url: string): ValidationResult {
@@ -35,7 +36,7 @@ export function validateVlessUrl(url: string): ValidationResult {
     if (!hostPortPart)
       return { valid: false, message: 'Invalid VLESS URL: missing server' };
 
-    const [host, port] = hostPortPart.split(':');
+    const [host, port] = splitHostPort(hostPortPart);
 
     if (!host)
       return { valid: false, message: 'Invalid VLESS URL: missing hostname' };

@@ -13,6 +13,17 @@ function validateIPV4(ip) {
   }
   return { valid: false, message: _("Invalid IP address") };
 }
+function validateIPV6(ip) {
+  const group = "[0-9a-fA-F]{1,4}";
+  const ipv4 = "(?:(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])";
+  const ipv6Regex = new RegExp(
+    `^(?:(?:${group}:){7}${group}|(?:${group}:){1,7}:|(?:${group}:){1,6}:${group}|(?:${group}:){1,5}(?::${group}){1,2}|(?:${group}:){1,4}(?::${group}){1,3}|(?:${group}:){1,3}(?::${group}){1,4}|(?:${group}:){1,2}(?::${group}){1,5}|${group}:(?::${group}){1,6}|:(?::${group}){1,7}|::|(?:${group}:){6}${ipv4}|(?:${group}:){1,5}:${ipv4}|::(?:${group}:){0,5}${ipv4})$`
+  );
+  if (ipv6Regex.test(ip)) {
+    return { valid: true, message: _("Valid") };
+  }
+  return { valid: false, message: _("Invalid IPv6 address") };
+}
 
 // src/validators/validateDomain.ts
 function validateDomain(domain, allowDotTLD = false) {
@@ -137,6 +148,22 @@ function bulkValidate(values, validate) {
   };
 }
 
+// src/helpers/splitHostPort.ts
+function splitHostPort(hostPort) {
+  if (hostPort.startsWith("[")) {
+    const close = hostPort.indexOf("]");
+    if (close > 0) {
+      const rest = hostPort.slice(close + 1);
+      return [
+        hostPort.slice(1, close),
+        rest.startsWith(":") ? rest.slice(1) : void 0
+      ];
+    }
+  }
+  const [host, port] = hostPort.split(":");
+  return [host, port];
+}
+
 // src/validators/validateShadowsocksUrl.ts
 function validateShadowsocksUrl(url) {
   if (!url.startsWith("ss://")) {
@@ -187,7 +214,7 @@ function validateShadowsocksUrl(url) {
         message: _("Invalid Shadowsocks URL: missing server address")
       };
     }
-    const [server, portAndRest] = serverPart.split(":");
+    const [server, portAndRest] = splitHostPort(serverPart);
     if (!server) {
       return {
         valid: false,
@@ -260,7 +287,7 @@ function validateVlessUrl(url) {
       return { valid: false, message: "Invalid VLESS URL: missing UUID" };
     if (!hostPortPart)
       return { valid: false, message: "Invalid VLESS URL: missing server" };
-    const [host, port] = hostPortPart.split(":");
+    const [host, port] = splitHostPort(hostPortPart);
     if (!host)
       return { valid: false, message: "Invalid VLESS URL: missing hostname" };
     if (!port)
@@ -365,7 +392,7 @@ function validateTrojanUrl(url) {
         valid: false,
         message: "Invalid Trojan URL: missing hostname and port"
       };
-    const [host, port] = hostPortPart.split(":");
+    const [host, port] = splitHostPort(hostPortPart);
     if (!host)
       return { valid: false, message: "Invalid Trojan URL: missing hostname" };
     if (!port)
@@ -417,7 +444,7 @@ function validateSocksUrl(url) {
         message: _("Invalid SOCKS URL: missing host and port")
       };
     }
-    const [host, port] = hostPortPart.split(":");
+    const [host, port] = splitHostPort(hostPortPart);
     if (!host) {
       return {
         valid: false,
@@ -435,8 +462,9 @@ function validateSocksUrl(url) {
       };
     }
     const ipv4Result = validateIPV4(host);
+    const ipv6Result = validateIPV6(host);
     const domainResult = validateDomain(host);
-    if (!ipv4Result.valid && !domainResult.valid) {
+    if (!ipv4Result.valid && !ipv6Result.valid && !domainResult.valid) {
       return {
         valid: false,
         message: _("Invalid SOCKS URL: invalid host format")
@@ -480,7 +508,7 @@ function validateHysteria2Url(url) {
         valid: false,
         message: _("Invalid HY2 URL: missing host & port")
       };
-    const [host, port] = hostPortPart.split(":");
+    const [host, port] = splitHostPort(hostPortPart);
     if (!host)
       return { valid: false, message: _("Invalid HY2 URL: missing host") };
     if (!port)
@@ -4923,12 +4951,14 @@ return baseclass.extend({
   parseValueList,
   preserveScrollForPage,
   socket,
+  splitHostPort,
   splitProxyString,
   store,
   svgEl,
   validateDNS,
   validateDomain,
   validateIPV4,
+  validateIPV6,
   validateOutboundJson,
   validatePath,
   validateProxyUrl,
