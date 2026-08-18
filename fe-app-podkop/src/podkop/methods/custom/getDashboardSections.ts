@@ -88,6 +88,32 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
           };
         }
 
+        if (section.proxy_config_type === 'subscription') {
+          const outbound = proxies.find(
+            (proxy) => proxy.code === `${section['.name']}-out`,
+          );
+
+          const proxyDisplayName =
+            getProxyUrlName(section.subscription_proxy_link) ||
+            outbound?.value?.name ||
+            '';
+
+          return {
+            withTagSelect: false,
+            code: outbound?.code || section['.name'],
+            displayName: section['.name'],
+            outbounds: [
+              {
+                code: outbound?.code || section['.name'],
+                displayName: proxyDisplayName,
+                latency: outbound?.value?.history?.[0]?.delay || 0,
+                type: outbound?.value?.type || '',
+                selected: true,
+              },
+            ],
+          };
+        }
+
         if (section.proxy_config_type === 'selector') {
           const selector = proxies.find(
             (proxy) => proxy.code === `${section['.name']}-out`,

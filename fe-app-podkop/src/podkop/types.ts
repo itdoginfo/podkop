@@ -65,6 +65,7 @@ export namespace Podkop {
     SHOW_SING_BOX_CONFIG = 'show_sing_box_config',
     CHECK_LOGS = 'check_logs',
     GET_SYSTEM_INFO = 'get_system_info',
+    GET_SUBSCRIPTION_OUTBOUNDS = 'get_subscription_outbounds',
   }
 
   export enum AvailableClashAPIMethods {
@@ -107,6 +108,13 @@ export namespace Podkop {
     proxy_string: string;
   }
 
+  export interface ConfigProxySubscriptionSection {
+    connection_type: 'proxy';
+    proxy_config_type: 'subscription';
+    subscription_url: string;
+    subscription_proxy_link: string;
+  }
+
   export interface ConfigProxyOutboundSection {
     connection_type: 'proxy';
     proxy_config_type: 'outbound';
@@ -130,6 +138,7 @@ export namespace Podkop {
     | ConfigProxyUrlTestSection
     | ConfigProxySelectorSection
     | ConfigProxyUrlSection
+    | ConfigProxySubscriptionSection
     | ConfigProxyOutboundSection
     | ConfigVpnSection
     | ConfigBlockSection
@@ -208,6 +217,12 @@ export namespace Podkop {
     sing_box_version: string;
     openwrt_version: string;
     device_model: string;
+  }
+
+  export interface SubscriptionOutbound {
+    id: number;
+    url: string;
+    name?: string;
   }
 
   export interface GetClashApiProxyLatency {

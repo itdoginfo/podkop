@@ -78,23 +78,26 @@ check_requirements() {
     if has_outbound_section; then
         log "Outbound section found" "debug"
     else
-        log "Outbound section not found. Please check your configuration file (missing proxy_string, selector_proxy_links, urltest_proxy_links, outbound_json, or interface). Aborted." "error"
+        log "Outbound section not found. Please check your configuration file (missing proxy_string, selector_proxy_links, urltest_proxy_links, subscription_url, subscription_proxy_link, outbound_json, or interface). Aborted." "error"
         exit 1
     fi
 }
 
 _check_outbound_section() {
     local section="$1"
-    local proxy_string interface outbound_json urltest_proxy_links
+    local proxy_string interface outbound_json urltest_proxy_links subscription_url subscription_proxy_link
 
     config_get proxy_string "$section" "proxy_string"
     config_get selector_proxy_links "$section" "selector_proxy_links"
     config_get urltest_proxy_links "$section" "urltest_proxy_links"
+    config_get subscription_url "$section" "subscription_url"
+    config_get subscription_proxy_link "$section" "subscription_proxy_link"
     config_get outbound_json "$section" "outbound_json"
     config_get interface "$section" "interface"
 
     if [ -n "$proxy_string" ] || [ -n "$selector_proxy_links" ] || [ -n "$urltest_proxy_links" ] ||
-        [ -n "$outbound_json" ] || [ -n "$interface" ]; then
+        [ -n "$subscription_url" ] || [ -n "$subscription_proxy_link" ] || [ -n "$outbound_json" ] ||
+        [ -n "$interface" ]; then
         section_exists=0
     fi
 }
@@ -547,6 +550,101 @@ list_update() {
     fi
 }
 
+subscription_file_has_proxy_links() {
+    local filepath="$1"
+
+    awk '{ gsub(/[[:space:],"]+/, "\n"); gsub(/\[/, "\n"); gsub(/\]/, "\n"); print }' "$filepath" |
+        sed 's/^[>-]*//' |
+        awk '/^(vless|ss|trojan|socks4|socks4a|socks5|hysteria2|hy2):\/\// { found=1; exit } END { exit !found }'
+}
+
+extract_subscription_proxy_links() {
+    local source_file="$1"
+    local output_file="$2"
+
+    awk '{ gsub(/[[:space:],"]+/, "\n"); gsub(/\[/, "\n"); gsub(/\]/, "\n"); print }' "$source_file" |
+        sed 's/^[>-]*//' |
+        awk '/^(vless|ss|trojan|socks4|socks4a|socks5|hysteria2|hy2):\/\// { print }' |
+        awk '!seen[$0]++' > "$output_file"
+}
+
+download_subscription_to_file() {
+    local url="$1"
+    local filepath="$2"
+    local http_proxy_address="$3"
+    local retries="${4:-3}"
+    local wait="${5:-2}"
+    local attempt
+
+    for attempt in $(seq 1 "$retries"); do
+        if [ -n "$http_proxy_address" ]; then
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -O "$filepath" "$url" && break
+        else
+            wget -O "$filepath" "$url" && break
+        fi
+
+        log "Attempt $attempt/$retries to download subscription failed" "warn"
+        sleep "$wait"
+    done
+}
+
+load_subscription_proxy_links() {
+    local subscription_url="$1"
+    local output_file="$2"
+    local tmpfile decoded_file source_file http_proxy_address
+
+    tmpfile="$(mktemp)"
+    decoded_file="$(mktemp)"
+    http_proxy_address="$(get_service_proxy_address)"
+
+    download_subscription_to_file "$subscription_url" "$tmpfile" "$http_proxy_address"
+    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
+        log "Download subscription failed" "error"
+        rm -f "$tmpfile" "$decoded_file"
+        return 1
+    fi
+
+    convert_crlf_to_lf "$tmpfile"
+    source_file="$tmpfile"
+
+    if base64 -d < "$tmpfile" > "$decoded_file" 2> /dev/null && [ -s "$decoded_file" ]; then
+        convert_crlf_to_lf "$decoded_file"
+        if subscription_file_has_proxy_links "$decoded_file"; then
+            source_file="$decoded_file"
+        fi
+    fi
+
+    extract_subscription_proxy_links "$source_file" "$output_file"
+
+    rm -f "$tmpfile" "$decoded_file"
+
+    if [ ! -s "$output_file" ]; then
+        log "Subscription does not contain supported proxy links" "error"
+        return 1
+    fi
+}
+
+get_subscription_outbounds() {
+    local subscription_url="$1"
+    local links_file
+
+    if [ -z "$subscription_url" ]; then
+        echo "[]"
+        return 1
+    fi
+
+    links_file="$(mktemp)"
+
+    if ! load_subscription_proxy_links "$subscription_url" "$links_file"; then
+        rm -f "$links_file"
+        echo "[]"
+        return 1
+    fi
+
+    jq -R -s 'split("\n") | map(select(length > 0)) | to_entries | map({id: (.key + 1), url: .value})' "$links_file"
+    rm -f "$links_file"
+}
+
 # sing-box funcs
 sing_box_configure_service() {
     local sing_box_enabled sing_box_user sing_box_config_path sing_box_conffile
@@ -677,6 +775,33 @@ configure_outbound_handler() {
             selector_outbounds="$(comma_string_to_json_array "$outbound_tags")"
             config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" \
                 "$default_outbound")"
+            ;;
+        subscription)
+            log "Detected proxy configuration type: subscription" "debug"
+            local subscription_url subscription_proxy_link udp_over_tcp links_file
+            config_get subscription_url "$section" "subscription_url"
+            config_get subscription_proxy_link "$section" "subscription_proxy_link"
+            config_get udp_over_tcp "$section" "enable_udp_over_tcp"
+
+            if [ -z "$subscription_proxy_link" ]; then
+                if [ -z "$subscription_url" ]; then
+                    log "Subscription URL is not set. Aborted." "fatal"
+                    exit 1
+                fi
+
+                links_file="$(mktemp)"
+                if ! load_subscription_proxy_links "$subscription_url" "$links_file"; then
+                    rm -f "$links_file"
+                    log "Unable to load subscription links. Aborted." "fatal"
+                    exit 1
+                fi
+
+                subscription_proxy_link="$(sed -n '1p' "$links_file")"
+                rm -f "$links_file"
+                log "Subscription server is not selected, using the first server from subscription" "warn"
+            fi
+
+            config=$(sing_box_cf_add_proxy_outbound "$config" "$section" "$subscription_proxy_link" "$udp_over_tcp")
             ;;
         urltest)
             log "Detected proxy configuration type: urltest" "debug"
@@ -1842,6 +1967,8 @@ show_config() {
         -e '/option outbound_json/,/^}/c\	option outbound_json '\''MASKED'\''' \
         -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(list selector_proxy_links\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option subscription_url\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option subscription_proxy_link\).*/\1 '\''MASKED'\''/g' \
         -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e "s@\\(option domain_resolver_dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e 's/\(option yacd_secret_key\).*/\1 '\''MASKED'\''/g' \
@@ -2665,6 +2792,8 @@ Available commands:
     check_sing_box_logs     Show sing-box logs
     check_fakeip            Test FakeIP on router
     clash_api               Clash API interface for managing proxies and groups
+    get_subscription_outbounds
+                            Download and list proxy links from a subscription URL
     show_config             Display current podkop configuration
     show_version            Show podkop version
     show_sing_box_config    Show sing-box configuration
@@ -2720,6 +2849,9 @@ check_fakeip)
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"
+    ;;
+get_subscription_outbounds)
+    get_subscription_outbounds "$2"
     ;;
 show_config)
     show_config
