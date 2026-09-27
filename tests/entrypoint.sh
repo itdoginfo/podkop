@@ -5000,6 +5000,11 @@ expect_eq fg-name-ipv6 "$(get_subscription_feed_display_name 'https://[2001:db8:
 expect_eq fg-name-fallback "$(get_subscription_feed_display_name 'not a url/' 'Subscription 2')" "Subscription 2"
 expect_eq fg-name-fragment-trim "$(get_subscription_feed_display_name 'https://sub.example.com/x#%20%20My%20VPN%20' x)" "My VPN"
 expect_eq fg-name-fragment-blank "$(get_subscription_feed_display_name 'https://sub.example.com/x#%20%09' x)" "sub.example.com"
+expect_eq fg-name-fragment-nbsp "$(get_subscription_feed_display_name 'https://sub.example.com/x#%C2%A0' x)" "sub.example.com"
+expect_eq fg-name-fragment-unicode-blank \
+    "$(get_subscription_feed_display_name 'https://sub.example.com/x#%E3%80%80%E2%80%8B%E2%80%AF%EF%BB%BF' x)" "sub.example.com"
+expect_eq fg-name-fragment-unicode-trim \
+    "$(get_subscription_feed_display_name 'https://sub.example.com/x#%E2%80%83My%C2%A0VPN%E3%80%80' x)" "$(printf 'My\302\240VPN')"
 
 # ── The fragment is only a name: not hashed, never fetched ────────
 expect_eq fg-hash-ignores-fragment \
@@ -5176,6 +5181,17 @@ dup="$(run_off "$tags" '[0,0,1]' '["same.example.com","same.example.com"]' "$nod
 expect_eq fg-off-duplicate-names-unique \
     "$(printf '%s' "$dup" | jq -c '[.outbounds[] | select(.type == "urltest") | .tag] | length as $n | (unique | length) == $n and $n == 3')" "true"
 
+# A group entry without name/tags is skipped instead of breaking the config
+# (the builder never emits one; the subshell keeps the stub local).
+holey="$(
+    sing_box_build_subscription_feed_groups() {
+        printf '%s' '[{"name":"Feed A","tags":["a1","a2"]},{},{"name":"Feed B","tags":["b1"]}]'
+    }
+    run_off "$tags" '[0,0,1]' '["Feed A","Feed B"]' "$nodes"
+)"
+expect_eq fg-off-unreadable-group-skipped \
+    "$(printf '%s' "$holey" | jq -c --arg p "$P" '[.outbounds[] | select(.type == "urltest") | .tag] | sort == (["\($p)Feed A","\($p)Feed B","syn-urltest-out"] | sort)')" "true"
+
 # ── Section loop: feed index + names → facade (bisection) → blocks ─
 # Four URLs: A, a dead one (no cache), C with a node sing-box rejects, and D
 # from A's host with A's name. The shipped loop computes the index and the
@@ -5236,6 +5252,25 @@ if command -v sing-box > /dev/null 2>&1; then
 else
     echo 'fg-bisect-dropped-bad:SKIP'
 fi
+
+# A literal "A (3)" takes the name a repeated "A" at position 3 would get, so
+# that one moves on to "A (4)". The last link repeats the first with another
+# #fragment: same cache file, merged once.
+url_x='https://x.example.com/one#A'
+url_y='https://y.example.com/sub#A%20(3)'
+url_z='https://z.example.com/sub#A'
+url_twin='https://x.example.com/one#Twin'
+seed_feed "$url_x" "$(ss x1 11)"
+seed_feed "$url_y" "$(ss y1 12)"
+seed_feed "$url_z" "$(ss z1 13)"
+printf '%s\n' "$url_x" "$url_y" "$url_z" "$url_twin" > "$loop_urls"
+printf '%s' '{"outbounds":[]}' > "$loop_merged"
+subscription_merge_section_feeds loop "$loop_urls" "$loop_merged"
+expect_eq fg-loop-name-collision "$SUBSCRIPTION_FEED_NAMES_JSON" '["A","A (3)","A (4)","Twin"]'
+expect_eq fg-loop-twin-usable-count "$SUBSCRIPTION_USABLE_FEED_COUNT" "3"
+expect_eq fg-loop-twin-merged-once \
+    "$(jq -c --arg k "$SUBSCRIPTION_FEED_MARKER_KEY" '[.outbounds[] | [.tag, .[$k]]]' "$loop_merged")" \
+    '[["x1",0],["y1",1],["z1",2]]'
 
 # ── .url sidecar ignores the #fragment on both sides ──────────────
 sidecar="$SUBSCRIPTION_CACHE_FOLDER/side.url"

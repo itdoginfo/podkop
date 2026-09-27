@@ -7,7 +7,7 @@ interface ProxyEntry {
 
 // Mirrors SB_SUBSCRIPTION_FEED_GROUP_TAG_PREFIX in the backend constants.sh:
 // per-subscription urltest tags are "<prefix><subscription name>".
-const SUBSCRIPTION_FEED_GROUP_TAG_PREFIX = '⚡ ';
+export const SUBSCRIPTION_FEED_GROUP_TAG_PREFIX = '⚡ ';
 
 function isGroupType(item?: ProxyEntry) {
   const type = item?.value?.type?.toLowerCase();

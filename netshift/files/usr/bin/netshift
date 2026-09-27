@@ -2708,7 +2708,17 @@ get_subscription_feed_display_name() {
 
     case "$url" in
     *'#'*)
-        name="$(url_decode "${url#*#}" | tr -d '\000-\037\177' | sed 's/^ *//; s/ *$//')"
+        # Trims ASCII and Unicode spaces (NBSP, U+2000-U+200B, U+202F,
+        # U+205F, U+3000, BOM), so "#%C2%A0" counts as no name.
+        name="$(url_decode "${url#*#}" | tr -d '\000-\037\177')"
+        name="$(jq -rn --arg name "$name" '
+            def blank: . == 32 or . == 160 or (. >= 8192 and . <= 8203)
+                or . == 8239 or . == 8287 or . == 12288 or . == 65279;
+            $name | explode
+            | until(length == 0 or (.[0] | blank | not); .[1:])
+            | until(length == 0 or (.[length - 1] | blank | not); .[:length - 1])
+            | implode
+        ' 2>/dev/null)"
         ;;
     esac
 
@@ -2776,19 +2786,33 @@ subscription_merge_section_feeds() {
     local feed_index=0
     local usable_feed_count=0
     local feed_names_json="[]"
+    local merged_hashes=""
 
     while IFS= read -r subscription_url || [ -n "$subscription_url" ]; do
         [ -n "$subscription_url" ] || continue
         feed_index=$((feed_index + 1))
         # A repeated name (two feeds from one host) gets " (<position>)", so
-        # the block title never shows the tag dedup suffix ("host-1").
+        # the block title never shows the tag dedup suffix ("host-1"). If that
+        # is taken too (a feed literally named "A (4)"), the number goes up.
         feed_names_json="$(jq -cn --argjson names "$feed_names_json" \
             --arg name "$(get_subscription_feed_display_name "$subscription_url" "Subscription $feed_index")" \
-            --arg position "$feed_index" '
-            $names + [if ($names | any(. == $name)) then "\($name) (\($position))" else $name end]
+            --argjson position "$feed_index" '
+            def taken($n): $names | any(. == $n);
+            $names + [if taken($name) then
+                first(range($position; $position + 1000) | "\($name) (\(.))" | select(taken(.) | not))
+            else $name end]
         ' 2>/dev/null)"
         [ -n "$feed_names_json" ] || feed_names_json="[]"
         urlhash="$(get_subscription_url_hash "$subscription_url")"
+        # Links that differ only in #fragment share one cache file; merging
+        # it twice would duplicate every node.
+        case " $merged_hashes " in
+        *" $urlhash "*)
+            log "Subscription feed for section '$section' repeats an earlier link (only #fragment differs); skipping (url=$(redact_url_for_log "$subscription_url"))" "warn"
+            continue
+            ;;
+        esac
+        merged_hashes="$merged_hashes $urlhash"
         subscription_json_path="$(get_subscription_json_path "$section" "$urlhash")"
         subscription_cache_is_usable "$subscription_json_path" || {
             log "Subscription feed for section '$section' has no usable cache; skipping (url=$(redact_url_for_log "$subscription_url"))" "warn"
@@ -3384,14 +3408,18 @@ configure_outbound_handler() {
                     if [ "$feed_groups_count" -ge 2 ]; then
                         feed_group_index=0
                         while [ "$feed_group_index" -lt "$feed_groups_count" ]; do
-                            feed_group_name="$(printf '%s' "$feed_groups_json" | jq -r --argjson i "$feed_group_index" '.[$i].name')"
-                            feed_group_tags="$(printf '%s' "$feed_groups_json" | jq -c --argjson i "$feed_group_index" '.[$i].tags')"
+                            feed_group_name="$(printf '%s' "$feed_groups_json" | jq -r --argjson i "$feed_group_index" '.[$i].name // empty' 2>/dev/null)"
+                            feed_group_tags="$(printf '%s' "$feed_groups_json" | jq -c --argjson i "$feed_group_index" '.[$i].tags // empty' 2>/dev/null)"
+                            feed_group_index=$((feed_group_index + 1))
+                            if [ -z "$feed_group_name" ] || [ -z "$feed_group_tags" ]; then
+                                log "Subscription section '$section': cannot read per-subscription group $feed_group_index; skipping it" "warn"
+                                continue
+                            fi
                             feed_urltest_tag="$(sing_box_get_unique_outbound_tag "$config" \
                                 "${SB_SUBSCRIPTION_FEED_GROUP_TAG_PREFIX}${feed_group_name}")"
                             config="$(sing_box_cm_add_urltest_outbound "$config" "$feed_urltest_tag" "$feed_group_tags" \
                                 "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
                             feed_urltest_tags_json="$(printf '%s' "$feed_urltest_tags_json" | jq -ac --arg tag "$feed_urltest_tag" '. + [$tag]')"
-                            feed_group_index=$((feed_group_index + 1))
                         done
                         log "Subscription section '$section': $feed_groups_count per-subscription urltest group(s)" "debug"
                     fi
