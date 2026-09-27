@@ -4470,6 +4470,14 @@ function renderWikiDisclaimer(kind) {
   ]);
 }
 
+// src/netshift/tabs/diagnostic/helpers/getSelectedOutbound.ts
+function getSelectedOutbound(section) {
+  return [
+    ...section.outbounds,
+    ...(section.subgroups ?? []).flatMap((subgroup) => subgroup.outbounds)
+  ].find((item) => item.selected);
+}
+
 // src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts
 async function runSectionsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
@@ -4498,9 +4506,7 @@ async function runSectionsCheck() {
       async function getLatency() {
         if (section.withTagSelect) {
           const latencyGroup = await NetShiftShellMethods.getClashApiGroupLatency(section.code);
-          const selectedOutbound = section.outbounds.find(
-            (item) => item.selected
-          );
+          const selectedOutbound = getSelectedOutbound(section);
           const isUrlTest2 = selectedOutbound?.type === "URLTest";
           const success3 = latencyGroup.success && !latencyGroup.data.message;
           if (success3) {
