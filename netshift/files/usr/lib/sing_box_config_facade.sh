@@ -151,14 +151,18 @@ sing_box_cf_add_proxy_outbound() {
             # `encryption` is a sing-box-extended field; stock sing-box and
             # older extended builds decode configs strictly and would fail
             # `sing-box check` for the WHOLE config as well.
-            if ! is_sing_box_extended_at_least "$SB_EXTENDED_VLESS_ENCRYPTION_MIN"; then
-                log "Section '$section': VLESS Encryption requires sing-box-extended $SB_EXTENDED_VLESS_ENCRYPTION_MIN or newer; skipping the link. Install sing-box-extended and retry." "error"
+            # The fallback keeps the gate closed even if constants.sh was not
+            # sourced: an empty minimum would compare as "anything passes".
+            local encryption_min="${SB_EXTENDED_VLESS_ENCRYPTION_MIN:-2.0.0}"
+            if ! is_sing_box_extended_at_least "$encryption_min"; then
+                log "Section '$section': VLESS Encryption requires sing-box-extended $encryption_min or newer; skipping the link. Install sing-box-extended and retry." "error"
                 echo "$config"
                 return 1
             fi
             ;;
         *)
-            log "Section '$section': unknown VLESS encryption value '$encryption'; treating the link as plain VLESS." "warn"
+            # Log only the first part and the length: the value may be a key.
+            log "Section '$section': unknown VLESS encryption value '${encryption%%.*}' (${#encryption} characters); treating the link as plain VLESS." "warn"
             encryption=""
             ;;
         esac

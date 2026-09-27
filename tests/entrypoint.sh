@@ -1593,10 +1593,20 @@ get_sing_box_version() { echo "$SB_VER"; }
 K='U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4'
 BIG_OK="$(awk 'BEGIN { while (i++ < 1579) printf "A" }')"
 BIG_BAD="$(awk 'BEGIN { while (i++ < 1579) printf "_" }')"
+# Only the first 1152 bytes (1536 characters, the t vector) carry coefficients;
+# the last 32 bytes are rho and take any value. "____" = three 0xFF bytes.
+BIG_BAD_T_LAST="$(awk 'BEGIN { while (i++ < 1532) printf "A"; printf "____"; while (j++ < 43) printf "A" }')"
+BIG_BAD_RHO="$(awk 'BEGIN { while (i++ < 1536) printf "A"; printf "____"; while (j++ < 39) printf "A" }')"
+# Known differences, all in the safe direction (the validator is stricter, the
+# link is skipped, the config cannot fail): the core also takes a '+' in a gap
+# padding (Atoi("+0") == 0) and padding numbers of 19 digits (int64), while
+# the validator allows only [A-Za-z0-9._-] and at most 18 digits.
+STRICTER_PLUS="mlkem768x25519plus.native.0rtt.100-35-35.0-+0-+0.$K"
+STRICTER_19="mlkem768x25519plus.native.0rtt.100-35-35.100-2-1234567890123456789.$K"
 for v in "$KEY" "mlkem768x25519plus.xorpub.1rtt.$K" "mlkem768x25519plus.random.0rtt.$K.$K" \
     "mlkem768x25519plus.native.0rtt.100-35-35.$K" "mlkem768x25519plus.native.0rtt.100-35-35.1-2-3.$K" \
-    "mlkem768x25519plus.native.1rtt.$BIG_OK" "mlkem768x25519plus.native.1rtt.$BIG_OK.$K"; do
-    short="$(printf '%s' "$v" | cut -c1-90)"
+    "mlkem768x25519plus.native.1rtt.$BIG_OK" "mlkem768x25519plus.native.1rtt.$BIG_OK.$K"     "mlkem768x25519plus.native.1rtt.$BIG_BAD_RHO"; do
+    short="len${#v}:$(printf '%s' "$v" | cut -c1-90)"
     is_valid_vless_encryption "$v" && echo "ve-valid-accepts-[$short]:OK" || echo "ve-valid-accepts-[$short]:FAIL"
 done
 K42="$(printf '%s' "$K" | cut -c1-42)"
@@ -1610,8 +1620,8 @@ for v in "" "none" "mlkem768x25519plus.native.0rtt" "mlkem768x25519plus.native.0
     "mlkem768x25519plus.native.0rtt.100-111-1111.$K" "mlkem768x25519plus.native.0rtt.100-34-35.$K" \
     "mlkem768x25519plus.native.0rtt.12345.$K" "mlkem768x25519plus.native.1rtt.$BIG_BAD" \
     "mlkem768x25519plus.native.0rtt.AB CD" \
-    "mlkem768x25519plus.native.0rtt.AB+CD" "mlkem768x25519plus.native.0rtt.AB%2BCD"; do
-    short="$(printf '%s' "$v" | cut -c1-90)"
+    "mlkem768x25519plus.native.0rtt.AB+CD" "mlkem768x25519plus.native.0rtt.AB%2BCD"     "mlkem768x25519plus.native.1rtt.$BIG_BAD_T_LAST" "$STRICTER_PLUS" "$STRICTER_19"; do
+    short="len${#v}:$(printf '%s' "$v" | cut -c1-90)"
     is_valid_vless_encryption "$v" && echo "ve-valid-rejects-[$short]:FAIL" || echo "ve-valid-rejects-[$short]:OK"
 done
 
@@ -1784,25 +1794,50 @@ if [ -n "$ext_core" ]; then
 
     # The validator accepts exactly what the core accepts: truncated keys,
     # padding after a key, Xray-style padding (it decodes, so the fork takes it
-    # for a 9-byte key), ML-KEM keys with valid / out-of-range coefficients.
-    big_ok="$(awk 'BEGIN { while (i++ < 1579) printf "A" }')"
-    big_bad="$(awk 'BEGIN { while (i++ < 1579) printf "_" }')"
-    for v in "$KEY" "mlkem768x25519plus.native.0rtt.$(printf '%s' "$K" | cut -c1-42)" \
-        "mlkem768x25519plus.native.0rtt.$(printf '%s' "$K" | cut -c1-41)" \
+    # for a 9-byte key), ML-KEM keys with valid / out-of-range coefficients,
+    # including where the coefficient window ends (t vs rho).
+    for v in "$KEY" "mlkem768x25519plus.native.0rtt.$K42" "mlkem768x25519plus.native.0rtt.$K41" \
         "mlkem768x25519plus.native.0rtt.A" "mlkem768x25519plus.native.0rtt.100-35-35.$K" \
         "mlkem768x25519plus.native.0rtt.$K.100-35-35" "mlkem768x25519plus.native.0rtt.100-111-1111.$K" \
-        "mlkem768x25519plus.xorpub.1rtt.$big_ok" "mlkem768x25519plus.xorpub.1rtt.$big_bad"; do
+        "mlkem768x25519plus.xorpub.1rtt.$BIG_OK" "mlkem768x25519plus.xorpub.1rtt.$BIG_BAD" \
+        "mlkem768x25519plus.xorpub.1rtt.$BIG_BAD_T_LAST" "mlkem768x25519plus.xorpub.1rtt.$BIG_BAD_RHO"; do
         jq -n --arg e "$v" '{ log: { level: "error" }, outbounds: [ { type: "vless", tag: "t",
             server: "x.example.com", server_port: 1,
             uuid: "11111111-2222-3333-4444-555555555555", encryption: $e } ] }' > "$ve_full"
         "$ext_core" -c "$ve_full" check > /dev/null 2>&1 && core=accept || core=reject
         is_valid_vless_encryption "$v" && mine=accept || mine=reject
-        short="$(printf '%s' "$v" | cut -c1-60)"
+        short="len${#v}:$(printf '%s' "$v" | cut -c1-60)"
         [ "$mine" = "$core" ] && echo "ve-validator-matches-core-[$short]:OK" \
             || echo "ve-validator-matches-core-[$short]:FAIL (validator=$mine core=$core)"
     done
+
+    # Known differences stay in the safe direction: never accepted by the
+    # validator while the core would reject them.
+    for v in "$STRICTER_PLUS" "$STRICTER_19"; do
+        jq -n --arg e "$v" '{ log: { level: "error" }, outbounds: [ { type: "vless", tag: "t",
+            server: "x.example.com", server_port: 1,
+            uuid: "11111111-2222-3333-4444-555555555555", encryption: $e } ] }' > "$ve_full"
+        "$ext_core" -c "$ve_full" check > /dev/null 2>&1 && core=accept || core=reject
+        is_valid_vless_encryption "$v" && mine=accept || mine=reject
+        short="len${#v}:$(printf '%s' "$v" | cut -c1-60)"
+        if [ "$mine" = "accept" ] && [ "$core" = "reject" ]; then
+            echo "ve-validator-safe-direction-[$short]:FAIL (validator accepts, core rejects)"
+        else
+            echo "ve-validator-safe-direction-[$short]:OK"
+        fi
+    done
+
+    # flow + encryption together is a valid outbound on the core.
+    jq -n --arg e "$KEY" '{ log: { level: "error" }, outbounds: [ { type: "vless", tag: "t",
+        server: "x.example.com", server_port: 1, flow: "xtls-rprx-vision",
+        uuid: "11111111-2222-3333-4444-555555555555", encryption: $e } ] }' > "$ve_full"
+    "$ext_core" -c "$ve_full" check > /dev/null 2>&1 \
+        && echo 've-ext-flow-plus-encryption:OK' || echo 've-ext-flow-plus-encryption:FAIL'
 else
     echo 've-ext-urltest-check:SKIP'
+    echo 've-validator-matches-core:SKIP'
+    echo 've-validator-safe-direction:SKIP'
+    echo 've-ext-flow-plus-encryption:SKIP'
 fi
 
 # The gate is needed at all: a stock core rejects the whole config once the
