@@ -4956,7 +4956,7 @@ for fn in sing_box_get_unique_outbound_tag sing_box_build_subscription_feed_grou
           get_subscription_url_hash subscription_merge_section_feeds \
           get_subscription_json_path get_subscription_url_cache_path \
           subscription_url_cache_matches subscription_cache_is_usable \
-          prepare_subscription_cache_for_startup; do
+          prepare_subscription_cache_for_startup reap_orphan_subscription_cache_files; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 done
 get_outbound_tag_by_section() { printf '%s-out' "$1"; }
@@ -5316,6 +5316,33 @@ prepare_subscription_cache_for_startup startup
 expect_eq fg-startup-fetches-only-moved "$(cat "$FG_FETCHED")" "$url_moved"
 rm -f "$FG_FETCHED"
 
+# ── Orphan cache files ────────────────────────────────────────────
+# Files of a link dropped from the list and of a link cached while the hash
+# still held the #fragment go; the listed link, another section, the legacy
+# bare name and non-hash names stay. A hash that cannot be computed removes
+# nothing.
+orph_urls="/tmp/fg-orph-urls-$$"
+url_keep='https://k.example.com/sub#Keep'
+url_gone='https://g.example.com/sub'
+h_keep="$(get_subscription_url_hash "$url_keep")"
+h_gone="$(get_subscription_url_hash "$url_gone")"
+h_old="$(printf '%s' "$url_keep" | md5sum | awk '{print $1}')"
+printf '%s\n' "$url_keep" > "$orph_urls"
+for f in "orph.$h_keep.json" "orph.$h_keep.url" "orph.$h_keep.rejected" \
+    "orph.$h_gone.json" "orph.$h_gone.user_agent" "orph.$h_gone.json.tmp.42" \
+    "orph.$h_old.json" "orph.$h_old.url" \
+    orph.json orph.notahash.json "orph_x.$h_gone.json"; do
+    : > "$SUBSCRIPTION_CACHE_FOLDER/$f"
+done
+orph_left() { (cd "$SUBSCRIPTION_CACHE_FOLDER" && ls orph.* orph_x.* 2>/dev/null | sort | tr '\n' ' '); }
+orph_want="$(printf '%s\n' "orph.$h_keep.json" "orph.$h_keep.rejected" "orph.$h_keep.url" \
+    orph.json orph.notahash.json "orph_x.$h_gone.json" | sort | tr '\n' ' ')"
+(get_subscription_url_hash() { :; }; reap_orphan_subscription_cache_files orph "$orph_urls")
+expect_eq fg-orphan-no-hash-keeps-all "$(orph_left | wc -w | tr -d ' ')" "11"
+reap_orphan_subscription_cache_files orph "$orph_urls"
+expect_eq fg-orphan-reaped "$(orph_left)" "$orph_want"
+rm -f "$orph_urls"
+
 rm -rf "$SUBSCRIPTION_CACHE_FOLDER" "$loop_urls" "$loop_merged"
 rm -f "$feed_a" "$feed_b" "$feed_bad" "$merged" "$unmarked"
 echo 'DONE'
@@ -5334,6 +5361,23 @@ FDEOF
         pass "fg-region-extracted:OK"
     else
         fail "fg-region-extracted:FAIL" "$(head -3 "$region" 2>/dev/null)"
+    fi
+
+    # configure_outbound_handler reaps orphans once the URL list is known and
+    # before any feed is downloaded.
+    local reap_order
+    reap_order="$(awk '
+        /^configure_outbound_handler\(\) \{/{p=1}
+        !p{next}
+        /Subscription URL is not set/{print "empty-check"}
+        /reap_orphan_subscription_cache_files "\$section" "\$subscription_urls_tmp"/{print "reap"}
+        /Per-feed download/{print "download"}
+        /^\}/{exit}
+    ' "$bin" | tr '\n' ' ')"
+    if [ "$reap_order" = "empty-check reap download " ]; then
+        pass "fg-orphan-reap-wired:OK"
+    else
+        fail "fg-orphan-reap-wired:FAIL" "order: $reap_order"
     fi
     {
         sed '/EXTRACT_OFF/q' "$drv" | sed '$d'

@@ -279,6 +279,46 @@ reap_legacy_subscription_cache_files() {
         2>/dev/null
 }
 
+# Remove per-URL cache files of section $1 whose URL hash matches none of the
+# URLs listed in file $2 (one per line): a link dropped from the list, or a
+# link cached before the #fragment was left out of the hash. Only
+# "${section}.<32 hex>.<ext>" names are touched; UCI section names cannot
+# hold a '.', so another section's files never match. Nothing is removed when
+# a hash cannot be computed.
+reap_orphan_subscription_cache_files() {
+    local section="$1"
+    local urls_file="$2"
+    local keep_hashes="" url urlhash cache_file name removed=0
+
+    [ -n "$SUBSCRIPTION_CACHE_FOLDER" ] && [ -d "$SUBSCRIPTION_CACHE_FOLDER" ] || return 0
+
+    while IFS= read -r url || [ -n "$url" ]; do
+        [ -n "$url" ] || continue
+        urlhash="$(get_subscription_url_hash "$url")"
+        [ -n "$urlhash" ] || return 0
+        keep_hashes="$keep_hashes $urlhash"
+    done < "$urls_file"
+    [ -n "$keep_hashes" ] || return 0
+
+    for cache_file in "$SUBSCRIPTION_CACHE_FOLDER/$section".*; do
+        [ -f "$cache_file" ] || continue
+        name="${cache_file##*/}"
+        name="${name#"$section".}"
+        urlhash="${name%%.*}"
+        [ "$urlhash" != "$name" ] && [ "${#urlhash}" -eq 32 ] || continue
+        case "$urlhash" in
+        *[!0-9a-f]*) continue ;;
+        esac
+        case " $keep_hashes " in
+        *" $urlhash "*) continue ;;
+        esac
+        rm -f "$cache_file" 2>/dev/null && removed=$((removed + 1))
+    done
+
+    [ "$removed" -eq 0 ] ||
+        log "Removed $removed cache file(s) of subscription links no longer listed in section '$section'" "info"
+}
+
 ensure_subscription_cache_dir() {
     local state_dir_created=0 cache_dir_created=0
     local mkdir_errfile mkdir_rc
@@ -2700,7 +2740,11 @@ sing_box_build_subscription_groups() {
 # else the host. The fragment is decoded like a proxy link name ('+' is a
 # space). The fragment is cut off before any request is made
 # (download_subscription, check_subscription_connectivity) and is not part of
-# the cache hash. $2 is used when neither yields a name.
+# the cache hash. $2 is used when neither yields a name. That fallback
+# ("Subscription N") is deliberately plain English: it becomes part of the
+# sing-box tag, where LuCI translations never reach. LuCI only accepts
+# http(s):// URLs with a valid host, so it is reached only through a
+# hand-written `uci set` (no scheme, empty host).
 get_subscription_feed_display_name() {
     local url="$1"
     local fallback="$2"
@@ -3173,6 +3217,7 @@ configure_outbound_handler() {
                 log "Subscription URL is not set. Aborted." "fatal"
                 exit 1
             fi
+            reap_orphan_subscription_cache_files "$section" "$subscription_urls_tmp"
 
             log "Section '$section' has $subscription_url_count subscription feed(s)" "debug"
 
