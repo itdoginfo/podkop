@@ -1389,11 +1389,17 @@ printf '%s' "$out_split" | jq -e '.outbounds[0].transport.type=="xhttp"' >/dev/n
     && echo 'us-splithttp-url-xhttp:OK' || echo 'us-splithttp-url-xhttp:FAIL'
 printf '%s' "$out_split" | jq -e '.outbounds[0].transport.path=="/sp"' >/dev/null 2>&1 \
     && echo 'us-splithttp-url-path:OK' || echo 'us-splithttp-url-path:FAIL'
-# Extended gate respected: with extended OFF the transport is NOT applied.
+# Extended gate respected: with extended OFF the whole link is skipped (rc!=0,
+# config unchanged) — not kept as an outbound without its transport, which
+# would validate but could never connect.
 is_sing_box_extended() { return 1; }
 out_split_off=$(sing_box_cf_add_proxy_outbound "$base" "splo" "vless://77777777-8888-9999-aaaa-bbbbbbbbbbbb@s.example.com:8443?type=splithttp&security=tls&sni=s.example.com&path=/sp&host=s.example.com&mode=auto" "0")
-printf '%s' "$out_split_off" | jq -e '.outbounds[0] | has("transport") | not' >/dev/null 2>&1 \
-    && echo 'us-splithttp-gate-off:OK' || echo 'us-splithttp-gate-off:FAIL'
+split_off_rc=$?
+if [ "$split_off_rc" != "0" ] && [ "$out_split_off" = "$base" ]; then
+    echo 'us-splithttp-gate-off:OK'
+else
+    echo "us-splithttp-gate-off:FAIL (rc=$split_off_rc)"
+fi
 is_sing_box_extended() { return 0; }
 # Whole-chain: the splithttp(→xhttp) outbound passes a real sing-box check on
 # extended (the container core may be stock, so only assert when it accepts
@@ -1465,6 +1471,148 @@ USEOF
         pass "us-driver-completed:OK"
     else
         fail "us-driver-completed:FAIL (driver aborted early)"
+    fi
+    rm -f "$drv" "$out"
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test: extended-only links are skipped as a whole on stock sing-box
+# ─────────────────────────────────────────────────────────────────
+# vmess:// and the XHTTP transport need sing-box-extended. On a stock core the
+# facade must skip such a link with the `*)` contract (config UNCHANGED,
+# non-zero return), so that:
+#  - selector/urltest never get a member tag for an outbound that was not
+#    created (sing-box check passes that, but sing-box fails to start with
+#    "dependency[...] not found");
+#  - a vless/trojan XHTTP link is not kept as an outbound without its
+#    transport (valid, listed in the group, but it can never connect).
+# Drives the REAL facade/manager/helpers and the SHIPPED
+# _build_proxy_member_outbounds (awk-extracted). Synthetic values only.
+test_extended_gate_skip() {
+    header "Extended-only links skipped on stock sing-box"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local facade_lib="$lib/sing_box_config_facade.sh"
+    if [ ! -r "$facade_lib" ] || [ ! -r "$bin" ]; then
+        fail "facade lib / bin not found"
+        return
+    fi
+
+    # The facade sources helpers + manager from /usr/lib/netshift.
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/test-extgate-$$.sh"
+    local out="/tmp/test-extgate-out-$$.txt"
+    cat > "$drv" << 'EGEOF'
+. "CONST_LIB"
+. "FACADE_LIB"
+
+LOG_FILE="/tmp/eg-log-$$.log"
+: > "$LOG_FILE"
+log()     { printf '%s|%s\n' "${2:-info}" "$1" >> "$LOG_FILE"; }
+echolog() { printf '%s|%s\n' "${2:-info}" "$1" >> "$LOG_FILE"; }
+nolog()   { :; }
+
+eval "$(awk '/^_build_proxy_member_outbounds\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+
+base='{"outbounds":[]}'
+VM_JSON='{"v":"2","ps":"vm","add":"vm.example.com","port":"443","id":"11111111-2222-3333-4444-555555555555","aid":"0","net":"ws","host":"vm.example.com","path":"/vm","tls":"tls","sni":"vm.example.com"}'
+VM="vmess://$(printf '%s' "$VM_JSON" | base64 | tr -d '\n')"
+XH="vless://22222222-3333-4444-5555-666666666666@x.example.com:443?type=xhttp&security=tls&sni=x.example.com&path=/x&host=x.example.com&mode=auto"
+XT="trojan://synthetic-pass@t.example.com:443?type=splithttp&security=tls&sni=t.example.com&path=/t&host=t.example.com"
+PLAIN="vless://66666666-7777-8888-9999-aaaaaaaaaaaa@plain.example.com:443?type=tcp&security=tls&sni=plain.example.com"
+
+# ── (1) stock: each extended-only link alone is skipped ──────────────────────
+is_sing_box_extended() { return 1; }
+for pair in "vmess|$VM" "vless-xhttp|$XH" "trojan-splithttp|$XT"; do
+    name="${pair%%|*}"; link="${pair#*|}"
+    : > "$LOG_FILE"
+    got=$(sing_box_cf_add_proxy_outbound "$base" "eg" "$link" "0")
+    rc=$?
+    if [ "$rc" != "0" ] && [ "$got" = "$base" ] && grep -q '^error|.*requires sing-box-extended' "$LOG_FILE"; then
+        echo "eg-stock-skip-$name:OK"
+    else
+        echo "eg-stock-skip-$name:FAIL (rc=$rc)"
+    fi
+done
+
+# ── (2) stock: a urltest list keeps only the ordinary member ────────────────
+config="$base"
+_build_proxy_member_outbounds "eg" "$VM
+$XH
+$XT
+$PLAIN" "0" "URLTest"
+[ "$_member_outbound_tags" = "eg-4-out" ] && echo 'eg-stock-members-only-plain:OK' \
+    || echo "eg-stock-members-only-plain:FAIL ($_member_outbound_tags)"
+printf '%s' "$config" | jq -e '[.outbounds[].tag] == ["eg-4-out"]' >/dev/null 2>&1 \
+    && echo 'eg-stock-no-transportless-outbound:OK' || echo 'eg-stock-no-transportless-outbound:FAIL'
+
+# ── (3) the resulting group config validates AND starts ─────────────────────
+# `sing-box check` does not resolve group members, so also run it briefly and
+# make sure it does not stop on a missing dependency.
+eg_full="/tmp/eg-full-$$.json"
+printf '%s' "$config" | jq --arg m "$_member_outbound_tags" '{
+    log: { level: "error" },
+    inbounds: [],
+    outbounds: (.outbounds + [
+        { type: "urltest", tag: "eg-urltest", outbounds: ($m | split(",")) },
+        { type: "direct", tag: "direct-out" } ]),
+    route: { final: "eg-urltest" }
+}' > "$eg_full" 2>/dev/null
+if command -v sing-box > /dev/null 2>&1; then
+    sing-box -c "$eg_full" check > /dev/null 2>&1 \
+        && echo 'eg-stock-group-check:OK' || echo 'eg-stock-group-check:FAIL'
+    eg_run_log="/tmp/eg-run-$$.log"
+    sing-box -c "$eg_full" run > "$eg_run_log" 2>&1 &
+    eg_pid=$!
+    sleep 2
+    kill "$eg_pid" 2>/dev/null
+    wait "$eg_pid" 2>/dev/null
+    grep -q 'dependency\[' "$eg_run_log" \
+        && echo "eg-stock-group-starts:FAIL ($(grep -m1 'dependency\[' "$eg_run_log"))" \
+        || echo 'eg-stock-group-starts:OK'
+    rm -f "$eg_run_log"
+else
+    echo 'eg-stock-group-check:SKIP'
+    echo 'eg-stock-group-starts:SKIP'
+fi
+rm -f "$eg_full"
+
+# ── (4) extended: the same list builds all four members ─────────────────────
+is_sing_box_extended() { return 0; }
+config="$base"
+_build_proxy_member_outbounds "ex" "$VM
+$XH
+$XT
+$PLAIN" "0" "URLTest"
+[ "$_member_outbound_tags" = "ex-1-out,ex-2-out,ex-3-out,ex-4-out" ] && echo 'eg-ext-members-all:OK' \
+    || echo "eg-ext-members-all:FAIL ($_member_outbound_tags)"
+printf '%s' "$config" | jq -e '[.outbounds[] | select(.tag == "ex-2-out" or .tag == "ex-3-out") | .transport.type] == ["xhttp", "xhttp"]' >/dev/null 2>&1 \
+    && echo 'eg-ext-xhttp-transport:OK' || echo 'eg-ext-xhttp-transport:FAIL'
+
+rm -f "$LOG_FILE"
+echo 'DONE'
+EGEOF
+    sed -i "s|CONST_LIB|$lib/constants.sh|g; s|FACADE_LIB|$facade_lib|g; s|BIN_PATH|$bin|g" "$drv"
+
+    sh "$drv" > "$out" 2>/dev/null || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK)    pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP*) skip "$line" ;;
+            DONE)    saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "eg-driver-completed:OK"
+    else
+        fail "eg-driver-completed:FAIL (driver aborted early)"
     fi
     rm -f "$drv" "$out"
 }
@@ -2502,7 +2650,10 @@ echo "$out_frag" | jq -e '.outbounds[0].tls.server_name == "frag.example.com"' >
 # ── Extended OFF: gate returns config UNCHANGED (no vmess outbound) ──
 is_sing_box_extended() { return 1; }
 out_gate=$(sing_box_cf_add_proxy_outbound "$base_config" "vmess_gate" "$ws_link" "0")
+gate_rc=$?
 echo "$out_gate" | jq -e '.outbounds | length == 0' >/dev/null 2>&1 && echo 'vmess-gate-unchanged:OK' || echo 'vmess-gate-unchanged:FAIL'
+# Non-zero, so selector/urltest callers do not add a member tag for it.
+[ "$gate_rc" != "0" ] && echo 'vmess-gate-nonzero:OK' || echo 'vmess-gate-nonzero:FAIL (rc=0)'
 
 echo 'DONE'
 VMEOF
@@ -10801,6 +10952,7 @@ main() {
             test_section_isolation
             test_monitor_fd_hygiene
             test_unsupported_skip
+            test_extended_gate_skip
             test_text_list_outbound
             test_ruleset_chunk_size
             test_domain_case
@@ -10839,6 +10991,7 @@ main() {
         isolation)   test_section_isolation ;;
         monfd)       test_monitor_fd_hygiene ;;
         unsupported) test_unsupported_skip ;;
+        extgate)     test_extended_gate_skip ;;
         textlist)    test_text_list_outbound ;;
         chunkcheck)  test_ruleset_chunk_size ;;
         domcase)     test_domain_case ;;
@@ -10872,7 +11025,7 @@ main() {
         proxylink)   test_proxy_link_escaping ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy bittorrent stablecheck extcheck sbextarch netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy bittorrent stablecheck extcheck sbextarch netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist"
             exit 1
             ;;
     esac

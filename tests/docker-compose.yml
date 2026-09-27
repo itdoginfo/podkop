@@ -9,7 +9,7 @@
 #   docker compose -f tests/docker-compose.yml run --rm netshift-test <test-name>
 #
 # Test names: all, deps, syntax, config, helpers, jq, cm, sb, proxylink, nft,
-#             nftv6, selmark, isolation, monfd, unsupported, textlist,
+#             nftv6, selmark, isolation, monfd, unsupported, extgate, textlist,
 #             chunkcheck, diagnostics, subscription, fastest, insecure, rejected,
 #             jobstate, selfheal, dnsdetour, ecssubnet, suburlopt, subcron, globalproxy,
 #             bittorrent, stablecheck, extcheck, sbextarch, netshiftcheck, latesttag,
