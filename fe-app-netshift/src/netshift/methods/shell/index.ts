@@ -46,11 +46,6 @@ export const NetShiftShellMethods = {
       // one by one and all answer together.
       { nobatch: true },
     ),
-  getClashApiGroupLatency: async (tag: string) =>
-    callBaseMethod<NetShift.GetClashApiGroupLatency>(
-      NetShift.AvailableMethods.CLASH_API,
-      [NetShift.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, '10000'],
-    ),
   setClashApiGroupProxy: async (group: string, proxy: string) =>
     callBaseMethod<unknown>(NetShift.AvailableMethods.CLASH_API, [
       NetShift.AvailableClashAPIMethods.SET_GROUP_PROXY,

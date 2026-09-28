@@ -960,10 +960,6 @@ var NetShiftShellMethods = {
     // one by one and all answer together.
     { nobatch: true }
   ),
-  getClashApiGroupLatency: async (tag) => callBaseMethod(
-    NetShift.AvailableMethods.CLASH_API,
-    [NetShift.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, "10000"]
-  ),
   setClashApiGroupProxy: async (group, proxy) => callBaseMethod(NetShift.AvailableMethods.CLASH_API, [
     NetShift.AvailableClashAPIMethods.SET_GROUP_PROXY,
     group,
@@ -4585,33 +4581,22 @@ async function runSectionsCheck() {
     sections.data.map(async (section) => {
       async function getLatency() {
         if (section.withTagSelect) {
-          const latencyGroup = await NetShiftShellMethods.getClashApiGroupLatency(section.code);
           const selectedOutbound = getSelectedOutbound(section);
-          const isUrlTest2 = selectedOutbound?.type === "URLTest";
-          const success3 = latencyGroup.success && !latencyGroup.data.message;
-          if (success3) {
-            if (isUrlTest2) {
-              const latency2 = Object.values(latencyGroup.data).map((item) => item ? `${item}ms` : "n/a").join(" / ");
-              return {
-                success: true,
-                latency: `[${_("Fastest")}] ${latency2}`
-              };
-            }
-            const selectedProxyDelay = latencyGroup.data?.[selectedOutbound?.code ?? ""];
-            if (selectedProxyDelay) {
-              return {
-                success: true,
-                latency: `[${selectedOutbound?.displayName ?? ""}] ${selectedProxyDelay}ms`
-              };
-            }
+          const label = selectedOutbound?.type === "URLTest" ? _("Fastest") : selectedOutbound?.displayName;
+          const prefix = label ? `[${label}] ` : "";
+          const latencyProxy2 = await NetShiftShellMethods.getClashApiProxyLatency(
+            selectedOutbound?.code ?? section.code
+          );
+          const delay = latencyProxy2.success && !latencyProxy2.data.message && latencyProxy2.data.delay;
+          if (delay) {
             return {
-              success: false,
-              latency: `[${selectedOutbound?.displayName ?? ""}] ${_("Not responding")}`
+              success: true,
+              latency: `${prefix}${delay}ms`
             };
           }
           return {
             success: false,
-            latency: _("Not responding")
+            latency: `${prefix}${_("Not responding")}`
           };
         }
         const latencyProxy = await NetShiftShellMethods.getClashApiProxyLatency(
@@ -6309,7 +6294,7 @@ async function executeShellCommand({
   nobatch = false
 }) {
   try {
-    return withTimeout(
+    return await withTimeout(
       nobatch ? execWithoutBatching(command, args) : fs.exec(command, args),
       timeout,
       [command, ...args].join(" ")

@@ -48,15 +48,25 @@ function twoFeedProxies(now: string) {
   });
 }
 
-function mockClash(now: string, latency: Record<string, number>) {
+function mockProxies(now: string) {
   vi.spyOn(NetShiftShellMethods, 'getClashApiProxies').mockResolvedValue({
     success: true,
     data: { proxies: twoFeedProxies(now) },
   } as Awaited<ReturnType<typeof NetShiftShellMethods.getClashApiProxies>>);
+}
+
+// Clash API answers a delay test of a silent server with a message.
+function mockClash(now: string, latency: Record<string, number>) {
+  mockProxies(now);
 
   return vi
-    .spyOn(NetShiftShellMethods, 'getClashApiGroupLatency')
-    .mockResolvedValue({ success: true, data: latency });
+    .spyOn(NetShiftShellMethods, 'getClashApiProxyLatency')
+    .mockImplementation(async (tag) => ({
+      success: true,
+      data: latency[tag]
+        ? { delay: latency[tag] }
+        : { delay: 0, message: 'An error occurred in the delay test' },
+    }));
 }
 
 function outboundsCheck() {
@@ -88,22 +98,40 @@ describe('runSectionsCheck with per-subscription blocks', () => {
   });
 
   it('reports a per-subscription Fastest selected inside a block', async () => {
-    const groupLatency = mockClash('⚡ Feed B', { b1: 80 });
+    // Clash API tests a urltest through the server it picked (b1).
+    const probe = mockClash('⚡ Feed B', { '⚡ Feed B': 80 });
 
     await runSectionsCheck();
 
-    expect(groupLatency).toHaveBeenCalledWith('main-out');
+    expect(probe.mock.calls).toEqual([['⚡ Feed B']]);
     expect(outboundsCheck()?.state).toBe('success');
     expect(outboundsCheck()?.items).toEqual([
       { state: 'success', key: 'main', value: '[Fastest] 80ms' },
     ]);
   });
 
-  it('reports the delay of a node selected inside a block', async () => {
-    mockClash('a2', { a1: 50, a2: 120, b1: 80 });
+  it('probes only the section-wide Fastest, not every server', async () => {
+    const probe = mockClash('main-urltest-out', {
+      'main-urltest-out': 50,
+      a1: 50,
+      a2: 120,
+      b1: 80,
+    });
 
     await runSectionsCheck();
 
+    expect(probe.mock.calls).toEqual([['main-urltest-out']]);
+    expect(outboundsCheck()?.items).toEqual([
+      { state: 'success', key: 'main', value: '[Fastest] 50ms' },
+    ]);
+  });
+
+  it('reports the delay of a node selected inside a block', async () => {
+    const probe = mockClash('a2', { a1: 50, a2: 120, b1: 80 });
+
+    await runSectionsCheck();
+
+    expect(probe.mock.calls).toEqual([['a2']]);
     expect(outboundsCheck()?.state).toBe('success');
     expect(outboundsCheck()?.items).toEqual([
       { state: 'success', key: 'main', value: '[a2] 120ms' },
@@ -119,5 +147,27 @@ describe('runSectionsCheck with per-subscription blocks', () => {
     expect(outboundsCheck()?.items).toEqual([
       { state: 'error', key: 'main', value: '[a2] Not responding' },
     ]);
+  });
+
+  // The real shell call: a probe that never answers must end the check
+  // with an error when the call times out, not leave it loading.
+  it('reports a probe that times out', async () => {
+    vi.useFakeTimers();
+    mockProxies('a2');
+    vi.stubGlobal('rpc', { declare: () => () => new Promise(() => undefined) });
+
+    const check = expect(runSectionsCheck()).rejects.toThrow(
+      'Sections checks failed',
+    );
+
+    await vi.advanceTimersByTimeAsync(15000);
+    await check;
+
+    expect(outboundsCheck()?.state).toBe('error');
+    expect(outboundsCheck()?.items).toEqual([
+      { state: 'error', key: 'main', value: '[a2] Not responding' },
+    ]);
+
+    vi.useRealTimers();
   });
 });

@@ -37,46 +37,38 @@ export async function runSectionsCheck() {
     sections.data.map(async (section) => {
       async function getLatency() {
         if (section.withTagSelect) {
-          const latencyGroup =
-            await NetShiftShellMethods.getClashApiGroupLatency(section.code);
-
           const selectedOutbound = getSelectedOutbound(section);
 
-          const isUrlTest = selectedOutbound?.type === 'URLTest';
+          const label =
+            selectedOutbound?.type === 'URLTest'
+              ? _('Fastest')
+              : selectedOutbound?.displayName;
+          const prefix = label ? `[${label}] ` : '';
 
-          const success = latencyGroup.success && !latencyGroup.data.message;
+          // One probe through the selected item; for "Fastest" it goes
+          // through the server the urltest picked. A group test probes every
+          // server of the section and on a large subscription outlasts the
+          // call timeout.
+          const latencyProxy =
+            await NetShiftShellMethods.getClashApiProxyLatency(
+              selectedOutbound?.code ?? section.code,
+            );
 
-          if (success) {
-            if (isUrlTest) {
-              const latency = Object.values(latencyGroup.data)
-                .map((item) => (item ? `${item}ms` : 'n/a'))
-                .join(' / ');
+          const delay =
+            latencyProxy.success &&
+            !latencyProxy.data.message &&
+            latencyProxy.data.delay;
 
-              return {
-                success: true,
-                latency: `[${_('Fastest')}] ${latency}`,
-              };
-            }
-
-            const selectedProxyDelay =
-              latencyGroup.data?.[selectedOutbound?.code ?? ''];
-
-            if (selectedProxyDelay) {
-              return {
-                success: true,
-                latency: `[${selectedOutbound?.displayName ?? ''}] ${selectedProxyDelay}ms`,
-              };
-            }
-
+          if (delay) {
             return {
-              success: false,
-              latency: `[${selectedOutbound?.displayName ?? ''}] ${_('Not responding')}`,
+              success: true,
+              latency: `${prefix}${delay}ms`,
             };
           }
 
           return {
             success: false,
-            latency: _('Not responding'),
+            latency: `${prefix}${_('Not responding')}`,
           };
         }
 

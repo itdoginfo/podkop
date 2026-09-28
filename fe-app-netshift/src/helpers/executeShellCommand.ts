@@ -53,7 +53,9 @@ export async function executeShellCommand({
   nobatch = false,
 }: ExecuteShellCommandParams): Promise<ExecuteShellCommandResponse> {
   try {
-    return withTimeout(
+    // Awaited so that a timeout or a failed call lands in the catch below
+    // instead of rejecting the caller.
+    return await withTimeout(
       nobatch ? execWithoutBatching(command, args) : fs.exec(command, args),
       timeout,
       [command, ...args].join(' '),
