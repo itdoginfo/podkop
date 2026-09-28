@@ -41,6 +41,10 @@ export const NetShiftShellMethods = {
     callBaseMethod<NetShift.GetClashApiProxyLatency>(
       NetShift.AvailableMethods.CLASH_API,
       [NetShift.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, '5000'],
+      undefined,
+      // The dashboard probes many servers at once; batched, they would run
+      // one by one and all answer together.
+      { nobatch: true },
     ),
   getClashApiGroupLatency: async (tag: string) =>
     callBaseMethod<NetShift.GetClashApiGroupLatency>(

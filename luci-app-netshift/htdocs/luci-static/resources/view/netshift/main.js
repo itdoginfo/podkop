@@ -2,6 +2,7 @@
 "use strict";
 "require baseclass";
 "require fs";
+"require rpc";
 "require uci";
 "require ui";
 
@@ -797,11 +798,12 @@ async function getConfigSections() {
 }
 
 // src/netshift/methods/shell/callBaseMethod.ts
-async function callBaseMethod(method, args = [], command = "/usr/bin/netshift") {
+async function callBaseMethod(method, args = [], command = "/usr/bin/netshift", options = {}) {
   const response = await executeShellCommand({
     command,
     args: [method, ...args],
-    timeout: 15e3
+    timeout: 15e3,
+    nobatch: options.nobatch
   });
   if (response.stdout) {
     try {
@@ -952,7 +954,11 @@ var NetShiftShellMethods = {
   ]),
   getClashApiProxyLatency: async (tag) => callBaseMethod(
     NetShift.AvailableMethods.CLASH_API,
-    [NetShift.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, "5000"]
+    [NetShift.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, "5000"],
+    void 0,
+    // The dashboard probes many servers at once; batched, they would run
+    // one by one and all answer together.
+    { nobatch: true }
   ),
   getClashApiGroupLatency: async (tag) => callBaseMethod(
     NetShift.AvailableMethods.CLASH_API,
@@ -1997,7 +2003,8 @@ var initialStore = {
   sectionsWidget: {
     loading: true,
     failed: false,
-    latencyFetching: false,
+    latencyTestingSections: [],
+    latencyPendingOutbounds: [],
     data: []
   },
   ...initialDiagnosticStore,
@@ -3043,20 +3050,20 @@ function renderLoadingState() {
     style: "height: 127px"
   });
 }
+function renderSkeleton(style) {
+  const phase = Math.round(performance.now() % 1600);
+  return E("div", {
+    class: "skeleton",
+    style: `${style}; --skeleton-phase: -${phase}ms`
+  });
+}
 function renderDefaultState({
   section,
   onChooseOutbound,
   onTestLatency,
-  latencyFetching
+  latencyFetching,
+  pendingOutbounds
 }) {
-  function testLatency() {
-    if (section.withTagSelect) {
-      return onTestLatency(section.code);
-    }
-    if (section.outbounds.length) {
-      return onTestLatency(section.outbounds[0].code);
-    }
-  }
   function renderOutbound(outbound) {
     function getLatencyClass() {
       if (!outbound.latency) {
@@ -3084,7 +3091,7 @@ function renderDefaultState({
             { class: "pdk_dashboard-page__outbound-grid__item__type" },
             outbound.type
           ),
-          E(
+          pendingOutbounds.includes(outbound.code) ? renderSkeleton("width: 44px; height: 16px") : E(
             "div",
             { class: getLatencyClass() },
             outbound.latency ? `${outbound.latency}ms` : "N/A"
@@ -3103,9 +3110,9 @@ function renderDefaultState({
         },
         section.displayName
       ),
-      latencyFetching ? E("div", { class: "skeleton", style: "width: 99px; height: 28px" }) : renderButton({
+      latencyFetching ? renderSkeleton("width: 99px; height: 28px") : renderButton({
         text: _("Test latency"),
-        onClick: () => testLatency(),
+        onClick: () => onTestLatency(),
         classNames: ["dashboard-sections-grid-item-test-latency"]
       })
     ]),
@@ -3251,7 +3258,8 @@ function render() {
           },
           onChooseOutbound: () => {
           },
-          latencyFetching: false
+          latencyFetching: false,
+          pendingOutbounds: []
         })
       )
     ]
@@ -3299,7 +3307,64 @@ async function fetchServicesInfo() {
   }
 }
 
+// src/netshift/tabs/dashboard/latency.ts
+var GROUP_TYPES = ["urltest", "selector"];
+function isGroup(outbound) {
+  return GROUP_TYPES.includes(outbound.type.toLowerCase());
+}
+function getAllOutbounds(section) {
+  return [
+    ...section.outbounds,
+    ...(section.subgroups ?? []).flatMap((subgroup) => subgroup.outbounds)
+  ];
+}
+function unique(codes) {
+  return [...new Set(codes.filter(Boolean))];
+}
+function getLatencyTargets(section) {
+  if (!section.withTagSelect) {
+    return { probe: unique([section.outbounds[0]?.code ?? ""]), groups: [] };
+  }
+  const outbounds = getAllOutbounds(section);
+  return {
+    probe: unique(
+      outbounds.filter((item) => !isGroup(item)).map((item) => item.code)
+    ),
+    groups: unique(outbounds.filter(isGroup).map((item) => item.code))
+  };
+}
+function setOutboundLatency(sections, code, latency) {
+  const update = (outbounds) => outbounds.map(
+    (outbound) => outbound.code === code ? { ...outbound, latency } : outbound
+  );
+  return sections.map((section) => ({
+    ...section,
+    outbounds: update(section.outbounds),
+    ...section.subgroups ? {
+      subgroups: section.subgroups.map((subgroup) => ({
+        ...subgroup,
+        outbounds: update(subgroup.outbounds)
+      }))
+    } : {}
+  }));
+}
+async function runWithConcurrency(items, limit, worker) {
+  const queue = [...items];
+  async function next() {
+    const item = queue.shift();
+    if (item === void 0) {
+      return;
+    }
+    await worker(item);
+    return next();
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, queue.length) }, () => next())
+  );
+}
+
 // src/netshift/tabs/dashboard/initController.ts
+var LATENCY_PROBE_CONCURRENCY = 8;
 async function fetchDashboardSections() {
   const prev = store.get().sectionsWidget;
   store.set({
@@ -3314,7 +3379,7 @@ async function fetchDashboardSections() {
   }
   store.set({
     sectionsWidget: {
-      latencyFetching: false,
+      ...store.get().sectionsWidget,
       loading: false,
       failed: !success,
       data
@@ -3401,37 +3466,38 @@ async function handleChooseOutbound(selector, tag) {
   await NetShiftShellMethods.setClashApiGroupProxy(selector, tag);
   await fetchDashboardSections();
 }
-async function handleTestGroupLatency(tag) {
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: true
-    }
-  });
-  await NetShiftShellMethods.getClashApiGroupLatency(tag);
-  await fetchDashboardSections();
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: false
-    }
-  });
+function updateSectionsWidget(update) {
+  const widget = store.get().sectionsWidget;
+  store.set({ sectionsWidget: { ...widget, ...update(widget) } });
 }
-async function handleTestProxyLatency(tag) {
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: true
-    }
+async function handleTestSectionLatency(section) {
+  const { probe, groups } = getLatencyTargets(section);
+  updateSectionsWidget((widget) => ({
+    latencyTestingSections: [...widget.latencyTestingSections, section.code],
+    latencyPendingOutbounds: [
+      ...widget.latencyPendingOutbounds,
+      ...probe,
+      ...groups
+    ]
+  }));
+  await runWithConcurrency(probe, LATENCY_PROBE_CONCURRENCY, async (code) => {
+    const latency = await NetShiftShellMethods.getClashApiProxyLatency(code).then((response) => response.success && response.data?.delay || 0).catch(() => 0);
+    updateSectionsWidget((widget) => ({
+      data: setOutboundLatency(widget.data, code, latency),
+      latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
+        (item) => item !== code
+      )
+    }));
   });
-  await NetShiftShellMethods.getClashApiProxyLatency(tag);
   await fetchDashboardSections();
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: false
-    }
-  });
+  updateSectionsWidget((widget) => ({
+    latencyTestingSections: widget.latencyTestingSections.filter(
+      (item) => item !== section.code
+    ),
+    latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
+      (item) => !groups.includes(item)
+    )
+  }));
 }
 async function renderSectionsWidget() {
   logger.debug("[DASHBOARD]", "renderSectionsWidget");
@@ -3451,7 +3517,8 @@ async function renderSectionsWidget() {
       },
       onChooseOutbound: () => {
       },
-      latencyFetching: sectionsWidget.latencyFetching
+      latencyFetching: false,
+      pendingOutbounds: []
     });
     return preserveScrollForPage(() => {
       container.replaceChildren(renderedWidget);
@@ -3462,13 +3529,11 @@ async function renderSectionsWidget() {
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
       section,
-      latencyFetching: sectionsWidget.latencyFetching,
-      onTestLatency: (tag) => {
-        if (section.withTagSelect) {
-          return handleTestGroupLatency(tag);
-        }
-        return handleTestProxyLatency(tag);
-      },
+      latencyFetching: sectionsWidget.latencyTestingSections.includes(
+        section.code
+      ),
+      pendingOutbounds: sectionsWidget.latencyPendingOutbounds,
+      onTestLatency: () => handleTestSectionLatency(section),
       onChooseOutbound: (selector, tag) => {
         handleChooseOutbound(selector, tag);
       }
@@ -6132,6 +6197,7 @@ ${PartialStyles}
             transparent
     );
     animation: skeleton-shimmer 1.6s infinite;
+    animation-delay: var(--skeleton-phase, 0s);
 }
 
 @keyframes skeleton-shimmer {
@@ -6218,14 +6284,29 @@ async function withTimeout(promise, timeoutMs, operationName, timeoutMessage = _
 }
 
 // src/helpers/executeShellCommand.ts
+var execNoBatch;
+async function execWithoutBatching(command, args) {
+  execNoBatch ?? (execNoBatch = rpc.declare({
+    object: "file",
+    method: "exec",
+    params: ["command", "params", "env"],
+    nobatch: true
+  }));
+  const reply = await execNoBatch(command, args);
+  if (reply && typeof reply === "object") {
+    return reply;
+  }
+  return { stdout: "", stderr: `ubus status ${reply}`, code: Number(reply) };
+}
 async function executeShellCommand({
   command,
   args,
-  timeout = COMMAND_TIMEOUT
+  timeout = COMMAND_TIMEOUT,
+  nobatch = false
 }) {
   try {
     return withTimeout(
-      fs.exec(command, args),
+      nobatch ? execWithoutBatching(command, args) : fs.exec(command, args),
       timeout,
       [command, ...args].join(" ")
     );

@@ -5,9 +5,11 @@ interface IRenderSectionsProps {
   loading: boolean;
   failed: boolean;
   section: NetShift.OutboundGroup;
-  onTestLatency: (tag: string) => void;
+  onTestLatency: () => void;
   onChooseOutbound: (selector: string, tag: string) => void;
   latencyFetching: boolean;
+  // Outbound codes whose latency is being measured right now.
+  pendingOutbounds: string[];
 }
 
 function renderFailedState() {
@@ -29,22 +31,25 @@ function renderLoadingState() {
   });
 }
 
+// The widget is rebuilt on every latency result. Starting each new skeleton
+// at the shared shimmer phase keeps the animation running instead of
+// restarting it (1.6s is the skeleton-shimmer duration).
+function renderSkeleton(style: string) {
+  const phase = Math.round(performance.now() % 1600);
+
+  return E('div', {
+    class: 'skeleton',
+    style: `${style}; --skeleton-phase: -${phase}ms`,
+  });
+}
+
 export function renderDefaultState({
   section,
   onChooseOutbound,
   onTestLatency,
   latencyFetching,
+  pendingOutbounds,
 }: IRenderSectionsProps) {
-  function testLatency() {
-    if (section.withTagSelect) {
-      return onTestLatency(section.code);
-    }
-
-    if (section.outbounds.length) {
-      return onTestLatency(section.outbounds[0].code);
-    }
-  }
-
   function renderOutbound(outbound: NetShift.Outbound) {
     function getLatencyClass() {
       if (!outbound.latency) {
@@ -78,11 +83,13 @@ export function renderDefaultState({
             { class: 'pdk_dashboard-page__outbound-grid__item__type' },
             outbound.type,
           ),
-          E(
-            'div',
-            { class: getLatencyClass() },
-            outbound.latency ? `${outbound.latency}ms` : 'N/A',
-          ),
+          pendingOutbounds.includes(outbound.code)
+            ? renderSkeleton('width: 44px; height: 16px')
+            : E(
+                'div',
+                { class: getLatencyClass() },
+                outbound.latency ? `${outbound.latency}ms` : 'N/A',
+              ),
         ]),
       ],
     );
@@ -99,10 +106,10 @@ export function renderDefaultState({
         section.displayName,
       ),
       latencyFetching
-        ? E('div', { class: 'skeleton', style: 'width: 99px; height: 28px' })
+        ? renderSkeleton('width: 99px; height: 28px')
         : renderButton({
             text: _('Test latency'),
-            onClick: () => testLatency(),
+            onClick: () => onTestLatency(),
             classNames: ['dashboard-sections-grid-item-test-latency'],
           }),
     ]),

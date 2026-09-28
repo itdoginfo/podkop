@@ -1,6 +1,7 @@
 'use strict';
 'require baseclass';
 'require fs';
+'require rpc';
 'require uci';
 'require ui';
 

@@ -131,6 +131,7 @@ ${PartialStyles}
             transparent
     );
     animation: skeleton-shimmer 1.6s infinite;
+    animation-delay: var(--skeleton-phase, 0s);
 }
 
 @keyframes skeleton-shimmer {

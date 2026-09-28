@@ -9,6 +9,16 @@ import { logger, socket, store, StoreType } from '../../services';
 import { renderSections, renderWidget } from './partials';
 import { fetchServicesInfo } from '../../fetchers';
 import { getClashApiSecret } from '../../methods/custom/getClashApiSecret';
+import { NetShift } from '../../types';
+import {
+  getLatencyTargets,
+  runWithConcurrency,
+  setOutboundLatency,
+} from './latency';
+
+// Latency probes in flight. Each one is a netshift CLI run on the router: on
+// a dual-core MT7981 8 of them measured 144 servers in 37 s.
+const LATENCY_PROBE_CONCURRENCY = 8;
 
 // Fetchers
 
@@ -28,9 +38,10 @@ async function fetchDashboardSections() {
     logger.error('[DASHBOARD]', 'fetchDashboardSections: failed to fetch');
   }
 
+  // Keep the latency-test state: a refresh may land while a test runs.
   store.set({
     sectionsWidget: {
-      latencyFetching: false,
+      ...store.get().sectionsWidget,
       loading: false,
       failed: !success,
       data,
@@ -126,42 +137,56 @@ async function handleChooseOutbound(selector: string, tag: string) {
   await fetchDashboardSections();
 }
 
-async function handleTestGroupLatency(tag: string) {
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: true,
-    },
-  });
+function updateSectionsWidget(
+  update: (
+    widget: StoreType['sectionsWidget'],
+  ) => Partial<StoreType['sectionsWidget']>,
+) {
+  const widget = store.get().sectionsWidget;
 
-  await NetShiftShellMethods.getClashApiGroupLatency(tag);
-  await fetchDashboardSections();
-
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: false,
-    },
-  });
+  store.set({ sectionsWidget: { ...widget, ...update(widget) } });
 }
 
-async function handleTestProxyLatency(tag: string) {
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: true,
-    },
+// Each server is probed by its own request, so its card updates as soon as
+// its answer arrives instead of after the slowest one.
+async function handleTestSectionLatency(section: NetShift.OutboundGroup) {
+  const { probe, groups } = getLatencyTargets(section);
+
+  updateSectionsWidget((widget) => ({
+    latencyTestingSections: [...widget.latencyTestingSections, section.code],
+    latencyPendingOutbounds: [
+      ...widget.latencyPendingOutbounds,
+      ...probe,
+      ...groups,
+    ],
+  }));
+
+  await runWithConcurrency(probe, LATENCY_PROBE_CONCURRENCY, async (code) => {
+    // A failed or timed-out probe shows N/A, like sing-box, which drops the
+    // server's history on a failed test.
+    const latency = await NetShiftShellMethods.getClashApiProxyLatency(code)
+      .then((response) => (response.success && response.data?.delay) || 0)
+      .catch(() => 0);
+
+    updateSectionsWidget((widget) => ({
+      data: setOutboundLatency(widget.data, code, latency),
+      latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
+        (item) => item !== code,
+      ),
+    }));
   });
 
-  await NetShiftShellMethods.getClashApiProxyLatency(tag);
+  // "Fastest" cards and the selection come from Clash API.
   await fetchDashboardSections();
 
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: false,
-    },
-  });
+  updateSectionsWidget((widget) => ({
+    latencyTestingSections: widget.latencyTestingSections.filter(
+      (item) => item !== section.code,
+    ),
+    latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
+      (item) => !groups.includes(item),
+    ),
+  }));
 }
 
 // Renderer
@@ -183,7 +208,8 @@ async function renderSectionsWidget() {
       },
       onTestLatency: () => {},
       onChooseOutbound: () => {},
-      latencyFetching: sectionsWidget.latencyFetching,
+      latencyFetching: false,
+      pendingOutbounds: [],
     });
 
     return preserveScrollForPage(() => {
@@ -196,14 +222,11 @@ async function renderSectionsWidget() {
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
       section,
-      latencyFetching: sectionsWidget.latencyFetching,
-      onTestLatency: (tag) => {
-        if (section.withTagSelect) {
-          return handleTestGroupLatency(tag);
-        }
-
-        return handleTestProxyLatency(tag);
-      },
+      latencyFetching: sectionsWidget.latencyTestingSections.includes(
+        section.code,
+      ),
+      pendingOutbounds: sectionsWidget.latencyPendingOutbounds,
+      onTestLatency: () => handleTestSectionLatency(section),
       onChooseOutbound: (selector, tag) => {
         handleChooseOutbound(selector, tag);
       },
