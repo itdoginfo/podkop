@@ -9,8 +9,10 @@ import { NetShift } from '../../types';
 import {
   ManagerActionDescriptor,
   ManagerCardDescriptor,
+  ManagerCardTag,
   ManagerComponentKey,
   getComponentCards,
+  getSingBoxMutationWarningMessage,
 } from './cards';
 
 type ManagerActionKey = keyof StoreType['managerActions'];
@@ -28,6 +30,10 @@ async function fetchSystemInfo() {
         loading: false,
         ...systemInfo.data,
         sing_box_extended: systemInfo.data.sing_box_extended === 1 ? 1 : 0,
+        sing_box_variant: systemInfo.data.sing_box_variant,
+        sing_box_lite_upx: systemInfo.data.sing_box_lite_upx === 1 ? 1 : 0,
+        sing_box_lite_supported:
+          systemInfo.data.sing_box_lite_supported === 1 ? 1 : 0,
       },
     });
   } else {
@@ -41,6 +47,9 @@ async function fetchSystemInfo() {
         openwrt_version: _('unknown'),
         device_model: _('unknown'),
         sing_box_extended: 0,
+        sing_box_variant: 'stock',
+        sing_box_lite_upx: 0,
+        sing_box_lite_supported: 0,
       },
     });
   }
@@ -112,11 +121,15 @@ async function runSingBoxCheck(
   setActionLoading(button.loadingKey, true);
 
   try {
-    const parsed = await NetShiftShellMethods.singBoxCheckUpdate(
-      button.backendAction === 'check_update_stable'
-        ? 'check_update_stable'
-        : 'check_update',
-    );
+    // Route the card's backendAction to the sync check call — the extended
+    // lite card checks its own repo via check_update_lite.
+    const checkAction =
+      button.backendAction === 'check_update_stable' ||
+      button.backendAction === 'check_update_lite'
+        ? button.backendAction
+        : 'check_update';
+
+    const parsed = await NetShiftShellMethods.singBoxCheckUpdate(checkAction);
 
     if (!parsed.success) {
       showToast(parsed.message || _('Failed to execute!'), 'error');
@@ -171,11 +184,16 @@ async function runSingBoxMutation(
   showToast(_('Switching sing-box core, this may take a few minutes…'), 'info');
 
   try {
-    const result = await NetShiftShellMethods.singBoxComponentAction(
-      button.backendAction === 'install_stable'
-        ? 'install_stable'
-        : 'install_extended',
-    );
+    // Route the card's backendAction to the async install call — the extended
+    // lite card switches through install_extended_lite.
+    const installAction =
+      button.backendAction === 'install_stable' ||
+      button.backendAction === 'install_extended_lite'
+        ? button.backendAction
+        : 'install_extended';
+
+    const result =
+      await NetShiftShellMethods.singBoxComponentAction(installAction);
 
     if (result.success) {
       const changed = _('Sing-box core changed, version:');
@@ -189,10 +207,16 @@ async function runSingBoxMutation(
     }
 
     // Reported separately from the outcome: a core that did switch can still
-    // leave the package manager in a state that blocks later upgrades.
+    // leave the package manager in a state that blocks later upgrades, and the
+    // lite installer can flag the UPX RAM spike — machine codes map to
+    // translatable strings, backend prose passes through.
     if (result.warning) {
       logger.warn('[MANAGER]', 'runSingBoxMutation warning', result.warning);
-      showToast(result.warning, 'warning', 15000);
+      showToast(
+        getSingBoxMutationWarningMessage(result.warning),
+        'warning',
+        15000,
+      );
     }
   } catch (error) {
     logger.error('[MANAGER]', 'runSingBoxMutation failed', error);
@@ -265,27 +289,23 @@ function handleManagerAction(
   void runSingBoxMutation(card.key, button);
 }
 
-function renderComponentTag(card: ManagerCardDescriptor) {
-  if (!card.tag) {
-    return null;
-  }
-
+function renderComponentTag(tag: ManagerCardTag) {
   return E(
     'span',
     {
       class: [
         'pdk_manager-page__component__tag',
-        card.tag.kind === 'success'
+        tag.kind === 'success'
           ? 'pdk_manager-page__component__tag--success'
           : '',
-        card.tag.kind === 'warning'
+        tag.kind === 'warning'
           ? 'pdk_manager-page__component__tag--warning'
           : '',
       ]
         .filter(Boolean)
         .join(' '),
     },
-    card.tag.label,
+    tag.label,
   );
 }
 
@@ -293,19 +313,36 @@ function renderComponentCard(card: ManagerCardDescriptor) {
   const managerActions = store.get().managerActions;
   const anyActionLoading = isAnyActionLoading();
   const systemInfoLoading = isSystemInfoLoading();
-  const tag = renderComponentTag(card);
+  const tags = [card.tag, card.extraTag].filter((tag): tag is ManagerCardTag =>
+    Boolean(tag),
+  );
   const headerChildren: Node[] = [
     E('b', { class: 'pdk_manager-page__component__title' }, card.title),
   ];
 
-  if (tag) {
+  if (tags.length > 0) {
     headerChildren.push(
-      E('div', { class: 'pdk_manager-page__component__status' }, [tag]),
+      E('div', { class: 'pdk_manager-page__component__status' }, [
+        ...tags.map(renderComponentTag),
+      ]),
     );
   }
 
-  return E('div', { class: 'card pdk_manager-page__component' }, [
+  const children: Node[] = [
     E('div', { class: 'pdk_manager-page__component__header' }, headerChildren),
+  ];
+
+  if (card.description) {
+    children.push(
+      E(
+        'div',
+        { class: 'pdk_manager-page__component__description' },
+        card.description,
+      ),
+    );
+  }
+
+  children.push(
     E('div', { class: 'pdk_manager-page__component__version' }, [
       E(
         'span',
@@ -331,12 +368,23 @@ function renderComponentCard(card: ManagerCardDescriptor) {
               ? renderSearchIcon24
               : renderRotateCcwIcon24,
           loading,
-          disabled: systemInfoLoading || (anyActionLoading && !loading),
+          disabled:
+            systemInfoLoading ||
+            card.actionsDisabled ||
+            (anyActionLoading && !loading),
           onClick: () => handleManagerAction(card, action),
         });
       }),
     ),
-  ]);
+  );
+
+  if (card.note) {
+    children.push(
+      E('div', { class: 'pdk_manager-page__component__note' }, card.note),
+    );
+  }
+
+  return E('div', { class: 'card pdk_manager-page__component' }, children);
 }
 
 function renderManagerComponents() {
@@ -354,7 +402,9 @@ function renderManagerComponents() {
       ),
       netshift_latest_version: diagnosticsSystemInfo.netshift_latest_version,
       sing_box_version: diagnosticsSystemInfo.sing_box_version,
-      sing_box_extended: diagnosticsSystemInfo.sing_box_extended,
+      sing_box_variant: diagnosticsSystemInfo.sing_box_variant,
+      sing_box_lite_upx: diagnosticsSystemInfo.sing_box_lite_upx,
+      sing_box_lite_supported: diagnosticsSystemInfo.sing_box_lite_supported,
     },
     managerChecks,
   ).map(renderComponentCard);

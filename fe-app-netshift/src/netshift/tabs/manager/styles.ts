@@ -57,6 +57,14 @@ export const styles = `
     overflow: hidden;
 }
 
+.pdk_manager-page__component__description {
+    color: var(--text-color-medium);
+    font-size: 13px;
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .pdk_manager-page__component__version {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -97,6 +105,14 @@ export const styles = `
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+}
+
+.pdk_manager-page__component__note {
+    color: var(--text-color-medium);
+    font-size: 12px;
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .pdk_manager-page__component__actions > .pdk-partial-button {
