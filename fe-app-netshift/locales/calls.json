@@ -202,7 +202,7 @@
     "places": [
       "src/netshift/tabs/diagnostic/checks/runDnsCheck.ts:27",
       "src/netshift/tabs/diagnostic/checks/runNftCheck.ts:28",
-      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:27",
+      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:28",
       "src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts:25"
     ]
   },
@@ -210,9 +210,10 @@
     "call": "Check update",
     "key": "Check update",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:144",
-      "src/netshift/tabs/manager/cards.ts:181",
-      "src/netshift/tabs/manager/cards.ts:227"
+      "src/netshift/tabs/manager/cards.ts:196",
+      "src/netshift/tabs/manager/cards.ts:233",
+      "src/netshift/tabs/manager/cards.ts:279",
+      "src/netshift/tabs/manager/cards.ts:334"
     ]
   },
   {
@@ -222,7 +223,7 @@
       "src/netshift/tabs/diagnostic/checks/runDnsCheck.ts:15",
       "src/netshift/tabs/diagnostic/checks/runFakeIPCheck.ts:15",
       "src/netshift/tabs/diagnostic/checks/runNftCheck.ts:13",
-      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:15",
+      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:16",
       "src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts:13"
     ]
   },
@@ -265,7 +266,7 @@
     "call": "Clearing subscription cache and re-downloading… this may take a minute",
     "key": "Clearing subscription cache and re-downloading… this may take a minute",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:329"
+      "src/netshift/tabs/diagnostic/initController.ts:336"
     ]
   },
   {
@@ -287,6 +288,13 @@
     "key": "Component Manager",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:83"
+    ]
+  },
+  {
+    "call": "Compressed build: uses more RAM at startup",
+    "key": "Compressed build: uses more RAM at startup",
+    "places": [
+      "src/netshift/tabs/manager/cards.ts:361"
     ]
   },
   {
@@ -349,15 +357,15 @@
     "call": "Core switch failed",
     "key": "Core switch failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:159",
-      "src/netshift/methods/shell/pollSingBoxComponentAction.ts:69"
+      "src/netshift/methods/shell/index.ts:163",
+      "src/netshift/methods/shell/pollSingBoxComponentAction.ts:83"
     ]
   },
   {
     "call": "Core switch timed out",
     "key": "Core switch timed out",
     "places": [
-      "src/netshift/methods/shell/pollSingBoxComponentAction.ts:87"
+      "src/netshift/methods/shell/pollSingBoxComponentAction.ts:102"
     ]
   },
   {
@@ -414,7 +422,7 @@
     "call": "Dev",
     "key": "Dev",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:101"
+      "src/netshift/tabs/manager/cards.ts:153"
     ]
   },
   {
@@ -818,12 +826,19 @@
     ]
   },
   {
+    "call": "Extended core with all features (~105 MB)",
+    "key": "Extended core with all features (~105 MB)",
+    "places": [
+      "src/netshift/tabs/manager/cards.ts:295"
+    ]
+  },
+  {
     "call": "Failed to clear subscription cache",
     "key": "Failed to clear subscription cache",
     "places": [
-      "src/netshift/methods/shell/index.ts:254",
-      "src/netshift/tabs/diagnostic/initController.ts:344",
-      "src/netshift/tabs/diagnostic/initController.ts:348"
+      "src/netshift/methods/shell/index.ts:259",
+      "src/netshift/tabs/diagnostic/initController.ts:351",
+      "src/netshift/tabs/diagnostic/initController.ts:355"
     ]
   },
   {
@@ -837,30 +852,31 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:229",
-      "src/netshift/tabs/diagnostic/initController.ts:233",
-      "src/netshift/tabs/diagnostic/initController.ts:263",
-      "src/netshift/tabs/diagnostic/initController.ts:267",
-      "src/netshift/tabs/diagnostic/initController.ts:304",
-      "src/netshift/tabs/diagnostic/initController.ts:308",
-      "src/netshift/tabs/manager/initController.ts:122",
-      "src/netshift/tabs/manager/initController.ts:132",
-      "src/netshift/tabs/manager/initController.ts:150",
-      "src/netshift/tabs/manager/initController.ts:160",
-      "src/netshift/tabs/manager/initController.ts:188",
-      "src/netshift/tabs/manager/initController.ts:199",
-      "src/netshift/tabs/manager/initController.ts:232",
-      "src/netshift/tabs/manager/initController.ts:236"
+      "src/netshift/tabs/diagnostic/initController.ts:236",
+      "src/netshift/tabs/diagnostic/initController.ts:240",
+      "src/netshift/tabs/diagnostic/initController.ts:270",
+      "src/netshift/tabs/diagnostic/initController.ts:274",
+      "src/netshift/tabs/diagnostic/initController.ts:311",
+      "src/netshift/tabs/diagnostic/initController.ts:315",
+      "src/netshift/tabs/manager/initController.ts:135",
+      "src/netshift/tabs/manager/initController.ts:145",
+      "src/netshift/tabs/manager/initController.ts:163",
+      "src/netshift/tabs/manager/initController.ts:173",
+      "src/netshift/tabs/manager/initController.ts:206",
+      "src/netshift/tabs/manager/initController.ts:223",
+      "src/netshift/tabs/manager/initController.ts:256",
+      "src/netshift/tabs/manager/initController.ts:260"
     ]
   },
   {
     "call": "Fastest",
     "key": "Fastest",
     "places": [
-      "src/netshift/methods/custom/getDashboardSections.ts:150",
-      "src/netshift/methods/custom/getDashboardSections.ts:181",
-      "src/netshift/methods/custom/getDashboardSections.ts:218",
-      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:58"
+      "src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts:72",
+      "src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts:101",
+      "src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts:109",
+      "src/netshift/methods/custom/getDashboardSections.ts:151",
+      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:57"
     ]
   },
   {
@@ -881,7 +897,7 @@
     "call": "Global check",
     "key": "Global check",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:224"
+      "src/netshift/tabs/diagnostic/initController.ts:231"
     ]
   },
   {
@@ -923,16 +939,17 @@
     "call": "Install %s",
     "key": "Install %s",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:136",
-      "src/netshift/tabs/manager/cards.ts:174",
-      "src/netshift/tabs/manager/cards.ts:220"
+      "src/netshift/tabs/manager/cards.ts:188",
+      "src/netshift/tabs/manager/cards.ts:226",
+      "src/netshift/tabs/manager/cards.ts:272",
+      "src/netshift/tabs/manager/cards.ts:327"
     ]
   },
   {
     "call": "Installed version is newer than release",
     "key": "Installed version is newer than release",
     "places": [
-      "src/netshift/tabs/manager/initController.ts:96"
+      "src/netshift/tabs/manager/initController.ts:105"
     ]
   },
   {
@@ -1350,7 +1367,7 @@
     "call": "Latest",
     "key": "Latest",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:90",
+      "src/netshift/tabs/manager/cards.ts:142",
       "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:48"
     ]
   },
@@ -1358,7 +1375,14 @@
     "call": "Latest version is installed",
     "key": "Latest version is installed",
     "places": [
-      "src/netshift/tabs/manager/initController.ts:103"
+      "src/netshift/tabs/manager/initController.ts:112"
+    ]
+  },
+  {
+    "call": "Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)",
+    "key": "Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)",
+    "places": [
+      "src/netshift/tabs/manager/cards.ts:350"
     ]
   },
   {
@@ -1477,7 +1501,7 @@
     "call": "NetShift updated, version:",
     "key": "NetShift updated, version:",
     "places": [
-      "src/netshift/tabs/manager/initController.ts:224"
+      "src/netshift/tabs/manager/initController.ts:248"
     ]
   },
   {
@@ -1509,6 +1533,13 @@
     ]
   },
   {
+    "call": "Not available for your architecture",
+    "key": "Not available for your architecture",
+    "places": [
+      "src/netshift/tabs/manager/cards.ts:359"
+    ]
+  },
+  {
     "call": "Not implement yet",
     "key": "Not implement yet",
     "places": [
@@ -1519,30 +1550,31 @@
     "call": "Not installed",
     "key": "Not installed",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:98",
-      "src/netshift/tabs/manager/cards.ts:198",
-      "src/netshift/tabs/manager/cards.ts:243",
-      "src/netshift/tabs/manager/initController.ts:100"
+      "src/netshift/tabs/manager/cards.ts:150",
+      "src/netshift/tabs/manager/cards.ts:250",
+      "src/netshift/tabs/manager/cards.ts:296",
+      "src/netshift/tabs/manager/cards.ts:353",
+      "src/netshift/tabs/manager/initController.ts:109"
     ]
   },
   {
     "call": "Not responding",
     "key": "Not responding",
     "places": [
-      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:74",
-      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:80",
-      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:99"
+      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:73",
+      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:79",
+      "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:98"
     ]
   },
   {
     "call": "Not running",
     "key": "Not running",
     "places": [
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:59",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:67",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:75",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:83",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:91"
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:62",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:70",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:78",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:86",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:94"
     ]
   },
   {
@@ -1591,7 +1623,7 @@
     "call": "Outdated",
     "key": "Outdated",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:94",
+      "src/netshift/tabs/manager/cards.ts:146",
       "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:38"
     ]
   },
@@ -1634,11 +1666,11 @@
     "call": "Pending",
     "key": "Pending",
     "places": [
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:107",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:115",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:123",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:131",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:139"
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:110",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:118",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:126",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:134",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:142"
     ]
   },
   {
@@ -1954,7 +1986,7 @@
     "call": "Self-update failed",
     "key": "Self-update failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:303"
+      "src/netshift/methods/shell/index.ts:308"
     ]
   },
   {
@@ -1989,7 +2021,7 @@
     "call": "Show sing-box config",
     "key": "Show sing-box config",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:292",
+      "src/netshift/tabs/diagnostic/initController.ts:299",
       "src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:118"
     ]
   },
@@ -2012,7 +2044,7 @@
     "call": "Sing-box core changed, version:",
     "key": "Sing-box core changed, version:",
     "places": [
-      "src/netshift/tabs/manager/initController.ts:181"
+      "src/netshift/tabs/manager/initController.ts:199"
     ]
   },
   {
@@ -2126,7 +2158,7 @@
     "call": "Subscription cache cleared and re-downloaded",
     "key": "Subscription cache cleared and re-downloaded",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:337"
+      "src/netshift/tabs/diagnostic/initController.ts:344"
     ]
   },
   {
@@ -2175,21 +2207,28 @@
     "call": "Switch to extended",
     "key": "Switch to extended",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:235"
+      "src/netshift/tabs/manager/cards.ts:287"
+    ]
+  },
+  {
+    "call": "Switch to lite",
+    "key": "Switch to lite",
+    "places": [
+      "src/netshift/tabs/manager/cards.ts:342"
     ]
   },
   {
     "call": "Switch to stable",
     "key": "Switch to stable",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:190"
+      "src/netshift/tabs/manager/cards.ts:242"
     ]
   },
   {
     "call": "Switching sing-box core, this may take a few minutes…",
     "key": "Switching sing-box core, this may take a few minutes…",
     "places": [
-      "src/netshift/tabs/manager/initController.ts:171"
+      "src/netshift/tabs/manager/initController.ts:184"
     ]
   },
   {
@@ -2324,18 +2363,18 @@
     "call": "unknown",
     "key": "unknown",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:39",
-      "src/netshift/tabs/diagnostic/initController.ts:40",
-      "src/netshift/tabs/diagnostic/initController.ts:41",
-      "src/netshift/tabs/diagnostic/initController.ts:42",
       "src/netshift/tabs/diagnostic/initController.ts:43",
       "src/netshift/tabs/diagnostic/initController.ts:44",
-      "src/netshift/tabs/manager/initController.ts:37",
-      "src/netshift/tabs/manager/initController.ts:38",
-      "src/netshift/tabs/manager/initController.ts:39",
-      "src/netshift/tabs/manager/initController.ts:40",
-      "src/netshift/tabs/manager/initController.ts:41",
-      "src/netshift/tabs/manager/initController.ts:42",
+      "src/netshift/tabs/diagnostic/initController.ts:45",
+      "src/netshift/tabs/diagnostic/initController.ts:46",
+      "src/netshift/tabs/diagnostic/initController.ts:47",
+      "src/netshift/tabs/diagnostic/initController.ts:48",
+      "src/netshift/tabs/manager/initController.ts:43",
+      "src/netshift/tabs/manager/initController.ts:44",
+      "src/netshift/tabs/manager/initController.ts:45",
+      "src/netshift/tabs/manager/initController.ts:46",
+      "src/netshift/tabs/manager/initController.ts:47",
+      "src/netshift/tabs/manager/initController.ts:48",
       "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7"
     ]
   },
@@ -2350,29 +2389,30 @@
     "call": "Update",
     "key": "Update",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:174",
-      "src/netshift/tabs/manager/cards.ts:220"
+      "src/netshift/tabs/manager/cards.ts:226",
+      "src/netshift/tabs/manager/cards.ts:272",
+      "src/netshift/tabs/manager/cards.ts:327"
     ]
   },
   {
     "call": "Update is available",
     "key": "Update is available",
     "places": [
-      "src/netshift/tabs/manager/initController.ts:92"
+      "src/netshift/tabs/manager/initController.ts:101"
     ]
   },
   {
     "call": "Update NetShift",
     "key": "Update NetShift",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:137"
+      "src/netshift/tabs/manager/cards.ts:189"
     ]
   },
   {
     "call": "Updating NetShift, this may take a few minutes; the page will reload…",
     "key": "Updating NetShift, this may take a few minutes; the page will reload…",
     "places": [
-      "src/netshift/tabs/manager/initController.ts:215"
+      "src/netshift/tabs/manager/initController.ts:239"
     ]
   },
   {
@@ -2388,6 +2428,20 @@
     "key": "Upstream and bootstrap DNS resolvers, and optional DNS-over-proxy",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:17"
+    ]
+  },
+  {
+    "call": "UPX",
+    "key": "UPX",
+    "places": [
+      "src/netshift/tabs/manager/cards.ts:357"
+    ]
+  },
+  {
+    "call": "UPX-compressed core: a RAM spike is possible at startup; on devices with less than 256 MB of RAM, enable zram swap",
+    "key": "UPX-compressed core: a RAM spike is possible at startup; on devices with less than 256 MB of RAM, enable zram swap",
+    "places": [
+      "src/netshift/tabs/manager/cards.ts:122"
     ]
   },
   {
@@ -2539,14 +2593,14 @@
     "call": "Version",
     "key": "Version",
     "places": [
-      "src/netshift/tabs/manager/initController.ts:313"
+      "src/netshift/tabs/manager/initController.ts:350"
     ]
   },
   {
     "call": "View logs",
     "key": "View logs",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:258",
+      "src/netshift/tabs/diagnostic/initController.ts:265",
       "src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:109"
     ]
   },
