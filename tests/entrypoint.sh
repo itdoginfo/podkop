@@ -1782,12 +1782,17 @@ v="$(url_get_query_param 'vless://u@h:1?encryption=a+b&type=tcp' encryption)"
 [ "$v" = 'a b' ] && echo 've-param-form-plus-is-space:OK' || echo "ve-param-form-plus-is-space:FAIL ($v)"
 
 # ── (1) the release after "-extended-" decides, not the upstream version ────
-for v in 1.13.14-extended-2.5.0 1.13.18-extended-2.6.5 1.12.22-extended-2.0.0 1.12.22-extended-2.0.0-rc.1; do
+# extended-lite builds report the same release with a "-lite" suffix; it is
+# cut exactly like a pre-release tag, so a lite core passes every gate the
+# full build does (its gate features — VLESS Encryption included — are kept).
+for v in 1.13.14-extended-2.5.0 1.13.18-extended-2.6.5 1.12.22-extended-2.0.0 1.12.22-extended-2.0.0-rc.1 \
+    1.14.1-extended-2.7.2-lite 1.12.22-extended-2.0.0-lite; do
     is_sing_box_extended_at_least "2.0.0" "$v" \
         && echo "ve-min-accepts-$v:OK" || echo "ve-min-accepts-$v:FAIL"
 done
 # extended-1.6.2 ships on sing-box 1.13.11 and still lacks the field.
-for v in 1.13.11-extended-1.6.2 1.12.12-extended-1.5.0 1.13.14 1.12.0; do
+for v in 1.13.11-extended-1.6.2 1.12.12-extended-1.5.0 1.13.14 1.12.0 \
+    1.13.11-extended-1.6.2-lite; do
     is_sing_box_extended_at_least "2.0.0" "$v" \
         && echo "ve-min-rejects-$v:FAIL" || echo "ve-min-rejects-$v:OK"
 done
