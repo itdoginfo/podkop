@@ -9724,6 +9724,785 @@ UCIDRV
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: sing-box extended lite — third core variant
+# ─────────────────────────────────────────────────────────────────
+# Sources the REAL constants/helpers/updater and drives the whole lite
+# machinery with only the network faked:
+#   * the variant predicates (get_sing_box_variant / sing_box_lite_is_upx)
+#     over fake /usr/bin/sing-box layouts (ELF, our UPX wrapper+core, a
+#     community manual install whose version lacks the -lite suffix);
+#   * is_sing_box_extended_at_least with the -lite suffix (a lite build is
+#     an extended build as far as the feature gates are concerned);
+#   * the build selection (UCI override, auto by effective free space) and
+#     the upx_ram_spike warning code;
+#   * END-TO-END installs (ELF and compressed) with fake tar.gz artifacts
+#     and a REAL sha256sums.txt check — the UPX wrapper must answer
+#     `version` from the snapshot cache WITHOUT running the core (marker),
+#     a wrong binary must roll back to the previous core AND the previous
+#     lite artifacts, and leaving lite for stock/full-extended must clean
+#     the lite artifacts away (or restore them when the switch fails);
+#   * check_update_lite (latest / outdated / manual install without -lite /
+#     fetch failure) and the async job state carrying the build flavour.
+# The end-to-end cases replace /usr/bin/sing-box and create
+# /usr/libexec/sing-box-core + the version caches; whatever existed before
+# is saved and restored afterwards.
+test_sing_box_lite() {
+    header "sing-box extended lite (third core variant)"
+
+    local constants="${NETSHIFT_LIB_DIR}/constants.sh"
+    local helpers="${NETSHIFT_LIB_DIR}/helpers.sh"
+    local updater="${NETSHIFT_LIB_DIR}/updater.sh"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$constants" ] || [ ! -r "$helpers" ] || [ ! -r "$updater" ] || [ ! -r "$bin" ]; then
+        skip "constants/helpers/updater/bin not found in ${NETSHIFT_SRC}"
+        return
+    fi
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+
+    local work="/tmp/netshift-sbextlite-$$"
+    local out="$work/out.txt"
+    local out2="$work/out2.txt"
+    local drv="$work/driver.sh"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    # State the end-to-end cases replace — saved here, restored after.
+    if [ -e /usr/bin/sing-box ]; then
+        cp -p /usr/bin/sing-box "$work/sing-box.orig" 2>/dev/null || true
+    fi
+    if [ -e /usr/libexec/sing-box-core ]; then
+        cp -p /usr/libexec/sing-box-core "$work/lite-core.orig" 2>/dev/null || true
+    fi
+    if [ -e /etc/netshift/core-version.cache ]; then
+        cp -p /etc/netshift/core-version.cache "$work/core-cache.orig" 2>/dev/null || true
+    fi
+    if [ -e /etc/sing-box-version.cache ]; then
+        cp -p /etc/sing-box-version.cache "$work/orphan-cache.orig" 2>/dev/null || true
+    fi
+
+    cat > "$drv" << 'DRVEOF'
+#!/bin/sh
+log() { :; }
+echolog() { :; }
+nolog() { :; }
+
+. "DRV_CONSTANTS"
+. "DRV_HELPERS"
+. "DRV_UPDATER"
+
+# ── injection points ────────────────────────────────────────────────
+LITE_RELEASES='[{"tag_name":"v1.14.1-extended-2.7.2-lite","draft":false,"prerelease":false,"assets":[
+ {"name":"sing-box-extended-lite-linux-amd64.tar.gz","browser_download_url":"https://example.invalid/dl/sing-box-extended-lite-linux-amd64.tar.gz"},
+ {"name":"sing-box-extended-lite-linux-amd64-compressed.tar.gz","browser_download_url":"https://example.invalid/dl/sing-box-extended-lite-linux-amd64-compressed.tar.gz"},
+ {"name":"sha256sums.txt","browser_download_url":"https://example.invalid/dl/sha256sums.txt"}]}]'
+LITE_RELEASES_NOSUMS='[{"tag_name":"v1.14.1-extended-2.7.2-lite","draft":false,"prerelease":false,"assets":[
+ {"name":"sing-box-extended-lite-linux-amd64.tar.gz","browser_download_url":"https://example.invalid/dl/sing-box-extended-lite-linux-amd64.tar.gz"},
+ {"name":"sing-box-extended-lite-linux-amd64-compressed.tar.gz","browser_download_url":"https://example.invalid/dl/sing-box-extended-lite-linux-amd64-compressed.tar.gz"}]}]'
+EXT_RELEASES='[{"tag_name":"v1.14.1-extended-2.7.2","draft":false,"prerelease":false,"assets":[
+ {"name":"sing-box-1.14.1-extended-2.7.2-linux-amd64.tar.gz","browser_download_url":"https://example.invalid/dl/sing-box-1.14.1-extended-2.7.2-linux-amd64.tar.gz"}]}]'
+CASE_UNAME="x86_64"
+CASE_FEATURES=""
+CASE_DISTRIB_ARCH=""
+CASE_LITE_BUILD="auto"
+CASE_RAM_MB=512
+CASE_DF_KB=999999
+CASE_SUMS_MODE="good"
+CASE_PKG_MODE="ok"
+CASE_FETCH_FAIL=0
+CASE_RELEASES="$LITE_RELEASES"
+CORE_VERSION="1.14.1-extended-2.7.2-lite"
+CORE_MARKER="/tmp/sblite-core-calls-$$"
+SB_VER_OVERRIDE=""
+STOCK_CORE_VERSION="1.12.0"
+WRK="/tmp/sblite-wrk-$$"
+rm -rf "$WRK"
+mkdir -p "$WRK" /etc/netshift
+
+# The stubs below fake ONLY the environment (arch/UCI/RAM/disk) and the
+# network (releases + downloads). The real helpers under test — variant
+# detection, build selection, sha256 verification, install, rollback,
+# check — all run for real. The async worker re-execs this driver, so the
+# stubs must be in place for every dispatch mode except "realhelpers",
+# which deliberately runs the pure sourced libraries untouched.
+if [ "${1:-}" != "realhelpers" ]; then
+    uname() { printf '%s\n' "$CASE_UNAME"; }
+    updates_read_cpu_features() { printf '%s' "$CASE_FEATURES"; }
+    updates_read_openwrt_release_value() { printf '%s' "$CASE_DISTRIB_ARCH"; }
+    config_get() {
+        # config_get <var> <section> <option> [default]
+        case "$3" in
+        sing_box_lite_build) eval "$1=\"\$CASE_LITE_BUILD\"" ;;
+        sing_box_extended_arm_build) eval "$1=\"auto\"" ;;
+        *) eval "$1=\"\${4:-}\"" ;;
+        esac
+        return 0
+    }
+    get_ram_total_mb() { printf '%s' "$CASE_RAM_MB"; }
+    df() {
+        case "$1 $2" in
+        "-Pk /") printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/root 100000 1000 %s 1%% /\n' "$CASE_DF_KB" ;;
+        *) command df "$@" ;;
+        esac
+    }
+    # The real probe (word after "version"), minus the process cache, with
+    # an override hook for the check_update_lite cases.
+    get_sing_box_version() {
+        if [ -n "$SB_VER_OVERRIDE" ]; then
+            printf '%s' "$SB_VER_OVERRIDE"
+            return
+        fi
+        local version=""
+        if command -v sing-box >/dev/null 2>&1; then
+            version="$(sing-box version 2>/dev/null | head -n1 | awk '
+                { for (i = 1; i < NF; i++) if ($i == "version") { print $(i + 1); exit }
+                  print $NF }')"
+        fi
+        echo "${version:-1.0}"
+    }
+
+    updates_fetch_github_releases() {
+        [ "$CASE_FETCH_FAIL" = "0" ] || return 1
+        case "$1" in
+        "$UPDATES_SING_BOX_LITE_REPO") printf '%s' "$CASE_RELEASES" ;;
+        "$UPDATES_SING_BOX_EXTENDED_REPO") printf '%s' "$EXT_RELEASES" ;;
+        esac
+    }
+    updates_system_uses_musl() { return 1; }
+    updates_restart_netshift() { :; }
+    updates_ensure_connectivity() { return 0; }
+    updates_restore_after_swap() { :; }
+
+    apk() {
+        case "$1" in
+        update) return 0 ;;
+        fix)
+            [ "$CASE_PKG_MODE" = "ok" ] || return 1
+            place_fake_bin /usr/bin/sing-box "$STOCK_CORE_VERSION" elf
+            return 0
+            ;;
+        fetch) return 1 ;;
+        esac
+        return 0
+    }
+    opkg() {
+        case "$1" in
+        update) return 0 ;;
+        install)
+            [ "$CASE_PKG_MODE" = "ok" ] || return 1
+            place_fake_bin /usr/bin/sing-box "$STOCK_CORE_VERSION" elf
+            return 0
+            ;;
+        esac
+        return 0
+    }
+
+    # Fake binaries. "elf" fakes start WITHOUT a shebang on purpose: head -c 2
+    # must not see "#!" (ash still runs them as shell scripts), so they pass
+    # for an ELF binary in every layout check.
+    place_fake_bin() { # <path> <version> <elf|wrapper>
+        local path="$1" ver="$2" mode="$3"
+        if [ "$mode" = "wrapper" ]; then
+            cat >"$path" <<WEOF
+#!/bin/sh
+# sblite test wrapper
+if [ "\$1" = "version" ]; then
+    echo run >>"$CORE_MARKER"
+    echo "sing-box version $ver"
+    exit 0
+fi
+exec /usr/libexec/sing-box-core "\$@"
+WEOF
+        else
+            # Single-quoted on purpose: $1 must reach the fake verbatim.
+            printf 'if [ "$1" = "version" ]; then echo run >>"%s"; echo "sing-box version %s"; exit 0; fi\n' "$CORE_MARKER" "$ver" >"$path"
+        fi
+        chmod 0755 "$path"
+    }
+
+    make_fake_archive() { # <dest> <asset-name> <version>
+        local dest="$1" name="$2" ver="$3" d h
+        d="$(mktemp -d /tmp/sblite-fake.XXXXXX)"
+        cat >"$d/sing-box" <<FEOF
+#!/bin/sh
+echo run >>"$CORE_MARKER"
+echo "sing-box version $ver"
+FEOF
+        chmod 0755 "$d/sing-box"
+        ( cd "$d" && tar -czf "$dest" sing-box )
+        h="$(sha256sum "$dest" 2>/dev/null | awk '{print $1}')"
+        if [ "$CASE_SUMS_MODE" = "bad" ]; then
+            h="0000000000000000000000000000000000000000000000000000000000000000"
+        fi
+        printf '%s  %s\n' "$h" "$name" >"$dest.sums"
+        rm -rf "$d"
+    }
+
+    FAKE_ARCHIVE=""
+    updates_download_to_file() {
+        local url="$1" dest="$2"
+        case "$url" in
+        *sha256sums.txt*)
+            [ -n "$FAKE_ARCHIVE" ] && cp "$FAKE_ARCHIVE.sums" "$dest" && [ -s "$dest" ] && return 0
+            return 1
+            ;;
+        *sing-box-extended-lite-*)
+            make_fake_archive "$dest" "$(basename "$url")" "$CORE_VERSION"
+            FAKE_ARCHIVE="$dest"
+            return 0
+            ;;
+        *)
+            # the full-extended asset: same archive shape, extended version
+            make_fake_archive "$dest" "$(basename "$url")" "1.14.1-extended-2.7.2-x86"
+            return 0
+            ;;
+        esac
+    }
+fi
+
+main_body() {
+    # ── Part 1: variant predicates over fake layouts ──────────────
+    variant_case() { # <name> <expected-variant> <expected-upx-rc>
+        local name="$1" want="$2" wantupx="$3" v u
+        v="$(get_sing_box_variant)"
+        if sing_box_lite_is_upx; then u=0; else u=1; fi
+        if [ "$v" = "$want" ] && [ "$u" = "$wantupx" ]; then
+            echo "$name:OK"
+        else
+            echo "$name:FAIL (variant='$v' want='$want' upx_rc=$u want_rc=$wantupx)"
+        fi
+    }
+
+    rm -f /usr/bin/sing-box /usr/libexec/sing-box-core \
+        /etc/netshift/core-version.cache /etc/sing-box-version.cache
+    place_fake_bin /usr/bin/sing-box "1.14.1" elf
+    variant_case sblite-variant-stock-elf stock 1
+    place_fake_bin /usr/bin/sing-box "1.14.1-extended-2.7.2" elf
+    variant_case sblite-variant-extended-elf extended 1
+    place_fake_bin /usr/bin/sing-box "1.14.1-extended-2.7.2-lite" elf
+    variant_case sblite-variant-lite-elf extended_lite 1
+
+    place_fake_bin /usr/bin/sing-box "1.14.1-extended-2.7.2-lite" wrapper
+    place_fake_bin /usr/libexec/sing-box-core "1.14.1-extended-2.7.2-lite" elf
+    variant_case sblite-variant-lite-upx extended_lite 0
+    # community manual install: the wrapper reports a version WITHOUT -lite;
+    # the layout (wrapper + side-loaded core) is authoritative.
+    place_fake_bin /usr/bin/sing-box "1.14.1-extended-2.7.2" wrapper
+    variant_case sblite-variant-lite-manual extended_lite 0
+    rm -f /usr/libexec/sing-box-core
+    variant_case sblite-variant-wrapper-no-core extended 1
+    place_fake_bin /usr/bin/sing-box "1.14.1" wrapper
+    variant_case sblite-variant-wrapper-stock stock 1
+
+    # ── Part 2: -lite passes the extended feature gates ───────────
+    for v in 1.14.1-extended-2.7.2-lite 1.13.14-extended-2.5.0-lite \
+        1.12.22-extended-2.0.0-lite 1.12.22-extended-2.0.0-rc.1-lite; do
+        if is_sing_box_extended_at_least "2.0.0" "$v"; then
+            echo "sblite-atleast-accepts-$v:OK"
+        else
+            echo "sblite-atleast-accepts-$v:FAIL"
+        fi
+    done
+    for v in 1.13.11-extended-1.6.2-lite 1.12.22-extended-1.9.9-lite \
+        1.14.1 1.14.1-lite; do
+        if is_sing_box_extended_at_least "2.0.0" "$v"; then
+            echo "sblite-atleast-rejects-$v:FAIL"
+        else
+            echo "sblite-atleast-rejects-$v:OK"
+        fi
+    done
+
+    # ── Part 3: the architecture predicate ─────────────────────
+    arch_case() { # <name> <uname> <expected-rc>
+        local name="$1" u="$2" wantrc="$3" rc
+        CASE_UNAME="$u"
+        if sing_box_lite_arch_supported; then rc=0; else rc=1; fi
+        if [ "$rc" = "$wantrc" ]; then
+            echo "$name:OK"
+        else
+            echo "$name:FAIL (rc=$rc want_rc=$wantrc)"
+        fi
+    }
+    arch_case sblite-arch-amd64 x86_64 0
+    arch_case sblite-arch-arm64 aarch64 0
+    arch_case sblite-arch-armv7 armv7l 0
+    arch_case sblite-arch-armv6 armv6l 1
+    arch_case sblite-arch-mips mips 0
+    arch_case sblite-arch-mips64 mips64 1
+    arch_case sblite-arch-riscv64 riscv64 1
+    arch_case sblite-arch-386 i686 1
+    # a no-FPU ARM CPU resolves to the OpenWrt .ipk — no lite counterpart.
+    CASE_UNAME=armv7l
+    CASE_FEATURES="half thumb fastmult edsp tls"
+    if sing_box_lite_arch_supported; then
+        echo "sblite-arch-nofpu-arm:FAIL (ipk host must be unsupported)"
+    else
+        echo "sblite-arch-nofpu-arm:OK"
+    fi
+    CASE_FEATURES=""
+    CASE_UNAME=x86_64
+
+    # ── Part 4: build selection + warning code ────────────────
+    select_case() { # <name> <want-build>
+        local b
+        b="$(updates_lite_select_build)"
+        if [ "$b" = "$2" ]; then
+            echo "$1:OK"
+        else
+            echo "$1:FAIL (got '$b' want '$2')"
+        fi
+    }
+    CASE_LITE_BUILD=auto
+    CASE_DF_KB=999999
+    select_case sblite-select-auto-big-flash elf
+    CASE_DF_KB=1000
+    select_case sblite-select-auto-tiny-flash compressed
+    CASE_LITE_BUILD=elf
+    select_case sblite-select-explicit-elf elf
+    CASE_LITE_BUILD=compressed
+    CASE_DF_KB=999999
+    select_case sblite-select-explicit-compressed compressed
+    CASE_LITE_BUILD=banana
+    CASE_DF_KB=1000
+    select_case sblite-select-unknown-option-auto compressed
+    # the bytes the current /usr/bin/sing-box frees count towards the space
+    CASE_LITE_BUILD=auto
+    CASE_DF_KB=65000
+    place_fake_bin /usr/bin/sing-box "1.14.1" elf
+    select_case sblite-select-tiny-bin-still-compressed compressed
+    dd if=/dev/zero of=/usr/bin/sing-box bs=1024 count=1024 2>/dev/null
+    select_case sblite-select-freed-bin-crosses-threshold elf
+    CASE_DF_KB=999999
+
+    if [ -z "$(updates_lite_build_warning compressed)" ] &&
+        [ -z "$(updates_lite_build_warning elf)" ]; then
+        echo "sblite-warn-highram-none:OK"
+    else
+        echo "sblite-warn-highram-none:FAIL"
+    fi
+    CASE_RAM_MB=128
+    if [ "$(updates_lite_build_warning compressed)" = "upx_ram_spike" ]; then
+        echo "sblite-warn-lowram-code:OK"
+    else
+        echo "sblite-warn-lowram-code:FAIL"
+    fi
+    CASE_RAM_MB=0
+    if [ -z "$(updates_lite_build_warning compressed)" ]; then
+        echo "sblite-warn-unknownram-none:OK"
+    else
+        echo "sblite-warn-unknownram-none:FAIL"
+    fi
+    CASE_RAM_MB=512
+
+    # ── Part 5: sha256 verification unit ────────────────────
+    printf 'hello lite\n' >"$WRK/f"
+    lh="$(sha256sum "$WRK/f" 2>/dev/null | awk '{print $1}')"
+    printf '%s  sing-box-extended-lite-linux-amd64.tar.gz\n' "$lh" >"$WRK/sums"
+    if updates_lite_verify_sha256 "$WRK/sums" sing-box-extended-lite-linux-amd64.tar.gz "$WRK/f"; then
+        echo "sblite-sha-good:OK"
+    else
+        echo "sblite-sha-good:FAIL"
+    fi
+    printf 'deadbeef  sing-box-extended-lite-linux-amd64.tar.gz\n' >"$WRK/sums"
+    if updates_lite_verify_sha256 "$WRK/sums" sing-box-extended-lite-linux-amd64.tar.gz "$WRK/f"; then
+        echo "sblite-sha-mismatch:FAIL"
+    else
+        echo "sblite-sha-mismatch:OK"
+    fi
+    printf '%s  other-asset.tar.gz\n' "$lh" >"$WRK/sums"
+    if updates_lite_verify_sha256 "$WRK/sums" sing-box-extended-lite-linux-amd64.tar.gz "$WRK/f"; then
+        echo "sblite-sha-no-line:FAIL"
+    else
+        echo "sblite-sha-no-line:OK"
+    fi
+
+    # ── Part 6: END-TO-END ELF install ─────────────────────
+    CASE_LITE_BUILD=auto
+    CASE_DF_KB=999999
+    CASE_SUMS_MODE=good
+    CORE_VERSION="1.14.1-extended-2.7.2-lite"
+    place_fake_bin /usr/bin/sing-box "1.14.1" elf
+    rm -f /usr/libexec/sing-box-core /etc/netshift/core-version.cache /etc/sing-box-version.cache
+    json="$(_updates_install_sing_box_lite_core 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == true and .version == "1.14.1-extended-2.7.2-lite" and .build == "elf" and ((has("warning") | not))' >/dev/null 2>&1; then
+        echo "sblite-e2e-elf-json:OK"
+    else
+        echo "sblite-e2e-elf-json:FAIL ($json)"
+    fi
+    v="$(/usr/bin/sing-box version 2>/dev/null | head -n1)"
+    if [ "$v" = "sing-box version 1.14.1-extended-2.7.2-lite" ]; then
+        echo "sblite-e2e-elf-binary:OK"
+    else
+        echo "sblite-e2e-elf-binary:FAIL ($v)"
+    fi
+    if [ ! -e /usr/libexec/sing-box-core ] && [ ! -e /etc/netshift/core-version.cache ] && [ ! -e /etc/sing-box-version.cache ]; then
+        echo "sblite-e2e-elf-no-leftovers:OK"
+    else
+        echo "sblite-e2e-elf-no-leftovers:FAIL"
+    fi
+
+    # ── Part 7: END-TO-END UPX install ────────────────────
+    CASE_LITE_BUILD=compressed
+    CASE_RAM_MB=512
+    : >"$CORE_MARKER"
+    json="$(_updates_install_sing_box_lite_core 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == true and .build == "compressed" and ((has("warning") | not))' >/dev/null 2>&1; then
+        echo "sblite-e2e-upx-json:OK"
+    else
+        echo "sblite-e2e-upx-json:FAIL ($json)"
+    fi
+    if [ -x /usr/libexec/sing-box-core ] &&
+        [ "$(head -c 2 /usr/bin/sing-box 2>/dev/null)" = "#!" ] &&
+        [ -s /etc/netshift/core-version.cache ]; then
+        echo "sblite-e2e-upx-layout:OK"
+    else
+        echo "sblite-e2e-upx-layout:FAIL"
+    fi
+    calls="$(wc -l <"$CORE_MARKER" | tr -d ' ')"
+    # the pre-check of the previous binary and the post-extract validation
+    # each ran a core exactly once — nothing else may have
+    if [ "$calls" = "2" ]; then
+        echo "sblite-e2e-upx-validate-ran-core:OK"
+    else
+        echo "sblite-e2e-upx-validate-ran-core:FAIL (calls=$calls)"
+    fi
+    # `sing-box version` answers from the cache — the core is NOT run
+    v="$(sing-box version 2>/dev/null | head -n1)"
+    calls2="$(wc -l <"$CORE_MARKER" | tr -d ' ')"
+    if [ "$v" = "sing-box version 1.14.1-extended-2.7.2-lite" ] && [ "$calls2" = "$calls" ]; then
+        echo "sblite-e2e-upx-version-from-cache:OK"
+    else
+        echo "sblite-e2e-upx-version-from-cache:FAIL (v='$v' calls=$calls2 want=$calls)"
+    fi
+    # with the cache gone the wrapper probes once and rebuilds it
+    rm -f /etc/netshift/core-version.cache
+    v="$(sing-box version 2>/dev/null | head -n1)"
+    calls3="$(wc -l <"$CORE_MARKER" | tr -d ' ')"
+    if [ "$v" = "sing-box version 1.14.1-extended-2.7.2-lite" ] &&
+        [ -s /etc/netshift/core-version.cache ] && [ "$calls3" = "$((calls + 1))" ]; then
+        echo "sblite-e2e-upx-cache-rebuild:OK"
+    else
+        echo "sblite-e2e-upx-cache-rebuild:FAIL (v='$v' calls=$calls3 want=$((calls + 1)))"
+    fi
+
+    # auto-compressed on a tiny flash + low RAM -> warning code
+    CASE_LITE_BUILD=auto
+    CASE_DF_KB=1000
+    CASE_RAM_MB=128
+    json="$(_updates_install_sing_box_lite_core 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == true and .build == "compressed" and .warning == "upx_ram_spike"' >/dev/null 2>&1; then
+        echo "sblite-e2e-upx-lowram-warning:OK"
+    else
+        echo "sblite-e2e-upx-lowram-warning:FAIL ($json)"
+    fi
+    CASE_RAM_MB=512
+    CASE_DF_KB=999999
+
+    # ── Part 8: wrong binary -> full rollback ────────────────
+    # Previous state: a community manual lite install (wrapper + core +
+    # caches) whose version lacks the suffix. The downloaded asset is a
+    # FULL extended build (no -lite): the install must fail and restore the
+    # manual layout bit for bit.
+    CASE_LITE_BUILD=elf
+    place_fake_bin /usr/bin/sing-box "1.14.1-extended-2.7.2" wrapper
+    place_fake_bin /usr/libexec/sing-box-core "1.14.1-extended-2.7.2" elf
+    printf 'manual snapshot\n' >/etc/sing-box-version.cache
+    printf 'netshift snapshot\n' >/etc/netshift/core-version.cache
+    CORE_VERSION="1.14.1-extended-2.7.2"
+    : >"$CORE_MARKER"
+    json="$(_updates_install_sing_box_lite_core 2>/dev/null)"
+    v="$(sing-box version 2>/dev/null | head -n1)"
+    if printf '%s' "$json" | jq -e '.success == false' >/dev/null 2>&1 &&
+        [ "$v" = "sing-box version 1.14.1-extended-2.7.2" ] &&
+        [ "$(head -c 2 /usr/bin/sing-box 2>/dev/null)" = "#!" ] &&
+        [ -x /usr/libexec/sing-box-core ] &&
+        grep -q 'manual snapshot' /etc/sing-box-version.cache &&
+        grep -q 'netshift snapshot' /etc/netshift/core-version.cache; then
+        echo "sblite-e2e-bad-version-rollback:OK"
+    else
+        echo "sblite-e2e-bad-version-rollback:FAIL (v='$v' json=$json)"
+    fi
+    CORE_VERSION="1.14.1-extended-2.7.2-lite"
+
+    # sha mismatch: aborted BEFORE anything was touched
+    CASE_SUMS_MODE=bad
+    json="$(_updates_install_sing_box_lite_core 2>/dev/null)"
+    v="$(sing-box version 2>/dev/null | head -n1)"
+    if printf '%s' "$json" | jq -e '.success == false' >/dev/null 2>&1 &&
+        [ "$v" = "sing-box version 1.14.1-extended-2.7.2" ] &&
+        [ -x /usr/libexec/sing-box-core ]; then
+        echo "sblite-e2e-sha-mismatch-aborts:OK"
+    else
+        echo "sblite-e2e-sha-mismatch-aborts:FAIL ($json)"
+    fi
+    CASE_SUMS_MODE=good
+
+    # a release without sha256sums.txt is refused outright
+    CASE_RELEASES="$LITE_RELEASES_NOSUMS"
+    json="$(_updates_install_sing_box_lite_core 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == false' >/dev/null 2>&1; then
+        echo "sblite-e2e-no-sums-refused:OK"
+    else
+        echo "sblite-e2e-no-sums-refused:FAIL ($json)"
+    fi
+    CASE_RELEASES="$LITE_RELEASES"
+
+    # unsupported architecture: refused, nothing touched
+    CASE_UNAME=armv6l
+    json="$(_updates_install_sing_box_lite_core 2>/dev/null)"
+    v="$(sing-box version 2>/dev/null | head -n1)"
+    if printf '%s' "$json" | jq -e '.success == false' >/dev/null 2>&1 &&
+        [ "$v" = "sing-box version 1.14.1-extended-2.7.2" ]; then
+        echo "sblite-e2e-unsupported-arch:OK"
+    else
+        echo "sblite-e2e-unsupported-arch:FAIL ($json)"
+    fi
+    CASE_UNAME=x86_64
+
+    # ── Part 9: leaving lite for the FULL extended core cleans up ─
+    json="$(_updates_install_sing_box_extended_core 2>/dev/null)"
+    v="$(/usr/bin/sing-box version 2>/dev/null | head -n1)"
+    if printf '%s' "$json" | jq -e '.success == true' >/dev/null 2>&1 &&
+        [ "$v" = "sing-box version 1.14.1-extended-2.7.2-x86" ] &&
+        [ ! -e /usr/libexec/sing-box-core ] &&
+        [ ! -e /etc/netshift/core-version.cache ] &&
+        [ ! -e /etc/sing-box-version.cache ]; then
+        echo "sblite-leave-extended-cleans-artifacts:OK"
+    else
+        echo "sblite-leave-extended-cleans-artifacts:FAIL (v='$v' json=$json)"
+    fi
+
+    # ── Part 10: leaving lite for the STOCK core cleans up too ───
+    # Rebuild a lite-UPX state (real install), then switch via the package
+    # manager stub; the apk world + libcronet paths are isolated in $WRK.
+    CASE_LITE_BUILD=compressed
+    CASE_DF_KB=999999
+    json="$(_updates_install_sing_box_lite_core 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == true and .build == "compressed"' >/dev/null 2>&1 &&
+        [ -x /usr/libexec/sing-box-core ]; then
+        echo "sblite-leave-stock-rebuild-lite:OK"
+    else
+        echo "sblite-leave-stock-rebuild-lite:FAIL ($json)"
+    fi
+    UPDATES_APK_WORLD="$WRK/apk-world"
+    UPDATES_LIBCRONET_LIB="$WRK/libcronet.so"
+    : >"$UPDATES_APK_WORLD"
+    CASE_PKG_MODE=ok
+    json="$(_updates_install_sing_box_stable_core 2>/dev/null)"
+    v="$(/usr/bin/sing-box version 2>/dev/null | head -n1)"
+    if printf '%s' "$json" | jq -e '.success == true' >/dev/null 2>&1 &&
+        [ "$v" = "sing-box version $STOCK_CORE_VERSION" ] &&
+        [ ! -e /usr/libexec/sing-box-core ] &&
+        [ ! -e /etc/netshift/core-version.cache ] &&
+        [ ! -e /etc/sing-box-version.cache ]; then
+        echo "sblite-leave-stock-cleans-artifacts:OK"
+    else
+        echo "sblite-leave-stock-cleans-artifacts:FAIL (v='$v' json=$json)"
+    fi
+
+    # a FAILED stock switch restores the whole lite layout
+    CASE_LITE_BUILD=compressed
+    json="$(_updates_install_sing_box_lite_core 2>/dev/null)"
+    CASE_PKG_MODE=fail
+    json="$(_updates_install_sing_box_stable_core 2>/dev/null)"
+    v="$(sing-box version 2>/dev/null | head -n1)"
+    if printf '%s' "$json" | jq -e '.success == false' >/dev/null 2>&1 &&
+        [ "$v" = "sing-box version 1.14.1-extended-2.7.2-lite" ] &&
+        [ "$(head -c 2 /usr/bin/sing-box 2>/dev/null)" = "#!" ] &&
+        [ -x /usr/libexec/sing-box-core ] &&
+        [ -s /etc/netshift/core-version.cache ]; then
+        echo "sblite-leave-stock-fail-restores-lite:OK"
+    else
+        echo "sblite-leave-stock-fail-restores-lite:FAIL (v='$v' json=$json)"
+    fi
+    CASE_PKG_MODE=ok
+
+    # ── Part 11: check_update_lite ───────────────────────
+    SB_VER_OVERRIDE="1.14.1-extended-2.7.2-lite"
+    json="$(updates_check_sing_box_lite 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == true and .status == "latest" and .current_version == "1.14.1-extended-2.7.2-lite" and .latest_version == "1.14.1-extended-2.7.2-lite"' >/dev/null 2>&1; then
+        echo "sblite-check-latest:OK"
+    else
+        echo "sblite-check-latest:FAIL ($json)"
+    fi
+    SB_VER_OVERRIDE="1.14.1-extended-2.6.0-lite"
+    json="$(updates_check_sing_box_lite 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == true and .status == "outdated" and .current_version == "1.14.1-extended-2.6.0-lite"' >/dev/null 2>&1; then
+        echo "sblite-check-outdated:OK"
+    else
+        echo "sblite-check-outdated:FAIL ($json)"
+    fi
+    # a manual install without -lite honestly shows up as outdated
+    SB_VER_OVERRIDE="1.14.1-extended-2.7.2"
+    json="$(updates_check_sing_box_lite 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == true and .status == "outdated" and .current_version == "1.14.1-extended-2.7.2" and .latest_version == "1.14.1-extended-2.7.2-lite"' >/dev/null 2>&1; then
+        echo "sblite-check-manual-outdated:OK"
+    else
+        echo "sblite-check-manual-outdated:FAIL ($json)"
+    fi
+    CASE_FETCH_FAIL=1
+    json="$(updates_check_sing_box_lite 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == false' >/dev/null 2>&1; then
+        echo "sblite-check-fetch-fail:OK"
+    else
+        echo "sblite-check-fetch-fail:FAIL ($json)"
+    fi
+    CASE_FETCH_FAIL=0
+    SB_VER_OVERRIDE=""
+    # sync dispatcher wiring
+    SB_VER_OVERRIDE="1.14.1-extended-2.7.2-lite"
+    json="$(component_action sing_box check_update_lite 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.success == true and .status == "latest"' >/dev/null 2>&1; then
+        echo "sblite-check-dispatch:OK"
+    else
+        echo "sblite-check-dispatch:FAIL ($json)"
+    fi
+    SB_VER_OVERRIDE=""
+
+    # ── Part 12: get_system_info fields (shipped bin) ─────────
+    extract() {
+        awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH"
+    }
+    eval "$(extract get_system_info)"
+    NETSHIFT_VERSION="0.0.0-test"
+    CASE_DF_KB=1048576
+    CASE_UNAME=x86_64
+    json="$(get_system_info 2>/dev/null)"
+    if printf '%s' "$json" | jq -e 'has("sing_box_variant") and has("sing_box_lite_upx") and has("sing_box_lite_supported") and has("ram_total_mb") and has("flash_free_mb")' >/dev/null 2>&1; then
+        echo "sblite-info-fields-present:OK"
+    else
+        echo "sblite-info-fields-present:FAIL ($json)"
+    fi
+    if printf '%s' "$json" | jq -e '.sing_box_variant == "extended_lite" and .sing_box_lite_upx == 1 and .sing_box_lite_supported == 1 and .ram_total_mb == 512 and .flash_free_mb == 1024 and .sing_box_extended == 1' >/dev/null 2>&1; then
+        echo "sblite-info-values-upx:OK"
+    else
+        echo "sblite-info-values-upx:FAIL ($json)"
+    fi
+    place_fake_bin /usr/bin/sing-box "1.14.1" elf
+    rm -f /usr/libexec/sing-box-core
+    json="$(get_system_info 2>/dev/null)"
+    if printf '%s' "$json" | jq -e '.sing_box_variant == "stock" and .sing_box_lite_upx == 0 and .sing_box_lite_supported == 1 and .sing_box_extended == 0' >/dev/null 2>&1; then
+        echo "sblite-info-values-stock:OK"
+    else
+        echo "sblite-info-values-stock:FAIL ($json)"
+    fi
+
+    # ── Part 13: async job state carries the build flavour ──────
+    CASE_LITE_BUILD=auto
+    CASE_DF_KB=999999
+    async_json="$(component_action_async sing_box install_extended_lite)"
+    job_id="$(printf '%s' "$async_json" | jq -r '.job_id // empty')"
+    if [ -z "$job_id" ]; then
+        echo "sblite-async-start:FAIL ($async_json)"
+    else
+        echo "sblite-async-start:OK"
+        waited=0
+        while [ "$waited" -lt 20 ]; do
+            if [ -f "$UPDATES_JOB_DIR/$job_id.json" ] &&
+                jq -e '.running == false' "$UPDATES_JOB_DIR/$job_id.json" >/dev/null 2>&1; then
+                break
+            fi
+            sleep 1
+            waited=$((waited + 1))
+        done
+        status_json="$(component_action_status "$job_id" 2>/dev/null)"
+        if printf '%s' "$status_json" | jq -e '.success == true and .build == "elf" and .version == "1.14.1-extended-2.7.2-lite"' >/dev/null 2>&1; then
+            echo "sblite-async-build-field:OK"
+        else
+            echo "sblite-async-build-field:FAIL ($status_json)"
+        fi
+        rm -f "$UPDATES_JOB_DIR/$job_id.json" "$UPDATES_JOB_DIR/$job_id.out" 2>/dev/null
+    fi
+
+    rm -rf "$WRK"
+    echo DONE
+}
+
+real_helpers_body() {
+    # The pure sourced libraries, no stubs: the RAM/flash readers must
+    # produce non-negative integers from the real /proc/meminfo and df.
+    local ram flash
+    ram="$(get_ram_total_mb)"
+    flash="$(get_flash_free_mb)"
+    case "$ram:$flash" in
+    *[!0-9:]* | '':* | *:'') echo "sblite-real-helpers-int:FAIL (ram='$ram' flash='$flash')" ;;
+    *) echo "sblite-real-helpers-int:OK (ram=${ram}MB flash=${flash}MB)" ;;
+    esac
+    echo DONE
+}
+
+case "${1:-}" in
+"") main_body ;;
+component_action) component_action "$2" "$3" ;;
+realhelpers) real_helpers_body ;;
+esac
+DRVEOF
+    sed -i -e "s|DRV_CONSTANTS|$constants|g" \
+        -e "s|DRV_HELPERS|$helpers|g" \
+        -e "s|DRV_UPDATER|$updater|g" \
+        -e "s|BIN_PATH|$bin|g" "$drv"
+    chmod 0755 "$drv"
+
+    sh "$drv" >"$out" 2>&1 || true
+    sh "$drv" realhelpers >"$out2" 2>&1 || true
+
+    # Restore whatever the end-to-end cases replaced, whatever happened.
+    if [ -f "$work/sing-box.orig" ]; then
+        cp -p "$work/sing-box.orig" /usr/bin/sing-box 2>/dev/null || true
+    else
+        rm -f /usr/bin/sing-box 2>/dev/null || true
+    fi
+    if [ -f "$work/lite-core.orig" ]; then
+        cp -p "$work/lite-core.orig" /usr/libexec/sing-box-core 2>/dev/null || true
+    else
+        rm -f /usr/libexec/sing-box-core 2>/dev/null || true
+    fi
+    if [ -f "$work/core-cache.orig" ]; then
+        cp -p "$work/core-cache.orig" /etc/netshift/core-version.cache 2>/dev/null || true
+    else
+        rm -f /etc/netshift/core-version.cache 2>/dev/null || true
+    fi
+    if [ -f "$work/orphan-cache.orig" ]; then
+        cp -p "$work/orphan-cache.orig" /etc/sing-box-version.cache 2>/dev/null || true
+    else
+        rm -f /etc/sing-box-version.cache 2>/dev/null || true
+    fi
+    rm -rf /tmp/sblite-wrk-* /tmp/sblite-fake.* /tmp/sblite-core-calls-* 2>/dev/null
+
+    local line saw_done=0
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK) pass "${line%:OK}" ;;
+            *:FAIL*) fail "$line" ;;
+            DONE) saw_done=1 ;;
+        esac
+    done <"$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "sblite-driver-completed"
+    else
+        fail "sblite-driver-completed:FAIL (driver aborted early)" "$(tail -5 "$out" 2>/dev/null)"
+    fi
+
+    saw_done=0
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK) pass "${line%:OK}" ;;
+            *:FAIL*) fail "$line" ;;
+            DONE) saw_done=1 ;;
+        esac
+    done <"$out2"
+    if [ "$saw_done" = "1" ]; then
+        pass "sblite-realhelpers-driver-completed"
+    else
+        fail "sblite-realhelpers-driver-completed:FAIL" "$(tail -5 "$out2" 2>/dev/null)"
+    fi
+
+    rm -rf "$work"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: NetShift update check on-demand (task-029)
 # ─────────────────────────────────────────────────────────────────
 # Two parts:
@@ -11949,6 +12728,7 @@ main() {
             test_check_update_stable
             test_check_update_extended
             test_sing_box_extended_arm_arch
+            test_sing_box_lite
             test_check_update_netshift
             test_netshift_latest_tag
             test_github_redirect_tag
@@ -11990,6 +12770,7 @@ main() {
         stablecheck) test_check_update_stable ;;
         extcheck)    test_check_update_extended ;;
         sbextarch)   test_sing_box_extended_arm_arch ;;
+        sbextlite)   test_sing_box_lite ;;
         netshiftcheck) test_check_update_netshift ;;
         latesttag)   test_netshift_latest_tag ;;
         ghredirect)  test_github_redirect_tag ;;
@@ -12004,7 +12785,7 @@ main() {
         proxylink)   test_proxy_link_escaping ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy bittorrent stablecheck extcheck sbextarch netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist"
             exit 1
             ;;
     esac
