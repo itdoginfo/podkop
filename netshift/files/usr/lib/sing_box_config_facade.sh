@@ -58,6 +58,9 @@ sing_box_cf_add_mixed_inbound_and_route_rule() {
 
 sing_box_cf_add_proxy_outbound() {
     local config="$1"
+    # The input config, echoed back unchanged when a link has to be skipped
+    # after its outbound was already added (e.g. an XHTTP link on stock sing-box).
+    local config_in="$1"
     local section="$2"
     local url="$3"
     local udp_over_tcp="$4"
@@ -125,7 +128,10 @@ sing_box_cf_add_proxy_outbound() {
 
         config=$(sing_box_cm_add_vless_outbound "$config" "$tag" "$host" "$port" "$uuid" "$flow" "" "$packet_encoding")
         config=$(_add_outbound_security "$config" "$tag" "$url")
-        config=$(_add_outbound_transport "$config" "$tag" "$url")
+        config=$(_add_outbound_transport "$config" "$tag" "$url") || {
+            echo "$config_in"
+            return 1
+        }
         ;;
     ss)
         local userinfo tag host port method password udp_over_tcp
@@ -166,7 +172,10 @@ sing_box_cf_add_proxy_outbound() {
 
         config=$(sing_box_cm_add_trojan_outbound "$config" "$tag" "$host" "$port" "$password")
         config=$(_add_outbound_security "$config" "$tag" "$url")
-        config=$(_add_outbound_transport "$config" "$tag" "$url")
+        config=$(_add_outbound_transport "$config" "$tag" "$url") || {
+            echo "$config_in"
+            return 1
+        }
         ;;
     hysteria2 | hy2)
         local tag host port password obfuscator_type obfuscator_password upload_mbps download_mbps
@@ -186,9 +195,13 @@ sing_box_cf_add_proxy_outbound() {
     vmess)
         # ─── REFERENCE EXTENDED-GATING PATTERN (Tier-1 protocols copy this) ───
         # Generation is gated behind sing-box-extended. On a stock sing-box build
-        # we log a clear message and return the config UNCHANGED (no exit 1, no
-        # outbound added) so generation degrades safely and keeps the last-good
-        # config.
+        # we log a clear message, echo the config UNCHANGED and return NON-ZERO
+        # (no exit 1, no outbound added): the same skip contract as the `*)` arm.
+        # The non-zero return matters: the selector/urltest callers add a member
+        # tag on success, and a member without its outbound passes
+        # `sing-box check` but makes sing-box fail to start
+        # ("dependency[...] not found"). A single-URL section is marked
+        # unavailable instead.
         #
         # Schemes this dispatcher PARSES: socks4/socks4a/socks5, vless, ss,
         # trojan, hysteria2/hy2, and vmess (vmess is extended-gated above). Any
@@ -200,9 +213,9 @@ sing_box_cf_add_proxy_outbound() {
         # connection (proxy_config_type=outbound) or a native sing-box-JSON
         # subscription, which bypass this URL dispatcher entirely.
         if ! is_sing_box_extended; then
-            log "VMess requires sing-box-extended. Install sing-box-extended and retry." "error"
+            log "Section '$section': VMess requires sing-box-extended; skipping the link. Install sing-box-extended and retry." "error"
             echo "$config"
-            return 0
+            return 1
         fi
         # ─────────────────────────────────────────────────────────────────────
 
@@ -365,10 +378,13 @@ _add_outbound_transport() {
         # renamed it). Accept it as an alias and normalize to xhttp downstream:
         # sing_box_cm_set_xhttp_transport_for_outbound emits the modern `xhttp`
         # key, so the config sing-box sees always uses the current name.
+        # On stock sing-box return non-zero: the caller then drops the whole
+        # link. Keeping the outbound without its transport would leave a node
+        # that validates but can never connect, still listed in its group.
         if ! is_sing_box_extended; then
-            log "XHTTP transport requires sing-box-extended. Install sing-box-extended and retry." "error"
+            log "XHTTP transport requires sing-box-extended; skipping the link. Install sing-box-extended and retry." "error"
             echo "$config"
-            return 0
+            return 1
         fi
         local xhttp_path xhttp_host xhttp_sni xhttp_mode
         xhttp_path=$(url_get_query_param "$url" "path")
