@@ -171,7 +171,10 @@ export interface StoreType {
     loading: boolean;
     failed: boolean;
     data: NetShift.OutboundGroup[];
-    latencyFetching: boolean;
+    // Sections whose "Test latency" is running, and the outbound codes still
+    // waiting for their result.
+    latencyTestingSections: string[];
+    latencyPendingOutbounds: string[];
   };
   diagnosticsRunAction: {
     loading: boolean;
@@ -248,7 +251,8 @@ const initialStore: StoreType = {
   sectionsWidget: {
     loading: true,
     failed: false,
-    latencyFetching: false,
+    latencyTestingSections: [],
+    latencyPendingOutbounds: [],
     data: [],
   },
   ...initialDiagnosticStore,

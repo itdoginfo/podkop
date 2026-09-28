@@ -1,6 +1,7 @@
 // language=CSS
 import { DashboardTab, DiagnosticTab, ManagerTab } from './netshift';
 import { PartialStyles } from './partials';
+import { SKELETON_SHIMMER_DURATION } from './constants';
 
 export const GlobalStyles = `
 /*
@@ -130,7 +131,8 @@ ${PartialStyles}
             rgba(255, 255, 255, 0.4),
             transparent
     );
-    animation: skeleton-shimmer 1.6s infinite;
+    animation: skeleton-shimmer ${SKELETON_SHIMMER_DURATION}ms infinite;
+    animation-delay: var(--skeleton-phase, 0s);
 }
 
 @keyframes skeleton-shimmer {

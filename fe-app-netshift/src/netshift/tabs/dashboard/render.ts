@@ -47,6 +47,7 @@ export function render() {
           onTestLatency: () => {},
           onChooseOutbound: () => {},
           latencyFetching: false,
+          pendingOutbounds: [],
         }),
       ),
     ],

@@ -23,6 +23,16 @@ declare global {
     }>;
   };
 
+  const rpc: {
+    declare<T = unknown>(options: {
+      object: string;
+      method: string;
+      params?: string[];
+      expect?: Record<string, unknown>;
+      nobatch?: boolean;
+    }): (...args: unknown[]) => Promise<T>;
+  };
+
   const E: <T extends HtmlTag>(
     type: T,
     attr?: HtmlAttributes<T> | null,
