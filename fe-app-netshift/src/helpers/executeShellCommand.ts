@@ -1,5 +1,6 @@
 import { COMMAND_TIMEOUT } from '../constants';
 import { withTimeout } from './withTimeout';
+import { logger } from '../netshift';
 
 interface ExecuteShellCommandParams {
   command: string;
@@ -62,6 +63,9 @@ export async function executeShellCommand({
     );
   } catch (err) {
     const error = err as Error;
+
+    // Callers only see an empty result, so keep the reason in the console.
+    logger.warn('[SHELL]', `[${[command, ...args].join(' ')}]`, error?.message);
 
     return { stdout: '', stderr: error?.message, code: 0 };
   }

@@ -6,6 +6,18 @@ import { getSelectedOutbound } from '../helpers/getSelectedOutbound';
 import { getDashboardSections } from '../../../methods/custom/getDashboardSections';
 import { IDiagnosticsChecksItem } from '../../../services';
 
+// Delay of one Clash API probe, 0 when the tag did not answer. A reply
+// without a delay (an error message, non-JSON output) counts as silent.
+async function getDelay(tag: string) {
+  const response = await NetShiftShellMethods.getClashApiProxyLatency(tag);
+
+  if (!response.success || response.data?.message) {
+    return 0;
+  }
+
+  return response.data?.delay || 0;
+}
+
 export async function runSectionsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
 
@@ -49,15 +61,7 @@ export async function runSectionsCheck() {
           // through the server the urltest picked. A group test probes every
           // server of the section and on a large subscription outlasts the
           // call timeout.
-          const latencyProxy =
-            await NetShiftShellMethods.getClashApiProxyLatency(
-              selectedOutbound?.code ?? section.code,
-            );
-
-          const delay =
-            latencyProxy.success &&
-            !latencyProxy.data.message &&
-            latencyProxy.data.delay;
+          const delay = await getDelay(selectedOutbound?.code ?? section.code);
 
           if (delay) {
             return {
@@ -72,16 +76,12 @@ export async function runSectionsCheck() {
           };
         }
 
-        const latencyProxy = await NetShiftShellMethods.getClashApiProxyLatency(
-          section.code,
-        );
+        const delay = await getDelay(section.code);
 
-        const success = latencyProxy.success && !latencyProxy.data.message;
-
-        if (success) {
+        if (delay) {
           return {
             success: true,
-            latency: `${latencyProxy.data.delay} ms`,
+            latency: `${delay} ms`,
           };
         }
 

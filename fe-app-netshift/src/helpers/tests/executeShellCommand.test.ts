@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { executeShellCommand } from '../executeShellCommand';
 
-// The netshift barrel starts TabService, which needs a DOM; withTimeout only
-// logs through it.
-vi.mock('../../netshift', () => ({ logger: { info: () => undefined } }));
+// The netshift barrel starts TabService, which needs a DOM; the helpers only
+// log through it.
+const logger = vi.hoisted(() => ({ info: vi.fn(), warn: vi.fn() }));
+
+vi.mock('../../netshift', () => ({ logger }));
 
 function stubExec(exec: () => Promise<unknown>) {
   vi.stubGlobal('fs', { exec });
@@ -13,6 +15,7 @@ describe('executeShellCommand', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.clearAllMocks();
   });
 
   it('returns the command output', async () => {
@@ -40,6 +43,11 @@ describe('executeShellCommand', () => {
       stderr: 'Operation timed out',
       code: 0,
     });
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[SHELL]',
+      '[/usr/bin/netshift clash_api get_proxies]',
+      'Operation timed out',
+    );
   });
 
   it('resolves with the error message of a failed call', async () => {

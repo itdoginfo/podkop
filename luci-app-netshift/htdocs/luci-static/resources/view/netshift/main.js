@@ -4555,6 +4555,13 @@ function getSelectedOutbound(section) {
 }
 
 // src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts
+async function getDelay(tag) {
+  const response = await NetShiftShellMethods.getClashApiProxyLatency(tag);
+  if (!response.success || response.data?.message) {
+    return 0;
+  }
+  return response.data?.delay || 0;
+}
 async function runSectionsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
   updateCheckStore({
@@ -4584,14 +4591,11 @@ async function runSectionsCheck() {
           const selectedOutbound = getSelectedOutbound(section);
           const label = selectedOutbound?.type === "URLTest" ? _("Fastest") : selectedOutbound?.displayName;
           const prefix = label ? `[${label}] ` : "";
-          const latencyProxy2 = await NetShiftShellMethods.getClashApiProxyLatency(
-            selectedOutbound?.code ?? section.code
-          );
-          const delay = latencyProxy2.success && !latencyProxy2.data.message && latencyProxy2.data.delay;
-          if (delay) {
+          const delay2 = await getDelay(selectedOutbound?.code ?? section.code);
+          if (delay2) {
             return {
               success: true,
-              latency: `${prefix}${delay}ms`
+              latency: `${prefix}${delay2}ms`
             };
           }
           return {
@@ -4599,14 +4603,11 @@ async function runSectionsCheck() {
             latency: `${prefix}${_("Not responding")}`
           };
         }
-        const latencyProxy = await NetShiftShellMethods.getClashApiProxyLatency(
-          section.code
-        );
-        const success2 = latencyProxy.success && !latencyProxy.data.message;
-        if (success2) {
+        const delay = await getDelay(section.code);
+        if (delay) {
           return {
             success: true,
-            latency: `${latencyProxy.data.delay} ms`
+            latency: `${delay} ms`
           };
         }
         return {
@@ -6301,6 +6302,7 @@ async function executeShellCommand({
     );
   } catch (err) {
     const error = err;
+    logger.warn("[SHELL]", `[${[command, ...args].join(" ")}]`, error?.message);
     return { stdout: "", stderr: error?.message, code: 0 };
   }
 }
