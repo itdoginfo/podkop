@@ -111,6 +111,20 @@ export function renderDefaultState({
       { class: 'pdk_dashboard-page__outbound-grid' },
       section.outbounds.map((outbound) => renderOutbound(outbound)),
     ),
+    ...(section.subgroups ?? []).map((subgroup) =>
+      E('div', { class: 'pdk_dashboard-page__outbound-subgroup' }, [
+        E(
+          'div',
+          { class: 'pdk_dashboard-page__outbound-subgroup__title' },
+          subgroup.displayName,
+        ),
+        E(
+          'div',
+          { class: 'pdk_dashboard-page__outbound-grid' },
+          subgroup.outbounds.map((outbound) => renderOutbound(outbound)),
+        ),
+      ]),
+    ),
   ]);
 }
 

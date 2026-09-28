@@ -1177,6 +1177,93 @@ var NetShiftShellMethods = {
   }
 };
 
+// src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts
+var SUBSCRIPTION_FEED_GROUP_TAG_PREFIX = "\u26A1 ";
+function isGroupType(item) {
+  const type = item?.value?.type?.toLowerCase();
+  return type === "urltest" || type === "selector";
+}
+function isUrlTest(item) {
+  return item?.value?.type?.toLowerCase() === "urltest";
+}
+function stripFeedPrefix(name) {
+  return name.startsWith(SUBSCRIPTION_FEED_GROUP_TAG_PREFIX) ? name.slice(SUBSCRIPTION_FEED_GROUP_TAG_PREFIX.length) : name;
+}
+function buildSubscriptionOutboundGroup(sectionName, proxies) {
+  const byCode = new Map(proxies.map((proxy) => [proxy.code, proxy]));
+  const selector = byCode.get(`${sectionName}-out`);
+  const legacyFastestCode = `${sectionName}-urltest-out`;
+  const fallbackUrltest = byCode.get(legacyFastestCode);
+  const selectedCode = selector?.value?.now;
+  function toOutbound(item, displayName) {
+    return {
+      code: item.code,
+      displayName: displayName ?? (item.value?.name || ""),
+      latency: item.value?.history?.[0]?.delay || 0,
+      type: item.value?.type || "",
+      selected: selectedCode === item.code
+    };
+  }
+  const selectorCodes = selector?.value?.all ?? [];
+  const selectorItems = selectorCodes.flatMap((code) => {
+    const item = byCode.get(code);
+    return item ? [item] : [];
+  });
+  if (selectorItems.length === 0 && fallbackUrltest) {
+    const fallbackOutbounds = (fallbackUrltest.value?.all ?? []).flatMap(
+      (code) => {
+        const item = byCode.get(code);
+        return item ? [toOutbound(item)] : [];
+      }
+    );
+    return {
+      withTagSelect: true,
+      code: selector?.code || sectionName,
+      displayName: sectionName,
+      outbounds: [
+        toOutbound(fallbackUrltest, _("Fastest")),
+        ...fallbackOutbounds
+      ]
+    };
+  }
+  const selectorCodeSet = new Set(selectorCodes);
+  const feedGroups = selectorItems.filter(
+    (item) => item.code !== legacyFastestCode && isUrlTest(item) && (item.value?.all?.length ?? 0) > 0 && (item.value?.all ?? []).every(
+      (code) => selectorCodeSet.has(code) && !isGroupType(byCode.get(code))
+    )
+  );
+  const groupedCodes = new Set(
+    feedGroups.flatMap((item) => [item.code, ...item.value?.all ?? []])
+  );
+  const topLevel = selectorItems.filter((item) => !groupedCodes.has(item.code)).map(
+    (item) => toOutbound(
+      item,
+      item.code === legacyFastestCode ? _("Fastest") : void 0
+    )
+  );
+  const subgroups = feedGroups.map((item) => ({
+    code: item.code,
+    displayName: stripFeedPrefix(item.value?.name || item.code),
+    outbounds: [
+      toOutbound(item, _("Fastest")),
+      ...(item.value?.all ?? []).flatMap((code) => {
+        const member = byCode.get(code);
+        return member ? [toOutbound(member)] : [];
+      })
+    ]
+  }));
+  return {
+    withTagSelect: true,
+    code: selector?.code || sectionName,
+    displayName: sectionName,
+    outbounds: [
+      ...topLevel.filter((item) => item.type.toLowerCase() === "urltest"),
+      ...topLevel.filter((item) => item.type.toLowerCase() !== "urltest")
+    ],
+    ...subgroups.length ? { subgroups } : {}
+  };
+}
+
 // src/netshift/methods/custom/getDashboardSections.ts
 async function getDashboardSections() {
   const configSections = await getConfigSections();
@@ -1295,68 +1382,7 @@ async function getDashboardSections() {
         };
       }
       if (section.proxy_config_type === "subscription") {
-        const selector = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const fallbackUrltest = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-urltest-out`
-        );
-        const selectorOutbounds = (selector?.value?.all ?? []).flatMap(
-          (code) => {
-            const item = proxies.find((proxy) => proxy.code === code);
-            if (!item) {
-              return [];
-            }
-            const isLegacyFastest = item.code === `${section[".name"]}-urltest-out`;
-            return [
-              {
-                code: item.code,
-                displayName: isLegacyFastest ? _("Fastest") : item?.value?.name || "",
-                latency: item?.value?.history?.[0]?.delay || 0,
-                type: item?.value?.type || "",
-                selected: selector?.value?.now === item.code
-              }
-            ];
-          }
-        );
-        const outbounds = [
-          ...selectorOutbounds.filter(
-            (item) => item.type?.toLowerCase() === "urltest"
-          ),
-          ...selectorOutbounds.filter(
-            (item) => item.type?.toLowerCase() !== "urltest"
-          )
-        ];
-        if (outbounds.length === 0 && fallbackUrltest) {
-          const fallbackOutbounds = (fallbackUrltest?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item) => ({
-            code: item?.code || "",
-            displayName: item?.value?.name || "",
-            latency: item?.value?.history?.[0]?.delay || 0,
-            type: item?.value?.type || "",
-            selected: selector?.value?.now === item?.code
-          }));
-          return {
-            withTagSelect: true,
-            code: selector?.code || section[".name"],
-            displayName: section[".name"],
-            outbounds: [
-              {
-                code: fallbackUrltest?.code || "",
-                displayName: _("Fastest"),
-                latency: fallbackUrltest?.value?.history?.[0]?.delay || 0,
-                type: fallbackUrltest?.value?.type || "",
-                selected: selector?.value?.now === fallbackUrltest?.code
-              },
-              ...fallbackOutbounds
-            ]
-          };
-        }
-        return {
-          withTagSelect: true,
-          code: selector?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds
-        };
+        return buildSubscriptionOutboundGroup(section[".name"], proxies);
       }
     }
     if (section.connection_type === "vpn") {
@@ -3076,6 +3102,20 @@ function renderDefaultState({
       "div",
       { class: "pdk_dashboard-page__outbound-grid" },
       section.outbounds.map((outbound) => renderOutbound(outbound))
+    ),
+    ...(section.subgroups ?? []).map(
+      (subgroup) => E("div", { class: "pdk_dashboard-page__outbound-subgroup" }, [
+        E(
+          "div",
+          { class: "pdk_dashboard-page__outbound-subgroup__title" },
+          subgroup.displayName
+        ),
+        E(
+          "div",
+          { class: "pdk_dashboard-page__outbound-grid" },
+          subgroup.outbounds.map((outbound) => renderOutbound(outbound))
+        )
+      ])
     )
   ]);
 }
@@ -3685,6 +3725,17 @@ var styles3 = `
     display: grid;
     grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
     grid-gap: 10px;
+}
+
+.pdk_dashboard-page__outbound-subgroup {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: var(--ns-card-border-width) solid var(--ns-card-border);
+}
+
+.pdk_dashboard-page__outbound-subgroup__title {
+    color: var(--text-color-high);
+    font-weight: 600;
 }
 
 .pdk_dashboard-page__outbound-grid__item {
@@ -4419,6 +4470,14 @@ function renderWikiDisclaimer(kind) {
   ]);
 }
 
+// src/netshift/tabs/diagnostic/helpers/getSelectedOutbound.ts
+function getSelectedOutbound(section) {
+  return [
+    ...section.outbounds,
+    ...(section.subgroups ?? []).flatMap((subgroup) => subgroup.outbounds)
+  ].find((item) => item.selected);
+}
+
 // src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts
 async function runSectionsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
@@ -4447,13 +4506,11 @@ async function runSectionsCheck() {
       async function getLatency() {
         if (section.withTagSelect) {
           const latencyGroup = await NetShiftShellMethods.getClashApiGroupLatency(section.code);
-          const selectedOutbound = section.outbounds.find(
-            (item) => item.selected
-          );
-          const isUrlTest = selectedOutbound?.type === "URLTest";
+          const selectedOutbound = getSelectedOutbound(section);
+          const isUrlTest2 = selectedOutbound?.type === "URLTest";
           const success3 = latencyGroup.success && !latencyGroup.data.message;
           if (success3) {
-            if (isUrlTest) {
+            if (isUrlTest2) {
               const latency2 = Object.values(latencyGroup.data).map((item) => item ? `${item}ms` : "n/a").join(" / ");
               return {
                 success: true,

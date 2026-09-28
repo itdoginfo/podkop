@@ -165,9 +165,11 @@ has_outbound_section() {
 # section may now list MULTIPLE subscription_url entries; each feed keeps its
 # own independent download/UA/rejected/json cache keyed by this hash so the
 # feeds never collide and one bad feed cannot poison another. md5sum is
-# busybox-safe and the URL bytes are opaque user text (never parsed here).
+# busybox-safe and the URL bytes are opaque user text (never parsed here). The
+# #fragment is left out: it only names the feed on the dashboard and is never
+# fetched, so renaming a feed keeps its cache.
 get_subscription_url_hash() {
-    local url="$1"
+    local url="${1%%#*}"
 
     printf '%s' "$url" | md5sum 2>/dev/null | awk '{print $1}'
 }
@@ -189,6 +191,19 @@ get_subscription_url_cache_path() {
     local urlhash="$2"
 
     echo "$SUBSCRIPTION_CACHE_FOLDER/${section}${urlhash:+.$urlhash}.url"
+}
+
+# True when the .url sidecar $1 records URL $2. Both sides are compared without
+# the #fragment (the display name), like the cache hash, so renaming a
+# subscription does not force a download; sidecars written before this still
+# hold the fragment.
+subscription_url_cache_matches() {
+    local url_cache_path="$1"
+    local url="$2"
+    local cached_url=""
+
+    [ -f "$url_cache_path" ] && cached_url="$(cat "$url_cache_path" 2>/dev/null)"
+    [ "${cached_url%%#*}" = "${url%%#*}" ]
 }
 
 get_subscription_rejected_cache_path() {
@@ -264,6 +279,46 @@ reap_legacy_subscription_cache_files() {
         2>/dev/null
 }
 
+# Remove per-URL cache files of section $1 whose URL hash matches none of the
+# URLs listed in file $2 (one per line): a link dropped from the list, or a
+# link cached before the #fragment was left out of the hash. Only
+# "${section}.<32 hex>.<ext>" names are touched; UCI section names cannot
+# hold a '.', so another section's files never match. Nothing is removed when
+# a hash cannot be computed.
+reap_orphan_subscription_cache_files() {
+    local section="$1"
+    local urls_file="$2"
+    local keep_hashes="" url urlhash cache_file name removed=0
+
+    [ -n "$SUBSCRIPTION_CACHE_FOLDER" ] && [ -d "$SUBSCRIPTION_CACHE_FOLDER" ] || return 0
+
+    while IFS= read -r url || [ -n "$url" ]; do
+        [ -n "$url" ] || continue
+        urlhash="$(get_subscription_url_hash "$url")"
+        [ -n "$urlhash" ] || return 0
+        keep_hashes="$keep_hashes $urlhash"
+    done < "$urls_file"
+    [ -n "$keep_hashes" ] || return 0
+
+    for cache_file in "$SUBSCRIPTION_CACHE_FOLDER/$section".*; do
+        [ -f "$cache_file" ] || continue
+        name="${cache_file##*/}"
+        name="${name#"$section".}"
+        urlhash="${name%%.*}"
+        [ "$urlhash" != "$name" ] && [ "${#urlhash}" -eq 32 ] || continue
+        case "$urlhash" in
+        *[!0-9a-f]*) continue ;;
+        esac
+        case " $keep_hashes " in
+        *" $urlhash "*) continue ;;
+        esac
+        rm -f "$cache_file" 2>/dev/null && removed=$((removed + 1))
+    done
+
+    [ "$removed" -eq 0 ] ||
+        log "Removed $removed cache file(s) of subscription links no longer listed in section '$section'" "info"
+}
+
 ensure_subscription_cache_dir() {
     local state_dir_created=0 cache_dir_created=0
     local mkdir_errfile mkdir_rc
@@ -325,7 +380,7 @@ migrate_subscription_cache_from_tmp() {
 
         if [ ! -e "$dst_json" ]; then
             cp "$src_json" "$dst_json" 2>/dev/null
-            printf '%s' "$src_url_value" > "$dst_url_cache" 2>/dev/null
+            printf '%s' "${src_url_value%%#*}" > "$dst_url_cache" 2>/dev/null
             chmod 600 "$dst_json" "$dst_url_cache" 2>/dev/null
             log "Migrated subscription cache for section '$src_section' to per-URL persistent storage" "info"
         fi
@@ -671,9 +726,9 @@ download_subscription_into_cache() {
 
     if [ -f "$subscription_json_path" ] && cmp -s "$tmpfile" "$subscription_json_path"; then
         rm -f "$tmpfile"
-        if [ "$(cat "$subscription_url_cache_path" 2>/dev/null)" != "$subscription_url" ]; then
+        if ! subscription_url_cache_matches "$subscription_url_cache_path" "$subscription_url"; then
             url_tmpfile="${subscription_url_cache_path}.tmp.$$"
-            if printf '%s' "$subscription_url" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path"; then
+            if printf '%s' "${subscription_url%%#*}" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path"; then
                 chmod 600 "$subscription_url_cache_path" 2>/dev/null
             else
                 log "Subscription content for section '$section' is unchanged, but URL metadata could not be persisted; the next refresh may download it again" "warn"
@@ -693,8 +748,9 @@ download_subscription_into_cache() {
     rm -f "$tmpfile"
     rm -f "$rejected_cache_path"
 
+    # See subscription_url_cache_matches: the sidecar holds no #fragment.
     url_tmpfile="${subscription_url_cache_path}.tmp.$$"
-    printf '%s' "$subscription_url" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path" || {
+    printf '%s' "${subscription_url%%#*}" > "$url_tmpfile" && mv "$url_tmpfile" "$subscription_url_cache_path" || {
         # The valid JSON cache has already been atomically installed. Treat
         # metadata failure as non-fatal so recovery reloads and applies it;
         # only refresh deduplication is degraded until metadata can be written.
@@ -708,7 +764,7 @@ download_subscription_into_cache() {
 prepare_subscription_cache_for_startup() {
     local section="$1"
     local connection_type proxy_config_type urls_tmp url urlhash
-    local subscription_json_path subscription_url_cache_path cached_subscription_url
+    local subscription_json_path subscription_url_cache_path
     local service_proxy_address had_usable_cache cache_needs_refresh
     local _download_lists_via_proxy section_any_usable url_count
 
@@ -762,11 +818,8 @@ prepare_subscription_cache_for_startup() {
             rm -f "$subscription_json_path"
         fi
 
-        cached_subscription_url=""
-        [ -f "$subscription_url_cache_path" ] && cached_subscription_url="$(cat "$subscription_url_cache_path" 2>/dev/null)"
-
         cache_needs_refresh=0
-        if [ "$had_usable_cache" -eq 0 ] || [ "$cached_subscription_url" != "$url" ]; then
+        if [ "$had_usable_cache" -eq 0 ] || ! subscription_url_cache_matches "$subscription_url_cache_path" "$url"; then
             cache_needs_refresh=1
         fi
 
@@ -2682,6 +2735,175 @@ sing_box_build_subscription_groups() {
     ' 2>/dev/null
 }
 
+# Display name of one subscription feed, used for its own urltest group: the
+# URL fragment ("https://host/sub#My%20VPN" -> "My VPN") when there is one,
+# else the host. The fragment is decoded like a proxy link name ('+' is a
+# space). The fragment is cut off before any request is made
+# (download_subscription, check_subscription_connectivity) and is not part of
+# the cache hash. $2 is used when neither yields a name. That fallback
+# ("Subscription N") is deliberately plain English: it becomes part of the
+# sing-box tag, where LuCI translations never reach. LuCI only accepts
+# http(s):// URLs with a valid host, so it is reached only through a
+# hand-written `uci set` (no scheme, empty host).
+get_subscription_feed_display_name() {
+    local url="$1"
+    local fallback="$2"
+    local name=""
+
+    case "$url" in
+    *'#'*)
+        # Trims ASCII and Unicode spaces (NBSP, U+2000-U+200B, U+202F,
+        # U+205F, U+3000, BOM), so "#%C2%A0" counts as no name.
+        name="$(url_decode "${url#*#}" | tr -d '\000-\037\177')"
+        name="$(jq -rn --arg name "$name" '
+            def blank: . == 32 or . == 160 or (. >= 8192 and . <= 8203)
+                or . == 8239 or . == 8287 or . == 12288 or . == 65279;
+            $name | explode
+            | until(length == 0 or (.[0] | blank | not); .[1:])
+            | until(length == 0 or (.[length - 1] | blank | not); .[:length - 1])
+            | implode
+        ' 2>/dev/null)"
+        ;;
+    esac
+
+    if [ -z "$name" ]; then
+        case "$url" in
+        *://*)
+            name="${url#*://}"
+            name="${name%%[/?#]*}"
+            name="${name##*@}"
+            case "$name" in
+            \[*\]*)
+                name="${name#\[}"
+                name="${name%%\]*}"
+                ;;
+            *)
+                name="${name%%:*}"
+                ;;
+            esac
+            ;;
+        esac
+    fi
+
+    [ -n "$name" ] || name="$fallback"
+    printf '%s' "$name"
+}
+
+# Appends the proxy outbounds of one cached feed onto the merged subscription
+# file, stamping each with $SUBSCRIPTION_FEED_MARKER_KEY = <feed index> so the
+# nodes can be split back per feed after the facade has filtered/deduped them.
+# Returns non-zero (merged file untouched) when the feed cannot be merged.
+subscription_merge_feed_outbounds() {
+    local merged_json_path="$1"
+    local feed_json_path="$2"
+    local feed_index="$3"
+    local merged_tmp="${merged_json_path}.tmp.$$"
+
+    # No Oniguruma: pure array concat with --slurpfile.
+    if jq -c --slurpfile feed "$feed_json_path" \
+        --arg feed_key "$SUBSCRIPTION_FEED_MARKER_KEY" \
+        --argjson feed_index "$feed_index" '
+        .outbounds += [ $feed[0].outbounds[]? | select(
+            .type != "selector" and .type != "urltest" and
+            .type != "direct" and .type != "dns" and .type != "block"
+        ) | .[$feed_key] = $feed_index ]
+    ' "$merged_json_path" > "$merged_tmp" 2>/dev/null && [ -s "$merged_tmp" ]; then
+        mv "$merged_tmp" "$merged_json_path"
+        return 0
+    fi
+
+    rm -f "$merged_tmp"
+    return 1
+}
+
+# Merges the usable cached feeds of a section into one file. $1 = section,
+# $2 = file with one subscription URL per line, $3 = merged file (already
+# holding {"outbounds":[]}). Feed index = position in the URL list (dead feeds
+# included), so names stay aligned with the stamped nodes. Sets
+# SUBSCRIPTION_FEED_NAMES_JSON (display name per feed index) and
+# SUBSCRIPTION_USABLE_FEED_COUNT.
+subscription_merge_section_feeds() {
+    local section="$1"
+    local subscription_urls_file="$2"
+    local merged_json_path="$3"
+    local subscription_url urlhash subscription_json_path feed_node_count
+    local feed_index=0
+    local usable_feed_count=0
+    local feed_names_json="[]"
+    local merged_hashes=""
+
+    while IFS= read -r subscription_url || [ -n "$subscription_url" ]; do
+        [ -n "$subscription_url" ] || continue
+        feed_index=$((feed_index + 1))
+        # A repeated name (two feeds from one host) gets " (<position>)", so
+        # the block title never shows the tag dedup suffix ("host-1"). If that
+        # is taken too (a feed literally named "A (4)"), the number goes up.
+        feed_names_json="$(jq -cn --argjson names "$feed_names_json" \
+            --arg name "$(get_subscription_feed_display_name "$subscription_url" "Subscription $feed_index")" \
+            --argjson position "$feed_index" '
+            def taken($n): $names | any(. == $n);
+            $names + [if taken($name) then
+                first(range($position; $position + 1000) | "\($name) (\(.))" | select(taken(.) | not))
+            else $name end]
+        ' 2>/dev/null)"
+        [ -n "$feed_names_json" ] || feed_names_json="[]"
+        urlhash="$(get_subscription_url_hash "$subscription_url")"
+        # Links that differ only in #fragment share one cache file; merging
+        # it twice would duplicate every node.
+        case " $merged_hashes " in
+        *" $urlhash "*)
+            log "Subscription feed for section '$section' repeats an earlier link (only #fragment differs); skipping (url=$(redact_url_for_log "$subscription_url"))" "warn"
+            continue
+            ;;
+        esac
+        merged_hashes="$merged_hashes $urlhash"
+        subscription_json_path="$(get_subscription_json_path "$section" "$urlhash")"
+        subscription_cache_is_usable "$subscription_json_path" || {
+            log "Subscription feed for section '$section' has no usable cache; skipping (url=$(redact_url_for_log "$subscription_url"))" "warn"
+            continue
+        }
+
+        feed_node_count="$(jq -r '[.outbounds[]? | select(
+            .type != "selector" and .type != "urltest" and
+            .type != "direct" and .type != "dns" and .type != "block"
+        )] | length' "$subscription_json_path" 2>/dev/null)"
+        [ -n "$feed_node_count" ] || feed_node_count=0
+
+        # Append this feed's proxy outbounds onto the merged set, each
+        # stamped with its 0-based feed index.
+        if subscription_merge_feed_outbounds "$merged_json_path" "$subscription_json_path" "$((feed_index - 1))"; then
+            usable_feed_count=$((usable_feed_count + 1))
+            log "Subscription feed for section '$section' contributed $feed_node_count node(s) (url=$(redact_url_for_log "$subscription_url"))" "info"
+        else
+            log "Failed to merge subscription feed for section '$section' (url=$(redact_url_for_log "$subscription_url"))" "warn"
+        fi
+    done < "$subscription_urls_file"
+
+    SUBSCRIPTION_FEED_NAMES_JSON="$feed_names_json"
+    SUBSCRIPTION_USABLE_FEED_COUNT="$usable_feed_count"
+}
+
+# Splits the kept subscription tags back per feed. $1 = tags (JSON array),
+# $2 = feed index per tag (parallel JSON array, null = unknown), $3 = feed
+# display names indexed by feed. Prints [{name, tags}] for every feed that kept
+# at least one node, in feed order; tags without a feed index are left out.
+sing_box_build_subscription_feed_groups() {
+    local tags_json="$1"
+    local feeds_json="$2"
+    local names_json="$3"
+
+    jq -cn --argjson tags "$tags_json" --argjson feeds "$feeds_json" --argjson names "$names_json" '
+        [range(0; $tags | length) as $i | {tag: $tags[$i], feed: $feeds[$i]}
+            | select(.feed | type == "number")] as $pairs
+        | [($pairs | map(.feed) | unique)[] as $f
+            | {
+                name: (($names[$f] // "") | tostring
+                    | if length > 0 then . else "Subscription \($f + 1)" end),
+                tags: [$pairs[] | select(.feed == $f) | .tag]
+              }]
+    ' 2>/dev/null
+}
+
 is_truthy_option() {
     local value="$1"
 
@@ -2908,8 +3130,9 @@ configure_outbound_handler() {
                 subscription_outbound_tags_json service_proxy_address subscription_ready \
                 subscription_filter_include_keywords_json subscription_filter_exclude_keywords_json \
                 subscription_keyword_filter_active urlhash subscription_json_path subscription_url_cache_path \
-                cached_subscription_url should_download had_usable_cache merged_json_path merged_node_count \
-                usable_feed_count feed_node_count merged_tmp
+                should_download had_usable_cache merged_json_path merged_node_count \
+                usable_feed_count subscription_feed_names_json \
+                subscription_outbound_feeds_json
 
             config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
             config_get urltest_tolerance "$section" "urltest_tolerance" 50
@@ -2994,6 +3217,7 @@ configure_outbound_handler() {
                 log "Subscription URL is not set. Aborted." "fatal"
                 exit 1
             fi
+            reap_orphan_subscription_cache_files "$section" "$subscription_urls_tmp"
 
             log "Section '$section' has $subscription_url_count subscription feed(s)" "debug"
 
@@ -3015,13 +3239,7 @@ configure_outbound_handler() {
                     should_download=1
                 fi
 
-                if [ -f "$subscription_url_cache_path" ]; then
-                    cached_subscription_url="$(cat "$subscription_url_cache_path" 2>/dev/null)"
-                else
-                    cached_subscription_url=""
-                fi
-
-                if [ "$cached_subscription_url" != "$subscription_url" ]; then
+                if ! subscription_url_cache_matches "$subscription_url_cache_path" "$subscription_url"; then
                     if [ "$had_usable_cache" -eq 0 ]; then
                         should_download=1
                     else
@@ -3061,39 +3279,9 @@ configure_outbound_handler() {
                 exit 1
             }
             printf '%s' '{"outbounds":[]}' > "$merged_json_path"
-            usable_feed_count=0
-            while IFS= read -r subscription_url || [ -n "$subscription_url" ]; do
-                [ -n "$subscription_url" ] || continue
-                urlhash="$(get_subscription_url_hash "$subscription_url")"
-                subscription_json_path="$(get_subscription_json_path "$section" "$urlhash")"
-                subscription_cache_is_usable "$subscription_json_path" || {
-                    log "Subscription feed for section '$section' has no usable cache; skipping (url=$(redact_url_for_log "$subscription_url"))" "warn"
-                    continue
-                }
-
-                feed_node_count="$(jq -r '[.outbounds[]? | select(
-                    .type != "selector" and .type != "urltest" and
-                    .type != "direct" and .type != "dns" and .type != "block"
-                )] | length' "$subscription_json_path" 2>/dev/null)"
-                [ -n "$feed_node_count" ] || feed_node_count=0
-
-                # Append this feed's proxy outbounds onto the merged set. No
-                # Oniguruma: pure array concat with --slurpfile.
-                merged_tmp="${merged_json_path}.tmp.$$"
-                if jq -c --slurpfile feed "$subscription_json_path" '
-                    .outbounds += [ $feed[0].outbounds[]? | select(
-                        .type != "selector" and .type != "urltest" and
-                        .type != "direct" and .type != "dns" and .type != "block"
-                    ) ]
-                ' "$merged_json_path" > "$merged_tmp" 2>/dev/null && [ -s "$merged_tmp" ]; then
-                    mv "$merged_tmp" "$merged_json_path"
-                    usable_feed_count=$((usable_feed_count + 1))
-                    log "Subscription feed for section '$section' contributed $feed_node_count node(s) (url=$(redact_url_for_log "$subscription_url"))" "info"
-                else
-                    rm -f "$merged_tmp"
-                    log "Failed to merge subscription feed for section '$section' (url=$(redact_url_for_log "$subscription_url"))" "warn"
-                fi
-            done < "$subscription_urls_tmp"
+            subscription_merge_section_feeds "$section" "$subscription_urls_tmp" "$merged_json_path"
+            usable_feed_count="$SUBSCRIPTION_USABLE_FEED_COUNT"
+            subscription_feed_names_json="$SUBSCRIPTION_FEED_NAMES_JSON"
             rm -f "$subscription_urls_tmp"
 
             merged_node_count="$(jq -r '.outbounds | length' "$merged_json_path" 2>/dev/null)"
@@ -3127,6 +3315,7 @@ configure_outbound_handler() {
                 if [ -z "$subscription_outbound_tags_json" ] || [ "$subscription_outbound_tags_json" = "[]" ]; then
                     subscription_outbound_tags_json="$(comma_string_to_json_array "$SUBSCRIPTION_OUTBOUND_TAGS")"
                 fi
+                subscription_outbound_feeds_json="$SUBSCRIPTION_OUTBOUND_FEEDS_JSON"
 
                 if [ "$group_mode" != "off" ]; then
                     local grouping_json group_key group_outbounds group_tag group_keys_tmp \
@@ -3238,11 +3427,52 @@ configure_outbound_handler() {
                     config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$selector_default" "true")"
                 else
                     # Create urltest + selector (default subscription behaviour)
+                    local feed_groups_json feed_groups_count feed_group_index feed_group_name feed_group_tags \
+                        feed_urltest_tag feed_urltest_tags_json
                     urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
                     urltest_outbounds="$subscription_outbound_tags_json"
+
+                    # Two or more feeds with nodes: every feed also gets its own
+                    # urltest ("⚡ <feed name>") so the dashboard can offer a
+                    # Fastest per subscription. The section-wide urltest over
+                    # all nodes stays the selector default.
+                    # Probe cost: a sing-box urltest probes on its interval
+                    # only while it carries traffic (it stops after
+                    # idle_timeout), and all groups share the Clash API test
+                    # history, skipping a node tested within the interval. So
+                    # the per-feed urltests add one startup probe per node, and
+                    # after a switch between two Fastest groups the old one
+                    # keeps probing until it goes idle.
+                    feed_urltest_tags_json="[]"
+                    feed_groups_json="$(sing_box_build_subscription_feed_groups "$subscription_outbound_tags_json" \
+                        "${subscription_outbound_feeds_json:-[]}" "${subscription_feed_names_json:-[]}")"
+                    feed_groups_count="$(printf '%s' "$feed_groups_json" | jq -r 'length' 2>/dev/null)"
+                    case "$feed_groups_count" in
+                    '' | *[!0-9]*) feed_groups_count=0 ;;
+                    esac
+                    if [ "$feed_groups_count" -ge 2 ]; then
+                        feed_group_index=0
+                        while [ "$feed_group_index" -lt "$feed_groups_count" ]; do
+                            feed_group_name="$(printf '%s' "$feed_groups_json" | jq -r --argjson i "$feed_group_index" '.[$i].name // empty' 2>/dev/null)"
+                            feed_group_tags="$(printf '%s' "$feed_groups_json" | jq -c --argjson i "$feed_group_index" '.[$i].tags // empty' 2>/dev/null)"
+                            feed_group_index=$((feed_group_index + 1))
+                            if [ -z "$feed_group_name" ] || [ -z "$feed_group_tags" ]; then
+                                log "Subscription section '$section': cannot read per-subscription group $feed_group_index; skipping it" "warn"
+                                continue
+                            fi
+                            feed_urltest_tag="$(sing_box_get_unique_outbound_tag "$config" \
+                                "${SB_SUBSCRIPTION_FEED_GROUP_TAG_PREFIX}${feed_group_name}")"
+                            config="$(sing_box_cm_add_urltest_outbound "$config" "$feed_urltest_tag" "$feed_group_tags" \
+                                "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
+                            feed_urltest_tags_json="$(printf '%s' "$feed_urltest_tags_json" | jq -ac --arg tag "$feed_urltest_tag" '. + [$tag]')"
+                        done
+                        log "Subscription section '$section': $feed_groups_count per-subscription urltest group(s)" "debug"
+                    fi
+
                     selector_outbounds=$(
-                        jq -acn --argjson outbounds "$subscription_outbound_tags_json" --arg tag "$urltest_tag" \
-                            '$outbounds + [$tag]' 2>/dev/null
+                        jq -acn --argjson outbounds "$subscription_outbound_tags_json" \
+                            --argjson feeds "$feed_urltest_tags_json" --arg tag "$urltest_tag" \
+                            '$outbounds + $feeds + [$tag]' 2>/dev/null
                     )
                     if [ -z "$selector_outbounds" ]; then
                         log "Failed to build selector outbounds for subscription section '$section'. Aborted." "fatal"

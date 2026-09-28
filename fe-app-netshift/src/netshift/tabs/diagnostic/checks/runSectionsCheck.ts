@@ -2,6 +2,7 @@ import { DIAGNOSTICS_CHECKS_MAP } from './contstants';
 import { NetShiftShellMethods } from '../../../methods';
 import { updateCheckStore } from './updateCheckStore';
 import { getMeta } from '../helpers/getMeta';
+import { getSelectedOutbound } from '../helpers/getSelectedOutbound';
 import { getDashboardSections } from '../../../methods/custom/getDashboardSections';
 import { IDiagnosticsChecksItem } from '../../../services';
 
@@ -39,9 +40,7 @@ export async function runSectionsCheck() {
           const latencyGroup =
             await NetShiftShellMethods.getClashApiGroupLatency(section.code);
 
-          const selectedOutbound = section.outbounds.find(
-            (item) => item.selected,
-          );
+          const selectedOutbound = getSelectedOutbound(section);
 
           const isUrlTest = selectedOutbound?.type === 'URLTest';
 

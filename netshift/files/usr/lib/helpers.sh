@@ -986,7 +986,10 @@ _wget_subscription_request() {
 #   $7 - User-Agent (optional; default "singbox/<version>")
 #   $8 - insecure (optional, default 0; when 1 adds --no-check-certificate)
 download_subscription() {
-    local url="$1"
+    # The #fragment only names the feed on the dashboard. uclient-fetch puts it
+    # into the request line verbatim (checked on OpenWrt 25.12), where a panel
+    # would read it as part of the path/token, so it is cut off here.
+    local url="${1%%#*}"
     local filepath="$2"
     local http_proxy_address="$3"
     local retries="${4:-3}"
@@ -1099,7 +1102,8 @@ download_subscription() {
 }
 
 check_subscription_connectivity() {
-    local url="$1"
+    # Same as download_subscription: the #fragment must not reach the server.
+    local url="${1%%#*}"
     local http_proxy_address="$2"
     local retries="${3:-3}"
     local wait="${4:-2}"

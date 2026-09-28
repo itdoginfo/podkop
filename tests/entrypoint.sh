@@ -4906,6 +4906,509 @@ FGEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: per-subscription urltest groups (several subscription_url in one section)
+#
+# A subscription section with two or more feeds gets, next to the section-wide
+# "<section>-urltest-out", one urltest per feed ("⚡ <feed name>") so the
+# dashboard can show every subscription in its own block with its own Fastest.
+# Covers the shipped pieces end to end: the feed display name, the merge that
+# stamps every node with its feed index, the section loop that computes the
+# index and the names, the REAL facade carrying that index through keyword
+# filter / tag dedup / sing-box check bisection (a rejected node forces the
+# split), the feed grouper, the flat (group_mode=off) branch extracted verbatim
+# from the bin, and the #fragment-blind .url sidecar check at startup.
+# Synthetic hosts/tags only. Tokens use the name:OK/FAIL convention.
+# ─────────────────────────────────────────────────────────────────
+test_feed_groups() {
+    header "Per-Subscription urltest Groups"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local lib="$NETSHIFT_LIB_DIR"
+    if [ ! -r "$bin" ] || [ ! -r "$lib/sing_box_config_facade.sh" ]; then
+        skip "netshift bin / facade not found"
+        return
+    fi
+
+    local work="/tmp/netshift-feedgroups-$$"
+    mkdir -p "$work"
+    local drv="$work/driver.sh"
+
+    cat > "$drv" << 'FDEOF'
+mkdir -p /usr/lib/netshift
+for f in constants.sh helpers.sh logging.sh sing_box_config_manager.sh sing_box_config_facade.sh; do
+    ln -sf "LIB_DIR/$f" "/usr/lib/netshift/$f"
+done
+. /usr/lib/netshift/constants.sh
+. /usr/lib/netshift/logging.sh
+. /usr/lib/netshift/sing_box_config_facade.sh
+log() { :; }
+echolog() { :; }
+nolog() { :; }
+is_sing_box_extended() { return 0; }
+
+for fn in sing_box_get_unique_outbound_tag sing_box_build_subscription_feed_groups \
+          get_subscription_feed_display_name subscription_merge_feed_outbounds \
+          get_subscription_url_hash subscription_merge_section_feeds \
+          get_subscription_json_path get_subscription_url_cache_path \
+          subscription_url_cache_matches subscription_cache_is_usable \
+          prepare_subscription_cache_for_startup reap_orphan_subscription_cache_files; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+done
+get_outbound_tag_by_section() { printf '%s-out' "$1"; }
+
+_off_branch() {
+EXTRACT_OFF
+}
+
+# $1 = tags json, $2 = feeds json ("" = unset), $3 = names json, $4 = config
+run_off() {
+    section="syn"
+    selector_tag="syn-out"
+    subscription_outbound_tags_json="$1"
+    subscription_outbound_feeds_json="$2"
+    subscription_feed_names_json="$3"
+    config="$4"
+    urltest_testing_url="https://www.gstatic.com/generate_204"
+    urltest_check_interval="3m"
+    urltest_tolerance="50"
+    selector_outbounds=""
+    _off_branch
+    printf '%s' "$config"
+}
+
+ok() { echo "$1:OK"; }
+bad() { echo "$1:FAIL $2"; }
+expect_eq() {
+    if [ "$2" = "$3" ]; then ok "$1"; else bad "$1" "(got '$2', want '$3')"; fi
+}
+
+# ── Feed display name ─────────────────────────────────────────────
+expect_eq fg-name-fragment "$(get_subscription_feed_display_name 'https://sub.example.com/api/TOKEN#My%20VPN' x)" "My VPN"
+expect_eq fg-name-fragment-plus "$(get_subscription_feed_display_name 'https://sub.example.com/x#My+VPN' x)" "My VPN"
+expect_eq fg-name-fragment-utf8 "$(get_subscription_feed_display_name 'https://sub.example.com/x#%D0%A0%D0%A4' x)" "РФ"
+expect_eq fg-name-fragment-ctrl "$(get_subscription_feed_display_name 'https://sub.example.com/x#A%0AB%09C' x)" "ABC"
+expect_eq fg-name-host "$(get_subscription_feed_display_name 'https://sub.example.com/api/TOKEN?x=1' x)" "sub.example.com"
+expect_eq fg-name-empty-fragment "$(get_subscription_feed_display_name 'https://sub.example.com/p#' x)" "sub.example.com"
+expect_eq fg-name-userinfo-port "$(get_subscription_feed_display_name 'https://u:p@sub.example.com:8443/p' x)" "sub.example.com"
+expect_eq fg-name-at-in-path "$(get_subscription_feed_display_name 'https://sub.example.com/a@b/c' x)" "sub.example.com"
+expect_eq fg-name-ipv6 "$(get_subscription_feed_display_name 'https://[2001:db8::1]:8443/p' x)" "2001:db8::1"
+expect_eq fg-name-fallback "$(get_subscription_feed_display_name 'not a url/' 'Subscription 2')" "Subscription 2"
+expect_eq fg-name-fragment-trim "$(get_subscription_feed_display_name 'https://sub.example.com/x#%20%20My%20VPN%20' x)" "My VPN"
+expect_eq fg-name-fragment-blank "$(get_subscription_feed_display_name 'https://sub.example.com/x#%20%09' x)" "sub.example.com"
+expect_eq fg-name-fragment-nbsp "$(get_subscription_feed_display_name 'https://sub.example.com/x#%C2%A0' x)" "sub.example.com"
+expect_eq fg-name-fragment-unicode-blank \
+    "$(get_subscription_feed_display_name 'https://sub.example.com/x#%E3%80%80%E2%80%8B%E2%80%AF%EF%BB%BF' x)" "sub.example.com"
+expect_eq fg-name-fragment-unicode-trim \
+    "$(get_subscription_feed_display_name 'https://sub.example.com/x#%E2%80%83My%C2%A0VPN%E3%80%80' x)" "$(printf 'My\302\240VPN')"
+
+# ── The fragment is only a name: not hashed, never fetched ────────
+expect_eq fg-hash-ignores-fragment \
+    "$(get_subscription_url_hash 'https://sub.example.com/api/TOKEN#My%20VPN')" \
+    "$(get_subscription_url_hash 'https://sub.example.com/api/TOKEN')"
+if [ "$(get_subscription_url_hash 'https://sub.example.com/api/A')" != "$(get_subscription_url_hash 'https://sub.example.com/api/B')" ]; then
+    ok fg-hash-distinct-urls
+else
+    bad fg-hash-distinct-urls
+fi
+
+# Fake wget: logs its URL (last argument), writes a body to its -O target.
+fg_bin="/tmp/fg-bin-$$"
+mkdir -p "$fg_bin"
+cat > "$fg_bin/wget" << 'FGWEOF'
+#!/bin/sh
+out=""
+prev=""
+for a in "$@"; do
+    [ "$prev" = "-O" ] && out="$a"
+    prev="$a"
+    last="$a"
+done
+printf '%s\n' "$last" >> "$FG_WGET_LOG"
+[ -n "$out" ] && [ "$out" != /dev/null ] && printf 'body' > "$out"
+exit 0
+FGWEOF
+chmod 0755 "$fg_bin/wget"
+FG_WGET_LOG="/tmp/fg-wget-$$.log"
+export FG_WGET_LOG
+get_sing_box_version() { echo "1.12.0"; }
+get_device_model() { echo "test-model"; }
+get_kernel_version() { echo "test-kernel"; }
+generate_hwid() { echo "test-hwid"; }
+should_force_wget_ipv4() { return 1; }
+has_ipv4_default_route() { return 1; }
+wget_supports_ipv4_flag() { return 1; }
+fg_path="$PATH"
+PATH="$fg_bin:$PATH"
+: > "$FG_WGET_LOG"
+download_subscription 'https://sub.example.com/sub?x=1#My%20VPN' "/tmp/fg-dl-$$" "" 1 0 5 "ua/test" 0 > /dev/null 2>&1
+expect_eq fg-download-drops-fragment "$(cat "$FG_WGET_LOG")" "https://sub.example.com/sub?x=1"
+: > "$FG_WGET_LOG"
+download_subscription 'https://sub.example.com/sub#My%20VPN' "/tmp/fg-dl-$$" "127.0.0.1:4534" 1 0 5 "ua/test" 0 > /dev/null 2>&1
+expect_eq fg-download-proxy-drops-fragment "$(cat "$FG_WGET_LOG")" "https://sub.example.com/sub"
+: > "$FG_WGET_LOG"
+check_subscription_connectivity 'https://sub.example.com/sub?x=1#My%20VPN' "" 1 0 5 > /dev/null 2>&1
+expect_eq fg-connectivity-drops-fragment "$(cat "$FG_WGET_LOG")" "https://sub.example.com/sub?x=1"
+PATH="$fg_path"
+rm -rf "$fg_bin" "$FG_WGET_LOG" "/tmp/fg-dl-$$"
+
+# ── Merge stamps the feed index ───────────────────────────────────
+feed_a="/tmp/fg-feed-a-$$.json"
+feed_b="/tmp/fg-feed-b-$$.json"
+feed_bad="/tmp/fg-feed-bad-$$.json"
+merged="/tmp/fg-merged-$$.json"
+printf '%s' '{"outbounds":[
+  {"type":"shadowsocks","tag":"A-1","server":"10.1.0.1","server_port":443,"method":"aes-256-gcm","password":"p"},
+  {"type":"shadowsocks","tag":"Same","server":"10.1.0.2","server_port":443,"method":"aes-256-gcm","password":"p"},
+  {"type":"shadowsocks","tag":"A-drop","server":"10.1.0.3","server_port":443,"method":"aes-256-gcm","password":"p"},
+  {"type":"selector","tag":"sel","outbounds":["A-1"]},
+  {"type":"direct","tag":"direct"}
+]}' > "$feed_a"
+printf '%s' '{"outbounds":[
+  {"type":"shadowsocks","tag":"Same","server":"10.2.0.1","server_port":443,"method":"aes-256-gcm","password":"p"},
+  {"type":"shadowsocks","tag":"B-2","server":"10.2.0.2","server_port":443,"method":"aes-256-gcm","password":"p"}
+]}' > "$feed_b"
+printf '%s' 'not json' > "$feed_bad"
+printf '%s' '{"outbounds":[]}' > "$merged"
+
+subscription_merge_feed_outbounds "$merged" "$feed_a" 0 && ok fg-merge-a-rc || bad fg-merge-a-rc
+if subscription_merge_feed_outbounds "$merged" "$feed_bad" 1; then bad fg-merge-bad-rc; else ok fg-merge-bad-rc; fi
+subscription_merge_feed_outbounds "$merged" "$feed_b" 2 && ok fg-merge-b-rc || bad fg-merge-b-rc
+expect_eq fg-merge-feeds "$(jq -c --arg k "$SUBSCRIPTION_FEED_MARKER_KEY" '[.outbounds[] | .[$k]]' "$merged")" "[0,0,0,2,2]"
+expect_eq fg-merge-proxies-only "$(jq -c '[.outbounds[].type] | unique' "$merged")" '["shadowsocks"]'
+
+# ── Facade carries the feed index through filter / dedup / check ──
+base_config='{"outbounds":[{"type":"direct","tag":"direct-out"}]}'
+sing_box_cf_add_subscription_outbounds "$base_config" "syn" "$merged" '[]' '["drop"]' > /dev/null
+out_cfg="$SING_BOX_CF_LAST_CONFIG"
+expect_eq fg-facade-tags "$SUBSCRIPTION_OUTBOUND_TAGS_JSON" '["A-1","Same","Same-1","B-2"]'
+expect_eq fg-facade-feeds "$SUBSCRIPTION_OUTBOUND_FEEDS_JSON" '[0,0,2,2]'
+expect_eq fg-facade-marker-stripped \
+    "$(printf '%s' "$out_cfg" | jq -r --arg k "$SUBSCRIPTION_FEED_MARKER_KEY" '[.outbounds[] | select(has($k))] | length')" "0"
+
+# Unmarked input (no marker key) keeps working; feeds are all null.
+unmarked="/tmp/fg-unmarked-$$.json"
+cp "$feed_b" "$unmarked"
+sing_box_cf_add_subscription_outbounds "$base_config" "syn" "$unmarked" '[]' '[]' > /dev/null
+expect_eq fg-facade-unmarked-feeds "$SUBSCRIPTION_OUTBOUND_FEEDS_JSON" '[null,null]'
+
+# ── Feed grouper ──────────────────────────────────────────────────
+expect_eq fg-groups-two \
+    "$(sing_box_build_subscription_feed_groups '["a","b","c","d"]' '[0,2,0,2]' '["Feed A","dead","Feed C"]')" \
+    '[{"name":"Feed A","tags":["a","c"]},{"name":"Feed C","tags":["b","d"]}]'
+expect_eq fg-groups-null-feeds \
+    "$(sing_box_build_subscription_feed_groups '["a","b"]' '[null,null]' '[]')" '[]'
+expect_eq fg-groups-short-feeds \
+    "$(sing_box_build_subscription_feed_groups '["a","b"]' '[0]' '["A"]')" '[{"name":"A","tags":["a"]}]'
+expect_eq fg-groups-missing-name \
+    "$(sing_box_build_subscription_feed_groups '["a"]' '[1]' '["A"]')" '[{"name":"Subscription 2","tags":["a"]}]'
+
+# ── Flat (off) branch ─────────────────────────────────────────────
+nodes='{"outbounds":[
+  {"type":"direct","tag":"direct-out"},
+  {"type":"shadowsocks","tag":"a1","server":"10.3.0.1","server_port":443,"method":"aes-256-gcm","password":"p"},
+  {"type":"shadowsocks","tag":"a2","server":"10.3.0.2","server_port":443,"method":"aes-256-gcm","password":"p"},
+  {"type":"shadowsocks","tag":"b1","server":"10.3.0.3","server_port":443,"method":"aes-256-gcm","password":"p"}
+]}'
+tags='["a1","a2","b1"]'
+P="$SB_SUBSCRIPTION_FEED_GROUP_TAG_PREFIX"
+
+two="$(run_off "$tags" '[0,0,1]' '["Feed A","Feed B"]' "$nodes")"
+if printf '%s' "$two" | jq -e --arg a "${P}Feed A" --arg b "${P}Feed B" '
+    ([.outbounds[] | select(.type == "urltest")] | map({(.tag): .outbounds}) | add)
+      == {($a): ["a1","a2"], ($b): ["b1"], "syn-urltest-out": ["a1","a2","b1"]}
+' > /dev/null 2>&1; then
+    ok fg-off-two-feed-urltests
+else
+    bad fg-off-two-feed-urltests "$(printf '%s' "$two" | jq -c '[.outbounds[]|select(.type=="urltest")|{tag,outbounds}]')"
+fi
+if printf '%s' "$two" | jq -e --arg a "${P}Feed A" --arg b "${P}Feed B" '
+    [.outbounds[] | select(.type == "selector" and .tag == "syn-out")] as $s
+    | ($s | length) == 1
+    and $s[0].default == "syn-urltest-out"
+    and $s[0].outbounds == ["a1","a2","b1",$a,$b,"syn-urltest-out"]
+' > /dev/null 2>&1; then
+    ok fg-off-two-selector
+else
+    bad fg-off-two-selector "$(printf '%s' "$two" | jq -c '.outbounds[]|select(.type=="selector")|{default,outbounds}')"
+fi
+if command -v sing-box > /dev/null 2>&1; then
+    printf '%s' "$two" | jq '{
+        log: {disabled: true},
+        dns: {servers: [], rules: [], final: "direct"},
+        inbounds: [{type: "direct", tag: "dns-in", listen: "127.0.0.42", listen_port: 53}],
+        outbounds: .outbounds,
+        route: {rules: [], rule_set: [], final: "direct-out", auto_detect_interface: true}
+    }' > /tmp/fg-check-$$.json
+    if sing-box -c /tmp/fg-check-$$.json check > /dev/null 2>&1; then
+        ok fg-off-two-singbox-check
+    else
+        bad fg-off-two-singbox-check "$(sing-box -c /tmp/fg-check-$$.json check 2>&1 | head -2)"
+    fi
+    rm -f /tmp/fg-check-$$.json
+else
+    echo 'fg-off-two-singbox-check:SKIP'
+fi
+
+# One feed with nodes (the other one is dead): exactly the old shape.
+one="$(run_off "$tags" '[1,1,1]' '["dead","Feed B"]' "$nodes")"
+if printf '%s' "$one" | jq -e '
+    ([.outbounds[] | select(.type == "urltest")] | map(.tag)) == ["syn-urltest-out"]
+    and ([.outbounds[] | select(.type == "selector")][0].outbounds == ["a1","a2","b1","syn-urltest-out"])
+' > /dev/null 2>&1; then
+    ok fg-off-single-feed-unchanged
+else
+    bad fg-off-single-feed-unchanged "$(printf '%s' "$one" | jq -c '[.outbounds[]|select(.type=="urltest" or .type=="selector")|{tag,outbounds}]')"
+fi
+
+# No feed info at all (e.g. a caller that never set it): old shape.
+none="$(run_off "$tags" '' '' "$nodes")"
+if printf '%s' "$none" | jq -e '
+    ([.outbounds[] | select(.type == "urltest")] | map(.tag)) == ["syn-urltest-out"]
+    and ([.outbounds[] | select(.type == "selector")][0].default == "syn-urltest-out")
+' > /dev/null 2>&1; then
+    ok fg-off-no-feed-info-unchanged
+else
+    bad fg-off-no-feed-info-unchanged "$(printf '%s' "$none" | jq -c '[.outbounds[]|select(.type=="urltest" or .type=="selector")|{tag,outbounds}]')"
+fi
+
+# Two feeds with the same display name get distinct urltest tags.
+dup="$(run_off "$tags" '[0,0,1]' '["same.example.com","same.example.com"]' "$nodes")"
+expect_eq fg-off-duplicate-names-unique \
+    "$(printf '%s' "$dup" | jq -c '[.outbounds[] | select(.type == "urltest") | .tag] | length as $n | (unique | length) == $n and $n == 3')" "true"
+
+# A group entry without name/tags is skipped instead of breaking the config
+# (the builder never emits one; the subshell keeps the stub local).
+holey="$(
+    sing_box_build_subscription_feed_groups() {
+        printf '%s' '[{"name":"Feed A","tags":["a1","a2"]},{},{"name":"Feed B","tags":["b1"]}]'
+    }
+    run_off "$tags" '[0,0,1]' '["Feed A","Feed B"]' "$nodes"
+)"
+expect_eq fg-off-unreadable-group-skipped \
+    "$(printf '%s' "$holey" | jq -c --arg p "$P" '[.outbounds[] | select(.type == "urltest") | .tag] | sort == (["\($p)Feed A","\($p)Feed B","syn-urltest-out"] | sort)')" "true"
+
+# ── Section loop: feed index + names → facade (bisection) → blocks ─
+# Four URLs: A, a dead one (no cache), C with a node sing-box rejects, and D
+# from A's host with A's name. The shipped loop computes the index and the
+# names; the real facade has to bisect (10 nodes > 8, one bad) and keep the
+# feed index parallel over several kept ranges.
+SUBSCRIPTION_CACHE_FOLDER="/tmp/fg-cache-$$"
+mkdir -p "$SUBSCRIPTION_CACHE_FOLDER"
+ss() { printf '{"type":"shadowsocks","tag":"%s","server":"10.4.0.%s","server_port":443,"method":"%s","password":"p"}' "$1" "$2" "${3:-aes-256-gcm}"; }
+seed_feed() { # $1 = url, $2... = outbounds
+    local url="$1" path
+    shift
+    path="$(get_subscription_json_path loop "$(get_subscription_url_hash "$url")")"
+    printf '{"outbounds":[%s]}' "$(IFS=,; printf '%s' "$*")" > "$path"
+}
+url_a='https://a.example.com/sub#Feed%20A'
+url_dead='https://dead.example.com/sub'
+url_c='https://c.example.com/sub#Feed+C'
+url_d='https://a.example.com/other#Feed%20A'
+seed_feed "$url_a" "$(ss a1 1)" "$(ss a2 2)" "$(ss a3 3)" "$(ss a4 4)"
+seed_feed "$url_c" "$(ss c1 5)" "$(ss c-bad 6 not-a-method)" "$(ss c2 7)"
+seed_feed "$url_d" "$(ss d1 8)" "$(ss d2 9)" "$(ss d3 10)"
+loop_urls="/tmp/fg-loop-urls-$$"
+printf '%s\n' "$url_a" "$url_dead" "$url_c" "$url_d" > "$loop_urls"
+loop_merged="/tmp/fg-loop-merged-$$.json"
+printf '%s' '{"outbounds":[]}' > "$loop_merged"
+redact_url_for_log() { printf '%s' "$1"; }
+
+subscription_merge_section_feeds loop "$loop_urls" "$loop_merged"
+expect_eq fg-loop-names "$SUBSCRIPTION_FEED_NAMES_JSON" '["Feed A","dead.example.com","Feed C","Feed A (4)"]'
+expect_eq fg-loop-usable-count "$SUBSCRIPTION_USABLE_FEED_COUNT" "3"
+expect_eq fg-loop-merged-feeds \
+    "$(jq -c --arg k "$SUBSCRIPTION_FEED_MARKER_KEY" '[.outbounds[] | .[$k]]' "$loop_merged")" "[0,0,0,0,2,2,2,3,3,3]"
+
+if command -v sing-box > /dev/null 2>&1; then
+    FG_LOG="/tmp/fg-log-$$"
+    : > "$FG_LOG"
+    log() { printf '%s\n' "$1" >> "$FG_LOG"; }
+    sing_box_cf_add_subscription_outbounds "$base_config" "loop" "$loop_merged" '[]' '[]' > /dev/null
+    log() { :; }
+    expect_eq fg-bisect-dropped-bad \
+        "$(grep -c "Skip unsupported outbound for current sing-box: 'c-bad'" "$FG_LOG")" "1"
+    expect_eq fg-bisect-tags "$SUBSCRIPTION_OUTBOUND_TAGS_JSON" '["a1","a2","a3","a4","c1","c2","d1","d2","d3"]'
+    expect_eq fg-bisect-feeds "$SUBSCRIPTION_OUTBOUND_FEEDS_JSON" '[0,0,0,0,2,2,3,3,3]'
+
+    blocks="$(run_off "$SUBSCRIPTION_OUTBOUND_TAGS_JSON" "$SUBSCRIPTION_OUTBOUND_FEEDS_JSON" \
+        "$SUBSCRIPTION_FEED_NAMES_JSON" "$SING_BOX_CF_LAST_CONFIG")"
+    if printf '%s' "$blocks" | jq -e --arg p "$P" '
+        ([.outbounds[] | select(.type == "urltest")] | map({(.tag): .outbounds}) | add)
+          == {("\($p)Feed A"): ["a1","a2","a3","a4"], ("\($p)Feed C"): ["c1","c2"],
+              ("\($p)Feed A (4)"): ["d1","d2","d3"],
+              "syn-urltest-out": ["a1","a2","a3","a4","c1","c2","d1","d2","d3"]}
+    ' > /dev/null 2>&1; then
+        ok fg-loop-blocks-aligned
+    else
+        bad fg-loop-blocks-aligned "$(printf '%s' "$blocks" | jq -c '[.outbounds[]|select(.type=="urltest")|{tag,outbounds}]')"
+    fi
+    rm -f "$FG_LOG"
+else
+    echo 'fg-bisect-dropped-bad:SKIP'
+fi
+
+# A literal "A (3)" takes the name a repeated "A" at position 3 would get, so
+# that one moves on to "A (4)". The last link repeats the first with another
+# #fragment: same cache file, merged once.
+url_x='https://x.example.com/one#A'
+url_y='https://y.example.com/sub#A%20(3)'
+url_z='https://z.example.com/sub#A'
+url_twin='https://x.example.com/one#Twin'
+seed_feed "$url_x" "$(ss x1 11)"
+seed_feed "$url_y" "$(ss y1 12)"
+seed_feed "$url_z" "$(ss z1 13)"
+printf '%s\n' "$url_x" "$url_y" "$url_z" "$url_twin" > "$loop_urls"
+printf '%s' '{"outbounds":[]}' > "$loop_merged"
+subscription_merge_section_feeds loop "$loop_urls" "$loop_merged"
+expect_eq fg-loop-name-collision "$SUBSCRIPTION_FEED_NAMES_JSON" '["A","A (3)","A (4)","Twin"]'
+expect_eq fg-loop-twin-usable-count "$SUBSCRIPTION_USABLE_FEED_COUNT" "3"
+expect_eq fg-loop-twin-merged-once \
+    "$(jq -c --arg k "$SUBSCRIPTION_FEED_MARKER_KEY" '[.outbounds[] | [.tag, .[$k]]]' "$loop_merged")" \
+    '[["x1",0],["y1",1],["z1",2]]'
+
+# ── .url sidecar ignores the #fragment on both sides ──────────────
+sidecar="$SUBSCRIPTION_CACHE_FOLDER/side.url"
+printf '%s' 'https://h.example.com/sub' > "$sidecar"
+subscription_url_cache_matches "$sidecar" 'https://h.example.com/sub#New' && ok fg-sidecar-new-name || bad fg-sidecar-new-name
+printf '%s' 'https://h.example.com/sub#Old' > "$sidecar"
+subscription_url_cache_matches "$sidecar" 'https://h.example.com/sub#New' && ok fg-sidecar-legacy-fragment || bad fg-sidecar-legacy-fragment
+if subscription_url_cache_matches "$sidecar" 'https://h.example.com/other#Old'; then bad fg-sidecar-other-url; else ok fg-sidecar-other-url; fi
+if subscription_url_cache_matches "$sidecar.missing" 'https://h.example.com/sub'; then bad fg-sidecar-missing; else ok fg-sidecar-missing; fi
+
+# Startup: a feed renamed only by #fragment (old sidecar still holds the old
+# fragment) and a second URL that differs from its twin only by fragment are
+# both served from cache; a feed whose sidecar names another URL is fetched.
+config_get() {
+    case "$3" in
+    connection_type) eval "$1=proxy" ;;
+    proxy_config_type) eval "$1=subscription" ;;
+    *) eval "$1=''" ;;
+    esac
+}
+config_get_bool() { eval "$1=0"; }
+ensure_subscription_cache_dir() { :; }
+migrate_subscription_cache_from_tmp() { :; }
+reap_legacy_subscription_cache_files() { :; }
+FG_FETCHED="/tmp/fg-fetched-$$"
+: > "$FG_FETCHED"
+wait_for_subscription_connectivity() { printf '%s\n' "$2" >> "$FG_FETCHED"; return 1; }
+url_ren='https://r.example.com/sub#New%20name'
+url_twin='https://r.example.com/sub#Twin'
+url_moved='https://m.example.com/sub#M'
+seed_feed "$url_ren" "$(ss r1 11)"
+seed_feed "$url_moved" "$(ss m1 12)"
+start_sidecar() { get_subscription_url_cache_path startup "$(get_subscription_url_hash "$1")"; }
+for u in "$url_ren" "$url_moved"; do
+    mv "$(get_subscription_json_path loop "$(get_subscription_url_hash "$u")")" \
+        "$(get_subscription_json_path startup "$(get_subscription_url_hash "$u")")"
+done
+printf '%s' 'https://r.example.com/sub#Old%20name' > "$(start_sidecar "$url_ren")"
+printf '%s' 'https://m.example.com/elsewhere' > "$(start_sidecar "$url_moved")"
+get_subscription_urls_for_section() { printf '%s\n' "$url_ren" "$url_twin" "$url_moved"; }
+subscription_startup_blocked=0
+prepare_subscription_cache_for_startup startup
+expect_eq fg-startup-fetches-only-moved "$(cat "$FG_FETCHED")" "$url_moved"
+rm -f "$FG_FETCHED"
+
+# ── Orphan cache files ────────────────────────────────────────────
+# Files of a link dropped from the list and of a link cached while the hash
+# still held the #fragment go; the listed link, another section, the legacy
+# bare name and non-hash names stay. A hash that cannot be computed removes
+# nothing.
+orph_urls="/tmp/fg-orph-urls-$$"
+url_keep='https://k.example.com/sub#Keep'
+url_gone='https://g.example.com/sub'
+h_keep="$(get_subscription_url_hash "$url_keep")"
+h_gone="$(get_subscription_url_hash "$url_gone")"
+h_old="$(printf '%s' "$url_keep" | md5sum | awk '{print $1}')"
+printf '%s\n' "$url_keep" > "$orph_urls"
+for f in "orph.$h_keep.json" "orph.$h_keep.url" "orph.$h_keep.rejected" \
+    "orph.$h_gone.json" "orph.$h_gone.user_agent" "orph.$h_gone.json.tmp.42" \
+    "orph.$h_old.json" "orph.$h_old.url" \
+    orph.json orph.notahash.json "orph_x.$h_gone.json"; do
+    : > "$SUBSCRIPTION_CACHE_FOLDER/$f"
+done
+orph_left() { (cd "$SUBSCRIPTION_CACHE_FOLDER" && ls orph.* orph_x.* 2>/dev/null | sort | tr '\n' ' '); }
+orph_want="$(printf '%s\n' "orph.$h_keep.json" "orph.$h_keep.rejected" "orph.$h_keep.url" \
+    orph.json orph.notahash.json "orph_x.$h_gone.json" | sort | tr '\n' ' ')"
+(get_subscription_url_hash() { :; }; reap_orphan_subscription_cache_files orph "$orph_urls")
+expect_eq fg-orphan-no-hash-keeps-all "$(orph_left | wc -w | tr -d ' ')" "11"
+reap_orphan_subscription_cache_files orph "$orph_urls"
+expect_eq fg-orphan-reaped "$(orph_left)" "$orph_want"
+rm -f "$orph_urls"
+
+rm -rf "$SUBSCRIPTION_CACHE_FOLDER" "$loop_urls" "$loop_merged"
+rm -f "$feed_a" "$feed_b" "$feed_bad" "$merged" "$unmarked"
+echo 'DONE'
+FDEOF
+
+    # Splice the flat-branch body (from its marker comment through the final
+    # selector add, which is the last statement of that else) into the driver.
+    local region="$work/region.sh"
+    awk '
+        /# Create urltest \+ selector \(default subscription behaviour\)/{p=1}
+        p{print}
+        p && /"\$selector_tag" "\$selector_outbounds" "\$urltest_tag" "true"\)"/{exit}
+    ' "$bin" > "$region"
+    if grep -q 'sing_box_build_subscription_feed_groups' "$region" \
+        && grep -q 'sing_box_cm_add_selector_outbound' "$region"; then
+        pass "fg-region-extracted:OK"
+    else
+        fail "fg-region-extracted:FAIL" "$(head -3 "$region" 2>/dev/null)"
+    fi
+
+    # configure_outbound_handler reaps orphans once the URL list is known and
+    # before any feed is downloaded.
+    local reap_order
+    reap_order="$(awk '
+        /^configure_outbound_handler\(\) \{/{p=1}
+        !p{next}
+        /Subscription URL is not set/{print "empty-check"}
+        /reap_orphan_subscription_cache_files "\$section" "\$subscription_urls_tmp"/{print "reap"}
+        /Per-feed download/{print "download"}
+        /^\}/{exit}
+    ' "$bin" | tr '\n' ' ')"
+    if [ "$reap_order" = "empty-check reap download " ]; then
+        pass "fg-orphan-reap-wired:OK"
+    else
+        fail "fg-orphan-reap-wired:FAIL" "order: $reap_order"
+    fi
+    {
+        sed '/EXTRACT_OFF/q' "$drv" | sed '$d'
+        cat "$region"
+        sed -n '/EXTRACT_OFF/,$p' "$drv" | sed '1d'
+    } > "$drv.spliced"
+    mv "$drv.spliced" "$drv"
+    sed -i "s|LIB_DIR|$lib|g; s|BIN_PATH|$bin|g" "$drv"
+
+    local out="$work/out.log"
+    ash "$drv" > "$out" 2>/dev/null || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK) pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP) skip "$line" ;;
+            DONE) saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "fg-driver-completed:OK"
+    else
+        fail "fg-driver-completed:FAIL (driver aborted early)" "$(tail -3 "$out" 2>/dev/null)"
+    fi
+
+    rm -rf "$work"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: Insecure subscription fetch flag (task-021b)
 #
 # Exercises download_subscription's 8th positional arg (insecure 0|1). A
@@ -10807,6 +11310,7 @@ main() {
             test_diagnostics
             test_subscription
             test_fastest_group
+            test_feed_groups
             test_insecure_fetch
             test_rejected_hash
             test_jobstate
@@ -10845,6 +11349,7 @@ main() {
         diagnostics) test_diagnostics ;;
         subscription) test_subscription ;;
         fastest)     test_fastest_group ;;
+        feedgroups)  test_feed_groups ;;
         insecure)    test_insecure_fetch ;;
         rejected)    test_rejected_hash ;;
         jobstate)    test_jobstate ;;
@@ -10872,7 +11377,7 @@ main() {
         proxylink)   test_proxy_link_escaping ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy bittorrent stablecheck extcheck sbextarch netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy bittorrent stablecheck extcheck sbextarch netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist"
             exit 1
             ;;
     esac

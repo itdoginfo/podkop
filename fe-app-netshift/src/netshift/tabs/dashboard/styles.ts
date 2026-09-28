@@ -67,6 +67,17 @@ export const styles = `
     grid-gap: 10px;
 }
 
+.pdk_dashboard-page__outbound-subgroup {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: var(--ns-card-border-width) solid var(--ns-card-border);
+}
+
+.pdk_dashboard-page__outbound-subgroup__title {
+    color: var(--text-color-high);
+    font-weight: 600;
+}
+
 .pdk_dashboard-page__outbound-grid__item {
     transition: border 0.2s ease;
 }

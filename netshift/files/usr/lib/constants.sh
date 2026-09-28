@@ -198,6 +198,14 @@ SUBSCRIPTION_GROUP_DEFAULT_PREFIX_LEN=2
 # a per-group "<flag> Fastest" tag so the cross-group auto choice is tellable
 # apart in the dashboard. Single source for the tag (keep this file UTF-8).
 SB_SUBSCRIPTION_FASTEST_GROUP_TAG="⚡ Fastest"
+# Several subscription_url in one section (group mode off): every feed that
+# contributes nodes gets its own urltest tagged "<prefix><feed name>" next to
+# the section-wide one, so the dashboard can show a Fastest per subscription.
+SB_SUBSCRIPTION_FEED_GROUP_TAG_PREFIX="⚡ "
+# Key stamped on every merged subscription node with its feed index (position
+# in the section's subscription_url list). The facade strips it before the
+# node reaches the config and reports it as SUBSCRIPTION_OUTBOUND_FEEDS_JSON.
+SUBSCRIPTION_FEED_MARKER_KEY="_netshift_feed"
 # Route
 SB_REJECT_RULE_TAG="reject-rule-tag"
 SB_EXCLUSION_RULE_TAG="exclusion-rule-tag"

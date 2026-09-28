@@ -83,11 +83,20 @@ export namespace NetShift {
     selected: boolean;
   }
 
+  export interface OutboundSubgroup {
+    code: string;
+    displayName: string;
+    outbounds: Outbound[];
+  }
+
   export interface OutboundGroup {
     withTagSelect: boolean;
     code: string;
     displayName: string;
     outbounds: Outbound[];
+    // Per-subscription blocks of a subscription section with several feeds;
+    // their outbounds are chosen through the same selector (`code`).
+    subgroups?: OutboundSubgroup[];
   }
 
   export interface ConfigProxyUrlTestSection {
