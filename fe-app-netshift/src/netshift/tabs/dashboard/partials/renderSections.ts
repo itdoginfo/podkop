@@ -1,5 +1,6 @@
 import { renderButton } from '../../../../partials';
 import { NetShift } from '../../../types';
+import { SKELETON_SHIMMER_DURATION } from '../../../../constants';
 
 interface IRenderSectionsProps {
   loading: boolean;
@@ -33,9 +34,9 @@ function renderLoadingState() {
 
 // The widget is rebuilt on every latency result. Starting each new skeleton
 // at the shared shimmer phase keeps the animation running instead of
-// restarting it (1.6s is the skeleton-shimmer duration).
+// restarting it.
 function renderSkeleton(style: string) {
-  const phase = Math.round(performance.now() % 1600);
+  const phase = Math.round(performance.now() % SKELETON_SHIMMER_DURATION);
 
   return E('div', {
     class: 'skeleton',

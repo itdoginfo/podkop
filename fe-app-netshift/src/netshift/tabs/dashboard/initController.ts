@@ -161,32 +161,36 @@ async function handleTestSectionLatency(section: NetShift.OutboundGroup) {
     ],
   }));
 
-  await runWithConcurrency(probe, LATENCY_PROBE_CONCURRENCY, async (code) => {
-    // A failed or timed-out probe shows N/A, like sing-box, which drops the
-    // server's history on a failed test.
-    const latency = await NetShiftShellMethods.getClashApiProxyLatency(code)
-      .then((response) => (response.success && response.data?.delay) || 0)
-      .catch(() => 0);
+  try {
+    await runWithConcurrency(probe, LATENCY_PROBE_CONCURRENCY, async (code) => {
+      // A failed or timed-out probe shows N/A, like sing-box, which drops
+      // the server's history on a failed test.
+      const latency = await NetShiftShellMethods.getClashApiProxyLatency(code)
+        .then((response) => (response.success && response.data?.delay) || 0)
+        .catch(() => 0);
 
+      updateSectionsWidget((widget) => ({
+        data: setOutboundLatency(widget.data, code, latency),
+        latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
+          (item) => item !== code,
+        ),
+      }));
+    });
+
+    // "Fastest" cards and the selection come from Clash API.
+    await fetchDashboardSections();
+  } finally {
+    // Even if something above throws, the button and the cards must not
+    // stay skeletons forever.
     updateSectionsWidget((widget) => ({
-      data: setOutboundLatency(widget.data, code, latency),
+      latencyTestingSections: widget.latencyTestingSections.filter(
+        (item) => item !== section.code,
+      ),
       latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
-        (item) => item !== code,
+        (item) => !probe.includes(item) && !groups.includes(item),
       ),
     }));
-  });
-
-  // "Fastest" cards and the selection come from Clash API.
-  await fetchDashboardSections();
-
-  updateSectionsWidget((widget) => ({
-    latencyTestingSections: widget.latencyTestingSections.filter(
-      (item) => item !== section.code,
-    ),
-    latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
-      (item) => !groups.includes(item),
-    ),
-  }));
+  }
 }
 
 // Renderer

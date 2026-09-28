@@ -1543,6 +1543,7 @@ var COMMAND_TIMEOUT = 1e4;
 var FETCH_TIMEOUT = 1e4;
 var BUTTON_FEEDBACK_TIMEOUT = 1e3;
 var DIAGNOSTICS_INITIAL_DELAY = 100;
+var SKELETON_SHIMMER_DURATION = 1600;
 var COMMAND_SCHEDULING = {
   P0_PRIORITY: 0,
   // Highest priority (no delay)
@@ -3051,7 +3052,7 @@ function renderLoadingState() {
   });
 }
 function renderSkeleton(style) {
-  const phase = Math.round(performance.now() % 1600);
+  const phase = Math.round(performance.now() % SKELETON_SHIMMER_DURATION);
   return E("div", {
     class: "skeleton",
     style: `${style}; --skeleton-phase: -${phase}ms`
@@ -3480,24 +3481,27 @@ async function handleTestSectionLatency(section) {
       ...groups
     ]
   }));
-  await runWithConcurrency(probe, LATENCY_PROBE_CONCURRENCY, async (code) => {
-    const latency = await NetShiftShellMethods.getClashApiProxyLatency(code).then((response) => response.success && response.data?.delay || 0).catch(() => 0);
+  try {
+    await runWithConcurrency(probe, LATENCY_PROBE_CONCURRENCY, async (code) => {
+      const latency = await NetShiftShellMethods.getClashApiProxyLatency(code).then((response) => response.success && response.data?.delay || 0).catch(() => 0);
+      updateSectionsWidget((widget) => ({
+        data: setOutboundLatency(widget.data, code, latency),
+        latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
+          (item) => item !== code
+        )
+      }));
+    });
+    await fetchDashboardSections();
+  } finally {
     updateSectionsWidget((widget) => ({
-      data: setOutboundLatency(widget.data, code, latency),
+      latencyTestingSections: widget.latencyTestingSections.filter(
+        (item) => item !== section.code
+      ),
       latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
-        (item) => item !== code
+        (item) => !probe.includes(item) && !groups.includes(item)
       )
     }));
-  });
-  await fetchDashboardSections();
-  updateSectionsWidget((widget) => ({
-    latencyTestingSections: widget.latencyTestingSections.filter(
-      (item) => item !== section.code
-    ),
-    latencyPendingOutbounds: widget.latencyPendingOutbounds.filter(
-      (item) => !groups.includes(item)
-    )
-  }));
+  }
 }
 async function renderSectionsWidget() {
   logger.debug("[DASHBOARD]", "renderSectionsWidget");
@@ -6196,7 +6200,7 @@ ${PartialStyles}
             rgba(255, 255, 255, 0.4),
             transparent
     );
-    animation: skeleton-shimmer 1.6s infinite;
+    animation: skeleton-shimmer ${SKELETON_SHIMMER_DURATION}ms infinite;
     animation-delay: var(--skeleton-phase, 0s);
 }
 
@@ -6433,6 +6437,7 @@ return baseclass.extend({
   NetShiftShellMethods,
   REGIONAL_OPTIONS,
   RemoteFakeIPMethods,
+  SKELETON_SHIMMER_DURATION,
   STATUS_COLORS,
   SUBSCRIPTION_UPDATE_INTERVAL_OPTIONS,
   TabService,

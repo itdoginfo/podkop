@@ -107,6 +107,7 @@ export const COMMAND_TIMEOUT = 10000; // 10 seconds
 export const FETCH_TIMEOUT = 10000; // 10 seconds
 export const BUTTON_FEEDBACK_TIMEOUT = 1000; // 1 second
 export const DIAGNOSTICS_INITIAL_DELAY = 100; // 100 milliseconds
+export const SKELETON_SHIMMER_DURATION = 1600; // 1.6 seconds
 
 // Command scheduling intervals in diagnostics (in milliseconds)
 export const COMMAND_SCHEDULING = {
