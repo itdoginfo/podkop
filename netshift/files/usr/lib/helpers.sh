@@ -271,11 +271,31 @@ url_get_query_param() {
     local param="$2"
 
     local raw
-    raw=$(echo "$url" | sed -n "s/.*[?&]$param=\([^&?#]*\).*/\1/p")
+    raw=$(_url_get_query_param_raw "$url" "$param")
 
     [ -z "$raw" ] && echo "" && return
 
     url_decode "$raw"
+}
+
+# Like url_get_query_param, but decodes the value as a URI component: a literal
+# '+' stays '+' instead of becoming a space. For opaque tokens such as keys,
+# where '+' is data and a space would silently corrupt the value.
+url_get_query_param_component() {
+    local url="$1"
+    local param="$2"
+
+    local raw
+    raw=$(_url_get_query_param_raw "$url" "$param")
+
+    [ -z "$raw" ] && echo "" && return
+
+    url_decode_component "$raw"
+}
+
+# Returns the still-encoded value of a query parameter from a RAW link.
+_url_get_query_param_raw() {
+    echo "$1" | sed -n "s/.*[?&]$2=\([^&?#]*\).*/\1/p"
 }
 
 # Extracts the basename (filename without extension) from a URL
@@ -809,10 +829,27 @@ get_kernel_version() {
 }
 
 # Returns the sing-box version number (e.g. "1.12.0")
+#
+# A loop that asks for the version once per link can resolve it once instead:
+#   local NETSHIFT_SING_BOX_VERSION
+#   NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
+# Everything it calls, command-substitution subshells included, then reuses
+# the value rather than spawning `sing-box version` again; `local` keeps it
+# from outliving the loop (a sing-box upgrade must be seen by the next run).
 get_sing_box_version() {
+    if [ -n "${NETSHIFT_SING_BOX_VERSION:-}" ]; then
+        echo "$NETSHIFT_SING_BOX_VERSION"
+        return
+    fi
+
     local version=""
     if command -v sing-box >/dev/null 2>&1; then
-        version="$(sing-box version 2>/dev/null | head -n1 | awk '{print $NF}')"
+        # "sing-box version 1.13.14-extended-2.5.0": take the word after
+        # "version", so a build that appends more words to the line still
+        # reports its version; fall back to the last word.
+        version="$(sing-box version 2>/dev/null | head -n1 | awk '
+            { for (i = 1; i < NF; i++) if ($i == "version") { print $(i + 1); exit }
+              print $NF }')"
     fi
     echo "${version:-1.0}"
 }
@@ -830,6 +867,120 @@ is_sing_box_extended() {
     esac
 
     return 1
+}
+
+# Returns 0 if the given (or detected) sing-box version is an "extended" build
+# at or above the given extended release. Extended cores report e.g.
+# "1.13.14-extended-2.5.0": the part after "-extended-" is the fork's own
+# release, and fields are added there independently of the upstream version in
+# front of it (v1.13.11-extended-1.6.2 exists and still lacks VLESS
+# Encryption, which arrived in extended-2.0.0, see
+# SB_EXTENDED_VLESS_ENCRYPTION_MIN). Stock cores always fail.
+# Only the release part of that suffix is compared: `sort -V` would rank
+# "2.0.0-rc.1" above "2.0.0", the reverse of semver, so the pre-release tag is
+# dropped instead. Pre-releases of the required release therefore pass, and
+# that is deliberate here: VLESS Encryption already ships in 2.0.0-rc.1.
+# Arguments:
+#   $1 - minimum extended release (e.g. "2.0.0")
+#   $2 - optional sing-box version string (defaults to get_sing_box_version)
+is_sing_box_extended_at_least() {
+    local required="$1"
+    local version="${2:-}"
+    local release
+
+    [ -n "$version" ] || version="$(get_sing_box_version)"
+
+    is_sing_box_extended "$version" || return 1
+    release="${version##*-extended-}"
+    is_min_package_version "${release%%-*}" "$required"
+}
+
+# Returns 0 if the value is a VLESS Encryption client string that
+# sing-box-extended accepts, i.e. passes both parseClientEncryption and
+# ClientInstance.Init in the fork:
+#   "mlkem768x25519plus.<native|xorpub|random>.<0rtt|1rtt>." then segments;
+#   a segment that base64url-decodes must be a key of exactly 32 bytes
+#   (X25519, any value) or 1184 bytes (ML-KEM-768: every 12-bit coefficient
+#   below q = 3329); one that does not decode is padding "N-N-N", allowed only
+#   before the first key, with the limits of ParsePadding; at least one key.
+# A value this accepts is one the core accepts too, so a '+' turned into a
+# space, a stray '%', a key cut short by one character or a corrupted key is
+# caught here instead of failing `sing-box check` — and with it the whole
+# config — later on. No od/hexdump on device: base64 is decoded in awk.
+# Arguments:
+#   $1 - encryption value from a vless:// link
+is_valid_vless_encryption() {
+    local value="$1"
+    local rest
+
+    # Only [A-Za-z0-9._-] ever occurs: keys are base64.RawURLEncoding and the
+    # parts are joined by dots. No empty part either.
+    case "$value" in
+    '' | *[!A-Za-z0-9._-]* | *..* | *.) return 1 ;;
+    esac
+
+    rest="${value#mlkem768x25519plus.}"
+    [ "$rest" != "$value" ] || return 1
+
+    case "$rest" in
+    native.* | xorpub.* | random.*) ;;
+    *) return 1 ;;
+    esac
+    rest="${rest#*.}"
+
+    case "$rest" in
+    0rtt.?* | 1rtt.?*) ;;
+    *) return 1 ;;
+    esac
+    rest="${rest#*.}"
+
+    # Within [A-Za-z0-9_-] unpadded base64url fails to decode only when the
+    # length is 1 mod 4; otherwise it decodes into floor(3*len/4) bytes, and
+    # 32 / 1184 bytes are exactly 43 / 1579 characters.
+    printf '%s\n' "$rest" | awk -F. '
+        function b64(c) {
+            return index("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_", c) - 1
+        }
+        # Go crypto/mlkem: the first 1152 bytes (1536 characters) pack 768
+        # 12-bit coefficients, two per 3 bytes, each of which must be < 3329.
+        function mlkem_ok(s,    i, x0, x1, x2, x3, b0, b1, b2) {
+            for (i = 1; i <= 1536; i += 4) {
+                x0 = b64(substr(s, i, 1)); x1 = b64(substr(s, i + 1, 1))
+                x2 = b64(substr(s, i + 2, 1)); x3 = b64(substr(s, i + 3, 1))
+                b0 = x0 * 4 + int(x1 / 16)
+                b1 = (x1 % 16) * 16 + int(x2 / 4)
+                b2 = (x2 % 4) * 64 + x3
+                if (b0 + (b1 % 16) * 256 >= 3329) return 0
+                if (int(b1 / 16) + b2 * 16 >= 3329) return 0
+            }
+            return 1
+        }
+        # ParsePadding: "len-min-max" (more parts are ignored), the first one
+        # at least 100-35-35, the sum of max(min, max) over the even ones at
+        # most 18 + 65535.
+        function padding_ok(s, idx,    n, x, k) {
+            n = split(s, x, "-")
+            if (n < 3) return 0
+            for (k = 1; k <= 3; k++)
+                if (x[k] !~ /^[0-9]+$/ || length(x[k]) > 18) return 0
+            if (idx == 0 && (x[1] + 0 < 100 || x[2] + 0 < 35 || x[3] + 0 < 35)) return 0
+            if (idx % 2 == 0) total += (x[2] + 0 > x[3] + 0) ? x[2] + 0 : x[3] + 0
+            return 1
+        }
+        {
+            keys = 0; pads = 0; total = 0
+            for (f = 1; f <= NF; f++) {
+                len = length($f)
+                if (len % 4 == 1) {
+                    if (keys > 0 || !padding_ok($f, pads)) exit 1
+                    pads++
+                    continue
+                }
+                if (len == 43 || (len == 1579 && mlkem_ok($f))) { keys++; continue }
+                exit 1
+            }
+            exit (keys > 0 && total <= 18 + 65535) ? 0 : 1
+        }'
 }
 
 # Generates a deterministic HWID based on WAN MAC address and device model
@@ -1287,7 +1438,7 @@ describe_subscription_validation_failure() {
 # NOT declare `streamSettings.sockopt.dialerProxy` (a chained / multi-hop
 # upstream that cannot be expressed as a single share link). The resulting URIs
 # carry the standard query params the facade already understands
-# (security/sni/fp/pbk/sid/flow/type/path/host/mode/alpn), so they flow through
+# (encryption/security/sni/fp/pbk/sid/flow/type/path/host/mode/alpn), so they flow through
 # the existing sing_box_cf_add_proxy_outbound path unchanged. The outbound tag
 # (or the config `remarks`) becomes the URI fragment so the node keeps a
 # human-readable name.
@@ -1295,7 +1446,9 @@ describe_subscription_validation_failure() {
 # CRITICAL: OpenWRT's jq has no Oniguruma, so the program below uses only
 # explicit string operations (no test/match/sub/gsub). It also keeps every
 # query VALUE free of '& ? # %' and whitespace, because url_get_query_param()
-# (helpers.sh) stops a value at the first such delimiter.
+# (helpers.sh) stops a value at the first such delimiter. The one exception is
+# the vless `encryption` key, which is percent-encoded (@uri) instead, so it is
+# never lost.
 #
 # Arguments:
 #   src_file: path to the raw downloaded subscription body
@@ -1376,7 +1529,16 @@ xray_json_to_uri_lines() {
           # Build the query param list per protocol, dropping empties.
           | (
               if $ob.protocol == "vless" then
-                ([ "encryption=none",
+                # VLESS Encryption keys (mlkem768x25519plus...) live in the
+                # user entry; carry them over so the facade can emit them.
+                # Plain VLESS has "none" there or no field at all. Unlike the
+                # other params the value is percent-encoded rather than
+                # dropped by safe(): dropping it would silently turn a PQ node
+                # into plain VLESS. The facade decodes it as a URI component
+                # and rejects a malformed key loudly.
+                ([ ("encryption="
+                    + (($user.encryption // "") | tostring
+                       | if . == "" then "none" else @uri end)),
                    ("type=" + $net),
                    kv("flow"; $user.flow),
                    (if $sec != "" then ("security=" + $sec) else empty end),
@@ -1606,6 +1768,12 @@ normalize_subscription_to_singbox() {
     # consume subsequent lines. A file redirect keeps the loop's stdin isolated.
     lines_file="$(mktemp 2>/dev/null)" || lines_file="/tmp/netshift-sub-fb.$$"
     printf '%s\n' "$candidate" > "$lines_file"
+
+    # Resolve the core version once for the whole feed: the builder checks it
+    # per link (e.g. VLESS Encryption), and each check would otherwise spawn
+    # `sing-box version` again. See get_sing_box_version.
+    local NETSHIFT_SING_BOX_VERSION
+    NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
 
     while IFS= read -r line; do
         # Trim leading/trailing whitespace.

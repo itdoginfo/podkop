@@ -2943,6 +2943,11 @@ _build_proxy_member_outbounds() {
     _member_default_outbound=""
     cr="$(printf '\r')"
 
+    # One `sing-box version` for the whole list instead of one per link that
+    # needs the core checked (see get_sing_box_version).
+    local NETSHIFT_SING_BOX_VERSION
+    NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
+
     i=1
     for link in $links_blob; do
         # Tolerate pasted CRLF blobs: strip a trailing CR and skip blank lines.
@@ -2950,11 +2955,12 @@ _build_proxy_member_outbounds() {
         [ -n "$link" ] || continue
 
         # The facade returns non-zero (config echoed UNCHANGED) for an
-        # unsupported scheme. Only add the member tag when the outbound was
-        # actually created, so the selector/urltest never references a
-        # non-existent outbound; a single bad link is skipped and the remaining
-        # links still build. Reassign $config only on a non-empty result so a
-        # skip never wipes the config.
+        # unsupported scheme, or for a link that needs a feature the installed
+        # sing-box lacks (it logs which). Only add the member tag when the
+        # outbound was actually created, so the selector/urltest never
+        # references a non-existent outbound; a single bad link is skipped and
+        # the remaining links still build. Reassign $config only on a non-empty
+        # result so a skip never wipes the config.
         if _new_config="$(sing_box_cf_add_proxy_outbound "$config" "$section-$i" "$link" "$udp_over_tcp")" \
             && [ -n "$_new_config" ]; then
             config="$_new_config"
@@ -2966,7 +2972,7 @@ _build_proxy_member_outbounds() {
                 _member_outbound_tags="$_member_outbound_tags,$outbound_tag"
             fi
         else
-            log "$label section '$section' link #$i uses an unsupported scheme; skipping it" "warn"
+            log "$label section '$section' link #$i uses an unsupported scheme or a feature the installed sing-box lacks; skipping it" "warn"
         fi
         i=$((i + 1))
     done
@@ -3006,7 +3012,7 @@ configure_outbound_handler() {
                 && [ -n "$_new_config" ]; then
                 config="$_new_config"
             else
-                echolog "Proxy link for section '$section' uses an unsupported scheme and was skipped; this section has no usable outbound and its traffic will be rejected until a supported link is configured" "error"
+                echolog "Proxy link for section '$section' uses an unsupported scheme or a feature the installed sing-box lacks and was skipped; this section has no usable outbound and its traffic will be rejected until a supported link is configured" "error"
                 mark_section_outbound_unavailable "$section"
             fi
             ;;

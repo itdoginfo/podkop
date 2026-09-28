@@ -118,15 +118,59 @@ sing_box_cf_add_proxy_outbound() {
         )"
         ;;
     vless)
-        local tag host port uuid flow packet_encoding
+        local tag host port uuid flow packet_encoding encryption
         tag=$(get_outbound_tag_by_section "$section")
         host="$url_host"
         port="$url_port"
         uuid="$url_userinfo"
         flow=$(url_get_query_param "$url" "flow")
         packet_encoding=$(url_get_query_param "$url" "packetEncoding")
+        # VLESS Encryption: the mlkem768x25519plus... handshake travels in
+        # the encryption= param. Ordinary links carry "none" there, which
+        # the manager drops, so nothing changes for them. The value is a key,
+        # not form text: decode it as a URI component so a '+' is not turned
+        # into a space.
+        encryption=$(url_get_query_param_component "$url" "encryption")
 
-        config=$(sing_box_cm_add_vless_outbound "$config" "$tag" "$host" "$port" "$uuid" "$flow" "" "$packet_encoding")
+        # A mlkem768x25519plus... value is checked twice below; failing either
+        # skips only this link, with the same contract as the `*)` arm: config
+        # echoed UNCHANGED, non-zero return. The url/selector/urltest callers
+        # add a member tag only on success, so no group ever references an
+        # outbound that was not created. Any other value ("auto", "None", ...)
+        # is not a VLESS Encryption handshake; the param was not read at all
+        # before, so such links stay plain VLESS, with a warning.
+        case "$encryption" in
+        '' | none)
+            encryption=""
+            ;;
+        mlkem*)
+            # A value sing-box-extended rejects would make `sing-box check`
+            # fail for the WHOLE config.
+            if ! is_valid_vless_encryption "$encryption"; then
+                log "Section '$section': the VLESS Encryption key of this link is malformed or truncated (sing-box-extended would reject it); skipping the link." "error"
+                echo "$config"
+                return 1
+            fi
+            # `encryption` is a sing-box-extended field; stock sing-box and
+            # older extended builds decode configs strictly and would fail
+            # `sing-box check` for the WHOLE config as well.
+            # The fallback keeps the gate closed even if constants.sh was not
+            # sourced: an empty minimum would compare as "anything passes".
+            local encryption_min="${SB_EXTENDED_VLESS_ENCRYPTION_MIN:-2.0.0}"
+            if ! is_sing_box_extended_at_least "$encryption_min"; then
+                log "Section '$section': VLESS Encryption requires sing-box-extended $encryption_min or newer; skipping the link. Install sing-box-extended and retry." "error"
+                echo "$config"
+                return 1
+            fi
+            ;;
+        *)
+            # Log only the first part and the length: the value may be a key.
+            log "Section '$section': unknown VLESS encryption value '${encryption%%.*}' (${#encryption} characters); treating the link as plain VLESS." "warn"
+            encryption=""
+            ;;
+        esac
+
+        config=$(sing_box_cm_add_vless_outbound "$config" "$tag" "$host" "$port" "$uuid" "$flow" "" "$packet_encoding" "$encryption")
         config=$(_add_outbound_security "$config" "$tag" "$url")
         config=$(_add_outbound_transport "$config" "$tag" "$url") || {
             echo "$config_in"

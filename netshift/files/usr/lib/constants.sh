@@ -112,6 +112,9 @@ NFT_OUTBOUND_MARK="0x00200000"
 
 ## sing-box
 SB_REQUIRED_VERSION="1.12.0"
+# First sing-box-extended release (the part after "-extended-") whose VLESS
+# outbound has the `encryption` field; its pre-releases already carry it.
+SB_EXTENDED_VLESS_ENCRYPTION_MIN="2.0.0"
 # Monitoring
 MONITOR_CHECK_INTERVAL=10
 # How often the monitor looks for a server picked outside LuCI (Clash dashboard).

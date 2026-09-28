@@ -35,6 +35,20 @@ WORKDIR /rootfs
 RUN apk add --no-cache curl tar gzip && \
     curl -sSL https://downloads.openwrt.org/releases/24.10.6/targets/x86/64/openwrt-24.10.6-x86-64-rootfs.tar.gz | tar -xz
 
+# sing-box-extended рядом со стоковым ядром, а не вместо него: остальные тесты
+# гоняют стоковый sing-box, а тесты фич extended (VLESS Encryption) вызывают
+# /usr/local/bin/sing-box-extended для настоящего `sing-box check`.
+# Версия закреплена, архив сверяется по sha256.
+ARG SB_EXTENDED_VERSION=1.13.14-extended-2.5.3
+ARG SB_EXTENDED_SHA256=c4b6a7367fc25e7a37289ea917fbf836d385b552a097ea5f643480d7fbe2768f
+RUN curl -sSL -o /tmp/sbx.tar.gz \
+        "https://github.com/shtorm-7/sing-box-extended/releases/download/v${SB_EXTENDED_VERSION}/sing-box-${SB_EXTENDED_VERSION}-linux-amd64-musl.tar.gz" && \
+    echo "${SB_EXTENDED_SHA256}  /tmp/sbx.tar.gz" | sha256sum -c - && \
+    mkdir -p /rootfs/usr/local/bin && \
+    tar -xzf /tmp/sbx.tar.gz -C /tmp && \
+    install -m 0755 "/tmp/sing-box-${SB_EXTENDED_VERSION}-linux-amd64-musl/sing-box" /rootfs/usr/local/bin/sing-box-extended && \
+    rm -rf /tmp/sbx.tar.gz "/tmp/sing-box-${SB_EXTENDED_VERSION}-linux-amd64-musl"
+
 # ── Stage 2: Сборка финального контейнера ─────────────────────────
 FROM scratch
 # Переносим настоящую систему OpenWrt

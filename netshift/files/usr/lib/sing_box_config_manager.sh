@@ -614,6 +614,10 @@ sing_box_cm_add_shadowsocks_outbound() {
 #   flow: string, flow setting (optional)
 #   network: string, network type (e.g., "tcp") (optional)
 #   packet_encoding: string, packet encoding method (optional)
+#   encryption: string, VLESS Encryption handshake (optional; the
+#       mlkem768x25519plus... value from the link's encryption= param).
+#       "none" and empty are omitted so configs for ordinary VLESS
+#       links stay byte-for-byte what they were.
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -631,6 +635,7 @@ sing_box_cm_add_vless_outbound() {
     local flow="$6"
     local network="$7"
     local packet_encoding="$8"
+    local encryption="$9"
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -640,6 +645,7 @@ sing_box_cm_add_vless_outbound() {
         --arg flow "$flow" \
         --arg network "$network" \
         --arg packet_encoding "$packet_encoding" \
+        --arg encryption "$encryption" \
         '.outbounds += [(
             {
               type: "vless",
@@ -651,6 +657,8 @@ sing_box_cm_add_vless_outbound() {
             + (if $flow != "" then {flow: $flow} else {} end)
             + (if $network != "" then {network: $network} else {} end)
             + (if $packet_encoding != "" then {packet_encoding: $packet_encoding} else {} end)
+            + (if $encryption != "" and $encryption != "none"
+               then {encryption: $encryption} else {} end)
         )]'
 }
 
