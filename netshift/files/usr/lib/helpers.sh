@@ -828,6 +828,31 @@ get_kernel_version() {
     uname -r
 }
 
+# Returns the total RAM in megabytes (MemTotal from /proc/meminfo), or 0 when
+# it cannot be read. Integer division is fine here: the value feeds the UI
+# and the lite build warning threshold, not an exact resource accounting.
+get_ram_total_mb() {
+    local kb
+
+    kb="$(sed -n 's/^MemTotal:[[:space:]]*\([0-9]*\)[[:space:]]*kB$/\1/p' /proc/meminfo 2>/dev/null | head -n 1)"
+    case "$kb" in
+    '' | *[!0-9]*) echo 0 ;;
+    *) echo $((kb / 1024)) ;;
+    esac
+}
+
+# Returns the free space on the root filesystem in megabytes (df -Pk /), or 0
+# when it cannot be read. The overlay the core lives on is what this measures.
+get_flash_free_mb() {
+    local kb
+
+    kb="$(df -Pk / 2>/dev/null | awk 'NR==2 {print $4}')"
+    case "$kb" in
+    '' | *[!0-9]*) echo 0 ;;
+    *) echo $((kb / 1024)) ;;
+    esac
+}
+
 # Returns the sing-box version number (e.g. "1.12.0")
 #
 # A loop that asks for the version once per link can resolve it once instead:
@@ -879,7 +904,10 @@ is_sing_box_extended() {
 # Only the release part of that suffix is compared: `sort -V` would rank
 # "2.0.0-rc.1" above "2.0.0", the reverse of semver, so the pre-release tag is
 # dropped instead. Pre-releases of the required release therefore pass, and
-# that is deliberate here: VLESS Encryption already ships in 2.0.0-rc.1.
+# that is deliberate here: VLESS Encryption already ships in 2.0.0-rc.1. The
+# lite suffix is a pre-release-style tag too ("2.7.2-lite"), so
+# "1.14.1-extended-2.7.2-lite" compares as 2.7.2 and its gate features
+# (VLESS Encryption, XHTTP, vmess) are the extended ones.
 # Arguments:
 #   $1 - minimum extended release (e.g. "2.0.0")
 #   $2 - optional sing-box version string (defaults to get_sing_box_version)
@@ -893,6 +921,80 @@ is_sing_box_extended_at_least() {
     is_sing_box_extended "$version" || return 1
     release="${version##*-extended-}"
     is_min_package_version "${release%%-*}" "$required"
+}
+
+# Returns 0 if the given file exists, is a regular file and starts with "#!"
+# (a shell wrapper script rather than an ELF binary). Two bytes via
+# `head -c` are the cheapest reliable tell; od/hexdump are avoided on purpose.
+is_sing_box_wrapper_script() {
+    local path="$1"
+
+    [ -f "$path" ] || return 1
+    [ "$(head -c 2 "$path" 2>/dev/null)" = "#!" ]
+}
+
+# Prints the installed sing-box core variant: "stock", "extended" or
+# "extended_lite".
+#   (a) the version banner carries the lite suffix -> extended_lite (both our
+#       ELF and UPX installs report "1.14.1-extended-2.7.2-lite");
+#   (b) /usr/bin/sing-box is a shell wrapper AND the side-loaded core exists
+#       -> extended_lite. This is the UPX layout, shared with the community
+#       manual installs (MANCrimSon/EikeiDev), whose wrapper may report a
+#       version WITHOUT the suffix — the layout is authoritative then;
+#   (c) the version carries "extended" -> extended (the full fork build);
+#   (d) otherwise -> stock.
+# Arguments:
+#   $1 - optional sing-box version string (defaults to get_sing_box_version)
+get_sing_box_variant() {
+    local version="${1:-}"
+
+    [ -n "$version" ] || version="$(get_sing_box_version)"
+
+    case "$version" in
+    *"$SB_LITE_SUFFIX"*)
+        echo "extended_lite"
+        return 0
+        ;;
+    esac
+
+    if [ -f "$UPDATES_SING_BOX_LITE_CORE_BIN" ] &&
+        is_sing_box_wrapper_script "$UPDATES_SING_BOX_BIN"; then
+        echo "extended_lite"
+        return 0
+    fi
+
+    if is_sing_box_extended "$version"; then
+        echo "extended"
+        return 0
+    fi
+
+    echo "stock"
+}
+
+# Returns 0 when the installed lite core is the UPX-compressed build: the
+# variant is extended_lite and /usr/bin/sing-box is the wrapper script (a
+# pure ELF lite install puts the binary itself on that path).
+sing_box_lite_is_upx() {
+    [ "$(get_sing_box_variant)" = "extended_lite" ] || return 1
+
+    is_sing_box_wrapper_script "$UPDATES_SING_BOX_BIN"
+}
+
+# Returns 0 when the extended lite release has a build for this machine's
+# architecture. The lite repo publishes exactly five generic builds —
+# amd64, arm64, armv7, mips-softfloat, mipsle-softfloat — so everything the
+# extended resolver maps otherwise (armv6, 386, mips64*, riscv64, s390x and
+# the OpenWrt .ipk fallback for FPU-less ARM) has no lite counterpart. The
+# resolver is defined in updater.sh (sourced after helpers.sh); it is only
+# ever called here at runtime, by which time it is defined.
+sing_box_lite_arch_supported() {
+    updates_resolve_sing_box_extended_arch_suffix || return 1
+
+    case "$SB_EXT_ARCH_SUFFIX" in
+    amd64 | arm64 | armv7 | mips-softfloat | mipsle-softfloat) return 0 ;;
+    esac
+
+    return 1
 }
 
 # Returns 0 if the value is a VLESS Encryption client string that
