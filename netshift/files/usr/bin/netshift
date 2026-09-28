@@ -5094,6 +5094,7 @@ show_system_info() {
 
 get_system_info() {
     local netshift_version netshift_latest_version luci_app_version sing_box_version openwrt_version device_model sing_box_extended
+    local sing_box_variant sing_box_lite_upx sing_box_lite_supported ram_total_mb flash_free_mb
 
     netshift_version="$NETSHIFT_VERSION"
 
@@ -5123,6 +5124,24 @@ get_system_info() {
         sing_box_extended=1
     fi
 
+    # Third core variant (extended lite) and the predicates the UI needs to
+    # decide which core offers to show. All local: no network I/O. The
+    # variant string comes from the same probe helpers.sh uses everywhere;
+    # the lite predicates answer "is the compressed build installed" and "is
+    # there a lite build for this architecture at all".
+    sing_box_variant="$(get_sing_box_variant "$sing_box_version")"
+    sing_box_lite_upx=0
+    if [ "$sing_box_variant" = "extended_lite" ] && sing_box_lite_is_upx; then
+        sing_box_lite_upx=1
+    fi
+    sing_box_lite_supported=0
+    if sing_box_lite_arch_supported; then
+        sing_box_lite_supported=1
+    fi
+
+    ram_total_mb="$(get_ram_total_mb)"
+    flash_free_mb="$(get_flash_free_mb)"
+
     if [ -f /etc/os-release ]; then
         openwrt_version=$(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)
         [ -z "$openwrt_version" ] && openwrt_version="unknown"
@@ -5137,7 +5156,7 @@ get_system_info() {
         device_model="unknown"
     fi
 
-    echo "{\"netshift_version\": \"$netshift_version\", \"netshift_latest_version\": \"$netshift_latest_version\", \"luci_app_version\": \"$luci_app_version\", \"sing_box_version\": \"$sing_box_version\", \"sing_box_extended\": $sing_box_extended, \"openwrt_version\": \"$openwrt_version\", \"device_model\": \"$device_model\"}" | jq .
+    echo "{\"netshift_version\": \"$netshift_version\", \"netshift_latest_version\": \"$netshift_latest_version\", \"luci_app_version\": \"$luci_app_version\", \"sing_box_version\": \"$sing_box_version\", \"sing_box_extended\": $sing_box_extended, \"sing_box_variant\": \"$sing_box_variant\", \"sing_box_lite_upx\": $sing_box_lite_upx, \"sing_box_lite_supported\": $sing_box_lite_supported, \"ram_total_mb\": $ram_total_mb, \"flash_free_mb\": $flash_free_mb, \"openwrt_version\": \"$openwrt_version\", \"device_model\": \"$device_model\"}" | jq .
 }
 
 get_sing_box_status() {
@@ -5943,7 +5962,8 @@ Available commands:
     check_dns_available     Check DNS server availability
     global_check            Run global system check
     component_action        Run component action: <component> <action>
-                            (e.g. sing_box install_extended|install_stable|check_update,
+                            (e.g. sing_box install_extended|install_extended_lite|
+                            install_stable|check_update|check_update_lite,
                             subscription clear_cache to wipe all caches + redownload)
     component_action_async  Start component_action in background; echoes a job_id
                             (use with component_action_status to poll the outcome)

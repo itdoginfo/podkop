@@ -13,6 +13,10 @@ function makeDiagnosticsSystemInfo(
     sing_box_version: '1.11.0',
     openwrt_version: 'OpenWrt 25.12',
     device_model: 'Test Router',
+    sing_box_extended: 0,
+    sing_box_variant: 'stock',
+    sing_box_lite_upx: 0,
+    sing_box_lite_supported: 1,
     ...patch,
   };
 }

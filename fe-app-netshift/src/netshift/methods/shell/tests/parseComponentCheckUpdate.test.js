@@ -21,6 +21,25 @@ describe('parseComponentCheckUpdate', () => {
     });
   });
 
+  it('parses the extended-lite check-update JSON (same shape, lite versions)', () => {
+    const result = parseComponentCheckUpdate(
+      JSON.stringify({
+        success: true,
+        current_version: '1.14.1-extended-2.7.2-lite',
+        latest_version: '1.14.1-extended-2.7.3-lite',
+        status: 'outdated',
+      }),
+    );
+
+    expect(result).toEqual({
+      success: true,
+      current_version: '1.14.1-extended-2.7.2-lite',
+      latest_version: '1.14.1-extended-2.7.3-lite',
+      status: 'outdated',
+      message: undefined,
+    });
+  });
+
   it.each(['latest', 'outdated', 'dev', 'not_installed'])(
     'accepts the valid status %s',
     (status) => {

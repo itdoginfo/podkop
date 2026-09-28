@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-22 19:14+0300\n"
-"PO-Revision-Date: 2026-09-22 19:14+0300\n"
+"POT-Creation-Date: 2026-09-28 07:55+0300\n"
+"PO-Revision-Date: 2026-09-28 07:55+0300\n"
 "Last-Translator: yandexru45 <>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -131,21 +131,22 @@ msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runDnsCheck.ts:27
 #: src/netshift/tabs/diagnostic/checks/runNftCheck.ts:28
-#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:27
+#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:28
 #: src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts:25
 msgid "Cannot receive checks result"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:144
-#: src/netshift/tabs/manager/cards.ts:181
-#: src/netshift/tabs/manager/cards.ts:227
+#: src/netshift/tabs/manager/cards.ts:196
+#: src/netshift/tabs/manager/cards.ts:233
+#: src/netshift/tabs/manager/cards.ts:279
+#: src/netshift/tabs/manager/cards.ts:334
 msgid "Check update"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runDnsCheck.ts:15
 #: src/netshift/tabs/diagnostic/checks/runFakeIPCheck.ts:15
 #: src/netshift/tabs/diagnostic/checks/runNftCheck.ts:13
-#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:15
+#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:16
 #: src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts:13
 msgid "Checking, please wait"
 msgstr ""
@@ -170,7 +171,7 @@ msgstr ""
 msgid "Clear subscription cache"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:329
+#: src/netshift/tabs/diagnostic/initController.ts:336
 msgid "Clearing subscription cache and re-downloading… this may take a minute"
 msgstr ""
 
@@ -184,6 +185,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:83
 msgid "Component Manager"
+msgstr ""
+
+#: src/netshift/tabs/manager/cards.ts:361
+msgid "Compressed build: uses more RAM at startup"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:540
@@ -218,12 +223,12 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:159
-#: src/netshift/methods/shell/pollSingBoxComponentAction.ts:69
+#: src/netshift/methods/shell/index.ts:163
+#: src/netshift/methods/shell/pollSingBoxComponentAction.ts:83
 msgid "Core switch failed"
 msgstr ""
 
-#: src/netshift/methods/shell/pollSingBoxComponentAction.ts:87
+#: src/netshift/methods/shell/pollSingBoxComponentAction.ts:102
 msgid "Core switch timed out"
 msgstr ""
 
@@ -256,7 +261,7 @@ msgstr ""
 msgid "Delay value cannot be empty"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:101
+#: src/netshift/tabs/manager/cards.ts:153
 msgid "Dev"
 msgstr ""
 
@@ -492,9 +497,13 @@ msgstr ""
 msgid "Exclude servers by keyword"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:254
-#: src/netshift/tabs/diagnostic/initController.ts:344
-#: src/netshift/tabs/diagnostic/initController.ts:348
+#: src/netshift/tabs/manager/cards.ts:295
+msgid "Extended core with all features (~105 MB)"
+msgstr ""
+
+#: src/netshift/methods/shell/index.ts:259
+#: src/netshift/tabs/diagnostic/initController.ts:351
+#: src/netshift/tabs/diagnostic/initController.ts:355
 msgid "Failed to clear subscription cache"
 msgstr ""
 
@@ -502,27 +511,28 @@ msgstr ""
 msgid "Failed to copy!"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:229
-#: src/netshift/tabs/diagnostic/initController.ts:233
-#: src/netshift/tabs/diagnostic/initController.ts:263
-#: src/netshift/tabs/diagnostic/initController.ts:267
-#: src/netshift/tabs/diagnostic/initController.ts:304
-#: src/netshift/tabs/diagnostic/initController.ts:308
-#: src/netshift/tabs/manager/initController.ts:122
-#: src/netshift/tabs/manager/initController.ts:132
-#: src/netshift/tabs/manager/initController.ts:150
-#: src/netshift/tabs/manager/initController.ts:160
-#: src/netshift/tabs/manager/initController.ts:188
-#: src/netshift/tabs/manager/initController.ts:199
-#: src/netshift/tabs/manager/initController.ts:232
-#: src/netshift/tabs/manager/initController.ts:236
+#: src/netshift/tabs/diagnostic/initController.ts:236
+#: src/netshift/tabs/diagnostic/initController.ts:240
+#: src/netshift/tabs/diagnostic/initController.ts:270
+#: src/netshift/tabs/diagnostic/initController.ts:274
+#: src/netshift/tabs/diagnostic/initController.ts:311
+#: src/netshift/tabs/diagnostic/initController.ts:315
+#: src/netshift/tabs/manager/initController.ts:135
+#: src/netshift/tabs/manager/initController.ts:145
+#: src/netshift/tabs/manager/initController.ts:163
+#: src/netshift/tabs/manager/initController.ts:173
+#: src/netshift/tabs/manager/initController.ts:206
+#: src/netshift/tabs/manager/initController.ts:223
+#: src/netshift/tabs/manager/initController.ts:256
+#: src/netshift/tabs/manager/initController.ts:260
 msgid "Failed to execute!"
 msgstr ""
 
-#: src/netshift/methods/custom/getDashboardSections.ts:150
-#: src/netshift/methods/custom/getDashboardSections.ts:181
-#: src/netshift/methods/custom/getDashboardSections.ts:218
-#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:58
+#: src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts:72
+#: src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts:101
+#: src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts:109
+#: src/netshift/methods/custom/getDashboardSections.ts:151
+#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:57
 msgid "Fastest"
 msgstr ""
 
@@ -534,7 +544,7 @@ msgstr ""
 msgid "Get global check"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:224
+#: src/netshift/tabs/diagnostic/initController.ts:231
 msgid "Global check"
 msgstr ""
 
@@ -558,13 +568,14 @@ msgstr ""
 msgid "Include servers by keyword"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:136
-#: src/netshift/tabs/manager/cards.ts:174
-#: src/netshift/tabs/manager/cards.ts:220
+#: src/netshift/tabs/manager/cards.ts:188
+#: src/netshift/tabs/manager/cards.ts:226
+#: src/netshift/tabs/manager/cards.ts:272
+#: src/netshift/tabs/manager/cards.ts:327
 msgid "Install %s"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:96
+#: src/netshift/tabs/manager/initController.ts:105
 msgid "Installed version is newer than release"
 msgstr ""
 
@@ -805,13 +816,17 @@ msgstr ""
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:90
+#: src/netshift/tabs/manager/cards.ts:142
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:48
 msgid "Latest"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:103
+#: src/netshift/tabs/manager/initController.ts:112
 msgid "Latest version is installed"
+msgstr ""
+
+#: src/netshift/tabs/manager/cards.ts:350
+msgid "Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)"
 msgstr ""
 
 #: src/validators/validateProxyUrlList.ts:31
@@ -878,7 +893,7 @@ msgstr ""
 msgid "NetShift Settings"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:224
+#: src/netshift/tabs/manager/initController.ts:248
 msgid "NetShift updated, version:"
 msgstr ""
 
@@ -898,28 +913,33 @@ msgstr ""
 msgid "No other marking rules found"
 msgstr ""
 
+#: src/netshift/tabs/manager/cards.ts:359
+msgid "Not available for your architecture"
+msgstr ""
+
 #: src/netshift/tabs/diagnostic/partials/renderCheckSection.ts:189
 msgid "Not implement yet"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:98
-#: src/netshift/tabs/manager/cards.ts:198
-#: src/netshift/tabs/manager/cards.ts:243
-#: src/netshift/tabs/manager/initController.ts:100
+#: src/netshift/tabs/manager/cards.ts:150
+#: src/netshift/tabs/manager/cards.ts:250
+#: src/netshift/tabs/manager/cards.ts:296
+#: src/netshift/tabs/manager/cards.ts:353
+#: src/netshift/tabs/manager/initController.ts:109
 msgid "Not installed"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:74
-#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:80
-#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:99
+#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:73
+#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:79
+#: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:98
 msgid "Not responding"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:59
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:67
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:75
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:83
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:91
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:62
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:70
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:78
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:86
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:94
 msgid "Not running"
 msgstr ""
 
@@ -947,7 +967,7 @@ msgstr ""
 msgid "Outbound Configuration"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:94
+#: src/netshift/tabs/manager/cards.ts:146
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:38
 msgid "Outdated"
 msgstr ""
@@ -972,11 +992,11 @@ msgstr ""
 msgid "Path must end with cache.db"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:107
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:115
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:123
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:131
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:139
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:110
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:118
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:126
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:134
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:142
 msgid "Pending"
 msgstr ""
 
@@ -1157,7 +1177,7 @@ msgstr ""
 msgid "Selector Proxy Links (one per line)"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:303
+#: src/netshift/methods/shell/index.ts:308
 msgid "Self-update failed"
 msgstr ""
 
@@ -1177,7 +1197,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:292
+#: src/netshift/tabs/diagnostic/initController.ts:299
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:118
 msgid "Show sing-box config"
 msgstr ""
@@ -1191,7 +1211,7 @@ msgstr ""
 msgid "Sing-box autostart disabled"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:181
+#: src/netshift/tabs/manager/initController.ts:199
 msgid "Sing-box core changed, version:"
 msgstr ""
 
@@ -1257,7 +1277,7 @@ msgstr ""
 msgid "Subscription"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:337
+#: src/netshift/tabs/diagnostic/initController.ts:344
 msgid "Subscription cache cleared and re-downloaded"
 msgstr ""
 
@@ -1285,15 +1305,19 @@ msgstr ""
 msgid "Successfully copied!"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:235
+#: src/netshift/tabs/manager/cards.ts:287
 msgid "Switch to extended"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:190
+#: src/netshift/tabs/manager/cards.ts:342
+msgid "Switch to lite"
+msgstr ""
+
+#: src/netshift/tabs/manager/cards.ts:242
 msgid "Switch to stable"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:171
+#: src/netshift/tabs/manager/initController.ts:184
 msgid "Switching sing-box core, this may take a few minutes…"
 msgstr ""
 
@@ -1371,18 +1395,18 @@ msgstr ""
 msgid "UDP over TCP"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:39
-#: src/netshift/tabs/diagnostic/initController.ts:40
-#: src/netshift/tabs/diagnostic/initController.ts:41
-#: src/netshift/tabs/diagnostic/initController.ts:42
 #: src/netshift/tabs/diagnostic/initController.ts:43
 #: src/netshift/tabs/diagnostic/initController.ts:44
-#: src/netshift/tabs/manager/initController.ts:37
-#: src/netshift/tabs/manager/initController.ts:38
-#: src/netshift/tabs/manager/initController.ts:39
-#: src/netshift/tabs/manager/initController.ts:40
-#: src/netshift/tabs/manager/initController.ts:41
-#: src/netshift/tabs/manager/initController.ts:42
+#: src/netshift/tabs/diagnostic/initController.ts:45
+#: src/netshift/tabs/diagnostic/initController.ts:46
+#: src/netshift/tabs/diagnostic/initController.ts:47
+#: src/netshift/tabs/diagnostic/initController.ts:48
+#: src/netshift/tabs/manager/initController.ts:43
+#: src/netshift/tabs/manager/initController.ts:44
+#: src/netshift/tabs/manager/initController.ts:45
+#: src/netshift/tabs/manager/initController.ts:46
+#: src/netshift/tabs/manager/initController.ts:47
+#: src/netshift/tabs/manager/initController.ts:48
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7
 msgid "unknown"
 msgstr ""
@@ -1391,20 +1415,21 @@ msgstr ""
 msgid "Unknown error"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:174
-#: src/netshift/tabs/manager/cards.ts:220
+#: src/netshift/tabs/manager/cards.ts:226
+#: src/netshift/tabs/manager/cards.ts:272
+#: src/netshift/tabs/manager/cards.ts:327
 msgid "Update"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:92
+#: src/netshift/tabs/manager/initController.ts:101
 msgid "Update is available"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:137
+#: src/netshift/tabs/manager/cards.ts:189
 msgid "Update NetShift"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:215
+#: src/netshift/tabs/manager/initController.ts:239
 msgid "Updating NetShift, this may take a few minutes; the page will reload…"
 msgstr ""
 
@@ -1415,6 +1440,14 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:17
 msgid "Upstream and bootstrap DNS resolvers, and optional DNS-over-proxy"
+msgstr ""
+
+#: src/netshift/tabs/manager/cards.ts:357
+msgid "UPX"
+msgstr ""
+
+#: src/netshift/tabs/manager/cards.ts:122
+msgid "UPX-compressed core: a RAM spike is possible at startup; on devices with less than 256 MB of RAM, enable zram swap"
 msgstr ""
 
 #: src/validators/validateProxyUrl.ts:42
@@ -1508,11 +1541,11 @@ msgstr ""
 msgid "Validation errors:"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:313
+#: src/netshift/tabs/manager/initController.ts:350
 msgid "Version"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:258
+#: src/netshift/tabs/diagnostic/initController.ts:265
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:109
 msgid "View logs"
 msgstr ""

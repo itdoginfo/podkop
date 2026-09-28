@@ -232,7 +232,20 @@ export namespace NetShift {
     openwrt_version: string;
     device_model: string;
     sing_box_extended: 0 | 1;
+    // Active sing-box core flavour — the SINGLE source of truth for the
+    // Component Manager cards (the legacy sing_box_extended bit is kept for
+    // backward compatibility but no longer drives card activity).
+    sing_box_variant: SingBoxVariant;
+    // 1 when the installed extended-lite core is the UPX-compressed build.
+    sing_box_lite_upx: 0 | 1;
+    // 0 when the lite repo has no build for this device's architecture.
+    sing_box_lite_supported: 0 | 1;
+    ram_total_mb: number;
+    flash_free_mb: number;
   }
+
+  // sing-box core flavours echoed by get_system_info (sing_box_variant).
+  export type SingBoxVariant = 'stock' | 'extended' | 'extended_lite';
 
   export interface GetClashApiProxyLatency {
     delay: number;

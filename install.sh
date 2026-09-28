@@ -286,14 +286,15 @@ sing_box_is_extended() {
 }
 
 # Asks which sing-box core to install and stores the answer in SING_BOX_CORE
-# (stock|extended). Same plain read loop as the Russian-language prompt below:
-# an unrecognised answer re-asks instead of aborting the install. On EOF (the
-# script is piped rather than run from a terminal) the stock core is chosen,
-# which is what the installer did before this prompt existed.
+# (stock|extended|extended_lite). Same plain read loop as the Russian-language
+# prompt below: an unrecognised answer re-asks instead of aborting the install.
+# On EOF (the script is piped rather than run from a terminal) the stock core
+# is chosen, which is what the installer did before this prompt existed.
 select_sing_box_core() {
     msg "Какое ядро sing-box поставить? (Which sing-box core to install?)"
     msg "1) Стоковый sing-box (stock, из фидов OpenWrt)"
     msg "2) sing-box-extended (сборка shtorm-7, больше протоколов)"
+    msg "3) sing-box-extended-lite (облегчённая сборка для устройств с малой Flash)"
 
     while true; do
         if ! read -r -p '' CORE; then
@@ -311,29 +312,64 @@ select_sing_box_core() {
             SING_BOX_CORE="extended"
             break
             ;;
+        3)
+            SING_BOX_CORE="extended_lite"
+            break
+            ;;
         *)
-            echo "Введите 1 или 2 (Enter 1 or 2)"
+            echo "Введите 1, 2 или 3 (Enter 1, 2 or 3)"
             ;;
         esac
     done
 }
 
-# Applies the core chosen in select_sing_box_core. Both directions go through
-# the backend component action — the same one the LuCI component manager calls —
-# so the download, the tmpfs backup/rollback and the extended-only libcronet.so
-# handling are not duplicated here. By this point the package install has
-# already pulled the stock core in as a netshift dependency, so the stock choice
-# is a no-op unless an extended build is currently in place.
+# Returns 0 if the sing-box binary on the router is an "extended lite" build
+# — ours or a community manual one (MANCrimSon/EikeiDev): the version banner
+# carries the -lite suffix, or /usr/bin/sing-box is a shell wrapper over the
+# side-loaded core. The installer cannot source the backend libraries (they
+# may not be installed yet), so the variant check is repeated locally,
+# mirroring helpers.sh get_sing_box_variant.
+sing_box_is_lite() {
+    command -v sing-box >/dev/null 2>&1 || return 1
+
+    case "$(sing-box version 2>/dev/null | head -n 1)" in
+    *-lite*) return 0 ;;
+    esac
+
+    if [ "$(head -c 2 /usr/bin/sing-box 2>/dev/null)" = "#!" ] &&
+        [ -f /usr/libexec/sing-box-core ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+# Applies the core chosen in select_sing_box_core. All directions go through
+# the backend component action — the same one the LuCI component manager
+# calls — so the download, the sha256 verification, the tmpfs backup/rollback
+# and the lite artifact cleanup are not duplicated here. By this point the
+# package install has already pulled the stock core in as a netshift
+# dependency, so the stock choice is a no-op unless an extended (or lite)
+# build is currently in place.
 apply_sing_box_core() {
     local action="" result
 
     case "$SING_BOX_CORE" in
     extended)
-        if sing_box_is_extended; then
+        # A lite build already in place is extended-family but NOT the full
+        # build — only a non-lite extended core skips the switch.
+        if sing_box_is_extended && ! sing_box_is_lite; then
             msg "sing-box-extended is already installed"
             return 0
         fi
         action="install_extended"
+        ;;
+    extended_lite)
+        if sing_box_is_lite; then
+            msg "sing-box-extended-lite is already installed"
+            return 0
+        fi
+        action="install_extended_lite"
         ;;
     stock)
         if ! command -v sing-box >/dev/null 2>&1; then

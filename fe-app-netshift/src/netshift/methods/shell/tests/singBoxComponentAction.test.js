@@ -63,6 +63,30 @@ describe('singBoxComponentAction (start-failure path)', () => {
     expect(executeShellCommand).toHaveBeenCalledTimes(1);
   });
 
+  it('drives install_extended_lite through the SAME async start+poll contract', async () => {
+    executeShellCommand.mockResolvedValueOnce({
+      stdout: JSON.stringify({
+        success: false,
+        message: 'binary updater is busy',
+      }),
+      stderr: '',
+    });
+
+    const result = await NetShiftShellMethods.singBoxComponentAction(
+      'install_extended_lite',
+    );
+
+    expect(result).toEqual({
+      success: false,
+      message: 'binary updater is busy',
+    });
+    // The lite install starts as its own async job — never a single long exec.
+    expect(executeShellCommand).toHaveBeenCalledWith({
+      command: '/usr/bin/netshift',
+      args: ['component_action_async', 'sing_box', 'install_extended_lite'],
+    });
+  });
+
   it('surfaces stderr / generic message when start output is unparseable', async () => {
     executeShellCommand.mockResolvedValueOnce({
       stdout: 'not json',

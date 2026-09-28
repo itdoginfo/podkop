@@ -30,6 +30,10 @@ async function fetchSystemInfo() {
         loading: false,
         ...systemInfo.data,
         sing_box_extended: systemInfo.data.sing_box_extended === 1 ? 1 : 0,
+        sing_box_variant: systemInfo.data.sing_box_variant,
+        sing_box_lite_upx: systemInfo.data.sing_box_lite_upx === 1 ? 1 : 0,
+        sing_box_lite_supported:
+          systemInfo.data.sing_box_lite_supported === 1 ? 1 : 0,
       },
     });
   } else {
@@ -43,6 +47,9 @@ async function fetchSystemInfo() {
         openwrt_version: _('unknown'),
         device_model: _('unknown'),
         sing_box_extended: 0,
+        sing_box_variant: 'stock',
+        sing_box_lite_upx: 0,
+        sing_box_lite_supported: 0,
       },
     });
   }

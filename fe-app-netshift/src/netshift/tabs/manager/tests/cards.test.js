@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { getCheckTag, getComponentCards, isSingBoxInstalled } from '../cards';
+import {
+  getCheckTag,
+  getComponentCards,
+  getSingBoxMutationWarningMessage,
+  getSingBoxVariant,
+  isSingBoxInstalled,
+} from '../cards';
 
 const emptyChecks = {
   netshift: { status: null, latest_version: '' },
   sing_box_stock: { status: null, latest_version: '' },
   sing_box_extended: { status: null, latest_version: '' },
+  sing_box_extended_lite: { status: null, latest_version: '' },
 };
 
 function makeSystemInfo(patch = {}) {
@@ -12,7 +19,9 @@ function makeSystemInfo(patch = {}) {
     netshift_version: '1.0.0',
     netshift_latest_version: '1.0.0',
     sing_box_version: '1.12.0',
-    sing_box_extended: 0,
+    sing_box_variant: 'stock',
+    sing_box_lite_upx: 0,
+    sing_box_lite_supported: 1,
     ...patch,
   };
 }
@@ -44,20 +53,55 @@ describe('isSingBoxInstalled', () => {
   });
 });
 
+describe('getSingBoxVariant', () => {
+  it.each([
+    ['stock', 'stock'],
+    ['extended', 'extended'],
+    ['extended_lite', 'extended_lite'],
+  ])('passes the known variant %s through', (variant, expected) => {
+    expect(
+      getSingBoxVariant(makeSystemInfo({ sing_box_variant: variant })),
+    ).toBe(expected);
+  });
+
+  it('falls back to stock for anything unknown (older backend)', () => {
+    expect(
+      getSingBoxVariant(makeSystemInfo({ sing_box_variant: 'weird' })),
+    ).toBe('stock');
+  });
+});
+
+describe('getSingBoxMutationWarningMessage', () => {
+  it('maps the upx_ram_spike machine code to a translated message', () => {
+    const message = getSingBoxMutationWarningMessage('upx_ram_spike');
+
+    expect(message).not.toBe('upx_ram_spike');
+    expect(message).toContain('UPX');
+    expect(message).toContain('zram swap');
+  });
+
+  it('passes backend prose warnings through unchanged', () => {
+    expect(getSingBoxMutationWarningMessage('apk world pins sing-box')).toBe(
+      'apk world pins sing-box',
+    );
+  });
+});
+
 describe('getComponentCards', () => {
-  it('always builds exactly three cards in order', () => {
+  it('always builds exactly four cards in order', () => {
     const cards = getComponentCards(makeSystemInfo(), emptyChecks);
 
     expect(cards.map((c) => c.key)).toEqual([
       'netshift',
       'sing_box_stock',
       'sing_box_extended',
+      'sing_box_extended_lite',
     ]);
   });
 
-  it('shows the stock card as installed/active when sing_box_extended=0', () => {
+  it('shows the stock card as installed/active when variant=stock', () => {
     const cards = getComponentCards(
-      makeSystemInfo({ sing_box_extended: 0, sing_box_version: '1.12.0' }),
+      makeSystemInfo({ sing_box_variant: 'stock', sing_box_version: '1.12.0' }),
       emptyChecks,
     );
     const [, stock, extended] = cards;
@@ -76,9 +120,12 @@ describe('getComponentCards', () => {
     expect(extended.actions[0].backendAction).toBe('install_extended');
   });
 
-  it('mirrors the layout when sing_box_extended=1', () => {
+  it('mirrors the layout when variant=extended', () => {
     const cards = getComponentCards(
-      makeSystemInfo({ sing_box_extended: 1, sing_box_version: '1.12.5' }),
+      makeSystemInfo({
+        sing_box_variant: 'extended',
+        sing_box_version: '1.12.5',
+      }),
       emptyChecks,
     );
     const [, stock, extended] = cards;
@@ -89,6 +136,112 @@ describe('getComponentCards', () => {
     expect(stock.installed).toBe(false);
     expect(stock.actions[0].kind).toBe('switch');
     expect(stock.actions[0].backendAction).toBe('install_stable');
+  });
+
+  it('activates ONLY the lite card for a manually installed lite core', () => {
+    // A hand-installed community lite (UPX layout) is detected by the backend
+    // as extended_lite — the lite card must be the active one, NOT extended.
+    const cards = getComponentCards(
+      makeSystemInfo({
+        sing_box_variant: 'extended_lite',
+        sing_box_version: '1.14.1-extended-2.7.2-lite',
+      }),
+      emptyChecks,
+    );
+    const [, stock, extended, lite] = cards;
+
+    expect(lite.key).toBe('sing_box_extended_lite');
+    expect(lite.installed).toBe(true);
+    expect(lite.version).toBe('1.14.1-extended-2.7.2-lite');
+    expect(lite.actions[0].kind).toBe('check');
+    expect(lite.actions[0].backendAction).toBe('check_update_lite');
+    expect(lite.actions[0].loadingKey).toBe('singBoxExtendedLiteCheck');
+
+    expect(extended.installed).toBe(false);
+    expect(extended.actions[0].kind).toBe('switch');
+    expect(stock.installed).toBe(false);
+    expect(stock.actions[0].kind).toBe('switch');
+  });
+
+  it('offers switch-to-lite + Not installed when another core is active', () => {
+    const cards = getComponentCards(makeSystemInfo(), emptyChecks);
+    const lite = cards[3];
+
+    expect(lite.installed).toBe(false);
+    expect(lite.version).toBe('Not installed');
+    expect(lite.tag).toEqual({ label: 'Not installed', kind: 'neutral' });
+    expect(lite.actions[0].kind).toBe('switch');
+    expect(lite.actions[0].text).toBe('Switch to lite');
+    expect(lite.actions[0].backendAction).toBe('install_extended_lite');
+    expect(lite.actions[0].loadingKey).toBe('singBoxExtendedLiteAction');
+    // Supported arch → actions enabled, no note.
+    expect(lite.actionsDisabled).toBe(false);
+    expect(lite.note).toBeUndefined();
+  });
+
+  it('turns an outdated lite check into an Install %s update action', () => {
+    const cards = getComponentCards(
+      makeSystemInfo({
+        sing_box_variant: 'extended_lite',
+        sing_box_version: '1.14.1-extended-2.7.2-lite',
+      }),
+      {
+        ...emptyChecks,
+        sing_box_extended_lite: {
+          status: 'outdated',
+          latest_version: '1.14.1-extended-2.7.3-lite',
+        },
+      },
+    );
+    const lite = cards[3];
+
+    expect(lite.tag).toEqual({ label: 'Outdated', kind: 'warning' });
+    expect(lite.actions[0].kind).toBe('update');
+    expect(lite.actions[0].backendAction).toBe('install_extended_lite');
+    expect(lite.actions[0].text).toBe('Install 1.14.1-extended-2.7.3-lite');
+  });
+
+  it('disables the lite card actions on an unsupported architecture', () => {
+    const cards = getComponentCards(
+      makeSystemInfo({ sing_box_lite_supported: 0 }),
+      emptyChecks,
+    );
+    const lite = cards[3];
+
+    // The card stays visible with its switch button, but disabled + note.
+    expect(cards).toHaveLength(4);
+    expect(lite.actions[0].kind).toBe('switch');
+    expect(lite.actions[0].text).toBe('Switch to lite');
+    expect(lite.actionsDisabled).toBe(true);
+    expect(lite.note).toBe('Not available for your architecture');
+  });
+
+  it('adds the UPX badge + RAM footnote for a compressed lite install', () => {
+    const cards = getComponentCards(
+      makeSystemInfo({
+        sing_box_variant: 'extended_lite',
+        sing_box_lite_upx: 1,
+        sing_box_version: '1.14.1-extended-2.7.2-lite',
+      }),
+      emptyChecks,
+    );
+    const lite = cards[3];
+
+    expect(lite.extraTag).toEqual({ label: 'UPX', kind: 'warning' });
+    expect(lite.note).toBe('Compressed build: uses more RAM at startup');
+    expect(lite.actionsDisabled).toBe(false);
+  });
+
+  it('keeps core card descriptions contrasting extended vs lite sizes', () => {
+    const cards = getComponentCards(makeSystemInfo(), emptyChecks);
+
+    expect(cards[2].description).toBe(
+      'Extended core with all features (~105 MB)',
+    );
+    expect(cards[3].description).toBe(
+      'Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)',
+    );
+    expect(cards[1].description).toBeUndefined();
   });
 
   it('offers switch-to on both cores when sing-box is absent', () => {
@@ -106,7 +259,7 @@ describe('getComponentCards', () => {
 
   it('turns an outdated stock check into an Install %s update action', () => {
     const cards = getComponentCards(
-      makeSystemInfo({ sing_box_extended: 0, sing_box_version: '1.12.0' }),
+      makeSystemInfo({ sing_box_variant: 'stock', sing_box_version: '1.12.0' }),
       {
         ...emptyChecks,
         sing_box_stock: { status: 'outdated', latest_version: '1.12.9' },

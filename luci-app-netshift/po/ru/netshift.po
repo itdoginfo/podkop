@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-22 22:14+0300\n"
-"PO-Revision-Date: 2026-09-22 22:14+0300\n"
+"POT-Creation-Date: 2026-09-28 10:56+0300\n"
+"PO-Revision-Date: 2026-09-28 10:56+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -136,6 +136,9 @@ msgstr "Списки сообщества"
 
 msgid "Component Manager"
 msgstr "Менеджер компонентов"
+
+msgid "Compressed build: uses more RAM at startup"
+msgstr "Сжатая сборка: при запуске расходует больше RAM"
 
 msgid "Config File Path"
 msgstr "Путь к файлу конфигурации"
@@ -359,6 +362,9 @@ msgstr "Исключите трафик протокола NTP из туннел
 msgid "Exclude servers by keyword"
 msgstr "Исключать серверы по ключевому слову"
 
+msgid "Extended core with all features (~105 MB)"
+msgstr "Расширенное ядро со всеми возможностями (~105 МБ)"
+
 msgid "Failed to clear subscription cache"
 msgstr "Не удалось очистить кеш подписок"
 
@@ -581,6 +587,9 @@ msgstr "Последняя"
 msgid "Latest version is installed"
 msgstr "Установлена последняя версия"
 
+msgid "Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)"
+msgstr "Лёгкая сборка расширенного ядра для устройств с малой Flash (~10 МБ вместо ~105 МБ)"
+
 msgid "Line"
 msgstr "Строка"
 
@@ -643,6 +652,9 @@ msgstr "Сетевой интерфейс"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
+
+msgid "Not available for your architecture"
+msgstr "Недоступно для вашей архитектуры"
 
 msgid "Not implement yet"
 msgstr "Ещё не реализовано"
@@ -923,6 +935,9 @@ msgstr "Успешно скопировано!"
 msgid "Switch to extended"
 msgstr "Переключить на extended"
 
+msgid "Switch to lite"
+msgstr "Переключить на lite"
+
 msgid "Switch to stable"
 msgstr "Переключить на stable"
 
@@ -1006,6 +1021,12 @@ msgstr "Исходящий"
 
 msgid "Upstream and bootstrap DNS resolvers, and optional DNS-over-proxy"
 msgstr "Вышестоящий и начальный (bootstrap) DNS-резолверы и опциональный DNS через прокси"
+
+msgid "UPX"
+msgstr "UPX"
+
+msgid "UPX-compressed core: a RAM spike is possible at startup; on devices with less than 256 MB of RAM, enable zram swap"
+msgstr "Сжатое ядро (UPX): при запуске возможен скачок потребления RAM; на устройствах с RAM менее 256 МБ включите zram-swap"
 
 msgid "URL must start with vless://, vmess://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
 msgstr "URL должен начинаться с vless://, vmess://, ss://, trojan://, socks4/5:// или hysteria2:// hy2://"

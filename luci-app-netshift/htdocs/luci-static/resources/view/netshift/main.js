@@ -869,6 +869,9 @@ function parseComponentActionStatus(stdout) {
     return null;
   }
 }
+function normalizeResultBuild(build) {
+  return build === "elf" || build === "compressed" ? build : void 0;
+}
 async function pollSingBoxComponentAction(fetchStatus, sleepFn = sleep, intervalMs = POLL_INTERVAL_MS, maxPolls = MAX_POLLS) {
   for (let poll = 0; poll < maxPolls; poll += 1) {
     const status = await fetchStatus();
@@ -883,7 +886,8 @@ async function pollSingBoxComponentAction(fetchStatus, sleepFn = sleep, interval
         success: Boolean(status.success),
         version: status.version,
         message: status.message,
-        warning: status.warning || void 0
+        warning: status.warning || void 0,
+        build: normalizeResultBuild(status.build)
       };
     }
     await sleepFn(intervalMs);
@@ -1053,8 +1057,9 @@ var NetShiftShellMethods = {
     });
   },
   // Sing-box update checks (sync) — STABLE task-017 contract:
-  //   component_action sing_box check_update        (extended)
-  //   component_action sing_box check_update_stable (stock)
+  //   component_action sing_box check_update         (extended)
+  //   component_action sing_box check_update_stable  (stock)
+  //   component_action sing_box check_update_lite    (extended lite)
   // → {success, current_version, latest_version, status}.
   singBoxCheckUpdate: async (action) => {
     const response = await executeShellCommand({
@@ -1731,7 +1736,10 @@ var initialDiagnosticStore = {
     sing_box_version: "loading",
     openwrt_version: "loading",
     device_model: "loading",
-    sing_box_extended: 0
+    sing_box_extended: 0,
+    sing_box_variant: "stock",
+    sing_box_lite_upx: 0,
+    sing_box_lite_supported: 0
   },
   diagnosticsActions: {
     restart: {
@@ -1859,12 +1867,15 @@ var initialManagerStore = {
     singBoxStockCheck: { loading: false },
     singBoxStockAction: { loading: false },
     singBoxExtendedCheck: { loading: false },
-    singBoxExtendedAction: { loading: false }
+    singBoxExtendedAction: { loading: false },
+    singBoxExtendedLiteCheck: { loading: false },
+    singBoxExtendedLiteAction: { loading: false }
   },
   managerChecks: {
     netshift: { status: null, latest_version: "" },
     sing_box_stock: { status: null, latest_version: "" },
-    sing_box_extended: { status: null, latest_version: "" }
+    sing_box_extended: { status: null, latest_version: "" },
+    sing_box_extended_lite: { status: null, latest_version: "" }
   }
 };
 
@@ -4624,7 +4635,10 @@ async function fetchSystemInfo() {
       diagnosticsSystemInfo: {
         loading: false,
         ...systemInfo.data,
-        sing_box_extended: systemInfo.data.sing_box_extended === 1 ? 1 : 0
+        sing_box_extended: systemInfo.data.sing_box_extended === 1 ? 1 : 0,
+        sing_box_variant: systemInfo.data.sing_box_variant,
+        sing_box_lite_upx: systemInfo.data.sing_box_lite_upx === 1 ? 1 : 0,
+        sing_box_lite_supported: systemInfo.data.sing_box_lite_supported === 1 ? 1 : 0
       }
     });
   } else {
@@ -4637,7 +4651,10 @@ async function fetchSystemInfo() {
         sing_box_version: _("unknown"),
         openwrt_version: _("unknown"),
         device_model: _("unknown"),
-        sing_box_extended: 0
+        sing_box_extended: 0,
+        sing_box_variant: "stock",
+        sing_box_lite_upx: 0,
+        sing_box_lite_supported: 0
       }
     });
   }
@@ -5319,6 +5336,22 @@ function isSingBoxInstalled(systemInfo) {
   const version = systemInfo.sing_box_version;
   return Boolean(version) && version !== NOT_INSTALLED;
 }
+var SING_BOX_VARIANTS = [
+  "stock",
+  "extended",
+  "extended_lite"
+];
+function getSingBoxVariant(systemInfo) {
+  return SING_BOX_VARIANTS.includes(systemInfo.sing_box_variant) ? systemInfo.sing_box_variant : "stock";
+}
+function getSingBoxMutationWarningMessage(warning) {
+  if (warning === "upx_ram_spike") {
+    return _(
+      "UPX-compressed core: a RAM spike is possible at startup; on devices with less than 256 MB of RAM, enable zram swap"
+    );
+  }
+  return warning;
+}
 function getCheckTag(status) {
   if (!status) {
     return void 0;
@@ -5371,7 +5404,7 @@ function netshiftCard(systemInfo, check) {
 }
 function singBoxStockCard(systemInfo, check) {
   const installed = isSingBoxInstalled(systemInfo);
-  const isActive = installed && systemInfo.sing_box_extended === 0;
+  const isActive = installed && getSingBoxVariant(systemInfo) === "stock";
   const actions = [];
   if (isActive) {
     if (check.status === "outdated") {
@@ -5409,7 +5442,7 @@ function singBoxStockCard(systemInfo, check) {
 }
 function singBoxExtendedCard(systemInfo, check) {
   const installed = isSingBoxInstalled(systemInfo);
-  const isActive = installed && systemInfo.sing_box_extended === 1;
+  const isActive = installed && getSingBoxVariant(systemInfo) === "extended";
   const actions = [];
   if (isActive) {
     if (check.status === "outdated") {
@@ -5439,9 +5472,56 @@ function singBoxExtendedCard(systemInfo, check) {
   return {
     key: "sing_box_extended",
     title: "sing-box (extended)",
+    description: _("Extended core with all features (~105 MB)"),
     version: isActive ? systemInfo.sing_box_version : _("Not installed"),
     installed: isActive,
     tag: isActive ? getCheckTag(check.status) : getCheckTag("not_installed"),
+    actions
+  };
+}
+function singBoxExtendedLiteCard(systemInfo, check) {
+  const installed = isSingBoxInstalled(systemInfo);
+  const isActive = installed && getSingBoxVariant(systemInfo) === "extended_lite";
+  const supported = systemInfo.sing_box_lite_supported === 1;
+  const upx = systemInfo.sing_box_lite_upx === 1;
+  const actions = [];
+  if (isActive) {
+    if (check.status === "outdated") {
+      const latest = check.latest_version;
+      actions.push({
+        loadingKey: "singBoxExtendedLiteAction",
+        kind: "update",
+        text: latest ? _("Install %s").replace("%s", latest) : _("Update"),
+        backendAction: "install_extended_lite"
+      });
+    } else {
+      actions.push({
+        loadingKey: "singBoxExtendedLiteCheck",
+        kind: "check",
+        text: _("Check update"),
+        backendAction: "check_update_lite"
+      });
+    }
+  } else {
+    actions.push({
+      loadingKey: "singBoxExtendedLiteAction",
+      kind: "switch",
+      text: _("Switch to lite"),
+      backendAction: "install_extended_lite"
+    });
+  }
+  return {
+    key: "sing_box_extended_lite",
+    title: "sing-box (extended lite)",
+    description: _(
+      "Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)"
+    ),
+    version: isActive ? systemInfo.sing_box_version : _("Not installed"),
+    installed: isActive,
+    tag: isActive ? getCheckTag(check.status) : getCheckTag("not_installed"),
+    extraTag: isActive && upx ? { label: _("UPX"), kind: "warning" } : void 0,
+    note: !supported ? _("Not available for your architecture") : isActive && upx ? _("Compressed build: uses more RAM at startup") : void 0,
+    actionsDisabled: !supported,
     actions
   };
 }
@@ -5449,7 +5529,8 @@ function getComponentCards(systemInfo, checks) {
   return [
     netshiftCard(systemInfo, checks.netshift),
     singBoxStockCard(systemInfo, checks.sing_box_stock),
-    singBoxExtendedCard(systemInfo, checks.sing_box_extended)
+    singBoxExtendedCard(systemInfo, checks.sing_box_extended),
+    singBoxExtendedLiteCard(systemInfo, checks.sing_box_extended_lite)
   ];
 }
 
@@ -5464,7 +5545,10 @@ async function fetchSystemInfo2() {
       diagnosticsSystemInfo: {
         loading: false,
         ...systemInfo.data,
-        sing_box_extended: systemInfo.data.sing_box_extended === 1 ? 1 : 0
+        sing_box_extended: systemInfo.data.sing_box_extended === 1 ? 1 : 0,
+        sing_box_variant: systemInfo.data.sing_box_variant,
+        sing_box_lite_upx: systemInfo.data.sing_box_lite_upx === 1 ? 1 : 0,
+        sing_box_lite_supported: systemInfo.data.sing_box_lite_supported === 1 ? 1 : 0
       }
     });
   } else {
@@ -5477,7 +5561,10 @@ async function fetchSystemInfo2() {
         sing_box_version: _("unknown"),
         openwrt_version: _("unknown"),
         device_model: _("unknown"),
-        sing_box_extended: 0
+        sing_box_extended: 0,
+        sing_box_variant: "stock",
+        sing_box_lite_upx: 0,
+        sing_box_lite_supported: 0
       }
     });
   }
@@ -5527,9 +5614,8 @@ function getCheckToastMessage(status) {
 async function runSingBoxCheck2(component, button) {
   setActionLoading(button.loadingKey, true);
   try {
-    const parsed = await NetShiftShellMethods.singBoxCheckUpdate(
-      button.backendAction === "check_update_stable" ? "check_update_stable" : "check_update"
-    );
+    const checkAction = button.backendAction === "check_update_stable" || button.backendAction === "check_update_lite" ? button.backendAction : "check_update";
+    const parsed = await NetShiftShellMethods.singBoxCheckUpdate(checkAction);
     if (!parsed.success) {
       showToast(parsed.message || _("Failed to execute!"), "error");
       return;
@@ -5566,9 +5652,8 @@ async function runSingBoxMutation(component, button) {
   setActionLoading(button.loadingKey, true);
   showToast(_("Switching sing-box core, this may take a few minutes\u2026"), "info");
   try {
-    const result = await NetShiftShellMethods.singBoxComponentAction(
-      button.backendAction === "install_stable" ? "install_stable" : "install_extended"
-    );
+    const installAction = button.backendAction === "install_stable" || button.backendAction === "install_extended_lite" ? button.backendAction : "install_extended";
+    const result = await NetShiftShellMethods.singBoxComponentAction(installAction);
     if (result.success) {
       const changed = _("Sing-box core changed, version:");
       showToast(`${changed} ${result.version || ""}`.trim(), "success");
@@ -5580,7 +5665,11 @@ async function runSingBoxMutation(component, button) {
     }
     if (result.warning) {
       logger.warn("[MANAGER]", "runSingBoxMutation warning", result.warning);
-      showToast(result.warning, "warning", 15e3);
+      showToast(
+        getSingBoxMutationWarningMessage(result.warning),
+        "warning",
+        15e3
+      );
     }
   } catch (error) {
     logger.error("[MANAGER]", "runSingBoxMutation failed", error);
@@ -5636,37 +5725,49 @@ function handleManagerAction(card, button) {
   }
   void runSingBoxMutation(card.key, button);
 }
-function renderComponentTag(card) {
-  if (!card.tag) {
-    return null;
-  }
+function renderComponentTag(tag) {
   return E(
     "span",
     {
       class: [
         "pdk_manager-page__component__tag",
-        card.tag.kind === "success" ? "pdk_manager-page__component__tag--success" : "",
-        card.tag.kind === "warning" ? "pdk_manager-page__component__tag--warning" : ""
+        tag.kind === "success" ? "pdk_manager-page__component__tag--success" : "",
+        tag.kind === "warning" ? "pdk_manager-page__component__tag--warning" : ""
       ].filter(Boolean).join(" ")
     },
-    card.tag.label
+    tag.label
   );
 }
 function renderComponentCard(card) {
   const managerActions = store.get().managerActions;
   const anyActionLoading = isAnyActionLoading();
   const systemInfoLoading = isSystemInfoLoading();
-  const tag = renderComponentTag(card);
+  const tags = [card.tag, card.extraTag].filter(
+    (tag) => Boolean(tag)
+  );
   const headerChildren = [
     E("b", { class: "pdk_manager-page__component__title" }, card.title)
   ];
-  if (tag) {
+  if (tags.length > 0) {
     headerChildren.push(
-      E("div", { class: "pdk_manager-page__component__status" }, [tag])
+      E("div", { class: "pdk_manager-page__component__status" }, [
+        ...tags.map(renderComponentTag)
+      ])
     );
   }
-  return E("div", { class: "card pdk_manager-page__component" }, [
-    E("div", { class: "pdk_manager-page__component__header" }, headerChildren),
+  const children = [
+    E("div", { class: "pdk_manager-page__component__header" }, headerChildren)
+  ];
+  if (card.description) {
+    children.push(
+      E(
+        "div",
+        { class: "pdk_manager-page__component__description" },
+        card.description
+      )
+    );
+  }
+  children.push(
     E("div", { class: "pdk_manager-page__component__version" }, [
       E(
         "span",
@@ -5688,12 +5789,18 @@ function renderComponentCard(card) {
           text: action.text,
           icon: action.kind === "check" || action.kind === "check_netshift" ? renderSearchIcon24 : renderRotateCcwIcon24,
           loading,
-          disabled: systemInfoLoading || anyActionLoading && !loading,
+          disabled: systemInfoLoading || card.actionsDisabled || anyActionLoading && !loading,
           onClick: () => handleManagerAction(card, action)
         });
       })
     )
-  ]);
+  );
+  if (card.note) {
+    children.push(
+      E("div", { class: "pdk_manager-page__component__note" }, card.note)
+    );
+  }
+  return E("div", { class: "card pdk_manager-page__component" }, children);
 }
 function renderManagerComponents() {
   const container = document.getElementById("pdk_manager-components");
@@ -5708,7 +5815,9 @@ function renderManagerComponents() {
       ),
       netshift_latest_version: diagnosticsSystemInfo.netshift_latest_version,
       sing_box_version: diagnosticsSystemInfo.sing_box_version,
-      sing_box_extended: diagnosticsSystemInfo.sing_box_extended
+      sing_box_variant: diagnosticsSystemInfo.sing_box_variant,
+      sing_box_lite_upx: diagnosticsSystemInfo.sing_box_lite_upx,
+      sing_box_lite_supported: diagnosticsSystemInfo.sing_box_lite_supported
     },
     managerChecks
   ).map(renderComponentCard);
@@ -5823,6 +5932,14 @@ var styles5 = `
     overflow: hidden;
 }
 
+.pdk_manager-page__component__description {
+    color: var(--text-color-medium);
+    font-size: 13px;
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .pdk_manager-page__component__version {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -5863,6 +5980,14 @@ var styles5 = `
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+}
+
+.pdk_manager-page__component__note {
+    color: var(--text-color-medium);
+    font-size: 12px;
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .pdk_manager-page__component__actions > .pdk-partial-button {

@@ -95,6 +95,51 @@ describe('pollSingBoxComponentAction', () => {
     expect(failed.warning).toBe('apk world pins sing-box');
   });
 
+  it('propagates the lite install build flavour and warning code', async () => {
+    // Terminal state of an extended-lite install: build + the machine-readable
+    // upx_ram_spike code ride the same job-status JSON as version/warning.
+    const result = await pollSingBoxComponentAction(
+      makeFetchStatus([
+        {
+          running: false,
+          success: true,
+          version: '1.14.1-extended-2.7.2-lite',
+          warning: 'upx_ram_spike',
+          build: 'compressed',
+          exit_code: 0,
+        },
+      ]),
+      noSleep,
+    );
+
+    expect(result).toEqual({
+      success: true,
+      version: '1.14.1-extended-2.7.2-lite',
+      warning: 'upx_ram_spike',
+      build: 'compressed',
+    });
+  });
+
+  it('normalizes an empty or unknown build flavour to undefined', async () => {
+    const empty = await pollSingBoxComponentAction(
+      makeFetchStatus([
+        { running: false, success: true, version: '1.12.4', build: '' },
+      ]),
+      noSleep,
+    );
+
+    expect(empty.build).toBeUndefined();
+
+    const weird = await pollSingBoxComponentAction(
+      makeFetchStatus([
+        { running: false, success: true, version: '1.12.4', build: 'tar' },
+      ]),
+      noSleep,
+    );
+
+    expect(weird.build).toBeUndefined();
+  });
+
   it('reports no warning when the job state carries an empty one', async () => {
     const result = await pollSingBoxComponentAction(
       makeFetchStatus([

@@ -12,7 +12,7 @@
 #             nftv6, selmark, isolation, monfd, unsupported, extgate, vlessenc, textlist,
 #             chunkcheck, diagnostics, subscription, fastest, insecure, rejected,
 #             jobstate, selfheal, dnsdetour, ecssubnet, suburlopt, subcron, globalproxy,
-#             bittorrent, stablecheck, extcheck, sbextarch, netshiftcheck, latesttag,
+#             bittorrent, stablecheck, extcheck, sbextarch, sbextlite, netshiftcheck, latesttag,
 #             ghredirect, selfupdate, backupguard, hotreload, cachepersist,
 #             domsep, domcase
 # ──────────────────────────────────────────────────────────────────

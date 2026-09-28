@@ -115,6 +115,37 @@ SB_REQUIRED_VERSION="1.12.0"
 # First sing-box-extended release (the part after "-extended-") whose VLESS
 # outbound has the `encryption` field; its pre-releases already carry it.
 SB_EXTENDED_VLESS_ENCRYPTION_MIN="2.0.0"
+# ── sing-box extended lite (third core variant) ─────────────────────
+# Version suffix that marks a lite build: the release tag and the version
+# banner of the binary are the upstream extended tag plus this suffix
+# ("1.14.1-extended-2.7.2" -> "1.14.1-extended-2.7.2-lite").
+SB_LITE_SUFFIX="-lite"
+# Minimum effective free space (MB) on / for the pure ELF lite asset: at or
+# above this the ELF build is chosen automatically, below it the
+# UPX-compressed build (plus its wrapper) is the only one that fits.
+SB_LITE_ELF_MIN_FLASH_MB=64
+# Total RAM (MB) below which a UPX-compressed lite install reports the
+# machine-readable warning code "upx_ram_spike": a UPX binary unpacks itself
+# into memory at exec time, briefly needing more RAM than the process uses
+# afterwards.
+SB_LITE_RAM_WARN_MB=256
+# Our fork's lite release repository. Tags mirror the shtorm-7 extended tags
+# plus SB_LITE_SUFFIX; assets are
+# sing-box-extended-lite-linux-<arch>[-compressed].tar.gz plus sha256sums.txt.
+UPDATES_SING_BOX_LITE_REPO="yandexru45/sing-box-extended-lite"
+# UPX lite layout: the compressed core binary lives here and /usr/bin/sing-box
+# is a POSIX sh wrapper serving `version` from the snapshot cache below. The
+# path deliberately matches the layout the community manual installs
+# (MANCrimSon/EikeiDev) use, so those are detected and cleaned by the same
+# code paths as ours.
+UPDATES_SING_BOX_LITE_CORE_BIN="/usr/libexec/sing-box-core"
+# Snapshot of the real `sing-box version` banner written at lite install
+# time; the UPX wrapper cats it instead of unpacking the core for a mere
+# version probe (and rebuilds it on demand when it is missing).
+NETSHIFT_CORE_VERSION_CACHE="/etc/netshift/core-version.cache"
+# Cache file a community manual lite install leaves behind (its wrapper reads
+# it); removed as an artifact of leaving the lite variant.
+UPDATES_SING_BOX_LITE_ORPHAN_CACHE="/etc/sing-box-version.cache"
 # Monitoring
 MONITOR_CHECK_INTERVAL=10
 # How often the monitor looks for a server picked outside LuCI (Clash dashboard).

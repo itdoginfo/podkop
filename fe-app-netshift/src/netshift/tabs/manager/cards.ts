@@ -4,7 +4,8 @@ import { normalizeCompiledVersion } from '../../../helpers/normalizeCompiledVers
 export type ManagerComponentKey =
   | 'netshift'
   | 'sing_box_stock'
-  | 'sing_box_extended';
+  | 'sing_box_extended'
+  | 'sing_box_extended_lite';
 
 // `check` = a sing-box update check (routed to the sing-box check method);
 // `check_netshift` = the NetShift card's on-demand check (task-030), which now
@@ -27,7 +28,9 @@ export interface ManagerActionDescriptor {
     | 'singBoxStockCheck'
     | 'singBoxStockAction'
     | 'singBoxExtendedCheck'
-    | 'singBoxExtendedAction';
+    | 'singBoxExtendedAction'
+    | 'singBoxExtendedLiteCheck'
+    | 'singBoxExtendedLiteAction';
   kind: ManagerActionKind;
   text: string;
   // For `update`/`switch`: the backend install action; for `self_update`:
@@ -36,8 +39,10 @@ export interface ManagerActionDescriptor {
   backendAction?:
     | 'check_update'
     | 'check_update_stable'
+    | 'check_update_lite'
     | 'install_stable'
     | 'install_extended'
+    | 'install_extended_lite'
     | 'self_update';
 }
 
@@ -49,9 +54,17 @@ export interface ManagerCardTag {
 export interface ManagerCardDescriptor {
   key: ManagerComponentKey;
   title: string;
+  // One-line muted summary under the header (size hints for the cores).
+  description?: string;
   version: string;
   installed: boolean;
   tag?: ManagerCardTag;
+  // Extra badge rendered next to `tag` (e.g. the lite card's UPX marker).
+  extraTag?: ManagerCardTag;
+  // Muted footnote under the actions (unsupported-arch / UPX RAM caveat).
+  note?: string;
+  // Disables every action of the card (e.g. lite on an unsupported arch).
+  actionsDisabled?: boolean;
   actions: ManagerActionDescriptor[];
 }
 
@@ -59,7 +72,12 @@ export type ManagerSystemInfo = {
   netshift_version: string;
   netshift_latest_version: string;
   sing_box_version: string;
-  sing_box_extended: 0 | 1;
+  // Active core flavour — the single source of truth for card activity
+  // (replaces the old sing_box_extended bit, which stayed 0|1 and could not
+  // tell a lite install from a stock one).
+  sing_box_variant: NetShift.SingBoxVariant;
+  sing_box_lite_upx: 0 | 1;
+  sing_box_lite_supported: 0 | 1;
 };
 
 export type ManagerCheckState = {
@@ -73,6 +91,40 @@ export function isSingBoxInstalled(systemInfo: ManagerSystemInfo): boolean {
   const version = systemInfo.sing_box_version;
 
   return Boolean(version) && version !== NOT_INSTALLED;
+}
+
+const SING_BOX_VARIANTS: NetShift.SingBoxVariant[] = [
+  'stock',
+  'extended',
+  'extended_lite',
+];
+
+/**
+ * Defensive variant read: an older backend (or a failed fetch fallback) may
+ * carry an unknown/missing sing_box_variant — anything unrecognized maps to
+ * 'stock' so exactly one core card stays active at any time.
+ */
+export function getSingBoxVariant(
+  systemInfo: ManagerSystemInfo,
+): NetShift.SingBoxVariant {
+  return SING_BOX_VARIANTS.includes(systemInfo.sing_box_variant)
+    ? systemInfo.sing_box_variant
+    : 'stock';
+}
+
+/**
+ * Map a machine-readable install warning code to a translatable message.
+ * Only 'upx_ram_spike' is a code; anything else is already human-readable
+ * backend prose (e.g. the apk-world pin note) and passes through unchanged.
+ */
+export function getSingBoxMutationWarningMessage(warning: string): string {
+  if (warning === 'upx_ram_spike') {
+    return _(
+      'UPX-compressed core: a RAM spike is possible at startup; on devices with less than 256 MB of RAM, enable zram swap',
+    );
+  }
+
+  return warning;
 }
 
 /**
@@ -161,7 +213,7 @@ function singBoxStockCard(
   check: ManagerCheckState,
 ): ManagerCardDescriptor {
   const installed = isSingBoxInstalled(systemInfo);
-  const isActive = installed && systemInfo.sing_box_extended === 0;
+  const isActive = installed && getSingBoxVariant(systemInfo) === 'stock';
   const actions: ManagerActionDescriptor[] = [];
 
   if (isActive) {
@@ -207,7 +259,7 @@ function singBoxExtendedCard(
   check: ManagerCheckState,
 ): ManagerCardDescriptor {
   const installed = isSingBoxInstalled(systemInfo);
-  const isActive = installed && systemInfo.sing_box_extended === 1;
+  const isActive = installed && getSingBoxVariant(systemInfo) === 'extended';
   const actions: ManagerActionDescriptor[] = [];
 
   if (isActive) {
@@ -240,6 +292,7 @@ function singBoxExtendedCard(
   return {
     key: 'sing_box_extended',
     title: 'sing-box (extended)',
+    description: _('Extended core with all features (~105 MB)'),
     version: isActive ? systemInfo.sing_box_version : _('Not installed'),
     installed: isActive,
     tag: isActive ? getCheckTag(check.status) : getCheckTag('not_installed'),
@@ -247,8 +300,73 @@ function singBoxExtendedCard(
   };
 }
 
+// sing-box (extended lite): the third core flavour — a light build of the
+// extended core (~10 MB vs ~105 MB) for routers with little flash. Visible
+// even on unsupported architectures, but with disabled actions + a note;
+// active ⇔ sing_box_variant === 'extended_lite' (covers our installs AND the
+// community manual UPX layouts the backend detects). A UPX-compressed install
+// additionally carries the UPX badge + a RAM-footnote.
+function singBoxExtendedLiteCard(
+  systemInfo: ManagerSystemInfo,
+  check: ManagerCheckState,
+): ManagerCardDescriptor {
+  const installed = isSingBoxInstalled(systemInfo);
+  const isActive =
+    installed && getSingBoxVariant(systemInfo) === 'extended_lite';
+  const supported = systemInfo.sing_box_lite_supported === 1;
+  const upx = systemInfo.sing_box_lite_upx === 1;
+  const actions: ManagerActionDescriptor[] = [];
+
+  if (isActive) {
+    if (check.status === 'outdated') {
+      const latest = check.latest_version;
+
+      actions.push({
+        loadingKey: 'singBoxExtendedLiteAction',
+        kind: 'update',
+        text: latest ? _('Install %s').replace('%s', latest) : _('Update'),
+        backendAction: 'install_extended_lite',
+      });
+    } else {
+      actions.push({
+        loadingKey: 'singBoxExtendedLiteCheck',
+        kind: 'check',
+        text: _('Check update'),
+        backendAction: 'check_update_lite',
+      });
+    }
+  } else {
+    actions.push({
+      loadingKey: 'singBoxExtendedLiteAction',
+      kind: 'switch',
+      text: _('Switch to lite'),
+      backendAction: 'install_extended_lite',
+    });
+  }
+
+  return {
+    key: 'sing_box_extended_lite',
+    title: 'sing-box (extended lite)',
+    description: _(
+      'Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)',
+    ),
+    version: isActive ? systemInfo.sing_box_version : _('Not installed'),
+    installed: isActive,
+    tag: isActive ? getCheckTag(check.status) : getCheckTag('not_installed'),
+    extraTag:
+      isActive && upx ? { label: _('UPX'), kind: 'warning' } : undefined,
+    note: !supported
+      ? _('Not available for your architecture')
+      : isActive && upx
+        ? _('Compressed build: uses more RAM at startup')
+        : undefined,
+    actionsDisabled: !supported,
+    actions,
+  };
+}
+
 /**
- * Build the three Component Manager cards from systemInfo + per-component check
+ * Build the four Component Manager cards from systemInfo + per-component check
  * state. Pure (no DOM, no store) so it is unit-testable; the controller maps
  * descriptors to DOM + click handlers.
  */
@@ -260,5 +378,6 @@ export function getComponentCards(
     netshiftCard(systemInfo, checks.netshift),
     singBoxStockCard(systemInfo, checks.sing_box_stock),
     singBoxExtendedCard(systemInfo, checks.sing_box_extended),
+    singBoxExtendedLiteCard(systemInfo, checks.sing_box_extended_lite),
   ];
 }
