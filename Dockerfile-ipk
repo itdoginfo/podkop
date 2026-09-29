@@ -1,11 +1,16 @@
 FROM itdoginfo/openwrt-sdk-ipk:24.10.6
 
+# Heavy, source-independent step goes first so this layer stays cached between
+# builds: host tools needed by the LuCI package (po2lmo for translations).
+RUN make defconfig && make package/luci-base/host/compile -j4 V=s
+
 ARG NETSHIFT_VERSION
 ENV NETSHIFT_VERSION=${NETSHIFT_VERSION}
 
 COPY ./netshift /builder/package/feeds/utilities/netshift
 COPY ./luci-app-netshift /builder/package/feeds/luci/luci-app-netshift
 
-RUN make defconfig && \
-    make package/netshift/compile V=s -j4 && \
-    make package/luci-app-netshift/compile V=s -j4
+# Both packages are arch-independent (PKGARCH:=all) and compile nothing, so
+# NO_DEPS=1 skips building their dependency trees (kernel modules, sing-box, ...).
+RUN make package/netshift/compile NO_DEPS=1 -j4 V=s && \
+    make package/luci-app-netshift/compile NO_DEPS=1 -j4 V=s
