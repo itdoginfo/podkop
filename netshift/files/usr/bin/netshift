@@ -1367,10 +1367,15 @@ monitor_sing_box() {
         # from a clean cache instead of failing on every boot (no-op otherwise).
         discard_restored_sing_box_cache
 
-        dnsmasq_restore
+        # With dont_touch_dhcp the user owns /etc/config/dhcp: restoring here
+        # would wipe their DNS forwardings (server list) on every crash/slow boot.
+        config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+        if [ "$dont_touch_dhcp" -eq 0 ]; then
+            dnsmasq_restore
+        fi
 
         if [ "$crash_count" -ge "$MONITOR_MAX_CRASHES" ]; then
-            log "sing-box crashed $crash_count times consecutively, giving up. DNS has been restored." "error"
+            log "sing-box crashed $crash_count times consecutively, giving up." "error"
             break
         fi
 
