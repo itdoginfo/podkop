@@ -85,9 +85,40 @@ check_requirements() {
     fi
 }
 
+# A section with `option disabled '1'` is ignored completely: it produces no
+# outbound, routing, lists, cron/update work or dashboard entry, but its
+# settings stay in UCI so it can be re-enabled with `disabled '0'`.
+section_is_disabled() {
+    local section="$1"
+    local disabled
+
+    config_get_bool disabled "$section" "disabled" 0
+    [ "$disabled" -eq 1 ]
+}
+
+# config_foreach over type "section" that skips disabled sections. Use it for
+# every callback that generates config or does per-section work.
+# Usage: foreach_active_section <callback> "section" [args...]
+_active_section_callback=
+foreach_active_section() {
+    local previous_callback="$_active_section_callback"
+
+    _active_section_callback="$1"
+    shift
+    config_foreach _active_section_dispatch "$@"
+    _active_section_callback="$previous_callback"
+}
+
+_active_section_dispatch() {
+    section_is_disabled "$1" && return 0
+    "$_active_section_callback" "$@"
+}
+
 section_has_configured_outbound() {
     local section="$1"
     local connection_type proxy_config_type
+
+    section_is_disabled "$section" && return 1
 
     config_get connection_type "$section" "connection_type"
 
@@ -156,7 +187,7 @@ _check_outbound_section() {
 has_outbound_section() {
     local section_exists=1
 
-    config_foreach _check_outbound_section "section"
+    foreach_active_section _check_outbound_section "section"
 
     return $section_exists
 }
@@ -856,7 +887,7 @@ prepare_subscription_cache_for_startup() {
 
 prepare_subscription_caches_for_startup() {
     subscription_startup_blocked=0
-    config_foreach prepare_subscription_cache_for_startup "section"
+    foreach_active_section prepare_subscription_cache_for_startup "section"
 
     [ "$subscription_startup_blocked" -eq 0 ]
 }
@@ -1078,7 +1109,7 @@ start_main() {
 
     migration
 
-    config_foreach process_validate_service "section"
+    foreach_active_section process_validate_service "section"
 
     br_netfilter_disable
 
@@ -1111,7 +1142,7 @@ start_main() {
     # here: a config sing-box rejects makes sing_box_init_config exit the
     # process first, and the marker then stays for the next subscription_update.
     rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
-    config_foreach add_cron_job "section"
+    foreach_active_section add_cron_job "section"
     sync_subscription_cron_jobs
     restore_sing_box_cache
     /etc/init.d/sing-box start
@@ -1610,7 +1641,7 @@ populate_netshift_subnets_from_string() {
 # Only used in the destination-selective default mode; under global_proxy ALL
 # traffic is already marked. Fail-open: a missing/empty list adds no rule.
 nft_mark_fully_routed_source_ips() {
-    config_foreach _nft_mark_fully_routed_ips_for_section "section"
+    foreach_active_section _nft_mark_fully_routed_ips_for_section "section"
 }
 
 _nft_mark_fully_routed_ips_for_section() {
@@ -2058,7 +2089,7 @@ sync_subscription_cron_jobs() {
     local subscription_update_interval cron_job
 
     SUBSCRIPTION_UPDATE_INTERVALS=""
-    config_foreach _collect_subscription_update_interval "section"
+    foreach_active_section _collect_subscription_update_interval "section"
 
     (crontab -l | grep -v "/usr/bin/netshift subscription_update") | crontab -
 
@@ -2156,9 +2187,9 @@ list_update() {
     echolog "📥 Downloading and processing lists..."
 
     local update_failed=0
-    config_foreach import_community_subnet_lists "section" || update_failed=1
-    config_foreach import_domains_from_remote_domain_lists "section" || update_failed=1
-    config_foreach import_subnets_from_remote_subnet_lists "section" || update_failed=1
+    foreach_active_section import_community_subnet_lists "section" || update_failed=1
+    foreach_active_section import_domains_from_remote_domain_lists "section" || update_failed=1
+    foreach_active_section import_subnets_from_remote_subnet_lists "section" || update_failed=1
 
     if [ "$update_failed" -eq 0 ]; then
         echolog "✅ Lists update completed successfully"
@@ -2337,7 +2368,7 @@ subscription_update() {
         _subscription_section_selected "$section" || return
         has_subscription=1
     }
-    config_foreach _check_subscription_section "section"
+    foreach_active_section _check_subscription_section "section"
 
     if [ "$has_subscription" -eq 0 ]; then
         echolog "ℹ️ No subscription sections found, nothing to update"
@@ -2472,7 +2503,7 @@ subscription_update() {
     mkdir -p "$TMP_SING_BOX_FOLDER"
     : > "$SUBSCRIPTION_PENDING_APPLY_FLAG"
 
-    config_foreach _update_subscription_for_section "section"
+    foreach_active_section _update_subscription_for_section "section"
 
     if [ "$updated_sections" -eq 0 ] && [ "$pending_apply" -eq 0 ]; then
         rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
@@ -2541,7 +2572,7 @@ subscription_clear_cache_and_redownload() {
         config_get proxy_config_type "$section" "proxy_config_type"
         [ "$proxy_config_type" = "subscription" ] && has_subscription=1
     }
-    config_foreach _detect_subscription_section_for_clear "section"
+    foreach_active_section _detect_subscription_section_for_clear "section"
 
     # Guarded full-reset delete of the cache directory CONTENTS. The two guards
     # (non-empty constant AND existing directory) make a wild `rm -f /*`
@@ -2655,7 +2686,7 @@ sing_box_configure_outbounds() {
     SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
-    config_foreach configure_outbound_handler "section"
+    foreach_active_section configure_outbound_handler "section"
 }
 
 sing_box_get_unique_outbound_tag() {
@@ -3722,9 +3753,9 @@ sing_box_configure_route() {
         config_list_foreach "settings" "routing_excluded_ips" exclude_source_ip_from_routing_handler "$rule_tag"
     fi
 
-    config_foreach include_source_ips_in_routing_handler "section"
+    foreach_active_section include_source_ips_in_routing_handler "section"
 
-    config_foreach configure_routing_for_section_lists "section"
+    foreach_active_section configure_routing_for_section_lists "section"
 }
 
 include_source_ips_in_routing_handler() {
@@ -3782,7 +3813,7 @@ configure_common_direct_route_rule() {
 
     global_proxy_direct_needed=0
     if [ "$exclusion_section_list_enabled" -eq 0 ]; then
-        config_foreach _check_global_proxy_direct_needed "section"
+        foreach_active_section _check_global_proxy_direct_needed "section"
     fi
 
     if [ "$exclusion_section_list_enabled" -eq 1 ] || [ "$global_proxy_direct_needed" -eq 1 ]; then
@@ -4230,7 +4261,7 @@ sing_box_additional_inbounds() {
         fi
     fi
 
-    config_foreach configure_section_mixed_proxy "section"
+    foreach_active_section configure_section_mixed_proxy "section"
 }
 
 configure_section_mixed_proxy() {
@@ -4647,7 +4678,7 @@ _get_dns_detour_tag() {
 get_first_outbound_section() {
     local first_section=""
 
-    config_foreach _determine_first_outbound_section "section"
+    foreach_active_section _determine_first_outbound_section "section"
 
     echo "$first_section"
 }
@@ -4665,7 +4696,7 @@ _determine_global_proxy_section() {
 get_global_proxy_section() {
     local global_section=""
 
-    config_foreach _determine_global_proxy_section "section"
+    foreach_active_section _determine_global_proxy_section "section"
 
     echo "$global_section"
 }
@@ -4690,6 +4721,8 @@ section_has_enabled_lists() {
     local section="$1"
     local community_lists user_domain_list_type user_subnet_list_type local_domain_lists local_subnet_lists \
         remote_domain_lists remote_subnet_lists
+
+    section_is_disabled "$section" && return 1
 
     config_get community_lists "$section" "community_lists"
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"

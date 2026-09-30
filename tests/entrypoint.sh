@@ -580,9 +580,13 @@ _orig_cg=config_get
 for fn in nft_init_interfaces_set populate_netshift_subnets_from_file \
           populate_netshift_subnets_from_string nft_mark_fully_routed_source_ips \
           _nft_mark_fully_routed_ips_for_section _nft_mark_fully_routed_ip_handler \
+          foreach_active_section _active_section_dispatch \
           create_nft_rules; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
+
+# This harness has no `disabled` option: sections are never disabled.
+section_is_disabled() { return 1; }
 
 # The fully_routed handler reads connection_type via config_get; make that
 # section a proxy section so its IPs get a source mark rule.
@@ -927,6 +931,7 @@ log() { :; }
 echolog() { :; }
 nolog() { :; }
 for fn in get_global_proxy_section _determine_global_proxy_section \
+          foreach_active_section _active_section_dispatch section_is_disabled \
           section_has_configured_outbound get_subscription_urls_for_section \
           _collect_subscription_url_handler; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
@@ -5099,6 +5104,10 @@ config_get() {
 
 # Extract the worker VERBATIM from the shipped bin (column-0 opener → column-0 '}').
 eval "$(awk '/^subscription_clear_cache_and_redownload\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^foreach_active_section\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^_active_section_dispatch\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+# The stubbed sections in this harness are never disabled.
+section_is_disabled() { return 1; }
 
 # Seed helper: write the four per-feed sidecars for a synthetic (section,hash).
 seed_feed() {
@@ -8218,6 +8227,7 @@ for fn in get_subscription_cron_line_for_interval \
           _collect_subscription_update_interval \
           sync_subscription_cron_jobs \
           remove_cron_job \
+          foreach_active_section _active_section_dispatch section_is_disabled \
           subscription_update; do
     eval "$(extract "$fn")"
 done
@@ -8841,6 +8851,135 @@ test_global_proxy() {
     else
         skip "sing-box not installed — skipping global_proxy config check"
     fi
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test: `disabled` option for sections (issue #42)
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL section_is_disabled / foreach_active_section /
+# section_has_configured_outbound / section_has_enabled_lists (extracted
+# verbatim from the bin) against a stubbed UCI layer. Asserts:
+#   - a section with `disabled '1'` is skipped by foreach_active_section and
+#     is reported as having no outbound and no enabled lists;
+#   - `disabled '0'` and a MISSING option (every pre-existing config) keep the
+#     section fully active (upgrade safety);
+#   - the callback bookkeeping is restored after the walk (nesting-safe).
+test_section_disabled() {
+    header "Section disabled option (issue #42)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ]; then
+        skip "netshift bin not found"
+        return
+    fi
+
+    local out
+    out="$(
+        # shellcheck disable=SC2030
+        extract() {
+            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
+        }
+        eval "$(extract section_is_disabled)"
+        eval "$(extract _active_section_dispatch)"
+        eval "$(extract foreach_active_section)"
+        eval "$(extract section_has_configured_outbound)"
+        eval "$(extract section_has_enabled_lists)"
+        eval "$(extract _check_outbound_section)"
+        eval "$(extract has_outbound_section)"
+        eval "$(extract _determine_first_outbound_section)"
+        eval "$(extract get_first_outbound_section)"
+        eval "$(extract _determine_global_proxy_section)"
+        eval "$(extract get_global_proxy_section)"
+        _active_section_callback=
+
+        SD_SECTIONS="alpha beta gamma delta"
+        sd_key() { printf 'SD_%s_%s' "$1" "$2"; }
+        config_get() {
+            local _v
+            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
+            [ -n "$_v" ] || _v="$4"
+            eval "$1=\"\$_v\""
+        }
+        config_get_bool() {
+            local _v
+            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
+            [ -n "$_v" ] || _v="$4"
+            case "$_v" in 1 | on | true | yes | enabled) _v=1 ;; *) _v=0 ;; esac
+            eval "$1=\"\$_v\""
+        }
+        config_foreach() {
+            local _cb="$1" _t="$2" _s
+            shift 2
+            for _s in $SD_SECTIONS; do "$_cb" "$_s" "$@"; done
+        }
+
+        # alpha: active (no `disabled` option at all = every existing config)
+        # beta:  disabled '1'    gamma: disabled '0'    delta: disabled '1'
+        for s in alpha beta gamma delta; do
+            eval "SD_${s}_connection_type=proxy"
+            eval "SD_${s}_proxy_config_type=url"
+            eval "SD_${s}_proxy_string=vless://x@example.com:443"
+            eval "SD_${s}_community_lists=russia_inside"
+        done
+        SD_beta_disabled=1
+        SD_gamma_disabled=0
+        SD_delta_disabled=1
+
+        visited=""
+        sd_visit() { visited="$visited $1"; }
+        foreach_active_section sd_visit "section"
+        echo "walk:${visited# }"
+
+        section_is_disabled alpha && echo "alpha-disabled:yes" || echo "alpha-disabled:no"
+        section_is_disabled beta && echo "beta-disabled:yes" || echo "beta-disabled:no"
+        section_is_disabled gamma && echo "gamma-disabled:yes" || echo "gamma-disabled:no"
+
+        section_has_configured_outbound alpha && echo "alpha-outbound:yes" || echo "alpha-outbound:no"
+        section_has_configured_outbound beta && echo "beta-outbound:yes" || echo "beta-outbound:no"
+        section_has_enabled_lists alpha && echo "alpha-lists:yes" || echo "alpha-lists:no"
+        section_has_enabled_lists beta && echo "beta-lists:yes" || echo "beta-lists:no"
+
+        echo "callback-restored:${_active_section_callback:-empty}"
+
+        # Selection helpers: a disabled section is never the first outbound and
+        # never the global-proxy section, even when it comes first / asks for it.
+        SD_beta_global_proxy=1
+        SD_gamma_global_proxy=1
+        SD_SECTIONS="beta alpha gamma"
+        echo "first-outbound:$(get_first_outbound_section)"
+        echo "global-proxy:$(get_global_proxy_section)"
+        has_outbound_section && echo "has-outbound:yes" || echo "has-outbound:no"
+
+        # Only disabled sections left -> as if there were no sections at all.
+        SD_SECTIONS="beta delta"
+        echo "only-disabled-first:[$(get_first_outbound_section)]"
+        echo "only-disabled-global:[$(get_global_proxy_section)]"
+        has_outbound_section && echo "only-disabled-has-outbound:yes" || echo "only-disabled-has-outbound:no"
+    )"
+
+    _sd_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted line [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _sd_check "disabled sections are skipped by foreach_active_section" "walk:alpha gamma"
+    _sd_check "missing disabled option keeps the section active" "alpha-disabled:no"
+    _sd_check "disabled '1' is detected" "beta-disabled:yes"
+    _sd_check "disabled '0' keeps the section active" "gamma-disabled:no"
+    _sd_check "active section has a configured outbound" "alpha-outbound:yes"
+    _sd_check "disabled section has no configured outbound" "beta-outbound:no"
+    _sd_check "active section has enabled lists" "alpha-lists:yes"
+    _sd_check "disabled section has no enabled lists" "beta-lists:no"
+    _sd_check "foreach_active_section restores its callback state" "callback-restored:empty"
+    _sd_check "disabled section is never the first outbound" "first-outbound:alpha"
+    _sd_check "disabled section is never the global-proxy section" "global-proxy:gamma"
+    _sd_check "active sections still count as having an outbound" "has-outbound:yes"
+    _sd_check "only disabled sections: no first outbound" "only-disabled-first:[]"
+    _sd_check "only disabled sections: no global-proxy section" "only-disabled-global:[]"
+    _sd_check "only disabled sections: has_outbound_section is false" "only-disabled-has-outbound:no"
 }
 
 # ─────────────────────────────────────────────────────────────────
@@ -11806,6 +11945,9 @@ fi
 
 # ── subscription_update applies a changed feed without a restart ──────
 eval "$(extract subscription_update)"
+eval "$(extract foreach_active_section)"
+eval "$(extract _active_section_dispatch)"
+section_is_disabled() { return 1; }
 
 TMP_SUBSCRIPTION_FOLDER="$HR_DIR/sub-tmp"
 TMP_SING_BOX_FOLDER="$HR_DIR/sing-box"
@@ -12729,6 +12871,7 @@ main() {
             test_sub_url_option
             test_sub_cron
             test_global_proxy
+            test_section_disabled
             test_bittorrent_direct
             test_check_update_stable
             test_check_update_extended
@@ -12771,6 +12914,7 @@ main() {
         suburlopt)   test_sub_url_option ;;
         subcron)     test_sub_cron ;;
         globalproxy) test_global_proxy ;;
+        sectiondisabled) test_section_disabled ;;
         bittorrent)  test_bittorrent_direct ;;
         stablecheck) test_check_update_stable ;;
         extcheck)    test_check_update_extended ;;
@@ -12790,7 +12934,7 @@ main() {
         proxylink)   test_proxy_link_escaping ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist"
             exit 1
             ;;
     esac

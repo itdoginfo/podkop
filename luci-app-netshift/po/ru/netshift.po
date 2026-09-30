@@ -386,6 +386,12 @@ msgstr "Получить глобальную проверку"
 msgid "Global check"
 msgstr "Глобальная проверка"
 
+msgid "Disable section"
+msgstr "Отключить секцию"
+
+msgid "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again"
+msgstr "Секция полностью игнорируется (маршрутизация, списки, подписки), но её настройки сохраняются. Снимите галочку, чтобы включить её снова"
+
 msgid "Global Proxy"
 msgstr "Глобальный прокси"
 

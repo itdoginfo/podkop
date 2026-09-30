@@ -161,6 +161,7 @@ export namespace NetShift {
   export type ConfigSection = ConfigBaseSection & {
     '.name': string;
     '.type': 'settings' | 'section';
+    disabled?: '0' | '1';
     yacd_secret_key?: string;
   };
 
