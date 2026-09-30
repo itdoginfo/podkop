@@ -1541,9 +1541,8 @@ describe_subscription_validation_failure() {
 # upstream that cannot be expressed as a single share link). The resulting URIs
 # carry the standard query params the facade already understands
 # (encryption/security/sni/fp/pbk/sid/flow/type/path/host/mode/alpn), so they flow through
-# the existing sing_box_cf_add_proxy_outbound path unchanged. The outbound tag
-# (or the config `remarks`) becomes the URI fragment so the node keeps a
-# human-readable name.
+# the existing sing_box_cf_add_proxy_outbound path unchanged. The config
+# `remarks` becomes the URI fragment so the node keeps a human-readable name.
 #
 # CRITICAL: OpenWRT's jq has no Oniguruma, so the program below uses only
 # explicit string operations (no test/match/sub/gsub). It also keeps every
@@ -1592,18 +1591,21 @@ xray_json_to_uri_lines() {
 
         [ $configs[]
           | (.remarks // "") as $cfg_name
-          | (.outbounds // [])[]
-          | select(type == "object")
-          | select(.protocol == "vless" or .protocol == "trojan"
-                   or .protocol == "shadowsocks"
-                   or .protocol == "hysteria")
-          # Skip chained / multi-hop outbounds: not representable as one URI.
-          | select((.streamSettings.sockopt.dialerProxy // "") == "")
-          # Hysteria here is always Hysteria2 (hysteriaSettings.version == 2);
-          # the facade has no Hysteria v1 parser, so skip v1/missing-version
-          # silently (no fatal). vless/trojan/shadowsocks are unaffected.
-          | select(.protocol != "hysteria"
-                   or ((.streamSettings.hysteriaSettings.version // 0) == 2))
+          | [ (.outbounds // [])[]
+              | select(type == "object")
+              | select(.protocol == "vless" or .protocol == "trojan"
+                       or .protocol == "shadowsocks"
+                       or .protocol == "hysteria")
+              # Skip chained / multi-hop outbounds: not representable as one URI.
+              | select((.streamSettings.sockopt.dialerProxy // "") == "")
+              # Hysteria here is always Hysteria2 (hysteriaSettings.version == 2);
+              # the facade has no Hysteria v1 parser, so skip v1/missing-version
+              # silently (no fatal). vless/trojan/shadowsocks are unaffected.
+              | select(.protocol != "hysteria"
+                       or ((.streamSettings.hysteriaSettings.version // 0) == 2))
+            ] as $usable
+          | range(0; $usable | length) as $ob_idx
+          | $usable[$ob_idx]
           | . as $ob
           | (.streamSettings // {}) as $ss
           # splithttp is the pre-rename name of the xhttp transport (sing-box
@@ -1627,7 +1629,16 @@ xray_json_to_uri_lines() {
           | ($peer.address // "") as $host
           | ($peer.port // "") as $port
           | select($host != "" and ($port | tostring) != "")
-          | ($ob.tag // $cfg_name) as $name
+          # Happ/Remnawave tag every outbound "proxy", "proxy-2", ..., so the
+          # name comes from `remarks`. Balancer members with such a tag become
+          # "<remarks> · <n>". $prio 0 (own profile) beats 1 (balancer) in dedup.
+          | ($ob.tag // "") as $tag
+          | (if ($usable | length) == 1 then 0 else 1 end) as $prio
+          | (if $cfg_name == "" then $tag
+             elif $prio == 0 then $cfg_name
+             elif $tag == "" or $tag == "proxy" or ($tag | startswith("proxy-"))
+             then $cfg_name + " · " + ($ob_idx + 1 | tostring)
+             else $tag end) as $name
           # Build the query param list per protocol, dropping empties.
           | (
               if $ob.protocol == "vless" then
@@ -1712,15 +1723,20 @@ xray_json_to_uri_lines() {
           | ($scheme + "://" + $cred + "@" + $host + ":" + ($port | tostring)
              + (if ($query | length) > 0 then "?" + ($query | join("&")) else "" end)
             ) as $conn
-          | { conn: $conn,
-              uri: ($conn + (if $name != "" then "#" + $name else "" end)) }
+          | { conn: $conn, prio: $prio,
+              # @uri: a raw '#' or '+' in the name would not survive the fragment parse.
+              uri: ($conn + (if $name != "" then "#" + ($name | @uri) else "" end)) }
         ]
-        # Deduplicate on $conn, preserving first-seen order (no sort): a
-        # label/break reduce over already-seen keys. Avoids unique_by (which
-        # reorders) and stays within the no-regex jq subset on OpenWRT.
-        | reduce .[] as $e ({ seen: [], out: [] };
-            if (.seen | index($e.conn)) != null then .
-            else .seen += [$e.conn] | .out += [$e.uri] end)
+        # Deduplicate on $conn in first-seen order (unique_by would reorder),
+        # keeping the name with the lowest $prio.
+        | reduce .[] as $e ({ idx: {}, out: [], prio: [] };
+            .idx[$e.conn] as $i
+            | if $i == null then
+                .idx[$e.conn] = (.out | length)
+                | .out += [$e.uri] | .prio += [$e.prio]
+              elif $e.prio < .prio[$i] then
+                .out[$i] = $e.uri | .prio[$i] = $e.prio
+              else . end)
         | .out
         | select(length > 0)
         | .[]

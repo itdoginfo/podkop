@@ -4074,6 +4074,59 @@ else
 fi
 rm -f "$caseH_in" "$caseH_out"
 
+# ── CASE H2: Xray JSON (Happ) names from remarks ────────────────────
+# Every outbound is tagged "proxy"/"proxy-N"; names must come from remarks.
+# Node A is listed in the balancer first but keeps its own profile name.
+caseH2_in="/tmp/netshift-fb-caseH2-$$.json"
+caseH2_out="/tmp/netshift-fb-caseH2-out-$$.json"
+cat > "$caseH2_in" << 'XRAYJSON'
+[
+  {"remarks": "Balancer", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "de.example.com", "port": 443,
+      "users": [{"id": "11111111-1111-1111-1111-111111111111", "flow": "xtls-rprx-vision", "encryption": "none"}]}]},
+      "streamSettings": {"network": "tcp", "security": "reality",
+        "realitySettings": {"publicKey": "PK", "shortId": "ab", "serverName": "de.example.com", "fingerprint": "chrome"}}},
+    {"protocol": "trojan", "tag": "proxy-2", "settings": {"servers": [{"address": "ru.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "ru.example.com"}}},
+    {"protocol": "freedom", "tag": "direct"}
+  ]},
+  {"remarks": "Node A", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "de.example.com", "port": 443,
+      "users": [{"id": "11111111-1111-1111-1111-111111111111", "flow": "xtls-rprx-vision", "encryption": "none"}]}]},
+      "streamSettings": {"network": "tcp", "security": "reality",
+        "realitySettings": {"publicKey": "PK", "shortId": "ab", "serverName": "de.example.com", "fingerprint": "chrome"}}},
+    {"protocol": "freedom", "tag": "direct"},
+    {"protocol": "blackhole", "tag": "block"}
+  ]},
+  {"remarks": "Node B", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "nl.example.com", "port": 443,
+      "users": [{"id": "22222222-2222-2222-2222-222222222222", "flow": "xtls-rprx-vision", "encryption": "none"}]}]},
+      "streamSettings": {"network": "tcp", "security": "reality",
+        "realitySettings": {"publicKey": "PK", "shortId": "cd", "serverName": "nl.example.com", "fingerprint": "chrome"}}},
+    {"protocol": "freedom", "tag": "direct"}
+  ]},
+  {"remarks": "Auto", "outbounds": [
+    {"protocol": "trojan", "tag": "fi-1", "settings": {"servers": [{"address": "fi.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "fi.example.com"}}},
+    {"protocol": "trojan", "tag": "se-1", "settings": {"servers": [{"address": "se.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "se.example.com"}}}
+  ]}
+]
+XRAYJSON
+
+if normalize_subscription_to_singbox "$caseH2_in" "$caseH2_out" "testsub"; then
+    echo 'fb-caseH2-rc:OK'
+else
+    echo 'fb-caseH2-rc:FAIL'
+fi
+h2_tags="$(jq -c '[.outbounds[].tag]' "$caseH2_out" 2>/dev/null)"
+if [ "$h2_tags" = '["Node A","Balancer · 2","Node B","fi-1","se-1"]' ]; then
+    echo 'fb-caseH2-remarks-names:OK'
+else
+    echo "fb-caseH2-remarks-names(got $h2_tags):FAIL"
+fi
+rm -f "$caseH2_in" "$caseH2_out"
+
 # ── CASE I: subscription User-Agent candidate building ──────────────
 # Auto mode (no configured UA) must emit, in order and without duplicates:
 # the default singbox/<ver> first, then the cached/preferred UA, then the
