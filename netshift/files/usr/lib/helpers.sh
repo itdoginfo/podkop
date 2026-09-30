@@ -194,13 +194,25 @@ comma_string_to_json_array() {
 _url_percent_decode() {
     local encoded="$1"
 
+    # Nothing to decode: skip the sed fork (hot path, called per query param).
+    case "$encoded" in
+    *%* | *\\*) ;;
+    *)
+        printf '%s' "$encoded"
+        return 0
+        ;;
+    esac
+
     printf '%b' "$(printf '%s' "$encoded" | sed 's/\\/\\\\/g; s/%\([0-9A-Fa-f][0-9A-Fa-f]\)/\\x\1/g')"
 }
 
 # Decodes a URL-encoded string using application/x-www-form-urlencoded rules,
 # where '+' means a space (the convention proxy clients use for query values).
 url_decode() {
-    _url_percent_decode "$(printf '%s' "$1" | sed 's/+/ /g')"
+    case "$1" in
+    *+*) _url_percent_decode "$(printf '%s' "$1" | sed 's/+/ /g')" ;;
+    *) _url_percent_decode "$1" ;;
+    esac
 }
 
 # Decodes a single URI component (RFC 3986 percent-encoding). Unlike url_decode,
@@ -294,8 +306,13 @@ url_get_query_param_component() {
 }
 
 # Returns the still-encoded value of a query parameter from a RAW link.
+# Pure shell (no sed fork): '##' takes the last "[?&]<param>=" like the
+# greedy sed it replaces.
 _url_get_query_param_raw() {
-    echo "$1" | sed -n "s/.*[?&]$2=\([^&?#]*\).*/\1/p"
+    local rest="${1##*[?&]"$2"=}"
+
+    [ "$rest" != "$1" ] || return 0
+    printf '%s\n' "${rest%%[&?#]*}"
 }
 
 # Extracts the basename (filename without extension) from a URL
@@ -1782,7 +1799,7 @@ normalize_subscription_to_singbox() {
 
     local raw stripped candidate pad_len decoded bom
     local udp_over_tcp config new_config lines_file
-    local line scheme idx kept skipped before_count after_count final_count
+    local line scheme idx kept skipped final_count builder_tag builder_out_tag
     local fragment display_name first_char xray_uris xray_unsupported
 
     [ -s "$src_file" ] || return 1
@@ -1879,7 +1896,8 @@ normalize_subscription_to_singbox() {
 
     while IFS= read -r line; do
         # Trim leading/trailing whitespace.
-        line="$(printf '%s' "$line" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
         [ -n "$line" ] || continue
         # Skip metadata/comment lines.
         case "$line" in
@@ -1906,48 +1924,36 @@ normalize_subscription_to_singbox() {
         *"#"*) fragment="${line##*#}" ;;
         *) fragment="" ;;
         esac
+        # url_decode handles %20 / percent-escaped UTF-8 (flag emoji etc.).
         display_name=""
-        if [ -n "$fragment" ]; then
-            # url_decode handles %20 / percent-escaped UTF-8 (flag emoji etc.).
-            display_name="$(url_decode "$fragment" 2>/dev/null)"
-            # Drop control characters/newlines that would corrupt the tag.
-            display_name="$(printf '%s' "$display_name" | tr -d '\r\n\t')"
-        fi
-        [ -n "$display_name" ] || display_name="${section}-fb${idx}"
-
-        before_count="$(printf '%s' "$config" | jq -r '.outbounds | length' 2>/dev/null)"
-        [ -n "$before_count" ] || before_count=0
+        [ -z "$fragment" ] || display_name="$(url_decode "$fragment" 2>/dev/null)"
+        builder_tag="${section}-fb${idx}"
+        builder_out_tag="$(get_outbound_tag_by_section "$builder_tag")"
 
         # Second guard: run the builder in a subshell (command substitution) so
         # an unexpected exit 1 (e.g. malformed URI) is contained and surfaced as
         # a non-zero rc. Redirect its stdin from /dev/null so its internal
         # pipelines cannot consume the loop's input.
-        new_config="$(sing_box_cf_add_proxy_outbound "$config" "${section}-fb${idx}" "$line" "$udp_over_tcp" </dev/null 2>/dev/null)" || {
+        new_config="$(sing_box_cf_add_proxy_outbound "$config" "$builder_tag" "$line" "$udp_over_tcp" </dev/null 2>/dev/null)" || {
             log "skip unparsable subscription key #$idx for '$section'" "debug"
             idx=$(( idx + 1 ))
             continue
         }
         idx=$(( idx + 1 ))
 
-        # Validate the result parses as JSON and the outbound count increased.
-        if [ -z "$new_config" ] || ! printf '%s' "$new_config" | jq -e . >/dev/null 2>&1; then
-            log "skip subscription key (invalid JSON result) for '$section'" "debug"
-            continue
-        fi
-        after_count="$(printf '%s' "$new_config" | jq -r '.outbounds | length' 2>/dev/null)"
-        [ -n "$after_count" ] || after_count=0
-        if [ "$after_count" -le "$before_count" ]; then
-            log "skip subscription key (no outbound added) for '$section'" "debug"
-            continue
-        fi
-
-        # Re-apply the human-readable name as the tag of the just-added outbound
-        # (the builder appends it last). Deduplicate against tags already present
-        # so identical remarks across keys stay unique and valid for sing-box and
-        # the dashboard (which displays the tag verbatim via the Clash API).
+        # One jq pass over the whole config per key: it rejects an invalid
+        # result or one where the builder appended nothing (the last outbound
+        # is not its $builder_out_tag), then re-applies the human-readable name as the
+        # tag of the just-added outbound. The name drops control characters
+        # and is deduplicated against tags already present so identical
+        # remarks stay unique and valid for sing-box and the dashboard (which
+        # displays the tag verbatim via the Clash API).
         new_config="$(
-            printf '%s' "$new_config" | jq -c --arg name "$display_name" '
-                ([.outbounds[:-1][].tag // empty]) as $existing
+            printf '%s' "$new_config" | jq -c --arg name "$display_name" --arg builder_tag "$builder_tag" --arg builder_out_tag "$builder_out_tag" '
+                if (.outbounds[-1].tag // null) != $builder_out_tag then error("no outbound added") else . end
+                | ($name | explode | map(select(. != 9 and . != 10 and . != 13)) | implode
+                   | if . == "" then $builder_tag else . end) as $name
+                | ([.outbounds[:-1][].tag // empty]) as $existing
                 | (
                     if ($existing | index($name) | not) then $name
                     else
@@ -1959,11 +1965,10 @@ normalize_subscription_to_singbox() {
                   ) as $tag
                 | .outbounds[-1].tag = $tag
             ' 2>/dev/null
-        )"
-        if [ -z "$new_config" ] || ! printf '%s' "$new_config" | jq -e . >/dev/null 2>&1; then
-            log "skip subscription key (tag rename failed) for '$section'" "debug"
+        )" && [ -n "$new_config" ] || {
+            log "skip subscription key (invalid result or no outbound added) for '$section'" "debug"
             continue
-        fi
+        }
 
         config="$new_config"
         kept=$(( kept + 1 ))
