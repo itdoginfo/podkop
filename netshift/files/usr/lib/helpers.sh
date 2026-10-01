@@ -1541,8 +1541,10 @@ describe_subscription_validation_failure() {
 # upstream that cannot be expressed as a single share link). The resulting URIs
 # carry the standard query params the facade already understands
 # (encryption/security/sni/fp/pbk/sid/flow/type/path/host/mode/alpn), so they flow through
-# the existing sing_box_cf_add_proxy_outbound path unchanged. The config
-# `remarks` becomes the URI fragment so the node keeps a human-readable name.
+# the existing sing_box_cf_add_proxy_outbound path unchanged. The outbound tag
+# becomes the URI fragment so the node keeps a human-readable name; a generic
+# tag ("proxy", "proxy-N" or none) gives way to the config `remarks`
+# ("<remarks> · <n>" for members of a multi-node balancer).
 #
 # CRITICAL: OpenWRT's jq has no Oniguruma, so the program below uses only
 # explicit string operations (no test/match/sub/gsub). It also keeps every
@@ -1590,7 +1592,9 @@ xray_json_to_uri_lines() {
             | if $s == "" then empty else ($k + "=" + $s) end;
 
         [ $configs[]
-          | (.remarks // "") as $cfg_name
+          # Whitespace-only remarks count as missing (fall back to the tag).
+          | ((.remarks // "") | tostring
+             | if explode | all(. <= 32) then "" else . end) as $cfg_name
           | [ (.outbounds // [])[]
               | select(type == "object")
               | select(.protocol == "vless" or .protocol == "trojan"
@@ -1629,16 +1633,19 @@ xray_json_to_uri_lines() {
           | ($peer.address // "") as $host
           | ($peer.port // "") as $port
           | select($host != "" and ($port | tostring) != "")
-          # Happ/Remnawave tag every outbound "proxy", "proxy-2", ..., so the
-          # name comes from `remarks`. Balancer members with such a tag become
-          # "<remarks> · <n>". $prio 0 (own profile) beats 1 (balancer) in dedup.
+          # Happ/Remnawave tag every outbound "proxy", "proxy-2", ..., so such
+          # generic tags give way to `remarks` (balancer members become
+          # "<remarks> · <n>"); any other tag is kept as the name.
+          # $prio 0 (own profile) beats 1 (balancer) in dedup.
           | ($ob.tag // "") as $tag
+          | ($tag == "" or $tag == "proxy"
+             or (($tag | startswith("proxy-"))
+                 and ($tag | ltrimstr("proxy-") | explode
+                      | length > 0 and all(. >= 48 and . <= 57)))) as $generic
           | (if ($usable | length) == 1 then 0 else 1 end) as $prio
-          | (if $cfg_name == "" then $tag
+          | (if ($generic | not) or $cfg_name == "" then $tag
              elif $prio == 0 then $cfg_name
-             elif $tag == "" or $tag == "proxy" or ($tag | startswith("proxy-"))
-             then $cfg_name + " · " + ($ob_idx + 1 | tostring)
-             else $tag end) as $name
+             else $cfg_name + " · " + ($ob_idx + 1 | tostring) end) as $name
           # Build the query param list per protocol, dropping empties.
           | (
               if $ob.protocol == "vless" then
@@ -1724,7 +1731,7 @@ xray_json_to_uri_lines() {
              + (if ($query | length) > 0 then "?" + ($query | join("&")) else "" end)
             ) as $conn
           | { conn: $conn, prio: $prio,
-              # @uri: a raw '#' or '+' in the name would not survive the fragment parse.
+              # @uri: a raw hash or plus in the name would not survive the fragment parse.
               uri: ($conn + (if $name != "" then "#" + ($name | @uri) else "" end)) }
         ]
         # Deduplicate on $conn in first-seen order (unique_by would reorder),

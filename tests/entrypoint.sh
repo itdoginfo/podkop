@@ -4075,8 +4075,10 @@ fi
 rm -f "$caseH_in" "$caseH_out"
 
 # ── CASE H2: Xray JSON (Happ) names from remarks ────────────────────
-# Every outbound is tagged "proxy"/"proxy-N"; names must come from remarks.
-# Node A is listed in the balancer first but keeps its own profile name.
+# Generic "proxy"/"proxy-N" tags give way to remarks; any other tag (fi-1,
+# nl-1, proxy-eu) is kept. Node A is listed in the balancer first but keeps
+# its own profile name. Special characters in remarks must round-trip through
+# the URI fragment; missing or blank remarks fall back to the tag.
 caseH2_in="/tmp/netshift-fb-caseH2-$$.json"
 caseH2_out="/tmp/netshift-fb-caseH2-out-$$.json"
 cat > "$caseH2_in" << 'XRAYJSON'
@@ -4110,6 +4112,26 @@ cat > "$caseH2_in" << 'XRAYJSON'
       "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "fi.example.com"}}},
     {"protocol": "trojan", "tag": "se-1", "settings": {"servers": [{"address": "se.example.com", "port": 443, "password": "testpass"}]},
       "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "se.example.com"}}}
+  ]},
+  {"remarks": "A+B #1 %20 🇩🇪", "outbounds": [
+    {"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "de2.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "de2.example.com"}}}
+  ]},
+  {"remarks": "Solo", "outbounds": [
+    {"protocol": "trojan", "tag": "nl-1", "settings": {"servers": [{"address": "nl1.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "nl1.example.com"}}}
+  ]},
+  {"remarks": "Solo EU", "outbounds": [
+    {"protocol": "trojan", "tag": "proxy-eu", "settings": {"servers": [{"address": "eu.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "eu.example.com"}}}
+  ]},
+  {"outbounds": [
+    {"protocol": "trojan", "tag": "proxy-7", "settings": {"servers": [{"address": "pl.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "pl.example.com"}}}
+  ]},
+  {"remarks": "   ", "outbounds": [
+    {"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "cz.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "cz.example.com"}}}
   ]}
 ]
 XRAYJSON
@@ -4120,7 +4142,7 @@ else
     echo 'fb-caseH2-rc:FAIL'
 fi
 h2_tags="$(jq -c '[.outbounds[].tag]' "$caseH2_out" 2>/dev/null)"
-if [ "$h2_tags" = '["Node A","Balancer · 2","Node B","fi-1","se-1"]' ]; then
+if [ "$h2_tags" = '["Node A","Balancer · 2","Node B","fi-1","se-1","A+B #1 %20 🇩🇪","nl-1","proxy-eu","proxy-7","proxy"]' ]; then
     echo 'fb-caseH2-remarks-names:OK'
 else
     echo "fb-caseH2-remarks-names(got $h2_tags):FAIL"
