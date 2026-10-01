@@ -1591,6 +1591,16 @@ xray_json_to_uri_lines() {
             safe($v) as $s
             | if $s == "" then empty else ($k + "=" + $s) end;
 
+        # Number of a generic Happ/Remnawave tag: "proxy" -> 1, "proxy-N" -> N,
+        # anything else -> null. Digits only, at most 6 (no regex on OpenWRT).
+        def tag_num:
+            if . == "proxy" then 1
+            elif startswith("proxy-")
+                 and (ltrimstr("proxy-") | explode
+                      | length > 0 and length <= 6 and all(. >= 48 and . <= 57))
+            then ltrimstr("proxy-") | tonumber
+            else null end;
+
         [ $configs[]
           # Whitespace-only remarks count as missing (fall back to the tag).
           | ((.remarks // "") | tostring
@@ -1608,7 +1618,19 @@ xray_json_to_uri_lines() {
               | select(.protocol != "hysteria"
                        or ((.streamSettings.hysteriaSettings.version // 0) == 2))
             ] as $usable
-          | range(0; $usable | length) as $ob_idx
+          | ($usable | length) as $n_usable
+          # Dedup priority, lower wins: a node keeps the name of the smallest
+          # group it is listed in; a balancer loses a tie with a plain profile.
+          | ((.routing.balancers? // []) as $b
+             | $n_usable + (if ($b | type) == "array" and ($b | length) > 0
+                            then 1 else 0 end)) as $prio
+          # Balancer members are numbered after their provider tag (proxy-3 ->
+          # " · 3") unless those numbers are missing or repeat; then by position.
+          | [ $usable[] | (.tag // "" | tostring)
+              | select(. == "" or tag_num != null) | tag_num ] as $gnums
+          | (($gnums | all(. != null))
+             and ($gnums | unique | length) == ($gnums | length)) as $by_tag
+          | range(0; $n_usable) as $ob_idx
           | $usable[$ob_idx]
           | . as $ob
           | (.streamSettings // {}) as $ss
@@ -1635,17 +1657,17 @@ xray_json_to_uri_lines() {
           | select($host != "" and ($port | tostring) != "")
           # Happ/Remnawave tag every outbound "proxy", "proxy-2", ..., so such
           # generic tags give way to `remarks` (balancer members become
-          # "<remarks> · <n>"); any other tag is kept as the name.
-          # $prio 0 (own profile) beats 1 (balancer) in dedup.
-          | ($ob.tag // "") as $tag
-          | ($tag == "" or $tag == "proxy"
-             or (($tag | startswith("proxy-"))
-                 and ($tag | ltrimstr("proxy-") | explode
-                      | length > 0 and all(. >= 48 and . <= 57)))) as $generic
-          | (if ($usable | length) == 1 then 0 else 1 end) as $prio
+          # "<remarks> · <n>"); any other tag is kept as the name. $name_base is
+          # what a name collision across configs is renumbered from.
+          | ($ob.tag // "" | tostring) as $tag
+          | ($tag == "" or ($tag | tag_num) != null) as $generic
+          | ($generic and $cfg_name != "" and $n_usable > 1) as $numbered
           | (if ($generic | not) or $cfg_name == "" then $tag
-             elif $prio == 0 then $cfg_name
-             else $cfg_name + " · " + ($ob_idx + 1 | tostring) end) as $name
+             elif ($numbered | not) then $cfg_name
+             else $cfg_name + " · "
+                  + ((if $by_tag then $tag | tag_num else $ob_idx + 1 end)
+                     | tostring) end) as $name
+          | (if $numbered then $cfg_name else $name end) as $name_base
           # Build the query param list per protocol, dropping empties.
           | (
               if $ob.protocol == "vless" then
@@ -1730,20 +1752,34 @@ xray_json_to_uri_lines() {
           | ($scheme + "://" + $cred + "@" + $host + ":" + ($port | tostring)
              + (if ($query | length) > 0 then "?" + ($query | join("&")) else "" end)
             ) as $conn
-          | { conn: $conn, prio: $prio,
-              # @uri: a raw hash or plus in the name would not survive the fragment parse.
-              uri: ($conn + (if $name != "" then "#" + ($name | @uri) else "" end)) }
+          | { conn: $conn, prio: $prio, name: $name, base: $name_base }
         ]
         # Deduplicate on $conn in first-seen order (unique_by would reorder),
         # keeping the name with the lowest $prio.
-        | reduce .[] as $e ({ idx: {}, out: [], prio: [] };
+        | reduce .[] as $e ({ idx: {}, out: [] };
             .idx[$e.conn] as $i
             | if $i == null then
-                .idx[$e.conn] = (.out | length)
-                | .out += [$e.uri] | .prio += [$e.prio]
-              elif $e.prio < .prio[$i] then
-                .out[$i] = $e.uri | .prio[$i] = $e.prio
+                .idx[$e.conn] = (.out | length) | .out += [$e]
+              elif $e.prio < .out[$i].prio then .out[$i] = $e
               else . end)
+        # Keep names unique across configs: a repeat becomes "<base> · <k>"
+        # with the lowest free k >= 2 (two "Auto" balancers -> Auto · 1..4).
+        | reduce .out[] as $e ({ used: {}, next: {}, out: [] };
+            if $e.name == "" then .out += [$e.conn]
+            else
+              . as $st
+              | (if $st.used[$e.name] | not then {n: $e.name}
+                 else
+                   first(range($st.next[$e.base] // 2; infinite) as $k
+                         | {n: ($e.base + " · " + ($k | tostring)), k: $k}
+                         | select($st.used[.n] | not))
+                 end) as $pick
+              | ($pick.n) as $n
+              | (if $pick.k then .next[$e.base] = $pick.k + 1 else . end)
+              | .used[$n] = true
+              # @uri: a raw hash or plus in the name would not survive the fragment parse.
+              | .out += [$e.conn + "#" + ($n | @uri)]
+            end)
         | .out
         | select(length > 0)
         | .[]

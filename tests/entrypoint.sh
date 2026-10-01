@@ -4149,6 +4149,39 @@ else
 fi
 rm -f "$caseH2_in" "$caseH2_out"
 
+# ── CASE H3: Xray JSON name edge cases ──────────────────────────────
+# A one-node balancer loses the name to the plain profile of the same node;
+# balancer members are numbered after their proxy-N tag (vmess proxy-2 is
+# dropped, so proxy-3 stays " · 3"), by position when tag numbers repeat;
+# names repeated across configs get the next free number.
+caseH3_in="/tmp/netshift-fb-caseH3-$$.json"
+caseH3_out="/tmp/netshift-fb-caseH3-out-$$.json"
+cat > "$caseH3_in" << 'XRAYJSON'
+[
+  {"remarks": "Bal1", "routing": {"balancers": [{"tag": "b", "selector": ["proxy"]}]}, "outbounds": [{"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "p1.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "p1.example.com"}}}]},
+  {"remarks": "Prof", "outbounds": [{"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "p1.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "p1.example.com"}}}]},
+  {"remarks": "Grp", "outbounds": [{"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "g1.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "g1.example.com"}}}, {"protocol": "vmess", "tag": "proxy-2", "settings": {"vnext": [{"address": "vm.example.com", "port": 443, "users": [{"id": "33333333-3333-3333-3333-333333333333"}]}]}}, {"protocol": "trojan", "tag": "proxy-3", "settings": {"servers": [{"address": "g3.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "g3.example.com"}}}]},
+  {"remarks": "Dup", "outbounds": [{"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "d1.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "d1.example.com"}}}, {"protocol": "trojan", "tag": "proxy-1", "settings": {"servers": [{"address": "d2.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "d2.example.com"}}}]},
+  {"remarks": "Twin", "outbounds": [{"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "t1.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "t1.example.com"}}}, {"protocol": "trojan", "tag": "proxy-2", "settings": {"servers": [{"address": "t2.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "t2.example.com"}}}]},
+  {"remarks": "Twin", "outbounds": [{"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "t3.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "t3.example.com"}}}, {"protocol": "trojan", "tag": "proxy-2", "settings": {"servers": [{"address": "t4.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "t4.example.com"}}}]},
+  {"remarks": "Same", "outbounds": [{"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "s1.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "s1.example.com"}}}]},
+  {"remarks": "Same", "outbounds": [{"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "s2.example.com", "port": 443, "password": "testpass"}]}, "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "s2.example.com"}}}]}
+]
+XRAYJSON
+
+if normalize_subscription_to_singbox "$caseH3_in" "$caseH3_out" "testsub"; then
+    echo 'fb-caseH3-rc:OK'
+else
+    echo 'fb-caseH3-rc:FAIL'
+fi
+h3_tags="$(jq -c '[.outbounds[].tag]' "$caseH3_out" 2>/dev/null)"
+if [ "$h3_tags" = '["Prof","Grp · 1","Grp · 3","Dup · 1","Dup · 2","Twin · 1","Twin · 2","Twin · 3","Twin · 4","Same","Same · 2"]' ]; then
+    echo 'fb-caseH3-names:OK'
+else
+    echo "fb-caseH3-names(got $h3_tags):FAIL"
+fi
+rm -f "$caseH3_in" "$caseH3_out"
+
 # ── CASE I: subscription User-Agent candidate building ──────────────
 # Auto mode (no configured UA) must emit, in order and without duplicates:
 # the default singbox/<ver> first, then the cached/preferred UA, then the
