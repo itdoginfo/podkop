@@ -3,11 +3,15 @@ import { runSectionsCheck } from '../checks/runSectionsCheck';
 import { DIAGNOSTICS_CHECKS_MAP } from '../checks/contstants';
 import { NetShiftShellMethods } from '../../../methods';
 import { store } from '../../../services/store.service';
+import { logger } from '../../../services/logger.service';
 import type { ClashAPI } from '../../../types';
 
 // The services barrel starts TabService, which needs a DOM; the check only
-// uses the store from it.
-vi.mock('../../../services', () => import('../../../services/store.service'));
+// uses the store from it, and the shell helpers the logger.
+vi.mock('../../../services', async () => ({
+  ...(await import('../../../services/store.service')),
+  ...(await import('../../../services/logger.service')),
+}));
 
 // Wiring test: the real getDashboardSections builds the section from a
 // UCI subscription section and Clash API proxies, and the real
@@ -48,15 +52,25 @@ function twoFeedProxies(now: string) {
   });
 }
 
-function mockClash(now: string, latency: Record<string, number>) {
+function mockProxies(now: string) {
   vi.spyOn(NetShiftShellMethods, 'getClashApiProxies').mockResolvedValue({
     success: true,
     data: { proxies: twoFeedProxies(now) },
   } as Awaited<ReturnType<typeof NetShiftShellMethods.getClashApiProxies>>);
+}
+
+// Clash API answers a delay test of a silent server with a message.
+function mockClash(now: string, latency: Record<string, number>) {
+  mockProxies(now);
 
   return vi
-    .spyOn(NetShiftShellMethods, 'getClashApiGroupLatency')
-    .mockResolvedValue({ success: true, data: latency });
+    .spyOn(NetShiftShellMethods, 'getClashApiProxyLatency')
+    .mockImplementation(async (tag) => ({
+      success: true,
+      data: latency[tag]
+        ? { delay: latency[tag] }
+        : { delay: 0, message: 'An error occurred in the delay test' },
+    }));
 }
 
 function outboundsCheck() {
@@ -83,27 +97,46 @@ describe('runSectionsCheck with per-subscription blocks', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
   it('reports a per-subscription Fastest selected inside a block', async () => {
-    const groupLatency = mockClash('⚡ Feed B', { b1: 80 });
+    // Clash API tests a urltest through the server it picked (b1).
+    const probe = mockClash('⚡ Feed B', { '⚡ Feed B': 80 });
 
     await runSectionsCheck();
 
-    expect(groupLatency).toHaveBeenCalledWith('main-out');
+    expect(probe.mock.calls).toEqual([['⚡ Feed B']]);
     expect(outboundsCheck()?.state).toBe('success');
     expect(outboundsCheck()?.items).toEqual([
       { state: 'success', key: 'main', value: '[Fastest] 80ms' },
     ]);
   });
 
-  it('reports the delay of a node selected inside a block', async () => {
-    mockClash('a2', { a1: 50, a2: 120, b1: 80 });
+  it('probes only the section-wide Fastest, not every server', async () => {
+    const probe = mockClash('main-urltest-out', {
+      'main-urltest-out': 50,
+      a1: 50,
+      a2: 120,
+      b1: 80,
+    });
 
     await runSectionsCheck();
 
+    expect(probe.mock.calls).toEqual([['main-urltest-out']]);
+    expect(outboundsCheck()?.items).toEqual([
+      { state: 'success', key: 'main', value: '[Fastest] 50ms' },
+    ]);
+  });
+
+  it('reports the delay of a node selected inside a block', async () => {
+    const probe = mockClash('a2', { a1: 50, a2: 120, b1: 80 });
+
+    await runSectionsCheck();
+
+    expect(probe.mock.calls).toEqual([['a2']]);
     expect(outboundsCheck()?.state).toBe('success');
     expect(outboundsCheck()?.items).toEqual([
       { state: 'success', key: 'main', value: '[a2] 120ms' },
@@ -118,6 +151,89 @@ describe('runSectionsCheck with per-subscription blocks', () => {
     expect(outboundsCheck()?.state).toBe('error');
     expect(outboundsCheck()?.items).toEqual([
       { state: 'error', key: 'main', value: '[a2] Not responding' },
+    ]);
+  });
+
+  // The real shell call: a probe that never answers must end the check
+  // with an error when the call times out, not leave it loading.
+  it('reports a probe that times out', async () => {
+    vi.useFakeTimers();
+    mockProxies('a2');
+    vi.stubGlobal('rpc', { declare: () => () => new Promise(() => undefined) });
+    const warn = vi.spyOn(logger, 'warn');
+
+    const check = expect(runSectionsCheck()).rejects.toThrow(
+      'Sections checks failed',
+    );
+
+    await vi.advanceTimersByTimeAsync(15000);
+    await check;
+
+    expect(warn).toHaveBeenCalledWith(
+      '[SHELL]',
+      '[/usr/bin/netshift clash_api get_proxy_latency a2 5000]',
+      'Operation timed out',
+    );
+
+    expect(outboundsCheck()?.state).toBe('error');
+    expect(outboundsCheck()?.items).toEqual([
+      { state: 'error', key: 'main', value: '[a2] Not responding' },
+    ]);
+  });
+});
+
+describe('runSectionsCheck without a server choice', () => {
+  beforeEach(() => {
+    vi.stubGlobal('uci', {
+      load: async () => undefined,
+      sections: () => [
+        {
+          '.name': 'wg',
+          '.type': 'section',
+          connection_type: 'vpn',
+          interface: 'wg0',
+        },
+      ],
+    });
+    vi.spyOn(NetShiftShellMethods, 'getClashApiProxies').mockResolvedValue({
+      success: true,
+      data: { proxies: proxies({ 'wg-out': { type: 'Direct' } }) },
+    } as Awaited<ReturnType<typeof NetShiftShellMethods.getClashApiProxies>>);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('reports the delay of the section outbound', async () => {
+    const probe = vi
+      .spyOn(NetShiftShellMethods, 'getClashApiProxyLatency')
+      .mockResolvedValue({ success: true, data: { delay: 42 } });
+
+    await runSectionsCheck();
+
+    expect(probe.mock.calls).toEqual([['wg-out']]);
+    expect(outboundsCheck()?.items).toEqual([
+      { state: 'success', key: 'wg', value: '42 ms' },
+    ]);
+  });
+
+  // callBaseMethod passes non-JSON output through as a string.
+  it('reports a reply without a delay as not responding', async () => {
+    vi.spyOn(NetShiftShellMethods, 'getClashApiProxyLatency').mockResolvedValue(
+      {
+        success: true,
+        data: 'curl: (7) Failed to connect',
+      } as unknown as Awaited<
+        ReturnType<typeof NetShiftShellMethods.getClashApiProxyLatency>
+      >,
+    );
+
+    await expect(runSectionsCheck()).rejects.toThrow('Sections checks failed');
+
+    expect(outboundsCheck()?.items).toEqual([
+      { state: 'error', key: 'wg', value: 'Not responding' },
     ]);
   });
 });

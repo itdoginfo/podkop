@@ -1,5 +1,6 @@
 import { COMMAND_TIMEOUT } from '../constants';
 import { withTimeout } from './withTimeout';
+import { logger } from '../netshift';
 
 interface ExecuteShellCommandParams {
   command: string;
@@ -53,13 +54,18 @@ export async function executeShellCommand({
   nobatch = false,
 }: ExecuteShellCommandParams): Promise<ExecuteShellCommandResponse> {
   try {
-    return withTimeout(
+    // Awaited so that a timeout or a failed call lands in the catch below
+    // instead of rejecting the caller.
+    return await withTimeout(
       nobatch ? execWithoutBatching(command, args) : fs.exec(command, args),
       timeout,
       [command, ...args].join(' '),
     );
   } catch (err) {
     const error = err as Error;
+
+    // Callers only see an empty result, so keep the reason in the console.
+    logger.warn('[SHELL]', `[${[command, ...args].join(' ')}]`, error?.message);
 
     return { stdout: '', stderr: error?.message, code: 0 };
   }

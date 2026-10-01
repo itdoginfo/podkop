@@ -6,6 +6,18 @@ import { getSelectedOutbound } from '../helpers/getSelectedOutbound';
 import { getDashboardSections } from '../../../methods/custom/getDashboardSections';
 import { IDiagnosticsChecksItem } from '../../../services';
 
+// Delay of one Clash API probe, 0 when the tag did not answer. A reply
+// without a delay (an error message, non-JSON output) counts as silent.
+async function getDelay(tag: string) {
+  const response = await NetShiftShellMethods.getClashApiProxyLatency(tag);
+
+  if (!response.success || response.data?.message) {
+    return 0;
+  }
+
+  return response.data?.delay || 0;
+}
+
 export async function runSectionsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
 
@@ -37,59 +49,39 @@ export async function runSectionsCheck() {
     sections.data.map(async (section) => {
       async function getLatency() {
         if (section.withTagSelect) {
-          const latencyGroup =
-            await NetShiftShellMethods.getClashApiGroupLatency(section.code);
-
           const selectedOutbound = getSelectedOutbound(section);
 
-          const isUrlTest = selectedOutbound?.type === 'URLTest';
+          const label =
+            selectedOutbound?.type === 'URLTest'
+              ? _('Fastest')
+              : selectedOutbound?.displayName;
+          const prefix = label ? `[${label}] ` : '';
 
-          const success = latencyGroup.success && !latencyGroup.data.message;
+          // One probe through the selected item; for "Fastest" it goes
+          // through the server the urltest picked. A group test probes every
+          // server of the section and on a large subscription outlasts the
+          // call timeout.
+          const delay = await getDelay(selectedOutbound?.code ?? section.code);
 
-          if (success) {
-            if (isUrlTest) {
-              const latency = Object.values(latencyGroup.data)
-                .map((item) => (item ? `${item}ms` : 'n/a'))
-                .join(' / ');
-
-              return {
-                success: true,
-                latency: `[${_('Fastest')}] ${latency}`,
-              };
-            }
-
-            const selectedProxyDelay =
-              latencyGroup.data?.[selectedOutbound?.code ?? ''];
-
-            if (selectedProxyDelay) {
-              return {
-                success: true,
-                latency: `[${selectedOutbound?.displayName ?? ''}] ${selectedProxyDelay}ms`,
-              };
-            }
-
+          if (delay) {
             return {
-              success: false,
-              latency: `[${selectedOutbound?.displayName ?? ''}] ${_('Not responding')}`,
+              success: true,
+              latency: `${prefix}${delay}ms`,
             };
           }
 
           return {
             success: false,
-            latency: _('Not responding'),
+            latency: `${prefix}${_('Not responding')}`,
           };
         }
 
-        const latencyProxy = await NetShiftShellMethods.getClashApiProxyLatency(
-          section.code,
-        );
+        const delay = await getDelay(section.code);
 
-        const success = latencyProxy.success && !latencyProxy.data.message;
-
-        if (success) {
+        if (delay) {
           return {
             success: true,
-            latency: `${latencyProxy.data.delay} ms`,
+            latency: `${delay} ms`,
           };
         }
 

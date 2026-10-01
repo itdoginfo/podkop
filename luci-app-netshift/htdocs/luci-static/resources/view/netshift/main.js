@@ -960,10 +960,6 @@ var NetShiftShellMethods = {
     // one by one and all answer together.
     { nobatch: true }
   ),
-  getClashApiGroupLatency: async (tag) => callBaseMethod(
-    NetShift.AvailableMethods.CLASH_API,
-    [NetShift.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, "10000"]
-  ),
   setClashApiGroupProxy: async (group, proxy) => callBaseMethod(NetShift.AvailableMethods.CLASH_API, [
     NetShift.AvailableClashAPIMethods.SET_GROUP_PROXY,
     group,
@@ -4559,6 +4555,13 @@ function getSelectedOutbound(section) {
 }
 
 // src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts
+async function getDelay(tag) {
+  const response = await NetShiftShellMethods.getClashApiProxyLatency(tag);
+  if (!response.success || response.data?.message) {
+    return 0;
+  }
+  return response.data?.delay || 0;
+}
 async function runSectionsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
   updateCheckStore({
@@ -4585,43 +4588,26 @@ async function runSectionsCheck() {
     sections.data.map(async (section) => {
       async function getLatency() {
         if (section.withTagSelect) {
-          const latencyGroup = await NetShiftShellMethods.getClashApiGroupLatency(section.code);
           const selectedOutbound = getSelectedOutbound(section);
-          const isUrlTest2 = selectedOutbound?.type === "URLTest";
-          const success3 = latencyGroup.success && !latencyGroup.data.message;
-          if (success3) {
-            if (isUrlTest2) {
-              const latency2 = Object.values(latencyGroup.data).map((item) => item ? `${item}ms` : "n/a").join(" / ");
-              return {
-                success: true,
-                latency: `[${_("Fastest")}] ${latency2}`
-              };
-            }
-            const selectedProxyDelay = latencyGroup.data?.[selectedOutbound?.code ?? ""];
-            if (selectedProxyDelay) {
-              return {
-                success: true,
-                latency: `[${selectedOutbound?.displayName ?? ""}] ${selectedProxyDelay}ms`
-              };
-            }
+          const label = selectedOutbound?.type === "URLTest" ? _("Fastest") : selectedOutbound?.displayName;
+          const prefix = label ? `[${label}] ` : "";
+          const delay2 = await getDelay(selectedOutbound?.code ?? section.code);
+          if (delay2) {
             return {
-              success: false,
-              latency: `[${selectedOutbound?.displayName ?? ""}] ${_("Not responding")}`
+              success: true,
+              latency: `${prefix}${delay2}ms`
             };
           }
           return {
             success: false,
-            latency: _("Not responding")
+            latency: `${prefix}${_("Not responding")}`
           };
         }
-        const latencyProxy = await NetShiftShellMethods.getClashApiProxyLatency(
-          section.code
-        );
-        const success2 = latencyProxy.success && !latencyProxy.data.message;
-        if (success2) {
+        const delay = await getDelay(section.code);
+        if (delay) {
           return {
             success: true,
-            latency: `${latencyProxy.data.delay} ms`
+            latency: `${delay} ms`
           };
         }
         return {
@@ -6309,13 +6295,14 @@ async function executeShellCommand({
   nobatch = false
 }) {
   try {
-    return withTimeout(
+    return await withTimeout(
       nobatch ? execWithoutBatching(command, args) : fs.exec(command, args),
       timeout,
       [command, ...args].join(" ")
     );
   } catch (err) {
     const error = err;
+    logger.warn("[SHELL]", `[${[command, ...args].join(" ")}]`, error?.message);
     return { stdout: "", stderr: error?.message, code: 0 };
   }
 }
