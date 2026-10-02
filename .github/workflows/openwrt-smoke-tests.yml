@@ -43,10 +43,10 @@ jobs:
         uses: actions/checkout@v5.0.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4.4.1
+        uses: docker/setup-buildx-action@v3.11.1
 
       - name: Build OpenWrt smoke test image
-        uses: docker/build-push-action@v7.4.0
+        uses: docker/build-push-action@v6.18.0
         with:
           file: ./tests/Dockerfile
           context: .
@@ -67,7 +67,7 @@ jobs:
 
       - name: Upload test logs on failure
         if: failure()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: openwrt-smoke-test-results
           path: tests/test-results
