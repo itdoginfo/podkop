@@ -1360,7 +1360,7 @@ monitor_sing_box() {
         fi
 
         crash_count=$((crash_count + 1))
-        log "sing-box process died unexpectedly (crash #$crash_count), restoring DNS" "warn"
+        log "sing-box process died unexpectedly (crash #$crash_count)" "warn"
 
         # If the cache currently in tmpfs came from the flash copy, this crash may
         # be that copy being unusable. Drop it once so the restart below starts
@@ -1371,6 +1371,7 @@ monitor_sing_box() {
         # would wipe their DNS forwardings (server list) on every crash/slow boot.
         config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
         if [ "$dont_touch_dhcp" -eq 0 ]; then
+            log "Restoring DNS" "info"
             dnsmasq_restore
         fi
 
