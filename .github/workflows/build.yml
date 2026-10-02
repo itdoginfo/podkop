@@ -25,11 +25,17 @@ jobs:
         with:
           file: ./tests/Dockerfile
           context: .
+          # Must match `image:` in tests/docker-compose.yml: `compose run` below
+          # uses this image and would silently rebuild it (uncached) otherwise.
           tags: netshift-evolution:test
-          build-args: NETSHIFT_VERSION=test
+          # The rootfs and sing-box-extended in tests/Dockerfile are x86_64.
+          platforms: linux/amd64
           load: true
           cache-from: type=gha,scope=smoke
-          cache-to: type=gha,mode=max,scope=smoke
+          # Pull-request runs only read the cache: they share the repository's
+          # 10 GB budget with tag builds and must not evict their layers. A cache
+          # export failure never fails the build.
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=smoke,ignore-error=true' || '' }}
 
       - name: Run OpenWrt smoke tests
         run: docker compose -f tests/docker-compose.yml run --rm netshift-test all
@@ -73,7 +79,7 @@ jobs:
           tags: netshift:ci-${{ matrix.package_type }}
           load: true
           cache-from: type=gha,scope=${{ matrix.package_type }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.package_type }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.package_type }},ignore-error=true
           build-args: |
             NETSHIFT_VERSION=${{ needs.preparation.outputs.version }}
 
