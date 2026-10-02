@@ -102,11 +102,14 @@ section_is_disabled() {
 _active_section_callback=
 foreach_active_section() {
     local previous_callback="$_active_section_callback"
+    local rc
 
     _active_section_callback="$1"
     shift
     config_foreach _active_section_dispatch "$@"
+    rc=$?
     _active_section_callback="$previous_callback"
+    return "$rc"
 }
 
 _active_section_dispatch() {
@@ -476,6 +479,17 @@ subscription_outbound_is_unavailable() {
     return 1
 }
 
+# A section picked as the download proxy ("Download Lists via specific proxy
+# section") has no outbound in the generated config when it is disabled, so it
+# must be treated like an unavailable subscription: referencing "<section>-out"
+# would make `sing-box check` fail and keep the whole service from starting.
+download_proxy_section_is_unavailable() {
+    local section="$1"
+
+    subscription_outbound_is_unavailable "$section" && return 0
+    section_is_disabled "$section"
+}
+
 # Mark a non-subscription proxy section (url/selector/urltest) as having no
 # usable outbound, so sing_box_configure_route emits a reject route rule for it
 # (like the subscription-unavailable path) instead of a route rule pointing at a
@@ -525,6 +539,11 @@ get_subscription_download_proxy_address() {
         fi
 
         log "Subscription section '$section' is selected as its own download proxy, but no usable cache exists yet; falling back to direct mode for bootstrap" "warn"
+        return 0
+    fi
+
+    if section_is_disabled "$download_lists_via_proxy_section"; then
+        log "Selected download proxy section '$download_lists_via_proxy_section' is disabled; using direct mode for $phase subscription download of '$section'" "warn"
         return 0
     fi
 
@@ -4244,8 +4263,8 @@ sing_box_additional_inbounds() {
     if [ "$download_lists_via_proxy" -eq 1 ]; then
         local download_lists_via_proxy_section section_outbound_tag
         config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
-        if subscription_outbound_is_unavailable "$download_lists_via_proxy_section"; then
-            log "Service download proxy section '$download_lists_via_proxy_section' is unavailable; rejecting proxy requests until its subscription refresh succeeds" "warn"
+        if download_proxy_section_is_unavailable "$download_lists_via_proxy_section"; then
+            log "Service download proxy section '$download_lists_via_proxy_section' is unavailable (disabled or its subscription refresh failed); rejecting proxy requests" "warn"
             config="$(sing_box_cm_add_mixed_inbound "$config" "$SB_SERVICE_MIXED_INBOUND_TAG" "$SB_SERVICE_MIXED_INBOUND_ADDRESS" "$SB_SERVICE_MIXED_INBOUND_PORT")"
             config="$(sing_box_cm_add_reject_route_rule "$config" "$(gen_id)" "$SB_SERVICE_MIXED_INBOUND_TAG")"
         else
@@ -4602,8 +4621,8 @@ get_download_detour_tag() {
     if [ "$download_lists_via_proxy" -eq 1 ]; then
         local download_lists_via_proxy_section section_outbound_tag
         config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
-        if subscription_outbound_is_unavailable "$download_lists_via_proxy_section"; then
-            log "Download detour section '$download_lists_via_proxy_section' is unavailable; using direct detour until subscription refresh succeeds" "warn"
+        if download_proxy_section_is_unavailable "$download_lists_via_proxy_section"; then
+            log "Download detour section '$download_lists_via_proxy_section' is unavailable (disabled or its subscription refresh failed); using direct detour" "warn"
             echo ""
             return 0
         fi

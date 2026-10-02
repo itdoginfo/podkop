@@ -8950,6 +8950,15 @@ test_section_disabled() {
         echo "global-proxy:$(get_global_proxy_section)"
         has_outbound_section && echo "has-outbound:yes" || echo "has-outbound:no"
 
+        # The walker must hand back the callback's status (list_update relies on
+        # `foreach_active_section ... || update_failed=1` to report a failed run).
+        SD_SECTIONS="alpha gamma"
+        sd_fail() { return 1; }
+        sd_pass() { return 0; }
+        foreach_active_section sd_fail "section" && echo "rc-failing-callback:0" || echo "rc-failing-callback:1"
+        foreach_active_section sd_pass "section" && echo "rc-passing-callback:0" || echo "rc-passing-callback:1"
+        echo "rc-callback-restored:${_active_section_callback:-empty}"
+
         # Only disabled sections left -> as if there were no sections at all.
         SD_SECTIONS="beta delta"
         echo "only-disabled-first:[$(get_first_outbound_section)]"
@@ -8977,9 +8986,96 @@ test_section_disabled() {
     _sd_check "disabled section is never the first outbound" "first-outbound:alpha"
     _sd_check "disabled section is never the global-proxy section" "global-proxy:gamma"
     _sd_check "active sections still count as having an outbound" "has-outbound:yes"
+    _sd_check "foreach_active_section returns a failing callback status" "rc-failing-callback:1"
+    _sd_check "foreach_active_section returns 0 when callbacks succeed" "rc-passing-callback:0"
+    _sd_check "foreach_active_section restores its callback after a failure" "rc-callback-restored:empty"
     _sd_check "only disabled sections: no first outbound" "only-disabled-first:[]"
     _sd_check "only disabled sections: no global-proxy section" "only-disabled-global:[]"
     _sd_check "only disabled sections: has_outbound_section is false" "only-disabled-has-outbound:no"
+
+    # A disabled section picked in "Download Lists via specific proxy section"
+    # has no outbound, so nothing may reference "<section>-out" (sing-box check
+    # would fail and the whole service would not start).
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local facade_lib="${NETSHIFT_LIB_DIR}/sing_box_config_facade.sh"
+    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
+    if ! command -v jq > /dev/null 2>&1 || [ ! -r "$cm_lib" ] || [ ! -r "$facade_lib" ] || [ ! -r "$jq_helpers" ]; then
+        skip "download proxy section disabled: jq / libs not available"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
+    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
+
+    out="$(
+        # shellcheck disable=SC2030,SC2031
+        extract() {
+            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
+        }
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        . "${NETSHIFT_LIB_DIR}/helpers.sh"
+        . "${NETSHIFT_LIB_DIR}/logging.sh" 2>/dev/null || log() { :; }
+        . "$facade_lib"
+        for fn in section_is_disabled _active_section_dispatch foreach_active_section \
+            subscription_outbound_is_unavailable download_proxy_section_is_unavailable \
+            sing_box_additional_inbounds get_download_detour_tag; do
+            eval "$(extract "$fn")"
+        done
+        _active_section_callback=
+        SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+
+        SD_PROXY_SECTION=""
+        config_get() {
+            case "$2:$3" in
+            settings:download_lists_via_proxy_section) eval "$1=\"\$SD_PROXY_SECTION\"" ;;
+            *) eval "$1=\"\${4:-}\"" ;;
+            esac
+        }
+        config_get_bool() {
+            case "$2:$3" in
+            settings:download_lists_via_proxy) eval "$1=1" ;;
+            beta:disabled) eval "$1=1" ;;
+            *) eval "$1=\"\${4:-0}\"" ;;
+            esac
+        }
+        config_foreach() { :; }
+        get_outbound_tag_by_section() { echo "$1-out"; }
+
+        base='{"inbounds":[],"outbounds":[{"type":"direct","tag":"direct-out"},{"type":"direct","tag":"alpha-out"}],"route":{"rules":[],"final":"direct-out"}}'
+
+        SD_PROXY_SECTION=beta
+        echo "detour-disabled:[$(get_download_detour_tag)]"
+        config="$base"
+        sing_box_additional_inbounds
+        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "beta-out")] | length == 0' > /dev/null &&
+            echo "inbounds-disabled-no-dangling-outbound:yes" || echo "inbounds-disabled-no-dangling-outbound:no"
+        echo "$config" | jq -e '[.route.rules[] | select(.action == "reject")] | length == 1' > /dev/null &&
+            echo "inbounds-disabled-rejects:yes" || echo "inbounds-disabled-rejects:no"
+        if command -v sing-box > /dev/null 2>&1; then
+            printf '%s' "$config" | jq 'walk(if type == "object" then del(.__service_tag) else . end)' > /tmp/sd-dl-disabled.json
+            sing-box -c /tmp/sd-dl-disabled.json check > /dev/null 2>&1 &&
+                echo "inbounds-disabled-singbox-check:yes" || echo "inbounds-disabled-singbox-check:no"
+            rm -f /tmp/sd-dl-disabled.json
+        fi
+
+        SD_PROXY_SECTION=alpha
+        echo "detour-active:[$(get_download_detour_tag)]"
+        config="$base"
+        sing_box_additional_inbounds
+        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "alpha-out")] | length == 1' > /dev/null &&
+            echo "inbounds-active-routes-to-section:yes" || echo "inbounds-active-routes-to-section:no"
+    )"
+
+    _sd_check "disabled download proxy section: no detour tag" "detour-disabled:[]"
+    _sd_check "disabled download proxy section: no route to its outbound" "inbounds-disabled-no-dangling-outbound:yes"
+    _sd_check "disabled download proxy section: proxy requests are rejected" "inbounds-disabled-rejects:yes"
+    if command -v sing-box > /dev/null 2>&1; then
+        _sd_check "disabled download proxy section: config passes sing-box check" "inbounds-disabled-singbox-check:yes"
+    fi
+    _sd_check "active download proxy section keeps its detour tag" "detour-active:[alpha-out]"
+    _sd_check "active download proxy section keeps its route" "inbounds-active-routes-to-section:yes"
 }
 
 # ─────────────────────────────────────────────────────────────────
@@ -9061,7 +9157,8 @@ get_outbound_tag_by_section() { echo "$1-out"; }
 subscription_outbound_is_unavailable() { return 1; }
 
 # Pull the real route builder + its two helpers VERBATIM out of the bin.
-for fn in sing_box_configure_route configure_common_reject_route_rule configure_common_direct_route_rule; do
+for fn in section_is_disabled _active_section_dispatch foreach_active_section \
+    sing_box_configure_route configure_common_reject_route_rule configure_common_direct_route_rule; do
     eval "$(awk -v name="$fn" '$0 == name "() {"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
 if command -v sing_box_configure_route > /dev/null 2>&1 &&

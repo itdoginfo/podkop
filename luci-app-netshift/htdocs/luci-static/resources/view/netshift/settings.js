@@ -392,7 +392,8 @@ function createSettingsContent(section) {
       if (
         sec[".type"] === "section" &&
         sec["connection_type"] !== "block" &&
-        sec["connection_type"] !== "exclusion"
+        sec["connection_type"] !== "exclusion" &&
+        sec["disabled"] !== "1"
       ) {
         this.keylist.push(secName);
         this.vallist.push(secName);
