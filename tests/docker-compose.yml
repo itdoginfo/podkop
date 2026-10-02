@@ -25,6 +25,8 @@ services:
       args:
         - NETSHIFT_VERSION=test
     image: netshift-evolution:test
+    # The image content (OpenWrt rootfs, sing-box-extended) is x86_64.
+    platform: linux/amd64
     container_name: netshift-test
     hostname: OpenWrt
 

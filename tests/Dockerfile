@@ -29,7 +29,7 @@
 # ──────────────────────────────────────────────────────────────────
 
 # ── Stage 1: Загрузка официального чистого rootfs ─────────────────
-FROM --platform=linux/amd64 alpine:latest AS builder
+FROM --platform=$BUILDPLATFORM alpine:latest AS builder
 WORKDIR /rootfs
 # Скачиваем и распаковываем оригинальный OpenWrt 24.10.6
 RUN apk add --no-cache curl tar gzip && \
