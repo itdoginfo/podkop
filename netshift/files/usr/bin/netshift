@@ -1313,9 +1313,7 @@ stop() {
     # stop leaves zero monitors running. Excludes self/parent.
     _kill_stale_sing_box_monitors
 
-    local dont_touch_dhcp
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
+    if dnsmasq_should_be_restored; then
         dnsmasq_restore
     fi
 
@@ -1369,8 +1367,7 @@ monitor_sing_box() {
 
         # With dont_touch_dhcp the user owns /etc/config/dhcp: restoring here
         # would wipe their DNS forwardings (server list) on every crash/slow boot.
-        config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-        if [ "$dont_touch_dhcp" -eq 0 ]; then
+        if dnsmasq_should_be_restored; then
             log "Restoring DNS" "info"
             dnsmasq_restore
         fi
@@ -1841,6 +1838,19 @@ dnsmasq_is_configured_for_netshift() {
     # single source of truth.
     configured="$(uci_get "dhcp" "@dnsmasq[0]" "netshift_configured")"
     [ "$configured" = "1" ]
+}
+
+# Whether teardown (stop, sing-box crash) has to undo our dnsmasq changes.
+# `dont_touch_dhcp` only promises that NetShift will not CHANGE /etc/config/dhcp,
+# so with the flag on there is nothing to undo - unless NetShift already
+# configured dnsmasq earlier (the flag was switched on later): then
+# server=127.0.0.42 / noresolv=1 are ours and must go, or DNS stays broken after
+# NetShift stops. Ownership is the netshift_configured sentinel, not the flag.
+dnsmasq_should_be_restored() {
+    local dont_touch_dhcp
+
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    [ "$dont_touch_dhcp" -eq 0 ] || dnsmasq_is_configured_for_netshift
 }
 
 dnsmasq_configure() {
