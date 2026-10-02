@@ -12641,6 +12641,7 @@ eval "$(extract discard_restored_sing_box_cache)"
 eval "$(extract get_sing_box_selection)"
 eval "$(extract snapshot_sing_box_cache)"
 eval "$(extract monitor_sing_box)"
+eval "$(extract dnsmasq_should_be_restored)"
 eval "$(extract clash_api)"
 
 CP_DIR="/tmp/netshift-cachepersist-state-$$"
@@ -12678,6 +12679,8 @@ config_get_bool() {
     *) eval "$1=\"\${4:-0}\"" ;;
     esac
 }
+# netshift_configured sentinel: driven by CFG_NS_CONFIGURED (1 = NetShift configured dnsmasq).
+dnsmasq_is_configured_for_netshift() { [ "${CFG_NS_CONFIGURED:-0}" = "1" ]; }
 get_service_listen_address() { printf '%s' "127.0.0.1"; }
 config_load() { :; }
 network_get_ipaddr() { eval "$1=\$CFG_LAN_IP"; }
@@ -12909,6 +12912,33 @@ for DTD in 0 1; do
     fi
 done
 CFG_DONT_TOUCH_DHCP=""
+
+# H6: ownership beats the flag. dont_touch_dhcp=1 switched on AFTER NetShift had
+#     configured dnsmasq must still get that undone on a crash/stop (the sentinel
+#     says the values are ours); with the flag on and the sentinel clear nothing
+#     is touched (the original #40 case).
+for CASE in "1 1 yes" "1 0 no" "0 0 yes" "0 1 yes"; do
+    set -- $CASE
+    CFG_DONT_TOUCH_DHCP="$1"
+    CFG_NS_CONFIGURED="$2"
+    WANT="$3"
+    if dnsmasq_should_be_restored; then GOT=yes; else GOT=no; fi
+    check "cp-restore-decision-flag$1-configured$2" '[ "$GOT" = "$WANT" ]'
+done
+reset_state
+CFG_SHUTDOWN="0"
+CFG_DONT_TOUCH_DHCP="1"
+CFG_NS_CONFIGURED="1"
+RESTORED=0
+dnsmasq_restore() { RESTORED=$((RESTORED + 1)); }
+MONITOR_PIDFILE="$CP_DIR/monitor-owned.pid"
+MONITOR_MAX_CRASHES=1
+sing_box_process_exists() { return 1; }
+monitor_sing_box
+check cp-monitor-restores-owned-dnsmasq-despite-flag '[ "$RESTORED" = "1" ]'
+check cp-stop-uses-restore-decision 'extract stop | grep -qE "^[[:space:]]*if dnsmasq_should_be_restored"'
+CFG_DONT_TOUCH_DHCP=""
+CFG_NS_CONFIGURED=""
 
 # ── clash_api 204 branch snapshots the cache (the LuCI pick) ───────────
 # A grep of the source cannot tell a real call from a commented-out one, so
