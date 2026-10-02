@@ -32,7 +32,8 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
       (section) =>
         section.connection_type !== 'block' &&
         section.connection_type !== 'exclusion' &&
-        section['.type'] !== 'settings',
+        section['.type'] !== 'settings' &&
+        section.disabled !== '1',
     )
     .map((section) => {
       if (section.connection_type === 'proxy') {

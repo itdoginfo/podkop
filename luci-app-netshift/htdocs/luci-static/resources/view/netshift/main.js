@@ -1288,7 +1288,7 @@ async function getDashboardSections() {
     })
   );
   const data = configSections.filter(
-    (section) => section.connection_type !== "block" && section.connection_type !== "exclusion" && section[".type"] !== "settings"
+    (section) => section.connection_type !== "block" && section.connection_type !== "exclusion" && section[".type"] !== "settings" && section.disabled !== "1"
   ).map((section) => {
     if (section.connection_type === "proxy") {
       if (section.proxy_config_type === "url") {

@@ -963,6 +963,18 @@ function createSectionContent(section) {
   o = section.taboption(
     "advanced",
     form.Flag,
+    "disabled",
+    _("Disable section"),
+    _(
+      "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "advanced",
+    form.Flag,
     "mixed_proxy_enabled",
     _("Enable Mixed Proxy"),
     _(
