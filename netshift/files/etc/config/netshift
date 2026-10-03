@@ -39,6 +39,7 @@ config settings 'settings'
         option exclude_bittorrent '0'
         option shutdown_correctly '0'
         option block_doh '0'
+        #option latency_test_url 'https://www.gstatic.com/generate_204'
         option enable_ipv6 '0'
         #list routing_excluded_ips '192.168.1.3'
 

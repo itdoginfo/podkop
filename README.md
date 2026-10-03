@@ -267,6 +267,12 @@ uci set netshift.settings.disable_quic='1'
 # Нужно тем, у кого провайдер блокирует подписку за торренты.
 uci set netshift.settings.exclude_bittorrent='1'
 
+# Адрес, по которому дашборд измеряет задержку серверов (по умолчанию
+# https://www.gstatic.com/generate_204; в некоторых регионах он медленный или
+# заблокирован). Нужен http(s)-адрес; иначе берётся значение по умолчанию, а в
+# лог пишется предупреждение. В веб-интерфейсе - «Адрес теста задержки», вкладка «Дополнительно».
+uci set netshift.settings.latency_test_url='https://cp.cloudflare.com/generate_204'
+
 uci commit netshift
 ```
 

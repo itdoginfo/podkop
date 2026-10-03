@@ -3119,7 +3119,7 @@ configure_outbound_handler() {
             config_get udp_over_tcp "$section" "enable_udp_over_tcp"
             config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
             config_get urltest_tolerance "$section" "urltest_tolerance" 50
-            config_get urltest_testing_url "$section" "urltest_testing_url" "https://www.gstatic.com/generate_204"
+            config_get urltest_testing_url "$section" "urltest_testing_url" "$LATENCY_TEST_URL_DEFAULT"
 
             if [ -z "$urltest_proxy_links" ]; then
                 log "URLTest proxy links is not set. Aborted." "fatal"
@@ -3172,7 +3172,7 @@ configure_outbound_handler() {
             config_get udp_over_tcp "$section" "enable_udp_over_tcp"
             config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
             config_get urltest_tolerance "$section" "urltest_tolerance" 50
-            config_get urltest_testing_url "$section" "urltest_testing_url" "https://www.gstatic.com/generate_204"
+            config_get urltest_testing_url "$section" "urltest_testing_url" "$LATENCY_TEST_URL_DEFAULT"
 
             if [ -z "$urltest_text_links" ]; then
                 log "URLTest proxy links is not set. Aborted." "fatal"
@@ -3208,7 +3208,7 @@ configure_outbound_handler() {
 
             config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
             config_get urltest_tolerance "$section" "urltest_tolerance" 50
-            config_get urltest_testing_url "$section" "urltest_testing_url" "https://www.gstatic.com/generate_204"
+            config_get urltest_testing_url "$section" "urltest_testing_url" "$LATENCY_TEST_URL_DEFAULT"
             # Grouping mode (task-044): off | country | prefix. The new
             # subscription_group_mode option OUTRANKS the legacy boolean. When
             # the new option is absent we fall back to the legacy boolean
@@ -5609,7 +5609,14 @@ clash_api() {
         clash_api_controller_address="127.0.0.1"
     fi
     CLASH_URL="$clash_api_controller_address:$SB_CLASH_API_CONTROLLER_PORT"
-    TEST_URL="https://www.gstatic.com/generate_204"
+    config_get TEST_URL "settings" "latency_test_url" "$LATENCY_TEST_URL_DEFAULT"
+    # An empty value is the same as no option (a cleared field in the UI).
+    if [ -z "$TEST_URL" ]; then
+        TEST_URL="$LATENCY_TEST_URL_DEFAULT"
+    elif ! printf '%s' "$TEST_URL" | grep -Eq '^https?://[^[:space:]]+$'; then
+        log "Invalid latency_test_url '$(redact_url_for_log "$TEST_URL")' (must be an http(s) URL), using $LATENCY_TEST_URL_DEFAULT" "warn"
+        TEST_URL="$LATENCY_TEST_URL_DEFAULT"
+    fi
 
     local enable_yacd_wan_access yacd_secret_key auth_header
     config_get_bool enable_yacd_wan_access "settings" "enable_yacd_wan_access" 0

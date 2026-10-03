@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:12+0300\n"
+"PO-Revision-Date: 2026-10-03 17:12+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -596,6 +596,9 @@ msgstr "Оставить только серверы, в названии кот
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
 msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все."
 
+msgid "Latency test URL"
+msgstr "URL теста задержки"
+
 msgid "Latest"
 msgstr "Последняя"
 
@@ -985,6 +988,9 @@ msgstr "Максимально допустимая разница во врем
 
 msgid "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again"
 msgstr "Секция полностью игнорируется (маршрутизация, списки, подписки), но её настройки сохраняются. Снимите галочку, чтобы включить её снова"
+
+msgid "The URL the dashboard uses to measure server latency. Change it if the default is slow or blocked in your region."
+msgstr "Адрес, по которому дашборд измеряет задержку серверов. Измените, если адрес по умолчанию медленный или заблокирован в вашем регионе."
 
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"

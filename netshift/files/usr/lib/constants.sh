@@ -201,6 +201,8 @@ UPDATES_NETSHIFT_PKG_LUCI="luci-app-netshift"
 UPDATES_NETSHIFT_PKG_I18N_RU="luci-i18n-netshift-ru"
 # DNS
 SB_DNS_SERVER_TAG="dns-server"
+# URL of the dashboard latency test (settings.latency_test_url overrides it)
+LATENCY_TEST_URL_DEFAULT="https://www.gstatic.com/generate_204"
 SB_FAKEIP_DNS_SERVER_TAG="fakeip-server"
 SB_FAKEIP_INET4_RANGE="198.18.0.0/15"
 SB_FAKEIP_INET6_RANGE="fd00:ec3a::/32"

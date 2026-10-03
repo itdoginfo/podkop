@@ -13100,6 +13100,72 @@ CPEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: URL of the dashboard latency test
+# ─────────────────────────────────────────────────────────────────
+# The `latency_test_url` setting of clash_api, extracted verbatim from the bin:
+# default when absent, a configured http(s) URL is used, anything else falls back
+# to the default and says so in the log.
+test_latency_url() {
+    header "Latency test URL"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / constants.sh / jq not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        . "${NETSHIFT_LIB_DIR}/helpers.sh"
+        LOGF="/tmp/netshift-ltu-log-$$"
+        : > "$LOGF"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOGF"; }
+        eval "$(awk -v f="clash_api" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+
+        get_service_listen_address() { echo ""; }
+        config_get_bool() { eval "$1=0"; }
+        config_get() {
+            case "$3" in
+            latency_test_url) if [ "${LTU_SET:-0}" = 1 ]; then eval "$1=\"\$LTU\""; else eval "$1=\"\${LTU:-$4}\""; fi ;;
+            *) eval "$1=\"$4\"" ;;
+            esac
+        }
+        curl() { local a; for a in "$@"; do case "$a" in url=*) echo "{\"$a\":1}" ;; esac; done; }
+        asked() { clash_api get_proxy_latency p | jq -r 'keys[0]'; }
+        LTU=""; echo "latency-default:$(asked)"
+        echo "latency-default-silent:$(grep -c 'Invalid latency_test_url' "$LOGF")"
+        LTU="https://cp.cloudflare.com/generate_204"; echo "latency-custom:$(asked)"
+        : > "$LOGF"
+        LTU="not a url"; echo "latency-invalid-falls-back:$(asked)"
+        echo "latency-invalid-warned:$(grep -c "^\[warn\] Invalid latency_test_url 'not a url" "$LOGF")"
+        LTU="ftp://example.com/x"; echo "latency-bad-scheme-falls-back:$(asked)"
+        : > "$LOGF"; LTU_SET=1; LTU=""; echo "latency-empty-uses-default:$(asked) warned=$(grep -c 'Invalid latency_test_url' "$LOGF")"
+        : > "$LOGF"; LTU="https://user:secret@example.com/x y"; asked > /dev/null
+        echo "latency-warning-redacted:$(grep -c 'secret' "$LOGF")"
+        LTU_SET=0
+        rm -f "$LOGF"
+    )"
+
+    _ltu_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _ltu_check "latency test: default URL when the setting is absent" 'latency-default:url=https://www.gstatic.com/generate_204'
+    _ltu_check "latency test: the default is not reported as invalid" 'latency-default-silent:0'
+    _ltu_check "latency test: configured URL is used" 'latency-custom:url=https://cp.cloudflare.com/generate_204'
+    _ltu_check "latency test: an invalid URL falls back to the default" 'latency-invalid-falls-back:url=https://www.gstatic.com/generate_204'
+    _ltu_check "latency test: ...and the log says so" 'latency-invalid-warned:1'
+    _ltu_check "latency test: a non-http scheme falls back to the default" 'latency-bad-scheme-falls-back:url=https://www.gstatic.com/generate_204'
+    _ltu_check "latency test: an empty option (cleared field) uses the default without a warning" 'latency-empty-uses-default:url=https://www.gstatic.com/generate_204 warned=0'
+    _ltu_check "latency test: the warning does not leak credentials of the value" 'latency-warning-redacted:0'
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
 # country_code_to_flag_emoji / build_subscription_filter_json (country codes turn
@@ -13238,6 +13304,7 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_latency_url
             test_urltest_filters
             ;;
         deps)        test_deps ;;
@@ -13282,6 +13349,7 @@ main() {
         hotreload)   test_hot_reload ;;
         domsep)      test_domain_separators ;;
         cachepersist) test_cache_persist ;;
+        latencyurl)  test_latency_url ;;
         jq)          test_jq_helpers ;;
         cm)          test_config_manager ;;
         sb)          test_sing_box_config ;;
@@ -13289,7 +13357,7 @@ main() {
         utfilters)   test_urltest_filters ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist latencyurl utfilters"
             exit 1
             ;;
     esac

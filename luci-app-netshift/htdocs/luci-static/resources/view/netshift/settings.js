@@ -512,6 +512,40 @@ function createSettingsContent(section) {
 
   o = section.taboption(
     "advanced",
+    form.Value,
+    "latency_test_url",
+    _("Latency test URL"),
+    _(
+      "The URL the dashboard uses to measure server latency. Change it if the default is slow or blocked in your region.",
+    ),
+  );
+  o.value(
+    "https://www.gstatic.com/generate_204",
+    "https://www.gstatic.com/generate_204 (Google)",
+  );
+  o.value(
+    "https://cp.cloudflare.com/generate_204",
+    "https://cp.cloudflare.com/generate_204 (Cloudflare)",
+  );
+  o.value("https://captive.apple.com", "https://captive.apple.com (Apple)");
+  o.default = "https://www.gstatic.com/generate_204";
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateUrl(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.taboption(
+    "advanced",
     form.Flag,
     "block_doh",
     _("Block DoH Servers"),
