@@ -34,6 +34,21 @@ sing_box_cf_add_dns_server() {
         config=$(sing_box_cm_add_https_dns_server "$config" "$tag" "$server_address" "$server_port" "$path" "$headers" \
             "$domain_resolver" "$detour")
         ;;
+    tcp)
+        [ -z "$server_port" ] && server_port=53
+        config=$(sing_box_cm_add_other_dns_server "$config" "tcp" "$tag" "$server_address" "$server_port" "" \
+            "$domain_resolver" "$detour")
+        ;;
+    doh3)
+        [ -z "$server_port" ] && server_port=443
+        config=$(sing_box_cm_add_other_dns_server "$config" "h3" "$tag" "$server_address" "$server_port" \
+            "$(url_get_path "$server")" "$domain_resolver" "$detour")
+        ;;
+    doq)
+        [ -z "$server_port" ] && server_port=853
+        config=$(sing_box_cm_add_other_dns_server "$config" "quic" "$tag" "$server_address" "$server_port" "" \
+            "$domain_resolver" "$detour")
+        ;;
     *)
         log "Unsupported DNS server type: $type. Aborted." "fatal"
         exit 1

@@ -2,6 +2,10 @@ config settings 'settings'
         option dns_type 'udp'
         option dns_server '77.88.8.8'
         option bootstrap_dns_server '77.88.8.8'
+        #option dns_pool_mode 'fallback'
+        #list dns_pool_server 'doh://dns.google/dns-query'
+        #list dns_pool_server 'dot://dns.quad9.net'
+        #option dns_pool_timeout '2s'
         option dns_rewrite_ttl '60'
         # EDNS Client Subnet (RFC 7871): IP address or prefix sent with every
         # DNS query so geo-distributed services resolve to the node closest to

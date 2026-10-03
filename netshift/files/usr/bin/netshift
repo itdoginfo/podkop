@@ -3677,6 +3677,214 @@ sing_box_configure_dns() {
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
     service_domains=$(comma_string_to_json_array "$FAKEIP_TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
+
+    # Last: the pool rules match every query that no rule above handled.
+    sing_box_configure_dns_pool "$dns_detour_tag"
+}
+
+# --- Multi-DNS upstream pool (issue #74) ---------------------------------------
+# `dns_server` stays the primary upstream. Extra upstreams are listed in
+# `list dns_pool_server '<scheme>://<host>[:port][/path]'` (scheme: udp, tcp, dot,
+# doh, doh3, doq) and `dns_pool_mode` picks how they are used:
+#   single   (default) the primary only, exactly as before;
+#   fallback priority order: primary, then the list in order; the next one is
+#            asked when the previous failed or answered SERVFAIL/REFUSED;
+#   race     every upstream is asked at once and the first usable answer wins.
+# Both modes are built from sing-box DNS rules (evaluate / respond / race), which
+# need sing-box >= 1.14.0; on an older core the pool is ignored with a warning.
+# A usable answer is NOERROR or NXDOMAIN. With dns_via_outbound every upstream goes
+# through the same outbound; bootstrap DNS resolves the hostnames of all of them.
+
+is_valid_dns_pool_timeout() {
+    local number
+
+    case "$1" in
+    *ms) number="${1%ms}" ;;
+    *s) number="${1%s}" ;;
+    *) return 1 ;;
+    esac
+
+    case "$number" in
+    "" | *[!0-9]*) return 1 ;;
+    esac
+
+    [ "$number" -gt 0 ]
+}
+
+# config_list_foreach callback: validates one dns_pool_server entry and appends
+# the good ones to DNS_POOL_ENTRIES (space separated; entries contain no blanks).
+_dns_pool_collect_entry() {
+    local entry="$1"
+    local scheme rest host port host_ok
+
+    case "$entry" in
+    *" "* | *"	"*)
+        log "Ignoring dns_pool_server '$entry': it must not contain spaces" "warn"
+        return 0
+        ;;
+    *://*) ;;
+    *)
+        log "Ignoring dns_pool_server '$entry': expected <scheme>://<host>[:port][/path]" "warn"
+        return 0
+        ;;
+    esac
+
+    scheme="${entry%%://*}"
+    rest="${entry#*://}"
+    # Host names are case-insensitive and the UI accepts upper case: lower the
+    # authority (host[:port]) so is_domain and sing-box see the usual form; the path
+    # (a DoH endpoint, possibly an id) keeps its case.
+    case "$rest" in
+    */*) rest="$(normalize_domain_case "${rest%%/*}")/${rest#*/}" ;;
+    *) rest="$(normalize_domain_case "$rest")" ;;
+    esac
+    entry="$scheme://$rest"
+    case "$scheme" in
+    udp | tcp | dot | doh | doh3 | doq) ;;
+    *)
+        log "Ignoring dns_pool_server '$entry': unknown scheme '$scheme' (use udp, tcp, dot, doh, doh3 or doq)" "warn"
+        return 0
+        ;;
+    esac
+
+    case "$scheme:$rest" in
+    doh:* | doh3:*) ;;
+    *:*/*)
+        log "Ignoring dns_pool_server '$entry': a path is only allowed for doh and doh3" "warn"
+        return 0
+        ;;
+    esac
+
+    host="$(url_get_host "$rest")"
+    port="$(url_get_port "$rest")"
+    # is_ip_or_ip_prefix is the strict IPv4 form: is_ipv4 also takes '1234' and
+    # '1.2.3.4.', which sing-box refuses and which would fail the whole config.
+    # A host made only of digits and dots is an IPv4 address or nothing ('1234' passes
+    # is_domain, but is not a host name sing-box accepts).
+    host_ok=0
+    case "$host" in
+    *[!0-9.]*) { is_ipv6 "$host" || is_domain "$host"; } && host_ok=1 ;;
+    *) is_ip_or_ip_prefix "$host" && host_ok=1 ;;
+    esac
+    if [ "$host_ok" -ne 1 ]; then
+        log "Ignoring dns_pool_server '$entry': '$host' is not an IP address or domain" "warn"
+        return 0
+    fi
+    case "$port" in
+    *[!0-9]*)
+        log "Ignoring dns_pool_server '$entry': invalid port '$port'" "warn"
+        return 0
+        ;;
+    esac
+    if [ -n "$port" ] && { [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; }; then
+        log "Ignoring dns_pool_server '$entry': port $port is out of range" "warn"
+        return 0
+    fi
+
+    if [ $((DNS_POOL_COUNT + 2)) -gt "$DNS_POOL_MAX_SERVERS" ]; then
+        log "Ignoring dns_pool_server '$entry': at most $DNS_POOL_MAX_SERVERS upstreams (including the primary) are used" "warn"
+        return 0
+    fi
+
+    DNS_POOL_COUNT=$((DNS_POOL_COUNT + 1))
+    DNS_POOL_ENTRIES="$DNS_POOL_ENTRIES $entry"
+}
+
+# $1 - detour tag of the main DNS server (empty = direct); the pool uses the same
+sing_box_configure_dns_pool() {
+    local detour_tag="$1"
+    local mode timeout entry type server host resolver tag server_tags last_tag
+    local index rcode block_doh
+
+    config_get_bool block_doh "settings" "block_doh" 0
+    config_get mode "settings" "dns_pool_mode" "single"
+    case "$mode" in
+    single | "") return 0 ;;
+    fallback | race) ;;
+    *)
+        log "Unknown dns_pool_mode '$mode', using the single upstream" "warn"
+        return 0
+        ;;
+    esac
+
+    DNS_POOL_ENTRIES=""
+    DNS_POOL_COUNT=0
+    config_list_foreach "settings" "dns_pool_server" _dns_pool_collect_entry
+    if [ "$DNS_POOL_COUNT" -eq 0 ]; then
+        log "dns_pool_mode is '$mode' but no valid dns_pool_server is set; using the single upstream" "warn"
+        return 0
+    fi
+
+    if ! is_sing_box_at_least "$SB_DNS_EVALUATE_MIN"; then
+        log "dns_pool_mode '$mode' needs sing-box $SB_DNS_EVALUATE_MIN or newer (installed: $(get_sing_box_version)); using the single upstream" "warn"
+        return 0
+    fi
+
+    config_get timeout "settings" "dns_pool_timeout" "$DNS_POOL_TIMEOUT_DEFAULT"
+    if ! is_valid_dns_pool_timeout "$timeout"; then
+        log "Invalid dns_pool_timeout '$timeout' (expected e.g. 500ms or 2s), using $DNS_POOL_TIMEOUT_DEFAULT" "warn"
+        timeout="$DNS_POOL_TIMEOUT_DEFAULT"
+    fi
+
+    server_tags="$SB_DNS_SERVER_TAG"
+    index=1
+    for entry in $DNS_POOL_ENTRIES; do
+        index=$((index + 1))
+        tag="$SB_DNS_SERVER_TAG-$index"
+        type="${entry%%://*}"
+        server="${entry#*://}"
+        host="$(url_get_host "$server")"
+        resolver="$SB_BOOTSTRAP_SERVER_TAG"
+        if is_ipv4 "$host" || is_ipv6 "$host"; then
+            resolver=""
+        fi
+        config=$(sing_box_cf_add_dns_server "$config" "$type" "$tag" "$server" "$resolver" "$detour_tag")
+        server_tags="$server_tags $tag"
+    done
+
+    if [ -z "$detour_tag" ] && [ "$block_doh" -eq 1 ]; then
+        case " $DNS_POOL_ENTRIES " in
+        *" doh://"* | *" doh3://"*)
+            log "DoH blocking is enabled and the DNS pool has doh/doh3 upstreams without a detour. Their queries will be blocked; use udp, tcp, dot or doq upstreams, or send DNS through an outbound." "warn"
+            ;;
+        esac
+    fi
+
+    log "DNS pool enabled: mode $mode, $((DNS_POOL_COUNT + 1)) upstreams, $timeout per query" "info"
+
+    index=0
+    last_tag=""
+    for tag in $server_tags; do
+        last_tag="$tag"
+    done
+
+    case "$mode" in
+    fallback)
+        # Every upstream but the last gets a turn in order; the last one answers
+        # whatever is left (its answer is used as it comes, errors included).
+        for tag in $server_tags; do
+            [ "$tag" != "$last_tag" ] || continue
+            index=$((index + 1))
+            config=$(sing_box_cm_add_dns_evaluate_rule "$config" "$tag" "$SB_DNS_POOL_RESPONSE_PREFIX$index" "$timeout")
+            config=$(sing_box_cm_add_dns_respond_rule "$config" "$SB_DNS_POOL_RESPONSE_PREFIX$index" "NOERROR")
+            config=$(sing_box_cm_add_dns_respond_rule "$config" "$SB_DNS_POOL_RESPONSE_PREFIX$index" "NXDOMAIN")
+        done
+        config=$(sing_box_cm_set_dns_final "$config" "$last_tag")
+        ;;
+    race)
+        for tag in $server_tags; do
+            index=$((index + 1))
+            config=$(sing_box_cm_add_dns_evaluate_rule "$config" "$tag" "$SB_DNS_POOL_RESPONSE_PREFIX$index" "$timeout")
+        done
+        for rcode in NOERROR NXDOMAIN; do
+            index=0
+            for tag in $server_tags; do
+                index=$((index + 1))
+                config=$(sing_box_cm_add_dns_respond_rule "$config" "$SB_DNS_POOL_RESPONSE_PREFIX$index" "$rcode" true)
+            done
+        done
+        ;;
+    esac
 }
 
 sing_box_configure_route() {
@@ -5192,6 +5400,7 @@ show_config() {
         -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(list selector_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
+        -e "s@\\(list dns_pool_server '[^/]*//[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e "s@\\(option domain_resolver_dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e 's/\(option yacd_secret_key\).*/\1 '\''MASKED'\''/g' \
         "$NETSHIFT_CONFIG" > "$tmp_config"

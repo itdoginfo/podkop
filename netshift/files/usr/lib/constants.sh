@@ -201,6 +201,13 @@ UPDATES_NETSHIFT_PKG_LUCI="luci-app-netshift"
 UPDATES_NETSHIFT_PKG_I18N_RU="luci-i18n-netshift-ru"
 # DNS
 SB_DNS_SERVER_TAG="dns-server"
+# Multi-DNS pool (issue #74): extra upstreams are "<SB_DNS_SERVER_TAG>-<n>" (n >= 2),
+# the evaluated responses are tagged "<SB_DNS_POOL_RESPONSE_PREFIX><n>". It needs the
+# DNS rule actions evaluate/respond/race that sing-box 1.14.0 introduced.
+SB_DNS_POOL_RESPONSE_PREFIX="dns-pool-response-"
+SB_DNS_EVALUATE_MIN="1.14.0"
+DNS_POOL_TIMEOUT_DEFAULT="2s"
+DNS_POOL_MAX_SERVERS=8
 SB_FAKEIP_DNS_SERVER_TAG="fakeip-server"
 SB_FAKEIP_INET4_RANGE="198.18.0.0/15"
 SB_FAKEIP_INET6_RANGE="fd00:ec3a::/32"

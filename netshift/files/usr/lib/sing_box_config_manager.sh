@@ -236,6 +236,130 @@ sing_box_cm_add_https_dns_server() {
 }
 
 #######################################
+# Add a TCP, HTTP/3 or QUIC DNS server to the DNS section of a sing-box JSON
+# configuration (the types that have no dedicated helper above).
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   type: string, sing-box DNS server type: tcp, h3 or quic
+#   tag: string, identifier for the DNS server
+#   server_address: string, IP address or hostname of the DNS server
+#   server_port: string or integer, port of the DNS server
+#   path: string, URL path (h3 only, optional)
+#   domain_resolver: string, domain resolver to use for resolving domain names (optional)
+#   detour: string, tag of the upstream outbound (optional)
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_other_dns_server "$CONFIG" "quic" "doq-server" "dns.adguard-dns.com" 853)
+#######################################
+sing_box_cm_add_other_dns_server() {
+    local config="$1"
+    local type="$2"
+    local tag="$3"
+    local server_address="$4"
+    local server_port="$5"
+    local path="$6"
+    local domain_resolver="$7"
+    local detour="$8"
+
+    echo "$config" | jq \
+        --arg type "$type" \
+        --arg tag "$tag" \
+        --arg server_address "$server_address" \
+        --arg server_port "$server_port" \
+        --arg path "$path" \
+        --arg domain_resolver "$domain_resolver" \
+        --arg detour "$detour" \
+        '.dns.servers += [(
+            {
+                type: $type,
+                tag: $tag,
+                server: $server_address,
+                server_port: ($server_port | tonumber)
+            }
+            + (if $type == "h3" and $path != "" then { path: $path } else {} end)
+            + (if $detour != "" then { detour: $detour } else {} end)
+            + (if $domain_resolver != "" then { domain_resolver: $domain_resolver } else {} end)
+        )]'
+}
+
+#######################################
+# Add an `evaluate` DNS rule: send the query to a server and keep the response
+# (under a tag) for later rules, without ending rule evaluation. sing-box >= 1.14.0.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   server: string, tag of the DNS server to query
+#   response_tag: string, tag the evaluated response is saved under
+#   timeout: string, query timeout (e.g. "2s")
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+sing_box_cm_add_dns_evaluate_rule() {
+    local config="$1"
+    local server="$2"
+    local response_tag="$3"
+    local timeout="$4"
+
+    echo "$config" | jq \
+        --arg server "$server" \
+        --arg response_tag "$response_tag" \
+        --arg timeout "$timeout" \
+        '.dns.rules += [{
+            action: "evaluate",
+            server: $server,
+            tag: $response_tag,
+            timeout: $timeout
+        }]'
+}
+
+#######################################
+# Add a `respond` DNS rule: when the evaluated response saved under a tag has the
+# given rcode, return it and end rule evaluation. sing-box >= 1.14.0.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   response_tag: string, tag of the evaluated response to match and return
+#   rcode: string, response code to match (NOERROR, NXDOMAIN, ...)
+#   race: string, "true" makes it a race rule (the first matching race rule wins
+#         while the other queries are still running); anything else is in order
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+sing_box_cm_add_dns_respond_rule() {
+    local config="$1"
+    local response_tag="$2"
+    local rcode="$3"
+    local race="${4:-false}"
+
+    echo "$config" | jq \
+        --arg response_tag "$response_tag" \
+        --arg rcode "$rcode" \
+        --arg race "$race" \
+        '.dns.rules += [(
+            {
+                match_response: $response_tag,
+                response_rcode: $rcode,
+                action: "respond"
+            }
+            + (if $race == "true" then { race: true } else {} end)
+        )]'
+}
+
+#######################################
+# Set the DNS server queries fall back to when no DNS rule answers them.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   final: string, tag of the DNS server
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+sing_box_cm_set_dns_final() {
+    local config="$1"
+    local final="$2"
+
+    echo "$config" | jq --arg final "$final" '.dns.final = $final'
+}
+
+#######################################
 # Add a FakeIP DNS server to the DNS section of a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify

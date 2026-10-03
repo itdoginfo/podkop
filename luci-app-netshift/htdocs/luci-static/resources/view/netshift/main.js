@@ -787,6 +787,55 @@ function validateProxyUrlList(value) {
   return { valid: true, message: "" };
 }
 
+// src/validators/validateDnsPool.ts
+var DNS_POOL_SCHEMES = ["udp", "tcp", "dot", "doh", "doh3", "doq"];
+var DNS_POOL_PATH_SCHEMES = ["doh", "doh3"];
+function validateDnsPoolServer(value) {
+  if (!value) {
+    return { valid: false, message: _("DNS server cannot be empty") };
+  }
+  const separator = value.indexOf("://");
+  if (separator < 0) {
+    return {
+      valid: false,
+      message: _(
+        "Use scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. Example: doh://dns.google/dns-query"
+      )
+    };
+  }
+  const scheme = value.slice(0, separator);
+  const rest = value.slice(separator + 3);
+  if (!DNS_POOL_SCHEMES.includes(scheme)) {
+    return {
+      valid: false,
+      message: _("Unknown DNS scheme. Use udp, tcp, dot, doh, doh3 or doq")
+    };
+  }
+  if (!DNS_POOL_PATH_SCHEMES.includes(scheme) && rest.includes("/")) {
+    return {
+      valid: false,
+      message: _("A path is only allowed for doh and doh3")
+    };
+  }
+  if (/\s/.test(value)) {
+    return { valid: false, message: _("DNS server must not contain spaces") };
+  }
+  const address = validateDNS(rest);
+  if (!address.valid) {
+    return address;
+  }
+  return { valid: true, message: _("Valid") };
+}
+function validateDnsPoolTimeout(value) {
+  if (/^[1-9][0-9]*(ms|s)$/.test(value)) {
+    return { valid: true, message: _("Valid") };
+  }
+  return {
+    valid: false,
+    message: _("Invalid timeout. Examples: 500ms, 2s")
+  };
+}
+
 // src/helpers/parseValueList.ts
 function parseValueList(value) {
   return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
@@ -1519,6 +1568,31 @@ var DNS_SERVER_OPTIONS = {
   "2001:4860:4860::8888": "2001:4860:4860::8888 (Google IPv6)",
   "2606:4700:4700::1111": "2606:4700:4700::1111 (Cloudflare IPv6)",
   "2620:fe::fe": "2620:fe::fe (Quad9 IPv6)"
+};
+var DNS_POOL_PRESETS = {
+  "udp://8.8.8.8": "Google - UDP (8.8.8.8)",
+  "tcp://8.8.8.8": "Google - TCP (8.8.8.8)",
+  "dot://dns.google": "Google - DoT (dns.google)",
+  "doh://dns.google/dns-query": "Google - DoH (dns.google)",
+  "doh3://dns.google/dns-query": "Google - DoH3 (dns.google)",
+  "udp://1.1.1.1": "Cloudflare - UDP (1.1.1.1)",
+  "tcp://1.1.1.1": "Cloudflare - TCP (1.1.1.1)",
+  "dot://one.one.one.one": "Cloudflare - DoT (one.one.one.one)",
+  "doh://cloudflare-dns.com/dns-query": "Cloudflare - DoH (cloudflare-dns.com)",
+  "doh3://cloudflare-dns.com/dns-query": "Cloudflare - DoH3 (cloudflare-dns.com)",
+  "udp://9.9.9.9": "Quad9 - UDP (9.9.9.9)",
+  "dot://dns.quad9.net": "Quad9 - DoT (dns.quad9.net)",
+  "doh://dns.quad9.net/dns-query": "Quad9 - DoH (dns.quad9.net)",
+  "udp://94.140.14.14": "AdGuard - UDP (94.140.14.14)",
+  "dot://dns.adguard-dns.com": "AdGuard - DoT (dns.adguard-dns.com)",
+  "doh://dns.adguard-dns.com/dns-query": "AdGuard - DoH (dns.adguard-dns.com)",
+  "doh3://dns.adguard-dns.com/dns-query": "AdGuard - DoH3 (dns.adguard-dns.com)",
+  "doq://dns.adguard-dns.com": "AdGuard - DoQ (dns.adguard-dns.com)",
+  "udp://77.88.8.8": "Yandex - UDP (77.88.8.8)",
+  "dot://common.dot.dns.yandex.net": "Yandex - DoT (common.dot.dns.yandex.net)",
+  "doh://common.dns.yandex.net/dns-query": "Yandex - DoH (common.dns.yandex.net)",
+  "dot://dns.mullvad.net": "Mullvad - DoT (dns.mullvad.net)",
+  "doh://dns.mullvad.net/dns-query": "Mullvad - DoH (dns.mullvad.net)"
 };
 var BOOTSTRAP_DNS_SERVER_OPTIONS = {
   "77.88.8.8": "77.88.8.8 (Yandex DNS)",
@@ -6410,6 +6484,7 @@ return baseclass.extend({
   CustomNetShiftMethods,
   DIAGNOSTICS_INITIAL_DELAY,
   DIAGNOSTICS_UPDATE_INTERVAL,
+  DNS_POOL_PRESETS,
   DNS_SERVER_OPTIONS,
   DOMAIN_LIST_OPTIONS,
   DashboardTab,
@@ -6450,6 +6525,8 @@ return baseclass.extend({
   store,
   svgEl,
   validateDNS,
+  validateDnsPoolServer,
+  validateDnsPoolTimeout,
   validateDomain,
   validateDomainRule,
   validateIP,

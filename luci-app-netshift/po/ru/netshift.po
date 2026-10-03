@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:26+0300\n"
+"PO-Revision-Date: 2026-10-03 17:26+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -29,6 +29,9 @@ msgstr "✘ Отключено"
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
 
+msgid "A path is only allowed for doh and doh3"
+msgstr "Путь допустим только для doh и doh3"
+
 msgid "Active Connections"
 msgstr "Активные соединения"
 
@@ -40,6 +43,9 @@ msgstr "Добавьте свои домены: выберите Динамич�
 
 msgid "Add your own subnets or IPs: choose Dynamic List (one per row) or Text List (free-form), or Disabled to skip"
 msgstr "Добавьте свои подсети или IP: выберите Динамический список (по одному в строке) или Текстовый список (свободный ввод), либо Отключено, чтобы пропустить"
+
+msgid "Additional DNS servers"
+msgstr "Дополнительные DNS-серверы"
 
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
@@ -245,6 +251,15 @@ msgstr "DNS-сервер"
 msgid "DNS server address cannot be empty"
 msgstr "Адрес DNS-сервера не может быть пустым"
 
+msgid "DNS server cannot be empty"
+msgstr "DNS-сервер не может быть пустым"
+
+msgid "DNS server must not contain spaces"
+msgstr "DNS-сервер не должен содержать пробелов"
+
+msgid "DNS server timeout"
+msgstr "Таймаут DNS-сервера"
+
 msgid "Do not panic, everything can be fixed, just..."
 msgstr "Не паникуйте, всё можно исправить, просто..."
 
@@ -401,8 +416,14 @@ msgstr "Глобальный прокси"
 msgid "Group subscription proxies into URLTest groups. 'By country flag' uses the flag emoji at the start of each name; 'By name prefix' groups by the first N characters."
 msgstr "Группировать прокси из подписки в группы URLTest. «По флагу страны» использует эмодзи флага в начале каждого имени; «По префиксу имени» группирует по первым N символам."
 
+msgid "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s"
+msgstr "Сколько ждать ответа одного DNS-сервера, прежде чем перейти к следующему (приоритет) или отбросить его ответ (параллельно). Примеры: 500ms, 2s"
+
 msgid "How often to automatically update the subscription"
 msgstr "Как часто автоматически обновлять подписку"
+
+msgid "How the additional DNS servers are used together with the main one. Needs sing-box 1.14 or newer; on an older core only the main server is used."
+msgstr "Как дополнительные DNS-серверы используются вместе с основным. Нужен sing-box 1.14 или новее; на более старом ядре используется только основной сервер."
 
 msgid "HTTP error"
 msgstr "Ошибка HTTP"
@@ -545,6 +566,9 @@ msgstr "Неверный URL-адрес SOCKS: должен начинаться
 msgid "Invalid SOCKS URL: parsing failed"
 msgstr "Неверный URL SOCKS: парсинг не удался"
 
+msgid "Invalid timeout. Examples: 500ms, 2s"
+msgstr "Неверный таймаут. Примеры: 500ms, 2s"
+
 msgid "Invalid Trojan URL: must not contain spaces"
 msgstr "Неверный URL Trojan: не должен содержать пробелов"
 
@@ -632,6 +656,9 @@ msgstr "Основной DNS"
 msgid "Main DNS via outbound"
 msgstr "Основной DNS через outbound"
 
+msgid "Main server only"
+msgstr "Только основной сервер"
+
 msgid "Memory Usage"
 msgstr "Использование памяти"
 
@@ -643,6 +670,9 @@ msgstr "Порт смешанного прокси"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
+
+msgid "Multiple DNS servers"
+msgstr "Несколько DNS-серверов"
 
 msgid "Must be a number in the range of 50 - 1000"
 msgstr "Должно быть числом от 50 до 1000"
@@ -707,6 +737,9 @@ msgstr "Устаревшая"
 msgid "Output Network Interface"
 msgstr "Выходной сетевой интерфейс"
 
+msgid "Parallel: the first usable answer wins"
+msgstr "Параллельно: побеждает первый пригодный ответ"
+
 msgid "Path cannot be empty"
 msgstr "Путь не может быть пустым"
 
@@ -722,8 +755,14 @@ msgstr "Путь должен заканчиваться на cache.db"
 msgid "Pending"
 msgstr "Ожидает запуска"
 
+msgid "Pick a ready-made server or type your own: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. In priority mode the order is the priority after the main server."
+msgstr "Выберите готовый сервер или введите свой: схема://хост[:порт][/путь], где схема - udp, tcp, dot, doh, doh3 или doq. В режиме приоритета порядок в списке - это приоритет после основного сервера."
+
 msgid "Prefix length"
 msgstr "Длина префикса"
+
+msgid "Priority: next server if the previous one fails"
+msgstr "Приоритет: следующий сервер, если предыдущий не ответил"
 
 msgid "Protocol toggles, file paths and logging. Block DoH only after switching upstream DNS to UDP or DoT."
 msgstr "Переключатели протоколов, пути к файлам и журналирование. Включайте блокировку DoH только после переключения вышестоящего DNS на UDP или DoT."
@@ -1019,6 +1058,9 @@ msgstr "UDP через TCP"
 msgid "unknown"
 msgstr "неизвестно"
 
+msgid "Unknown DNS scheme. Use udp, tcp, dot, doh, doh3 or doq"
+msgstr "Неизвестная схема DNS. Используйте udp, tcp, dot, doh, doh3 или doq"
+
 msgid "Unknown error"
 msgstr "Неизвестная ошибка"
 
@@ -1078,6 +1120,9 @@ msgstr "Укажите двухбуквенный код страны, напр�
 
 msgid "Use only for IP-host panels that serve an invalid or self-signed certificate."
 msgstr "Используйте только для панелей с IP-адресом, у которых недействительный или самоподписанный сертификат."
+
+msgid "Use scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. Example: doh://dns.google/dns-query"
+msgstr "Используйте схема://хост[:порт][/путь], где схема - udp, tcp, dot, doh, doh3 или doq. Пример: doh://dns.google/dns-query"
 
 msgid "Use this only when the router has working IPv6 connectivity."
 msgstr "Используйте это только если на роутере есть рабочее подключение по IPv6."

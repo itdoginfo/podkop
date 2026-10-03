@@ -13100,6 +13100,249 @@ CPEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: Multi-DNS upstream pool (issue #74)
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL sing_box_configure_dns_pool / _dns_pool_collect_entry /
+# is_valid_dns_pool_timeout (extracted verbatim from the bin) and the real
+# manager/facade helpers against a stubbed UCI layer. Asserts:
+#   - default (mode absent / single) and every unusable setup leave the config
+#     byte-identical to the single-upstream one (upgrade safety);
+#   - fallback: the primary and the list are asked in order, each but the last
+#     gets evaluate + respond (NOERROR / NXDOMAIN), the last one is `final`;
+#   - race: every upstream is evaluated, the respond rules carry race, `final`
+#     stays the primary;
+#   - sing-box < 1.14.0 ignores the pool with a warning (the rule actions do
+#     not exist there); entry validation, limits, detour and bootstrap resolver;
+#   - the six transports map to the right sing-box server types.
+test_dns_pool() {
+    header "Multi-DNS upstream pool (issue #74)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local facade_lib="${NETSHIFT_LIB_DIR}/sing_box_config_facade.sh"
+    local constants_lib="${NETSHIFT_LIB_DIR}/constants.sh"
+    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$cm_lib" ] || [ ! -r "$facade_lib" ] || [ ! -r "$constants_lib" ] || [ ! -r "$jq_helpers" ] \
+        || [ ! -r "$bin" ]; then
+        skip "config manager / facade / constants / helpers.jq / netshift bin not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
+    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/netshift-dnspool-$$.sh"
+    cat > "$drv" << 'DPEOF'
+LIB="NETSHIFT_LIB"
+BIN="BIN_PATH"
+FACADE="FACADE_PATH"
+
+. "$LIB/constants.sh"
+. "$LIB/helpers.sh"
+LOGF="/tmp/netshift-dnspool-log-$$"
+log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOGF"; }
+. "$FACADE"
+
+# UCI stubs: DP_MODE / DP_TIMEOUT / DP_ENTRIES (space separated entries)
+config_get() {
+    case "$3" in
+    dns_pool_mode) eval "$1=\"\${DP_MODE:-}\"" ;;
+    dns_pool_timeout) eval "$1=\"\${DP_TIMEOUT:-\${4:-}}\"" ;;
+    *) eval "$1=\"\${4:-}\"" ;;
+    esac
+}
+config_get_bool() { eval "$1=\"\${DP_BLOCK_DOH:-0}\""; }
+config_list_foreach() {
+    local _e
+    for _e in $DP_ENTRIES; do "$3" "$_e"; done
+}
+for fn in is_valid_dns_pool_timeout _dns_pool_collect_entry sing_box_configure_dns_pool; do
+    eval "$(awk -v name="$fn" '$0 == name "() {"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+done
+if command -v sing_box_configure_dns_pool > /dev/null 2>&1 &&
+    command -v _dns_pool_collect_entry > /dev/null 2>&1; then
+    echo 'dnspool-real-functions-loaded:OK'
+else
+    echo 'dnspool-real-functions-loaded:FAIL'
+fi
+
+ok() { [ "$1" = "$2" ] && echo "$3:OK" || echo "$3:FAIL [got '$1' want '$2']"; }
+
+# ── version gate ───────────────────────────────────────────────────
+for spec in "1.14.0|yes" "1.14.1|yes" "1.14.1-extended-2.7.2-lite|yes" "1.15.0|yes" "1.100.0|yes" \
+    "1.13.14-extended-2.5.3|no" "1.12.22|no" "1.9.0|no" "1.0|no"; do
+    v="${spec%%|*}"
+    if is_sing_box_at_least "$SB_DNS_EVALUATE_MIN" "$v"; then got=yes; else got=no; fi
+    ok "$got" "${spec#*|}" "dnspool-gate-$v"
+done
+
+# ── url_get_port on bracketed IPv6 (a literal without a port has none) ──
+ok "$(url_get_port "[2001:db8::1]")" "" "dnspool-url-port-ipv6-no-port"
+ok "$(url_get_port "[2001:db8::1]:853/x")" "853" "dnspool-url-port-ipv6-with-port"
+ok "$(url_get_port "dns.example:853")" "853" "dnspool-url-port-host-port"
+
+# ── timeout syntax ─────────────────────────────────────────────────
+for t in 500ms 2s 10s 1ms; do
+    is_valid_dns_pool_timeout "$t" && echo "dnspool-timeout-ok-$t:OK" || echo "dnspool-timeout-ok-$t:FAIL"
+done
+for t in "" 0s 2 s 1.5s 2m -1s "2 s" 0ms; do
+    is_valid_dns_pool_timeout "$t" && echo "dnspool-timeout-bad-[$t]:FAIL" || echo "dnspool-timeout-bad-[$t]:OK"
+done
+
+base='{"dns":{"servers":[{"type":"udp","tag":"bootstrap-dns-server","server":"77.88.8.8","server_port":53},{"type":"udp","tag":"dns-server","server":"8.8.8.8","server_port":53}],"rules":[{"action":"route","server":"fakeip-server"}],"final":"dns-server"}}'
+
+gen() { # $1=version $2=mode $3=entries $4=timeout $5=detour
+    export NETSHIFT_SING_BOX_VERSION="$1"
+    DP_MODE="$2"; DP_ENTRIES="$3"; DP_TIMEOUT="$4"
+    : > "$LOGF"
+    config="$base"
+    sing_box_configure_dns_pool "$5"
+    printf '%s' "$config"
+}
+same() { [ "$(printf '%s' "$1" | jq -cS .)" = "$(printf '%s' "$base" | jq -cS .)" ]; }
+warned() { grep -q "^\[warn\] .*$1" "$LOGF"; }
+
+E2="udp://1.1.1.1 dot://dns.quad9.net"
+V=1.14.1
+
+# ── unchanged setups ───────────────────────────────────────────────
+c="$(gen $V "" "$E2")"; same "$c" && echo 'dnspool-mode-absent-unchanged:OK' || echo 'dnspool-mode-absent-unchanged:FAIL'
+c="$(gen $V single "$E2")"; same "$c" && echo 'dnspool-single-unchanged:OK' || echo 'dnspool-single-unchanged:FAIL'
+c="$(gen $V bogus "$E2")"; same "$c" && warned "Unknown dns_pool_mode" && echo 'dnspool-unknown-mode-unchanged-warned:OK' || echo 'dnspool-unknown-mode-unchanged-warned:FAIL'
+c="$(gen $V fallback "")"; same "$c" && warned "no valid dns_pool_server" && echo 'dnspool-empty-list-unchanged-warned:OK' || echo 'dnspool-empty-list-unchanged-warned:FAIL'
+c="$(gen 1.13.14-extended-2.5.3 fallback "$E2")"; same "$c" && warned "needs sing-box 1.14.0" && echo 'dnspool-old-core-unchanged-warned:OK' || echo 'dnspool-old-core-unchanged-warned:FAIL'
+c="$(gen 1.13.14-extended-2.5.3 race "$E2")"; same "$c" && echo 'dnspool-old-core-race-unchanged:OK' || echo 'dnspool-old-core-race-unchanged:FAIL'
+
+# ── fallback ───────────────────────────────────────────────────────
+c="$(gen $V fallback "$E2")"
+echo "$c" | jq -e '[.dns.servers[].tag] == ["bootstrap-dns-server","dns-server","dns-server-2","dns-server-3"]' > /dev/null &&
+    echo 'dnspool-fallback-servers:OK' || echo 'dnspool-fallback-servers:FAIL'
+echo "$c" | jq -e '.dns.final == "dns-server-3"' > /dev/null &&
+    echo 'dnspool-fallback-final-is-last:OK' || echo 'dnspool-fallback-final-is-last:FAIL'
+echo "$c" | jq -e '.dns.rules[0].server == "fakeip-server" and (.dns.rules | length) == 7' > /dev/null &&
+    echo 'dnspool-fallback-keeps-existing-rules-first:OK' || echo 'dnspool-fallback-keeps-existing-rules-first:FAIL'
+echo "$c" | jq -e '[.dns.rules[1:][] | [.action, .server // .match_response, .response_rcode // ""]] ==
+    [["evaluate","dns-server",""],["respond","dns-pool-response-1","NOERROR"],["respond","dns-pool-response-1","NXDOMAIN"],
+     ["evaluate","dns-server-2",""],["respond","dns-pool-response-2","NOERROR"],["respond","dns-pool-response-2","NXDOMAIN"]]' > /dev/null &&
+    echo 'dnspool-fallback-rule-order:OK' || echo "dnspool-fallback-rule-order:FAIL [$(echo "$c" | jq -c '[.dns.rules[1:][] | [.action, .server // .match_response]]')]"
+echo "$c" | jq -e '[.dns.rules[] | select(.action == "evaluate") | .timeout] == ["2s","2s"] and ([.dns.rules[] | select(.race)] | length) == 0' > /dev/null &&
+    echo 'dnspool-fallback-timeout-no-race:OK' || echo 'dnspool-fallback-timeout-no-race:FAIL'
+
+# ── race ───────────────────────────────────────────────────────────
+c="$(gen $V race "$E2" 500ms)"
+echo "$c" | jq -e '.dns.final == "dns-server"' > /dev/null &&
+    echo 'dnspool-race-final-is-primary:OK' || echo 'dnspool-race-final-is-primary:FAIL'
+echo "$c" | jq -e '[.dns.rules[] | select(.action == "evaluate") | .server] == ["dns-server","dns-server-2","dns-server-3"]
+    and ([.dns.rules[] | select(.action == "evaluate") | .timeout] | unique) == ["500ms"]' > /dev/null &&
+    echo 'dnspool-race-evaluates-all-with-timeout:OK' || echo 'dnspool-race-evaluates-all-with-timeout:FAIL'
+echo "$c" | jq -e '[.dns.rules[] | select(.action == "respond")] as $r
+    | ($r | length) == 6 and ($r | all(.race == true)) and ([$r[].response_rcode] | unique) == ["NOERROR","NXDOMAIN"]' > /dev/null &&
+    echo 'dnspool-race-respond-rules-race:OK' || echo 'dnspool-race-respond-rules-race:FAIL'
+echo "$c" | jq -e '([.dns.rules[] | .action] | index("respond")) > ([.dns.rules[] | .action] | rindex("evaluate"))' > /dev/null &&
+    echo 'dnspool-race-evaluate-before-respond:OK' || echo 'dnspool-race-evaluate-before-respond:FAIL'
+c="$(gen $V race "$E2" "oops")"
+echo "$c" | jq -e '[.dns.rules[] | select(.action == "evaluate") | .timeout] | unique == ["2s"]' > /dev/null && warned "Invalid dns_pool_timeout" &&
+    echo 'dnspool-bad-timeout-defaults-warned:OK' || echo 'dnspool-bad-timeout-defaults-warned:FAIL'
+
+# ── entries ────────────────────────────────────────────────────────
+c="$(gen $V fallback "udp://1.1.1.1 bogus http://x.example udp://bad_host udp://1.1.1.1:99999 udp://8.8.4.4/path udp://1.2.3.4. udp://1234 udp://9.9.9.9")"
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-")) | .server] == ["1.1.1.1","9.9.9.9"]' > /dev/null &&
+    echo 'dnspool-bad-entries-skipped:OK' || echo "dnspool-bad-entries-skipped:FAIL [$(echo "$c" | jq -c '[.dns.servers[].server]')]"
+n=0; for w in "expected <scheme>" "unknown scheme" "not an IP address or domain" "out of range" "a path is only allowed"; do warned "$w" && n=$((n + 1)); done
+ok "$n" 5 "dnspool-bad-entries-each-warned"
+# 'loose' IPv4 forms that is_ipv4 takes and sing-box refuses are skipped with a warning
+ok "$(grep -c "^\[warn\] Ignoring dns_pool_server 'udp://1.2.3.4.': '1.2.3.4.' is not an IP\|^\[warn\] Ignoring dns_pool_server 'udp://1234': '1234' is not an IP" "$LOGF")" 2 "dnspool-loose-ipv4-skipped-warned"
+
+# ── host names are case-insensitive: the host is lowered, the path keeps its case ──
+c="$(gen $V fallback "dot://DNS.QUAD9.NET doh://DNS.Google/Dns-Query udp://1.1.1.1")"
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-")) | [.server, .path // ""]] == [["dns.quad9.net",""],["dns.google","/Dns-Query"],["1.1.1.1",""]]' > /dev/null &&
+    echo 'dnspool-uppercase-host-lowered-path-kept:OK' || echo "dnspool-uppercase-host-lowered-path-kept:FAIL [$(echo "$c" | jq -c '[.dns.servers[] | [.server,.path]]')]"
+
+# ── block_doh: doh/doh3 upstreams without a detour are called out ──
+DP_BLOCK_DOH=1
+c="$(gen $V race "doh://dns.google/dns-query udp://1.1.1.1")"; warned "DoH blocking is enabled and the DNS pool has doh/doh3" && echo 'dnspool-blockdoh-doh-warned:OK' || echo 'dnspool-blockdoh-doh-warned:FAIL'
+c="$(gen $V race "doh3://dns.adguard-dns.com/dns-query")"; warned "DoH blocking is enabled and the DNS pool has doh/doh3" && echo 'dnspool-blockdoh-doh3-warned:OK' || echo 'dnspool-blockdoh-doh3-warned:FAIL'
+c="$(gen $V race "doh://dns.google/dns-query" "" main-out)"; warned "DoH blocking" && echo 'dnspool-blockdoh-detour-silent:FAIL' || echo 'dnspool-blockdoh-detour-silent:OK'
+c="$(gen $V race "udp://1.1.1.1 dot://dns.quad9.net")"; warned "DoH blocking" && echo 'dnspool-blockdoh-no-doh-silent:FAIL' || echo 'dnspool-blockdoh-no-doh-silent:OK'
+DP_BLOCK_DOH=0
+c="$(gen $V race "doh://dns.google/dns-query")"; warned "DoH blocking" && echo 'dnspool-blockdoh-off-silent:FAIL' || echo 'dnspool-blockdoh-off-silent:OK'
+many=""; i=1; while [ $i -le 12 ]; do many="$many udp://10.0.0.$i"; i=$((i + 1)); done
+c="$(gen $V race "$many")"
+ok "$(echo "$c" | jq '[.dns.servers[] | select(.tag | startswith("dns-server"))] | length')" "$DNS_POOL_MAX_SERVERS" "dnspool-max-upstreams"
+warned "at most $DNS_POOL_MAX_SERVERS upstreams" && echo 'dnspool-max-upstreams-warned:OK' || echo 'dnspool-max-upstreams-warned:FAIL'
+
+# ── transports, detour, resolver ───────────────────────────────────
+c="$(gen $V race "udp://1.1.1.1 tcp://1.1.1.1:5353 dot://dns.quad9.net doh://dns.google/dns-query doh3://dns.adguard-dns.com/dns-query doq://dns.adguard-dns.com:8853 udp://[2001:4860:4860::8888]" "" main-out)"
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-")) | [.type, .server, .server_port, .path // ""]] ==
+    [["udp","1.1.1.1",53,""],["tcp","1.1.1.1",5353,""],["tls","dns.quad9.net",853,""],["https","dns.google",443,"/dns-query"],
+     ["h3","dns.adguard-dns.com",443,"/dns-query"],["quic","dns.adguard-dns.com",8853,""],["udp","2001:4860:4860::8888",53,""]]' > /dev/null &&
+    echo 'dnspool-transports-map:OK' || echo "dnspool-transports-map:FAIL [$(echo "$c" | jq -c '[.dns.servers[] | select(.tag | startswith("dns-server-")) | [.type,.server,.server_port,.path]]')]"
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-")) | .detour] | all(. == "main-out")' > /dev/null &&
+    echo 'dnspool-detour-on-every-upstream:OK' || echo 'dnspool-detour-on-every-upstream:FAIL'
+# jq on OpenWrt has no regex: hostnames are the servers that are neither dotted-quad nor IPv6
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-"))] as $s
+    | ($s | map(select(.server == "dns.quad9.net" or .server == "dns.google" or .server == "dns.adguard-dns.com")) | all(.domain_resolver == "bootstrap-dns-server"))
+    and ($s | map(select(.server == "1.1.1.1" or .server == "2001:4860:4860::8888")) | all((.domain_resolver // "") == ""))' > /dev/null &&
+    echo 'dnspool-bootstrap-resolver-only-for-hostnames:OK' || echo 'dnspool-bootstrap-resolver-only-for-hostnames:FAIL'
+c="$(gen $V race "udp://1.1.1.1" "" "")"
+echo "$c" | jq -e '[.dns.servers[] | .detour // "none"] | all(. == "none")' > /dev/null &&
+    echo 'dnspool-no-detour-when-direct:OK' || echo 'dnspool-no-detour-when-direct:FAIL'
+
+# ── the generated config validates on a core that knows the actions ──
+# /usr/local/bin/sing-box-1.14 is a stock sing-box 1.14 that the test image carries next
+# to its older default core (tests/Dockerfile).
+SBN=/usr/local/bin/sing-box-1.14
+if [ -x "$SBN" ] && is_sing_box_at_least "$SB_DNS_EVALUATE_MIN" "$("$SBN" version 2> /dev/null | awk 'NR==1{print $3}')"; then
+    for m in fallback race; do
+        gen $V $m "$E2" > /tmp/dnspool-$m.json
+        jq '. + {route:{default_domain_resolver:"dns-server"}} | .dns.rules |= map(select(.action != "route"))
+            | walk(if type == "object" then del(.__service_tag) else . end)' /tmp/dnspool-$m.json > /tmp/dnspool-$m-check.json
+        "$SBN" -c /tmp/dnspool-$m-check.json check > /dev/null 2>&1 &&
+            echo "dnspool-$m-singbox-check:OK" || echo "dnspool-$m-singbox-check:FAIL"
+    done
+    # the check really tells: a rule with a wrong field name is refused
+    jq '(.dns.rules[] | select(.action == "evaluate")) += {tmieout: "2s"}' /tmp/dnspool-race-check.json > /tmp/dnspool-bad-check.json
+    "$SBN" -c /tmp/dnspool-bad-check.json check > /dev/null 2>&1 &&
+        echo 'dnspool-singbox-check-rejects-bad-field:FAIL' || echo 'dnspool-singbox-check-rejects-bad-field:OK'
+    rm -f /tmp/dnspool-*.json
+else
+    echo 'dnspool-fallback-singbox-check:SKIP'
+    echo 'dnspool-race-singbox-check:SKIP'
+fi
+
+rm -f "$LOGF"
+echo 'DONE'
+DPEOF
+    sed -i "s|NETSHIFT_LIB|$NETSHIFT_LIB_DIR|g; s|BIN_PATH|$bin|; s|FACADE_PATH|$facade_lib|" "$drv"
+
+    local dp_out="/tmp/netshift-dnspool-out-$$.log"
+    ash "$drv" > "$dp_out" 2>&1 || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK) pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP) skip "$line" ;;
+            DONE) saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$dp_out"
+    if [ "$saw_done" = "1" ]; then
+        pass "dnspool-driver-completed:OK"
+    else
+        fail "dnspool-driver-completed:FAIL (driver aborted early)" "$(tail -20 "$dp_out")"
+    fi
+    rm -f "$drv" "$dp_out"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
 # country_code_to_flag_emoji / build_subscription_filter_json (country codes turn
@@ -13238,6 +13481,7 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_dns_pool
             test_urltest_filters
             ;;
         deps)        test_deps ;;
@@ -13286,10 +13530,11 @@ main() {
         cm)          test_config_manager ;;
         sb)          test_sing_box_config ;;
         proxylink)   test_proxy_link_escaping ;;
+        dnspool)     test_dns_pool ;;
         utfilters)   test_urltest_filters ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist dnspool utfilters"
             exit 1
             ;;
     esac
