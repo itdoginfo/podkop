@@ -528,7 +528,7 @@ function createSettingsContent(section) {
     "block_leaks",
     _("Block Leaks When Tunnel Is Down"),
     _(
-      "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart, sing-box crash/recovery, or boot before NetShift starts — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too.",
+      "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered.",
     ) +
       " " +
       _(

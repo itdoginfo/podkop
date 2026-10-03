@@ -1240,6 +1240,8 @@ BIN="BIN_PATH_PLACEHOLDER"
 # shellcheck disable=SC1090
 . "$LIB/constants.sh"
 # shellcheck disable=SC1090
+. "$LIB/helpers.sh"
+# shellcheck disable=SC1090
 . "$LIB/kill_switch.sh"
 
 # Unique tables: never touch the real NetShiftTable / NetShiftGuard.
@@ -1367,6 +1369,18 @@ BLEOF
     else
         fail "blockleaks:globalproxy — global_proxy drop rule missing" "$(printf '%s\n' "$out3" | grep -i 'drop' || true)"
     fi
+
+    # ── invalid fully_routed_ips must not abort the atomic rebuild ───
+    local t4="bl_bad_$$" g4="bl_bad_guard_$$" out4
+    out4="$(SCN_TABLE="$t4" SCN_GUARD="$g4" SCN_BLOCKLEAKS=1 SCN_IPV6=0 \
+        SCN_GLOBALPROXY="" SCN_FULLROUTED="192.168.50.7 not_an_ip" sh "$drv" 2>&1)"
+    nft delete table inet "$t4" 2>/dev/null || true
+    if printf '%s\n' "$out4" | sed -n '/---GUARD---/,/---DNS---/p' | grep -q "chain forward_guard"; then
+        pass "blockleaks:robust — a bad fully_routed_ips entry does not abort the guard"
+    else
+        fail "blockleaks:robust — guard not built with a bad fully_routed_ips entry" "$(printf '%s\n' "$out4" | grep -i 'error' || true)"
+    fi
+    nft delete table inet "$g4" 2>/dev/null || true
 
     rm -f "$drv"
 }

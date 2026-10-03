@@ -25,6 +25,12 @@
 #     a restart, until the new one is swapped in at the end of start_main;
 #   - removed when the option is off (and on package removal, via prerm).
 #
+# NOT covered: boot before the service's first start. The guard is created by
+# start_main and the kernel drops all nft state on reboot, so until NetShift
+# starts there is no table to drop with. Closing that window would also require
+# dnsmasq to be pointed at sing-box before the service runs, which it is not,
+# so it is intentionally out of scope.
+#
 # Combined with dnsmasq_should_be_restored() refusing to hand DNS back to the
 # direct resolvers while sing-box is down, this makes proxied traffic — both
 # subnet- and domain-routed — wait instead of leaking.
@@ -93,6 +99,17 @@ _kill_switch_source_item() {
     _kill_switch_source_seen=1
     [ -n "$ip" ] || return 0
 
+    # The whole guard is rebuilt in ONE nft transaction, so a single malformed
+    # value (a hostname, a typo) would abort the batch and leave no guard at all
+    # — fail-open, the opposite of what this option promises. Validate first and
+    # skip bad rows (the per-rule marking path degrades the same way, one rule
+    # at a time). is_ip_or_ip_prefix accepts a bare address or a prefix, IPv4 or
+    # IPv6, which is exactly what `fully_routed_ips` may hold.
+    if ! is_ip_or_ip_prefix "$ip"; then
+        log "block_leaks: skipping invalid fully_routed_ips entry '$ip'" "warn"
+        return 0
+    fi
+
     case "$ip" in
     *:*) echo "$ip" >> "$_kill_switch_source_out6" ;;
     *) echo "$ip" >> "$_kill_switch_source_out4" ;;
@@ -160,12 +177,30 @@ kill_switch_apply() {
         : > "$data_sub6"
     fi
 
+    # A non-empty union set that parses to nothing means the read-back failed
+    # (an nft output format change): the guard would be rebuilt with no proxied
+    # subnets and silently cover less. Warn instead of failing quietly.
+    if [ ! -s "$data_sub4" ] &&
+        nft list set inet "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" 2> /dev/null |
+        grep -Eq 'elements = \{[[:space:]]*[^[:space:]}]'; then
+        log "block_leaks: $NFT_COMMON_SET_NAME is not empty but parsed to nothing; guard subnets will be empty" "warn"
+    fi
+
     kill_switch_collect_sources "$data_src4" "$data_src6"
 
     : > "$data_lan"
     config_get source_network_interfaces "settings" "source_network_interfaces" "br-lan"
     for interface in $source_network_interfaces; do
-        [ -n "$interface" ] && echo "$interface" >> "$data_lan"
+        [ -n "$interface" ] || continue
+        # Positive allowlist: a name that would break nft tokenization must not
+        # make the single guard transaction fail (same fail-open as above).
+        case "$interface" in
+        *[!A-Za-z0-9_.:@-]*)
+            log "block_leaks: skipping invalid interface name '$interface'" "warn"
+            continue
+            ;;
+        esac
+        echo "$interface" >> "$data_lan"
     done
 
     [ -n "$(get_global_proxy_section)" ] && mark_all=1
