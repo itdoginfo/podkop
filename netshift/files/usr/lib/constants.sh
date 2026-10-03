@@ -115,6 +115,11 @@ SB_REQUIRED_VERSION="1.12.0"
 # First sing-box-extended release (the part after "-extended-") whose VLESS
 # outbound has the `encryption` field; its pre-releases already carry it.
 SB_EXTENDED_VLESS_ENCRYPTION_MIN="2.0.0"
+# First sing-box-extended release whose Reality client has the
+# `support_x25519mlkem768` option (it keeps the X25519MLKEM768 key share that
+# REALITY servers on Xray-core >= 26.9.8 require). Older extended builds and
+# stock sing-box do not know the field and would fail `sing-box check`.
+SB_EXTENDED_REALITY_MLKEM_MIN="2.7.2"
 # ── sing-box extended lite (third core variant) ─────────────────────
 # Version suffix that marks a lite build: the release tag and the version
 # banner of the binary are the upstream extended tag plus this suffix

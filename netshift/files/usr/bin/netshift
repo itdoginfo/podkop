@@ -3044,8 +3044,46 @@ _build_proxy_member_outbounds() {
     done
 }
 
+# Per-section `reality_mlkem`: keep the X25519MLKEM768 key share in the Reality
+# ClientHello. REALITY servers on Xray-core >= 26.9.8 reject a client that does
+# not offer it, and sing-box strips it by default. Only sing-box-extended has the
+# switch (SB_EXTENDED_REALITY_MLKEM_MIN); any other core would fail `sing-box
+# check` on the unknown field, so there the option is ignored with a warning and
+# the section still gets its outbounds. Publishes NETSHIFT_REALITY_MLKEM (0/1)
+# for the facade, which builds this section's outbounds right after.
+set_section_reality_mlkem() {
+    local section="$1"
+    local enabled connection_type proxy_config_type
+
+    NETSHIFT_REALITY_MLKEM=0
+    config_get_bool enabled "$section" "reality_mlkem" 0
+    [ "$enabled" -eq 1 ] || return 0
+
+    # Only the sections whose outbounds are built from links or a subscription
+    # take part: a different connection type, or the user's own outbound JSON
+    # (never touched), has nothing the option could apply to.
+    config_get connection_type "$section" "connection_type"
+    config_get proxy_config_type "$section" "proxy_config_type"
+    if [ "$connection_type" != "proxy" ] || [ "$proxy_config_type" = "outbound" ]; then
+        log "Section '$section': reality_mlkem does not apply to this connection type; ignoring it" "warn"
+        return 0
+    fi
+
+    # Resolve the core version once per run (see get_sing_box_version) instead of
+    # spawning `sing-box version` for every section that asks for the option.
+    [ -n "${NETSHIFT_SING_BOX_VERSION:-}" ] || NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
+
+    if is_sing_box_extended_at_least "$SB_EXTENDED_REALITY_MLKEM_MIN"; then
+        NETSHIFT_REALITY_MLKEM=1
+    else
+        log "Section '$section': reality_mlkem needs sing-box-extended $SB_EXTENDED_REALITY_MLKEM_MIN or newer (other cores do not know the option); ignoring it" "warn"
+    fi
+}
+
 configure_outbound_handler() {
     local section="$1"
+
+    set_section_reality_mlkem "$section"
 
     local connection_type
     config_get connection_type "$section" "connection_type"

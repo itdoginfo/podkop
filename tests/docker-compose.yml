@@ -11,8 +11,7 @@
 # Test names: all, deps, syntax, config, helpers, jq, cm, sb, proxylink, nft,
 #             nftv6, selmark, isolation, monfd, unsupported, extgate, vlessenc, textlist,
 #             chunkcheck, diagnostics, subscription, fastest, insecure, rejected,
-#             jobstate, selfheal, dnsdetour, ecssubnet, suburlopt, subcron, globalproxy, sectiondisabled,
-#             bittorrent, stablecheck, extcheck, sbextarch, sbextlite, netshiftcheck, latesttag,
+#             jobstate, selfheal, dnsdetour, ecssubnet, suburlopt, subcron, globalproxy, realitymlkem, sectiondisabled,
 #             bittorrent, utfilters, stablecheck, extcheck, sbextarch, sbextlite, netshiftcheck, latesttag,
 #             ghredirect, selfupdate, backupguard, hotreload, cachepersist,
 #             domsep, domcase

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:14+0300\n"
+"PO-Revision-Date: 2026-10-03 17:14+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -737,6 +737,9 @@ msgstr "Прокси-трафик не маршрутизируется чере
 msgid "Proxy traffic is routed via FakeIP"
 msgstr "Прокси-трафик направляется через FakeIP"
 
+msgid "Reality: post-quantum key share (X25519MLKEM768)"
+msgstr "Reality: постквантовый key share (X25519MLKEM768)"
+
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
 
@@ -745,6 +748,9 @@ msgstr "Внешние списки доменов"
 
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
+
+msgid "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores"
+msgstr "Нужно REALITY-серверам на Xray-core 26.9.8 и новее: они отвергают клиентов без него. Старые серверы могут не пройти рукопожатие, для них оставьте выключенным. Требуется sing-box-extended 2.7.2 или новее и отпечаток chrome; на других ядрах игнорируется"
 
 msgid "Resolve real IP for routing"
 msgstr "Разрешение реальных IP-адресов"

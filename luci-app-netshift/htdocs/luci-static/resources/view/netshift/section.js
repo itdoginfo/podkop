@@ -497,6 +497,29 @@ function createSectionContent(section) {
   o = section.taboption(
     "connection",
     form.Flag,
+    "reality_mlkem",
+    _("Reality: post-quantum key share (X25519MLKEM768)"),
+    _(
+      "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  // Not offered for a hand-written outbound JSON (it carries its own TLS block)
+  [
+    "url",
+    "selector",
+    "urltest",
+    "selector_text",
+    "urltest_text",
+    "subscription",
+  ].forEach((type) =>
+    o.depends({ connection_type: "proxy", proxy_config_type: type }),
+  );
+
+  o = section.taboption(
+    "connection",
+    form.Flag,
     "global_proxy",
     _("Global Proxy"),
     _("Route all unmatched traffic through this section's outbound.") +

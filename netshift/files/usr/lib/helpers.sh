@@ -1861,6 +1861,13 @@ normalize_subscription_to_singbox() {
     local line scheme idx kept skipped final_count builder_tag builder_out_tag
     local fragment display_name first_char xray_uris xray_unsupported
 
+    # The normalized body is cached per URL and reused until the next download,
+    # so it must not depend on the per-section reality_mlkem option (set by
+    # set_section_reality_mlkem): the key share is added when the outbounds are
+    # prepared for the config (sing_box_cf_prepare_subscription_batch), where
+    # switching the option off or changing the core takes effect immediately.
+    local NETSHIFT_REALITY_MLKEM=0
+
     [ -s "$src_file" ] || return 1
     # Strip a leading UTF-8 BOM (EF BB BF) if present; it would otherwise break
     # base64 charset detection and decoding. busybox sed lacks \x hex escapes,
