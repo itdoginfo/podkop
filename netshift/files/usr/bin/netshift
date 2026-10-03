@@ -5218,6 +5218,46 @@ show_system_info() {
     cat /tmp/sysinfo/model
 }
 
+# Version of the installed LuCI app, "not installed" when its views are absent.
+# Reads NETSHIFT_LUCI_APP_VERSION out of main.js in the hashed views directory
+# (view/netshift_<hash>/) or, for a hand-copied dev tree, view/netshift/.
+get_luci_app_version() {
+    local file version found=0 active
+
+    # The menu entry opens the installed view directory (netshift_<hash>/netshift),
+    # so that is the app that is running; directories of earlier versions can still
+    # be lying around (opkg does not remove files that left a package, a manual
+    # copy, a downgrade) and their date says nothing about which one is installed.
+    active="$(sed -n 's#.*"path": *"\(netshift_[0-9a-f]*\)/netshift".*#\1#p' "$LUCI_MENU_FILE" 2> /dev/null | head -n 1)"
+    if [ -n "$active" ] && [ -f "$LUCI_VIEW_DIR/$active/main.js" ]; then
+        found=1
+        version="$(grep 'var NETSHIFT_LUCI_APP_VERSION' "$LUCI_VIEW_DIR/$active/main.js" | cut -d'"' -f2)"
+        if [ -n "$version" ]; then
+            echo "$version"
+            return 0
+        fi
+    fi
+
+    # No (usable) menu entry: the newest main.js is the best guess.
+    # shellcheck disable=SC2046
+    for file in $(ls -1t "$LUCI_VIEW_DIR"/netshift_*/main.js "$LUCI_VIEW_DIR"/netshift/main.js 2> /dev/null); do
+        found=1
+        version="$(grep 'var NETSHIFT_LUCI_APP_VERSION' "$file" | cut -d'"' -f2)"
+        # A main.js without the version line must not yield an empty answer
+        # (jq's `// "unknown"` does not catch an empty string).
+        [ -n "$version" ] || continue
+        echo "$version"
+        return 0
+    done
+
+    # Installed, but no bundle tells its version.
+    if [ "$found" -eq 1 ]; then
+        echo "unknown"
+    else
+        echo "not installed"
+    fi
+}
+
 get_system_info() {
     local netshift_version netshift_latest_version luci_app_version sing_box_version openwrt_version device_model sing_box_extended
     local sing_box_variant sing_box_lite_upx sing_box_lite_supported ram_total_mb flash_free_mb
@@ -5232,11 +5272,7 @@ get_system_info() {
     # zero-network sentinel the UI already understands.
     netshift_latest_version="unknown"
 
-    if [ -f /www/luci-static/resources/view/netshift/main.js ]; then
-        luci_app_version=$(grep 'var NETSHIFT_LUCI_APP_VERSION' /www/luci-static/resources/view/netshift/main.js | cut -d'"' -f2)
-    else
-        luci_app_version="not installed"
-    fi
+    luci_app_version="$(get_luci_app_version)"
 
     if command -v sing-box > /dev/null 2>&1; then
         sing_box_version=$(sing-box version 2> /dev/null | head -n 1 | awk '{print $3}')

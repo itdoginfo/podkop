@@ -110,6 +110,13 @@ NFT_INTERFACE_SET_NAME="interfaces"
 NFT_FAKEIP_MARK="0x00100000"
 NFT_OUTBOUND_MARK="0x00200000"
 
+## LuCI
+# Where the LuCI app keeps its views. The package installs them in a
+# content-hashed view/netshift_<hash>/ (luci-app-netshift/cache-bust.sh); a
+# hand-copied dev tree may still be view/netshift/.
+LUCI_VIEW_DIR="/www/luci-static/resources/view"
+LUCI_MENU_FILE="/usr/share/luci/menu.d/luci-app-netshift.json"
+
 ## sing-box
 SB_REQUIRED_VERSION="1.12.0"
 # First sing-box-extended release (the part after "-extended-") whose VLESS

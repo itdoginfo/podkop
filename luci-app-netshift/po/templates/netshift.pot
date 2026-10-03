@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 07:24+0300\n"
-"PO-Revision-Date: 2026-10-03 07:24+0300\n"
+"POT-Creation-Date: 2026-10-03 14:18+0300\n"
+"PO-Revision-Date: 2026-10-03 14:18+0300\n"
 "Last-Translator: cergo666 <cergo666@ya.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -513,9 +513,9 @@ msgstr ""
 msgid "Extended core with all features (~105 MB)"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:258
 #: src/netshift/tabs/diagnostic/initController.ts:351
 #: src/netshift/tabs/diagnostic/initController.ts:355
+#: src/netshift/methods/shell/index.ts:258
 msgid "Failed to clear subscription cache"
 msgstr ""
 

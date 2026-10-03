@@ -11,8 +11,7 @@
 # Test names: all, deps, syntax, config, helpers, jq, cm, sb, proxylink, nft,
 #             nftv6, selmark, isolation, monfd, unsupported, extgate, vlessenc, textlist,
 #             chunkcheck, diagnostics, subscription, fastest, insecure, rejected,
-#             jobstate, selfheal, dnsdetour, ecssubnet, suburlopt, subcron, globalproxy, sectiondisabled,
-#             bittorrent, stablecheck, extcheck, sbextarch, sbextlite, netshiftcheck, latesttag,
+#             jobstate, selfheal, dnsdetour, ecssubnet, suburlopt, subcron, globalproxy, cachebust, sectiondisabled,
 #             bittorrent, utfilters, stablecheck, extcheck, sbextarch, sbextlite, netshiftcheck, latesttag,
 #             ghredirect, selfupdate, backupguard, hotreload, cachepersist,
 #             domsep, domcase
@@ -49,6 +48,7 @@ services:
     # ── Volumes (source code bind mount) ─────────────────────────
     volumes:
       - ../netshift/files:/netshift/files:ro
+      - ../luci-app-netshift:/luci-app-netshift:ro
       - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - ./test-results:/tmp/test-results
 

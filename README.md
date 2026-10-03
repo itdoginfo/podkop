@@ -321,7 +321,8 @@ uci commit netshift
 │
 ├── luci-app-netshift/              # LuCI веб-интерфейс
 │   ├── Makefile
-│   ├── htdocs/.../view/netshift/   # main.js (автоген) + hand-written views
+│   ├── cache-bust.sh               # при сборке пакета: view/netshift -> view/netshift_<хеш>
+│   ├── htdocs/.../view/netshift/   # main.js (автоген) + hand-written views (в установленном пакете - view/netshift_<хеш>/)
 │   ├── po/                         # Переводы (генерируются из fe-app)
 │   └── root/                       # menu.d · acl.d · uci-defaults
 │

@@ -857,9 +857,9 @@
     "call": "Failed to clear subscription cache",
     "key": "Failed to clear subscription cache",
     "places": [
-      "src/netshift/methods/shell/index.ts:258",
       "src/netshift/tabs/diagnostic/initController.ts:351",
-      "src/netshift/tabs/diagnostic/initController.ts:355"
+      "src/netshift/tabs/diagnostic/initController.ts:355",
+      "src/netshift/methods/shell/index.ts:258"
     ]
   },
   {

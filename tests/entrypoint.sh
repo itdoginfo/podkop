@@ -132,6 +132,16 @@ test_syntax() {
         fi
     done
 
+    # The LuCI package's build-time script (not under files/, so not in the list above).
+    local cache_bust="${NETSHIFT_LUCI_SRC:-/luci-app-netshift}/cache-bust.sh"
+    if [ -r "$cache_bust" ]; then
+        if ash -n "$cache_bust" 2>&1; then
+            pass "Syntax OK: cache-bust.sh"
+        else
+            fail "Syntax ERROR in cache-bust.sh" "$(ash -n "$cache_bust" 2>&1)"
+        fi
+    fi
+
     # Parse-check the CLI dispatcher itself (not just the libs).
     local cli="${NETSHIFT_SRC}/usr/bin/netshift"
     if [ ! -r "$cli" ]; then
@@ -8962,228 +8972,266 @@ test_global_proxy() {
 }
 
 # ─────────────────────────────────────────────────────────────────
-# Test: `disabled` option for sections (issue #42)
+# Test: LuCI views cache busting
 # ─────────────────────────────────────────────────────────────────
-# Runs the REAL section_is_disabled / foreach_active_section /
-# section_has_configured_outbound / section_has_enabled_lists (extracted
-# verbatim from the bin) against a stubbed UCI layer. Asserts:
-#   - a section with `disabled '1'` is skipped by foreach_active_section and
-#     is reported as having no outbound and no enabled lists;
-#   - `disabled '0'` and a MISSING option (every pre-existing config) keep the
-#     section fully active (upgrade safety);
-#   - the callback bookkeeping is restored after the walk (nesting-safe).
-test_section_disabled() {
-    header "Section disabled option (issue #42)"
+# LuCI requests view modules as .../view/<name>.js?v=<LuCI core version>, which
+# does not change when this app is updated, so a browser kept serving the
+# previous version's JS. luci-app-netshift/cache-bust.sh (run from the package
+# Makefile) installs the views in a content-hashed view/netshift_<hash>/ and
+# points the requires and the menu at it, so every new build has new URLs.
+# Runs the REAL script on a copy of the source tree and checks:
+#   - directory renamed, every `require view.netshift.<x>` and the menu path
+#     rewritten, nothing left pointing at the old directory;
+#   - the tag follows the content (and the stamped version), and is stable;
+#   - a broken tree fails instead of producing a package that cannot load;
+# plus the backend lookup of the installed LuCI app version (get_luci_app_version),
+# which has to find main.js in the hashed directory.
+test_luci_cache_bust() {
+    header "LuCI views cache busting"
 
+    local src="${NETSHIFT_LUCI_SRC:-/luci-app-netshift}"
     local bin="${NETSHIFT_SRC}/usr/bin/netshift"
-    if [ ! -r "$bin" ]; then
-        skip "netshift bin not found"
+    if [ ! -r "$src/cache-bust.sh" ] || [ ! -d "$src/htdocs" ]; then
+        fail "cachebust" "luci-app-netshift source not mounted at $src (mount ../luci-app-netshift at /luci-app-netshift)"
         return
     fi
+    if [ ! -r "$bin" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "cachebust - bin/netshift or jq not found"
+        return
+    fi
+
+    local work="/tmp/netshift-cachebust-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
 
     local out
     out="$(
-        # shellcheck disable=SC2030
-        extract() {
-            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
-        }
-        eval "$(extract section_is_disabled)"
-        eval "$(extract _active_section_dispatch)"
-        eval "$(extract foreach_active_section)"
-        eval "$(extract section_has_configured_outbound)"
-        eval "$(extract section_has_enabled_lists)"
-        eval "$(extract _check_outbound_section)"
-        eval "$(extract has_outbound_section)"
-        eval "$(extract _determine_first_outbound_section)"
-        eval "$(extract get_first_outbound_section)"
-        eval "$(extract _determine_global_proxy_section)"
-        eval "$(extract get_global_proxy_section)"
-        _active_section_callback=
+        W="$work"
+        view_rel="htdocs/luci-static/resources/view"
 
-        SD_SECTIONS="alpha beta gamma delta"
-        sd_key() { printf 'SD_%s_%s' "$1" "$2"; }
-        config_get() {
-            local _v
-            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
-            [ -n "$_v" ] || _v="$4"
-            eval "$1=\"\$_v\""
+        fresh() { # $1=name: copy of the source tree, version stamped like the Makefile does
+            rm -rf "$W/$1"
+            mkdir -p "$W/$1"
+            cp -R "$src/htdocs" "$src/root" "$W/$1/"
+            sed -i -e "s/__COMPILED_VERSION_VARIABLE__/${2:-0.9.9}/g" "$W/$1/$view_rel/netshift/main.js"
         }
-        config_get_bool() {
-            local _v
-            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
-            [ -n "$_v" ] || _v="$4"
-            case "$_v" in 1 | on | true | yes | enabled) _v=1 ;; *) _v=0 ;; esac
-            eval "$1=\"\$_v\""
-        }
-        config_foreach() {
-            local _cb="$1" _t="$2" _s
-            shift 2
-            for _s in $SD_SECTIONS; do "$_cb" "$_s" "$@"; done
-        }
+        run() { sh "$src/cache-bust.sh" "$W/$1/htdocs" "$W/$1/root" > "$W/$1.out" 2>&1; }
+        tag_of() { ls "$W/$1/$view_rel" | grep '^netshift_' | head -1; }
 
-        # alpha: active (no `disabled` option at all = every existing config)
-        # beta:  disabled '1'    gamma: disabled '0'    delta: disabled '1'
-        for s in alpha beta gamma delta; do
-            eval "SD_${s}_connection_type=proxy"
-            eval "SD_${s}_proxy_config_type=url"
-            eval "SD_${s}_proxy_string=vless://x@example.com:443"
-            eval "SD_${s}_community_lists=russia_inside"
+        fresh a
+        run a && echo "script-ok:yes" || echo "script-ok:no"
+        tag="$(tag_of a)"
+        echo "tag-shape:$(printf '%s' "$tag" | grep -Eq '^netshift_[0-9a-f]{8}$' && echo yes || echo no)"
+        echo "old-dir-gone:$([ -d "$W/a/$view_rel/netshift" ] && echo no || echo yes)"
+
+        # Same files as in the source tree, just moved.
+        moved=yes
+        for f in "$src/htdocs/luci-static/resources/view/netshift"/*.js; do
+            [ -f "$W/a/$view_rel/$tag/$(basename "$f")" ] || moved=no
         done
-        SD_beta_disabled=1
-        SD_gamma_disabled=0
-        SD_delta_disabled=1
+        echo "all-views-moved:$moved"
 
-        visited=""
-        sd_visit() { visited="$visited $1"; }
-        foreach_active_section sd_visit "section"
-        echo "walk:${visited# }"
+        echo "no-old-requires:$(grep -l 'view\.netshift\.' "$W/a/$view_rel/$tag"/*.js > /dev/null 2>&1 && echo no || echo yes)"
+        echo "requires-new-dir:$(grep -h 'require view\.' "$W/a/$view_rel/$tag"/*.js | grep -vc "require view\.$tag\." | grep -qx 0 && echo yes || echo no)"
+        deps=yes
+        for ref in $(grep -ho "require view\.$tag\.[A-Za-z0-9_]*" "$W/a/$view_rel/$tag"/*.js | sort -u | sed "s/.*\.//"); do
+            [ -f "$W/a/$view_rel/$tag/$ref.js" ] || deps=no
+        done
+        echo "every-require-resolves:$deps"
+        echo "has-requires:$(grep -hc "require view\.$tag\." "$W/a/$view_rel/$tag"/*.js | awk '{n+=$1} END{print (n>0)?"yes":"no"}')"
 
-        section_is_disabled alpha && echo "alpha-disabled:yes" || echo "alpha-disabled:no"
-        section_is_disabled beta && echo "beta-disabled:yes" || echo "beta-disabled:no"
-        section_is_disabled gamma && echo "gamma-disabled:yes" || echo "gamma-disabled:no"
+        menu="$W/a/root/usr/share/luci/menu.d/luci-app-netshift.json"
+        echo "menu-path:$(jq -r '."admin/services/netshift".action.path' "$menu")"
+        echo "menu-only-path-changed:$([ "$(jq -S 'del(."admin/services/netshift".action.path)' "$menu")" = "$(jq -S 'del(."admin/services/netshift".action.path)' "$src/root/usr/share/luci/menu.d/luci-app-netshift.json")" ] && echo yes || echo no)"
+        echo "menu-target-exists:$([ -f "$W/a/$view_rel/$(jq -r '."admin/services/netshift".action.path' "$menu" | cut -d/ -f1)/netshift.js" ] && echo yes || echo no)"
 
-        section_has_configured_outbound alpha && echo "alpha-outbound:yes" || echo "alpha-outbound:no"
-        section_has_configured_outbound beta && echo "beta-outbound:yes" || echo "beta-outbound:no"
-        section_has_enabled_lists alpha && echo "alpha-lists:yes" || echo "alpha-lists:no"
-        section_has_enabled_lists beta && echo "beta-lists:yes" || echo "beta-lists:no"
+        # Deterministic: the same build gives the same directory.
+        fresh b
+        run b || echo "run-b:failed"
+        echo "deterministic:$([ "$(tag_of b)" = "$tag" ] && echo yes || echo no)"
+        # The tag follows the stamped version (a new release => new URLs) ...
+        fresh c 0.9.10
+        run c || echo "run-c:failed"
+        echo "changes-with-version:$([ "$(tag_of c)" != "$tag" ] && echo yes || echo no)"
+        # ... and the content.
+        fresh d
+        printf '\n// edit\n' >> "$W/d/$view_rel/netshift/section.js"
+        run d || echo "run-d:failed"
+        echo "changes-with-content:$([ "$(tag_of d)" != "$tag" ] && echo yes || echo no)"
 
-        echo "callback-restored:${_active_section_callback:-empty}"
+        # The tag is the md5 of the stamped views concatenated in byte order.
+        fresh m
+        want_tag="netshift_$(cd "$W/m/$view_rel/netshift" && LC_ALL=C cat ./*.js | LC_ALL=C md5sum | cut -c1-8)"
+        run m || echo "run-m:failed"
+        echo "tag-is-content-md5:$([ "$(tag_of m)" = "$want_tag" ] && echo yes || echo no)"
 
-        # Selection helpers: a disabled section is never the first outbound and
-        # never the global-proxy section, even when it comes first / asks for it.
-        SD_beta_global_proxy=1
-        SD_gamma_global_proxy=1
-        SD_SECTIONS="beta alpha gamma"
-        echo "first-outbound:$(get_first_outbound_section)"
-        echo "global-proxy:$(get_global_proxy_section)"
-        has_outbound_section && echo "has-outbound:yes" || echo "has-outbound:no"
+        # A broken tree must fail the build.
+        fresh e
+        rm -rf "$W/e/$view_rel/netshift"
+        run e && echo "missing-views-fails:no" || echo "missing-views-fails:yes"
+        echo "missing-views-message:$(grep -c 'view/netshift not found' "$W/e.out")"
+        fresh f
+        rm -f "$W/f/root/usr/share/luci/menu.d/luci-app-netshift.json"
+        run f && echo "missing-menu-fails:no" || echo "missing-menu-fails:yes"
+        echo "missing-menu-message:$(grep -c 'luci-app-netshift.json not found' "$W/f.out")"
+        # A require that points at a view that does not exist is caught.
+        fresh g
+        sed -i 's/require view\.netshift\.main as main/require view.netshift.nosuchview as main/' "$W/g/$view_rel/netshift/diagnostic.js"
+        run g && echo "dangling-require-fails:no" || echo "dangling-require-fails:yes"
+        # A leftover path-form reference and a reference to another hash are caught too.
+        fresh h
+        printf '\nL.resource("view/netshift/main.js");\n' >> "$W/h/$view_rel/netshift/diagnostic.js"
+        run h && echo "path-form-reference-fails:no" || echo "path-form-reference-fails:yes"
+        fresh i
+        printf '\n// require view.netshift_deadbeef.main\n' >> "$W/i/$view_rel/netshift/diagnostic.js"
+        run i && echo "foreign-hash-reference-fails:no" || echo "foreign-hash-reference-fails:yes"
+        # No .js views at all, and a second run over a processed tree, fail with a clear error.
+        fresh j
+        rm -f "$W/j/$view_rel/netshift"/*.js
+        run j && echo "empty-views-fails:no" || echo "empty-views-fails:yes"
+        echo "empty-views-message:$(grep -c 'no .js views' "$W/j.out")"
+        fresh k
+        run k || echo "run-k:failed"
+        run k && echo "rerun-fails:no" || echo "rerun-fails:yes"
+        echo "rerun-message:$(grep -c 'view/netshift not found' "$W/k.out")"
+        # The target directory already there next to a plain view/netshift: refused.
+        fresh x
+        run x || echo "run-x:failed"
+        mkdir -p "$W/x/$view_rel/netshift"
+        cp "$src/htdocs/luci-static/resources/view/netshift"/*.js "$W/x/$view_rel/netshift/"
+        sed -i -e "s/__COMPILED_VERSION_VARIABLE__/0.9.9/g" "$W/x/$view_rel/netshift/main.js"
+        run x && echo "already-exists-fails:no" || echo "already-exists-fails:yes"
+        echo "already-exists-message:$(grep -c 'already exists' "$W/x.out")"
+        # A version placeholder that was never stamped fails the build instead of
+        # shipping a bundle that cannot tell its version.
+        rm -rf "$W/n"; mkdir -p "$W/n"
+        cp -R "$src/htdocs" "$src/root" "$W/n/"
+        run n && echo "unstamped-version-fails:no" || echo "unstamped-version-fails:yes"
+        echo "unstamped-version-message:$(grep -c 'version placeholder not stamped' "$W/n.out")"
 
-        # The walker must hand back the callback's status (list_update relies on
-        # `foreach_active_section ... || update_failed=1` to report a failed run).
-        SD_SECTIONS="alpha gamma"
-        sd_fail() { return 1; }
-        sd_pass() { return 0; }
-        foreach_active_section sd_fail "section" && echo "rc-failing-callback:0" || echo "rc-failing-callback:1"
-        foreach_active_section sd_pass "section" && echo "rc-passing-callback:0" || echo "rc-passing-callback:1"
-        echo "rc-callback-restored:${_active_section_callback:-empty}"
+        # ── backend: version of the installed LuCI app ──────────────────
+        log() { :; }
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        eval "$(awk -v f="get_luci_app_version" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        mkver() { mkdir -p "$LUCI_VIEW_DIR/$1"; printf 'var NETSHIFT_LUCI_APP_VERSION = "%s";\n' "$2" > "$LUCI_VIEW_DIR/$1/main.js"; }
+        # The version line of the REAL bundle, as built and stamped, is understood.
+        LUCI_VIEW_DIR="$W/a/$view_rel"
+        echo "version-real-bundle:$(get_luci_app_version)"
+        LUCI_VIEW_DIR="$W/luciview"
+        LUCI_MENU_FILE="$W/no-such-menu.json"
+        rm -rf "$LUCI_VIEW_DIR"; mkdir -p "$LUCI_VIEW_DIR"
+        echo "version-none:$(get_luci_app_version)"
+        mkver netshift 0.8.0
+        echo "version-legacy-dir:$(get_luci_app_version)"
+        # Dates are made by creation order (a one-second gap), never by fixed dates.
+        sleep 1
+        mkver netshift_1a2b3c4d 0.9.9.5
+        echo "version-hashed-dir-wins:$(get_luci_app_version)"
+        rm -rf "$LUCI_VIEW_DIR/netshift"
+        echo "version-hashed-dir:$(get_luci_app_version)"
+        # Without a menu entry the newest main.js is the installed one, whichever way
+        # the hash of a leftover directory sorts.
+        rm -rf "$LUCI_VIEW_DIR"; mkdir -p "$LUCI_VIEW_DIR"
+        mkver netshift_ffffffff 0.9.9.4; mkver netshift_00000000 0.9.9.4
+        sleep 1
+        mkver netshift_1a2b3c4d 0.9.9.5
+        echo "version-old-dirs-lose:$(get_luci_app_version)"
+        # With the menu entry, the directory it opens is the installed one even when a
+        # leftover (a downgrade, a manual copy) is newer.
+        printf '{"admin/services/netshift":{"action":{"type":"view","path":"netshift_1a2b3c4d/netshift"}}}\n' > "$LUCI_MENU_FILE"
+        sleep 1
+        mkver netshift_22222222 0.9.9.6
+        echo "version-menu-wins-over-newer-leftover:$(get_luci_app_version)"
+        # A menu entry that points to a directory that is not there is ignored.
+        printf '{"admin/services/netshift":{"action":{"type":"view","path":"netshift_99999999/netshift"}}}\n' > "$LUCI_MENU_FILE"
+        echo "version-menu-dangling-falls-back:$(get_luci_app_version)"
+        rm -f "$LUCI_MENU_FILE"
+        # A main.js without the version line is skipped, never reported as an empty
+        # string; with nothing usable left the app is installed but of unknown version.
+        rm -rf "$LUCI_VIEW_DIR"; mkdir -p "$LUCI_VIEW_DIR"
+        mkver netshift_1a2b3c4d 0.9.9.5
+        mkdir -p "$LUCI_VIEW_DIR/netshift_00000001"
+        printf 'var SOMETHING_ELSE = 1;\n' > "$LUCI_VIEW_DIR/netshift_00000001/main.js"
+        echo "version-missing-line-skipped:$(get_luci_app_version)"
+        rm -rf "$LUCI_VIEW_DIR/netshift_1a2b3c4d"
+        echo "version-missing-line:$(get_luci_app_version)"
 
-        # Only disabled sections left -> as if there were no sections at all.
-        SD_SECTIONS="beta delta"
-        echo "only-disabled-first:[$(get_first_outbound_section)]"
-        echo "only-disabled-global:[$(get_global_proxy_section)]"
-        has_outbound_section && echo "only-disabled-has-outbound:yes" || echo "only-disabled-has-outbound:no"
+        # ── package postinst: earlier view directories are removed, the installed one stays
+        mk="$src/Makefile"
+        awk '/^define Package\/\$\(PKG_NAME\)\/postinst/{p=1;next} /^endef/{if(p)exit} p' "$mk" | sed 's/\$\$/$/g' > "$W/postinst.sh"
+        echo "postinst-extracted:$([ -s "$W/postinst.sh" ] && echo yes || echo no)"
+        PV="$W/pi/view"; PM="$W/pi/menu.json"
+        rm -rf "$W/pi"; mkdir -p "$PV/netshift_aaaaaaaa" "$PV/netshift_bbbbbbbb" "$PV/netshift_cccccccc" "$PV/netshift" "$PV/other"
+        printf '{"admin/services/netshift":{"action":{"type":"view","path":"netshift_bbbbbbbb/netshift"}}}\n' > "$PM"
+        ( LUCI_VIEW_DIR="$PV" LUCI_MENU_FILE="$PM" sh "$W/postinst.sh" ) > /dev/null 2>&1
+        echo "postinst-keeps-active:$(ls "$PV" | tr '\n' ',')"
+        # Image build (IPKG_INSTROOT set): nothing is touched.
+        mkdir -p "$PV/netshift_aaaaaaaa"
+        ( IPKG_INSTROOT=/x LUCI_VIEW_DIR="$PV" LUCI_MENU_FILE="$PM" sh "$W/postinst.sh" ) > /dev/null 2>&1
+        echo "postinst-image-build-untouched:$([ -d "$PV/netshift_aaaaaaaa" ] && echo yes || echo no)"
+        # No usable menu entry: nothing is removed.
+        printf '{}\n' > "$PM"
+        ( LUCI_VIEW_DIR="$PV" LUCI_MENU_FILE="$PM" sh "$W/postinst.sh" ) > /dev/null 2>&1
+        echo "postinst-no-menu-removes-nothing:$([ -d "$PV/netshift_aaaaaaaa" ] && [ -d "$PV/netshift_bbbbbbbb" ] && echo yes || echo no)"
     )"
+    rm -rf "$work"
 
-    _sd_check() {
+    _cb_check() {
         if echo "$out" | grep -qxF "$2"; then
             pass "$1"
         else
-            fail "$1" "wanted line [$2] in: $(echo "$out" | tr '\n' '|')"
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
         fi
     }
 
-    _sd_check "disabled sections are skipped by foreach_active_section" "walk:alpha gamma"
-    _sd_check "missing disabled option keeps the section active" "alpha-disabled:no"
-    _sd_check "disabled '1' is detected" "beta-disabled:yes"
-    _sd_check "disabled '0' keeps the section active" "gamma-disabled:no"
-    _sd_check "active section has a configured outbound" "alpha-outbound:yes"
-    _sd_check "disabled section has no configured outbound" "beta-outbound:no"
-    _sd_check "active section has enabled lists" "alpha-lists:yes"
-    _sd_check "disabled section has no enabled lists" "beta-lists:no"
-    _sd_check "foreach_active_section restores its callback state" "callback-restored:empty"
-    _sd_check "disabled section is never the first outbound" "first-outbound:alpha"
-    _sd_check "disabled section is never the global-proxy section" "global-proxy:gamma"
-    _sd_check "active sections still count as having an outbound" "has-outbound:yes"
-    _sd_check "foreach_active_section returns a failing callback status" "rc-failing-callback:1"
-    _sd_check "foreach_active_section returns 0 when callbacks succeed" "rc-passing-callback:0"
-    _sd_check "foreach_active_section restores its callback after a failure" "rc-callback-restored:empty"
-    _sd_check "only disabled sections: no first outbound" "only-disabled-first:[]"
-    _sd_check "only disabled sections: no global-proxy section" "only-disabled-global:[]"
-    _sd_check "only disabled sections: has_outbound_section is false" "only-disabled-has-outbound:no"
-
-    # A disabled section picked in "Download Lists via specific proxy section"
-    # has no outbound, so nothing may reference "<section>-out" (sing-box check
-    # would fail and the whole service would not start).
-    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
-    local facade_lib="${NETSHIFT_LIB_DIR}/sing_box_config_facade.sh"
-    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
-    if ! command -v jq > /dev/null 2>&1 || [ ! -r "$cm_lib" ] || [ ! -r "$facade_lib" ] || [ ! -r "$jq_helpers" ]; then
-        skip "download proxy section disabled: jq / libs not available"
-        return
+    _cb_check "the script succeeds on the source tree" "script-ok:yes"
+    _cb_check "the views directory is named netshift_<8 hex>" "tag-shape:yes"
+    _cb_check "the old view/netshift directory is gone" "old-dir-gone:yes"
+    _cb_check "every view file is kept, only moved" "all-views-moved:yes"
+    _cb_check "no require points at the old directory" "no-old-requires:yes"
+    _cb_check "every require uses the new directory" "requires-new-dir:yes"
+    _cb_check "the views do require each other (rewrite is exercised)" "has-requires:yes"
+    _cb_check "every required view exists in the new directory" "every-require-resolves:yes"
+    _cb_check "the menu opens the hashed directory" "menu-target-exists:yes"
+    _cb_check "only the menu path changed in the menu file" "menu-only-path-changed:yes"
+    _cb_check "the same build gives the same directory" "deterministic:yes"
+    _cb_check "a new version gets a new directory" "changes-with-version:yes"
+    _cb_check "changed content gets a new directory" "changes-with-content:yes"
+    _cb_check "a missing views directory fails the build" "missing-views-fails:yes"
+    _cb_check "a missing menu file fails the build" "missing-menu-fails:yes"
+    _cb_check "a require of a missing view fails the build" "dangling-require-fails:yes"
+    _cb_check "no LuCI app: not installed" "version-none:not installed"
+    _cb_check "version is read from a legacy view/netshift directory" "version-legacy-dir:0.8.0"
+    _cb_check "the hashed directory wins over a legacy one" "version-hashed-dir-wins:0.9.9.5"
+    _cb_check "version is read from the hashed directory" "version-hashed-dir:0.9.9.5"
+    _cb_check "the real bundle's version line is understood" "version-real-bundle:0.9.9"
+    _cb_check "leftover older directories lose, whichever way their hash sorts" "version-old-dirs-lose:0.9.9.5"
+    _cb_check "the menu entry names the installed directory, even when a leftover is newer" "version-menu-wins-over-newer-leftover:0.9.9.5"
+    _cb_check "a menu entry to a missing directory is ignored" "version-menu-dangling-falls-back:0.9.9.6"
+    _cb_check "postinst is found in the Makefile" "postinst-extracted:yes"
+    _cb_check "postinst removes earlier view directories and keeps the installed one" "postinst-keeps-active:netshift_bbbbbbbb,other,"
+    _cb_check "postinst does nothing during an image build" "postinst-image-build-untouched:yes"
+    _cb_check "postinst removes nothing without a usable menu entry" "postinst-no-menu-removes-nothing:yes"
+    _cb_check "a main.js without a version line is skipped for one that has it" "version-missing-line-skipped:0.9.9.5"
+    _cb_check "only a main.js without a version line: unknown, not an empty string or not installed" "version-missing-line:unknown"
+    _cb_check "a missing views directory says so" "missing-views-message:1"
+    _cb_check "a missing menu file says so" "missing-menu-message:1"
+    _cb_check "a second run over a processed tree reports the missing source directory" "rerun-message:1"
+    _cb_check "an existing target directory is refused" "already-exists-fails:yes"
+    _cb_check "...with its own message" "already-exists-message:1"
+    _cb_check "an unstamped version placeholder fails the build" "unstamped-version-fails:yes"
+    _cb_check "...and says so" "unstamped-version-message:1"
+    _cb_check "the tag is the md5 of the stamped views" "tag-is-content-md5:yes"
+    _cb_check "a leftover view/netshift path reference fails the build" "path-form-reference-fails:yes"
+    _cb_check "a reference to another hash fails the build" "foreign-hash-reference-fails:yes"
+    _cb_check "no .js views fails the build" "empty-views-fails:yes"
+    _cb_check "no .js views: the error says so" "empty-views-message:1"
+    _cb_check "a second run over a processed tree fails" "rerun-fails:yes"
+    if echo "$out" | grep -q '^menu-path:netshift_[0-9a-f]\{8\}/netshift$'; then
+        pass "the menu path is netshift_<hash>/netshift"
+    else
+        fail "the menu path is netshift_<hash>/netshift" "$(echo "$out" | grep '^menu-path' )"
     fi
-
-    mkdir -p /usr/lib/netshift
-    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
-    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
-    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
-
-    out="$(
-        # shellcheck disable=SC2030,SC2031
-        extract() {
-            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
-        }
-        . "${NETSHIFT_LIB_DIR}/constants.sh"
-        . "${NETSHIFT_LIB_DIR}/helpers.sh"
-        . "${NETSHIFT_LIB_DIR}/logging.sh" 2>/dev/null || log() { :; }
-        . "$facade_lib"
-        for fn in section_is_disabled _active_section_dispatch foreach_active_section \
-            subscription_outbound_is_unavailable download_proxy_section_is_unavailable \
-            sing_box_additional_inbounds get_download_detour_tag; do
-            eval "$(extract "$fn")"
-        done
-        _active_section_callback=
-        SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
-
-        SD_PROXY_SECTION=""
-        config_get() {
-            case "$2:$3" in
-            settings:download_lists_via_proxy_section) eval "$1=\"\$SD_PROXY_SECTION\"" ;;
-            *) eval "$1=\"\${4:-}\"" ;;
-            esac
-        }
-        config_get_bool() {
-            case "$2:$3" in
-            settings:download_lists_via_proxy) eval "$1=1" ;;
-            beta:disabled) eval "$1=1" ;;
-            *) eval "$1=\"\${4:-0}\"" ;;
-            esac
-        }
-        config_foreach() { :; }
-        get_outbound_tag_by_section() { echo "$1-out"; }
-
-        base='{"inbounds":[],"outbounds":[{"type":"direct","tag":"direct-out"},{"type":"direct","tag":"alpha-out"}],"route":{"rules":[],"final":"direct-out"}}'
-
-        SD_PROXY_SECTION=beta
-        echo "detour-disabled:[$(get_download_detour_tag)]"
-        config="$base"
-        sing_box_additional_inbounds
-        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "beta-out")] | length == 0' > /dev/null &&
-            echo "inbounds-disabled-no-dangling-outbound:yes" || echo "inbounds-disabled-no-dangling-outbound:no"
-        echo "$config" | jq -e '[.route.rules[] | select(.action == "reject")] | length == 1' > /dev/null &&
-            echo "inbounds-disabled-rejects:yes" || echo "inbounds-disabled-rejects:no"
-        if command -v sing-box > /dev/null 2>&1; then
-            printf '%s' "$config" | jq 'walk(if type == "object" then del(.__service_tag) else . end)' > /tmp/sd-dl-disabled.json
-            sing-box -c /tmp/sd-dl-disabled.json check > /dev/null 2>&1 &&
-                echo "inbounds-disabled-singbox-check:yes" || echo "inbounds-disabled-singbox-check:no"
-            rm -f /tmp/sd-dl-disabled.json
-        fi
-
-        SD_PROXY_SECTION=alpha
-        echo "detour-active:[$(get_download_detour_tag)]"
-        config="$base"
-        sing_box_additional_inbounds
-        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "alpha-out")] | length == 1' > /dev/null &&
-            echo "inbounds-active-routes-to-section:yes" || echo "inbounds-active-routes-to-section:no"
-    )"
-
-    _sd_check "disabled download proxy section: no detour tag" "detour-disabled:[]"
-    _sd_check "disabled download proxy section: no route to its outbound" "inbounds-disabled-no-dangling-outbound:yes"
-    _sd_check "disabled download proxy section: proxy requests are rejected" "inbounds-disabled-rejects:yes"
-    if command -v sing-box > /dev/null 2>&1; then
-        _sd_check "disabled download proxy section: config passes sing-box check" "inbounds-disabled-singbox-check:yes"
-    fi
-    _sd_check "active download proxy section keeps its detour tag" "detour-active:[alpha-out]"
-    _sd_check "active download proxy section keeps its route" "inbounds-active-routes-to-section:yes"
 }
 
 # ─────────────────────────────────────────────────────────────────
@@ -13100,6 +13148,231 @@ CPEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: `disabled` option for sections (issue #42)
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL section_is_disabled / foreach_active_section /
+# section_has_configured_outbound / section_has_enabled_lists (extracted
+# verbatim from the bin) against a stubbed UCI layer. Asserts:
+#   - a section with `disabled '1'` is skipped by foreach_active_section and
+#     is reported as having no outbound and no enabled lists;
+#   - `disabled '0'` and a MISSING option (every pre-existing config) keep the
+#     section fully active (upgrade safety);
+#   - the callback bookkeeping is restored after the walk (nesting-safe).
+test_section_disabled() {
+    header "Section disabled option (issue #42)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ]; then
+        skip "netshift bin not found"
+        return
+    fi
+
+    local out
+    out="$(
+        # shellcheck disable=SC2030
+        extract() {
+            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
+        }
+        eval "$(extract section_is_disabled)"
+        eval "$(extract _active_section_dispatch)"
+        eval "$(extract foreach_active_section)"
+        eval "$(extract section_has_configured_outbound)"
+        eval "$(extract section_has_enabled_lists)"
+        eval "$(extract _check_outbound_section)"
+        eval "$(extract has_outbound_section)"
+        eval "$(extract _determine_first_outbound_section)"
+        eval "$(extract get_first_outbound_section)"
+        eval "$(extract _determine_global_proxy_section)"
+        eval "$(extract get_global_proxy_section)"
+        _active_section_callback=
+
+        SD_SECTIONS="alpha beta gamma delta"
+        sd_key() { printf 'SD_%s_%s' "$1" "$2"; }
+        config_get() {
+            local _v
+            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
+            [ -n "$_v" ] || _v="$4"
+            eval "$1=\"\$_v\""
+        }
+        config_get_bool() {
+            local _v
+            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
+            [ -n "$_v" ] || _v="$4"
+            case "$_v" in 1 | on | true | yes | enabled) _v=1 ;; *) _v=0 ;; esac
+            eval "$1=\"\$_v\""
+        }
+        config_foreach() {
+            local _cb="$1" _t="$2" _s
+            shift 2
+            for _s in $SD_SECTIONS; do "$_cb" "$_s" "$@"; done
+        }
+
+        # alpha: active (no `disabled` option at all = every existing config)
+        # beta:  disabled '1'    gamma: disabled '0'    delta: disabled '1'
+        for s in alpha beta gamma delta; do
+            eval "SD_${s}_connection_type=proxy"
+            eval "SD_${s}_proxy_config_type=url"
+            eval "SD_${s}_proxy_string=vless://x@example.com:443"
+            eval "SD_${s}_community_lists=russia_inside"
+        done
+        SD_beta_disabled=1
+        SD_gamma_disabled=0
+        SD_delta_disabled=1
+
+        visited=""
+        sd_visit() { visited="$visited $1"; }
+        foreach_active_section sd_visit "section"
+        echo "walk:${visited# }"
+
+        section_is_disabled alpha && echo "alpha-disabled:yes" || echo "alpha-disabled:no"
+        section_is_disabled beta && echo "beta-disabled:yes" || echo "beta-disabled:no"
+        section_is_disabled gamma && echo "gamma-disabled:yes" || echo "gamma-disabled:no"
+
+        section_has_configured_outbound alpha && echo "alpha-outbound:yes" || echo "alpha-outbound:no"
+        section_has_configured_outbound beta && echo "beta-outbound:yes" || echo "beta-outbound:no"
+        section_has_enabled_lists alpha && echo "alpha-lists:yes" || echo "alpha-lists:no"
+        section_has_enabled_lists beta && echo "beta-lists:yes" || echo "beta-lists:no"
+
+        echo "callback-restored:${_active_section_callback:-empty}"
+
+        # Selection helpers: a disabled section is never the first outbound and
+        # never the global-proxy section, even when it comes first / asks for it.
+        SD_beta_global_proxy=1
+        SD_gamma_global_proxy=1
+        SD_SECTIONS="beta alpha gamma"
+        echo "first-outbound:$(get_first_outbound_section)"
+        echo "global-proxy:$(get_global_proxy_section)"
+        has_outbound_section && echo "has-outbound:yes" || echo "has-outbound:no"
+
+        # The walker must hand back the callback's status (list_update relies on
+        # `foreach_active_section ... || update_failed=1` to report a failed run).
+        SD_SECTIONS="alpha gamma"
+        sd_fail() { return 1; }
+        sd_pass() { return 0; }
+        foreach_active_section sd_fail "section" && echo "rc-failing-callback:0" || echo "rc-failing-callback:1"
+        foreach_active_section sd_pass "section" && echo "rc-passing-callback:0" || echo "rc-passing-callback:1"
+        echo "rc-callback-restored:${_active_section_callback:-empty}"
+
+        # Only disabled sections left -> as if there were no sections at all.
+        SD_SECTIONS="beta delta"
+        echo "only-disabled-first:[$(get_first_outbound_section)]"
+        echo "only-disabled-global:[$(get_global_proxy_section)]"
+        has_outbound_section && echo "only-disabled-has-outbound:yes" || echo "only-disabled-has-outbound:no"
+    )"
+
+    _sd_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted line [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _sd_check "disabled sections are skipped by foreach_active_section" "walk:alpha gamma"
+    _sd_check "missing disabled option keeps the section active" "alpha-disabled:no"
+    _sd_check "disabled '1' is detected" "beta-disabled:yes"
+    _sd_check "disabled '0' keeps the section active" "gamma-disabled:no"
+    _sd_check "active section has a configured outbound" "alpha-outbound:yes"
+    _sd_check "disabled section has no configured outbound" "beta-outbound:no"
+    _sd_check "active section has enabled lists" "alpha-lists:yes"
+    _sd_check "disabled section has no enabled lists" "beta-lists:no"
+    _sd_check "foreach_active_section restores its callback state" "callback-restored:empty"
+    _sd_check "disabled section is never the first outbound" "first-outbound:alpha"
+    _sd_check "disabled section is never the global-proxy section" "global-proxy:gamma"
+    _sd_check "active sections still count as having an outbound" "has-outbound:yes"
+    _sd_check "foreach_active_section returns a failing callback status" "rc-failing-callback:1"
+    _sd_check "foreach_active_section returns 0 when callbacks succeed" "rc-passing-callback:0"
+    _sd_check "foreach_active_section restores its callback after a failure" "rc-callback-restored:empty"
+    _sd_check "only disabled sections: no first outbound" "only-disabled-first:[]"
+    _sd_check "only disabled sections: no global-proxy section" "only-disabled-global:[]"
+    _sd_check "only disabled sections: has_outbound_section is false" "only-disabled-has-outbound:no"
+
+    # A disabled section picked in "Download Lists via specific proxy section"
+    # has no outbound, so nothing may reference "<section>-out" (sing-box check
+    # would fail and the whole service would not start).
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local facade_lib="${NETSHIFT_LIB_DIR}/sing_box_config_facade.sh"
+    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
+    if ! command -v jq > /dev/null 2>&1 || [ ! -r "$cm_lib" ] || [ ! -r "$facade_lib" ] || [ ! -r "$jq_helpers" ]; then
+        skip "download proxy section disabled: jq / libs not available"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
+    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
+
+    out="$(
+        # shellcheck disable=SC2030,SC2031
+        extract() {
+            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
+        }
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        . "${NETSHIFT_LIB_DIR}/helpers.sh"
+        . "${NETSHIFT_LIB_DIR}/logging.sh" 2>/dev/null || log() { :; }
+        . "$facade_lib"
+        for fn in section_is_disabled _active_section_dispatch foreach_active_section \
+            subscription_outbound_is_unavailable download_proxy_section_is_unavailable \
+            sing_box_additional_inbounds get_download_detour_tag; do
+            eval "$(extract "$fn")"
+        done
+        _active_section_callback=
+        SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+
+        SD_PROXY_SECTION=""
+        config_get() {
+            case "$2:$3" in
+            settings:download_lists_via_proxy_section) eval "$1=\"\$SD_PROXY_SECTION\"" ;;
+            *) eval "$1=\"\${4:-}\"" ;;
+            esac
+        }
+        config_get_bool() {
+            case "$2:$3" in
+            settings:download_lists_via_proxy) eval "$1=1" ;;
+            beta:disabled) eval "$1=1" ;;
+            *) eval "$1=\"\${4:-0}\"" ;;
+            esac
+        }
+        config_foreach() { :; }
+        get_outbound_tag_by_section() { echo "$1-out"; }
+
+        base='{"inbounds":[],"outbounds":[{"type":"direct","tag":"direct-out"},{"type":"direct","tag":"alpha-out"}],"route":{"rules":[],"final":"direct-out"}}'
+
+        SD_PROXY_SECTION=beta
+        echo "detour-disabled:[$(get_download_detour_tag)]"
+        config="$base"
+        sing_box_additional_inbounds
+        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "beta-out")] | length == 0' > /dev/null &&
+            echo "inbounds-disabled-no-dangling-outbound:yes" || echo "inbounds-disabled-no-dangling-outbound:no"
+        echo "$config" | jq -e '[.route.rules[] | select(.action == "reject")] | length == 1' > /dev/null &&
+            echo "inbounds-disabled-rejects:yes" || echo "inbounds-disabled-rejects:no"
+        if command -v sing-box > /dev/null 2>&1; then
+            printf '%s' "$config" | jq 'walk(if type == "object" then del(.__service_tag) else . end)' > /tmp/sd-dl-disabled.json
+            sing-box -c /tmp/sd-dl-disabled.json check > /dev/null 2>&1 &&
+                echo "inbounds-disabled-singbox-check:yes" || echo "inbounds-disabled-singbox-check:no"
+            rm -f /tmp/sd-dl-disabled.json
+        fi
+
+        SD_PROXY_SECTION=alpha
+        echo "detour-active:[$(get_download_detour_tag)]"
+        config="$base"
+        sing_box_additional_inbounds
+        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "alpha-out")] | length == 1' > /dev/null &&
+            echo "inbounds-active-routes-to-section:yes" || echo "inbounds-active-routes-to-section:no"
+    )"
+
+    _sd_check "disabled download proxy section: no detour tag" "detour-disabled:[]"
+    _sd_check "disabled download proxy section: no route to its outbound" "inbounds-disabled-no-dangling-outbound:yes"
+    _sd_check "disabled download proxy section: proxy requests are rejected" "inbounds-disabled-rejects:yes"
+    if command -v sing-box > /dev/null 2>&1; then
+        _sd_check "disabled download proxy section: config passes sing-box check" "inbounds-disabled-singbox-check:yes"
+    fi
+    _sd_check "active download proxy section keeps its detour tag" "detour-active:[alpha-out]"
+    _sd_check "active download proxy section keeps its route" "inbounds-active-routes-to-section:yes"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
 # country_code_to_flag_emoji / build_subscription_filter_json (country codes turn
@@ -13224,7 +13497,7 @@ main() {
             test_sub_url_option
             test_sub_cron
             test_global_proxy
-            test_section_disabled
+            test_luci_cache_bust
             test_bittorrent_direct
             test_check_update_stable
             test_check_update_extended
@@ -13238,6 +13511,7 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_section_disabled
             test_urltest_filters
             ;;
         deps)        test_deps ;;
@@ -13268,7 +13542,7 @@ main() {
         suburlopt)   test_sub_url_option ;;
         subcron)     test_sub_cron ;;
         globalproxy) test_global_proxy ;;
-        sectiondisabled) test_section_disabled ;;
+        cachebust) test_luci_cache_bust ;;
         bittorrent)  test_bittorrent_direct ;;
         stablecheck) test_check_update_stable ;;
         extcheck)    test_check_update_extended ;;
@@ -13286,10 +13560,11 @@ main() {
         cm)          test_config_manager ;;
         sb)          test_sing_box_config ;;
         proxylink)   test_proxy_link_escaping ;;
+        sectiondisabled) test_section_disabled ;;
         utfilters)   test_urltest_filters ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy cachebust bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist sectiondisabled utfilters"
             exit 1
             ;;
     esac
