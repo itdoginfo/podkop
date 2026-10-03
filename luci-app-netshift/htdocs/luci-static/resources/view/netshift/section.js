@@ -246,6 +246,44 @@ function createSectionContent(section) {
   o.rmempty = true;
 
   o = section.taboption(
+    "subscription",
+    form.DynamicList,
+    "subscription_filter_include_countries",
+    _("Include servers by country"),
+    _(
+      "Keep only servers whose name carries the flag of one of these countries. Two-letter codes, for example NL or DE. Combined with the keywords above (any match keeps a server).",
+    ),
+  );
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value || /^[A-Za-z]{2}$/.test(value)) {
+      return true;
+    }
+
+    return _("Use a two-letter country code, for example NL");
+  };
+
+  o = section.taboption(
+    "subscription",
+    form.DynamicList,
+    "subscription_filter_exclude_countries",
+    _("Exclude servers by country"),
+    _(
+      "Drop servers whose name carries the flag of one of these countries. Two-letter codes, for example RU or US.",
+    ),
+  );
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value || /^[A-Za-z]{2}$/.test(value)) {
+      return true;
+    }
+
+    return _("Use a two-letter country code, for example NL");
+  };
+
+  o = section.taboption(
     "connection",
     form.DynamicList,
     "selector_proxy_links",
