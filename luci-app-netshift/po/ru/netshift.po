@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:47+0300\n"
+"PO-Revision-Date: 2026-10-03 17:47+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -722,6 +722,9 @@ msgstr "Путь должен заканчиваться на cache.db"
 msgid "Pending"
 msgstr "Ожидает запуска"
 
+msgid "Prefer servers in list order"
+msgstr "Предпочитать серверы по порядку списка"
+
 msgid "Prefix length"
 msgstr "Длина префикса"
 
@@ -1078,6 +1081,9 @@ msgstr "Укажите двухбуквенный код страны, напр�
 
 msgid "Use only for IP-host panels that serve an invalid or self-signed certificate."
 msgstr "Используйте только для панелей с IP-адресом, у которых недействительный или самоподписанный сертификат."
+
+msgid "Use the first server of the list that works and go back to a higher one as soon as it recovers (checked every 30 seconds). Unlike URLTest this ignores speed. Grouped subscriptions are not supported."
+msgstr "Использовать первый работающий сервер списка и возвращаться к более высокому, как только он восстановится (проверка каждые 30 секунд). В отличие от URLTest скорость не учитывается. Сгруппированные подписки не поддерживаются."
 
 msgid "Use this only when the router has working IPv6 connectivity."
 msgstr "Используйте это только если на роутере есть рабочее подключение по IPv6."

@@ -12951,8 +12951,31 @@ SNAPSHOTS=0
 sleep() { :; }
 sing_box_process_exists() { TICKS=$((TICKS + 1)); [ "$TICKS" -le 7 ]; }
 snapshot_sing_box_cache() { SNAPSHOTS=$((SNAPSHOTS + 1)); }
+# No priority sections in this scenario; the interval is the default (30 s).
+priority_check_interval() { echo 30; }
+priority_check_sections() { :; }
 monitor_sing_box
 check cp-monitor-snapshots-once-per-minute '[ "$SNAPSHOTS" = "1" ]'
+
+# The priority check follows the clock, not the tick count: with a clock that moves
+# 10 s per tick it runs every third tick; when a check itself takes 20 s the next one is
+# due on the very next tick instead of being pushed back.
+FAKE_NOW=1000
+PRIORITY_CALLS=0
+CHECK_COST=0
+date() { echo "$FAKE_NOW"; }
+sleep() { FAKE_NOW=$((FAKE_NOW + 10)); }
+priority_check_sections() { PRIORITY_CALLS=$((PRIORITY_CALLS + 1)); FAKE_NOW=$((FAKE_NOW + CHECK_COST)); }
+TICKS=0
+monitor_sing_box
+check cp-monitor-priority-runs-by-the-clock '[ "$PRIORITY_CALLS" = "2" ]'
+FAKE_NOW=1000; PRIORITY_CALLS=0; CHECK_COST=20; TICKS=0
+monitor_sing_box
+check cp-monitor-slow-priority-check-does-not-stretch-the-interval '[ "$PRIORITY_CALLS" -ge 4 ]'
+unset -f date
+sleep() { :; }
+priority_check_sections() { :; }
+TICKS=0
 
 # ── restore marks the cache as restored; a crash then heals it ─────────
 # H1: a restore records that the cache now running came from the copy.
@@ -13100,6 +13123,200 @@ CPEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: Priority node selection (priority_mode)
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL priority_select_for_section / _priority_check_section_handler /
+# priority_check_interval (extracted verbatim from the bin) against a stubbed
+# Clash API. Asserts:
+#   - the FIRST server that answers is selected, in list order, and the selector
+#     goes back to a higher one when it recovers;
+#   - nothing is switched when the right server is already selected, when nothing
+#     answers, or when there is nothing to choose from (groups are not probed);
+#   - names with spaces / non-ASCII characters survive; the probe count is capped;
+#   - sections without the option are never probed.
+test_priority_selection() {
+    header "Priority node selection"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / constants.sh / jq not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        PR_LOG="/tmp/netshift-prio-log-$$"; PR_SET="/tmp/netshift-prio-set-$$"; PR_PROBE="/tmp/netshift-prio-probe-$$"
+        : > "$PR_LOG"; : > "$PR_SET"; : > "$PR_PROBE"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$PR_LOG"; }
+        for fn in priority_check_interval priority_clash_setup priority_select_for_section _priority_warn_once \
+            _priority_collect_section_handler priority_check_sections; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        PRIORITY_WARNED=""; PRIORITY_RESUME=0
+        PRIORITY_DEADLINE=$(($(date +%s) + 3600))
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        section_is_disabled() { [ "${PR_DISABLED:-0}" = 1 ]; }
+        config_get_bool() { eval "$1=\"\${PR_MODE:-0}\""; }
+        config_get() {
+            case "$3" in
+            priority_check_interval) eval "$1=\"\${PR_INTERVAL:-$4}\"" ;;
+            service_listen_address) eval "$1=\"\${PR_LISTEN:-}\"" ;;
+            yacd_secret_key) eval "$1=\"\${PR_SECRET:-}\"" ;;
+            connection_type) eval "$1=\"\${PR_CONN:-proxy}\"" ;;
+            *) eval "$1=\"$4\"" ;;
+            esac
+        }
+        network_get_ipaddr() { eval "$1=192.168.1.1"; }
+
+        # PR_NOW = selected server, PR_ALL = newline separated members ("|" = group member),
+        # PR_ALIVE = newline separated servers that answer
+        proxies_json() {
+            jq -n --arg now "$PR_NOW" --arg all "$PR_ALL" '
+                ($all | split("\n") | map(select(. != ""))) as $members
+                | {proxies: ({"s-out": {type: "Selector", now: $now, all: $members}}
+                    + ($members | map({key: ., value: {type: (if endswith("-urltest-out") then "URLTest" else "Vless" end)}}) | from_entries))}'
+        }
+        priority_fetch_proxies() { [ -n "$PR_NOCLASH" ] && return 1; proxies_json; }
+        priority_probe_delay() {
+            printf '%s\n' "$1" >> "$PR_PROBE"
+            if printf '%s\n' "$PR_ALIVE" | grep -qxF "$1"; then echo 120; else echo 0; fi
+        }
+        clash_api() {
+            case "$1" in
+            set_group_proxy)
+                printf '%s>%s\n' "$2" "$3" >> "$PR_SET"
+                echo '{"success":true}'
+                ;;
+            esac
+        }
+        run() { # $1 now  $2 members  $3 alive
+            PR_NOW="$1"; PR_ALL="$2"; PR_ALIVE="$3"
+            : > "$PR_SET"; : > "$PR_PROBE"; : > "$PR_LOG"
+            PRIORITY_PROXIES_JSON="$(proxies_json)"
+            priority_select_for_section s
+        }
+        set_of() { tr '\n' ',' < "$PR_SET"; }
+        probes_of() { tr '\n' ',' < "$PR_PROBE"; }
+
+        run B "$(printf 'A\nB\nC')" "$(printf 'A\nB\nC')"
+        echo "first-alive-wins:$(set_of)"
+        run A "$(printf 'A\nB\nC')" "$(printf 'A\nB\nC')"
+        echo "already-selected-no-switch:[$(set_of)] probes=$(probes_of)"
+        run C "$(printf 'A\nB\nC')" "$(printf 'B\nC')"
+        echo "dead-first-second-wins:$(set_of) probes=$(probes_of)"
+        run C "$(printf 'A\nB\nC')" "C"
+        echo "only-last-alive-already-selected:[$(set_of)]"
+        run B "$(printf 'A\nB\nC')" ""
+        echo "none-alive-keeps:[$(set_of)] warned=$(grep -c '^\[warn\] Priority selection.*none of the first 3' "$PR_LOG")"
+        run B "$(printf 'A\ns-urltest-out\nB')" "$(printf 'A\nB')"
+        echo "group-member-skipped:$(set_of) probes=$(probes_of)"
+        run "X" "s-urltest-out" "A"
+        echo "only-groups-no-op:[$(set_of)] probes=[$(probes_of)]"
+        priority_select_for_section s
+        echo "only-groups-warned-once:$(grep -c "^\[warn\] Priority selection for section 's': no individual servers" "$PR_LOG")"
+        run B "$(printf '\360\237\207\263\360\237\207\261 Node 1\nNode two\nB')" "$(printf '\360\237\207\263\360\237\207\261 Node 1\nB')"
+        [ "$(set_of)" = "s-out>$(printf '\360\237\207\263\360\237\207\261 Node 1'),"  ] && echo "names-with-spaces-and-flags:ok" || echo "names-with-spaces-and-flags:wrong [$(set_of)]"
+        many="$(i=1; while [ $i -le 12 ]; do echo "N$i"; i=$((i + 1)); done)"
+        run N12 "$many" "N11"
+        [ "$(wc -l < "$PR_PROBE" | tr -d ' ')" = "$PRIORITY_MAX_PROBES" ] && echo "probe-cap:[$(set_of)] capped" || echo "probe-cap:wrong"
+
+        # collecting: only enabled proxy sections with the option are checked
+        PR_NOW=B; PR_ALL="$(printf 'A\nB')"; PR_ALIVE="A"
+        collected() { PRIORITY_SECTIONS_TO_CHECK=""; "$@"; echo "[${PRIORITY_SECTIONS_TO_CHECK# }]"; }
+        PR_MODE=0; echo "option-off-never-collected:$(collected _priority_collect_section_handler s)"
+        PR_MODE=1; echo "option-on-collected:$(collected _priority_collect_section_handler s)"
+        PR_DISABLED=1; echo "disabled-section-never-collected:$(collected _priority_collect_section_handler s)"
+        PR_DISABLED=0
+        PR_CONN=vpn; : > "$PR_LOG"; PRIORITY_SECTIONS_TO_CHECK=""
+        _priority_collect_section_handler s; _priority_collect_section_handler s
+        echo "non-proxy-section-not-collected-warned-once:[${PRIORITY_SECTIONS_TO_CHECK# }] warned=$(grep -c "^\[warn\] Priority selection for section 's': priority_mode applies to proxy sections only" "$PR_LOG")"
+        PR_CONN=proxy
+
+        # a section that is not in the running sing-box (failed subscription): quiet no-op
+        PR_NOW=B; PR_ALL="A"; PR_ALIVE="A"; : > "$PR_SET"; : > "$PR_PROBE"; : > "$PR_LOG"
+        PRIORITY_PROXIES_JSON='{"proxies":{}}'
+        priority_select_for_section s
+        echo "section-not-running-quiet:[$(probes_of)][$(set_of)] warned=$(grep -c '^\[warn\]' "$PR_LOG")"
+
+        # the time budget of the cycle: a spent budget probes nothing and says nothing
+        PRIORITY_DEADLINE=0
+        run B "$(printf 'A\nB')" "A"
+        echo "budget-spent-no-probes-no-warning:[$(probes_of)][$(set_of)] warned=$(grep -c '^\[warn\]' "$PR_LOG")"
+        PRIORITY_DEADLINE=$(($(date +%s) + 3600))
+
+        # a whole cycle: sections that do not fit the budget go first next time
+        config_foreach() { local _cb="$1" _s; shift; for _s in $PR_SECTIONS; do "$_cb" "$_s" "$@"; done; }
+        PR_ORDER="/tmp/netshift-prio-order-$$"; : > "$PR_ORDER"
+        priority_select_for_section() { echo "$1" >> "$PR_ORDER"; }
+        PR_MODE=1; PR_SECTIONS="a b c"; PR_NOW=B; PR_ALL=A; PR_NOCLASH=""
+        PRIORITY_CYCLE_BUDGET=3600; PRIORITY_RESUME=0
+        priority_check_sections
+        echo "cycle-all-sections-in-order:$(tr '\n' ',' < "$PR_ORDER")"
+        : > "$PR_ORDER"; PRIORITY_CYCLE_BUDGET=-1; PRIORITY_RESUME=0
+        priority_check_sections; priority_check_sections; priority_check_sections; priority_check_sections
+        echo "cycle-budget-rotates:$(tr '\n' ',' < "$PR_ORDER")"
+        : > "$PR_ORDER"; PR_NOCLASH=1; PRIORITY_CYCLE_BUDGET=3600
+        priority_check_sections
+        echo "cycle-clash-down-checks-nothing:[$(tr '\n' ',' < "$PR_ORDER")]"
+        PR_NOCLASH=""; rm -f "$PR_ORDER"
+
+        # the monitor's Clash API address: the override wins, the secret becomes a header,
+        # and nothing is logged on the way (it runs every cycle)
+        : > "$PR_LOG"
+        PR_LISTEN="10.9.8.7"; PR_SECRET="topsecret"; priority_clash_setup
+        echo "clash-setup-override:$PRIORITY_CLASH_URL|$PRIORITY_CLASH_AUTH"
+        PR_LISTEN=""; PR_SECRET=""; priority_clash_setup
+        echo "clash-setup-lan-no-auth:$PRIORITY_CLASH_URL|$PRIORITY_CLASH_AUTH"
+        echo "clash-setup-silent:$(wc -l < "$PR_LOG" | tr -d ' ')"
+
+        # interval
+        PR_INTERVAL=""; echo "interval-default:$(priority_check_interval)"
+        PR_INTERVAL=45; echo "interval-custom:$(priority_check_interval)"
+        PR_INTERVAL=3; echo "interval-below-tick:$(priority_check_interval)"
+        PR_INTERVAL=abc; echo "interval-invalid:$(priority_check_interval)"
+        PR_INTERVAL=0; echo "interval-zero:$(priority_check_interval)"
+        rm -f "$PR_LOG" "$PR_SET" "$PR_PROBE"
+    )"
+
+    _pr_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _pr_check "the first working server is selected (switch back from a lower one)" "first-alive-wins:s-out>A,"
+    _pr_check "no switch when the best server is already selected (and only it is probed)" "already-selected-no-switch:[] probes=A,"
+    _pr_check "a dead first server: the next working one wins, probed in order" "dead-first-second-wins:s-out>B, probes=A,B,"
+    _pr_check "the only working server is already selected: no switch" "only-last-alive-already-selected:[]"
+    _pr_check "nothing answers: keep the selection and warn" "none-alive-keeps:[] warned=1"
+    _pr_check "group members are not probed" "group-member-skipped:s-out>A, probes=A,"
+    _pr_check "only groups: nothing to do" "only-groups-no-op:[] probes=[]"
+    _pr_check "only groups: the log says the option has no effect, once" "only-groups-warned-once:1"
+    _pr_check "names with spaces and flag emoji survive" "names-with-spaces-and-flags:ok"
+    _pr_check "the probe count is capped (and nothing is switched past it)" "probe-cap:[] capped"
+    _pr_check "option off: the section is never collected" "option-off-never-collected:[]"
+    _pr_check "option on: the section is collected" "option-on-collected:[s]"
+    _pr_check "a disabled section is never collected" "disabled-section-never-collected:[]"
+    _pr_check "a non-proxy section is not collected, and that is said once" "non-proxy-section-not-collected-warned-once:[] warned=1"
+    _pr_check "a section that is not in the running sing-box is a quiet no-op" "section-not-running-quiet:[][] warned=0"
+    _pr_check "a spent time budget probes nothing and warns about nothing" "budget-spent-no-probes-no-warning:[][] warned=0"
+    _pr_check "a cycle checks every collected section in order" "cycle-all-sections-in-order:a,b,c,"
+    _pr_check "sections that did not fit the budget are checked first next time" "cycle-budget-rotates:a,b,c,a,"
+    _pr_check "Clash API down: the cycle checks nothing" "cycle-clash-down-checks-nothing:[]"
+    _pr_check "the monitor's Clash API address: override and secret header" "clash-setup-override:http://10.9.8.7:9090|Authorization: Bearer topsecret"
+    _pr_check "...the LAN address and no header otherwise" "clash-setup-lan-no-auth:http://192.168.1.1:9090|"
+    _pr_check "...without logging anything" "clash-setup-silent:0"
+    _pr_check "interval: default" "interval-default:30"
+    _pr_check "interval: custom value" "interval-custom:45"
+    _pr_check "interval: not below the monitor tick" "interval-below-tick:10"
+    _pr_check "interval: invalid value falls back" "interval-invalid:30"
+    _pr_check "interval: zero falls back" "interval-zero:30"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
 # country_code_to_flag_emoji / build_subscription_filter_json (country codes turn
@@ -13238,6 +13455,7 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_priority_selection
             test_urltest_filters
             ;;
         deps)        test_deps ;;
@@ -13286,10 +13504,11 @@ main() {
         cm)          test_config_manager ;;
         sb)          test_sing_box_config ;;
         proxylink)   test_proxy_link_escaping ;;
+        priority)    test_priority_selection ;;
         utfilters)   test_urltest_filters ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist priority utfilters"
             exit 1
             ;;
     esac

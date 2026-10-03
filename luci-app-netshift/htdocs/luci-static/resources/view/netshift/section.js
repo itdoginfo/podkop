@@ -223,6 +223,23 @@ function createSectionContent(section) {
 
   o = section.taboption(
     "subscription",
+    form.Flag,
+    "priority_mode",
+    _("Prefer servers in list order"),
+    _(
+      "Use the first server of the list that works and go back to a higher one as soon as it recovers (checked every 30 seconds). Unlike URLTest this ignores speed. Grouped subscriptions are not supported.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends({ connection_type: "proxy", proxy_config_type: "selector" });
+  o.depends({ connection_type: "proxy", proxy_config_type: "selector_text" });
+  o.depends({ connection_type: "proxy", proxy_config_type: "urltest" });
+  o.depends({ connection_type: "proxy", proxy_config_type: "urltest_text" });
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
     form.DynamicList,
     "subscription_filter_include_keywords",
     _("Include servers by keyword"),

@@ -1373,16 +1373,206 @@ stop() {
     uci commit "netshift" && config_load "$NETSHIFT_CONFIG"
 }
 
+# --- Priority node selection ---------------------------------------------------
+# Section option `priority_mode '1'` (selector / urltest / subscription sections):
+# the servers are tried in the order they are listed and the FIRST one that works
+# is selected, so traffic returns to a higher-priority server as soon as it is back
+# (urltest picks the fastest instead, which ignores the order). The monitor runs the
+# check every priority_check_interval seconds through the Clash API: it probes the
+# section's servers in order until one answers and switches the section's selector
+# to it. Members that are groups themselves (urltest, country groups) are skipped,
+# only real servers are probed.
+PRIORITY_WARNED=""
+PRIORITY_RESUME=0
+
+priority_check_interval() {
+    local interval
+
+    config_get interval "settings" "priority_check_interval" "$PRIORITY_CHECK_INTERVAL_DEFAULT"
+    case "$interval" in
+    "" | *[!0-9]* | 0) interval="$PRIORITY_CHECK_INTERVAL_DEFAULT" ;;
+    esac
+    # a multiple of the monitor tick is what it can honour
+    [ "$interval" -ge "$MONITOR_CHECK_INTERVAL" ] || interval="$MONITOR_CHECK_INTERVAL"
+
+    echo "$interval"
+}
+
+# Clash API address and credentials for the monitor. They are resolved like
+# get_sing_box_selection does, without get_service_listen_address, which logs on every
+# call (the checks below run every cycle from the monitor).
+priority_clash_setup() {
+    local address secret
+
+    config_get address "settings" "service_listen_address"
+    [ -n "$address" ] || network_get_ipaddr address "lan"
+    [ -n "$address" ] || address="127.0.0.1"
+    PRIORITY_CLASH_URL="http://$address:$SB_CLASH_API_CONTROLLER_PORT"
+
+    PRIORITY_CLASH_AUTH=""
+    config_get secret "settings" "yacd_secret_key"
+    [ -n "$secret" ] && PRIORITY_CLASH_AUTH="Authorization: Bearer $secret"
+}
+
+# All proxies of the running sing-box (one request per cycle for every section).
+priority_fetch_proxies() {
+    curl -m 3 -s --header "$PRIORITY_CLASH_AUTH" "$PRIORITY_CLASH_URL/proxies" 2> /dev/null
+}
+
+# Prints the delay (ms) of one server, 0 when it does not answer. $1 - server tag.
+priority_probe_delay() {
+    local encoded delay
+
+    encoded="$(printf '%s' "$1" | jq -sRr @uri)"
+    delay="$(curl -G -s -m $((PRIORITY_PROBE_TIMEOUT_MS / 1000 + 2)) "$PRIORITY_CLASH_URL/proxies/$encoded/delay" \
+        --header "$PRIORITY_CLASH_AUTH" \
+        --data-urlencode "url=$PRIORITY_PROBE_URL" \
+        --data-urlencode "timeout=$PRIORITY_PROBE_TIMEOUT_MS" 2> /dev/null | jq -r '.delay // 0' 2> /dev/null)"
+    case "$delay" in
+    "" | *[!0-9]*) delay=0 ;;
+    esac
+    echo "$delay"
+}
+
+# Logs once per section and reason, not on every cycle.
+_priority_warn_once() {
+    case " $PRIORITY_WARNED " in
+    *" $1:$2 "*) return 0 ;;
+    esac
+    PRIORITY_WARNED="$PRIORITY_WARNED $1:$2"
+    log "$3" "warn"
+}
+
+# $1 - section; PRIORITY_PROXIES_JSON holds the proxies of this cycle. Switches the
+# section's selector when needed.
+priority_select_for_section() {
+    local section="$1"
+    local tag current chosen probed member delay members_file budget_hit
+
+    tag="$(get_outbound_tag_by_section "$section")"
+
+    # A section that has no selector in the running sing-box (a subscription that
+    # failed to load, a section added after the last restart): nothing to switch.
+    printf '%s' "$PRIORITY_PROXIES_JSON" | jq -e --arg tag "$tag" '.proxies[$tag] != null' > /dev/null 2>&1 || {
+        log "Priority selection for section '$section': '$tag' is not in the running sing-box" "debug"
+        return 0
+    }
+
+    current="$(printf '%s' "$PRIORITY_PROXIES_JSON" | jq -r --arg tag "$tag" '.proxies[$tag].now // empty' 2> /dev/null)"
+    members_file="$(mktemp)" || return 0
+    printf '%s' "$PRIORITY_PROXIES_JSON" | jq -r --arg tag "$tag" '
+        .proxies as $p
+        | ($p[$tag].all // [])[]
+        | select((($p[.].type // "") as $type
+            | ["Selector", "URLTest", "Fallback", "LoadBalance"] | index($type)) == null)' > "$members_file" 2> /dev/null
+    if [ ! -s "$members_file" ]; then
+        rm -f "$members_file"
+        _priority_warn_once "$section" no-servers "Priority selection for section '$section': no individual servers to choose from (a subscription grouped by country or prefix is not supported); the option has no effect here"
+        return 0
+    fi
+
+    chosen=""
+    probed=0
+    budget_hit=0
+    # Probe in priority order up to the first server that answers, as long as the time
+    # budget of the cycle lasts.
+    while IFS= read -r member; do
+        [ -n "$member" ] || continue
+        [ "$probed" -lt "$PRIORITY_MAX_PROBES" ] || break
+        if [ "$(date +%s)" -ge "$PRIORITY_DEADLINE" ]; then
+            budget_hit=1
+            break
+        fi
+        probed=$((probed + 1))
+        delay="$(priority_probe_delay "$member")"
+        if [ "$delay" -gt 0 ]; then
+            chosen="$member"
+            break
+        fi
+    done < "$members_file"
+    rm -f "$members_file"
+
+    if [ -z "$chosen" ]; then
+        # The cycle ran out of time before anything answered: say nothing, the next
+        # cycle goes on.
+        [ "$budget_hit" -eq 1 ] || log "Priority selection for section '$section': none of the first $probed servers answered; keeping '$current'" "warn"
+        return 0
+    fi
+
+    if [ "$chosen" != "$current" ]; then
+        if clash_api set_group_proxy "$tag" "$chosen" > /dev/null 2>&1; then
+            log "Priority selection for section '$section': switched from '$current' to '$chosen'" "info"
+        else
+            log "Priority selection for section '$section': could not switch to '$chosen'" "warn"
+        fi
+    fi
+}
+
+# config_foreach callback: collects the sections the check applies to.
+_priority_collect_section_handler() {
+    local section="$1"
+    local priority_mode connection_type
+
+    config_get_bool priority_mode "$section" "priority_mode" 0
+    [ "$priority_mode" -eq 1 ] || return 0
+    section_is_disabled "$section" && return 0
+
+    config_get connection_type "$section" "connection_type"
+    if [ "$connection_type" != "proxy" ]; then
+        _priority_warn_once "$section" not-proxy "Priority selection for section '$section': priority_mode applies to proxy sections only; ignoring it"
+        return 0
+    fi
+
+    PRIORITY_SECTIONS_TO_CHECK="$PRIORITY_SECTIONS_TO_CHECK $section"
+}
+
+# One check cycle, called from the monitor. The Clash API address is resolved and the
+# proxies are fetched once; the whole cycle has a time budget (PRIORITY_CYCLE_BUDGET)
+# so that it cannot hold the crash supervision for long. Sections that did not fit
+# are checked first in the next cycle.
+priority_check_sections() {
+    local count position i section
+
+    PRIORITY_DEADLINE=$(($(date +%s) + PRIORITY_CYCLE_BUDGET))
+    PRIORITY_SECTIONS_TO_CHECK=""
+    config_foreach _priority_collect_section_handler "section"
+    [ -n "$PRIORITY_SECTIONS_TO_CHECK" ] || return 0
+
+    priority_clash_setup
+    PRIORITY_PROXIES_JSON="$(priority_fetch_proxies)"
+    [ -n "$PRIORITY_PROXIES_JSON" ] || return 0
+
+    # shellcheck disable=SC2086
+    set -- $PRIORITY_SECTIONS_TO_CHECK
+    count=$#
+    [ "$PRIORITY_RESUME" -lt "$count" ] || PRIORITY_RESUME=0
+
+    i=0
+    while [ "$i" -lt "$count" ]; do
+        position=$(((PRIORITY_RESUME + i) % count))
+        if [ "$i" -gt 0 ] && [ "$(date +%s)" -ge "$PRIORITY_DEADLINE" ]; then
+            PRIORITY_RESUME="$position"
+            return 0
+        fi
+        eval "section=\${$((position + 1))}"
+        priority_select_for_section "$section"
+        i=$((i + 1))
+    done
+    PRIORITY_RESUME=0
+}
+
 monitor_sing_box() {
     local crash_count=0
     local backoff=0
     local snapshot_wait=0
+    local priority_last now
     local dont_touch_dhcp
 
     # Record our OWN pid (task-035): the monitor runs detached via setsid, so
     # the launcher cannot reliably capture the final pid of the exec/setsid
     # chain. Writing $$ here is authoritative for stop()/diagnostics.
     echo $$ > "$MONITOR_PIDFILE"
+    priority_last="$(date +%s)"
 
     while true; do
         sleep "$MONITOR_CHECK_INTERVAL"
@@ -1395,6 +1585,12 @@ monitor_sing_box() {
             if [ "$snapshot_wait" -ge "$MONITOR_CACHE_SNAPSHOT_INTERVAL" ]; then
                 snapshot_wait=0
                 snapshot_sing_box_cache
+            fi
+            # Real time, not ticks: a check that takes a while must not stretch the interval.
+            now="$(date +%s)"
+            if [ $((now - priority_last)) -ge "$(priority_check_interval)" ]; then
+                priority_last="$now"
+                priority_check_sections
             fi
             continue
         fi
