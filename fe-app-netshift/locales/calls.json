@@ -3,35 +3,35 @@
     "call": "✔ Enabled",
     "key": "✔ Enabled",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:372"
+      "src/netshift/tabs/dashboard/initController.ts:461"
     ]
   },
   {
     "call": "✔ Running",
     "key": "✔ Running",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:383"
+      "src/netshift/tabs/dashboard/initController.ts:472"
     ]
   },
   {
     "call": "✘ Disabled",
     "key": "✘ Disabled",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:373"
+      "src/netshift/tabs/dashboard/initController.ts:462"
     ]
   },
   {
     "call": "✘ Stopped",
     "key": "✘ Stopped",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:384"
+      "src/netshift/tabs/dashboard/initController.ts:473"
     ]
   },
   {
     "call": "Active Connections",
     "key": "Active Connections",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:334"
+      "src/netshift/tabs/dashboard/initController.ts:423"
     ]
   },
   {
@@ -68,6 +68,13 @@
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:31",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:36"
+    ]
+  },
+  {
+    "call": "All subscriptions updated",
+    "key": "All subscriptions updated",
+    "places": [
+      "src/netshift/tabs/dashboard/initController.ts:252"
     ]
   },
   {
@@ -357,7 +364,7 @@
     "call": "Core switch failed",
     "key": "Core switch failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:162",
+      "src/netshift/methods/shell/index.ts:212",
       "src/netshift/methods/shell/pollSingBoxComponentAction.ts:83"
     ]
   },
@@ -401,7 +408,7 @@
     "call": "Dashboard currently unavailable",
     "key": "Dashboard currently unavailable",
     "places": [
-      "src/netshift/tabs/dashboard/partials/renderSections.ts:23"
+      "src/netshift/tabs/dashboard/partials/renderSections.ts:39"
     ]
   },
   {
@@ -581,8 +588,8 @@
     "call": "Downlink",
     "key": "Downlink",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:268",
-      "src/netshift/tabs/dashboard/initController.ts:302"
+      "src/netshift/tabs/dashboard/initController.ts:357",
+      "src/netshift/tabs/dashboard/initController.ts:391"
     ]
   },
   {
@@ -857,7 +864,7 @@
     "call": "Failed to clear subscription cache",
     "key": "Failed to clear subscription cache",
     "places": [
-      "src/netshift/methods/shell/index.ts:258",
+      "src/netshift/methods/shell/index.ts:308",
       "src/netshift/tabs/diagnostic/initController.ts:351",
       "src/netshift/tabs/diagnostic/initController.ts:355"
     ]
@@ -887,6 +894,29 @@
       "src/netshift/tabs/manager/initController.ts:223",
       "src/netshift/tabs/manager/initController.ts:256",
       "src/netshift/tabs/manager/initController.ts:260"
+    ]
+  },
+  {
+    "call": "Failed to start the task",
+    "key": "Failed to start the task",
+    "places": [
+      "src/netshift/methods/shell/index.ts:43"
+    ]
+  },
+  {
+    "call": "Failed to update subscription",
+    "key": "Failed to update subscription",
+    "places": [
+      "src/netshift/tabs/dashboard/initController.ts:229",
+      "src/netshift/tabs/dashboard/initController.ts:233"
+    ]
+  },
+  {
+    "call": "Failed to update subscriptions",
+    "key": "Failed to update subscriptions",
+    "places": [
+      "src/netshift/tabs/dashboard/initController.ts:259",
+      "src/netshift/tabs/dashboard/initController.ts:263"
     ]
   },
   {
@@ -1487,7 +1517,7 @@
     "call": "Memory Usage",
     "key": "Memory Usage",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:338"
+      "src/netshift/tabs/dashboard/initController.ts:427"
     ]
   },
   {
@@ -1522,7 +1552,7 @@
     "call": "NetShift",
     "key": "NetShift",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:370"
+      "src/netshift/tabs/dashboard/initController.ts:459"
     ]
   },
   {
@@ -1740,6 +1770,20 @@
     "key": "Proxy traffic is routed via FakeIP",
     "places": [
       "src/netshift/tabs/diagnostic/checks/runFakeIPCheck.ts:65"
+    ]
+  },
+  {
+    "call": "Refresh all subscriptions",
+    "key": "Refresh all subscriptions",
+    "places": [
+      "src/netshift/tabs/dashboard/partials/renderSectionsToolbar.ts:28"
+    ]
+  },
+  {
+    "call": "Refresh subscription",
+    "key": "Refresh subscription",
+    "places": [
+      "src/netshift/tabs/dashboard/partials/renderSections.ts:79"
     ]
   },
   {
@@ -2020,7 +2064,7 @@
     "call": "Self-update failed",
     "key": "Self-update failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:307"
+      "src/netshift/methods/shell/index.ts:372"
     ]
   },
   {
@@ -2041,7 +2085,7 @@
     "call": "Services info",
     "key": "Services info",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:367"
+      "src/netshift/tabs/dashboard/initController.ts:456"
     ]
   },
   {
@@ -2064,7 +2108,7 @@
     "key": "Sing-box",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:157",
-      "src/netshift/tabs/dashboard/initController.ts:381"
+      "src/netshift/tabs/dashboard/initController.ts:470"
     ]
   },
   {
@@ -2224,10 +2268,24 @@
     ]
   },
   {
+    "call": "Subscription updated",
+    "key": "Subscription updated",
+    "places": [
+      "src/netshift/tabs/dashboard/initController.ts:226"
+    ]
+  },
+  {
     "call": "Subscription URLs",
     "key": "Subscription URLs",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:124"
+    ]
+  },
+  {
+    "call": "Subscriptions",
+    "key": "Subscriptions",
+    "places": [
+      "src/netshift/tabs/dashboard/partials/renderSectionsToolbar.ts:25"
     ]
   },
   {
@@ -2269,7 +2327,7 @@
     "call": "System info",
     "key": "System info",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:331"
+      "src/netshift/tabs/dashboard/initController.ts:420"
     ]
   },
   {
@@ -2290,7 +2348,7 @@
     "call": "Test latency",
     "key": "Test latency",
     "places": [
-      "src/netshift/tabs/dashboard/partials/renderSections.ts:112"
+      "src/netshift/tabs/dashboard/partials/renderSections.ts:162"
     ]
   },
   {
@@ -2354,14 +2412,14 @@
     "call": "Traffic",
     "key": "Traffic",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:265"
+      "src/netshift/tabs/dashboard/initController.ts:354"
     ]
   },
   {
     "call": "Traffic Total",
     "key": "Traffic Total",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:295"
+      "src/netshift/tabs/dashboard/initController.ts:384"
     ]
   },
   {
@@ -2450,6 +2508,13 @@
     ]
   },
   {
+    "call": "Updating all subscriptions… this may take a minute",
+    "key": "Updating all subscriptions… this may take a minute",
+    "places": [
+      "src/netshift/tabs/dashboard/initController.ts:246"
+    ]
+  },
+  {
     "call": "Updating NetShift, this may take a few minutes; the page will reload…",
     "key": "Updating NetShift, this may take a few minutes; the page will reload…",
     "places": [
@@ -2460,8 +2525,8 @@
     "call": "Uplink",
     "key": "Uplink",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:267",
-      "src/netshift/tabs/dashboard/initController.ts:298"
+      "src/netshift/tabs/dashboard/initController.ts:356",
+      "src/netshift/tabs/dashboard/initController.ts:387"
     ]
   },
   {

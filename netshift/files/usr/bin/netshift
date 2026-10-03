@@ -2356,10 +2356,18 @@ reload_sing_box_config_in_place() {
 # exit 0. Such a call refreshes every section instead (and says so), so a typo on
 # the command line, or a cron line carrying an interval this version no longer
 # schedules, cannot silently stop refreshing the subscriptions.
+#
+# Optional positional filters narrow the run further, and are how the dashboard
+# refreshes ONE subscription section or ONE feed without touching the rest:
+#   $2 section  — only that UCI section (used by `subscription:update_feed`)
+#   $3 url      — only that feed URL inside $2 (requires $2; the worker resolves
+#                 a dashboard feed name to its URL before calling this)
 subscription_update() {
     echolog "🔄 Starting subscription update..."
 
     local target_interval="${1:-}"
+    local target_section="${2:-}"
+    local target_url="${3:-}"
     local has_subscription=0
     local updated_sections=0
     local failed_sections=0
@@ -2392,6 +2400,11 @@ subscription_update() {
                 subscription_update_interval="$SUBSCRIPTION_UPDATE_INTERVAL_DEFAULT"
             fi
             [ "$subscription_update_interval" = "$target_interval" ] || return 1
+        fi
+
+        # A named section restricts the run to it (single-feed/targeted refresh).
+        if [ -n "$target_section" ] && [ "$section" != "$target_section" ]; then
+            return 1
         fi
 
         return 0
@@ -2454,6 +2467,11 @@ subscription_update() {
         feed_failed_count=0
         while IFS= read -r url || [ -n "$url" ]; do
             [ -n "$url" ] || continue
+            # A named feed narrows the refresh to that single URL (always paired
+            # with a target_section by the caller).
+            if [ -n "$target_url" ] && [ "$url" != "$target_url" ]; then
+                continue
+            fi
             urlhash="$(get_subscription_url_hash "$url")"
             subscription_json_path="$(get_subscription_json_path "$section" "$urlhash")"
             subscription_url_cache_path="$(get_subscription_url_cache_path "$section" "$urlhash")"
@@ -2571,6 +2589,98 @@ subscription_update() {
     else
         echolog "✅ Subscription update completed"
     fi
+}
+
+# Resolves a dashboard feed block name (the "⚡ <name>" tag's <name>, after the
+# prefix is stripped) back to the feed URL it came from. Mirrors the display-name
+# + duplicate-suffix naming in subscription_merge_section_feeds so a name maps to
+# the SAME feed index the dashboard showed. Prints the URL, or nothing (rc 1)
+# when no feed matches. Used by the per-feed refresh worker.
+subscription_resolve_feed_url_by_name() {
+    local section="$1"
+    local wanted_name="$2"
+    local urls_tmp url name raw_name feed_index=0 taken_json="[]" resolved=""
+
+    urls_tmp="$(mktemp "${TMPDIR:-/tmp}/netshift-feed-name-urls.XXXXXX")" || return 1
+    get_subscription_urls_for_section "$section" > "$urls_tmp"
+
+    while IFS= read -r url || [ -n "$url" ]; do
+        [ -n "$url" ] || continue
+        feed_index=$((feed_index + 1))
+        raw_name="$(get_subscription_feed_display_name "$url" "Subscription $feed_index")"
+        name="$(jq -rn --argjson names "$taken_json" --arg name "$raw_name" --argjson position "$feed_index" '
+            def taken($n): $names | any(. == $n);
+            if taken($name) then
+                first(range($position; $position + 1000) | "\($name) (\(.))" | select(taken(.) | not))
+            else $name end
+        ' 2>/dev/null)"
+        [ -n "$name" ] || name="$raw_name"
+        if [ "$name" = "$wanted_name" ]; then
+            resolved="$url"
+            break
+        fi
+        taken_json="$(jq -cn --argjson names "$taken_json" --arg name "$name" '$names + [$name]' 2>/dev/null)"
+        [ -n "$taken_json" ] || taken_json="[]"
+    done < "$urls_tmp"
+    rm -f "$urls_tmp"
+
+    [ -n "$resolved" ] || return 1
+    printf '%s' "$resolved"
+}
+
+# Worker for `component_action subscription update` — refreshes every
+# subscription section/feed (no cache wipe) through the shared
+# subscription_update path. Echoes one JSON result; NEVER exits (async fork).
+subscription_update_all_worker() {
+    local update_rc
+
+    subscription_update
+    update_rc=$?
+
+    if [ "$update_rc" -eq 0 ]; then
+        jq -nc '{success:true,message:"All subscriptions updated"}'
+    else
+        jq -nc --arg m "Failed to update subscriptions (rc=$update_rc)" '{success:false,message:$m}'
+    fi
+    return "$update_rc"
+}
+
+# Worker for `component_action subscription update_feed <section> <feed>` —
+# refreshes ONE feed of ONE section. <feed> is either the dashboard feed-block
+# name (resolved to its URL here) or the raw feed URL (single-feed sections).
+# Echoes one JSON result; NEVER exits (async fork).
+subscription_update_feed_worker() {
+    local section="$1"
+    local feed="$2"
+    local target_url update_rc
+
+    if [ -z "$section" ] || [ -z "$feed" ]; then
+        jq -nc '{success:false,message:"A section and feed are required"}'
+        return 1
+    fi
+
+    case "$feed" in
+    *://*)
+        target_url="$feed"
+        ;;
+    *)
+        target_url="$(subscription_resolve_feed_url_by_name "$section" "$feed" | tail -n 1)"
+        if [ -z "$target_url" ]; then
+            jq -nc --arg m "Subscription feed '$feed' was not found in section '$section'" '{success:false,message:$m}'
+            return 1
+        fi
+        ;;
+    esac
+
+    subscription_update "" "$section" "$target_url"
+    update_rc=$?
+
+    if [ "$update_rc" -eq 0 ]; then
+        jq -nc --arg m "Subscription feed updated for section '$section'" '{success:true,message:$m}'
+    else
+        jq -nc --arg m "Failed to update subscription feed for section '$section' (rc=$update_rc)" '{success:false,message:$m}'
+    fi
+    return "$update_rc"
 }
 
 # Worker for `component_action subscription clear_cache` (updater.sh router).
@@ -6069,6 +6179,7 @@ Available commands:
     subscription_update     Update subscription proxies; with an interval
                             (30m|1h|3h|6h|12h|1d) only the sections using it,
                             an unknown interval updates every section
+                            [section] [url] narrow the run to one section/feed
     check_proxy             Check proxy connectivity
     check_nft               Check NFT rules
     check_nft_rules         Check NFT rules status
@@ -6090,7 +6201,9 @@ Available commands:
     component_action        Run component action: <component> <action>
                             (e.g. sing_box install_extended|install_extended_lite|
                             install_stable|check_update|check_update_lite,
-                            subscription clear_cache to wipe all caches + redownload)
+                            subscription clear_cache to wipe all caches + redownload,
+                            subscription update [section] [feed] to refresh
+                            all/one feed)
     component_action_async  Start component_action in background; echoes a job_id
                             (use with component_action_status to poll the outcome)
     component_action_status Report an async component action by job_id: <job_id>
@@ -6124,7 +6237,7 @@ list_update)
     list_update
     ;;
 subscription_update)
-    subscription_update "${2:-}"
+    subscription_update "${2:-}" "${3:-}" "${4:-}"
     ;;
 check_proxy)
     check_proxy
@@ -6181,10 +6294,10 @@ global_check)
     global_check "${2:-}"
     ;;
 component_action)
-    component_action "$2" "$3"
+    component_action "$2" "$3" "$4" "$5"
     ;;
 component_action_async)
-    component_action_async "$2" "$3"
+    component_action_async "$2" "$3" "$4" "$5"
     ;;
 component_action_status)
     component_action_status "$2"

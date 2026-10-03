@@ -160,7 +160,24 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
         }
 
         if (section.proxy_config_type === 'subscription') {
-          return buildSubscriptionOutboundGroup(section['.name'], proxies);
+          // The dashboard offers a refresh button per feed (subgroup) and, for a
+          // single-feed section, one on the section header. Both need the UCI
+          // section name and its feed list; the legacy scalar shape is tolerated.
+          const rawSubscriptionUrls = (
+            section as { subscription_url?: string | string[] }
+          ).subscription_url;
+          const subscriptionUrls = Array.isArray(rawSubscriptionUrls)
+            ? rawSubscriptionUrls
+            : rawSubscriptionUrls
+              ? [rawSubscriptionUrls]
+              : [];
+
+          return {
+            ...buildSubscriptionOutboundGroup(section['.name'], proxies),
+            isSubscription: true,
+            sectionName: section['.name'],
+            subscriptionUrls,
+          };
         }
       }
 

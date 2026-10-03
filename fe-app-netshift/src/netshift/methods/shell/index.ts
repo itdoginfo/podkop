@@ -10,6 +10,56 @@ import {
 } from './pollSingBoxComponentAction';
 import { parseComponentCheckUpdate } from './parseComponentCheckUpdate';
 
+// Starts a component action with the async backend contract and polls it to
+// completion. A component action can outlast the rpcd ~30s wall (a subscription
+// refresh re-downloads feeds and restarts sing-box), so it MUST go through the
+// start+poll mechanism instead of a single long exec. Used by the dashboard
+// subscription refresh buttons; the sing-box/netshift/cache paths above keep
+// their own tailored error handling.
+async function startAndPollComponentAction(
+  component: string,
+  action: string,
+  extraArgs: string[] = [],
+): Promise<SingBoxComponentActionResult> {
+  const startResponse = await executeShellCommand({
+    command: '/usr/bin/netshift',
+    args: ['component_action_async', component, action, ...extraArgs],
+  });
+
+  let start: ComponentActionStartResponse | null = null;
+
+  if (startResponse.stdout) {
+    try {
+      start = JSON.parse(startResponse.stdout) as ComponentActionStartResponse;
+    } catch (_e) {
+      start = null;
+    }
+  }
+
+  if (!start || start.success !== true || !start.job_id) {
+    return {
+      success: false,
+      message:
+        start?.message || startResponse.stderr || _('Failed to start the task'),
+    };
+  }
+
+  const jobId = start.job_id;
+
+  return pollSingBoxComponentAction(async () => {
+    const statusResponse = await executeShellCommand({
+      command: '/usr/bin/netshift',
+      args: ['component_action_status', jobId],
+    });
+
+    if (!statusResponse.stdout) {
+      return null;
+    }
+
+    return parseComponentActionStatus(statusResponse.stdout);
+  });
+}
+
 export const NetShiftShellMethods = {
   checkDNSAvailable: async () =>
     callBaseMethod<NetShift.DnsCheckResult>(
@@ -274,6 +324,21 @@ export const NetShiftShellMethods = {
       return parseComponentActionStatus(statusResponse.stdout);
     });
   },
+  // Refresh every subscription feed (async): `component_action_async
+  // subscription update` → start+poll. Does NOT wipe the cache, so it is the
+  // lightweight sibling of clearSubscriptionCache. Drives the dashboard
+  // "refresh all subscriptions" button.
+  refreshAllSubscriptions: async (): Promise<SingBoxComponentActionResult> =>
+    startAndPollComponentAction('subscription', 'update'),
+  // Refresh ONE subscription feed (async): `component_action_async subscription
+  // update_feed <section> <feed>`. `feed` is the dashboard feed-block name (the
+  // backend resolves it to its URL) or the raw feed URL for single-feed
+  // sections. Drives the per-feed refresh buttons.
+  refreshSubscriptionFeed: async (
+    section: string,
+    feed: string,
+  ): Promise<SingBoxComponentActionResult> =>
+    startAndPollComponentAction('subscription', 'update_feed', [section, feed]),
   // NetShift self-update (async) — STABLE task-017 contract:
   // component_action_async netshift self_update + component_action_status <job>.
   // Reuses the component-agnostic poll. Because the package install swaps

@@ -175,6 +175,11 @@ export interface StoreType {
     // waiting for their result.
     latencyTestingSections: string[];
     latencyPendingOutbounds: string[];
+    // Subscription refresh in flight: the keys (section.code for a single-feed
+    // section, subgroup.code for one feed block) being refreshed, and whether
+    // the global "refresh all subscriptions" action is running.
+    refreshingFeedKeys: string[];
+    refreshingAllSubscriptions: boolean;
   };
   diagnosticsRunAction: {
     loading: boolean;
@@ -253,6 +258,8 @@ const initialStore: StoreType = {
     failed: false,
     latencyTestingSections: [],
     latencyPendingOutbounds: [],
+    refreshingFeedKeys: [],
+    refreshingAllSubscriptions: false,
     data: [],
   },
   ...initialDiagnosticStore,

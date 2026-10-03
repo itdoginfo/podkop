@@ -415,6 +415,11 @@ component_action_async() {
     local action="$2"
     local job_id state_file output_file job_pid
 
+    # Forward any extra arguments (e.g. a subscription section + feed for
+    # `subscription update_feed`) to the worker; actions that take none simply
+    # ignore them.
+    shift 2
+
     if ! mkdir -p "$UPDATES_JOB_DIR"; then
         updates_job_json_response false "" "Failed to create component action state directory"
         return 1
@@ -440,7 +445,7 @@ component_action_async() {
     # into the finished state.
     (
         trap '' HUP
-        "$0" component_action "$component" "$action" >"$output_file" 2>&1
+        "$0" component_action "$component" "$action" "$@" >"$output_file" 2>&1
         updates_write_finished_job_state "$state_file" "$component" "$action" "$?" "$output_file"
     ) >/dev/null 2>&1 &
     job_pid="$!"
@@ -2997,6 +3002,8 @@ _updates_self_update_restore_config() {
 component_action() {
     local component="$1"
     local action="$2"
+    local arg1="${3:-}"
+    local arg2="${4:-}"
 
     case "$component:$action" in
     sing_box:install_extended)
@@ -3031,6 +3038,15 @@ component_action() {
         # BOTH the sync `component_action subscription clear_cache` and the async
         # component_action_async/component_action_status paths.
         subscription_clear_cache_and_redownload
+        ;;
+    subscription:update)
+        # Refresh every subscription feed without wiping the cache. Worker lives
+        # in bin/netshift (same sourcing note as clear_cache above).
+        subscription_update_all_worker
+        ;;
+    subscription:update_feed)
+        # Refresh ONE feed: arg1 = section, arg2 = feed block name or feed URL.
+        subscription_update_feed_worker "$arg1" "$arg2"
         ;;
     *)
         echo '{"success":false,"message":"Unknown component action"}'

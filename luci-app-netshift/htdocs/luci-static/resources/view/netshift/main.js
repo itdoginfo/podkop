@@ -932,6 +932,37 @@ function parseComponentCheckUpdate(stdout) {
 }
 
 // src/netshift/methods/shell/index.ts
+async function startAndPollComponentAction(component, action, extraArgs = []) {
+  const startResponse = await executeShellCommand({
+    command: "/usr/bin/netshift",
+    args: ["component_action_async", component, action, ...extraArgs]
+  });
+  let start = null;
+  if (startResponse.stdout) {
+    try {
+      start = JSON.parse(startResponse.stdout);
+    } catch (_e) {
+      start = null;
+    }
+  }
+  if (!start || start.success !== true || !start.job_id) {
+    return {
+      success: false,
+      message: start?.message || startResponse.stderr || _("Failed to start the task")
+    };
+  }
+  const jobId = start.job_id;
+  return pollSingBoxComponentAction(async () => {
+    const statusResponse = await executeShellCommand({
+      command: "/usr/bin/netshift",
+      args: ["component_action_status", jobId]
+    });
+    if (!statusResponse.stdout) {
+      return null;
+    }
+    return parseComponentActionStatus(statusResponse.stdout);
+  });
+}
 var NetShiftShellMethods = {
   checkDNSAvailable: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_DNS_AVAILABLE
@@ -1137,6 +1168,16 @@ var NetShiftShellMethods = {
       return parseComponentActionStatus(statusResponse.stdout);
     });
   },
+  // Refresh every subscription feed (async): `component_action_async
+  // subscription update` → start+poll. Does NOT wipe the cache, so it is the
+  // lightweight sibling of clearSubscriptionCache. Drives the dashboard
+  // "refresh all subscriptions" button.
+  refreshAllSubscriptions: async () => startAndPollComponentAction("subscription", "update"),
+  // Refresh ONE subscription feed (async): `component_action_async subscription
+  // update_feed <section> <feed>`. `feed` is the dashboard feed-block name (the
+  // backend resolves it to its URL) or the raw feed URL for single-feed
+  // sections. Drives the per-feed refresh buttons.
+  refreshSubscriptionFeed: async (section, feed) => startAndPollComponentAction("subscription", "update_feed", [section, feed]),
   // NetShift self-update (async) — STABLE task-017 contract:
   // component_action_async netshift self_update + component_action_status <job>.
   // Reuses the component-agnostic poll. Because the package install swaps
@@ -1389,7 +1430,14 @@ async function getDashboardSections() {
         };
       }
       if (section.proxy_config_type === "subscription") {
-        return buildSubscriptionOutboundGroup(section[".name"], proxies);
+        const rawSubscriptionUrls = section.subscription_url;
+        const subscriptionUrls = Array.isArray(rawSubscriptionUrls) ? rawSubscriptionUrls : rawSubscriptionUrls ? [rawSubscriptionUrls] : [];
+        return {
+          ...buildSubscriptionOutboundGroup(section[".name"], proxies),
+          isSubscription: true,
+          sectionName: section[".name"],
+          subscriptionUrls
+        };
       }
     }
     if (section.connection_type === "vpn") {
@@ -2002,6 +2050,8 @@ var initialStore = {
     failed: false,
     latencyTestingSections: [],
     latencyPendingOutbounds: [],
+    refreshingFeedKeys: [],
+    refreshingAllSubscriptions: false,
     data: []
   },
   ...initialDiagnosticStore,
@@ -3059,8 +3109,20 @@ function renderDefaultState({
   onChooseOutbound,
   onTestLatency,
   latencyFetching,
-  pendingOutbounds
+  pendingOutbounds,
+  onRefreshFeed,
+  refreshingFeedKeys
 }) {
+  const canRefresh = Boolean(section.isSubscription && onRefreshFeed);
+  const hasSubgroups = (section.subgroups?.length ?? 0) > 0;
+  function renderRefreshButton(feed) {
+    return renderButton({
+      text: _("Refresh subscription"),
+      loading: refreshingFeedKeys?.includes(feed.key),
+      onClick: () => onRefreshFeed?.(section, feed),
+      classNames: ["dashboard-sections-grid-item-refresh-subscription"]
+    });
+  }
   function renderOutbound(outbound) {
     function getLatencyClass() {
       if (!outbound.latency) {
@@ -3107,11 +3169,27 @@ function renderDefaultState({
         },
         section.displayName
       ),
-      latencyFetching ? renderSkeleton("width: 99px; height: 28px") : renderButton({
-        text: _("Test latency"),
-        onClick: () => onTestLatency(),
-        classNames: ["dashboard-sections-grid-item-test-latency"]
-      })
+      E(
+        "div",
+        {
+          class: "pdk_dashboard-page__outbound-section__title-section__actions"
+        },
+        [
+          // A multi-feed section offers one refresh per feed block below; a
+          // single-feed section gets its only refresh button here.
+          ...canRefresh && !hasSubgroups && (section.subscriptionUrls?.length ?? 0) > 0 ? [
+            renderRefreshButton({
+              url: section.subscriptionUrls?.[0],
+              key: section.code
+            })
+          ] : [],
+          latencyFetching ? renderSkeleton("width: 99px; height: 28px") : renderButton({
+            text: _("Test latency"),
+            onClick: () => onTestLatency(),
+            classNames: ["dashboard-sections-grid-item-test-latency"]
+          })
+        ]
+      )
     ]),
     E(
       "div",
@@ -3120,11 +3198,19 @@ function renderDefaultState({
     ),
     ...(section.subgroups ?? []).map(
       (subgroup) => E("div", { class: "pdk_dashboard-page__outbound-subgroup" }, [
-        E(
-          "div",
-          { class: "pdk_dashboard-page__outbound-subgroup__title" },
-          subgroup.displayName
-        ),
+        E("div", { class: "pdk_dashboard-page__outbound-subgroup__header" }, [
+          E(
+            "div",
+            { class: "pdk_dashboard-page__outbound-subgroup__title" },
+            subgroup.displayName
+          ),
+          ...canRefresh ? [
+            renderRefreshButton({
+              name: subgroup.displayName,
+              key: subgroup.code
+            })
+          ] : []
+        ]),
         E(
           "div",
           { class: "pdk_dashboard-page__outbound-grid" },
@@ -3142,6 +3228,30 @@ function renderSections(props) {
     return renderLoadingState();
   }
   return renderDefaultState(props);
+}
+
+// src/netshift/tabs/dashboard/partials/renderSectionsToolbar.ts
+function renderSectionsToolbar({
+  visible,
+  refreshing,
+  onRefreshAll
+}) {
+  if (!visible) {
+    return E("div", {});
+  }
+  return E("div", { class: "pdk_dashboard-page__sections-toolbar" }, [
+    E(
+      "div",
+      { class: "pdk_dashboard-page__sections-toolbar__title" },
+      _("Subscriptions")
+    ),
+    renderButton({
+      text: _("Refresh all subscriptions"),
+      loading: refreshing,
+      onClick: onRefreshAll,
+      classNames: ["dashboard-refresh-all-subscriptions"]
+    })
+  ]);
 }
 
 // src/netshift/tabs/dashboard/partials/renderWidget.ts
@@ -3238,6 +3348,8 @@ function render() {
           renderWidget({ loading: true, failed: false, title: "", items: [] })
         )
       ]),
+      // Subscription refresh toolbar (hidden without subscription sections)
+      E("div", { id: "dashboard-sections-toolbar" }),
       // All outbounds
       E(
         "div",
@@ -3499,11 +3611,69 @@ async function handleTestSectionLatency(section) {
     }));
   }
 }
+async function handleRefreshFeed(section, feed) {
+  const target = feed.url || feed.name;
+  if (!target) {
+    return;
+  }
+  updateSectionsWidget((widget) => ({
+    refreshingFeedKeys: [...widget.refreshingFeedKeys, feed.key]
+  }));
+  try {
+    const result = await NetShiftShellMethods.refreshSubscriptionFeed(
+      section.sectionName ?? section.code,
+      target
+    );
+    if (result.success) {
+      showToast(_("Subscription updated"), "success");
+    } else {
+      logger.error("[DASHBOARD]", "handleRefreshFeed - result", result);
+      showToast(result.message || _("Failed to update subscription"), "error");
+    }
+  } catch (e) {
+    logger.error("[DASHBOARD]", "handleRefreshFeed - e", e);
+    showToast(_("Failed to update subscription"), "error");
+  } finally {
+    await fetchDashboardSections();
+    updateSectionsWidget((widget) => ({
+      refreshingFeedKeys: widget.refreshingFeedKeys.filter(
+        (item) => item !== feed.key
+      )
+    }));
+  }
+}
+async function handleRefreshAllSubscriptions() {
+  updateSectionsWidget(() => ({ refreshingAllSubscriptions: true }));
+  showToast(_("Updating all subscriptions\u2026 this may take a minute"), "info");
+  try {
+    const result = await NetShiftShellMethods.refreshAllSubscriptions();
+    if (result.success) {
+      showToast(_("All subscriptions updated"), "success");
+    } else {
+      logger.error(
+        "[DASHBOARD]",
+        "handleRefreshAllSubscriptions - result",
+        result
+      );
+      showToast(result.message || _("Failed to update subscriptions"), "error");
+    }
+  } catch (e) {
+    logger.error("[DASHBOARD]", "handleRefreshAllSubscriptions - e", e);
+    showToast(_("Failed to update subscriptions"), "error");
+  } finally {
+    await fetchDashboardSections();
+    updateSectionsWidget(() => ({ refreshingAllSubscriptions: false }));
+  }
+}
 async function renderSectionsWidget() {
   logger.debug("[DASHBOARD]", "renderSectionsWidget");
   const sectionsWidget = store.get().sectionsWidget;
   const container = document.getElementById("dashboard-sections-grid");
+  const toolbarContainer = document.getElementById(
+    "dashboard-sections-toolbar"
+  );
   if (sectionsWidget.loading || sectionsWidget.failed) {
+    toolbarContainer?.replaceChildren();
     const renderedWidget = renderSections({
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
@@ -3524,6 +3694,13 @@ async function renderSectionsWidget() {
       container.replaceChildren(renderedWidget);
     });
   }
+  toolbarContainer?.replaceChildren(
+    renderSectionsToolbar({
+      visible: sectionsWidget.data.some((section) => section.isSubscription),
+      refreshing: sectionsWidget.refreshingAllSubscriptions,
+      onRefreshAll: handleRefreshAllSubscriptions
+    })
+  );
   const renderedWidgets = sectionsWidget.data.map(
     (section) => renderSections({
       loading: sectionsWidget.loading,
@@ -3536,7 +3713,9 @@ async function renderSectionsWidget() {
       onTestLatency: () => handleTestSectionLatency(section),
       onChooseOutbound: (selector, tag) => {
         handleChooseOutbound(selector, tag);
-      }
+      },
+      onRefreshFeed: handleRefreshFeed,
+      refreshingFeedKeys: sectionsWidget.refreshingFeedKeys
     })
   );
   return preserveScrollForPage(() => {
@@ -3781,6 +3960,19 @@ var styles3 = `
 
 .pdk_dashboard-page__widgets-section__item__row__value {}
 
+.pdk_dashboard-page__sections-toolbar {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.pdk_dashboard-page__sections-toolbar__title {
+    color: var(--text-color-high);
+    font-weight: 700;
+}
+
 .pdk_dashboard-page__outbound-section {
     margin-top: 10px;
 }
@@ -3796,6 +3988,12 @@ var styles3 = `
     font-weight: 700;
 }
 
+.pdk_dashboard-page__outbound-section__title-section__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .pdk_dashboard-page__outbound-grid {
     margin-top: 5px;
     display: grid;
@@ -3807,6 +4005,13 @@ var styles3 = `
     margin-top: 15px;
     padding-top: 10px;
     border-top: var(--ns-card-border-width) solid var(--ns-card-border);
+}
+
+.pdk_dashboard-page__outbound-subgroup__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
 }
 
 .pdk_dashboard-page__outbound-subgroup__title {

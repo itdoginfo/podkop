@@ -31,6 +31,8 @@ export function render() {
           renderWidget({ loading: true, failed: false, title: '', items: [] }),
         ),
       ]),
+      // Subscription refresh toolbar (hidden without subscription sections)
+      E('div', { id: 'dashboard-sections-toolbar' }),
       // All outbounds
       E(
         'div',

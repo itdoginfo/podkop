@@ -4,9 +4,15 @@ import {
   preserveScrollForPage,
 } from '../../../helpers';
 import { prettyBytes } from '../../../helpers/prettyBytes';
+import { showToast } from '../../../helpers/showToast';
 import { CustomNetShiftMethods, NetShiftShellMethods } from '../../methods';
 import { logger, socket, store, StoreType } from '../../services';
-import { renderSections, renderWidget } from './partials';
+import {
+  IRefreshFeedTarget,
+  renderSections,
+  renderSectionsToolbar,
+  renderWidget,
+} from './partials';
 import { fetchServicesInfo } from '../../fetchers';
 import { getClashApiSecret } from '../../methods/custom/getClashApiSecret';
 import { NetShift } from '../../types';
@@ -193,14 +199,87 @@ async function handleTestSectionLatency(section: NetShift.OutboundGroup) {
   }
 }
 
+// Refreshes one subscription feed (or the only feed of a single-feed section).
+// The backend re-downloads the feed, re-applies the config and restarts
+// sing-box; the button spins until the async job reports back.
+async function handleRefreshFeed(
+  section: NetShift.OutboundGroup,
+  feed: IRefreshFeedTarget,
+) {
+  const target = feed.url || feed.name;
+
+  if (!target) {
+    return;
+  }
+
+  updateSectionsWidget((widget) => ({
+    refreshingFeedKeys: [...widget.refreshingFeedKeys, feed.key],
+  }));
+
+  try {
+    const result = await NetShiftShellMethods.refreshSubscriptionFeed(
+      section.sectionName ?? section.code,
+      target,
+    );
+
+    if (result.success) {
+      showToast(_('Subscription updated'), 'success');
+    } else {
+      logger.error('[DASHBOARD]', 'handleRefreshFeed - result', result);
+      showToast(result.message || _('Failed to update subscription'), 'error');
+    }
+  } catch (e) {
+    logger.error('[DASHBOARD]', 'handleRefreshFeed - e', e);
+    showToast(_('Failed to update subscription'), 'error');
+  } finally {
+    await fetchDashboardSections();
+    updateSectionsWidget((widget) => ({
+      refreshingFeedKeys: widget.refreshingFeedKeys.filter(
+        (item) => item !== feed.key,
+      ),
+    }));
+  }
+}
+
+async function handleRefreshAllSubscriptions() {
+  updateSectionsWidget(() => ({ refreshingAllSubscriptions: true }));
+  showToast(_('Updating all subscriptions… this may take a minute'), 'info');
+
+  try {
+    const result = await NetShiftShellMethods.refreshAllSubscriptions();
+
+    if (result.success) {
+      showToast(_('All subscriptions updated'), 'success');
+    } else {
+      logger.error(
+        '[DASHBOARD]',
+        'handleRefreshAllSubscriptions - result',
+        result,
+      );
+      showToast(result.message || _('Failed to update subscriptions'), 'error');
+    }
+  } catch (e) {
+    logger.error('[DASHBOARD]', 'handleRefreshAllSubscriptions - e', e);
+    showToast(_('Failed to update subscriptions'), 'error');
+  } finally {
+    await fetchDashboardSections();
+    updateSectionsWidget(() => ({ refreshingAllSubscriptions: false }));
+  }
+}
+
 // Renderer
 
 async function renderSectionsWidget() {
   logger.debug('[DASHBOARD]', 'renderSectionsWidget');
   const sectionsWidget = store.get().sectionsWidget;
   const container = document.getElementById('dashboard-sections-grid');
+  const toolbarContainer = document.getElementById(
+    'dashboard-sections-toolbar',
+  );
 
   if (sectionsWidget.loading || sectionsWidget.failed) {
+    toolbarContainer?.replaceChildren();
+
     const renderedWidget = renderSections({
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
@@ -221,6 +300,14 @@ async function renderSectionsWidget() {
     });
   }
 
+  toolbarContainer?.replaceChildren(
+    renderSectionsToolbar({
+      visible: sectionsWidget.data.some((section) => section.isSubscription),
+      refreshing: sectionsWidget.refreshingAllSubscriptions,
+      onRefreshAll: handleRefreshAllSubscriptions,
+    }),
+  );
+
   const renderedWidgets = sectionsWidget.data.map((section) =>
     renderSections({
       loading: sectionsWidget.loading,
@@ -234,6 +321,8 @@ async function renderSectionsWidget() {
       onChooseOutbound: (selector, tag) => {
         handleChooseOutbound(selector, tag);
       },
+      onRefreshFeed: handleRefreshFeed,
+      refreshingFeedKeys: sectionsWidget.refreshingFeedKeys,
     }),
   );
 

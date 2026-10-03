@@ -1,15 +1,15 @@
 # RU translations for NETSHIFT package.
 # Copyright (C) 2026 THE NETSHIFT'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# yandexru45, 2026.
+# Artem Kireev, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
-"Last-Translator: yandexru45\n"
+"POT-Creation-Date: 2026-10-03 18:49+0300\n"
+"PO-Revision-Date: 2026-10-03 18:49+0300\n"
+"Last-Translator: Artem Kireev\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -46,6 +46,9 @@ msgstr "Найдены дополнительные правила маркир�
 
 msgid "Advanced"
 msgstr "Дополнительно"
+
+msgid "All subscriptions updated"
+msgstr "Все подписки обновлены"
 
 msgid "Allow insecure TLS for subscription fetch"
 msgstr "Разрешить небезопасный TLS при загрузке подписки"
@@ -382,6 +385,15 @@ msgstr "Не удалось скопировать!"
 
 msgid "Failed to execute!"
 msgstr "Не удалось выполнить!"
+
+msgid "Failed to start the task"
+msgstr "Не удалось запустить задачу"
+
+msgid "Failed to update subscription"
+msgstr "Не удалось обновить подписку"
+
+msgid "Failed to update subscriptions"
+msgstr "Не удалось обновить подписки"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
@@ -737,6 +749,12 @@ msgstr "Прокси-трафик не маршрутизируется чере
 msgid "Proxy traffic is routed via FakeIP"
 msgstr "Прокси-трафик направляется через FakeIP"
 
+msgid "Refresh all subscriptions"
+msgstr "Обновить все подписки"
+
+msgid "Refresh subscription"
+msgstr "Обновить подписку"
+
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
 
@@ -941,8 +959,14 @@ msgstr "Группировка подписки"
 msgid "Subscription Update Interval"
 msgstr "Интервал обновления подписки"
 
+msgid "Subscription updated"
+msgstr "Подписка обновлена"
+
 msgid "Subscription URLs"
 msgstr "URL подписок"
+
+msgid "Subscriptions"
+msgstr "Подписки"
 
 msgid "Successfully copied!"
 msgstr "Успешно скопировано!"
@@ -1030,6 +1054,9 @@ msgstr "Доступно обновление"
 
 msgid "Update NetShift"
 msgstr "Обновить NetShift"
+
+msgid "Updating all subscriptions… this may take a minute"
+msgstr "Обновление всех подписок… это может занять минуту"
 
 msgid "Updating NetShift, this may take a few minutes; the page will reload…"
 msgstr "Обновление NetShift, это может занять несколько минут; страница перезагрузится…"

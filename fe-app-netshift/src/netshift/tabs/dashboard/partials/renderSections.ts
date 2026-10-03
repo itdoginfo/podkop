@@ -2,6 +2,15 @@ import { renderButton } from '../../../../partials';
 import { NetShift } from '../../../types';
 import { SKELETON_SHIMMER_DURATION } from '../../../../constants';
 
+// A specific subscription feed to refresh: the dashboard feed-block name (the
+// backend resolves it to its URL) or the raw URL for a single-feed section.
+// `key` is the section/subgroup code used to show the button's loading state.
+export interface IRefreshFeedTarget {
+  name?: string;
+  url?: string;
+  key: string;
+}
+
 interface IRenderSectionsProps {
   loading: boolean;
   failed: boolean;
@@ -11,6 +20,13 @@ interface IRenderSectionsProps {
   latencyFetching: boolean;
   // Outbound codes whose latency is being measured right now.
   pendingOutbounds: string[];
+  // Subscription sections only: refresh one feed (subgroup header) or the whole
+  // section (single-feed section header). Absent outside the dashboard.
+  onRefreshFeed?: (
+    section: NetShift.OutboundGroup,
+    feed: IRefreshFeedTarget,
+  ) => void;
+  refreshingFeedKeys?: string[];
 }
 
 function renderFailedState() {
@@ -50,7 +66,23 @@ export function renderDefaultState({
   onTestLatency,
   latencyFetching,
   pendingOutbounds,
+  onRefreshFeed,
+  refreshingFeedKeys,
 }: IRenderSectionsProps) {
+  // Subscription refresh is only offered when the dashboard wired the handler
+  // (the loading/failed placeholders render without one).
+  const canRefresh = Boolean(section.isSubscription && onRefreshFeed);
+  const hasSubgroups = (section.subgroups?.length ?? 0) > 0;
+
+  function renderRefreshButton(feed: IRefreshFeedTarget) {
+    return renderButton({
+      text: _('Refresh subscription'),
+      loading: refreshingFeedKeys?.includes(feed.key),
+      onClick: () => onRefreshFeed?.(section, feed),
+      classNames: ['dashboard-sections-grid-item-refresh-subscription'],
+    });
+  }
+
   function renderOutbound(outbound: NetShift.Outbound) {
     function getLatencyClass() {
       if (!outbound.latency) {
@@ -106,13 +138,33 @@ export function renderDefaultState({
         },
         section.displayName,
       ),
-      latencyFetching
-        ? renderSkeleton('width: 99px; height: 28px')
-        : renderButton({
-            text: _('Test latency'),
-            onClick: () => onTestLatency(),
-            classNames: ['dashboard-sections-grid-item-test-latency'],
-          }),
+      E(
+        'div',
+        {
+          class: 'pdk_dashboard-page__outbound-section__title-section__actions',
+        },
+        [
+          // A multi-feed section offers one refresh per feed block below; a
+          // single-feed section gets its only refresh button here.
+          ...(canRefresh &&
+          !hasSubgroups &&
+          (section.subscriptionUrls?.length ?? 0) > 0
+            ? [
+                renderRefreshButton({
+                  url: section.subscriptionUrls?.[0],
+                  key: section.code,
+                }),
+              ]
+            : []),
+          latencyFetching
+            ? renderSkeleton('width: 99px; height: 28px')
+            : renderButton({
+                text: _('Test latency'),
+                onClick: () => onTestLatency(),
+                classNames: ['dashboard-sections-grid-item-test-latency'],
+              }),
+        ],
+      ),
     ]),
     E(
       'div',
@@ -121,11 +173,21 @@ export function renderDefaultState({
     ),
     ...(section.subgroups ?? []).map((subgroup) =>
       E('div', { class: 'pdk_dashboard-page__outbound-subgroup' }, [
-        E(
-          'div',
-          { class: 'pdk_dashboard-page__outbound-subgroup__title' },
-          subgroup.displayName,
-        ),
+        E('div', { class: 'pdk_dashboard-page__outbound-subgroup__header' }, [
+          E(
+            'div',
+            { class: 'pdk_dashboard-page__outbound-subgroup__title' },
+            subgroup.displayName,
+          ),
+          ...(canRefresh
+            ? [
+                renderRefreshButton({
+                  name: subgroup.displayName,
+                  key: subgroup.code,
+                }),
+              ]
+            : []),
+        ]),
         E(
           'div',
           { class: 'pdk_dashboard-page__outbound-grid' },

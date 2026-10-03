@@ -34,7 +34,8 @@ const results = {};
 for (const file of files) {
     const contentRaw = await fs.readFile(file, 'utf8');
     const content = stripIllegalReturn(contentRaw);
-    const relativePath = path.relative(process.cwd(), file);
+    // Normalize to forward slashes so locales are identical on Windows and Unix.
+    const relativePath = path.relative(process.cwd(), file).split(path.sep).join('/');
 
     let ast;
     try {

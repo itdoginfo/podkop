@@ -97,6 +97,11 @@ export namespace NetShift {
     // Per-subscription blocks of a subscription section with several feeds;
     // their outbounds are chosen through the same selector (`code`).
     subgroups?: OutboundSubgroup[];
+    // Subscription sections only: the UCI section name and its configured feed
+    // URLs, so the dashboard can refresh a single feed/section after a click.
+    isSubscription?: boolean;
+    sectionName?: string;
+    subscriptionUrls?: string[];
   }
 
   export interface ConfigProxyUrlTestSection {
