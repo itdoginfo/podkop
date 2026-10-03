@@ -9127,7 +9127,7 @@ test_section_disabled() {
         . "${NETSHIFT_LIB_DIR}/logging.sh" 2>/dev/null || log() { :; }
         . "$facade_lib"
         for fn in section_is_disabled _active_section_dispatch foreach_active_section \
-            subscription_outbound_is_unavailable download_proxy_section_is_unavailable \
+            subscription_outbound_is_unavailable download_proxy_section_is_unavailable service_proxy_needed \
             sing_box_additional_inbounds get_download_detour_tag; do
             eval "$(extract "$fn")"
         done
@@ -9138,6 +9138,8 @@ test_section_disabled() {
         config_get() {
             case "$2:$3" in
             settings:download_lists_via_proxy_section) eval "$1=\"\$SD_PROXY_SECTION\"" ;;
+            # alpha and beta exist in the config, "ghost" does not
+            alpha:connection_type | beta:connection_type) eval "$1=proxy" ;;
             *) eval "$1=\"\${4:-}\"" ;;
             esac
         }
@@ -9174,6 +9176,18 @@ test_section_disabled() {
         sing_box_additional_inbounds
         echo "$config" | jq -e '[.route.rules[] | select(.outbound == "alpha-out")] | length == 1' > /dev/null &&
             echo "inbounds-active-routes-to-section:yes" || echo "inbounds-active-routes-to-section:no"
+
+        # A section id that is no longer in the config, and no section picked at all:
+        # the service proxy rejects, nothing points at "<id>-out" / "-out".
+        for sec in ghost ""; do
+            SD_PROXY_SECTION="$sec"
+            config="$base"
+            sing_box_additional_inbounds
+            echo "$config" | jq -e '([.route.rules[] | select(.action == "reject")] | length == 1)
+                and ([.route.rules[] | select(.outbound == "ghost-out" or .outbound == "-out")] | length == 0)' > /dev/null &&
+                echo "inbounds-missing-section-[$sec]-rejects:yes" || echo "inbounds-missing-section-[$sec]-rejects:no"
+            echo "detour-missing-section-[$sec]:[$(get_download_detour_tag)]"
+        done
     )"
 
     _sd_check "disabled download proxy section: no detour tag" "detour-disabled:[]"
@@ -9184,6 +9198,9 @@ test_section_disabled() {
     fi
     _sd_check "active download proxy section keeps its detour tag" "detour-active:[alpha-out]"
     _sd_check "active download proxy section keeps its route" "inbounds-active-routes-to-section:yes"
+    _sd_check "a deleted download proxy section: proxy requests are rejected, no dangling outbound" "inbounds-missing-section-[ghost]-rejects:yes"
+    _sd_check "a deleted download proxy section: no detour tag" "detour-missing-section-[ghost]:[]"
+    _sd_check "no download proxy section picked: proxy requests are rejected (as before)" "inbounds-missing-section-[]-rejects:yes"
 }
 
 # ─────────────────────────────────────────────────────────────────
@@ -13100,6 +13117,171 @@ CPEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: downloading components via the service proxy
+# ─────────────────────────────────────────────────────────────────
+# `download_components_via_proxy` sends the updater's downloads (sing-box core,
+# NetShift packages, release lookups) through the local service proxy, with a
+# fall back to a direct connection. Runs the REAL updates_* helpers (extracted
+# from updater.sh) and service_proxy_needed/get_service_proxy_address (from the
+# bin) against stubbed curl / UCI. Asserts:
+#   - flag off (default, every existing config): nothing goes through the proxy;
+#   - flag on: the proxy is tried first, a failure falls back to direct;
+#   - the service proxy exists for lists OR components.
+test_components_via_proxy() {
+    header "Components via the service proxy"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local updater="${NETSHIFT_LIB_DIR}/updater.sh"
+    if [ ! -r "$bin" ] || [ ! -r "$updater" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ]; then
+        skip "netshift bin / updater.sh / constants.sh not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        for fn in service_proxy_needed get_service_proxy_address; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        for fn in updates_components_proxy_address updates_http_get updates_download_to_file updates_github_resolve_redirect \
+            updates_host_reachable_via_proxy updates_preflight_proxy_for_direction updates_preflight_host_for_direction \
+            updates_preflight_connectivity updates_selfheal_connectivity updates_ensure_connectivity; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$updater")"
+        done
+        updates_log() { :; }
+
+        CP_LISTS=0; CP_COMP=0
+        config_get_bool() {
+            case "$3" in
+            download_lists_via_proxy) eval "$1=\"$CP_LISTS\"" ;;
+            download_components_via_proxy) eval "$1=\"$CP_COMP\"" ;;
+            *) eval "$1=\"$4\"" ;;
+            esac
+        }
+        # curl stub: records whether -x was used; CP_PROXY_OK=0 makes proxied calls fail
+        CPLOGF="/tmp/netshift-compproxy-log-$$"
+        : > "$CPLOGF"
+        curl() {
+            local proxied=direct a out=""
+            for a in "$@"; do
+                [ "$a" = "-x" ] && proxied=proxy
+            done
+            while [ $# -gt 0 ]; do
+                [ "$1" = "-o" ] && out="$2"
+                shift
+            done
+            printf "%s " "$proxied" >> "$CPLOGF"
+            if [ "$proxied" = proxy ] && [ "${CP_PROXY_OK:-1}" = 0 ]; then
+                return 22
+            fi
+            [ -n "$out" ] && echo data > "$out"
+            echo "body-$proxied"
+            return 0
+        }
+        wget() { return 1; }
+        updates_http_get_once() {
+            if [ -n "$2" ]; then printf "get-proxy " >> "$CPLOGF"; else printf "get-direct " >> "$CPLOGF"; fi
+            if [ -n "$2" ] && [ "${CP_PROXY_OK:-1}" = 0 ]; then return 22; fi
+            echo "body"
+        }
+        D="/tmp/netshift-compproxy-$$"
+        LOGRESET() { : > "$CPLOGF"; }
+
+        for flags in "0 0:no" "1 0:yes" "0 1:yes" "1 1:yes"; do
+            CP_LISTS="${flags%% *}"; CP_COMP="${flags#* }"; CP_COMP="${CP_COMP%%:*}"
+            if service_proxy_needed; then got=yes; else got=no; fi
+            echo "needed-$CP_LISTS$CP_COMP:$got"
+        done
+
+        # flag off: direct only, and no proxy address for components
+        CP_LISTS=0; CP_COMP=0
+        echo "off-address:[$(updates_components_proxy_address)]"
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "off-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_http_get https://x/api > /dev/null; echo "off-get:$(cat "$CPLOGF" | sed "s/ *$//")"
+        # lists-only proxy does not carry components
+        CP_LISTS=1; CP_COMP=0
+        echo "lists-only-address:[$(updates_components_proxy_address)]"
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "lists-only-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+
+        # components-only: the list downloads get no service proxy address
+        CP_LISTS=0; CP_COMP=1
+        echo "components-only-lists-address:[$(get_service_proxy_address)]"
+        CP_LISTS=1; CP_COMP=0
+        echo "lists-only-lists-address:$(get_service_proxy_address)"
+        CP_LISTS=1; CP_COMP=1
+        echo "both-lists-address:$(get_service_proxy_address)"
+        CP_LISTS=0; CP_COMP=0
+        echo "off-lists-address:[$(get_service_proxy_address)]"
+
+        # flag on: proxy first
+        CP_LISTS=0; CP_COMP=1; CP_PROXY_OK=1
+        [ "$(updates_components_proxy_address)" = "$SB_SERVICE_MIXED_INBOUND_ADDRESS:$SB_SERVICE_MIXED_INBOUND_PORT" ] && echo "on-address:service-proxy" || echo "on-address:wrong"
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "on-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_http_get https://x/api > /dev/null; echo "on-get:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_github_resolve_redirect https://x/latest > /dev/null; echo "on-redirect:$(cat "$CPLOGF" | sed "s/ *$//")"
+        # flag on, proxy down: falls back to direct
+        CP_PROXY_OK=0
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "down-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_http_get https://x/api > /dev/null; echo "down-get:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_github_resolve_redirect https://x/latest > /dev/null; echo "down-redirect:$(cat "$CPLOGF" | sed "s/ *$//")"
+
+        # Install pre-flight (GitHub blocked for the router itself: no DNS, no direct HTTPS).
+        # With the flag on, reachability through the proxy decides; the redirect that carries
+        # the proxy is never torn down.
+        UPDATES_GITHUB_PROBE_HOST=github.test
+        UPDATES_FEED_PROBE_HOST=feeds.test
+        updates_dns_resolves() { return 1; }
+        updates_host_reachable() { printf "direct-probe " >> "$CPLOGF"; return 1; }
+        updates_write_temp_resolver() { return 1; }
+        updates_teardown_redirect() { printf "teardown " >> "$CPLOGF"; return 0; }
+        CP_LISTS=0; CP_COMP=1; CP_PROXY_OK=1
+        LOGRESET; updates_ensure_connectivity extended; echo "preflight-on-proxy-ok:$?:$(sed "s/ *$//" "$CPLOGF")"
+        CP_PROXY_OK=0
+        LOGRESET; updates_ensure_connectivity extended; echo "preflight-on-proxy-down:$?:$(sed "s/ *$//" "$CPLOGF")"
+        # flag off: the old behaviour (tear the redirect down to find a direct way) is unchanged
+        CP_COMP=0
+        LOGRESET; updates_ensure_connectivity extended; echo "preflight-off-blocked:$?:$(sed "s/ *$//" "$CPLOGF")"
+        # the package feeds are not fetched through the proxy: stable keeps the direct probe
+        CP_COMP=1; CP_PROXY_OK=1
+        LOGRESET; updates_ensure_connectivity stable; echo "preflight-stable-direct:$?:$(sed "s/ *$//" "$CPLOGF")"
+        rm -f "$D" "$CPLOGF"
+    )"
+
+    _cp_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _cp_check "neither flag: no service proxy" "needed-00:no"
+    _cp_check "lists flag creates the service proxy" "needed-10:yes"
+    _cp_check "components flag creates the service proxy" "needed-01:yes"
+    _cp_check "both flags create it" "needed-11:yes"
+    _cp_check "flag off: components have no proxy address" "off-address:[]"
+    _cp_check "flag off: downloads are direct" "off-download:direct"
+    _cp_check "flag off: release lookups are direct" "off-get:get-direct"
+    _cp_check "lists-only proxy does not carry components" "lists-only-address:[]"
+    _cp_check "lists-only: component download stays direct" "lists-only-download:direct"
+    _cp_check "components-only: the list downloads get no service proxy address" "components-only-lists-address:[]"
+    _cp_check "lists-only: the list downloads use the service proxy address" "lists-only-lists-address:127.0.0.1:4534"
+    _cp_check "both flags: the list downloads use the service proxy address" "both-lists-address:127.0.0.1:4534"
+    _cp_check "no flag: no list proxy address" "off-lists-address:[]"
+    _cp_check "flag on: the service proxy address is used" "on-address:service-proxy"
+    _cp_check "flag on: download goes through the proxy" "on-download:proxy"
+    _cp_check "flag on: release lookup goes through the proxy first" "on-get:get-proxy"
+    _cp_check "flag on: redirect lookup goes through the proxy" "on-redirect:proxy"
+    _cp_check "proxy down: download falls back to direct" "down-download:proxy direct"
+    _cp_check "proxy down: release lookup falls back to direct" "down-get:get-proxy get-direct"
+    _cp_check "proxy down: redirect lookup falls back to direct" "down-redirect:proxy direct"
+    _cp_check "install pre-flight: GitHub is probed through the proxy, no heal needed" "preflight-on-proxy-ok:0:proxy"
+    _cp_check "install pre-flight: proxy down, the redirect that carries the proxy is not torn down" "preflight-on-proxy-down:1:proxy"
+    _cp_check "install pre-flight: flag off tears the redirect down as before" "preflight-off-blocked:1:teardown"
+    _cp_check "install pre-flight: stable direction does not use the proxy" "preflight-stable-direct:1:teardown"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
 # country_code_to_flag_emoji / build_subscription_filter_json (country codes turn
@@ -13238,6 +13420,7 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_components_via_proxy
             test_urltest_filters
             ;;
         deps)        test_deps ;;
@@ -13286,10 +13469,11 @@ main() {
         cm)          test_config_manager ;;
         sb)          test_sing_box_config ;;
         proxylink)   test_proxy_link_escaping ;;
+        compproxy)   test_components_via_proxy ;;
         utfilters)   test_urltest_filters ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist compproxy utfilters"
             exit 1
             ;;
     esac

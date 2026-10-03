@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:29+0300\n"
+"PO-Revision-Date: 2026-10-03 17:29+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -263,11 +263,17 @@ msgstr "Входящий"
 msgid "Download"
 msgstr "Скачать"
 
+msgid "Download components via Proxy/VPN"
+msgstr "Скачивать компоненты через Proxy/VPN"
+
 msgid "Download Lists via Proxy/VPN"
 msgstr "Скачивать списки через Proxy/VPN"
 
 msgid "Download Lists via specific proxy section"
 msgstr "Скачивать списки через выбранную секцию"
+
+msgid "Download sing-box, NetShift packages and release information through the proxy section selected below. Useful when GitHub is blocked; a failed download falls back to a direct connection."
+msgstr "Скачивать sing-box, пакеты NetShift и сведения о релизах через выбранную ниже секцию с прокси. Полезно, когда GitHub заблокирован; при ошибке загрузка повторяется напрямую."
 
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr "Загрузка всех списков через указанный прокси/VPN"

@@ -18,6 +18,7 @@ config settings 'settings'
         option disable_quic '0'
         option update_interval '1d'
         option download_lists_via_proxy '0'
+        option download_components_via_proxy '0'
         # sing-box-extended build to install on 32-bit ARM:
         # auto | armv7 | armv6 | openwrt.
         # 'auto' (the default, and also the behaviour when the option is absent,

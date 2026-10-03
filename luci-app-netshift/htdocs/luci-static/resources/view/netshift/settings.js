@@ -370,6 +370,18 @@ function createSettingsContent(section) {
 
   o = section.taboption(
     "lists",
+    form.Flag,
+    "download_components_via_proxy",
+    _("Download components via Proxy/VPN"),
+    _(
+      "Download sing-box, NetShift packages and release information through the proxy section selected below. Useful when GitHub is blocked; a failed download falls back to a direct connection.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "lists",
     form.ListValue,
     "download_lists_via_proxy_section",
     _("Download Lists via specific proxy section"),
@@ -378,6 +390,7 @@ function createSettingsContent(section) {
 
   o.rmempty = false;
   o.depends("download_lists_via_proxy", "1");
+  o.depends("download_components_via_proxy", "1");
   o.cfgvalue = function (section_id) {
     return uci.get("netshift", section_id, "download_lists_via_proxy_section");
   };
