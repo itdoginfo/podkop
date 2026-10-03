@@ -1009,6 +1009,31 @@ sing_box_cache_is_volatile() {
 
 # Put the copy back only when the live DB is missing (tmpfs was wiped). A live DB
 # that survived a restart is newer than any copy.
+# The FakeIP address -> domain mappings live in the same cache DB. When the IPv6
+# FakeIP range changes (an upgrade moved it out of the ULA block) the old mappings
+# keep answering AAAA from a range that is no longer marked, so those flows end in a
+# black hole until the entries are evicted. The range last used is kept next to the
+# cache copy; on a change (or when it was never recorded) the DB and its copy are
+# dropped once, which only sets the selected servers back to their defaults.
+# Only relevant (and only recorded) with IPv6 on: without it no IPv6 mapping is made.
+drop_stale_fakeip_cache() {
+    local marker="$NETSHIFT_STATE_DIR/fakeip-v6-range"
+    local saved cache_path
+
+    netshift_ipv6_enabled || return 0
+
+    saved="$(cat "$marker" 2> /dev/null)"
+    [ "$saved" = "$SB_FAKEIP_INET6_RANGE" ] && return 0
+
+    cache_path="$(get_sing_box_cache_path)"
+    if [ -e "$cache_path" ] || [ -f "$NETSHIFT_CACHE_BACKUP" ]; then
+        rm -f "$cache_path" "$NETSHIFT_CACHE_BACKUP" "$NETSHIFT_CACHE_SELECTION"
+        log "IPv6 FakeIP range is now $SB_FAKEIP_INET6_RANGE (was '${saved:-not recorded}'): dropped the sing-box cache and its copy so old FakeIP mappings are not reused (selected servers are back to default)" "warn"
+    fi
+    mkdir -p "$NETSHIFT_STATE_DIR"
+    printf '%s\n' "$SB_FAKEIP_INET6_RANGE" > "$marker"
+}
+
 restore_sing_box_cache() {
     local cache_path
     cache_path="$(get_sing_box_cache_path)"
@@ -1163,6 +1188,7 @@ start_main() {
     rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
     foreach_active_section add_cron_job "section"
     sync_subscription_cron_jobs
+    drop_stale_fakeip_cache
     restore_sing_box_cache
     /etc/init.d/sing-box start
 
@@ -2691,6 +2717,16 @@ sing_box_configure_log() {
     config=$(sing_box_cm_configure_log "$config" false "$log_level" false)
 }
 
+# Inbound match for route rules: the IPv4 TProxy inbound, plus the IPv6 one when
+# IPv6 is enabled, so both address families go through the same routing rules.
+tproxy_route_inbounds() {
+    if netshift_ipv6_enabled; then
+        printf '["%s","%s-v6"]' "$SB_TPROXY_INBOUND_TAG" "$SB_TPROXY_INBOUND_TAG"
+    else
+        printf '%s' "$SB_TPROXY_INBOUND_TAG"
+    fi
+}
+
 sing_box_configure_inbounds() {
     log "Configure the inbounds section of a sing-box JSON configuration"
 
@@ -3743,22 +3779,31 @@ sing_box_configure_route() {
     if [ "$exclude_bittorrent" -eq 1 ]; then
         log "BitTorrent exclusion enabled: routing BitTorrent traffic directly, bypassing the tunnel" "info"
         config=$(sing_box_cm_add_bittorrent_direct_route_rule "$config" "$SB_BITTORRENT_DIRECT_RULE_TAG" \
-            "$SB_TPROXY_INBOUND_TAG" "$SB_DIRECT_OUTBOUND_TAG")
+            "$(tproxy_route_inbounds)" "$SB_DIRECT_OUTBOUND_TAG")
     fi
 
     config=$(sing_box_cm_add_hijack_dns_route_rule "$config" "protocol" "dns")
 
+    # IPv6 only: the IPv6 TProxy inbound prefers AAAA when a domain is resolved for
+    # routing/dialing (prefer_*, not *_only, so a domain without AAAA still
+    # resolves). The IPv4 inbound keeps the global dns.strategy (prefer_ipv4), as
+    # without IPv6. The rule names the main DNS server explicitly, so it never
+    # falls through to the FakeIP rule of dns.rules.
+    if netshift_ipv6_enabled; then
+        config=$(sing_box_cm_add_inbound_resolve_rule "$config" "${SB_TPROXY_INBOUND_TAG}-v6" "prefer_ipv6" "$SB_DNS_SERVER_TAG")
+    fi
+
     local disable_quic
     config_get_bool disable_quic "settings" "disable_quic" 0
     if [ "$disable_quic" -eq 1 ]; then
-        config=$(sing_box_cf_add_single_key_reject_rule "$config" "$SB_TPROXY_INBOUND_TAG" "protocol" "quic")
+        config=$(sing_box_cf_add_single_key_reject_rule "$config" "$(tproxy_route_inbounds)" "protocol" "quic")
     fi
 
     local block_doh
     config_get_bool block_doh "settings" "block_doh" 0
     if [ "$block_doh" -eq 1 ]; then
         log "DoH blocking enabled: adding route-level DoH IP block rules" "info"
-        config=$(sing_box_cm_add_doh_block_route_rule "$config" "$SB_DOH_BLOCK_RULE_TAG" "$SB_TPROXY_INBOUND_TAG" \
+        config=$(sing_box_cm_add_doh_block_route_rule "$config" "$SB_DOH_BLOCK_RULE_TAG" "$(tproxy_route_inbounds)" \
             "$DOH_BLOCK_IPV4_CIDRS" "$DOH_BLOCK_IPV6_CIDRS")
     fi
 
@@ -3771,9 +3816,9 @@ sing_box_configure_route() {
         first_outbound_tag="$(get_outbound_tag_by_section "$first_outbound_section")"
     fi
     if [ -n "$first_outbound_tag" ]; then
-        config=$(sing_box_cf_proxy_domain "$config" "$SB_TPROXY_INBOUND_TAG" "$CHECK_PROXY_IP_DOMAIN" "$first_outbound_tag")
+        config=$(sing_box_cf_proxy_domain "$config" "$(tproxy_route_inbounds)" "$CHECK_PROXY_IP_DOMAIN" "$first_outbound_tag")
     else
-        config=$(sing_box_cf_add_single_key_reject_rule "$config" "$SB_TPROXY_INBOUND_TAG" "domain" "$CHECK_PROXY_IP_DOMAIN")
+        config=$(sing_box_cf_add_single_key_reject_rule "$config" "$(tproxy_route_inbounds)" "domain" "$CHECK_PROXY_IP_DOMAIN")
     fi
     config=$(sing_box_cf_override_domain_port "$config" "$FAKEIP_TEST_DOMAIN" 8443)
 
@@ -3784,7 +3829,7 @@ sing_box_configure_route() {
     config_get routing_excluded_ips "settings" "routing_excluded_ips"
     if [ -n "$routing_excluded_ips" ]; then
         rule_tag="$(gen_id)"
-        config=$(sing_box_cm_add_route_rule "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$SB_DIRECT_OUTBOUND_TAG")
+        config=$(sing_box_cm_add_route_rule "$config" "$rule_tag" "$(tproxy_route_inbounds)" "$SB_DIRECT_OUTBOUND_TAG")
         config_list_foreach "settings" "routing_excluded_ips" exclude_source_ip_from_routing_handler "$rule_tag"
     fi
 
@@ -3801,11 +3846,11 @@ include_source_ips_in_routing_handler() {
     if [ -n "$fully_routed_ips" ]; then
         rule_tag="$(gen_id)"
         if subscription_outbound_is_unavailable "$section"; then
-            config="$(sing_box_cm_add_reject_route_rule "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG")"
+            config="$(sing_box_cm_add_reject_route_rule "$config" "$rule_tag" "$(tproxy_route_inbounds)")"
         else
             config=$(
                 sing_box_cm_add_route_rule \
-                    "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$(get_outbound_tag_by_section "$section")"
+                    "$config" "$rule_tag" "$(tproxy_route_inbounds)" "$(get_outbound_tag_by_section "$section")"
             )
         fi
         config_list_foreach "$section" "fully_routed_ips" include_source_ip_in_routing_handler "$rule_tag"
@@ -3825,7 +3870,7 @@ configure_common_reject_route_rule() {
             fi
         done
         if [ "$block_section_lists_enabled" -eq 1 ]; then
-            config=$(sing_box_cm_add_reject_route_rule "$config" "$SB_REJECT_RULE_TAG" "$SB_TPROXY_INBOUND_TAG")
+            config=$(sing_box_cm_add_reject_route_rule "$config" "$SB_REJECT_RULE_TAG" "$(tproxy_route_inbounds)")
         else
             log "Block sections does not have any enabled list, reject rule is not required" "warn"
         fi
@@ -3852,7 +3897,7 @@ configure_common_direct_route_rule() {
     fi
 
     if [ "$exclusion_section_list_enabled" -eq 1 ] || [ "$global_proxy_direct_needed" -eq 1 ]; then
-        config=$(sing_box_cm_add_route_rule "$config" "$SB_EXCLUSION_RULE_TAG" "$SB_TPROXY_INBOUND_TAG" \
+        config=$(sing_box_cm_add_route_rule "$config" "$SB_EXCLUSION_RULE_TAG" "$(tproxy_route_inbounds)" \
             "$SB_DIRECT_OUTBOUND_TAG")
     else
         log "No direct exclusion rules required" "warn"
@@ -4002,10 +4047,10 @@ configure_routing_for_section_lists() {
         else
             route_rule_tag="$(gen_id)"
             if subscription_outbound_is_unavailable "$section"; then
-                config="$(sing_box_cm_add_reject_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG")"
+                config="$(sing_box_cm_add_reject_route_rule "$config" "$route_rule_tag" "$(tproxy_route_inbounds)")"
             else
                 outbound_tag=$(get_outbound_tag_by_section "$section")
-                config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
+                config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$(tproxy_route_inbounds)" "$outbound_tag")
             fi
         fi
         ;;

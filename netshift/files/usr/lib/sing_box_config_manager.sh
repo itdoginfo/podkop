@@ -1271,7 +1271,7 @@ sing_box_cm_configure_route() {
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
 #   tag: string, identifier for the route rule
-#   inbound: string, inbound tag to match
+#   inbound: string, inbound tag to match (or a JSON array of tags)
 #   outbound: string, outbound tag to route matched traffic to
 # Outputs:
 #   Writes updated JSON configuration to stdout
@@ -1287,7 +1287,7 @@ sing_box_cm_add_route_rule() {
     echo "$config" | jq \
         --arg service_tag "$SERVICE_TAG" \
         --arg tag "$tag" \
-        --arg inbound "$inbound" \
+        --argjson inbound "$(_normalize_arg "$inbound")" \
         --arg outbound "$outbound" \
         '.route.rules += [{
             action: "route",
@@ -1306,7 +1306,7 @@ sing_box_cm_add_route_rule() {
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
 #   tag: string, identifier for the route rule
-#   inbound: string, inbound tag to match
+#   inbound: string, inbound tag to match (or a JSON array of tags)
 #   outbound: string, outbound tag the BitTorrent traffic is routed to
 # Outputs:
 #   Writes updated JSON configuration to stdout
@@ -1359,6 +1359,35 @@ sing_box_cm_add_resolve_rule() {
             else .
             end
         ]'
+}
+
+#######################################
+# Add a resolve rule that sets the domain strategy for one inbound.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   inbound: string, inbound tag to match
+#   strategy: string, prefer_ipv4 | prefer_ipv6 | ipv4_only | ipv6_only
+#   server: string, optional DNS server tag to resolve with
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_inbound_resolve_rule "$CONFIG" "tproxy-in-v6" "prefer_ipv6")
+#######################################
+sing_box_cm_add_inbound_resolve_rule() {
+    local config="$1"
+    local inbound="$2"
+    local strategy="$3"
+    local server="${4:-}"
+
+    echo "$config" | jq \
+        --arg inbound "$inbound" \
+        --arg strategy "$strategy" \
+        --arg server "$server" \
+        '.route.rules += [{
+            action: "resolve",
+            inbound: $inbound,
+            strategy: $strategy
+        } + (if $server == "" then {} else {server: $server} end)]'
 }
 
 #######################################
@@ -1419,7 +1448,7 @@ sing_box_cm_add_reject_route_rule() {
     echo "$config" | jq \
         --arg service_tag "$SERVICE_TAG" \
         --arg tag "$tag" \
-        --arg inbound "$inbound" \
+        --argjson inbound "$(_normalize_arg "$inbound")" \
         '.route.rules += [{
             action: "reject",
             inbound: $inbound,
@@ -1433,7 +1462,7 @@ sing_box_cm_add_reject_route_rule() {
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
 #   tag: string, identifier for the route rule and ruleset
-#   inbound: string, inbound tag to match
+#   inbound: string, inbound tag to match (or a JSON array of tags)
 #   doh_ipv4_cidrs: string, space-separated IPv4 CIDRs to block
 #   doh_ipv6_cidrs: string, space-separated IPv6 CIDRs to block
 # Outputs:
@@ -1462,7 +1491,7 @@ sing_box_cm_add_doh_block_route_rule() {
     echo "$config" | jq \
         --arg service_tag "$SERVICE_TAG" \
         --arg tag "$tag" \
-        --arg inbound "$inbound" \
+        --argjson inbound "$(_normalize_arg "$inbound")" \
         --arg ruleset_tag "$ruleset_tag" \
         '.route.rules += [{
             action: "reject",
@@ -1764,7 +1793,9 @@ sing_box_cm_save_config_to_file() {
 
 _normalize_arg() {
     local value="$1"
-    if echo "$value" | jq -e . > /dev/null 2>&1; then
+    if [ -z "$value" ]; then
+        printf '""'
+    elif echo "$value" | jq -e . > /dev/null 2>&1; then
         printf '%s' "$value"
     else
         printf '%s' "$value" | jq -R .
