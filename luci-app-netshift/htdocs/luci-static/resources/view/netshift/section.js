@@ -486,6 +486,19 @@ function createSectionContent(section) {
   o = section.taboption(
     "connection",
     form.Flag,
+    "geoip_flags",
+    _("Detect country by IP (GeoIP)"),
+    _(
+      "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends("connection_type", "proxy");
+
+  o = section.taboption(
+    "connection",
+    form.Flag,
     "enable_udp_over_tcp",
     _("UDP over TCP"),
     _("Applicable for SOCKS and Shadowsocks proxy"),

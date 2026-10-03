@@ -13179,6 +13179,243 @@ test_urltest_filters() {
     _uf_check "no keywords and no countries: empty filter (unchanged behaviour)" "no-filter-empty:ok"
 }
 # ─────────────────────────────────────────────────────────────────
+# Test: GeoIP country flags for subscription servers
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL subscription_geoip_annotate / geoip_hosts_without_flag /
+# geoip_resolve_host (extracted verbatim from the bin) with stubbed dig / curl.
+# Asserts: only names WITHOUT a flag are annotated; each address is looked up once
+# (later runs read the cache); private / FakeIP answers never leave the router;
+# offline and a silent service change nothing and are retried later; failures are
+# retried only after their TTL; the flag equals the one the country filter builds.
+test_subscription_geoip() {
+    header "Subscription GeoIP country flags"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ] || [ ! -r "${NETSHIFT_LIB_DIR}/helpers.sh" ] \
+        || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / constants.sh / helpers.sh / jq not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        . "${NETSHIFT_LIB_DIR}/helpers.sh"
+        W="/tmp/netshift-geoip-$$"; rm -rf "$W"; mkdir -p "$W"
+        GEOIP_CACHE_FILE="$W/geoip.json"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$W/log"; }
+        for fn in country_code_to_flag_emoji geoip_hosts_without_flag geoip_is_private_ip geoip_resolve_host geoip_lookup_hosts subscription_geoip_annotate \
+            geoip_section_enabled geoip_name_has_flag geoip_link_host geoip_collect_host geoip_collect_link geoip_collect_json \
+            geoip_flush_links configure_outbound_geoip_handler get_geoip_flags; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        # geoip_flags comes from GEO_FLAGS, bootstrap from the default
+        config_get() {
+            case "$3" in
+            geoip_flags) eval "$1=\"\${GEO_FLAGS:-$4}\"" ;;
+            *) eval "$1=\"$4\"" ;;
+            esac
+        }
+
+        # dig stub: GEO_DIG="host=ip ..." ; counts calls
+        dig() {
+            local host="" a
+            for a in "$@"; do case "$a" in @*|+*|A) ;; *) host="$a" ;; esac; done
+            echo x >> "$W/dig.calls"
+            local pair
+            for pair in $GEO_DIG; do [ "${pair%%=*}" = "$host" ] && echo "${pair#*=}"; done
+            return 0
+        }
+        # curl stub: records the POST body, answers GEO_API (a JSON array) or nothing
+        curl() {
+            local body="" prev=""
+            for a in "$@"; do [ "$prev" = "-d" ] && body="$a"; prev="$a"; done
+            echo x >> "$W/curl.calls"; printf '%s\n' "$body" >> "$W/curl.bodies"
+            [ -n "$GEO_API" ] && printf '%s' "$GEO_API"
+            return 0
+        }
+        calls() { [ -f "$W/$1.calls" ] && wc -l < "$W/$1.calls" | tr -d ' ' || echo 0; }
+
+        NL="$(country_code_to_flag_emoji NL)"; JP="$(country_code_to_flag_emoji JP)"; DE="$(country_code_to_flag_emoji DE)"
+        mkfile() {
+            jq -n --arg de "$DE" --arg nl "$NL" '{outbounds: [
+              {type:"vless", tag: ($de + " Berlin"), server:"de.example"},
+              {type:"vless", tag:"Amsterdam", server:"nl.example"},
+              {type:"vless", tag:"Tokyo", server:"1.2.3.4"},
+              {type:"vless", tag:"Unknown", server:"xx.example"},
+              {type:"vless", tag:"Private", server:"priv.example"},
+              {type:"vless", tag:"Fake", server:"fake.example"},
+              {type:"vless", remark:"Remarked", server:"nl.example"},
+              {type:"vless", tag:("Premium " + $nl), server:"mid.example"}]}' > "$1"
+        }
+        names() { jq -c '[.outbounds[] | (.tag // .remark)]' "$1"; }
+        GEO_DIG="de.example=9.9.9.1 nl.example=5.5.5.5 xx.example=6.6.6.6 priv.example=192.168.1.5 fake.example=198.18.0.7 mid.example=7.7.7.7"
+        GEO_API="$(printf '[{"ip":"5.5.5.5","country":"NL"},{"ip":"1.2.3.4","country":"JP"}]')"
+
+        mkfile "$W/a.json"; subscription_geoip_annotate "$W/a.json"
+        echo "annotated:$(names "$W/a.json" | jq -c --arg nl "$NL" --arg jp "$JP" --arg de "$DE" '. == [($de + " Berlin"), ($nl + " Amsterdam"), ($jp + " Tokyo"), "Unknown", "Private", "Fake", ($nl + " Remarked"), ("Premium " + $nl)]')"
+        echo "one-batch-request:$(calls curl)"
+        body="$(cat "$W/curl.bodies")"
+        echo "only-public-ips-sent:$(printf '%s' "$body" | jq -c 'sort == ["1.2.3.4","5.5.5.5","6.6.6.6"]')"
+        echo "flagged-names-not-looked-up:$(printf '%s' "$body" | grep -c '9.9.9.1\|7.7.7.7')"
+        echo "cache-written:$(jq -c 'keys | sort' "$GEOIP_CACHE_FILE")"
+        echo "cache-failure-entry:$(jq -r '.["xx.example"].cc' "$GEOIP_CACHE_FILE")|"
+
+        # second run: no dig, no curl, same result
+        : > "$W/dig.calls"; : > "$W/curl.calls"
+        mkfile "$W/b.json"; subscription_geoip_annotate "$W/b.json"
+        echo "second-run-same:$([ "$(names "$W/b.json")" = "$(names "$W/a.json")" ] && echo yes || echo no)"
+        echo "second-run-no-network:$(calls dig)/$(calls curl)"
+
+        # a failure is retried only after its TTL
+        jq '.["xx.example"].ts = 1' "$GEOIP_CACHE_FILE" > "$W/c.tmp" && mv "$W/c.tmp" "$GEOIP_CACHE_FILE"
+        GEO_API='[{"ip":"5.5.5.5","country":"NL"},{"ip":"6.6.6.6","country":"FR"}]'
+        : > "$W/curl.calls"
+        mkfile "$W/c.json"; subscription_geoip_annotate "$W/c.json"
+        FR="$(country_code_to_flag_emoji FR)"
+        echo "expired-failure-retried:$(calls curl):$(names "$W/c.json" | jq -r --arg fr "$FR" '.[3] == ($fr + " Unknown")')"
+
+        # offline: nothing resolves -> stops early, nothing changes, no request
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls" "$W/curl.calls" "$W/curl.bodies"
+        GEO_DIG=""
+        jq -n '{outbounds: [range(0; 12) | {type:"vless", tag:("N" + tostring), server:("h" + tostring + ".example")}]}' > "$W/d.json"
+        cp "$W/d.json" "$W/d.orig"
+        subscription_geoip_annotate "$W/d.json"
+        echo "offline-unchanged:$([ "$(jq -cS . "$W/d.json")" = "$(jq -cS . "$W/d.orig")" ] && echo yes || echo no)"
+        echo "offline-stops-early:$([ "$(calls dig)" -le "$GEOIP_RESOLVE_MAX_FAILURES" ] && echo yes || echo no)"
+        echo "offline-no-request:$(calls curl)"
+        echo "offline-no-cache:$([ -e "$GEOIP_CACHE_FILE" ] && echo written || echo none)"
+
+        # offline with FEW hosts: nothing is known, so nothing is remembered (not even
+        # as a day-long failure)
+        rm -f "$GEOIP_CACHE_FILE"; GEO_DIG=""
+        jq -n '{outbounds: [range(0; 2) | {type:"vless", tag:("M" + tostring), server:("m" + tostring + ".example")}]}' > "$W/d2.json"
+        subscription_geoip_annotate "$W/d2.json"
+        echo "offline-few-hosts-no-cache:$([ -e "$GEOIP_CACHE_FILE" ] && echo written || echo none)"
+
+        # DNS that answers only now and then: the total number of misses ends the phase
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls" "$W/curl.calls" "$W/curl.bodies"
+        GEO_DIG="$(i=0; while [ $i -lt 40 ]; do [ $((i % 2)) -eq 0 ] && printf 'p%s.example=5.5.5.5 ' "$i"; i=$((i + 1)); done)"
+        jq -n '{outbounds: [range(0; 40) | {type:"vless", tag:("P" + tostring), server:("p" + tostring + ".example")}]}' > "$W/d3.json"
+        GEO_API='[{"ip":"5.5.5.5","country":"NL"}]'
+        subscription_geoip_annotate "$W/d3.json"
+        echo "flaky-dns-bounded:$([ "$(calls dig)" -le $((GEOIP_RESOLVE_MAX_FAILURES * 2 + 2)) ] && echo yes || echo no)"
+        # ... and so does the time budget (0 s: the first miss ends it)
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls"; GEO_DIG=""
+        GEOIP_RESOLVE_BUDGET=0; subscription_geoip_annotate "$W/d3.json"
+        echo "time-budget-ends-the-phase:$(calls dig)"
+        GEOIP_RESOLVE_BUDGET=60
+
+        # addresses that are never sent out, IPv6 included
+        rm -f "$GEOIP_CACHE_FILE" "$W/curl.calls" "$W/curl.bodies"
+        GEO_API='[{"ip":"2606:4700::1111","country":"US"}]'
+        GEO_DIG=""
+        jq -n --arg fake "${SB_FAKEIP_INET6_RANGE%%/*}1" '{outbounds: [
+            {type:"vless", tag:"ula", server:"fd12:3456::1"}, {type:"vless", tag:"ll", server:"fe80::1"},
+            {type:"vless", tag:"lo", server:"::1"}, {type:"vless", tag:"fk", server:$fake},
+            {type:"vless", tag:"cgnat", server:"100.64.1.1"}, {type:"vless", tag:"pub6", server:"2606:4700::1111"}]}' > "$W/d4.json"
+        subscription_geoip_annotate "$W/d4.json"
+        echo "ipv6-private-never-sent:$(cat "$W/curl.bodies" | jq -c 'sort')"
+        echo "fakeip-from-constants:$(for ip in "${SB_FAKEIP_INET4_RANGE%%/*}" 198.19.5.5 198.20.0.1; do geoip_is_private_ip "$ip" && printf 'p' || printf 'u'; done)"
+
+        # files keep owner-only access
+        echo "cache-mode:$(ls -ld "$GEOIP_CACHE_FILE" | cut -c1-10)"
+        mkfile "$W/g.json"; chmod 600 "$W/g.json"; subscription_geoip_annotate "$W/g.json"
+        echo "annotated-file-mode:$(ls -ld "$W/g.json" | cut -c1-10)"
+
+        # a silent service: names unchanged and nothing cached (retry next build)
+        GEO_DIG="de.example=9.9.9.1 nl.example=5.5.5.5"; GEO_API=""
+        rm -f "$GEOIP_CACHE_FILE"
+        mkfile "$W/e.json"; cp "$W/e.json" "$W/e.orig"; subscription_geoip_annotate "$W/e.json"
+        echo "silent-service-unchanged:$([ "$(jq -cS . "$W/e.json")" = "$(jq -cS . "$W/e.orig")" ] && echo yes || echo no)"
+        echo "silent-service-no-cache:$([ -e "$GEOIP_CACHE_FILE" ] && echo written || echo none)"
+        GEO_API="not json"; : > "$W/log"
+        mkfile "$W/f.json"; subscription_geoip_annotate "$W/f.json"
+        echo "garbage-warned:$(grep -c 'lookup service did not answer' "$W/log")"
+
+        # --- links added by hand: the country goes to GEOIP_LINKS_FILE per outbound tag
+        VMFRAG="${VMFRAG_PLACEHOLDER:-}"
+        GEOIP_LINKS_FILE="$W/links.json"
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls" "$W/curl.calls" "$W/curl.bodies"
+        GEO_DIG="de.example=9.9.9.1 nl.example=5.5.5.5 jp.example=1.2.3.4 vm.example=5.5.5.5"
+        GEO_API='[{"ip":"5.5.5.5","country":"NL"},{"ip":"1.2.3.4","country":"JP"},{"ip":"9.9.9.1","country":"DE"}]'
+        VM="vmess://$(printf '%s' '{"v":"2","ps":"VM node","add":"vm.example","port":"443","id":"u"}' | base64 | tr -d '\n')"
+        VMF="vmess://$(printf '%s' "{\"v\":\"2\",\"ps\":\"$NL VM flagged\",\"add\":\"de.example\",\"port\":\"443\",\"id\":\"u\"}" | base64 | tr -d '\n')"
+        FLAGGED_FRAG="%F0%9F%87%A9%F0%9F%87%AA"   # the German flag, percent-encoded as links carry it
+        configure_outbound_handler() {
+            geoip_collect_link "$1-7-out" "${VM}#%F0%9F%87%A9%F0%9F%87%AA%20Frag"
+            geoip_collect_json "$1-8-out" '{"type":"vless","tag":"%F0%9F%87%A9%F0%9F%87%AA%20Enc","server":"de.example"}'
+            geoip_collect_link "$1-out" "vless://u@nl.example:443?security=tls#Amsterdam%20node"
+            geoip_collect_link "$1-1-out" "trojan://p@jp.example:443#"
+            geoip_collect_link "$1-2-out" "vless://u@de.example:443#${FLAGGED_FRAG}%20Berlin"
+            geoip_collect_link "$1-3-out" "$VM"
+            geoip_collect_link "$1-4-out" "$VMF"
+            geoip_collect_json "$1-5-out" '{"type":"vless","tag":"Json node","server":"nl.example"}'
+            geoip_collect_json "$1-6-out" "{\"type\":\"vless\",\"tag\":\"$DE json\",\"server\":\"de.example\"}"
+            return 7
+        }
+        GEO_FLAGS=0
+        configure_outbound_geoip_handler off; rc=$?
+        echo "links-off-no-lookup:$(calls dig)/$(calls curl):$([ -e "$GEOIP_LINKS_FILE" ] && echo file || echo none)"
+        GEO_FLAGS=1
+        configure_outbound_geoip_handler main; rc=$?
+        echo "links-keep-exit-status:$rc"
+        echo "links-flags:$(get_geoip_flags | jq -c --sort-keys '. == {"main-1-out":"JP","main-3-out":"NL","main-5-out":"NL","main-out":"NL"}')"
+        echo "links-flagged-names-skipped:$(jq -c '[has("main-2-out"), has("main-4-out"), has("main-6-out"), has("main-7-out"), has("main-8-out")]' "$GEOIP_LINKS_FILE")"
+        echo "links-file-mode:$(ls -ld "$GEOIP_LINKS_FILE" | cut -c1-10)"
+        echo "links-one-request:$(calls curl)"
+        echo "links-not-sent-flagged:$(grep -c '9.9.9.1' "$W/curl.bodies")"
+        : > "$W/dig.calls"; : > "$W/curl.calls"
+        configure_outbound_geoip_handler second > /dev/null
+        echo "links-merge-and-cache:$(jq -c '[has("main-out"), has("second-out")]' "$GEOIP_LINKS_FILE"):$(calls dig)/$(calls curl)"
+        rm -f "$GEOIP_LINKS_FILE"
+        echo "links-no-file-is-empty-object:$(get_geoip_flags)"
+        rm -rf "$W"
+    )"
+
+    _gp_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _gp_check "names without a flag get the flag of their country (tag and remark)" "annotated:true"
+    _gp_check "all addresses go out in ONE batch request" "one-batch-request:1"
+    _gp_check "only public addresses are sent (no private / FakeIP / flagged servers)" "only-public-ips-sent:true"
+    _gp_check "servers that already have a flag are never looked up" "flagged-names-not-looked-up:0"
+    _gp_check "the results (and the failures) are cached per host" 'cache-written:["1.2.3.4","fake.example","nl.example","priv.example","xx.example"]'
+    _gp_check "a manual link is looked up and its country kept per outbound tag" "links-flags:true"
+    _gp_check "geoip.json and the links file are owner-only" "links-file-mode:-rw-------"
+    _gp_check "a link or JSON name that already has a flag is never looked up" "links-flagged-names-skipped:[false,false,false,false,false]"
+    _gp_check "the handler keeps the exit status of the section build" "links-keep-exit-status:7"
+    _gp_check "a section without the option does no lookup" "links-off-no-lookup:0/0:none"
+    _gp_check "all manual hosts go out in one request" "links-one-request:1"
+    _gp_check "a host with a flag in the name is not sent" "links-not-sent-flagged:0"
+    _gp_check "the next section reuses the cache and keeps earlier results" "links-merge-and-cache:[true,true]:0/0"
+    _gp_check "no lookup file reads as an empty object" "links-no-file-is-empty-object:{}"
+    _gp_check "an unknown address is cached as a failure" "cache-failure-entry:|"
+    _gp_check "a second build gives the same names" "second-run-same:yes"
+    _gp_check "a second build makes no DNS and no HTTP request" "second-run-no-network:0/0"
+    _gp_check "an expired failure is looked up again" "expired-failure-retried:1:true"
+    _gp_check "offline: the names stay as they were" "offline-unchanged:yes"
+    _gp_check "offline: the lookup stops after a few misses" "offline-stops-early:yes"
+    _gp_check "offline: no request is made" "offline-no-request:0"
+    _gp_check "offline: nothing is cached" "offline-no-cache:none"
+    _gp_check "offline with a few hosts: nothing is cached either" "offline-few-hosts-no-cache:none"
+    _gp_check "DNS that answers only now and then: the lookup phase is bounded" "flaky-dns-bounded:yes"
+    _gp_check "the time budget ends the lookup phase" "time-budget-ends-the-phase:1"
+    _gp_check "private, link-local, loopback, ULA, FakeIP and CGNAT addresses (IPv6 too) are never sent" 'ipv6-private-never-sent:["2606:4700::1111"]'
+    _gp_check "the FakeIP ranges come from the constants" "fakeip-from-constants:ppu"
+    _gp_check "geoip.json is owner-only" "cache-mode:-rw-------"
+    _gp_check "the annotated subscription file stays owner-only" "annotated-file-mode:-rw-------"
+    _gp_check "a silent service changes nothing" "silent-service-unchanged:yes"
+    _gp_check "a silent service caches nothing" "silent-service-no-cache:none"
+    _gp_check "a non-JSON answer is warned about" "garbage-warned:1"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────
 main() {
@@ -13239,6 +13476,7 @@ main() {
             test_domain_separators
             test_cache_persist
             test_urltest_filters
+            test_subscription_geoip
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -13282,6 +13520,7 @@ main() {
         hotreload)   test_hot_reload ;;
         domsep)      test_domain_separators ;;
         cachepersist) test_cache_persist ;;
+        geoip)       test_subscription_geoip ;;
         jq)          test_jq_helpers ;;
         cm)          test_config_manager ;;
         sb)          test_sing_box_config ;;
@@ -13289,7 +13528,7 @@ main() {
         utfilters)   test_urltest_filters ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters geoip"
             exit 1
             ;;
     esac

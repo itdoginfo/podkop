@@ -201,6 +201,20 @@ UPDATES_NETSHIFT_PKG_LUCI="luci-app-netshift"
 UPDATES_NETSHIFT_PKG_I18N_RU="luci-i18n-netshift-ru"
 # DNS
 SB_DNS_SERVER_TAG="dns-server"
+# GeoIP country flags for subscription servers whose name has none
+# (geoip_flags). Looked up once and kept in GEOIP_CACHE_FILE; a failed lookup
+# is retried after GEOIP_NEGATIVE_TTL seconds, a found country after GEOIP_POSITIVE_TTL.
+GEOIP_API_URL="https://api.country.is"
+GEOIP_CACHE_FILE="$NETSHIFT_STATE_DIR/geoip.json"
+GEOIP_LINKS_FILE="$TMP_SING_BOX_FOLDER/geoip-links.json"
+GEOIP_POSITIVE_TTL=2592000
+GEOIP_NEGATIVE_TTL=86400
+GEOIP_BATCH_SIZE=100
+GEOIP_MAX_HOSTS=300
+# The name-resolving phase of a lookup stops after this many misses or seconds in total,
+# so DNS that is down or slow cannot hold the config build for minutes.
+GEOIP_RESOLVE_MAX_FAILURES=10
+GEOIP_RESOLVE_BUDGET=60
 SB_FAKEIP_DNS_SERVER_TAG="fakeip-server"
 SB_FAKEIP_INET4_RANGE="198.18.0.0/15"
 SB_FAKEIP_INET6_RANGE="fd00:ec3a::/32"

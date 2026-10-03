@@ -835,6 +835,7 @@ var NetShift;
     AvailableMethods2["GET_STATUS"] = "get_status";
     AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
     AvailableMethods2["GET_SING_BOX_STATUS"] = "get_sing_box_status";
+    AvailableMethods2["GET_GEOIP_FLAGS"] = "get_geoip_flags";
     AvailableMethods2["CLASH_API"] = "clash_api";
     AvailableMethods2["RESTART"] = "restart";
     AvailableMethods2["START"] = "start";
@@ -948,6 +949,9 @@ var NetShiftShellMethods = {
   ),
   getSingBoxStatus: async () => callBaseMethod(
     NetShift.AvailableMethods.GET_SING_BOX_STATUS
+  ),
+  getGeoipFlags: async () => callBaseMethod(
+    NetShift.AvailableMethods.GET_GEOIP_FLAGS
   ),
   getClashApiProxies: async () => callBaseMethod(NetShift.AvailableMethods.CLASH_API, [
     NetShift.AvailableClashAPIMethods.GET_PROXIES
@@ -1281,6 +1285,8 @@ async function getDashboardSections() {
       data: []
     };
   }
+  const geoipResponse = await NetShiftShellMethods.getGeoipFlags();
+  const geoipFlags = geoipResponse.success && geoipResponse.data && typeof geoipResponse.data === "object" ? geoipResponse.data : {};
   const proxies = Object.entries(clashProxies.data.proxies).map(
     ([key, value]) => ({
       code: key,
@@ -1418,9 +1424,19 @@ async function getDashboardSections() {
       outbounds: []
     };
   });
+  const flagged = data.map((group) => ({
+    ...group,
+    outbounds: group.outbounds.map((outbound) => ({
+      ...outbound,
+      displayName: withCountryFlag(
+        outbound.displayName,
+        geoipFlags[outbound.code]
+      )
+    }))
+  }));
   return {
     success: true,
-    data
+    data: flagged
   };
 }
 
@@ -6397,6 +6413,22 @@ function insertIfObj(condition, object) {
   return condition ? object : {};
 }
 
+// src/helpers/withCountryFlag.ts
+var FLAG_PAIR = /[\u{1F1E6}-\u{1F1FF}]{2}/u;
+var REGIONAL_INDICATOR_A = 127462;
+function withCountryFlag(name, countryCode) {
+  if (!countryCode || !/^[A-Za-z]{2}$/.test(countryCode)) {
+    return name;
+  }
+  if (FLAG_PAIR.test(name)) {
+    return name;
+  }
+  const flag = String.fromCodePoint(
+    ...countryCode.toUpperCase().split("").map((letter) => REGIONAL_INDICATOR_A + letter.charCodeAt(0) - 65)
+  );
+  return name ? `${flag} ${name}` : flag;
+}
+
 // src/main.ts
 if (typeof structuredClone !== "function")
   globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -6465,5 +6497,6 @@ return baseclass.extend({
   validateTrojanUrl,
   validateUrl,
   validateVlessUrl,
+  withCountryFlag,
   withTimeout
 });

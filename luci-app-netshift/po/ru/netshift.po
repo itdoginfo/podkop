@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:43+0300\n"
+"PO-Revision-Date: 2026-10-03 17:43+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -190,6 +190,9 @@ msgstr "Задержка в миллисекундах перед перезаг
 
 msgid "Delay value cannot be empty"
 msgstr "Значение задержки не может быть пустым"
+
+msgid "Detect country by IP (GeoIP)"
+msgstr "Определять страну по IP (GeoIP)"
 
 msgid "Dev"
 msgstr "Dev"
@@ -385,6 +388,9 @@ msgstr "Не удалось выполнить!"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
+
+msgid "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router."
+msgstr "Для серверов без флага в названии один раз определить страну по адресу сервера и показать флаг: в подписке - перед названием (так работают группировка и фильтры по странам), на дашборде - для ваших собственных ссылок. Адреса серверов отправляются на api.country.is по HTTPS; результаты кешируются на роутере."
 
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"

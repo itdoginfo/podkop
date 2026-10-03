@@ -2721,7 +2721,8 @@ sing_box_configure_outbounds() {
     SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
-    foreach_active_section configure_outbound_handler "section"
+    rm -f "$GEOIP_LINKS_FILE"
+    foreach_active_section configure_outbound_geoip_handler "section"
 }
 
 sing_box_get_unique_outbound_tag() {
@@ -3031,6 +3032,7 @@ _build_proxy_member_outbounds() {
             && [ -n "$_new_config" ]; then
             config="$_new_config"
             outbound_tag="$(get_outbound_tag_by_section "$section-$i")"
+            geoip_collect_link "$outbound_tag" "$link"
             if [ -z "$_member_outbound_tags" ]; then
                 _member_outbound_tags="$outbound_tag"
                 _member_default_outbound="$outbound_tag"
@@ -3077,6 +3079,7 @@ configure_outbound_handler() {
             if _new_config="$(sing_box_cf_add_proxy_outbound "$config" "$section" "$proxy_string" "$udp_over_tcp")" \
                 && [ -n "$_new_config" ]; then
                 config="$_new_config"
+                geoip_collect_link "$(get_outbound_tag_by_section "$section")" "$proxy_string"
             else
                 echolog "Proxy link for section '$section' uses an unsupported scheme or a feature the installed sing-box lacks and was skipped; this section has no usable outbound and its traffic will be rejected until a supported link is configured" "error"
                 mark_section_outbound_unavailable "$section"
@@ -3087,6 +3090,7 @@ configure_outbound_handler() {
             local json_outbound
             config_get json_outbound "$section" "outbound_json"
             config=$(sing_box_cf_add_json_outbound "$config" "$section" "$json_outbound")
+            geoip_collect_json "$(get_outbound_tag_by_section "$section")" "$json_outbound"
             ;;
         selector)
             log "Detected proxy configuration type: selector" "debug"
@@ -3364,6 +3368,7 @@ configure_outbound_handler() {
             # A merged file with >=1 proxy outbound is a real subscription set.
             if [ "$usable_feed_count" -gt 0 ] && [ "$merged_node_count" -gt 0 ]; then
                 chmod 600 "$merged_json_path" 2>/dev/null
+                geoip_section_enabled "$section" && subscription_geoip_annotate "$merged_json_path"
                 if sing_box_cf_add_subscription_outbounds "$config" "$section" "$merged_json_path" \
                     "$subscription_filter_include_keywords_json" "$subscription_filter_exclude_keywords_json" > /dev/null; then
                     if [ -n "$SUBSCRIPTION_OUTBOUND_TAGS" ]; then
@@ -3958,6 +3963,367 @@ append_subscription_filter_country_handler() {
 # combines with the keywords the same way (include = any of them, exclude = drop
 # on any of them).
 # $1 section, $2 keyword list option, $3 country list option
+# --- GeoIP country flags for subscription servers -------------------------------
+# Servers whose name carries no flag emoji cannot be grouped or filtered by country.
+# With `geoip_flags '1'` the country of such a server is looked up ONCE
+# (host -> IP via the bootstrap DNS, IPs -> country in batches over HTTPS) and the
+# flag is put in front of its name, so grouping, the country filters and the
+# dashboard treat it like a server that came with a flag. Results are kept in
+# GEOIP_CACHE_FILE (found countries 30 days, failures one day), so later builds make
+# no request. The server addresses of the section are sent to GEOIP_API_URL, which
+# is why the option is off by default.
+
+# Prints the unique server hosts (one per line) of a merged subscription file whose
+# name has no flag emoji (a pair of regional-indicator letters anywhere in it).
+geoip_hosts_without_flag() {
+    jq -r '
+        def has_flag: explode as $c
+            | [range(0; ($c | length) - 1) | select(($c[.] | . >= 127462 and . <= 127487)
+                and ($c[. + 1] | . >= 127462 and . <= 127487))] | length > 0;
+        [.outbounds[]? | select(((.tag // .remark // "") | tostring | has_flag | not) and ((.server // "") != "")) | .server]
+        | unique[]' "$1" 2> /dev/null
+}
+
+# 0 when $1 (an IPv4 or IPv6 literal) is an address that is never sent out: private,
+# loopback, link-local, carrier-grade NAT, multicast or inside the FakeIP ranges
+# (taken from the constants, so a changed range stays covered).
+geoip_is_private_ip() {
+    local ip net a b mask count i fake6
+
+    ip="$(normalize_domain_case "$1")"
+    case "$ip" in
+    *:*)
+        case "$ip" in
+        :: | ::* | fc* | fd* | fe[89ab]* | ff*) return 0 ;;
+        esac
+        fake6="$(normalize_domain_case "${SB_FAKEIP_INET6_RANGE%%/*}")"
+        fake6="${fake6%::}"
+        [ -n "$fake6" ] && case "$ip" in "$fake6":*) return 0 ;; esac
+        return 1
+        ;;
+    esac
+
+    case "$ip" in
+    "" | 10.* | 127.* | 192.168.* | 169.254.* | 172.1[6-9].* | 172.2[0-9].* | 172.3[01].* | 100.6[4-9].* | 100.[7-9][0-9].* | 100.1[01][0-9].* | 100.12[0-7].* | 0.* | 22[4-9].* | 23[0-9].* | 24[0-9].* | 25[0-5].*) return 0 ;;
+    esac
+
+    net="${SB_FAKEIP_INET4_RANGE%%/*}"
+    mask="${SB_FAKEIP_INET4_RANGE##*/}"
+    a="${net%%.*}"
+    b="${net#*.}"
+    b="${b%%.*}"
+    count=1
+    if [ "$mask" -ge 9 ] && [ "$mask" -le 16 ] 2> /dev/null; then
+        count=$((1 << (16 - mask)))
+    fi
+    i=0
+    while [ "$i" -lt "$count" ]; do
+        case "$ip" in "$a.$((b + i))".*) return 0 ;; esac
+        i=$((i + 1))
+    done
+    return 1
+}
+
+# Prints "<host> <ip>" for a host and returns 0. Returns 2 when the address is one
+# that is never sent out (see geoip_is_private_ip): final, safe to remember. Returns 1
+# when the host could not be resolved (no DNS answer, no dig): nothing is known, so
+# nothing may be remembered.
+geoip_resolve_host() {
+    local host="$1"
+    local bootstrap ip
+
+    case "$host" in
+    *:*) ip="$host" ;;
+    *)
+        if is_ipv4 "$host"; then
+            ip="$host"
+        else
+            command -v dig > /dev/null 2>&1 || return 1
+            config_get bootstrap "settings" "bootstrap_dns_server" "77.88.8.8"
+            ip="$(dig +short +time=2 +tries=1 "@$bootstrap" A "$host" 2> /dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)"
+            [ -n "$ip" ] || return 1
+        fi
+        ;;
+    esac
+
+    geoip_is_private_ip "$ip" && return 2
+    printf '%s %s\n' "$host" "$ip"
+}
+
+# $1 hosts (one per line). Looks up the ones the cache does not know (or knows past
+# its TTL) and leaves the whole cache, as JSON {host: {cc, ts}}, in GEOIP_CACHE.
+geoip_lookup_hosts() {
+    local hosts="$1"
+    local now cache missing host pair ips_json response resolved_tmp private_tmp failures started changed chunk part chunks_tmp parts_tmp answered
+
+    now="$(date +%s)"
+    cache="{}"
+    [ -s "$GEOIP_CACHE_FILE" ] && cache="$(jq -c . "$GEOIP_CACHE_FILE" 2> /dev/null || echo '{}')"
+    [ -n "$cache" ] || cache="{}"
+
+    GEOIP_CACHE="$cache"
+    [ -n "$hosts" ] || return 0
+
+    # Hosts that still need a lookup: no cache entry, or one past its TTL.
+    missing="$(printf '%s\n' "$hosts" | jq -R -s -c \
+        --argjson cache "$cache" --argjson now "$now" \
+        --argjson positive "$GEOIP_POSITIVE_TTL" --argjson negative "$GEOIP_NEGATIVE_TTL" '
+        split("\n") | map(select(. != "")) | map(select(
+            ($cache[.] // null) as $entry
+            | $entry == null
+              or (($now - ($entry.ts // 0)) > (if ($entry.cc // "") == "" then $negative else $positive end))))')"
+
+    if [ "$missing" != "[]" ]; then
+        if [ "$(printf '%s' "$missing" | jq 'length')" -gt "$GEOIP_MAX_HOSTS" ]; then
+            log "GeoIP: more than $GEOIP_MAX_HOSTS servers need a lookup; the first $GEOIP_MAX_HOSTS are done now, the rest on a later build" "warn"
+            missing="$(printf '%s' "$missing" | jq -c --argjson n "$GEOIP_MAX_HOSTS" '.[:$n]')"
+        fi
+        if ! command -v curl > /dev/null 2>&1; then
+            log "GeoIP: curl is not available, country flags are not looked up" "warn"
+        else
+            resolved_tmp="$(mktemp)" || return 0
+            private_tmp="$(mktemp)" || return 0
+            failures=0
+            started="$(date +%s)"
+            for host in $(printf '%s' "$missing" | jq -r '.[]'); do
+                pair="$(geoip_resolve_host "$host")"
+                case $? in
+                0) printf '%s\n' "$pair" >> "$resolved_tmp" ;;
+                2) printf '%s\n' "$host" >> "$private_tmp" ;;
+                *)
+                    failures=$((failures + 1))
+                    # DNS that is down, or answers only now and then, would hold the
+                    # config build for minutes: stop after a few misses or when the
+                    # time budget of the phase is used up. The hosts not reached stay
+                    # unknown and are tried on a later build.
+                    if [ "$failures" -ge "$GEOIP_RESOLVE_MAX_FAILURES" ] ||
+                        [ $(($(date +%s) - started)) -ge "$GEOIP_RESOLVE_BUDGET" ]; then
+                        log "GeoIP: the servers cannot be resolved right now (DNS is down or slow); the rest is tried on a later build" "warn"
+                        break
+                    fi
+                    ;;
+                esac
+            done
+
+            ips_json="$(awk '{print $2}' "$resolved_tmp" | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')"
+            response="[]"
+            answered=0
+            if [ "$ips_json" != "[]" ]; then
+                chunks_tmp="$(mktemp)"
+                parts_tmp="$(mktemp)"
+                printf '%s' "$ips_json" | jq -c --argjson n "$GEOIP_BATCH_SIZE" \
+                    '[range(0; length; $n) as $i | .[$i:$i+$n]] | .[]' > "$chunks_tmp"
+                while IFS= read -r chunk; do
+                    part="$(curl -s -m 15 --connect-timeout 5 -X POST -H 'Content-Type: application/json' \
+                        -d "$chunk" "$GEOIP_API_URL" 2> /dev/null)"
+                    if printf '%s' "$part" | jq -e 'type == "array"' > /dev/null 2>&1; then
+                        printf '%s\n' "$part" >> "$parts_tmp"
+                        answered=1
+                    else
+                        log "GeoIP: the lookup service did not answer, trying again on a later build" "warn"
+                    fi
+                done < "$chunks_tmp"
+                response="$(jq -c -s 'add // []' "$parts_tmp" 2> /dev/null || echo '[]')"
+                [ -n "$response" ] || response="[]"
+                rm -f "$chunks_tmp" "$parts_tmp"
+            fi
+
+            # host -> country for the hosts that were really looked at: the ones with a
+            # public address (the service's answer, or "unknown" -> remembered as a
+            # failure for a day) and the ones whose address is never sent out (also
+            # remembered, so they are not examined on every build). Hosts that could
+            # not be resolved, and addresses of a silent service, record nothing.
+            cache="$(jq -c -n --argjson cache "$cache" --argjson now "$now" --argjson response "$response" \
+                --argjson answered "$answered" --rawfile resolved "$resolved_tmp" --rawfile private "$private_tmp" '
+                ($response | map({key: .ip, value: (.country // "")}) | from_entries) as $by_ip
+                | ($resolved | split("\n") | map(select(. != "") | split(" ") | {key: .[0], value: .[1]}) | from_entries) as $ip_of
+                | ($private | split("\n") | map(select(. != ""))) as $private_hosts
+                | $cache
+                | reduce $private_hosts[] as $host (.; .[$host] = {cc: "", ts: $now})
+                | if $answered == 1
+                  then reduce ($ip_of | keys[]) as $host (.; .[$host] = {cc: ($by_ip[$ip_of[$host]] // ""), ts: $now})
+                  else . end')"
+            rm -f "$resolved_tmp" "$private_tmp"
+
+            if [ -s "$GEOIP_CACHE_FILE" ]; then
+                changed="$(jq -n --argjson a "$cache" --slurpfile b "$GEOIP_CACHE_FILE" '$a != ($b[0] // {})' 2> /dev/null || echo true)"
+            elif [ "$cache" = "{}" ]; then
+                changed=false
+            else
+                changed=true
+            fi
+            if [ "$changed" != "false" ]; then
+                mkdir -p "$(dirname "$GEOIP_CACHE_FILE")"
+                printf '%s' "$cache" > "$GEOIP_CACHE_FILE.tmp" && chmod 600 "$GEOIP_CACHE_FILE.tmp" &&
+                    mv "$GEOIP_CACHE_FILE.tmp" "$GEOIP_CACHE_FILE"
+            fi
+        fi
+    fi
+    GEOIP_CACHE="$cache"
+}
+
+# $1 merged subscription file: writes the flag-annotated file back in place.
+subscription_geoip_annotate() {
+    local merged="$1"
+    local hosts
+
+    hosts="$(geoip_hosts_without_flag "$merged")"
+    [ -n "$hosts" ] || return 0
+    geoip_lookup_hosts "$hosts"
+    local cache="$GEOIP_CACHE"
+
+    # Put the flags in front of the names that have none.
+    jq -c --argjson cache "$cache" '
+        def has_flag: explode as $c
+            | [range(0; ($c | length) - 1) | select(($c[.] | . >= 127462 and . <= 127487)
+                and ($c[. + 1] | . >= 127462 and . <= 127487))] | length > 0;
+        def flag($cc): ($cc | ascii_upcase | explode | map(. - 65 + 127462) | implode);
+        .outbounds |= map(
+            ((.tag // .remark // "") | tostring) as $name
+            | (($cache[.server // ""].cc) // "") as $cc
+            | if ($name | has_flag | not) and (($cc | length) == 2)
+                and ($cc | explode | all((. >= 65 and . <= 90) or (. >= 97 and . <= 122)))
+              then (if has("tag") then .tag = (flag($cc) + " " + $name) else .remark = (flag($cc) + " " + $name) end)
+              else . end)' "$merged" > "$merged.geoip" 2> /dev/null && chmod 600 "$merged.geoip" && mv "$merged.geoip" "$merged"
+    rm -f "$merged.geoip"
+}
+
+# --- GeoIP flags for links added by hand ----------------------------------------
+# The same option covers sections with their own links (single link, selector,
+# urltest, their text variants, outbound JSON). Their sing-box tags are fixed
+# (<section>-out, <section>-<n>-out), so the flag cannot go into a name there:
+# the lookup result is kept per outbound tag in GEOIP_LINKS_FILE and the dashboard
+# puts it in front of the name it shows. A link whose name (the part after '#')
+# already carries a flag is never looked up.
+
+# 0 when the section asks for GeoIP flags (`geoip_flags '1'`).
+geoip_section_enabled() {
+    local value
+
+    config_get value "$1" "geoip_flags" "0"
+    [ "$value" = "1" ]
+}
+
+# 0 when $1 contains a flag emoji (a pair of regional-indicator letters).
+geoip_name_has_flag() {
+    printf '%s' "$1" | jq -R -e '
+        explode as $c
+        | [range(0; ($c | length) - 1) | select(($c[.] | . >= 127462 and . <= 127487)
+            and ($c[. + 1] | . >= 127462 and . <= 127487))] | length > 0' > /dev/null 2>&1
+}
+
+# Prints the host of a proxy link that has no flag in its name (nothing otherwise).
+geoip_link_host() {
+    local link="$1"
+    local name host json
+
+    case "$link" in
+    vmess://*)
+        json="$(vmess_link_to_json "$link")"
+        [ -n "$json" ] || return 0
+        name="$(printf '%s' "$json" | jq -r '.ps // ""' 2> /dev/null)"
+        host="$(printf '%s' "$json" | jq -r '.add // ""' 2> /dev/null)"
+        # The dashboard shows the part after '#' when there is one.
+        case "$link" in
+        *'#'*) name="$name $(url_decode "${link#*#}")" ;;
+        esac
+        ;;
+    *)
+        name=""
+        case "$link" in
+        *'#'*) name="$(url_decode "${link#*#}")" ;;
+        esac
+        host="$(url_decode_component "$(url_get_host "$(url_strip_fragment "$link")")")"
+        ;;
+    esac
+
+    [ -n "$host" ] || return 0
+    geoip_name_has_flag "$name" && return 0
+    printf '%s\n' "$host"
+}
+
+# Remembers that outbound $1 connects to host $2 (when the section wants flags).
+geoip_collect_host() {
+    [ "$GEOIP_COLLECT" = "1" ] && [ -n "$2" ] || return 0
+    GEOIP_PENDING="$GEOIP_PENDING$1 $2
+"
+}
+
+# $1 outbound tag, $2 link
+geoip_collect_link() {
+    local host
+
+    [ "$GEOIP_COLLECT" = "1" ] || return 0
+    host="$(geoip_link_host "$2")"
+    geoip_collect_host "$1" "$host"
+}
+
+# $1 outbound tag, $2 outbound JSON (its `server`, named by its `tag`)
+geoip_collect_json() {
+    local host name
+
+    [ "$GEOIP_COLLECT" = "1" ] || return 0
+    host="$(printf '%s' "$2" | jq -r '.server // ""' 2> /dev/null)"
+    name="$(printf '%s' "$2" | jq -r '.tag // ""' 2> /dev/null)"
+    # The dashboard shows the percent-decoded tag.
+    name="$(url_decode_component "$name")"
+    geoip_name_has_flag "$name" && return 0
+    geoip_collect_host "$1" "$host"
+}
+
+# Looks the collected hosts up and records {outbound tag: country} in
+# GEOIP_LINKS_FILE for the dashboard. Known countries come from the cache without
+# a request; nothing is recorded for a host whose country is not known (yet).
+geoip_flush_links() {
+    local pending="$GEOIP_PENDING"
+    local hosts
+
+    GEOIP_PENDING=""
+    [ -n "$pending" ] || return 0
+
+    hosts="$(printf '%s' "$pending" | awk 'NF {print $2}' | sort -u)"
+    geoip_lookup_hosts "$hosts"
+
+    mkdir -p "$(dirname "$GEOIP_LINKS_FILE")"
+    {
+        [ -s "$GEOIP_LINKS_FILE" ] && cat "$GEOIP_LINKS_FILE" || echo '{}'
+        printf '%s' "$pending" | jq -R -s -c --argjson cache "$GEOIP_CACHE" '
+            split("\n") | map(select(. != "") | split(" ")
+                | {tag: .[0], cc: (($cache[.[1]].cc) // "")}
+                | select((.cc | length) == 2
+                    and (.cc | explode | all((. >= 65 and . <= 90) or (. >= 97 and . <= 122))))
+                | {key: .tag, value: (.cc | ascii_upcase)}) | from_entries'
+    } | jq -c -s '.[0] + .[1]' > "$GEOIP_LINKS_FILE.tmp" 2> /dev/null &&
+        chmod 600 "$GEOIP_LINKS_FILE.tmp" &&
+        mv "$GEOIP_LINKS_FILE.tmp" "$GEOIP_LINKS_FILE"
+    rm -f "$GEOIP_LINKS_FILE.tmp"
+}
+
+# The handler configure_outbound_handler runs under: collects the links of the
+# section while it is built and looks them up afterwards. Keeps its exit status.
+configure_outbound_geoip_handler() {
+    local section="$1"
+    local rc
+
+    GEOIP_PENDING=""
+    GEOIP_COLLECT=0
+    geoip_section_enabled "$section" && GEOIP_COLLECT=1
+    configure_outbound_handler "$section"
+    rc=$?
+    geoip_flush_links
+    GEOIP_COLLECT=0
+    return $rc
+}
+
+# Prints {outbound tag: country code} for the dashboard.
+get_geoip_flags() {
+    if [ -s "$GEOIP_LINKS_FILE" ]; then
+        jq -c . "$GEOIP_LINKS_FILE" 2> /dev/null || echo '{}'
+    else
+        echo '{}'
+    fi
+}
+
 build_subscription_filter_json() {
     local section="$1"
     local keywords_list="$2"
@@ -6074,6 +6440,7 @@ Available commands:
     check_nft_rules         Check NFT rules status
     check_sing_box          Check sing-box installation and status
     check_logs              Show NetShift logs from system journal
+    get_geoip_flags         Print the GeoIP country of manually added links as JSON
     check_sing_box_logs     Show sing-box logs
     check_fakeip            Test FakeIP on router
     clash_api               Clash API interface for managing proxies and groups
@@ -6170,6 +6537,9 @@ get_status)
     ;;
 get_sing_box_status)
     get_sing_box_status
+    ;;
+get_geoip_flags)
+    get_geoip_flags
     ;;
 get_system_info)
     get_system_info

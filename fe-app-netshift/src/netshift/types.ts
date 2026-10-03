@@ -45,6 +45,7 @@ export namespace NetShift {
   // show_system_info        Show system information
   // get_status              Get netshift service status
   // get_sing_box_status     Get sing-box service status
+  // get_geoip_flags         GeoIP country of manually added links
   // check_dns_available     Check DNS server availability
   // global_check            Run global system check
 
@@ -55,6 +56,7 @@ export namespace NetShift {
     GET_STATUS = 'get_status',
     CHECK_SING_BOX = 'check_sing_box',
     GET_SING_BOX_STATUS = 'get_sing_box_status',
+    GET_GEOIP_FLAGS = 'get_geoip_flags',
     CLASH_API = 'clash_api',
     RESTART = 'restart',
     START = 'start',
