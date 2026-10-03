@@ -12992,6 +12992,85 @@ CPEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: subscription country filters
+# ─────────────────────────────────────────────────────────────────
+# country_code_to_flag_emoji / build_subscription_filter_json (country codes turn
+# into the flag emoji of the server names and join the keyword filter), extracted
+# verbatim from the bin.
+test_urltest_filters() {
+    header "Subscription country filters"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / constants.sh / jq not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> /tmp/netshift-uf-log-$$; }
+        : > /tmp/netshift-uf-log-$$
+        for fn in country_code_to_flag_emoji append_subscription_filter_country_handler \
+            build_subscription_filter_json build_subscription_filter_keywords_json \
+            append_subscription_filter_keyword_handler; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+
+        NL="$(printf '\360\237\207\263\360\237\207\261')"
+        DE="$(printf '\360\237\207\251\360\237\207\252')"
+        [ "$(country_code_to_flag_emoji NL)" = "$NL" ] && echo "flag-NL:ok" || echo "flag-NL:wrong"
+        [ "$(country_code_to_flag_emoji de)" = "$DE" ] && echo "flag-lowercase:ok" || echo "flag-lowercase:wrong"
+        for bad in "" N NLD 1A "N L" "ру"; do
+            country_code_to_flag_emoji "$bad" > /dev/null && echo "flag-bad-[$bad]:accepted" || echo "flag-bad-[$bad]:rejected"
+        done
+
+        # UCI stubs: lists come from FILTER_<option> (space separated)
+        FILTER_subscription_filter_include_keywords="Premium"
+        FILTER_subscription_filter_include_countries="NL de bogus nl"
+        FILTER_subscription_filter_exclude_keywords=""
+        FILTER_subscription_filter_exclude_countries="DE"
+        config_list_foreach() {
+            local _v _i
+            eval "_v=\"\${FILTER_$2:-}\""
+            for _i in $_v; do "$3" "$_i"; done
+        }
+        append_subscription_filter_keyword_handler() {
+            SUBSCRIPTION_FILTER_KEYWORDS_JSON="$(printf '%s' "$SUBSCRIPTION_FILTER_KEYWORDS_JSON" | jq -c --arg k "$1" '. + [$k]')"
+        }
+        inc="$(build_subscription_filter_json s subscription_filter_include_keywords subscription_filter_include_countries)"
+        exc="$(build_subscription_filter_json s subscription_filter_exclude_keywords subscription_filter_exclude_countries)"
+        [ "$(printf '%s' "$inc" | jq -c --arg nl "$NL" --arg de "$DE" '. == ["Premium"] + ([$de, $nl] | unique)')" = true ] && echo "include-merged-unique:ok" || echo "include-merged-unique:wrong [$inc]"
+        [ "$(printf '%s' "$exc" | jq -c --arg de "$DE" '. == [$de]')" = true ] && echo "exclude-countries-only:ok" || echo "exclude-countries-only:wrong [$exc]"
+        grep -q "^\[warn\] Ignoring subscription country filter 'bogus'" /tmp/netshift-uf-log-$$ && echo "bad-code-warned:ok" || echo "bad-code-warned:no"
+        FILTER_subscription_filter_include_keywords=""; FILTER_subscription_filter_include_countries=""
+        [ "$(build_subscription_filter_json s subscription_filter_include_keywords subscription_filter_include_countries)" = "[]" ] && echo "no-filter-empty:ok" || echo "no-filter-empty:wrong"
+
+        rm -f /tmp/netshift-uf-log-$$
+    )"
+
+    _uf_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _uf_check "NL becomes the Netherlands flag emoji" "flag-NL:ok"
+    _uf_check "lowercase codes work" "flag-lowercase:ok"
+    _uf_check "empty code is rejected" "flag-bad-[]:rejected"
+    _uf_check "one letter is rejected" "flag-bad-[N]:rejected"
+    _uf_check "three letters are rejected" "flag-bad-[NLD]:rejected"
+    _uf_check "digits are rejected" "flag-bad-[1A]:rejected"
+    _uf_check "a space inside is rejected" "flag-bad-[N L]:rejected"
+    _uf_check "non-latin letters are rejected" "flag-bad-[ру]:rejected"
+    _uf_check "include = keywords + country flags, without duplicates" "include-merged-unique:ok"
+    _uf_check "exclude countries alone make an exclude filter" "exclude-countries-only:ok"
+    _uf_check "an invalid country code is warned about" "bad-code-warned:ok"
+    _uf_check "no keywords and no countries: empty filter (unchanged behaviour)" "no-filter-empty:ok"
+}
+# ─────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────
 main() {
@@ -13051,6 +13130,7 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_urltest_filters
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -13098,9 +13178,10 @@ main() {
         cm)          test_config_manager ;;
         sb)          test_sing_box_config ;;
         proxylink)   test_proxy_link_escaping ;;
+        utfilters)   test_urltest_filters ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
             exit 1
             ;;
     esac

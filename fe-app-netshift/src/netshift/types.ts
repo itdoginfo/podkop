@@ -133,6 +133,8 @@ export namespace NetShift {
     subscription_group_prefix_len?: string;
     subscription_filter_include_keywords?: string[];
     subscription_filter_exclude_keywords?: string[];
+    subscription_filter_include_countries?: string[];
+    subscription_filter_exclude_countries?: string[];
   }
 
   export interface ConfigVpnSection {

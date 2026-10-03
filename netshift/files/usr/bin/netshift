@@ -3260,8 +3260,8 @@ configure_outbound_handler() {
 
             # Keyword whitelist/blacklist filtering of subscription nodes by
             # display name. Both are optional UCI lists of opaque match strings.
-            subscription_filter_include_keywords_json="$(build_subscription_filter_keywords_json "$section" "subscription_filter_include_keywords")"
-            subscription_filter_exclude_keywords_json="$(build_subscription_filter_keywords_json "$section" "subscription_filter_exclude_keywords")"
+            subscription_filter_include_keywords_json="$(build_subscription_filter_json "$section" "subscription_filter_include_keywords" "subscription_filter_include_countries")"
+            subscription_filter_exclude_keywords_json="$(build_subscription_filter_json "$section" "subscription_filter_exclude_keywords" "subscription_filter_exclude_countries")"
             subscription_keyword_filter_active=0
             if [ "$subscription_filter_include_keywords_json" != "[]" ] || [ "$subscription_filter_exclude_keywords_json" != "[]" ]; then
                 subscription_keyword_filter_active=1
@@ -3912,6 +3912,64 @@ build_subscription_filter_keywords_json() {
     SUBSCRIPTION_FILTER_KEYWORDS_JSON="[]"
     config_list_foreach "$section" "$list_name" append_subscription_filter_keyword_handler
     printf '%s' "$SUBSCRIPTION_FILTER_KEYWORDS_JSON"
+}
+
+# Prints the flag emoji of a two-letter country code (NL -> the Netherlands flag)
+# and returns 0, or returns 1 for anything that is not two ASCII letters. A flag is
+# two regional-indicator letters, each U+1F1E6 + (letter - A), i.e. the UTF-8 bytes
+# F0 9F 87 (A6 + index): built with printf octal escapes (no multibyte shell
+# support needed).
+country_code_to_flag_emoji() {
+    local code letters flag="" ch rest index
+
+    code="$(printf '%s' "$1" | tr 'a-z' 'A-Z')"
+    letters="ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    case "$code" in
+    [A-Z][A-Z]) ;;
+    *) return 1 ;;
+    esac
+
+    for ch in "${code%"${code#?}"}" "${code#?}"; do
+        rest="${letters%%"$ch"*}"
+        index=${#rest}
+        flag="$flag$(printf "\\360\\237\\207\\$(printf '%o' $((166 + index)))")"
+    done
+
+    printf '%s' "$flag"
+}
+
+append_subscription_filter_country_handler() {
+    local code="$1"
+    local flag
+
+    if ! flag="$(country_code_to_flag_emoji "$code")"; then
+        log "Ignoring subscription country filter '$code': expected a two-letter country code such as NL" "warn"
+        return 0
+    fi
+
+    SUBSCRIPTION_FILTER_COUNTRY_KEYWORDS_JSON="$(printf '%s' "$SUBSCRIPTION_FILTER_COUNTRY_KEYWORDS_JSON" |
+        jq -c --arg flag "$flag" '. + [$flag] | unique')"
+}
+
+# The keyword filter of a section: its keywords plus the flags of the countries
+# listed in $3 (e.g. subscription_filter_include_countries). A country filter is
+# a keyword filter on the flag emoji that subscription server names carry, so it
+# combines with the keywords the same way (include = any of them, exclude = drop
+# on any of them).
+# $1 section, $2 keyword list option, $3 country list option
+build_subscription_filter_json() {
+    local section="$1"
+    local keywords_list="$2"
+    local countries_list="$3"
+    local keywords
+
+    keywords="$(build_subscription_filter_keywords_json "$section" "$keywords_list")"
+    SUBSCRIPTION_FILTER_COUNTRY_KEYWORDS_JSON="[]"
+    config_list_foreach "$section" "$countries_list" append_subscription_filter_country_handler
+
+    jq -c -n --argjson keywords "$keywords" --argjson flags "$SUBSCRIPTION_FILTER_COUNTRY_KEYWORDS_JSON" \
+        '$keywords + ($flags - $keywords)'
 }
 
 configure_routing_for_section_lists() {
