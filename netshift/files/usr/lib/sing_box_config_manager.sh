@@ -236,6 +236,84 @@ sing_box_cm_add_https_dns_server() {
 }
 
 #######################################
+# Chain a section through another one: set `detour` on every real proxy outbound
+# of the section (the leaves of its selector/urltest groups, or the outbound
+# itself) so its connections to the servers go through the target outbound.
+# Outbounds that already carry their own detour (user JSON), the target's own
+# members and the excluded tags (the shared direct outbound) are left alone, which
+# also keeps a chain from looping back on itself. Group references are followed to
+# a bounded depth, so a self-referencing selector in user JSON cannot recurse forever.
+# For the user's own outbound JSON (raw=1) the members of a group are not followed at
+# all: they may be outbounds of other sections; a raw group is refused (status 3,
+# config unchanged), a raw leaf outbound is chained as it is.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   section_tag: string, tag of the section's outbound (its selector or leaf)
+#   target_tag: string, tag of the outbound to chain through
+#   exclude: string (JSON array), tags that never get a detour (default [])
+#   raw: 1 when the section's outbound is the user's own JSON (default 0)
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+sing_box_cm_set_outbounds_detour() {
+    local config="$1"
+    local section_tag="$2"
+    local target_tag="$3"
+    local exclude="${4:-[]}"
+    local raw="${5:-0}"
+
+    if [ "$raw" = "1" ] &&
+        ! echo "$config" | jq -e --arg tag "$section_tag" \
+            '[.outbounds[] | select(.tag == $tag) | .type] | all(. != "selector" and . != "urltest")' > /dev/null 2>&1; then
+        echo "$config"
+        return 3
+    fi
+
+    echo "$config" | jq \
+        --arg section_tag "$section_tag" \
+        --arg target_tag "$target_tag" \
+        --argjson exclude "$exclude" \
+        '(.outbounds | map({key: .tag, value: .}) | from_entries) as $by
+        | def leaves($tag; $depth):
+            ($by[$tag] // null) as $o
+            | if $o == null or $depth > 8 then empty
+              elif ((["selector", "urltest"] | index($o.type)) != null)
+              then ($o.outbounds[]? | leaves(.; $depth + 1))
+              else $tag end;
+        ([leaves($section_tag; 0)] | unique) as $mine
+        | ([leaves($target_tag; 0)] | unique) as $theirs
+        | .outbounds |= map(
+            if ((.tag as $t | $mine | index($t)) != null)
+               and ((.tag as $t | $theirs | index($t)) == null)
+               and ((.tag as $t | $exclude | index($t)) == null)
+               and (has("detour") | not)
+            then . + { detour: $target_tag }
+            else . end)'
+}
+
+#######################################
+# Reject everything that no earlier route rule took: a catch-all reject rule that
+# has to be the LAST rule of the route (rules are matched in order).
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   tag: string, identifier for the route rule
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+sing_box_cm_add_final_reject_rule() {
+    local config="$1"
+    local tag="$2"
+
+    echo "$config" | jq \
+        --arg service_tag "$SERVICE_TAG" \
+        --arg tag "$tag" \
+        '.route.rules += [{
+            action: "reject",
+            $service_tag: $tag
+        }]'
+}
+
+#######################################
 # Add a FakeIP DNS server to the DNS section of a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify

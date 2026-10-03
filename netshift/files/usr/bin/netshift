@@ -2680,6 +2680,7 @@ sing_box_init_config() {
     sing_box_configure_route
     sing_box_configure_experimental
     sing_box_additional_inbounds
+    sing_box_reject_unmatched_for_broken_chain
     sing_box_save_config
 }
 
@@ -2719,9 +2720,121 @@ sing_box_configure_outbounds() {
     log "Configure the outbounds section of a sing-box JSON configuration"
 
     SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+    CHAIN_BROKEN_SECTIONS=""
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
     foreach_active_section configure_outbound_handler "section"
+
+    foreach_active_section configure_outbound_detour_handler "section"
+}
+
+# --- Chained connections ("connect through another section") -----------------
+# `option outbound_detour_section '<section>'` makes the section's connections to
+# its servers go through the outbound of the other section (double hop). A chain
+# that cannot be built (unknown/unusable target, a loop) must NOT silently fall
+# back to a direct connection, which would bypass the first hop: the section is
+# marked unavailable instead, so its traffic is rejected until the config is fixed.
+
+# Returns 0 when the whole chain starting at section $1 is usable. Checks every
+# hop (a long chain breaks at its weakest link), so the answer does not depend on
+# the order the sections are processed in.
+_outbound_detour_chain_is_usable() {
+    local start="$1"
+    local current next connection_type seen
+
+    current="$start"
+    seen=" $start "
+    while :; do
+        config_get next "$current" "outbound_detour_section"
+        [ -n "$next" ] || return 0
+
+        case "$seen" in
+        *" $next "*)
+            log "Section '$start': the chain through '$next' loops back on itself" "error"
+            return 1
+            ;;
+        esac
+        seen="$seen$next "
+
+        config_get connection_type "$next" "connection_type"
+        case "$connection_type" in
+        proxy | vpn) ;;
+        *)
+            log "Section '$start': chain target '$next' is not a proxy or VPN section" "error"
+            return 1
+            ;;
+        esac
+
+        if subscription_outbound_is_unavailable "$next" ||
+            ! echo "$config" | jq -e --arg tag "$(get_outbound_tag_by_section "$next")" \
+                'any(.outbounds[]; .tag == $tag)' > /dev/null 2>&1; then
+            log "Section '$start': chain target '$next' has no usable outbound" "error"
+            return 1
+        fi
+
+        current="$next"
+    done
+}
+
+configure_outbound_detour_handler() {
+    local section="$1"
+    local target proxy_config_type raw _new_config rc
+
+    config_get target "$section" "outbound_detour_section"
+    [ -n "$target" ] || return 0
+    subscription_outbound_is_unavailable "$section" && return 0
+
+    if [ "$target" = "$section" ] || ! _outbound_detour_chain_is_usable "$section"; then
+        _outbound_detour_break "$section" "cannot be chained through '$target'"
+        return 0
+    fi
+
+    raw=0
+    config_get proxy_config_type "$section" "proxy_config_type"
+    [ "$proxy_config_type" = "outbound" ] && raw=1
+
+    _new_config="$(sing_box_cm_set_outbounds_detour "$config" "$(get_outbound_tag_by_section "$section")" \
+        "$(get_outbound_tag_by_section "$target")" "[\"$SB_DIRECT_OUTBOUND_TAG\"]" "$raw")"
+    rc=$?
+    if [ "$rc" -eq 3 ]; then
+        _outbound_detour_break "$section" "uses its own outbound JSON that is a selector/urltest group, which cannot be chained"
+        return 0
+    fi
+    if [ "$rc" -ne 0 ] || [ -z "$_new_config" ]; then
+        _outbound_detour_break "$section" "could not be chained through '$target' (the config could not be updated)"
+        return 0
+    fi
+
+    log "Section '$section' connects through the '$target' section" "info"
+    config="$_new_config"
+}
+
+# A chain that cannot be built never goes direct: the section is marked unavailable
+# (its rules are rejected) and remembered in CHAIN_BROKEN_SECTIONS so that a global
+# proxy section with a broken chain rejects the unmatched traffic as well.
+_outbound_detour_break() {
+    echolog "Section '$1' $2; its traffic will be rejected until the chain is fixed" "error"
+    mark_section_outbound_unavailable "$1"
+    CHAIN_BROKEN_SECTIONS="$CHAIN_BROKEN_SECTIONS $1"
+}
+
+# The global proxy section is the route's fallback. When its own chain is broken,
+# "unavailable" would send the unmatched traffic out directly (the normal policy for a
+# failed subscription), which is exactly the bypass of the first hop a chain must not
+# allow: reject it instead. Called after every other route rule is in place, because
+# the catch-all has to come last.
+sing_box_reject_unmatched_for_broken_chain() {
+    local global_proxy_section
+
+    global_proxy_section="$(get_global_proxy_section)"
+    [ -n "$global_proxy_section" ] || return 0
+    case " $CHAIN_BROKEN_SECTIONS " in
+    *" $global_proxy_section "*) ;;
+    *) return 0 ;;
+    esac
+
+    log "Global proxy section '$global_proxy_section' has a broken chain; unmatched traffic is rejected instead of going out directly" "error"
+    config=$(sing_box_cm_add_final_reject_rule "$config" "$(gen_id)")
 }
 
 sing_box_get_unique_outbound_tag() {
@@ -3687,7 +3800,10 @@ sing_box_configure_route() {
     global_proxy_section="$(get_global_proxy_section)"
     if [ -n "$global_proxy_section" ]; then
         if subscription_outbound_is_unavailable "$global_proxy_section"; then
-            log "Global proxy section '$global_proxy_section' is unavailable; routing unmatched traffic directly until it recovers" "warn"
+            case " $CHAIN_BROKEN_SECTIONS " in
+            *" $global_proxy_section "*) ;; # rejected at the end of the route, see sing_box_reject_unmatched_for_broken_chain
+            *) log "Global proxy section '$global_proxy_section' is unavailable; routing unmatched traffic directly until it recovers" "warn" ;;
+            esac
         else
             route_final="$(get_outbound_tag_by_section "$global_proxy_section")"
             log "Global proxy mode enabled: routing all unmatched traffic through section '$global_proxy_section' (outbound: $route_final)" "info"

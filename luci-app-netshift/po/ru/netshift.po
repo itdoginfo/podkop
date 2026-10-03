@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:32+0300\n"
+"PO-Revision-Date: 2026-10-03 17:32+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -28,6 +28,9 @@ msgstr "✘ Отключено"
 
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
+
+msgid "A section cannot be chained through itself"
+msgstr "Секция не может подключаться через саму себя"
 
 msgid "Active Connections"
 msgstr "Активные соединения"
@@ -104,6 +107,9 @@ msgstr "Путь к файлу кэша не может быть пустым"
 msgid "Cannot receive checks result"
 msgstr "Не удалось получить результаты проверки"
 
+msgid "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly."
+msgstr "Каскад (двойной прыжок): к серверам этой секции подключаются через outbound выбранной секции. Если цепочку построить нельзя, трафик этой секции отклоняется, а не уходит напрямую."
+
 msgid "Check update"
 msgstr "Проверить обновление"
 
@@ -148,6 +154,9 @@ msgstr "Конфигурация службы NetShift"
 
 msgid "Configuration Type"
 msgstr "Тип конфигурации"
+
+msgid "Connect through another section"
+msgstr "Подключаться через другую секцию"
 
 msgid "Connection"
 msgstr "Подключение"
@@ -199,6 +208,9 @@ msgstr "DHCP содержит DNS сервер"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
+
+msgid "Direct (no chaining)"
+msgstr "Напрямую (без каскада)"
 
 msgid "Disable autostart"
 msgstr "Отключить автостарт"

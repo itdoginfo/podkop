@@ -514,6 +514,48 @@ function createSectionContent(section) {
 
   o = section.taboption(
     "connection",
+    form.ListValue,
+    "outbound_detour_section",
+    _("Connect through another section"),
+    _(
+      "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly.",
+    ),
+  );
+  o.depends("connection_type", "proxy");
+  o.rmempty = true;
+  // One option object renders the widget of every section, so the list is the same
+  // for all of them: enabled proxy/VPN sections. A section choosing itself is
+  // refused by the validator instead.
+  o.load = function () {
+    const sections = this.map?.data?.state?.values?.netshift ?? {};
+
+    this.keylist = [""];
+    this.vallist = [_("Direct (no chaining)")];
+
+    for (const secName in sections) {
+      const sec = sections[secName];
+      if (
+        sec[".type"] === "section" &&
+        sec["disabled"] !== "1" &&
+        (sec["connection_type"] === "proxy" || sec["connection_type"] === "vpn")
+      ) {
+        this.keylist.push(secName);
+        this.vallist.push(secName);
+      }
+    }
+
+    return form.ListValue.prototype.load.apply(this, arguments);
+  };
+  o.validate = function (section_id, value) {
+    if (value && value === section_id) {
+      return _("A section cannot be chained through itself");
+    }
+
+    return true;
+  };
+
+  o = section.taboption(
+    "connection",
     widgets.DeviceSelect,
     "interface",
     _("Network Interface"),
