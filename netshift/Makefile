@@ -34,6 +34,15 @@ endef
 define Package/netshift/prerm
 #!/bin/sh
 
+# block_leaks keeps dnsmasq pointed at the (now dead) sing-box DNS inbound while
+# the service is down, so clear it before the stop below: otherwise a removal
+# would leave the router without DNS.
+uci -q set netshift.settings.block_leaks='0'
+uci -q commit netshift
+
+[ -r /usr/lib/netshift/constants.sh ] && . /usr/lib/netshift/constants.sh
+nft delete table inet "${NFT_GUARD_TABLE_NAME:-NetShiftGuard}" 2> /dev/null || true
+
 grep -q "105 netshift" /etc/iproute2/rt_tables && sed -i "/105 netshift/d" /etc/iproute2/rt_tables
 
 /etc/init.d/netshift stop

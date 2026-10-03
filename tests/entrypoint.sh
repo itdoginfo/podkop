@@ -1198,6 +1198,180 @@ SIEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: block_leaks — fail-closed guard (kill switch)
+# ─────────────────────────────────────────────────────────────────
+# Drives the SHIPPED kill_switch.sh against a real nftables table. It builds a
+# fake "main" table carrying the union subnet set (what create_nft_rules would
+# have populated), runs kill_switch_apply, and asserts on the REAL guard table:
+# forward/output drops for the mirrored subnets + FakeIP range, the source drop
+# for fully_routed_ips, the LAN interface, the global_proxy mode, removal when
+# the option is off, and the DNS gate (dnsmasq_should_be_restored) refusing to
+# hand resolvers back while block_leaks is on.
+test_block_leaks() {
+    header "block_leaks fail-closed guard (kill switch)"
+
+    if ! command -v nft > /dev/null 2>&1; then
+        skip "nft not available"
+        return
+    fi
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$lib/kill_switch.sh" ] || [ ! -r "$lib/constants.sh" ] || [ ! -r "$bin" ]; then
+        skip "blockleaks (kill_switch.sh / constants.sh / bin not found)"
+        return
+    fi
+
+    # shellcheck disable=SC1090
+    . "$lib/constants.sh"
+
+    if [ -n "$NFT_GUARD_TABLE_NAME" ] && [ -n "$NFT_GUARD_SUBNET_SET_NAME" ]; then
+        pass "blockleaks:constants — guard table/set constants defined"
+    else
+        fail "blockleaks:constants — guard table/set constants missing"
+        return
+    fi
+
+    local drv="/tmp/netshift-blockleaks-$$.sh"
+    cat > "$drv" << 'BLEOF'
+LIB="LIB_DIR_PLACEHOLDER"
+BIN="BIN_PATH_PLACEHOLDER"
+
+# shellcheck disable=SC1090
+. "$LIB/constants.sh"
+# shellcheck disable=SC1090
+. "$LIB/kill_switch.sh"
+
+# Unique tables: never touch the real NetShiftTable / NetShiftGuard.
+NFT_TABLE_NAME="$SCN_TABLE"
+NFT_GUARD_TABLE_NAME="$SCN_GUARD"
+
+log() { :; }
+
+netshift_ipv6_enabled() { [ "${SCN_IPV6:-0}" = "1" ]; }
+get_global_proxy_section() { printf '%s' "${SCN_GLOBALPROXY:-}"; }
+foreach_active_section() { [ -n "${SCN_FULLROUTED:-}" ] || return 0; "$1" "frsec"; }
+config_list_foreach() {
+    [ "$2" = "fully_routed_ips" ] || return 0
+    for _ip in ${SCN_FULLROUTED:-}; do "$3" "$_ip"; done
+}
+config_get() {
+    eval "$1=\"\${4:-}\""
+    case "$3" in
+    source_network_interfaces) eval "$1=\"scnl0\"" ;;
+    connection_type) eval "$1=\"proxy\"" ;;
+    fully_routed_ips) eval "$1=\"${SCN_FULLROUTED:-}\"" ;;
+    esac
+}
+config_get_bool() {
+    eval "$1=\"\${4:-0}\""
+    case "$3" in
+    block_leaks) eval "$1=\"${SCN_BLOCKLEAKS:-1}\"" ;;
+    dont_touch_dhcp) eval "$1=\"0\"" ;;
+    esac
+}
+dnsmasq_is_configured_for_netshift() { return 1; }
+
+# The gate that stops DNS being handed back while sing-box is down.
+eval "$(awk -v f="dnsmasq_should_be_restored" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+
+# Fake "main" table carrying the union subnet set kill_switch_apply reads back.
+nft add table inet "$SCN_TABLE"
+nft add set inet "$SCN_TABLE" "$NFT_COMMON_SET_NAME" '{ type ipv4_addr; flags interval; auto-merge; }'
+nft add element inet "$SCN_TABLE" "$NFT_COMMON_SET_NAME" '{ 203.0.113.0/24, 198.51.100.10 }'
+
+kill_switch_apply
+
+echo "---GUARD---"
+nft list table inet "$SCN_GUARD" 2>&1 || true
+echo "---DNS---"
+if dnsmasq_should_be_restored; then echo "restore=yes"; else echo "restore=no"; fi
+BLEOF
+    sed -i "s|LIB_DIR_PLACEHOLDER|$lib|; s|BIN_PATH_PLACEHOLDER|$bin|" "$drv"
+
+    # ── option ON: guard built from the mirrored union set ───────────
+    local t1="bl_main_$$" g1="bl_guard_$$" out1 gdump
+    out1="$(SCN_TABLE="$t1" SCN_GUARD="$g1" SCN_BLOCKLEAKS=1 SCN_IPV6=0 \
+        SCN_GLOBALPROXY="" SCN_FULLROUTED="192.168.50.7" sh "$drv" 2>&1)"
+    nft delete table inet "$t1" 2>/dev/null || true
+    nft delete table inet "$g1" 2>/dev/null || true
+    gdump="$(printf '%s\n' "$out1" | sed -n '/---GUARD---/,/---DNS---/p')"
+
+    if echo "$gdump" | grep -q "chain forward_guard"; then
+        pass "blockleaks:forward — forward_guard chain created"
+    else
+        fail "blockleaks:forward — forward_guard chain missing" "$out1"
+    fi
+    if echo "$gdump" | grep -Eq "iifname @$NFT_GUARD_INTERFACE_SET_NAME ip daddr @$NFT_GUARD_SUBNET_SET_NAME drop$"; then
+        pass "blockleaks:forward — proxied destinations dropped from LAN"
+    else
+        fail "blockleaks:forward — LAN->proxied drop rule missing" "$(echo "$gdump" | grep -i 'drop' || echo "$gdump")"
+    fi
+    if echo "$gdump" | grep -q "ip daddr $SB_FAKEIP_INET4_RANGE drop"; then
+        pass "blockleaks:fakeip — FakeIP range dropped ($SB_FAKEIP_INET4_RANGE)"
+    else
+        fail "blockleaks:fakeip — FakeIP drop rule missing"
+    fi
+    if echo "$gdump" | grep -Eq "iifname @$NFT_GUARD_INTERFACE_SET_NAME ip saddr @$NFT_GUARD_SOURCE_SET_NAME drop$"; then
+        pass "blockleaks:fullrouted — fully_routed source drop rule present"
+    else
+        fail "blockleaks:fullrouted — source drop rule missing"
+    fi
+    if echo "$gdump" | grep -Eq "^[[:space:]]*ip daddr @$NFT_GUARD_SUBNET_SET_NAME drop$"; then
+        pass "blockleaks:output — router->proxied drop rule present"
+    else
+        fail "blockleaks:output — output drop rule missing" "$(echo "$gdump" | grep -i 'output_guard' || true)"
+    fi
+    if echo "$gdump" | grep -q "203.0.113.0/24"; then
+        pass "blockleaks:sets — union subnets mirrored into the guard set"
+    else
+        fail "blockleaks:sets — union subnets not mirrored"
+    fi
+    if echo "$gdump" | grep -q "scnl0"; then
+        pass "blockleaks:sets — LAN interface mirrored into the guard set"
+    else
+        fail "blockleaks:sets — LAN interface not mirrored"
+    fi
+    if printf '%s\n' "$out1" | grep -q "restore=no"; then
+        pass "blockleaks:dns — DNS stays fail-closed while sing-box is down"
+    else
+        fail "blockleaks:dns — DNS was handed back to the direct resolvers"
+    fi
+
+    # ── option OFF: guard removed, DNS restored normally ─────────────
+    local t2="bl_off_$$" g2="bl_off_guard_$$" out2
+    out2="$(SCN_TABLE="$t2" SCN_GUARD="$g2" SCN_BLOCKLEAKS=0 SCN_IPV6=0 \
+        SCN_GLOBALPROXY="" SCN_FULLROUTED="" sh "$drv" 2>&1)"
+    if printf '%s\n' "$out2" | sed -n '/---GUARD---/,/---DNS---/p' | grep -q "chain forward_guard"; then
+        fail "blockleaks:off — guard table still present with the option off"
+        nft delete table inet "$g2" 2>/dev/null || true
+    else
+        pass "blockleaks:off — guard table removed when the option is off"
+    fi
+    if printf '%s\n' "$out2" | grep -q "restore=yes"; then
+        pass "blockleaks:off — DNS restored normally when the option is off"
+    else
+        fail "blockleaks:off — DNS not restored with the option off"
+    fi
+    nft delete table inet "$t2" 2>/dev/null || true
+
+    # ── global_proxy: all LAN tcp/udp held ───────────────────────────
+    local t3="bl_gp_$$" g3="bl_gp_guard_$$" out3
+    out3="$(SCN_TABLE="$t3" SCN_GUARD="$g3" SCN_BLOCKLEAKS=1 SCN_IPV6=0 \
+        SCN_GLOBALPROXY="gpsec" SCN_FULLROUTED="" sh "$drv" 2>&1)"
+    nft delete table inet "$t3" 2>/dev/null || true
+    nft delete table inet "$g3" 2>/dev/null || true
+    if printf '%s\n' "$out3" | sed -n '/---GUARD---/,/---DNS---/p' |
+        grep -Fq "iifname @$NFT_GUARD_INTERFACE_SET_NAME meta l4proto { tcp, udp } drop"; then
+        pass "blockleaks:globalproxy — all LAN tcp/udp held under global_proxy"
+    else
+        fail "blockleaks:globalproxy — global_proxy drop rule missing" "$(printf '%s\n' "$out3" | grep -i 'drop' || true)"
+    fi
+
+    rm -f "$drv"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: graceful-skip of unsupported proxy schemes + splithttp→xhttp (task-038)
 # ─────────────────────────────────────────────────────────────────
 # Two defects fixed by task-038:
@@ -13203,6 +13377,7 @@ main() {
             test_nft
             test_nft_ipv6
             test_selective_marking
+            test_block_leaks
             test_section_isolation
             test_monitor_fd_hygiene
             test_unsupported_skip
@@ -13247,6 +13422,7 @@ main() {
         nft)         test_nft ;;
         nftv6)       test_nft_ipv6 ;;
         selmark)     test_selective_marking ;;
+        blockleaks)  test_block_leaks ;;
         isolation)   test_section_isolation ;;
         monfd)       test_monitor_fd_hygiene ;;
         unsupported) test_unsupported_skip ;;
@@ -13289,7 +13465,7 @@ main() {
         utfilters)   test_urltest_filters ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
+            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark blockleaks isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
             exit 1
             ;;
     esac

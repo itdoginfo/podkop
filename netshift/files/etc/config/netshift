@@ -39,6 +39,14 @@ config settings 'settings'
         option exclude_bittorrent '0'
         option shutdown_correctly '0'
         option block_doh '0'
+        # Fail-closed "kill switch". While NetShift's interception is missing
+        # (service restart/reload, sing-box crash recovery, or boot before the
+        # service starts) traffic bound for proxied destinations is DROPPED
+        # instead of leaking straight to the internet, and DNS is not handed
+        # back to the direct resolvers, so proxied domains wait too. Direct
+        # (non-proxied) traffic is unaffected while sing-box is up. Set to 0 to
+        # release immediately.
+        option block_leaks '0'
         option enable_ipv6 '0'
         #list routing_excluded_ips '192.168.1.3'
 

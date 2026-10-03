@@ -21,6 +21,7 @@ check_required_file "$NETSHIFT_LIB/sing_box_config_facade.sh"
 check_required_file "$NETSHIFT_LIB/logging.sh"
 check_required_file "$NETSHIFT_LIB/rulesets.sh"
 check_required_file "$NETSHIFT_LIB/updater.sh"
+check_required_file "$NETSHIFT_LIB/kill_switch.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -32,6 +33,7 @@ check_required_file "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/logging.sh"
 . "$NETSHIFT_LIB/rulesets.sh"
 . "$NETSHIFT_LIB/updater.sh"
+. "$NETSHIFT_LIB/kill_switch.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -1154,6 +1156,11 @@ start_main() {
     create_nft_rules
     sing_box_configure_service
 
+    # block_leaks: arm the fail-closed guard now that the union subnet set is
+    # populated. On a restart the previous guard kept blocking throughout this
+    # start and is swapped out atomically here (see lib/kill_switch.sh).
+    kill_switch_apply
+
     # sing-box
     sing_box_init_config
     # The config was just built from the current cache, so nothing is left over
@@ -1197,6 +1204,12 @@ stop_main() {
     if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
         nft delete table inet "$NFT_TABLE_NAME"
     fi
+
+    # block_leaks: keep the guard armed across a restart so the window between
+    # this stop and the next start stays fail-closed. Drop it only when the
+    # option is off, so turning the option off cleans up even if no start
+    # follows (the previous guard table, if any, survives otherwise).
+    kill_switch_enabled || kill_switch_delete
 
     log "Flush ip rule"
     ip -4 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2>/dev/null
@@ -1899,6 +1912,13 @@ dnsmasq_is_configured_for_netshift() {
 dnsmasq_should_be_restored() {
     local dont_touch_dhcp
 
+    # block_leaks keeps DNS fail-closed while sing-box is down: handing the
+    # direct resolvers back here would let proxied DOMAINS resolve to real IPs
+    # and leak even though the nft guard still blocks proxied subnets. DNS comes
+    # back automatically when sing-box does (dnsmasq stays pointed at the DNS
+    # inbound).
+    kill_switch_enabled && return 1
+
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     [ "$dont_touch_dhcp" -eq 0 ] || dnsmasq_is_configured_for_netshift
 }
@@ -2228,6 +2248,9 @@ list_update() {
 
     if [ "$update_failed" -eq 0 ]; then
         echolog "✅ Lists update completed successfully"
+        # The union subnet set just grew: refresh the guard so it covers the
+        # freshly imported lists too.
+        kill_switch_apply
     else
         echolog "❌ Lists update failed"
         return 1

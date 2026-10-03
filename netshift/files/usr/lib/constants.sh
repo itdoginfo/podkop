@@ -109,6 +109,18 @@ NFT_DISCORD_SET_NAME="netshift_discord_subnets"
 NFT_INTERFACE_SET_NAME="interfaces"
 NFT_FAKEIP_MARK="0x00100000"
 NFT_OUTBOUND_MARK="0x00200000"
+# ── block_leaks: fail-closed guard table (see lib/kill_switch.sh) ───────────
+# A SECOND, independent table mirroring the proxied destinations. It drops
+# traffic to them whenever NetShiftTable is missing or still empty (stop_main
+# before a restart, the create_nft_rules rebuild, crash recovery), so proxied
+# traffic waits instead of leaking to the WAN. Only used when
+# settings.block_leaks=1; irrelevant (and removed) otherwise.
+NFT_GUARD_TABLE_NAME="NetShiftGuard"
+NFT_GUARD_INTERFACE_SET_NAME="guard_interfaces"
+NFT_GUARD_SUBNET_SET_NAME="guard_subnets"
+NFT_GUARD_SUBNET_SET_NAME_V6="guard_subnets_v6"
+NFT_GUARD_SOURCE_SET_NAME="guard_sources"
+NFT_GUARD_SOURCE_SET_NAME_V6="guard_sources_v6"
 
 ## sing-box
 SB_REQUIRED_VERSION="1.12.0"
