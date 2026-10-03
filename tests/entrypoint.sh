@@ -8733,8 +8733,14 @@ config_get() {
 }
 ensure_subscription_cache_dir() { :; }
 reap_legacy_subscription_cache_files() { :; }
-get_subscription_urls_for_section() { printf '%s\n' "https://feed.example.com/$1"; }
-get_subscription_url_hash() { printf 'feedhash'; }
+get_subscription_urls_for_section() {
+    # 'fast' carries two feeds so the per-URL filter has something to narrow.
+    case "$1" in
+    fast) printf '%s\n' "https://feed.example.com/fast-a" "https://feed.example.com/fast-b" ;;
+    *) printf '%s\n' "https://feed.example.com/$1" ;;
+    esac
+}
+get_subscription_url_hash() { printf 'feedhash-%s' "$1"; }
 get_subscription_json_path() { printf '%s' "$SUBSCRIPTION_CACHE_FOLDER/$1.$2.json"; }
 get_subscription_url_cache_path() { printf '%s' "$SUBSCRIPTION_CACHE_FOLDER/$1.$2.url"; }
 get_subscription_download_proxy_address() { :; }
@@ -8744,6 +8750,7 @@ subscription_cache_is_usable() { return 0; }
 download_subscription_into_cache() {
     printf '%s' '{"outbounds":[{"type":"vless","tag":"node-1"}]}' > "$3"
     printf '%s\n' "$1" >> "$WORK/updated.log"
+    printf '%s\n' "$2" >> "$WORK/downloaded-urls.log"
     return 0
 }
 reload_sing_box_config_in_place() { return 0; }
@@ -8823,6 +8830,55 @@ if [ "$got" = "fast odd slow " ]; then
     echo 'subcron:unknown-arg-case-updates-all:OK'
 else
     echo "subcron:unknown-arg-case-updates-all:FAIL [$got]"
+fi
+
+# ── optional [section] / [url] filters (dashboard per-feed refresh) ──
+# $2 narrows the run to one section, $3 to one feed URL inside it. Both are how
+# the Dashboard refresh buttons call the function; the cron path above never
+# passes them, so this must not change its behaviour.
+updated_sections_section() {
+    : > "$WORK/updated.log"
+    rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+    subscription_update "" "$1" > /dev/null 2>&1
+    printf '%s' "$(sort -u "$WORK/updated.log" | tr '\n' ' ')"
+}
+downloaded_urls() {
+    : > "$WORK/updated.log"
+    : > "$WORK/downloaded-urls.log"
+    rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+    subscription_update "" "$1" "$2" > /dev/null 2>&1
+    printf '%s' "$(sort -u "$WORK/downloaded-urls.log" | tr '\n' ' ')"
+}
+
+got="$(updated_sections_section fast)"
+if [ "$got" = "fast " ]; then
+    echo 'subcron:section-filter-only-fast:OK'
+else
+    echo "subcron:section-filter-only-fast:FAIL [$got]"
+fi
+got="$(updated_sections_section nope)"
+if [ "$got" = "" ]; then
+    echo 'subcron:section-filter-unknown-noop:OK'
+else
+    echo "subcron:section-filter-unknown-noop:FAIL [$got]"
+fi
+subscription_update "" nope > /dev/null 2>&1
+if [ "$?" -eq 0 ]; then
+    echo 'subcron:section-filter-unknown-rc:OK'
+else
+    echo 'subcron:section-filter-unknown-rc:FAIL'
+fi
+got="$(downloaded_urls fast 'https://feed.example.com/fast-b')"
+if [ "$got" = "https://feed.example.com/fast-b " ]; then
+    echo 'subcron:url-filter-single-feed:OK'
+else
+    echo "subcron:url-filter-single-feed:FAIL [$got]"
+fi
+got="$(downloaded_urls fast '')"
+if [ "$got" = "https://feed.example.com/fast-a https://feed.example.com/fast-b " ]; then
+    echo 'subcron:section-filter-all-feeds:OK'
+else
+    echo "subcron:section-filter-all-feeds:FAIL [$got]"
 fi
 
 rm -rf "$WORK"
