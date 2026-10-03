@@ -161,6 +161,18 @@ nft_add_selective_marking_rules() {
     local block_doh="$3"
     shift 3
 
+    # Bypass: destinations of exclusion sections with bypass_singbox leave the
+    # packet unmarked, so it never reaches sing-box (even under global proxy, where
+    # everything else is marked). Before every marking rule below on purpose: an
+    # excluded destination wins, exactly as the exclusion route rule does inside
+    # sing-box. Only when create_nft_rules built the sets (NFT_BYPASS_ACTIVE).
+    if [ "${NFT_BYPASS_ACTIVE:-0}" = "1" ]; then
+        nft add rule inet "$NFT_TABLE_NAME" "$chain" "$@" ip daddr "@$NFT_BYPASS_SET_NAME" return
+        if netshift_ipv6_enabled; then
+            nft add rule inet "$NFT_TABLE_NAME" "$chain" "$@" ip6 daddr "@$NFT_BYPASS_SET_NAME_V6" return
+        fi
+    fi
+
     if [ "$mark_all" = "1" ]; then
         nft add rule inet "$NFT_TABLE_NAME" "$chain" "$@" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
         nft add rule inet "$NFT_TABLE_NAME" "$chain" "$@" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter

@@ -103,6 +103,10 @@ NFT_LOCALV6_SET_NAME="localv6"
 # sing-box (task-034). The per-section outbound is still selected by sing-box
 # route rules — nft only decides enter-or-not, so a single union set is enough.
 NFT_COMMON_SET_NAME="netshift_subnets"
+# Destinations that bypass sing-box completely (exclusion sections with
+# bypass_singbox): returned before any mark, so the traffic never enters tproxy.
+NFT_BYPASS_SET_NAME="netshift_bypass"
+NFT_BYPASS_SET_NAME_V6="netshift_bypass_v6"
 # IPv6 mirror of NFT_COMMON_SET_NAME (only created/used when IPv6 is enabled).
 NFT_COMMON_SET_NAME_V6="netshift_subnets_v6"
 NFT_DISCORD_SET_NAME="netshift_discord_subnets"

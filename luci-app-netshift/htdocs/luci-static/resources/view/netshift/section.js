@@ -497,6 +497,19 @@ function createSectionContent(section) {
   o = section.taboption(
     "connection",
     form.Flag,
+    "bypass_singbox",
+    _("Bypass sing-box"),
+    _(
+      "The subnets of this exclusion section never enter sing-box: the router sends them out directly, which saves CPU, especially with Global Proxy. Only subnets and IP lists are bypassed; domains still pass through sing-box.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends("connection_type", "exclusion");
+
+  o = section.taboption(
+    "connection",
+    form.Flag,
     "global_proxy",
     _("Global Proxy"),
     _("Route all unmatched traffic through this section's outbound.") +

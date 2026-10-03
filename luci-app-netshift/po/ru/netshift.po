@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:52+0300\n"
+"PO-Revision-Date: 2026-10-03 17:52+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -94,6 +94,12 @@ msgstr "По флагу страны"
 
 msgid "By name prefix"
 msgstr "По префиксу имени"
+
+msgid "Bypass sing-box"
+msgstr "Обходить sing-box"
+
+msgid "Bypass sing-box for excluded IPs"
+msgstr "Обходить sing-box для исключённых IP"
 
 msgid "Cache File Path"
 msgstr "Путь к файлу кэша"
@@ -986,6 +992,9 @@ msgstr "Максимально допустимая разница во врем
 msgid "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again"
 msgstr "Секция полностью игнорируется (маршрутизация, списки, подписки), но её настройки сохраняются. Снимите галочку, чтобы включить её снова"
 
+msgid "The subnets of this exclusion section never enter sing-box: the router sends them out directly, which saves CPU, especially with Global Proxy. Only subnets and IP lists are bypassed; domains still pass through sing-box."
+msgstr "Подсети этой секции-исключения вообще не попадают в sing-box: роутер отправляет их напрямую, это экономит процессор, особенно при глобальном прокси. Обходятся только подсети и списки IP; домены по-прежнему проходят через sing-box."
+
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"
 
@@ -997,6 +1006,9 @@ msgstr "Время в секундах для кэширования DNS зап�
 
 msgid "Traffic"
 msgstr "Трафик"
+
+msgid "Traffic of the IP addresses listed above never enters sing-box: the router sends it out directly, which saves CPU (a streaming TV, a game console). They also skip Fully Routed IPs and Global Proxy."
+msgstr "Трафик перечисленных выше IP-адресов вообще не попадает в sing-box: роутер отправляет его напрямую, это экономит процессор (телевизор со стримингом, игровая приставка). Такие адреса также пропускают «Fully Routed IPs» и глобальный прокси."
 
 msgid "Traffic Total"
 msgstr "Всего трафика"

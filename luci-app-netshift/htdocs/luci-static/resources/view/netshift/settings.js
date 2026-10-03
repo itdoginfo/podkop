@@ -427,6 +427,18 @@ function createSettingsContent(section) {
     return validation.message;
   };
 
+  o = section.taboption(
+    "lists",
+    form.Flag,
+    "bypass_excluded_ips",
+    _("Bypass sing-box for excluded IPs"),
+    _(
+      "Traffic of the IP addresses listed above never enters sing-box: the router sends it out directly, which saves CPU (a streaming TV, a game console). They also skip Fully Routed IPs and Global Proxy.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
   // --- Dashboard / YACD tab ---
   o = section.taboption(
     "yacd",

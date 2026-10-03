@@ -1630,17 +1630,113 @@ nft_init_interfaces_set() {
 # Add the IPv4/IPv6 CIDRs found in a file into the union destination set(s).
 populate_netshift_subnets_from_file() {
     local filepath="$1"
+    local set_v4="${NFT_SUBNET_SET:-$NFT_COMMON_SET_NAME}"
+    local set_v6="${NFT_SUBNET_SET_V6:-$NFT_COMMON_SET_NAME_V6}"
 
     [ -f "$filepath" ] || return 0
 
-    if nft list set inet "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" > /dev/null 2>&1; then
-        nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
+    if nft list set inet "$NFT_TABLE_NAME" "$set_v4" > /dev/null 2>&1; then
+        nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$set_v4"
     fi
 
     if netshift_ipv6_enabled &&
-        nft list set inet "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME_V6" > /dev/null 2>&1; then
-        nft_add_set_elements_from_file_chunked_v6 "$filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME_V6"
+        nft list set inet "$NFT_TABLE_NAME" "$set_v6" > /dev/null 2>&1; then
+        nft_add_set_elements_from_file_chunked_v6 "$filepath" "$NFT_TABLE_NAME" "$set_v6"
     fi
+}
+
+# Where the subnets of a section go. Normally the union set of destinations that are
+# marked into sing-box. The subnets of an EXCLUSION section with `bypass_singbox '1'`
+# go to the bypass set instead: that traffic is excluded from routing anyway, so
+# marking it just to have sing-box send it out directly costs CPU (everything under
+# global proxy); the bypass set is returned before any mark and never enters sing-box.
+# Called at the start of every entry point that feeds the sets, so the choice never
+# leaks from one section to the next. Domains cannot be bypassed this way (a domain
+# has no fixed address), they stay in sing-box.
+nft_select_subnet_target() {
+    local section="$1"
+    local connection_type bypass
+
+    NFT_SUBNET_SET="$NFT_COMMON_SET_NAME"
+    NFT_SUBNET_SET_V6="$NFT_COMMON_SET_NAME_V6"
+    NFT_SUBNET_IS_BYPASS=0
+
+    config_get connection_type "$section" "connection_type"
+    [ "$connection_type" = "exclusion" ] || return 0
+
+    config_get_bool bypass "$section" "bypass_singbox" 0
+    [ "$bypass" -eq 1 ] || return 0
+
+    NFT_SUBNET_SET="$NFT_BYPASS_SET_NAME"
+    NFT_SUBNET_SET_V6="$NFT_BYPASS_SET_NAME_V6"
+    NFT_SUBNET_IS_BYPASS=1
+}
+
+_nft_bypass_section_handler() {
+    local section="$1"
+    local connection_type bypass
+
+    section_is_disabled "$section" && return 0
+
+    config_get connection_type "$section" "connection_type"
+    [ "$connection_type" = "exclusion" ] || return 0
+    config_get_bool bypass "$section" "bypass_singbox" 0
+    [ "$bypass" -eq 1 ] && NFT_BYPASS_FOUND=1
+    return 0
+}
+
+# True when anything asks for a bypass: an exclusion section with bypass_singbox or
+# the settings.bypass_excluded_ips flag (devices of routing_excluded_ips).
+nft_bypass_requested() {
+    local excluded_ips
+
+    NFT_BYPASS_FOUND=0
+    config_foreach _nft_bypass_section_handler "section"
+    [ "$NFT_BYPASS_FOUND" -eq 1 ] && return 0
+
+    config_get_bool excluded_ips "settings" "bypass_excluded_ips" 0
+    [ "$excluded_ips" -eq 1 ]
+}
+
+# Devices in routing_excluded_ips (settings.bypass_excluded_ips): their packets are
+# returned before any mark. Prerouting chain only: it matches the LAN source.
+_nft_bypass_source_ip_handler() {
+    local ip="$1"
+
+    [ -n "$ip" ] || return 0
+
+    # Proxied DOMAINS resolve to FakeIPs, and a FakeIP only becomes a connection through
+    # sing-box (it recovers the domain from the mapping); an unmarked packet to a FakeIP
+    # address would go out of the WAN and be dropped. So the device's FakeIP traffic is
+    # still marked into sing-box (where routing_excluded_ips sends it directly) before
+    # the rule that returns everything else of the device.
+    case "$ip" in
+    *:*)
+        if netshift_ipv6_enabled; then
+            nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip6 saddr "$ip" ip6 daddr "$SB_FAKEIP_INET6_RANGE" meta mark set "$NFT_FAKEIP_MARK" counter
+            nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip6 saddr "$ip" counter return
+        fi
+        ;;
+    *)
+        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" ip daddr "$SB_FAKEIP_INET4_RANGE" meta mark set "$NFT_FAKEIP_MARK" counter
+        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" counter return
+        ;;
+    esac
+}
+
+nft_bypass_source_ips() {
+    local excluded_ips excluded_list
+
+    config_get_bool excluded_ips "settings" "bypass_excluded_ips" 0
+    [ "$excluded_ips" -eq 1 ] || return 0
+
+    config_get excluded_list "settings" "routing_excluded_ips"
+    if [ -z "$excluded_list" ]; then
+        log "bypass_excluded_ips is on, but routing_excluded_ips is empty: there is nothing to bypass" "warn"
+        return 0
+    fi
+
+    config_list_foreach "settings" "routing_excluded_ips" _nft_bypass_source_ip_handler
 }
 
 # Add a comma/space-separated string of CIDRs into the union destination set(s).
@@ -1757,6 +1853,16 @@ create_nft_rules() {
         nft_create_ipv6_set "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME_V6"
     fi
 
+    NFT_BYPASS_ACTIVE=0
+    if nft_bypass_requested; then
+        NFT_BYPASS_ACTIVE=1
+        log "Create bypass set (destinations that never enter sing-box)"
+        nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_BYPASS_SET_NAME"
+        if netshift_ipv6_enabled; then
+            nft_create_ipv6_set "$NFT_TABLE_NAME" "$NFT_BYPASS_SET_NAME_V6"
+        fi
+    fi
+
     log "Create interface set"
     nft_init_interfaces_set
 
@@ -1770,6 +1876,10 @@ create_nft_rules() {
     if netshift_ipv6_enabled; then
         nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip6 daddr "@$NFT_LOCALV6_SET_NAME" return
     fi
+
+    # Devices excluded with bypass: before any mark (and so before fully_routed_ips
+    # and the global-proxy mark-all), the same precedence the exclusion rule has.
+    nft_bypass_source_ips
 
     # task-034 / router-originated OUTPUT marking fix: destination-selective marking, applied to LAN
     # (prerouting) traffic AND to router-originated (output) traffic.
@@ -4187,6 +4297,7 @@ configure_user_domain_list() {
 
 configure_user_subnet_list() {
     local section="$1"
+    nft_select_subnet_target "$section"
     local route_rule_tag="$2"
 
     prepare_source_ruleset "$section" "user" "subnets" "$route_rule_tag"
@@ -4229,6 +4340,7 @@ import_local_domain_list_handler() {
 
 configure_local_subnet_lists() {
     local section="$1"
+    nft_select_subnet_target "$section"
     local route_rule_tag="$2"
 
     prepare_source_ruleset "$section" "local" "subnets" "$route_rule_tag"
@@ -4433,6 +4545,7 @@ sing_box_config_check() {
 
 import_community_subnet_lists() {
     local section="$1"
+    nft_select_subnet_target "$section"
     local community_lists
     config_get community_lists "$section" "community_lists"
     if [ -n "$community_lists" ]; then
@@ -4473,11 +4586,12 @@ import_community_service_subnet_list_handler() {
     "roblox") url=$SUBNETS_ROBLOX ;;
     "discord")
         url=$SUBNETS_DISCORD
-        is_discord=1
-        if ! nft list set inet "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME" > /dev/null 2>&1; then
+        # The dport-restricted rule marks traffic into sing-box: not for bypass.
+        [ "${NFT_SUBNET_IS_BYPASS:-0}" -eq 1 ] || is_discord=1
+        if [ "$is_discord" -eq 1 ] && ! nft list set inet "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME" > /dev/null 2>&1; then
             nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
         fi
-        if ! nft list chain inet "$NFT_TABLE_NAME" mangle 2> /dev/null | \
+        if [ "$is_discord" -eq 1 ] && ! nft list chain inet "$NFT_TABLE_NAME" mangle 2> /dev/null | \
             grep -Fq "@$NFT_DISCORD_SET_NAME udp dport { 19000-20000, 50000-65535 }"; then
             nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr \
                 "@$NFT_DISCORD_SET_NAME" udp dport '{ 19000-20000, 50000-65535 }' meta mark set "$NFT_FAKEIP_MARK" counter
@@ -4561,6 +4675,7 @@ import_domains_from_remote_plain_file() {
 
 import_subnets_from_remote_subnet_lists() {
     local section="$1"
+    nft_select_subnet_target "$section"
     local remote_subnet_lists
     config_get remote_subnet_lists "$section" "remote_subnet_lists"
     if [ -n "$remote_subnet_lists" ]; then
