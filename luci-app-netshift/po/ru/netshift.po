@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:09+0300\n"
+"PO-Revision-Date: 2026-10-03 17:09+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -545,6 +545,9 @@ msgstr "Неверный URL-адрес SOCKS: должен начинаться
 msgid "Invalid SOCKS URL: parsing failed"
 msgstr "Неверный URL SOCKS: парсинг не удался"
 
+msgid "Invalid time format. Use HH:MM from 00:00 to 23:59"
+msgstr "Неверный формат времени. Используйте ЧЧ:ММ от 00:00 до 23:59"
+
 msgid "Invalid Trojan URL: must not contain spaces"
 msgstr "Неверный URL Trojan: не должен содержать пробелов"
 
@@ -992,8 +995,14 @@ msgstr "URL-адрес, используемый для проверки под�
 msgid "This is a security trade-off: an attacker could intercept the fetch."
 msgstr "Это компромисс в безопасности: злоумышленник может перехватить загрузку."
 
+msgid "Time cannot be empty"
+msgstr "Время не может быть пустым"
+
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
+
+msgid "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists"
+msgstr "Время ежедневного обновления, ЧЧ:ММ (00:00-23:59) по местному времени роутера. Не выбирайте минуты, на которые приходятся другие интервалы обновления, например :00 и :30, если есть секция с обновлением раз в 30 минут"
 
 msgid "Traffic"
 msgstr "Трафик"
@@ -1030,6 +1039,9 @@ msgstr "Доступно обновление"
 
 msgid "Update NetShift"
 msgstr "Обновить NetShift"
+
+msgid "Update time"
+msgstr "Время обновления"
 
 msgid "Updating NetShift, this may take a few minutes; the page will reload…"
 msgstr "Обновление NetShift, это может занять несколько минут; страница перезагрузится…"

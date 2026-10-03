@@ -209,6 +209,26 @@ function validatePath(value) {
   };
 }
 
+// src/validators/validateTime.ts
+function validateTime(value) {
+  if (!value) {
+    return {
+      valid: false,
+      message: _("Time cannot be empty")
+    };
+  }
+  if (/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+    return {
+      valid: true,
+      message: _("Valid")
+    };
+  }
+  return {
+    valid: false,
+    message: _("Invalid time format. Use HH:MM from 00:00 to 23:59")
+  };
+}
+
 // src/validators/validateSubnet.ts
 function validateSubnet(value) {
   const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?$/;
@@ -6462,6 +6482,7 @@ return baseclass.extend({
   validateShadowsocksUrl,
   validateSocksUrl,
   validateSubnet,
+  validateTime,
   validateTrojanUrl,
   validateUrl,
   validateVlessUrl,

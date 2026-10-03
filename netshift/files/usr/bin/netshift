@@ -2057,7 +2057,33 @@ remove_cron_job() {
 # would run two subscription_update processes side by side, and those race on the
 # pending-apply marker and on the sing-box rebuild + reload. The hourly job keeps
 # the :17 it always had.
+# True for a valid HH:MM (00:00-23:59), two digits each.
+is_valid_subscription_update_time() {
+    case "$1" in
+    [01][0-9]:[0-5][0-9] | 2[0-3]:[0-5][0-9]) return 0 ;;
+    esac
+    return 1
+}
+
+# The time a "1d" section refreshes at: its subscription_update_time, or
+# SUBSCRIPTION_UPDATE_TIME_DEFAULT when the option is absent or not a valid
+# HH:MM (a hand-edited value must not drop the section out of every cron job).
+get_section_subscription_update_time() {
+    local section="$1"
+    local subscription_update_time
+
+    config_get subscription_update_time "$section" "subscription_update_time" "$SUBSCRIPTION_UPDATE_TIME_DEFAULT"
+    if ! is_valid_subscription_update_time "$subscription_update_time"; then
+        log "Invalid subscription_update_time '$subscription_update_time' in section '$section', using $SUBSCRIPTION_UPDATE_TIME_DEFAULT" "warn"
+        subscription_update_time="$SUBSCRIPTION_UPDATE_TIME_DEFAULT"
+    fi
+
+    echo "$subscription_update_time"
+}
+
 get_subscription_cron_line_for_interval() {
+    local cron_hour cron_minute
+
     case "$1" in
     "30m")
         echo "*/30 * * * * /usr/bin/netshift subscription_update 30m"
@@ -2075,7 +2101,17 @@ get_subscription_cron_line_for_interval() {
         echo "40 */12 * * * /usr/bin/netshift subscription_update 12h"
         ;;
     "1d")
-        echo "52 9 * * * /usr/bin/netshift subscription_update 1d"
+        # Optional $2: HH:MM to run at (default SUBSCRIPTION_UPDATE_TIME_DEFAULT).
+        # The time is part of the job so it only refreshes the sections at that
+        # time. cron wants plain numbers, and $((08)) is an octal error in ash,
+        # so the leading zero is stripped textually instead.
+        local cron_time="${2:-$SUBSCRIPTION_UPDATE_TIME_DEFAULT}"
+        is_valid_subscription_update_time "$cron_time" || return 1
+        cron_hour="${cron_time%%:*}"
+        cron_hour="${cron_hour#0}"
+        cron_minute="${cron_time##*:}"
+        cron_minute="${cron_minute#0}"
+        echo "${cron_minute:-0} ${cron_hour:-0} * * * /usr/bin/netshift subscription_update 1d $cron_time"
         ;;
     *)
         return 1
@@ -2097,7 +2133,7 @@ get_subscription_cron_line_for_interval() {
 # previous hourly refresh.
 _collect_subscription_update_interval() {
     local section="$1"
-    local connection_type proxy_config_type subscription_update_interval
+    local connection_type proxy_config_type subscription_update_interval configured_interval ignored_update_time
 
     config_get connection_type "$section" "connection_type"
     [ "$connection_type" = "proxy" ] || return 0
@@ -2106,9 +2142,25 @@ _collect_subscription_update_interval() {
     [ "$proxy_config_type" = "subscription" ] || return 0
 
     config_get subscription_update_interval "$section" "subscription_update_interval" "$SUBSCRIPTION_UPDATE_INTERVAL_DEFAULT"
+    configured_interval="$subscription_update_interval"
     if ! get_subscription_cron_line_for_interval "$subscription_update_interval" > /dev/null; then
         log "Unknown subscription_update_interval '$subscription_update_interval' in section '$section', using $SUBSCRIPTION_UPDATE_INTERVAL_DEFAULT" "warn"
         subscription_update_interval="$SUBSCRIPTION_UPDATE_INTERVAL_DEFAULT"
+    fi
+
+    # The time only applies to the daily interval; say so instead of ignoring it
+    # silently (the option stays in UCI when the interval is switched).
+    if [ "$subscription_update_interval" != "1d" ]; then
+        config_get ignored_update_time "$section" "subscription_update_time"
+        if [ -n "$ignored_update_time" ]; then
+            log "subscription_update_time '$ignored_update_time' in section '$section' is ignored: it only applies to the 1d interval, this section is on $configured_interval" "warn"
+        fi
+    fi
+
+    # A daily job is per TIME as well ("1d@HH:MM"): sections asking for different
+    # times each get their own job. Every other interval has one job.
+    if [ "$subscription_update_interval" = "1d" ]; then
+        subscription_update_interval="1d@$(get_section_subscription_update_time "$section")"
     fi
 
     SUBSCRIPTION_UPDATE_INTERVALS="$SUBSCRIPTION_UPDATE_INTERVALS $subscription_update_interval"
@@ -2121,7 +2173,7 @@ _collect_subscription_update_interval() {
 # legacy single job (`/usr/bin/netshift subscription_update`, no interval) that
 # an upgrade leaves in crontab and that used to drive every section.
 sync_subscription_cron_jobs() {
-    local subscription_update_interval cron_job
+    local subscription_job cron_job
 
     SUBSCRIPTION_UPDATE_INTERVALS=""
     foreach_active_section _collect_subscription_update_interval "section"
@@ -2131,8 +2183,12 @@ sync_subscription_cron_jobs() {
     # Sorted and deduplicated: sections sharing an interval share one job, and
     # the resulting crontab does not depend on the order the sections happen to
     # be stored in.
-    for subscription_update_interval in $(printf '%s\n' $SUBSCRIPTION_UPDATE_INTERVALS | sort -u); do
-        cron_job="$(get_subscription_cron_line_for_interval "$subscription_update_interval")"
+    for subscription_job in $(printf '%s\n' $SUBSCRIPTION_UPDATE_INTERVALS | sort -u); do
+        # "<interval>" or, for a daily job, "1d@HH:MM".
+        case "$subscription_job" in
+        *@*) cron_job="$(get_subscription_cron_line_for_interval "${subscription_job%%@*}" "${subscription_job#*@}")" ;;
+        *) cron_job="$(get_subscription_cron_line_for_interval "$subscription_job")" ;;
+        esac
 
         crontab -l | {
             cat
@@ -2140,7 +2196,132 @@ sync_subscription_cron_jobs() {
         } | crontab -
         log "The subscription cron job has been created: $cron_job"
     done
+
+    warn_daily_subscription_time_collisions
 }
+
+# A number without leading zeros ("07" -> "7", "00" -> "0"): $((07)) is an octal
+# error in ash and "07" = "7" is false as a string comparison.
+cron_number() {
+    local value="$1"
+
+    while [ "${#value}" -gt 1 ] && [ "${value#0}" != "$value" ]; do
+        value="${value#0}"
+    done
+    echo "$value"
+}
+
+# True when a cron field (minute or hour) fires at the given number: "*", "*/N",
+# or that exact number (leading zeros allowed). Anything else (lists, ranges)
+# counts as a match, so the collision warning errs on the side of speaking up.
+# $2 has no leading zero.
+cron_field_matches() {
+    local field="$1"
+    local value="$2"
+    local step
+
+    case "$field" in
+    "*") return 0 ;;
+    "*/"*)
+        step="${field#*/}"
+        case "$step" in
+        "" | *[!0-9]*) return 0 ;;
+        esac
+        step="$(cron_number "$step")"
+        [ "$step" -eq 0 ] && return 0
+        [ $((value % step)) -eq 0 ]
+        ;;
+    *[!0-9]*) return 0 ;;
+    *) [ "$(cron_number "$field")" = "$value" ] ;;
+    esac
+}
+
+# True when no NetShift cron job fires at hour $1 and minute $2 (no leading zeros).
+subscription_daily_minute_is_free() {
+    local hour="$1"
+    local minute="$2"
+    local job_minute job_hour
+
+    crontab -l 2> /dev/null | grep -E "/usr/bin/netshift (list_update|subscription_update)" | {
+        while read -r job_minute job_hour _; do
+            cron_field_matches "$job_minute" "$minute" || continue
+            cron_field_matches "$job_hour" "$hour" || continue
+            exit 1
+        done
+        exit 0
+    }
+}
+
+# A minute at the same hour that no NetShift job uses, found by moving forward in
+# steps of five from $2; prints nothing when every such minute is taken.
+# $1 hour, $2 minute (no leading zeros)
+suggest_free_daily_minute() {
+    local hour="$1"
+    local minute="$2"
+    local candidate step=5
+
+    while [ "$step" -lt 60 ]; do
+        candidate=$(((minute + step) % 60))
+        if subscription_daily_minute_is_free "$hour" "$candidate"; then
+            printf '%02d' "$candidate"
+            return 0
+        fi
+        step=$((step + 5))
+    done
+}
+
+# A daily job the user placed on the same minute AND hour another NetShift job
+# fires at would run two processes side by side, and those race on the
+# pending-apply marker, on the sing-box rebuild + reload and on the rule-set
+# files in $TMP_RULESET_FOLDER (the reason the fixed jobs use different minutes).
+# The user picks the daily time, so this only warns. It reads the real crontab,
+# so every other subscription_update interval and the list_update job (whatever
+# update_interval is configured) are covered; the day-of-month field is ignored,
+# so the 3d list_update job can warn on a day it does not run.
+warn_daily_subscription_time_collisions() {
+    local subscription_job daily_time daily_hour daily_minute job_minute job_hour job_command job_name free_minute hint
+
+    for subscription_job in $(printf '%s\n' $SUBSCRIPTION_UPDATE_INTERVALS | sort -u); do
+        case "$subscription_job" in
+        1d@*) ;;
+        *) continue ;;
+        esac
+
+        daily_time="${subscription_job#*@}"
+        # No leading zeros: $((08)) is an octal error in ash.
+        daily_hour="${daily_time%%:*}"
+        daily_hour="${daily_hour#0}"
+        daily_hour="${daily_hour:-0}"
+        daily_minute="${daily_time##*:}"
+        daily_minute="${daily_minute#0}"
+        daily_minute="${daily_minute:-0}"
+
+        crontab -l | grep -E "/usr/bin/netshift (list_update|subscription_update)" | {
+            while read -r job_minute job_hour _ _ _ job_command; do
+                # The daily job itself.
+                case "$job_command" in
+                *"subscription_update 1d $daily_time") continue ;;
+                esac
+
+                cron_field_matches "$job_minute" "$daily_minute" || continue
+                cron_field_matches "$job_hour" "$daily_hour" || continue
+
+                case "$job_command" in
+                *list_update*) job_name="lists update" ;;
+                *) job_name="subscription update ${job_command##* }" ;;
+                esac
+                free_minute="$(suggest_free_daily_minute "$daily_hour" "$daily_minute")"
+                if [ -n "$free_minute" ]; then
+                    hint="Pick another minute, for example :$free_minute."
+                else
+                    hint="Pick a minute that no other NetShift job uses."
+                fi
+                log "The daily subscription update at $daily_time runs at the same time as the $job_name cron job ($job_minute $job_hour), so the two can overlap. $hint" "warn"
+            done
+        }
+    done
+}
+
 ensure_nft_ready_for_list_update() {
     if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
         return 0
@@ -2360,6 +2541,7 @@ subscription_update() {
     echolog "🔄 Starting subscription update..."
 
     local target_interval="${1:-}"
+    local target_time="${2:-}"
     local has_subscription=0
     local updated_sections=0
     local failed_sections=0
@@ -2369,6 +2551,19 @@ subscription_update() {
     if [ -n "$target_interval" ] && ! get_subscription_cron_line_for_interval "$target_interval" > /dev/null; then
         echolog "⚠️ Unknown subscription update interval '$target_interval', updating every subscription section" "warn"
         target_interval=""
+    fi
+
+    # The time only narrows the daily job ("subscription_update 1d HH:MM"): a
+    # bare "1d" (an older crontab line, a manual run) keeps meaning every daily
+    # section. A time that is not a valid HH:MM is not a filter that matches
+    # nothing, for the same reason as an unknown interval above.
+    if [ -n "$target_time" ]; then
+        if [ "$target_interval" != "1d" ]; then
+            target_time=""
+        elif ! is_valid_subscription_update_time "$target_time"; then
+            echolog "⚠️ Invalid subscription update time '$target_time', updating every daily subscription section" "warn"
+            target_time=""
+        fi
     fi
 
     # True when the section takes part in this run: a subscription section, and
@@ -2392,6 +2587,10 @@ subscription_update() {
                 subscription_update_interval="$SUBSCRIPTION_UPDATE_INTERVAL_DEFAULT"
             fi
             [ "$subscription_update_interval" = "$target_interval" ] || return 1
+
+            if [ -n "$target_time" ]; then
+                [ "$(get_section_subscription_update_time "$section")" = "$target_time" ] || return 1
+            fi
         fi
 
         return 0
@@ -6067,8 +6266,10 @@ Available commands:
     main                    Run main NetShift process
     list_update             Update domain lists
     subscription_update     Update subscription proxies; with an interval
-                            (30m|1h|3h|6h|12h|1d) only the sections using it,
-                            an unknown interval updates every section
+                            (30m|1h|3h|6h|12h|1d) only the sections using it
+                            (1d takes an optional HH:MM: only the daily sections
+                            set to that time), an unknown interval updates every
+                            section
     check_proxy             Check proxy connectivity
     check_nft               Check NFT rules
     check_nft_rules         Check NFT rules status
@@ -6124,7 +6325,7 @@ list_update)
     list_update
     ;;
 subscription_update)
-    subscription_update "${2:-}"
+    subscription_update "${2:-}" "${3:-}"
     ;;
 check_proxy)
     check_proxy
