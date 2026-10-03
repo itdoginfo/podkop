@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 10:24+0300\n"
-"PO-Revision-Date: 2026-10-03 10:24+0300\n"
+"POT-Creation-Date: 2026-10-03 17:50+0300\n"
+"PO-Revision-Date: 2026-10-03 17:50+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -28,6 +28,9 @@ msgstr "✘ Отключено"
 
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
+
+msgid "Active"
+msgstr "Активен"
 
 msgid "Active Connections"
 msgstr "Активные соединения"
@@ -608,6 +611,9 @@ msgstr "Лёгкая сборка расширенного ядра для ус�
 msgid "Line"
 msgstr "Строка"
 
+msgid "List"
+msgstr "Список"
+
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
 
@@ -896,6 +902,9 @@ msgstr "Сервис sing-box существует"
 msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr "Версия Sing-box совместима (новее 1.12.4)"
 
+msgid "Sort by ping"
+msgstr "Сортировка по пингу"
+
 msgid "Source and output interfaces, and Bad WAN interface monitoring"
 msgstr "Входящий и исходящий интерфейсы, а также мониторинг интерфейсов Bad WAN"
 
@@ -991,6 +1000,9 @@ msgstr "URL-адрес, используемый для проверки под�
 
 msgid "This is a security trade-off: an attacker could intercept the fetch."
 msgstr "Это компромисс в безопасности: злоумышленник может перехватить загрузку."
+
+msgid "Tiles"
+msgstr "Плитки"
 
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"

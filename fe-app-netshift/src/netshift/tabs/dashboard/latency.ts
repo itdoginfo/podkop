@@ -2,7 +2,8 @@ import { NetShift } from '../../types';
 
 const GROUP_TYPES = ['urltest', 'selector'];
 
-function isGroup(outbound: NetShift.Outbound) {
+// A group entry (urltest/selector), not a server.
+export function isGroup(outbound: NetShift.Outbound) {
   return GROUP_TYPES.includes(outbound.type.toLowerCase());
 }
 
