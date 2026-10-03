@@ -6397,6 +6397,50 @@ function insertIfObj(condition, object) {
   return condition ? object : {};
 }
 
+// src/helpers/deviceRouting.ts
+var DEVICE_ROUTE_DEFAULT = "";
+var DEVICE_ROUTE_EXCLUDED = "netshift:excluded";
+function toIpList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+function getDeviceRoute(state, ip) {
+  for (const [section, ips] of Object.entries(state.sections)) {
+    if (ips.includes(ip)) {
+      return section;
+    }
+  }
+  if (state.excluded.includes(ip)) {
+    return DEVICE_ROUTE_EXCLUDED;
+  }
+  return DEVICE_ROUTE_DEFAULT;
+}
+function setDeviceRoute(state, ip, route) {
+  const sections = {};
+  for (const [section, ips] of Object.entries(state.sections)) {
+    sections[section] = ips.filter((item) => item !== ip);
+  }
+  const excluded = state.excluded.filter((item) => item !== ip);
+  if (route === DEVICE_ROUTE_EXCLUDED) {
+    excluded.push(ip);
+  } else if (route !== DEVICE_ROUTE_DEFAULT) {
+    sections[route] = [...sections[route] ?? [], ip];
+  }
+  return { sections, excluded };
+}
+function listedDeviceIps(state) {
+  const seen = /* @__PURE__ */ new Set();
+  for (const ips of [...Object.values(state.sections), state.excluded]) {
+    ips.forEach((ip) => seen.add(ip));
+  }
+  return [...seen];
+}
+
 // src/main.ts
 if (typeof structuredClone !== "function")
   globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -6408,6 +6452,8 @@ return baseclass.extend({
   COMMAND_SCHEDULING,
   COMMAND_TIMEOUT,
   CustomNetShiftMethods,
+  DEVICE_ROUTE_DEFAULT,
+  DEVICE_ROUTE_EXCLUDED,
   DIAGNOSTICS_INITIAL_DELAY,
   DIAGNOSTICS_UPDATE_INTERVAL,
   DNS_SERVER_OPTIONS,
@@ -6435,20 +6481,24 @@ return baseclass.extend({
   executeShellCommand,
   getClashUIUrl,
   getClashWsUrl,
+  getDeviceRoute,
   getProxyUrlName,
   injectGlobalStyles,
   insertIf,
   insertIfObj,
+  listedDeviceIps,
   logger,
   maskIP,
   onMount,
   parseQueryString,
   parseValueList,
   preserveScrollForPage,
+  setDeviceRoute,
   socket,
   splitProxyString,
   store,
   svgEl,
+  toIpList,
   validateDNS,
   validateDomain,
   validateDomainRule,

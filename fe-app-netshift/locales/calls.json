@@ -1,5 +1,12 @@
 [
   {
+    "call": "(disabled)",
+    "key": "(disabled)",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:199"
+    ]
+  },
+  {
     "call": "✔ Enabled",
     "key": "✔ Enabled",
     "places": [
@@ -249,6 +256,13 @@
     ]
   },
   {
+    "call": "Choose how traffic of a device in your network is handled. A device can be sent completely through one section (all its traffic) or directly, ignoring the lists. The change is stored with the page's Save & Apply, like the other settings.",
+    "key": "Choose how traffic of a device in your network is handled. A device can be sent completely through one section (all its traffic) or directly, ignoring the lists. The change is stored with the page's Save & Apply, like the other settings.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:231"
+    ]
+  },
+  {
     "call": "CIDR must be between 0 and 32",
     "key": "CIDR must be between 0 and 32",
     "places": [
@@ -287,7 +301,7 @@
     "call": "Component Manager",
     "key": "Component Manager",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:83"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:104"
     ]
   },
   {
@@ -308,7 +322,7 @@
     "call": "Configuration for NetShift service",
     "key": "Configuration for NetShift service",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:30"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:33"
     ]
   },
   {
@@ -393,7 +407,7 @@
     "call": "Dashboard",
     "key": "Dashboard",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:39",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:42",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:31"
     ]
   },
@@ -402,6 +416,13 @@
     "key": "Dashboard currently unavailable",
     "places": [
       "src/netshift/tabs/dashboard/partials/renderSections.ts:23"
+    ]
+  },
+  {
+    "call": "Default (by the lists)",
+    "key": "Default (by the lists)",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:145"
     ]
   },
   {
@@ -426,6 +447,20 @@
     ]
   },
   {
+    "call": "Device",
+    "key": "Device",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:239"
+    ]
+  },
+  {
+    "call": "Devices",
+    "key": "Devices",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:86"
+    ]
+  },
+  {
     "call": "DHCP has DNS server",
     "key": "DHCP has DNS server",
     "places": [
@@ -436,7 +471,14 @@
     "call": "Diagnostics",
     "key": "Diagnostics",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:98"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:119"
+    ]
+  },
+  {
+    "call": "Direct (excluded from routing)",
+    "key": "Direct (excluded from routing)",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:149"
     ]
   },
   {
@@ -809,6 +851,13 @@
     "key": "Every hour",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:184"
+    ]
+  },
+  {
+    "call": "Everything through: %s",
+    "key": "Everything through: %s",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:152"
     ]
   },
   {
@@ -1364,6 +1413,13 @@
     ]
   },
   {
+    "call": "IP address",
+    "key": "IP address",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:240"
+    ]
+  },
+  {
     "call": "IP address 0.0.0.0 is not allowed",
     "key": "IP address 0.0.0.0 is not allowed",
     "places": [
@@ -1470,6 +1526,13 @@
     ]
   },
   {
+    "call": "MAC address",
+    "key": "MAC address",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:241"
+    ]
+  },
+  {
     "call": "Main DNS",
     "key": "Main DNS",
     "places": [
@@ -1529,7 +1592,7 @@
     "call": "NetShift Settings",
     "key": "NetShift Settings",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:29"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:32"
     ]
   },
   {
@@ -1590,6 +1653,13 @@
       "src/netshift/tabs/manager/cards.ts:296",
       "src/netshift/tabs/manager/cards.ts:353",
       "src/netshift/tabs/manager/initController.ts:109"
+    ]
+  },
+  {
+    "call": "Not on the network",
+    "key": "Not on the network",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:207"
     ]
   },
   {
@@ -1816,6 +1886,7 @@
     "call": "Routing",
     "key": "Routing",
     "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:242",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:26"
     ]
   },
@@ -1886,7 +1957,7 @@
     "call": "Sections",
     "key": "Sections",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:54"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:57"
     ]
   },
   {
@@ -2048,7 +2119,7 @@
     "call": "Settings",
     "key": "Settings",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:67"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:70"
     ]
   },
   {
