@@ -485,9 +485,15 @@ subscription_outbound_is_unavailable() {
 # would make `sing-box check` fail and keep the whole service from starting.
 download_proxy_section_is_unavailable() {
     local section="$1"
+    local connection_type
 
     subscription_outbound_is_unavailable "$section" && return 0
-    section_is_disabled "$section"
+    section_is_disabled "$section" && return 0
+
+    # A section id that is not in the config (deleted after it was picked) has no
+    # outbound either: "<id>-out" would make `sing-box check` fail.
+    config_get connection_type "$section" "connection_type"
+    [ -z "$connection_type" ]
 }
 
 # Mark a non-subscription proxy section (url/selector/urltest) as having no
@@ -5612,13 +5618,11 @@ sing_box_configure_experimental() {
 sing_box_additional_inbounds() {
     log "Configure the additional inbounds of a sing-box JSON configuration"
 
-    local download_lists_via_proxy
-    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
-    if [ "$download_lists_via_proxy" -eq 1 ]; then
+    if service_proxy_needed; then
         local download_lists_via_proxy_section section_outbound_tag
         config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
         if download_proxy_section_is_unavailable "$download_lists_via_proxy_section"; then
-            log "Service download proxy section '$download_lists_via_proxy_section' is unavailable (disabled or its subscription refresh failed); rejecting proxy requests" "warn"
+            log "Service download proxy section '$download_lists_via_proxy_section' is unavailable (missing, disabled or its subscription refresh failed); rejecting proxy requests" "warn"
             config="$(sing_box_cm_add_mixed_inbound "$config" "$SB_SERVICE_MIXED_INBOUND_TAG" "$SB_SERVICE_MIXED_INBOUND_ADDRESS" "$SB_SERVICE_MIXED_INBOUND_PORT")"
             config="$(sing_box_cm_add_reject_route_rule "$config" "$(gen_id)" "$SB_SERVICE_MIXED_INBOUND_TAG")"
         else
@@ -5963,8 +5967,22 @@ import_subnets_from_remote_plain_file() {
 }
 
 ## Support functions
+# The local service proxy (mixed inbound -> the selected proxy section) exists
+# when lists and/or components are downloaded through it.
+service_proxy_needed() {
+    local download_lists_via_proxy download_components_via_proxy
+
+    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
+    config_get_bool download_components_via_proxy "settings" "download_components_via_proxy" 0
+    [ "$download_lists_via_proxy" -eq 1 ] || [ "$download_components_via_proxy" -eq 1 ]
+}
+
+# The local service proxy address for LIST downloads: only with download_lists_via_proxy.
+# The component updater has its own gate (updates_components_proxy_address), so the
+# two flags never carry each other's traffic.
 get_service_proxy_address() {
     local download_lists_via_proxy
+
     config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
     if [ "$download_lists_via_proxy" -eq 1 ]; then
         echo "$SB_SERVICE_MIXED_INBOUND_ADDRESS:$SB_SERVICE_MIXED_INBOUND_PORT"
