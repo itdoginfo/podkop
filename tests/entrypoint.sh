@@ -30,12 +30,10 @@ header() {
     printf "\n${BOLD}${CYAN}━━━ %s ━━━${NC}\n" "$1"
 }
 
-
 pass() {
     PASS=$((PASS + 1))
     printf "  ${GREEN}✓${NC} %s\n" "$1"
 }
-
 
 fail() {
     FAIL=$((FAIL + 1))
@@ -45,12 +43,10 @@ fail() {
     fi
 }
 
-
 skip() {
     SKIP=$((SKIP + 1))
     printf "  ${YELLOW}⊘${NC} %s (skipped)\n" "$1"
 }
-
 
 summary() {
     printf "\n${BOLD}──────────────────────────────────────${NC}\n"
@@ -68,7 +64,6 @@ summary() {
         exit 0
     fi
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Dependency Check
@@ -105,7 +100,6 @@ test_deps() {
         fi
     fi
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Shell Syntax & Loading
@@ -186,7 +180,6 @@ EOF
     rm -f "$source_test"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: UCI Config Validation
 # ─────────────────────────────────────────────────────────────────
@@ -229,7 +222,6 @@ test_config() {
     section_count=$(grep -c "^config section\|^#config section" "$config")
     pass "Sections in config: $section_count"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Helper Functions
@@ -311,7 +303,6 @@ TESTEOF
     rm -f "$tmp" "$h_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: NFT Rules Syntax
 # ─────────────────────────────────────────────────────────────────
@@ -354,7 +345,6 @@ test_nft() {
         nft delete table inet "$test_table" 2>/dev/null
     fi
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: NFT IPv6 TProxy regression (B-01 blocker guard)
@@ -453,7 +443,6 @@ test_nft_ipv6() {
 
     nft delete table inet "$test_table" 2>/dev/null
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Destination-selective nft marking (task-034 + router-originated OUTPUT marking fix)
@@ -1015,7 +1004,6 @@ RGPEOF
     fi
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Section-isolation invariant (task-033)
 #
@@ -1213,7 +1201,6 @@ SIEOF
 
     rm -f "$drv" "$route_json"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: graceful-skip of unsupported proxy schemes + splithttp→xhttp (task-038)
@@ -1501,7 +1488,6 @@ USEOF
     rm -f "$drv" "$out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: extended-only links are skipped as a whole on stock sing-box
 # ─────────────────────────────────────────────────────────────────
@@ -1643,7 +1629,6 @@ EGEOF
     fi
     rm -f "$drv" "$out"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: VLESS Encryption passthrough + extended gate
@@ -2122,7 +2107,6 @@ VEEOF
     rm -f "$drv" "$out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Text-list Selector / URLTest (task-051)
 #
@@ -2325,7 +2309,6 @@ TLEOF
     rm -f "$drv" "$out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Ruleset import chunk-size default (upstream port 0c99ddd)
 #
@@ -2470,7 +2453,6 @@ CHUNKEOF
 
     rm -rf "$work"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Domain case normalization (issue #52)
@@ -2679,7 +2661,6 @@ DOMCASEEOF
 
     rm -rf "$work"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Monitor procd-lock fd hygiene (task-035) + monitor-leak (task-036)
@@ -2980,7 +2961,6 @@ MONEOF
     rm -rf "$work"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: sing-box Config Generation
 # ─────────────────────────────────────────────────────────────────
@@ -3194,7 +3174,6 @@ VMEOF
     rm -f "$vm_tmp" "$vm_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Proxy Link Escaping (issue #50)
 # ─────────────────────────────────────────────────────────────────
@@ -3314,7 +3293,6 @@ LINKEOF
     rm -f "$drv" "$link_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Diagnostics Commands
 # ─────────────────────────────────────────────────────────────────
@@ -3352,7 +3330,6 @@ test_diagnostics() {
         fi
     fi
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: jq Helpers
@@ -3392,7 +3369,6 @@ JQEOF
     fi
     rm -f "$jq_error_file"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Config Manager JSON Generation
@@ -3502,7 +3478,6 @@ CMEOF
     fi
     rm -f "$cm_tmp" "$cm_out"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Subscription JSON Validation
@@ -5433,7 +5408,6 @@ CCEOF
     rm -f "$cc" "$cc_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: "Fastest" cross-group urltest of urltests (task-050)
 #
@@ -5686,7 +5660,6 @@ FGEOF
 
     rm -rf "$work"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: per-subscription urltest groups (several subscription_url in one section)
@@ -6191,7 +6164,6 @@ FDEOF
     rm -rf "$work"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Insecure subscription fetch flag (task-021b)
 #
@@ -6336,7 +6308,6 @@ IFEOF
 
     rm -rf "$work"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Async component-action job state (updater.sh)
@@ -6636,7 +6607,6 @@ SEOF
 
     rm -rf "$jdir" "$stub"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Core-switch connectivity self-heal + rollback (updater.sh, task-009)
@@ -7433,7 +7403,6 @@ APKEOF
     rm -rf "$work"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Subscription rejected-hash validity (task-011)
 # ─────────────────────────────────────────────────────────────────
@@ -7642,7 +7611,6 @@ RHEOF
     rm -f "$drv" "$rh_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: DNS via outbound (task-014) — detour wiring + fail-safe cascade
 # ─────────────────────────────────────────────────────────────────
@@ -7834,7 +7802,6 @@ DDEOF
     fi
     rm -f "$drv" "$dd_out"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: EDNS Client Subnet (issue #36)
@@ -8128,7 +8095,6 @@ ECSEOF
     rm -f "$drv" "$ecs_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: scalar `option subscription_url` read-fallback + option->list migration
 # (task-048)
@@ -8309,7 +8275,6 @@ SUBOPTEOF
         rm -f /etc/config/netshift
     fi
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: per-section subscription auto-update interval (issue #51)
@@ -9318,7 +9283,6 @@ SUBCRONEOF
     rm -f "$drv" "$sub_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: global_proxy route rule semantics
 # ─────────────────────────────────────────────────────────────────
@@ -9426,7 +9390,6 @@ test_global_proxy() {
         skip "sing-box not installed — skipping global_proxy config check"
     fi
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: LuCI views cache busting
@@ -9690,7 +9653,6 @@ test_luci_cache_bust() {
         fail "the menu path is netshift_<hash>/netshift" "$(echo "$out" | grep '^menu-path' )"
     fi
 }
-
 
 # Test: Reality X25519MLKEM768 per-section option
 # ─────────────────────────────────────────────────────────────────
@@ -10029,7 +9991,6 @@ SUBEOF
     _rm_check "option on a subscription section: on" "gate-subscription:1"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: BitTorrent exclusion (issue #56)
 # ─────────────────────────────────────────────────────────────────
@@ -10257,7 +10218,6 @@ BTEOF
     rm -f "$drv" "$bt_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Stock sing-box update check (task-017)
 # ─────────────────────────────────────────────────────────────────
@@ -10391,7 +10351,6 @@ DRVEOF
     rm -rf "$work"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Extended sing-box Update Check — v-prefix regression (task-019)
 # ─────────────────────────────────────────────────────────────────
@@ -10486,7 +10445,6 @@ DRVEOF
     unset STUBEXT_INSTALLED STUBEXT_RELEASES STUBEXT_TAG
     rm -rf "$work"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: sing-box-extended asset selection on 32-bit ARM (issue #37)
@@ -10918,7 +10876,6 @@ UCIDRV
 
     rm -rf "$work"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: sing-box extended lite — third core variant
@@ -11699,7 +11656,6 @@ DRVEOF
     rm -rf "$work"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: NetShift update check on-demand (task-029)
 # ─────────────────────────────────────────────────────────────────
@@ -11833,7 +11789,6 @@ DRVEOF
     rm -rf "$work"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: NetShift latest-tag parse — minified vs pretty JSON (task-047)
 # ─────────────────────────────────────────────────────────────────
@@ -11953,7 +11908,6 @@ DRVEOF
     unset STUBLT_FN STUBLT_BODY STUBLT_INSTALLED
     rm -rf "$work"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: GitHub redirect-based latest-tag + deterministic asset URLs (task-049)
@@ -12086,7 +12040,6 @@ DRVEOF
     unset STUBGR_FN STUBGR_REDIRECT STUBGR_BODY
     rm -rf "$work"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: NetShift self-update (task-017)
@@ -12445,7 +12398,6 @@ DRVEOF
     rm -rf "$work"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: core-swap backup integrity (task-027)
 # ─────────────────────────────────────────────────────────────────
@@ -12596,7 +12548,6 @@ DRVEOF
 
     rm -rf "$work"
 }
-
 
 test_hot_reload() {
     header "Subscription Update Without NetShift Restart (sing-box SIGHUP)"
@@ -13326,7 +13277,6 @@ HREOF
     rm -f "$drv" "$out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Domain/subnet list separators — commas and ANY ASCII whitespace
 #
@@ -13565,7 +13515,6 @@ DSEOF
 
     rm -f "$drv" "$out"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: selected server survives a reboot (sing-box cache DB copy)
@@ -13978,7 +13927,6 @@ CPEOF
     rm -f "$drv" "$out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Test: `disabled` option for sections (issue #42)
 # ─────────────────────────────────────────────────────────────────
@@ -14220,7 +14168,6 @@ test_section_disabled() {
     _sd_check "a deleted download proxy section: no detour tag" "detour-missing-section-[ghost]:[]"
     _sd_check "no download proxy section picked: proxy requests are rejected (as before)" "inbounds-missing-section-[]-rejects:yes"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: DNS sections (connection_type 'dns')
@@ -14747,7 +14694,6 @@ test_subscription_geoip() {
     _gp_check "a non-JSON answer is warned about" "garbage-warned:1"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────
@@ -15012,7 +14958,6 @@ V6EOF
     rm -f "$drv" "$v6_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 
 # Test: Multi-DNS upstream pool (issue #74)
@@ -15257,7 +15202,6 @@ DPEOF
     rm -f "$drv" "$dp_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 
 # Test: Chained connections (outbound_detour_section)
@@ -15485,7 +15429,6 @@ CCEOF
     rm -f "$drv" "$cc_out"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 
 # Test: URL of the dashboard latency test
@@ -15552,7 +15495,6 @@ test_latency_url() {
     _ltu_check "latency test: an empty option (cleared field) uses the default without a warning" 'latency-empty-uses-default:url=https://www.gstatic.com/generate_204 warned=0'
     _ltu_check "latency test: the warning does not leak credentials of the value" 'latency-warning-redacted:0'
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 
@@ -15749,7 +15691,6 @@ test_priority_selection() {
     _pr_check "interval: zero falls back" "interval-zero:30"
 }
 
-
 # ─────────────────────────────────────────────────────────────────
 
 # Test: Bypass sing-box for excluded destinations / devices
@@ -15918,7 +15859,6 @@ test_bypass() {
     _bp_check "a disabled bypass section requests nothing" "requested-disabled-section:no"
     _bp_check "an enabled bypass section requests the bypass" "requested-enabled-section:yes"
 }
-
 
 # ─────────────────────────────────────────────────────────────────
 
@@ -16213,6 +16153,5 @@ test_components_via_proxy() {
     _cp_check "install pre-flight: flag off tears the redirect down as before" "preflight-off-blocked:1:teardown"
     _cp_check "install pre-flight: stable direction does not use the proxy" "preflight-stable-direct:1:teardown"
 }
-
 
 main "$@"
