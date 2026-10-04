@@ -1,6 +1,10 @@
 import { getConfigSections } from './getConfigSections';
 import { NetShift } from '../../types';
-import { getProxyUrlName, splitProxyString } from '../../../helpers';
+import {
+  getProxyUrlName,
+  splitProxyString,
+  withCountryFlag,
+} from '../../../helpers';
 import { NetShiftShellMethods } from '../shell';
 import { buildSubscriptionOutboundGroup } from './buildSubscriptionOutboundGroup';
 
@@ -19,6 +23,15 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
       data: [],
     };
   }
+
+  // Countries of manually added links (GeoIP option); an error just means no flags.
+  const geoipResponse = await NetShiftShellMethods.getGeoipFlags();
+  const geoipFlags: Record<string, string> =
+    geoipResponse.success &&
+    geoipResponse.data &&
+    typeof geoipResponse.data === 'object'
+      ? geoipResponse.data
+      : {};
 
   const proxies = Object.entries(clashProxies.data.proxies).map(
     ([key, value]) => ({
@@ -193,8 +206,19 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
       };
     });
 
+  const flagged = data.map((group) => ({
+    ...group,
+    outbounds: group.outbounds.map((outbound) => ({
+      ...outbound,
+      displayName: withCountryFlag(
+        outbound.displayName,
+        geoipFlags[outbound.code],
+      ),
+    })),
+  }));
+
   return {
     success: true,
-    data,
+    data: flagged,
   };
 }

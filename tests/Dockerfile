@@ -49,6 +49,18 @@ RUN curl -sSL -o /tmp/sbx.tar.gz \
     install -m 0755 "/tmp/sing-box-${SB_EXTENDED_VERSION}-linux-amd64-musl/sing-box" /rootfs/usr/local/bin/sing-box-extended && \
     rm -rf /tmp/sbx.tar.gz "/tmp/sing-box-${SB_EXTENDED_VERSION}-linux-amd64-musl"
 
+# Стоковый sing-box 1.14+ рядом со стоковым ядром образа: правила DNS evaluate/respond/race
+# (пул DNS-серверов) есть только в 1.14, и тест dnspool проверяет их настоящим
+# `sing-box check` через /usr/local/bin/sing-box-1.14. Версия закреплена, архив сверяется по sha256.
+ARG SB_STOCK_NEW_VERSION=1.14.1
+ARG SB_STOCK_NEW_SHA256=b907365b154e4a7e3e40be15c2cd83433c0fa65c7dc736bdb1b5face2afe4501
+RUN curl -sSL -o /tmp/sbn.tar.gz \
+        "https://github.com/SagerNet/sing-box/releases/download/v${SB_STOCK_NEW_VERSION}/sing-box-${SB_STOCK_NEW_VERSION}-linux-amd64-musl.tar.gz" && \
+    echo "${SB_STOCK_NEW_SHA256}  /tmp/sbn.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/sbn.tar.gz -C /tmp && \
+    install -m 0755 "/tmp/sing-box-${SB_STOCK_NEW_VERSION}-linux-amd64-musl/sing-box" /rootfs/usr/local/bin/sing-box-1.14 && \
+    rm -rf /tmp/sbn.tar.gz "/tmp/sing-box-${SB_STOCK_NEW_VERSION}-linux-amd64-musl"
+
 # ── Stage 2: Сборка финального контейнера ─────────────────────────
 FROM scratch
 # Переносим настоящую систему OpenWrt

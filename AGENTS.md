@@ -37,7 +37,9 @@ constants, never hardcode.
 - `netshift/` — the OpenWRT package: backend (`files/usr/bin/netshift`,
   `files/usr/lib/*.sh`), init script, UCI defaults, `Makefile` (version).
 - `luci-app-netshift/` — LuCI app: views, ACL, i18n, and the generated
-  `htdocs/luci-static/resources/view/netshift/main.js`.
+  `htdocs/luci-static/resources/view/netshift/main.js`. In the source tree the
+  views live in `view/netshift/`; the package build (`cache-bust.sh`) installs
+  them as `view/netshift_<hash>/` so browsers cannot serve a previous version.
 - `fe-app-netshift/` — TypeScript source of the UI bundle.
 - `tests/` — OpenWRT rootfs smoke suite (Docker).
 - `install.sh` — one-line installer used by the README.
@@ -46,9 +48,10 @@ constants, never hardcode.
 
 ## Quality gates (a change is not "done" until the relevant gate passes)
 
-- **Backend** (`netshift/files/**`): ShellCheck at severity error
+- **Backend** (`netshift/files/**`) and the build script
+  `luci-app-netshift/cache-bust.sh`: ShellCheck at severity error
   (`shellcheck -S error -s sh install.sh netshift/files/usr/bin/netshift
-  netshift/files/usr/lib/*.sh`); smoke suite —
+  netshift/files/usr/lib/*.sh luci-app-netshift/cache-bust.sh`); smoke suite —
   `docker compose -f tests/docker-compose.yml run --rm netshift-test all`
   (OpenWRT rootfs container; a run passes only with zero FAILs).
 - **Frontend** (`fe-app-netshift/**`): `yarn ci`, and the committed `main.js`
