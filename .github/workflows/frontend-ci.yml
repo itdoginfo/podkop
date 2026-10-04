@@ -1,6 +1,21 @@
 name: Frontend CI
 
 on:
+  # Direct pushes to main are how most of this repository lands (see the smoke
+  # tests and shellcheck workflows), and the frontend gates — including the
+  # translation check — used to run on pull requests only, so a direct push could
+  # ship an unformatted bundle, a stale main.js or a half-translated UI with no
+  # gate at all. The same paths filter applies, so this adds no run for changes
+  # that cannot affect the frontend.
+  push:
+    branches:
+      - main
+      - 'rc/**'
+    paths:
+      - 'fe-app-netshift/**'
+      - 'luci-app-netshift/po/**'
+      - 'luci-app-netshift/htdocs/luci-static/resources/view/netshift/**'
+      - '.github/workflows/frontend-ci.yml'
   pull_request:
     paths:
       - 'fe-app-netshift/**'
