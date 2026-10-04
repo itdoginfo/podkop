@@ -1,21 +1,24 @@
 # RU translations for NETSHIFT package.
 # Copyright (C) 2026 THE NETSHIFT'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# yandexru45, 2026.
+# agent, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 17:26+0300\n"
-"PO-Revision-Date: 2026-10-03 17:26+0300\n"
-"Last-Translator: yandexru45\n"
+"POT-Creation-Date: 2026-10-04 11:36+0300\n"
+"PO-Revision-Date: 2026-10-04 11:36+0300\n"
+"Last-Translator: agent\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "(disabled)"
+msgstr ""
 
 msgid "✔ Enabled"
 msgstr "✔ Включено"
@@ -31,6 +34,9 @@ msgstr "✘ Остановлен"
 
 msgid "A path is only allowed for doh and doh3"
 msgstr "Путь допустим только для doh и doh3"
+
+msgid "Active"
+msgstr ""
 
 msgid "Active Connections"
 msgstr "Активные соединения"
@@ -125,6 +131,9 @@ msgstr "Проверки не выполнены"
 msgid "Checks passed"
 msgstr "Проверки пройдены"
 
+msgid "Choose how traffic of a device in your network is handled. A device can be sent completely through one section (all its traffic) or directly, ignoring the lists. The change is stored with the page's Save & Apply, like the other settings."
+msgstr ""
+
 msgid "CIDR must be between 0 and 32"
 msgstr "CIDR должен быть между 0 и 32"
 
@@ -191,6 +200,9 @@ msgstr "Дашборд"
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
 
+msgid "Default (by the lists)"
+msgstr ""
+
 msgid "Delay in milliseconds before reloading NetShift after interface UP"
 msgstr "Задержка в миллисекундах перед перезагрузкой NetShift после поднятия интерфейса"
 
@@ -200,11 +212,20 @@ msgstr "Значение задержки не может быть пустым"
 msgid "Dev"
 msgstr "Dev"
 
+msgid "Device"
+msgstr ""
+
+msgid "Devices"
+msgstr ""
+
 msgid "DHCP has DNS server"
 msgstr "DHCP содержит DNS сервер"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
+
+msgid "Direct (excluded from routing)"
+msgstr ""
 
 msgid "Disable autostart"
 msgstr "Отключить автостарт"
@@ -370,6 +391,9 @@ msgstr "Каждый день"
 
 msgid "Every hour"
 msgstr "Каждый час"
+
+msgid "Everything through: %s"
+msgstr ""
 
 msgid "Exclude BitTorrent"
 msgstr "Исключить BitTorrent"
@@ -566,6 +590,9 @@ msgstr "Неверный URL-адрес SOCKS: должен начинаться
 msgid "Invalid SOCKS URL: parsing failed"
 msgstr "Неверный URL SOCKS: парсинг не удался"
 
+msgid "Invalid time format. Use HH:MM from 00:00 to 23:59"
+msgstr ""
+
 msgid "Invalid timeout. Examples: 500ms, 2s"
 msgstr "Неверный таймаут. Примеры: 500ms, 2s"
 
@@ -605,6 +632,9 @@ msgstr "Неверный URL VMess: не должен содержать про�
 msgid "Invalid VMess URL: must start with vmess://"
 msgstr "Неверный URL VMess: должен начинаться с vmess://"
 
+msgid "IP address"
+msgstr ""
+
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr "IP-адрес 0.0.0.0 не допускается"
 
@@ -632,6 +662,9 @@ msgstr "Лёгкая сборка расширенного ядра для ус�
 msgid "Line"
 msgstr "Строка"
 
+msgid "List"
+msgstr ""
+
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
 
@@ -649,6 +682,9 @@ msgstr "Локальные списки подсетей"
 
 msgid "Log Level"
 msgstr "Уровень логов"
+
+msgid "MAC address"
+msgstr ""
 
 msgid "Main DNS"
 msgstr "Основной DNS"
@@ -706,6 +742,9 @@ msgstr "Ещё не реализовано"
 
 msgid "Not installed"
 msgstr "Не установлено"
+
+msgid "Not on the network"
+msgstr ""
 
 msgid "Not responding"
 msgstr "Не отвечает"
@@ -776,6 +815,9 @@ msgstr "Прокси-трафик не маршрутизируется чере
 msgid "Proxy traffic is routed via FakeIP"
 msgstr "Прокси-трафик направляется через FakeIP"
 
+msgid "Reality: post-quantum key share (X25519MLKEM768)"
+msgstr ""
+
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
 
@@ -784,6 +826,9 @@ msgstr "Внешние списки доменов"
 
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
+
+msgid "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores"
+msgstr ""
 
 msgid "Resolve real IP for routing"
 msgstr "Разрешение реальных IP-адресов"
@@ -935,6 +980,9 @@ msgstr "Сервис sing-box существует"
 msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr "Версия Sing-box совместима (новее 1.12.4)"
 
+msgid "Sort by ping"
+msgstr ""
+
 msgid "Source and output interfaces, and Bad WAN interface monitoring"
 msgstr "Входящий и исходящий интерфейсы, а также мониторинг интерфейсов Bad WAN"
 
@@ -1031,8 +1079,17 @@ msgstr "URL-адрес, используемый для проверки под�
 msgid "This is a security trade-off: an attacker could intercept the fetch."
 msgstr "Это компромисс в безопасности: злоумышленник может перехватить загрузку."
 
+msgid "Tiles"
+msgstr ""
+
+msgid "Time cannot be empty"
+msgstr ""
+
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
+
+msgid "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists"
+msgstr ""
 
 msgid "Traffic"
 msgstr "Трафик"
@@ -1072,6 +1129,9 @@ msgstr "Доступно обновление"
 
 msgid "Update NetShift"
 msgstr "Обновить NetShift"
+
+msgid "Update time"
+msgstr ""
 
 msgid "Updating NetShift, this may take a few minutes; the page will reload…"
 msgstr "Обновление NetShift, это может занять несколько минут; страница перезагрузится…"

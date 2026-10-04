@@ -3,6 +3,7 @@ export * from './validateDomain';
 export * from './validateDns';
 export * from './validateUrl';
 export * from './validatePath';
+export * from './validateTime';
 export * from './validateSubnet';
 export * from './bulkValidate';
 export * from './validateShadowsocksUrl';

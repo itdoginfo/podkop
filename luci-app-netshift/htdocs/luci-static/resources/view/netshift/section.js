@@ -191,6 +191,40 @@ function createSectionContent(section) {
 
   o = section.taboption(
     "subscription",
+    form.Value,
+    "subscription_update_time",
+    _("Update time"),
+    _(
+      "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists",
+    ),
+  );
+  // The same default as SUBSCRIPTION_UPDATE_TIME_DEFAULT in
+  // netshift/files/usr/lib/constants.sh: change both together.
+  o.default = "09:52";
+  o.placeholder = "09:52";
+  o.rmempty = true;
+  o.depends({
+    connection_type: "proxy",
+    proxy_config_type: "subscription",
+    subscription_update_interval: "1d",
+  });
+  o.validate = function (section_id, value) {
+    // Empty means "keep the default" (an existing config has no such option)
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateTime(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.taboption(
+    "subscription",
     form.ListValue,
     "subscription_group_mode",
     _("Subscription grouping"),
@@ -493,6 +527,29 @@ function createSectionContent(section) {
   o.default = "0";
   o.depends("connection_type", "proxy");
   o.rmempty = false;
+
+  o = section.taboption(
+    "connection",
+    form.Flag,
+    "reality_mlkem",
+    _("Reality: post-quantum key share (X25519MLKEM768)"),
+    _(
+      "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  // Not offered for a hand-written outbound JSON (it carries its own TLS block)
+  [
+    "url",
+    "selector",
+    "urltest",
+    "selector_text",
+    "urltest_text",
+    "subscription",
+  ].forEach((type) =>
+    o.depends({ connection_type: "proxy", proxy_config_type: type }),
+  );
 
   o = section.taboption(
     "connection",

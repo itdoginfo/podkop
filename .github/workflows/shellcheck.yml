@@ -9,6 +9,7 @@ on:
       - 'install.sh'
       - 'netshift/files/usr/bin/**'
       - 'netshift/files/usr/lib/**'
+      - 'luci-app-netshift/cache-bust.sh'
       - '.github/workflows/shellcheck.yml'
   pull_request:
     branches:
@@ -18,6 +19,7 @@ on:
       - 'install.sh'
       - 'netshift/files/usr/bin/**'
       - 'netshift/files/usr/lib/**'
+      - 'luci-app-netshift/cache-bust.sh'
       - '.github/workflows/shellcheck.yml'
 
 permissions:
@@ -46,4 +48,5 @@ jobs:
             netshift/files/usr/bin/netshift
             netshift/files/usr/lib/**.sh
             install.sh
+            luci-app-netshift/cache-bust.sh
           token: ${{ secrets.GITHUB_TOKEN }}
