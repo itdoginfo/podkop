@@ -14496,7 +14496,7 @@ test_section_disabled() {
         . "${NETSHIFT_LIB_DIR}/logging.sh" 2>/dev/null || log() { :; }
         . "$facade_lib"
         for fn in section_is_disabled _active_section_dispatch foreach_active_section \
-            subscription_outbound_is_unavailable download_proxy_section_is_unavailable \
+            subscription_outbound_is_unavailable download_proxy_section_is_unavailable service_proxy_needed \
             sing_box_additional_inbounds get_download_detour_tag; do
             eval "$(extract "$fn")"
         done
@@ -14507,6 +14507,8 @@ test_section_disabled() {
         config_get() {
             case "$2:$3" in
             settings:download_lists_via_proxy_section) eval "$1=\"\$SD_PROXY_SECTION\"" ;;
+            # alpha and beta exist in the config, "ghost" does not
+            alpha:connection_type | beta:connection_type) eval "$1=proxy" ;;
             *) eval "$1=\"\${4:-}\"" ;;
             esac
         }
@@ -14543,6 +14545,18 @@ test_section_disabled() {
         sing_box_additional_inbounds
         echo "$config" | jq -e '[.route.rules[] | select(.outbound == "alpha-out")] | length == 1' > /dev/null &&
             echo "inbounds-active-routes-to-section:yes" || echo "inbounds-active-routes-to-section:no"
+
+        # A section id that is no longer in the config, and no section picked at all:
+        # the service proxy rejects, nothing points at "<id>-out" / "-out".
+        for sec in ghost ""; do
+            SD_PROXY_SECTION="$sec"
+            config="$base"
+            sing_box_additional_inbounds
+            echo "$config" | jq -e '([.route.rules[] | select(.action == "reject")] | length == 1)
+                and ([.route.rules[] | select(.outbound == "ghost-out" or .outbound == "-out")] | length == 0)' > /dev/null &&
+                echo "inbounds-missing-section-[$sec]-rejects:yes" || echo "inbounds-missing-section-[$sec]-rejects:no"
+            echo "detour-missing-section-[$sec]:[$(get_download_detour_tag)]"
+        done
     )"
 
     _sd_check "disabled download proxy section: no detour tag" "detour-disabled:[]"
@@ -14553,6 +14567,217 @@ test_section_disabled() {
     fi
     _sd_check "active download proxy section keeps its detour tag" "detour-active:[alpha-out]"
     _sd_check "active download proxy section keeps its route" "inbounds-active-routes-to-section:yes"
+    _sd_check "a deleted download proxy section: proxy requests are rejected, no dangling outbound" "inbounds-missing-section-[ghost]-rejects:yes"
+    _sd_check "a deleted download proxy section: no detour tag" "detour-missing-section-[ghost]:[]"
+    _sd_check "no download proxy section picked: proxy requests are rejected (as before)" "inbounds-missing-section-[]-rejects:yes"
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test: DNS sections (connection_type 'dns')
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL configure_dns_section_handler / configure_routing_for_section_lists /
+# configure_community_list_handler (extracted verbatim from the bin) against a
+# stubbed UCI layer and the real manager/facade helpers. Asserts:
+#   - a DNS section gets its own DNS server + rule, after the FakeIP rule;
+#   - its lists feed THAT rule (and no route rule), the FakeIP rule stays untouched,
+#     and other sections still feed the FakeIP rule exactly as before;
+#   - subnet lists of a DNS section are ignored; unusable sections are skipped
+#     without breaking the config; the detour falls back to direct, never drops it.
+test_dns_section() {
+    header "DNS sections (connection_type dns)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local facade_lib="${NETSHIFT_LIB_DIR}/sing_box_config_facade.sh"
+    local constants_lib="${NETSHIFT_LIB_DIR}/constants.sh"
+    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$cm_lib" ] || [ ! -r "$facade_lib" ] || [ ! -r "$constants_lib" ] || [ ! -r "$jq_helpers" ] \
+        || [ ! -r "$bin" ]; then
+        skip "config manager / facade / constants / helpers.jq / netshift bin not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
+    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/netshift-dnssection-$$.sh"
+    cat > "$drv" << 'DSEOF'
+LIB="NETSHIFT_LIB"
+BIN="BIN_PATH"
+FACADE="FACADE_PATH"
+
+. "$LIB/constants.sh"
+. "$LIB/helpers.sh"
+DS_LOG="/tmp/netshift-dnssec-log-$$"; : > "$DS_LOG"
+log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$DS_LOG"; }
+. "$FACADE"
+
+# UCI stubs: DS_<section>_<option>
+config_get() {
+    local _v
+    eval "_v=\"\${DS_${2}_${3}:-}\""
+    [ -n "$_v" ] || _v="$4"
+    eval "$1=\"\$_v\""
+}
+config_get_bool() { config_get "$@"; case "$(eval echo \$$1)" in 1) eval "$1=1" ;; *) eval "$1=0" ;; esac; }
+config_list_foreach() { # $1=section $2=option $3=callback ... : the option value is a space separated list
+    local _sec="$1" _opt="$2" _cb="$3" _v _i
+    shift 3
+    eval "_v=\"\${DS_${_sec}_${_opt}:-}\""
+    for _i in $_v; do "$_cb" "$_i" "$@"; done
+}
+for fn in section_is_dns_rule section_has_enabled_lists configure_dns_section_handler configure_routing_for_section_lists \
+    configure_community_list_handler subscription_outbound_is_unavailable \
+    prune_dns_section_rules_without_domains download_proxy_section_is_unavailable section_is_disabled; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+done
+get_ruleset_tag() { echo "$1-$2-$3"; }
+get_download_detour_tag() { echo ""; }
+gen_id() { echo "gen$$"; }
+if command -v configure_dns_section_handler > /dev/null 2>&1 &&
+    command -v configure_routing_for_section_lists > /dev/null 2>&1; then
+    echo 'dnssection-real-functions-loaded:OK'
+else
+    echo 'dnssection-real-functions-loaded:FAIL'
+fi
+
+base='{"dns":{"servers":[{"type":"udp","tag":"bootstrap-dns-server","server":"77.88.8.8","server_port":53}],"rules":[{"action":"route","server":"fakeip-server","__service_tag":"fakeip-dns-rule-tag"}],"final":"dns-server"},
+ "route":{"rules":[{"action":"route","inbound":"tproxy-in","outbound":"prox-out","__service_tag":"prx"}],"rule_set":[]},
+ "outbounds":[{"type":"direct","tag":"direct-out"},{"type":"vless","tag":"prox-out","server":"p.example.com","server_port":443}]}'
+SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+ok() { [ "$1" = "$2" ] && echo "$3:OK" || echo "$3:FAIL [got '$1' want '$2']"; }
+jqc() { printf '%s' "$config" | jq -c "$1"; }
+
+DS_corp_connection_type=dns
+DS_corp_dns_type=dot
+DS_corp_dns_server=dns.corp.example:853
+DS_corp_community_lists="corp_zone"
+DS_prox_connection_type=proxy
+DS_prox_community_lists="russia_inside"
+
+# ── DNS section: server + rule ─────────────────────────────────────
+config="$base"; configure_dns_section_handler corp
+ok "$(jqc '[.dns.servers[] | select(.tag == "dns-section-corp") | [.type,.server,.server_port,.domain_resolver]]')" '[["tls","dns.corp.example",853,"bootstrap-dns-server"]]' "dnssection-server"
+ok "$(jqc '[.dns.rules[] | .__service_tag]')" '["fakeip-dns-rule-tag","dns-section-rule-corp"]' "dnssection-rule-after-fakeip"
+ok "$(jqc '.dns.rules[1].server')" '"dns-section-corp"' "dnssection-rule-server"
+# other connection types are not touched
+config="$base"; configure_dns_section_handler prox
+ok "$(printf '%s' "$config" | jq -cS .)" "$(printf '%s' "$base" | jq -cS .)" "dnssection-other-types-untouched"
+# IP address needs no bootstrap resolver
+DS_corp_dns_server=10.0.0.53
+config="$base"; configure_dns_section_handler corp
+ok "$(jqc '[.dns.servers[] | select(.tag == "dns-section-corp") | .domain_resolver // "none"] | first')" '"none"' "dnssection-ip-no-resolver"
+DS_corp_dns_server=dns.corp.example:853
+
+# ── unusable sections are skipped, config stays valid ──────────────
+for bad in "dns_server=" "dns_type=bogus"; do
+    eval "save_${bad%%=*}=\"\$DS_corp_${bad%%=*}\""
+    eval "DS_corp_${bad%%=*}=\"${bad#*=}\""
+    [ "${bad%%=*}" = dns_server ] && DS_corp_dns_server=""
+    config="$base"; configure_dns_section_handler corp
+    ok "$(printf '%s' "$config" | jq -cS .)" "$(printf '%s' "$base" | jq -cS .)" "dnssection-skip-${bad%%=*}"
+    DS_corp_dns_type=dot; DS_corp_dns_server=dns.corp.example:853
+done
+DS_corp_community_lists=""
+config="$base"; configure_dns_section_handler corp
+ok "$(printf '%s' "$config" | jq -cS .)" "$(printf '%s' "$base" | jq -cS .)" "dnssection-skip-no-lists"
+DS_corp_community_lists="corp_zone"
+
+# ── every protocol the field offers builds a server the core knows ──
+for spec in "udp|udp|53" "tcp|tcp|53" "dot|tls|853" "doh|https|443" "doh3|h3|443" "doq|quic|853"; do
+    ty="${spec%%|*}"; rest="${spec#*|}"
+    DS_corp_dns_type="$ty"; DS_corp_dns_server=dns.corp.example
+    config="$base"; configure_dns_section_handler corp
+    ok "$(jqc '[.dns.servers[] | select(.tag == "dns-section-corp") | [.type, .server_port]] | first | join(",")')" "\"${rest%%|*},${rest#*|}\"" "dnssection-protocol-$ty"
+done
+DS_corp_dns_type=dot; DS_corp_dns_server=dns.corp.example:853
+
+# ── a bare IPv6 address is not cut at its first colon ──
+DS_corp_dns_type=udp; DS_corp_dns_server=2001:4860:4860::8888
+config="$base"; configure_dns_section_handler corp
+ok "$(jqc '[.dns.servers[] | select(.tag == "dns-section-corp") | [.server, .server_port]] | first | tostring')" '"[\"2001:4860:4860::8888\",53]"' "dnssection-bare-ipv6"
+ok "$(jqc '.dns.rules | length')" 2 "dnssection-bare-ipv6-rule-added"
+DS_corp_dns_server="[2001:4860:4860::8888]"
+config="$base"; configure_dns_section_handler corp
+ok "$(jqc '[.dns.servers[] | select(.tag == "dns-section-corp") | [.server, .server_port]] | first | tostring')" '"[\"2001:4860:4860::8888\",53]"' "dnssection-bracketed-ipv6-no-port"
+DS_corp_dns_server="[2001:4860:4860::8888]:5353"
+config="$base"; configure_dns_section_handler corp
+ok "$(jqc '[.dns.servers[] | select(.tag == "dns-section-corp") | [.server, .server_port]] | first | tostring')" '"[\"2001:4860:4860::8888\",5353]"' "dnssection-bracketed-ipv6-with-port"
+DS_corp_dns_type=dot; DS_corp_dns_server=dns.corp.example:853
+
+# ── a disabled section says so and creates nothing ──
+DS_corp_disabled=1; : > "$DS_LOG"
+config="$base"; configure_dns_section_handler corp
+ok "$(printf '%s' "$config" | jq -cS .)$(grep -c 'has no lists' "$DS_LOG")" "$(printf '%s' "$base" | jq -cS .)0" "dnssection-disabled-skipped-quietly"
+ok "$(grep -c "DNS section 'corp' is disabled" "$DS_LOG")" 1 "dnssection-disabled-says-so"
+DS_corp_disabled=""
+
+# ── a rule that no domain list ever narrowed is dropped (it would catch ALL queries) ──
+config="$base"; configure_dns_section_handler corp; : > "$DS_LOG"
+prune_dns_section_rules_without_domains
+ok "$(jqc '[[.dns.rules[] | .__service_tag], [.dns.servers[] | .tag]] | tostring')" '"[[\"fakeip-dns-rule-tag\"],[\"bootstrap-dns-server\"]]"' "dnssection-conditionless-rule-pruned"
+ok "$(grep -c "DNS section 'corp' has no domain lists" "$DS_LOG")" 1 "dnssection-conditionless-rule-warned"
+config="$base"; configure_dns_section_handler corp; configure_routing_for_section_lists corp
+prune_dns_section_rules_without_domains
+ok "$(jqc '[.dns.rules[] | .__service_tag] | tostring')" '"[\"fakeip-dns-rule-tag\",\"dns-section-rule-corp\"]"' "dnssection-rule-with-domains-kept"
+
+# ── a DNS section can not be the download proxy: it has no outbound ──
+ok "$(download_proxy_section_is_unavailable corp && echo unavailable || echo usable)" unavailable "dnssection-not-a-download-proxy"
+ok "$(download_proxy_section_is_unavailable prox && echo unavailable || echo usable)" usable "dnssection-proxy-section-still-usable"
+
+# ── detour: usable / unusable (falls back to direct) ───────────────
+DS_corp_dns_detour_section=prox
+config="$base"; configure_dns_section_handler corp
+ok "$(jqc '[.dns.servers[] | select(.tag == "dns-section-corp") | .detour] | first')" '"prox-out"' "dnssection-detour-usable"
+DS_corp_dns_detour_section=nosuch
+config="$base"; configure_dns_section_handler corp
+ok "$(jqc '[.dns.servers[] | select(.tag == "dns-section-corp") | .detour // "none"] | first')" '"none"' "dnssection-detour-missing-direct"
+ok "$(jqc '[.dns.rules[] | select(.__service_tag == "dns-section-rule-corp")] | length')" 1 "dnssection-detour-missing-keeps-rule"
+DS_corp_dns_detour_section=corp
+config="$base"; configure_dns_section_handler corp
+ok "$(jqc '[.dns.servers[] | select(.tag == "dns-section-corp") | .detour // "none"] | first')" '"none"' "dnssection-detour-self-direct"
+DS_corp_dns_detour_section=""
+
+# ── lists feed the section's rule, not the FakeIP / route rules ─────
+config="$base"; configure_dns_section_handler corp
+configure_routing_for_section_lists corp
+ok "$(jqc '[.dns.rules[] | select(.__service_tag == "dns-section-rule-corp") | .rule_set] | first')" '"corp-corp_zone-community"' "dnssection-lists-feed-own-rule"
+ok "$(jqc '[.dns.rules[] | select(.__service_tag == "fakeip-dns-rule-tag") | .rule_set // "none"] | first')" '"none"' "dnssection-fakeip-rule-untouched"
+ok "$(jqc '[.route.rules[] | select(.__service_tag != "prx")] | length')" 0 "dnssection-no-route-rule"
+ok "$(jqc '[.route.rule_set[].tag]')" '["corp-corp_zone-community"]' "dnssection-ruleset-defined"
+# a normal section still feeds the FakeIP rule
+configure_routing_for_section_lists prox
+ok "$(jqc '[.dns.rules[] | select(.__service_tag == "fakeip-dns-rule-tag") | .rule_set] | first')" '"prox-russia_inside-community"' "dnssection-proxy-section-still-fakeip"
+ok "$(jqc '[.dns.rules[] | select(.__service_tag == "dns-section-rule-corp") | .rule_set] | first')" '"corp-corp_zone-community"' "dnssection-own-rule-unchanged-by-proxy"
+
+echo 'DONE'
+DSEOF
+    sed -i "s|NETSHIFT_LIB|$NETSHIFT_LIB_DIR|g; s|BIN_PATH|$bin|; s|FACADE_PATH|$facade_lib|" "$drv"
+
+    local ds_out="/tmp/netshift-dnssection-out-$$.log"
+    ash "$drv" > "$ds_out" 2>&1 || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK) pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            DONE) saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$ds_out"
+    if [ "$saw_done" = "1" ]; then
+        pass "dnssection-driver-completed:OK"
+    else
+        fail "dnssection-driver-completed:FAIL (driver aborted early)" "$(tail -20 "$ds_out")"
+    fi
+    rm -f "$drv" "$ds_out"
 }
 
 # ─────────────────────────────────────────────────────────────────
@@ -14634,6 +14859,7 @@ test_urltest_filters() {
     _uf_check "an invalid country code is warned about" "bad-code-warned:ok"
     _uf_check "no keywords and no countries: empty filter (unchanged behaviour)" "no-filter-empty:ok"
 }
+
 # ─────────────────────────────────────────────────────────────────
 # Test: GeoIP country flags for subscription servers
 # ─────────────────────────────────────────────────────────────────
@@ -16050,6 +16276,7 @@ main() {
 
     case "$target" in
         all)
+            test_components_via_proxy
             test_deps
             test_syntax
             test_config
@@ -16097,6 +16324,7 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_dns_section
             test_section_disabled
             test_ipv6_routing
             test_dns_pool
@@ -16161,16 +16389,172 @@ main() {
         cascade)     test_cascade ;;
         priority)    test_priority_selection ;;
         bypass)      test_bypass ;;
+        dnssection)  test_dns_section ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
+        compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy"
             exit 1
             ;;
     esac
 
     summary
+}
+
+test_components_via_proxy() {
+    header "Components via the service proxy"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local updater="${NETSHIFT_LIB_DIR}/updater.sh"
+    if [ ! -r "$bin" ] || [ ! -r "$updater" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ]; then
+        skip "netshift bin / updater.sh / constants.sh not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        for fn in service_proxy_needed get_service_proxy_address; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        for fn in updates_components_proxy_address updates_http_get updates_download_to_file updates_github_resolve_redirect \
+            updates_host_reachable_via_proxy updates_preflight_proxy_for_direction updates_preflight_host_for_direction \
+            updates_preflight_connectivity updates_selfheal_connectivity updates_ensure_connectivity; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$updater")"
+        done
+        updates_log() { :; }
+
+        CP_LISTS=0; CP_COMP=0
+        config_get_bool() {
+            case "$3" in
+            download_lists_via_proxy) eval "$1=\"$CP_LISTS\"" ;;
+            download_components_via_proxy) eval "$1=\"$CP_COMP\"" ;;
+            *) eval "$1=\"$4\"" ;;
+            esac
+        }
+        # curl stub: records whether -x was used; CP_PROXY_OK=0 makes proxied calls fail
+        CPLOGF="/tmp/netshift-compproxy-log-$$"
+        : > "$CPLOGF"
+        curl() {
+            local proxied=direct a out=""
+            for a in "$@"; do
+                [ "$a" = "-x" ] && proxied=proxy
+            done
+            while [ $# -gt 0 ]; do
+                [ "$1" = "-o" ] && out="$2"
+                shift
+            done
+            printf "%s " "$proxied" >> "$CPLOGF"
+            if [ "$proxied" = proxy ] && [ "${CP_PROXY_OK:-1}" = 0 ]; then
+                return 22
+            fi
+            [ -n "$out" ] && echo data > "$out"
+            echo "body-$proxied"
+            return 0
+        }
+        wget() { return 1; }
+        updates_http_get_once() {
+            if [ -n "$2" ]; then printf "get-proxy " >> "$CPLOGF"; else printf "get-direct " >> "$CPLOGF"; fi
+            if [ -n "$2" ] && [ "${CP_PROXY_OK:-1}" = 0 ]; then return 22; fi
+            echo "body"
+        }
+        D="/tmp/netshift-compproxy-$$"
+        LOGRESET() { : > "$CPLOGF"; }
+
+        for flags in "0 0:no" "1 0:yes" "0 1:yes" "1 1:yes"; do
+            CP_LISTS="${flags%% *}"; CP_COMP="${flags#* }"; CP_COMP="${CP_COMP%%:*}"
+            if service_proxy_needed; then got=yes; else got=no; fi
+            echo "needed-$CP_LISTS$CP_COMP:$got"
+        done
+
+        # flag off: direct only, and no proxy address for components
+        CP_LISTS=0; CP_COMP=0
+        echo "off-address:[$(updates_components_proxy_address)]"
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "off-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_http_get https://x/api > /dev/null; echo "off-get:$(cat "$CPLOGF" | sed "s/ *$//")"
+        # lists-only proxy does not carry components
+        CP_LISTS=1; CP_COMP=0
+        echo "lists-only-address:[$(updates_components_proxy_address)]"
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "lists-only-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+
+        # components-only: the list downloads get no service proxy address
+        CP_LISTS=0; CP_COMP=1
+        echo "components-only-lists-address:[$(get_service_proxy_address)]"
+        CP_LISTS=1; CP_COMP=0
+        echo "lists-only-lists-address:$(get_service_proxy_address)"
+        CP_LISTS=1; CP_COMP=1
+        echo "both-lists-address:$(get_service_proxy_address)"
+        CP_LISTS=0; CP_COMP=0
+        echo "off-lists-address:[$(get_service_proxy_address)]"
+
+        # flag on: proxy first
+        CP_LISTS=0; CP_COMP=1; CP_PROXY_OK=1
+        [ "$(updates_components_proxy_address)" = "$SB_SERVICE_MIXED_INBOUND_ADDRESS:$SB_SERVICE_MIXED_INBOUND_PORT" ] && echo "on-address:service-proxy" || echo "on-address:wrong"
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "on-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_http_get https://x/api > /dev/null; echo "on-get:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_github_resolve_redirect https://x/latest > /dev/null; echo "on-redirect:$(cat "$CPLOGF" | sed "s/ *$//")"
+        # flag on, proxy down: falls back to direct
+        CP_PROXY_OK=0
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "down-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_http_get https://x/api > /dev/null; echo "down-get:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_github_resolve_redirect https://x/latest > /dev/null; echo "down-redirect:$(cat "$CPLOGF" | sed "s/ *$//")"
+
+        # Install pre-flight (GitHub blocked for the router itself: no DNS, no direct HTTPS).
+        # With the flag on, reachability through the proxy decides; the redirect that carries
+        # the proxy is never torn down.
+        UPDATES_GITHUB_PROBE_HOST=github.test
+        UPDATES_FEED_PROBE_HOST=feeds.test
+        updates_dns_resolves() { return 1; }
+        updates_host_reachable() { printf "direct-probe " >> "$CPLOGF"; return 1; }
+        updates_write_temp_resolver() { return 1; }
+        updates_teardown_redirect() { printf "teardown " >> "$CPLOGF"; return 0; }
+        CP_LISTS=0; CP_COMP=1; CP_PROXY_OK=1
+        LOGRESET; updates_ensure_connectivity extended; echo "preflight-on-proxy-ok:$?:$(sed "s/ *$//" "$CPLOGF")"
+        CP_PROXY_OK=0
+        LOGRESET; updates_ensure_connectivity extended; echo "preflight-on-proxy-down:$?:$(sed "s/ *$//" "$CPLOGF")"
+        # flag off: the old behaviour (tear the redirect down to find a direct way) is unchanged
+        CP_COMP=0
+        LOGRESET; updates_ensure_connectivity extended; echo "preflight-off-blocked:$?:$(sed "s/ *$//" "$CPLOGF")"
+        # the package feeds are not fetched through the proxy: stable keeps the direct probe
+        CP_COMP=1; CP_PROXY_OK=1
+        LOGRESET; updates_ensure_connectivity stable; echo "preflight-stable-direct:$?:$(sed "s/ *$//" "$CPLOGF")"
+        rm -f "$D" "$CPLOGF"
+    )"
+
+    _cp_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _cp_check "neither flag: no service proxy" "needed-00:no"
+    _cp_check "lists flag creates the service proxy" "needed-10:yes"
+    _cp_check "components flag creates the service proxy" "needed-01:yes"
+    _cp_check "both flags create it" "needed-11:yes"
+    _cp_check "flag off: components have no proxy address" "off-address:[]"
+    _cp_check "flag off: downloads are direct" "off-download:direct"
+    _cp_check "flag off: release lookups are direct" "off-get:get-direct"
+    _cp_check "lists-only proxy does not carry components" "lists-only-address:[]"
+    _cp_check "lists-only: component download stays direct" "lists-only-download:direct"
+    _cp_check "components-only: the list downloads get no service proxy address" "components-only-lists-address:[]"
+    _cp_check "lists-only: the list downloads use the service proxy address" "lists-only-lists-address:127.0.0.1:4534"
+    _cp_check "both flags: the list downloads use the service proxy address" "both-lists-address:127.0.0.1:4534"
+    _cp_check "no flag: no list proxy address" "off-lists-address:[]"
+    _cp_check "flag on: the service proxy address is used" "on-address:service-proxy"
+    _cp_check "flag on: download goes through the proxy" "on-download:proxy"
+    _cp_check "flag on: release lookup goes through the proxy first" "on-get:get-proxy"
+    _cp_check "flag on: redirect lookup goes through the proxy" "on-redirect:proxy"
+    _cp_check "proxy down: download falls back to direct" "down-download:proxy direct"
+    _cp_check "proxy down: release lookup falls back to direct" "down-get:get-proxy get-direct"
+    _cp_check "proxy down: redirect lookup falls back to direct" "down-redirect:proxy direct"
+    _cp_check "install pre-flight: GitHub is probed through the proxy, no heal needed" "preflight-on-proxy-ok:0:proxy"
+    _cp_check "install pre-flight: proxy down, the redirect that carries the proxy is not torn down" "preflight-on-proxy-down:1:proxy"
+    _cp_check "install pre-flight: flag off tears the redirect down as before" "preflight-off-blocked:1:teardown"
+    _cp_check "install pre-flight: stable direction does not use the proxy" "preflight-stable-direct:1:teardown"
 }
 
 main "$@"
