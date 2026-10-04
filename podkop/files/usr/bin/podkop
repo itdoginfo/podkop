@@ -2152,21 +2152,9 @@ check_sing_box() {
         # Check version (must be >= 1.12.4)
         local version
         version=$(sing-box version 2> /dev/null | head -n 1 | awk '{print $3}')
-        if [ -n "$version" ]; then
-            version=$(echo "$version" | sed 's/^v//')
-            local major
-            local minor
-            local patch
-            major=$(echo "$version" | cut -d. -f1)
-            minor=$(echo "$version" | cut -d. -f2)
-            patch=$(echo "$version" | cut -d. -f3)
-
-            # Compare version: must be >= 1.12.4
-            if [ "$major" -gt 1 ] ||
-                [ "$major" -eq 1 ] && [ "$minor" -gt 12 ] ||
-                [ "$major" -eq 1 ] && [ "$minor" -eq 12 ] && [ "$patch" -ge 4 ]; then
-                sing_box_version_ok=1
-            fi
+        version="${version#v}"
+        if [ -n "$version" ] && is_min_package_version "$version" "1.12.4"; then
+            sing_box_version_ok=1
         fi
     fi
 
