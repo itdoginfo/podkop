@@ -565,6 +565,15 @@ function createSectionContent(section) {
     _("Bypass sing-box"),
     _(
       "The subnets of this exclusion section never enter sing-box: the router sends them out directly, which saves CPU, especially with Global Proxy. Only subnets and IP lists are bypassed; domains still pass through sing-box.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends("connection_type", "exclusion");
+
+  o = section.taboption(
+    "connection",
+    form.Flag,
     "reality_mlkem",
     _("Reality: post-quantum key share (X25519MLKEM768)"),
     _(
@@ -573,7 +582,6 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
-  o.depends("connection_type", "exclusion");
   // Not offered for a hand-written outbound JSON (it carries its own TLS block)
   [
     "url",

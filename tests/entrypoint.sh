@@ -15627,7 +15627,7 @@ test_bypass() {
     _bp_check "v6 bypass rule with IPv6" "marks-on-v6-rule:1"
     _bp_check "bypass_excluded_ips off: no device rules" "source-flag-off:[]"
     _bp_check "device rules: the device's FakeIP traffic is still marked into sing-box, then the rest returns (IPv4 only without IPv6)" "source-v4-only:add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 ip daddr 198.18.0.0/15 meta mark set 0x00100000 counter;add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 counter return;"
-    _bp_check "device rules: IPv6 devices with IPv6" "source-v4-and-v6:add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 ip daddr 198.18.0.0/15 meta mark set 0x00100000 counter;add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 counter return;add rule inet T mangle iifname @interfaces ip6 saddr 2001:db8::5 ip6 daddr fd00:ec3a::/32 meta mark set 0x00100000 counter;add rule inet T mangle iifname @interfaces ip6 saddr 2001:db8::5 counter return;"
+    _bp_check "device rules: IPv6 devices with IPv6" "source-v4-and-v6:add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 ip daddr 198.18.0.0/15 meta mark set 0x00100000 counter;add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 counter return;add rule inet T mangle iifname @interfaces ip6 saddr 2001:db8::5 ip6 daddr ${SB_FAKEIP_INET6_RANGE} meta mark set 0x00100000 counter;add rule inet T mangle iifname @interfaces ip6 saddr 2001:db8::5 counter return;"
     _bp_check "device bypass on an empty device list: nothing added, warned" "source-empty-list:[] warned=1"
     _bp_check "a non-empty device list: no warning" "source-list-no-warning:0"
     _bp_check "a disabled bypass section requests nothing" "requested-disabled-section:no"
