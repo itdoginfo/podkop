@@ -6273,12 +6273,14 @@ FDEOF
     fi
 
     # configure_outbound_handler reaps orphans once the URL list is known and
-    # before any feed is downloaded.
+    # before any feed is downloaded. The "no URL" arm is matched by its own
+    # message (the sibling empty-field arms use mark_section_without_links too,
+    # and the enumeration warning above it also contains "subscription URL").
     local reap_order
     reap_order="$(awk '
         /^configure_outbound_handler\(\) \{/{p=1}
         !p{next}
-        /Subscription URL is not set/{print "empty-check"}
+        /subscription URL \(subscription_url\)/{print "empty-check"}
         /reap_orphan_subscription_cache_files "\$section" "\$subscription_urls_tmp"/{print "reap"}
         /Per-feed download/{print "download"}
         /^\}/{exit}
@@ -15901,6 +15903,9 @@ test_bypass() {
             nft_bypass_requested _nft_bypass_source_ip_handler nft_bypass_source_ips; do
             eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
         done
+        # nft_bypass_source_ips reads routing_excluded_ips through the scalar-aware
+        # wrapper, which lives in helpers.sh (the bin sources it at runtime).
+        eval "$(awk -v f="netshift_config_list_foreach" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "${NETSHIFT_LIB_DIR}/helpers.sh")"
         eval "$(awk '/^nft_add_selective_marking_rules\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$nftsh")"
         BP_LOGF="/tmp/netshift-bypass-log-$$"; : > "$BP_LOGF"
         log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$BP_LOGF"; }

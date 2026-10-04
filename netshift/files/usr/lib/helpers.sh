@@ -435,38 +435,31 @@ migration_rename_config_key() {
 
 # Like config_list_foreach, but also works for an option that is NOT a UCI list.
 #
-# config_list_foreach iterates ONLY list values: it walks the
+# config_list_foreach iterates ONLY list values: it reads the
 # <option>_LENGTH / <option>_ITEMn variables that uci_load creates for a `list`.
 # For a scalar option (`uci set netshift.settings.routing_excluded_ips=10.0.0.5`,
 # a hand-edited file, a config written by a script or by an older version) those
-# variables do not exist, so the callback is called ZERO times and the value is
-# silently ignored — while config_get still returns it. PROVEN on hardware and
-# against OpenWrt's /lib/functions.sh. This wrapper keeps the list path (so list
-# items are never re-split on whitespace) and falls back to word-splitting the
-# scalar value only when the list path produced nothing.
+# variables do not exist, so the callback was called ZERO times and the value was
+# silently ignored — while config_get still returns it. PROVEN against OpenWrt's
+# /lib/functions.sh and on hardware. The shape is decided up front with the same
+# <option>_LENGTH variable config_list_foreach itself uses, so list items are never
+# re-split on whitespace; only a scalar value is word-split (the same fallback
+# get_subscription_urls_for_section has always had for a scalar subscription_url).
 # Usage: netshift_config_list_foreach <section> <option> <handler> [args...]
 # The handler is called as `<handler> <item> [args...]`.
-_netshift_list_option_dispatch() {
-    NETSHIFT_LIST_OPTION_SEEN=1
-
-    local item="$1"
-    local handler="$2"
-
-    shift 2
-    "$handler" "$item" "$@"
-}
-
 netshift_config_list_foreach() {
     local section="$1"
     local option="$2"
     local handler="$3"
-    local raw item
+    local len raw item
 
     shift 3
 
-    NETSHIFT_LIST_OPTION_SEEN=""
-    config_list_foreach "$section" "$option" _netshift_list_option_dispatch "$handler" "$@"
-    [ -n "$NETSHIFT_LIST_OPTION_SEEN" ] && return 0
+    config_get len "$section" "${option}_LENGTH"
+    if [ -n "$len" ]; then
+        config_list_foreach "$section" "$option" "$handler" "$@"
+        return 0
+    fi
 
     config_get raw "$section" "$option"
     [ -n "$raw" ] || return 0
