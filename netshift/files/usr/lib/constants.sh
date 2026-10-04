@@ -58,6 +58,9 @@ SUBSCRIPTION_UPDATE_LOCK_DIR="/var/run/netshift-subscription-update.lock"
 # Seconds a scheduled/CLI run waits for a running update before it gives up
 # (the dashboard does not wait: it reports "already running" at once).
 SUBSCRIPTION_UPDATE_LOCK_WAIT=300
+# How many times taking the lock may retry a step that should succeed at once
+# (creating the lock directory, taking over a stale lock) before it gives up.
+SUBSCRIPTION_UPDATE_LOCK_RETRIES=3
 # Exit code of `netshift subscription_update` when another update holds the lock.
 SUBSCRIPTION_UPDATE_BUSY=4
 # Interval a subscription section runs on when its own

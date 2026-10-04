@@ -3132,32 +3132,88 @@ subscription_update_unlocked() {
     fi
 }
 
+# Start time of process $1 (field 22 of /proc/<pid>/stat), empty when it cannot
+# be read. The command name (field 2) may contain spaces and parentheses, so the
+# fields are counted after the LAST ")".
+subscription_update_lock_process_start() {
+    local stat_line
+
+    stat_line="$(cat "/proc/$1/stat" 2> /dev/null)" || return 0
+    stat_line="${stat_line##*) }"
+    # shellcheck disable=SC2086
+    set -- $stat_line
+    [ "$#" -ge 20 ] && printf '%s' "${20}"
+}
+
 # True when the process that took the subscription update lock is still there.
-# A pid that is alive but is not a netshift run (the owner was killed and the
-# pid went to something else) does not count, or the lock would stay taken for
-# as long as that unrelated process lives.
+# $1 = owner pid, $2 = the start time the owner recorded with the lock. A pid
+# alone is not enough: after the owner is killed the pid can be handed to
+# another process, and the lock would stay taken for as long as that one lives.
+# So the recorded start time must match; a lock without one (written by an
+# older build) falls back to "the pid belongs to a netshift run".
 subscription_update_lock_owner_alive() {
-    local owner_pid="$1"
+    local owner_pid="$1" owner_start="$2"
 
     case "$owner_pid" in
     '' | *[!0-9]*) return 1 ;;
     esac
     kill -0 "$owner_pid" 2> /dev/null || return 1
+    if [ -n "$owner_start" ]; then
+        [ "$(subscription_update_lock_process_start "$owner_pid")" = "$owner_start" ]
+        return $?
+    fi
     [ -r "/proc/$owner_pid/cmdline" ] || return 0
     tr '\000' ' ' < "/proc/$owner_pid/cmdline" 2> /dev/null | grep -q "netshift"
+}
+
+# Removes a lock whose owner ($1 = the pid read from it) is gone. The directory
+# is first RENAMED to a private name: of several waiters that saw the same dead
+# owner only one rename succeeds, so nobody deletes the directory a faster
+# waiter has just created. If the renamed lock turns out to carry another pid,
+# it changed hands in between and is put back.
+subscription_update_lock_take_over() {
+    local owner_pid="$1"
+    local stale_dir="$SUBSCRIPTION_UPDATE_LOCK_DIR.stale.$$"
+
+    rm -rf "$stale_dir"
+    mv "$SUBSCRIPTION_UPDATE_LOCK_DIR" "$stale_dir" 2> /dev/null || return 0
+    if [ "$(cat "$stale_dir/pid" 2> /dev/null)" != "$owner_pid" ] &&
+        mv "$stale_dir" "$SUBSCRIPTION_UPDATE_LOCK_DIR" 2> /dev/null; then
+        return 0
+    fi
+    rm -rf "$stale_dir"
 }
 
 # Takes the subscription update lock. $1 = "wait" (default): poll for up to
 # SUBSCRIPTION_UPDATE_LOCK_WAIT seconds; "nowait": fail at once when a live
 # owner holds it. A lock whose owner is gone (killed, OOM, the restart an
 # update triggers) is taken over. Returns 0 with the lock held, 1 otherwise.
+#
+# Every path through the loop is bounded: a lock directory that cannot be
+# created at all (tmpfs full, read-only /var/run) and a lock that keeps coming
+# back stale both end in "return 1" after a few tries, never in a spin.
 subscription_update_lock_acquire() {
     local mode="${1:-wait}"
-    local waited=0 owner_pid ownerless_checks=0
+    local waited=0 owner_pid owner_start ownerless_checks=0
+    local takeovers=0 create_failures=0
 
     mkdir -p "${SUBSCRIPTION_UPDATE_LOCK_DIR%/*}" 2> /dev/null
     while ! mkdir "$SUBSCRIPTION_UPDATE_LOCK_DIR" 2> /dev/null; do
+        if [ ! -d "$SUBSCRIPTION_UPDATE_LOCK_DIR" ]; then
+            # Not "already taken": the directory cannot be created (or the
+            # owner released it this instant - hence a few tries).
+            create_failures=$((create_failures + 1))
+            if [ "$create_failures" -ge "$SUBSCRIPTION_UPDATE_LOCK_RETRIES" ]; then
+                log "Cannot create the subscription update lock '$SUBSCRIPTION_UPDATE_LOCK_DIR' (no space left or the directory is not writable)" "error"
+                return 1
+            fi
+            sleep 1
+            waited=$((waited + 1))
+            continue
+        fi
+
         owner_pid="$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid" 2> /dev/null)"
+        owner_start="$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR/start" 2> /dev/null)"
         if [ -z "$owner_pid" ] && [ "$ownerless_checks" -eq 0 ]; then
             # The owner may sit between its mkdir and writing the pid: look
             # once more before calling the lock abandoned.
@@ -3166,9 +3222,21 @@ subscription_update_lock_acquire() {
             waited=$((waited + 1))
             continue
         fi
-        if ! subscription_update_lock_owner_alive "$owner_pid"; then
+        if ! subscription_update_lock_owner_alive "$owner_pid" "$owner_start"; then
+            takeovers=$((takeovers + 1))
+            if [ "$takeovers" -gt "$SUBSCRIPTION_UPDATE_LOCK_RETRIES" ]; then
+                log "Subscription update lock '$SUBSCRIPTION_UPDATE_LOCK_DIR' is stale and could not be taken over; giving up" "error"
+                return 1
+            fi
             log "Subscription update lock is stale (owner pid '${owner_pid:-unknown}' is gone); taking it over" "warn"
-            rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+            subscription_update_lock_take_over "$owner_pid"
+            # The first takeover retries at once; a repeated one means
+            # something keeps recreating or pinning the lock, so pace it.
+            if [ "$takeovers" -gt 1 ]; then
+                sleep 1
+                waited=$((waited + 1))
+            fi
+            ownerless_checks=0
             continue
         fi
 
@@ -3179,7 +3247,14 @@ subscription_update_lock_acquire() {
         ownerless_checks=0
     done
 
-    echo "$$" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
+    # Without its pid the lock would look abandoned to everyone else.
+    if ! echo "$$" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"; then
+        log "Cannot write the owner of the subscription update lock '$SUBSCRIPTION_UPDATE_LOCK_DIR'" "error"
+        rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+        return 1
+    fi
+    subscription_update_lock_process_start "$$" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/start" 2> /dev/null
+    return 0
 }
 
 subscription_update_lock_release() {

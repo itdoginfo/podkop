@@ -6557,6 +6557,31 @@ another stray line {not-json}
         fail "finished status warning not empty" "$status_json"
     fi
 
+    # ── 2e. the dispatcher hands the subscription actions to their workers ──
+    # The shipped component_action, with the two workers replaced by recorders:
+    # `update_feed` must pass section and feed tag on as two intact arguments.
+    local disp_out
+    disp_out="$(
+        # shellcheck disable=SC1090
+        . "$NETSHIFT_LIB_DIR/constants.sh"
+        # shellcheck disable=SC1090
+        . "$NETSHIFT_LIB_DIR/updater.sh"
+        subscription_update_feed_worker() { printf 'feed:%s:[%s][%s]
+' "$#" "$1" "$2"; }
+        subscription_update_all_worker() { printf 'all:%s
+' "$#"; }
+        component_action subscription update_feed "my sub" "⚡ feed one (2)"
+        component_action subscription update_feed "my sub"
+        component_action subscription update
+    )"
+    if [ "$disp_out" = "feed:2:[my sub][⚡ feed one (2)]
+feed:2:[my sub][]
+all:0" ]; then
+        pass "component_action routes subscription update / update_feed to their workers"
+    else
+        fail "component_action did not route the subscription actions" "$disp_out"
+    fi
+
     # ── 2b. extra arguments reach the worker untouched ──────────────────────
     # `subscription update_feed <section> <feed>`: the feed is a sing-box tag
     # with a space and a non-ASCII prefix, so it must arrive as ONE argument.
@@ -8447,7 +8472,7 @@ for fn in is_valid_subscription_update_time \
           remove_cron_job \
           foreach_active_section _active_section_dispatch section_is_disabled \
           subscription_update subscription_update_unlocked \
-          subscription_update_lock_owner_alive subscription_update_lock_acquire \
+          subscription_update_lock_process_start subscription_update_lock_take_over           subscription_update_lock_owner_alive subscription_update_lock_acquire \
           subscription_update_lock_release subscription_update_worker_result \
           get_subscription_feed_display_name \
           subscription_resolve_feed_url_by_name subscription_resolve_feed_url \
@@ -9531,6 +9556,106 @@ if [ "$rc" -eq 0 ] && [ ! -e "$SUBSCRIPTION_UPDATE_LOCK_DIR" ]; then
 else
     echo "subcron:lock-ownerless-taken-over:FAIL [rc=$rc]"
 fi
+
+# The lock directory cannot be created at all (tmpfs full, read-only parent):
+# every mode must come back with the busy code, not spin on the takeover path.
+real_lock_dir="$SUBSCRIPTION_UPDATE_LOCK_DIR"
+: > "$WORK/not-a-directory"
+SUBSCRIPTION_UPDATE_LOCK_DIR="$WORK/not-a-directory/lock"
+: > "$LOG_FILE"
+: > "$WORK/updated.log"
+for lock_mode in nowait wait; do
+    SUBSCRIPTION_UPDATE_LOCK_MODE="$lock_mode"
+    subscription_update 30m > /dev/null 2>&1 &
+    spin_pid=$!
+    spin_waited=0
+    while kill -0 "$spin_pid" 2> /dev/null && [ "$spin_waited" -lt 15 ]; do
+        sleep 1
+        spin_waited=$((spin_waited + 1))
+    done
+    if kill -0 "$spin_pid" 2> /dev/null; then
+        kill "$spin_pid" 2> /dev/null
+        echo "subcron:lock-uncreatable-$lock_mode:FAIL [still running after ${spin_waited}s]"
+    else
+        wait "$spin_pid"
+        rc=$?
+        if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] && [ ! -s "$WORK/updated.log" ] &&
+            [ "$(grep -c "lock is stale" "$LOG_FILE")" -eq 0 ] &&
+            grep -q "Cannot create the subscription update lock" "$LOG_FILE"; then
+            echo "subcron:lock-uncreatable-$lock_mode:OK"
+        else
+            echo "subcron:lock-uncreatable-$lock_mode:FAIL [rc=$rc]"
+        fi
+    fi
+done
+unset SUBSCRIPTION_UPDATE_LOCK_MODE
+SUBSCRIPTION_UPDATE_LOCK_DIR="$real_lock_dir"
+
+# A lock that cannot be taken over (it keeps coming back stale) ends after a
+# bounded number of tries, each logged once.
+subscription_update_lock_take_over() { :; }
+mkdir -p "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+echo "999999" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
+: > "$LOG_FILE"
+SUBSCRIPTION_UPDATE_LOCK_MODE=nowait
+subscription_update 30m > /dev/null 2>&1
+rc=$?
+unset SUBSCRIPTION_UPDATE_LOCK_MODE
+if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] &&
+    [ "$(grep -c "lock is stale" "$LOG_FILE")" -eq "$SUBSCRIPTION_UPDATE_LOCK_RETRIES" ] &&
+    grep -q "could not be taken over" "$LOG_FILE"; then
+    echo 'subcron:lock-takeover-bounded:OK'
+else
+    echo "subcron:lock-takeover-bounded:FAIL [rc=$rc stale=$(grep -c "lock is stale" "$LOG_FILE")]"
+fi
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+eval "$(extract subscription_update_lock_take_over)"
+
+# The owner records its start time: a live netshift process that merely got the
+# dead owner's pid does not keep the lock.
+hold_lock
+echo "1" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/start"
+: > "$WORK/updated.log"
+rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+SUBSCRIPTION_UPDATE_LOCK_MODE=nowait
+subscription_update 30m > /dev/null 2>&1
+rc=$?
+unset SUBSCRIPTION_UPDATE_LOCK_MODE
+drop_lock_holder
+if [ "$rc" -eq 0 ] && [ -s "$WORK/updated.log" ]; then
+    echo 'subcron:lock-reused-pid-by-netshift-taken-over:OK'
+else
+    echo "subcron:lock-reused-pid-by-netshift-taken-over:FAIL [rc=$rc]"
+fi
+# ...and the matching start time keeps it.
+hold_lock
+subscription_update_lock_process_start "$HOLDER_PID" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/start"
+SUBSCRIPTION_UPDATE_LOCK_MODE=nowait
+subscription_update 30m > /dev/null 2>&1
+rc=$?
+unset SUBSCRIPTION_UPDATE_LOCK_MODE
+if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] && [ -s "$SUBSCRIPTION_UPDATE_LOCK_DIR/start" ]; then
+    echo 'subcron:lock-start-time-match-busy:OK'
+else
+    echo "subcron:lock-start-time-match-busy:FAIL [rc=$rc]"
+fi
+drop_lock_holder
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+
+# Two waiters that saw the same dead owner: the slower one must not delete the
+# lock the faster one has just taken.
+mkdir -p "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+echo "999999" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
+subscription_update_lock_take_over "999999"
+mkdir "$SUBSCRIPTION_UPDATE_LOCK_DIR" && echo "4242" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
+subscription_update_lock_take_over "999999"
+if [ "$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid" 2> /dev/null)" = "4242" ] &&
+    [ -z "$(ls -d "$SUBSCRIPTION_UPDATE_LOCK_DIR".stale.* 2> /dev/null)" ]; then
+    echo 'subcron:lock-takeover-keeps-new-owner:OK'
+else
+    echo "subcron:lock-takeover-keeps-new-owner:FAIL [pid=$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid" 2> /dev/null)]"
+fi
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
 
 # ── dashboard workers: `component_action subscription update[_feed]` ──
 # 'fast' has two feeds on one host, so their dashboard blocks are named
