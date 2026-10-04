@@ -1230,11 +1230,34 @@ test_block_leaks() {
     # shellcheck disable=SC1090
     . "$lib/constants.sh"
 
-    if [ -n "$NFT_GUARD_TABLE_NAME" ] && [ -n "$NFT_GUARD_SUBNET_SET_NAME" ]; then
+    if [ -n "$NFT_GUARD_TABLE_NAME" ] && [ -n "$NFT_GUARD_SUBNET_SET_NAME" ] &&
+        [ -n "$NFT_GUARD_BYPASS_SET_NAME" ] && [ -n "$NFT_LOCALV4_ELEMENTS" ]; then
         pass "blockleaks:constants — guard table/set constants defined"
     else
         fail "blockleaks:constants — guard table/set constants missing"
         return
+    fi
+
+    # ── start order: the guard is rebuilt only after the sets are filled ──
+    # create_nft_rules leaves the union set EMPTY and sing_box_init_config is
+    # what fills it, so a rebuild between the two would swap a working guard
+    # for one without a single subnet (the first revision of this feature did).
+    local start_body apply_line init_line create_line
+    start_body="$(awk '/^start_main\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+    apply_line="$(printf '%s\n' "$start_body" | grep -n 'kill_switch_apply' | head -n 1 | cut -d: -f1)"
+    init_line="$(printf '%s\n' "$start_body" | grep -n '^[[:space:]]*sing_box_init_config$' | head -n 1 | cut -d: -f1)"
+    create_line="$(printf '%s\n' "$start_body" | grep -n '^[[:space:]]*create_nft_rules$' | head -n 1 | cut -d: -f1)"
+    if [ -n "$apply_line" ] && [ -n "$init_line" ] && [ -n "$create_line" ] &&
+        [ "$create_line" -lt "$init_line" ] && [ "$init_line" -lt "$apply_line" ] &&
+        [ "$(printf '%s\n' "$start_body" | grep -c 'kill_switch_apply')" -eq 1 ]; then
+        pass "blockleaks:order — start_main rebuilds the guard once, after the sets are populated"
+    else
+        fail "blockleaks:order — kill_switch_apply must run once, after sing_box_init_config" "create=$create_line init=$init_line apply=$apply_line"
+    fi
+    if awk '/^list_update\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin" | grep -q 'kill_switch_apply'; then
+        fail "blockleaks:order — list_update must not rebuild the guard (it is mirrored incrementally)"
+    else
+        pass "blockleaks:order — list_update relies on the incremental mirror, no rebuild"
     fi
 
     local drv="/tmp/netshift-blockleaks-$$.sh"
@@ -1247,20 +1270,26 @@ BIN="BIN_PATH_PLACEHOLDER"
 # shellcheck disable=SC1090
 . "$LIB/helpers.sh"
 # shellcheck disable=SC1090
+. "$LIB/nft.sh"
+# shellcheck disable=SC1090
 . "$LIB/kill_switch.sh"
 
-# Unique tables: never touch the real NetShiftTable / NetShiftGuard.
+# Unique tables and scratch space: never touch the real NetShiftTable /
+# NetShiftGuard.
 NFT_TABLE_NAME="$SCN_TABLE"
 NFT_GUARD_TABLE_NAME="$SCN_GUARD"
+TMP_SING_BOX_FOLDER="/tmp/$SCN_GUARD.tmp"
 
-log() { :; }
+log() { [ "$2" = "error" ] && echo "LOG-ERROR: $1"; return 0; }
 
 netshift_ipv6_enabled() { [ "${SCN_IPV6:-0}" = "1" ]; }
 get_global_proxy_section() { printf '%s' "${SCN_GLOBALPROXY:-}"; }
 foreach_active_section() { [ -n "${SCN_FULLROUTED:-}" ] || return 0; "$1" "frsec"; }
 config_list_foreach() {
-    [ "$2" = "fully_routed_ips" ] || return 0
-    for _ip in ${SCN_FULLROUTED:-}; do "$3" "$_ip"; done
+    case "$2" in
+    fully_routed_ips) for _ip in ${SCN_FULLROUTED:-}; do "$3" "$_ip"; done ;;
+    routing_excluded_ips) for _ip in ${SCN_EXCLUDED:-}; do "$3" "$_ip"; done ;;
+    esac
 }
 config_get() {
     eval "$1=\"\${4:-}\""
@@ -1274,82 +1303,227 @@ config_get_bool() {
     eval "$1=\"\${4:-0}\""
     case "$3" in
     block_leaks) eval "$1=\"${SCN_BLOCKLEAKS:-1}\"" ;;
+    block_doh) eval "$1=\"${SCN_BLOCKDOH:-0}\"" ;;
+    exclude_ntp) eval "$1=\"${SCN_NTP:-0}\"" ;;
+    bypass_excluded_ips) [ -n "${SCN_EXCLUDED:-}" ] && eval "$1=1" ;;
     dont_touch_dhcp) eval "$1=\"0\"" ;;
     esac
+    return 0
 }
 dnsmasq_is_configured_for_netshift() { return 1; }
 
-# The gate that stops DNS being handed back while sing-box is down.
-eval "$(awk -v f="dnsmasq_should_be_restored" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+extract() { awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN"; }
 
-# Fake "main" table carrying the union subnet set kill_switch_apply reads back.
-nft add table inet "$SCN_TABLE"
-nft add set inet "$SCN_TABLE" "$NFT_COMMON_SET_NAME" '{ type ipv4_addr; flags interval; auto-merge; }'
-nft add element inet "$SCN_TABLE" "$NFT_COMMON_SET_NAME" '{ 203.0.113.0/24, 198.51.100.10 }'
+# The gate that stops DNS being handed back while sing-box is down, and the
+# SHIPPED functions that fill the sets (the only place they grow).
+eval "$(extract dnsmasq_should_be_restored)"
+eval "$(extract populate_netshift_subnets_from_file)"
+eval "$(extract populate_netshift_subnets_from_string)"
 
-kill_switch_apply
+# What create_nft_rules leaves behind: the sets exist and are EMPTY.
+new_main_table() {
+    nft delete table inet "$SCN_TABLE" 2> /dev/null
+    nft add table inet "$SCN_TABLE"
+    nft add set inet "$SCN_TABLE" "$NFT_COMMON_SET_NAME" '{ type ipv4_addr; flags interval; auto-merge; }'
+    nft add set inet "$SCN_TABLE" "$NFT_BYPASS_SET_NAME" '{ type ipv4_addr; flags interval; auto-merge; }'
+}
+
+# The same sequence start_main runs: empty sets, config generation fills them
+# (mirror suspended), then the guard is rebuilt.
+start_sequence() {
+    KILL_SWITCH_MIRROR_SUSPENDED=1
+    new_main_table
+    # 198.51.x / 203.0.113.x are documentation ranges (in localv4): fine as set
+    # members here, the test only looks at what lands in which set. The two
+    # adjacent /24 are listed back by nft as ONE range (a-b), not a CIDR.
+    populate_netshift_subnets_from_string "203.0.113.0/24 198.51.100.10 45.9.1.0/24 45.9.2.0/24"
+    NFT_SUBNET_SET="$NFT_BYPASS_SET_NAME" populate_netshift_subnets_from_string "45.77.0.0/16"
+    KILL_SWITCH_MIRROR_SUSPENDED=0
+    kill_switch_apply
+    echo "apply-rc=$?"
+}
+
+start_sequence
 
 echo "---GUARD---"
 nft list table inet "$SCN_GUARD" 2>&1 || true
 echo "---DNS---"
 if dnsmasq_should_be_restored; then echo "restore=yes"; else echo "restore=no"; fi
+
+if [ "${SCN_LIFECYCLE:-0}" = "1" ]; then
+    # A list update / hot reload adds to the live sets: the guard follows
+    # without a rebuild.
+    populate_netshift_subnets_from_string "45.88.0.0/16"
+    NFT_SUBNET_SET="$NFT_BYPASS_SET_NAME" populate_netshift_subnets_from_string "45.99.0.0/16"
+    echo "---MIRROR---"
+    nft list set inet "$SCN_GUARD" "$NFT_GUARD_SUBNET_SET_NAME" 2>&1
+    echo "---MIRROR-BYPASS---"
+    nft list set inet "$SCN_GUARD" "$NFT_GUARD_BYPASS_SET_NAME" 2>&1
+
+    # Restart window: stop_main deleted the table, create_nft_rules rebuilt it
+    # empty and the config is still being generated. The previous guard must
+    # still hold every subnet.
+    KILL_SWITCH_MIRROR_SUSPENDED=1
+    new_main_table
+    populate_netshift_subnets_from_string "203.0.113.0/24"
+    echo "---RESTART-WINDOW---"
+    nft list set inet "$SCN_GUARD" "$NFT_GUARD_SUBNET_SET_NAME" 2>&1
+
+    # One-shot release (package removal / self-heal): option still on.
+    NETSHIFT_BLOCK_LEAKS_RELEASE=1
+    kill_switch_enabled || kill_switch_delete
+    echo "---RELEASE---"
+    if nft list table inet "$SCN_GUARD" > /dev/null 2>&1; then echo "guard=present"; else echo "guard=gone"; fi
+    if dnsmasq_should_be_restored; then echo "restore=yes"; else echo "restore=no"; fi
+fi
+
+echo "---LEFTOVERS---"
+ls "$TMP_SING_BOX_FOLDER" 2> /dev/null
+rm -rf "$TMP_SING_BOX_FOLDER"
 BLEOF
     sed -i "s|LIB_DIR_PLACEHOLDER|$lib|; s|BIN_PATH_PLACEHOLDER|$bin|" "$drv"
 
-    # ── option ON: guard built from the mirrored union set ───────────
-    local t1="bl_main_$$" g1="bl_guard_$$" out1 gdump
-    out1="$(SCN_TABLE="$t1" SCN_GUARD="$g1" SCN_BLOCKLEAKS=1 SCN_IPV6=0 \
+    # nft lists a counter with its values: match `counter ... drop`.
+    local cnt='counter packets [0-9]+ bytes [0-9]+ drop'
+    _bl_section() { printf '%s\n' "$1" | sed -n "/^---$2---\$/,/^---/p"; }
+    _bl_chain() { printf '%s\n' "$1" | sed -n "/chain $2 {/,/^[[:space:]]*}/p"; }
+    # Line number (within a chain) of the first line matching the ERE, or empty.
+    _bl_line() { printf '%s\n' "$1" | grep -nE -- "$2" | head -n 1 | cut -d: -f1; }
+
+    # ── option ON: the real start sequence ───────────────────────────
+    local t1="bl_main_$$" g1="bl_guard_$$" out1 gdump fwd outc
+    out1="$(SCN_TABLE="$t1" SCN_GUARD="$g1" SCN_BLOCKLEAKS=1 SCN_IPV6=0 SCN_LIFECYCLE=1 \
         SCN_GLOBALPROXY="" SCN_FULLROUTED="192.168.50.7" sh "$drv" 2>&1)"
     nft delete table inet "$t1" 2>/dev/null || true
     nft delete table inet "$g1" 2>/dev/null || true
-    gdump="$(printf '%s\n' "$out1" | sed -n '/---GUARD---/,/---DNS---/p')"
+    gdump="$(_bl_section "$out1" GUARD)"
+    fwd="$(_bl_chain "$gdump" forward_guard)"
+    outc="$(_bl_chain "$gdump" output_guard)"
 
-    if echo "$gdump" | grep -q "chain forward_guard"; then
+    if printf '%s\n' "$out1" | grep -q '^apply-rc=0$' && ! printf '%s\n' "$out1" | grep -q 'LOG-ERROR'; then
+        pass "blockleaks:apply — the guard is rebuilt without errors"
+    else
+        fail "blockleaks:apply — kill_switch_apply failed" "$(printf '%s\n' "$out1" | grep -E 'apply-rc|LOG-ERROR|rror' || echo "$out1")"
+    fi
+    if [ -n "$fwd" ]; then
         pass "blockleaks:forward — forward_guard chain created"
     else
         fail "blockleaks:forward — forward_guard chain missing" "$out1"
     fi
-    if echo "$gdump" | grep -Eq "iifname @$NFT_GUARD_INTERFACE_SET_NAME ip daddr @$NFT_GUARD_SUBNET_SET_NAME drop$"; then
-        pass "blockleaks:forward — proxied destinations dropped from LAN"
+    if echo "$fwd" | grep -Eq "iifname @$NFT_GUARD_INTERFACE_SET_NAME ip daddr @$NFT_GUARD_SUBNET_SET_NAME $cnt\$"; then
+        pass "blockleaks:forward — proxied destinations dropped from LAN (with a counter)"
     else
         fail "blockleaks:forward — LAN->proxied drop rule missing" "$(echo "$gdump" | grep -i 'drop' || echo "$gdump")"
     fi
-    if echo "$gdump" | grep -q "ip daddr $SB_FAKEIP_INET4_RANGE drop"; then
+    if echo "$fwd" | grep -Eq "ip daddr $SB_FAKEIP_INET4_RANGE $cnt\$"; then
         pass "blockleaks:fakeip — FakeIP range dropped ($SB_FAKEIP_INET4_RANGE)"
     else
         fail "blockleaks:fakeip — FakeIP drop rule missing"
     fi
-    if echo "$gdump" | grep -Eq "iifname @$NFT_GUARD_INTERFACE_SET_NAME ip saddr @$NFT_GUARD_SOURCE_SET_NAME drop$"; then
+    if echo "$fwd" | grep -Eq "iifname @$NFT_GUARD_INTERFACE_SET_NAME ip saddr @$NFT_GUARD_SOURCE_SET_NAME $cnt\$"; then
         pass "blockleaks:fullrouted — fully_routed source drop rule present"
     else
         fail "blockleaks:fullrouted — source drop rule missing"
     fi
-    if echo "$gdump" | grep -Eq "^[[:space:]]*ip daddr @$NFT_GUARD_SUBNET_SET_NAME drop$"; then
+    if echo "$outc" | grep -Eq "^[[:space:]]*ip daddr @$NFT_GUARD_SUBNET_SET_NAME $cnt\$"; then
         pass "blockleaks:output — router->proxied drop rule present"
     else
-        fail "blockleaks:output — output drop rule missing" "$(echo "$gdump" | grep -i 'output_guard' || true)"
+        fail "blockleaks:output — output drop rule missing" "$outc"
     fi
-    if echo "$gdump" | grep -q "203.0.113.0/24"; then
-        pass "blockleaks:sets — union subnets mirrored into the guard set"
+    # The regression of the first revision: the guard was built from the set
+    # create_nft_rules had just emptied.
+    if echo "$gdump" | grep -q "203.0.113.0/24" && echo "$gdump" | grep -q "198.51.100.10"; then
+        pass "blockleaks:sets — subnets added by config generation reach the guard"
     else
-        fail "blockleaks:sets — union subnets not mirrored"
+        fail "blockleaks:sets — the guard was built without the proxied subnets" "$(echo "$gdump" | grep -A3 "set $NFT_GUARD_SUBNET_SET_NAME")"
+    fi
+    if echo "$gdump" | grep -q "45.9.1.0-45.9.2.255"; then
+        pass "blockleaks:sets — a merged range (a-b) survives the read-back"
+    else
+        fail "blockleaks:sets — merged range lost in the guard" "$(echo "$gdump" | grep -A3 "set $NFT_GUARD_SUBNET_SET_NAME")"
+    fi
+    if echo "$gdump" | sed -n "/set $NFT_GUARD_BYPASS_SET_NAME {/,/}/p" | grep -q "45.77.0.0/16" &&
+        ! echo "$gdump" | sed -n "/set $NFT_GUARD_SUBNET_SET_NAME {/,/}/p" | grep -q "45.77.0.0/16"; then
+        pass "blockleaks:sets — bypass destinations go to the guard's accept set, not the drop set"
+    else
+        fail "blockleaks:sets — bypass destinations not mirrored correctly" "$(echo "$gdump" | grep -B2 -A3 'elements')"
     fi
     if echo "$gdump" | grep -q "scnl0"; then
         pass "blockleaks:sets — LAN interface mirrored into the guard set"
     else
         fail "blockleaks:sets — LAN interface not mirrored"
     fi
-    if printf '%s\n' "$out1" | grep -q "restore=no"; then
+    if _bl_section "$out1" DNS | grep -q "restore=no"; then
         pass "blockleaks:dns — DNS stays fail-closed while sing-box is down"
     else
         fail "blockleaks:dns — DNS was handed back to the direct resolvers"
+    fi
+
+    # ── marking-model exceptions: never dropped ──────────────────────
+    # mangle returns DNAT-ed flows and local destinations before any mark, so
+    # the guard has to accept them BEFORE its first drop, in both chains.
+    local first_drop dnat_at local_at bypass_at
+    first_drop="$(_bl_line "$fwd" 'drop$')"
+    dnat_at="$(_bl_line "$fwd" 'ct status dnat accept$')"
+    local_at="$(_bl_line "$fwd" "iifname @$NFT_GUARD_INTERFACE_SET_NAME ip daddr \{.*192\.168\.0\.0/16.*\} accept\$")"
+    bypass_at="$(_bl_line "$fwd" "iifname @$NFT_GUARD_INTERFACE_SET_NAME ip daddr @$NFT_GUARD_BYPASS_SET_NAME accept\$")"
+    if [ -n "$first_drop" ] && [ -n "$dnat_at" ] && [ "$dnat_at" -lt "$first_drop" ]; then
+        pass "blockleaks:exceptions — DNAT-ed flows are accepted before any drop"
+    else
+        fail "blockleaks:exceptions — no 'ct status dnat accept' ahead of the drops" "$fwd"
+    fi
+    if [ -n "$first_drop" ] && [ -n "$local_at" ] && [ "$local_at" -lt "$first_drop" ]; then
+        pass "blockleaks:exceptions — local destinations (localv4) are accepted before any drop"
+    else
+        fail "blockleaks:exceptions — localv4 is not accepted ahead of the drops (forward)" "$fwd"
+    fi
+    if [ -n "$first_drop" ] && [ -n "$bypass_at" ] && [ "$bypass_at" -lt "$first_drop" ]; then
+        pass "blockleaks:exceptions — bypass destinations are accepted before any drop"
+    else
+        fail "blockleaks:exceptions — bypass set is not accepted ahead of the drops" "$fwd"
+    fi
+    first_drop="$(_bl_line "$outc" 'drop$')"
+    local_at="$(_bl_line "$outc" '^[[:space:]]*ip daddr \{.*192\.168\.0\.0/16.*\} accept$')"
+    if [ -n "$first_drop" ] && [ -n "$local_at" ] && [ "$local_at" -lt "$first_drop" ]; then
+        pass "blockleaks:exceptions — router traffic to local destinations is accepted before any drop"
+    else
+        fail "blockleaks:exceptions — localv4 is not accepted ahead of the drops (output)" "$outc"
+    fi
+
+    # ── incremental mirror, restart window, one-shot release ─────────
+    if _bl_section "$out1" MIRROR | grep -q "45.88.0.0/16"; then
+        pass "blockleaks:mirror — a later addition to the union set reaches the guard without a rebuild"
+    else
+        fail "blockleaks:mirror — the guard did not follow the union set" "$(_bl_section "$out1" MIRROR)"
+    fi
+    if _bl_section "$out1" MIRROR-BYPASS | grep -q "45.99.0.0/16" &&
+        ! _bl_section "$out1" MIRROR | grep -q "45.99.0.0/16"; then
+        pass "blockleaks:mirror — a later bypass addition reaches the guard's accept set"
+    else
+        fail "blockleaks:mirror — bypass addition not mirrored" "$(_bl_section "$out1" MIRROR-BYPASS)"
+    fi
+    if _bl_section "$out1" RESTART-WINDOW | grep -q "45.88.0.0/16" &&
+        _bl_section "$out1" RESTART-WINDOW | grep -q "198.51.100.10"; then
+        pass "blockleaks:restart — the previous guard keeps every subnet while the new table is still empty"
+    else
+        fail "blockleaks:restart — the guard lost its subnets in the restart window" "$(_bl_section "$out1" RESTART-WINDOW)"
+    fi
+    if _bl_section "$out1" RELEASE | grep -q "guard=gone" && _bl_section "$out1" RELEASE | grep -q "restore=yes"; then
+        pass "blockleaks:release — NETSHIFT_BLOCK_LEAKS_RELEASE=1 drops the guard and hands DNS back, option untouched"
+    else
+        fail "blockleaks:release — the one-shot release did not open the kill switch" "$(_bl_section "$out1" RELEASE)"
+    fi
+    if [ -z "$(_bl_section "$out1" LEFTOVERS | grep -v '^---')" ]; then
+        pass "blockleaks:tmp — no scratch files left behind"
+    else
+        fail "blockleaks:tmp — scratch files left in the tmp folder" "$(_bl_section "$out1" LEFTOVERS)"
     fi
 
     # ── option OFF: guard removed, DNS restored normally ─────────────
     local t2="bl_off_$$" g2="bl_off_guard_$$" out2
     out2="$(SCN_TABLE="$t2" SCN_GUARD="$g2" SCN_BLOCKLEAKS=0 SCN_IPV6=0 \
         SCN_GLOBALPROXY="" SCN_FULLROUTED="" sh "$drv" 2>&1)"
-    if printf '%s\n' "$out2" | sed -n '/---GUARD---/,/---DNS---/p' | grep -q "chain forward_guard"; then
+    if _bl_section "$out2" GUARD | grep -q "chain forward_guard"; then
         fail "blockleaks:off — guard table still present with the option off"
         nft delete table inet "$g2" 2>/dev/null || true
     else
@@ -1362,25 +1536,85 @@ BLEOF
     fi
     nft delete table inet "$t2" 2>/dev/null || true
 
-    # ── global_proxy: all LAN tcp/udp held ───────────────────────────
-    local t3="bl_gp_$$" g3="bl_gp_guard_$$" out3
-    out3="$(SCN_TABLE="$t3" SCN_GUARD="$g3" SCN_BLOCKLEAKS=1 SCN_IPV6=0 \
-        SCN_GLOBALPROXY="gpsec" SCN_FULLROUTED="" sh "$drv" 2>&1)"
+    # ── global_proxy: all LAN tcp/udp held, exceptions still first ───
+    local t3="bl_gp_$$" g3="bl_gp_guard_$$" out3 fwd3 out3c ntp_at bsrc_at
+    out3="$(SCN_TABLE="$t3" SCN_GUARD="$g3" SCN_BLOCKLEAKS=1 SCN_IPV6=0 SCN_NTP=1 \
+        SCN_EXCLUDED="192.168.50.9" SCN_GLOBALPROXY="gpsec" SCN_FULLROUTED="" sh "$drv" 2>&1)"
     nft delete table inet "$t3" 2>/dev/null || true
     nft delete table inet "$g3" 2>/dev/null || true
-    if printf '%s\n' "$out3" | sed -n '/---GUARD---/,/---DNS---/p' |
-        grep -Fq "iifname @$NFT_GUARD_INTERFACE_SET_NAME meta l4proto { tcp, udp } drop"; then
+    fwd3="$(_bl_chain "$(_bl_section "$out3" GUARD)" forward_guard)"
+    out3c="$(_bl_chain "$(_bl_section "$out3" GUARD)" output_guard)"
+    if echo "$fwd3" | grep -Eq "iifname @$NFT_GUARD_INTERFACE_SET_NAME meta l4proto \{ tcp, udp \} $cnt\$"; then
         pass "blockleaks:globalproxy — all LAN tcp/udp held under global_proxy"
     else
-        fail "blockleaks:globalproxy — global_proxy drop rule missing" "$(printf '%s\n' "$out3" | grep -i 'drop' || true)"
+        fail "blockleaks:globalproxy — global_proxy drop rule missing" "$fwd3"
+    fi
+    first_drop="$(_bl_line "$fwd3" 'drop$')"
+    local_at="$(_bl_line "$fwd3" 'ip daddr \{.*192\.168\.0\.0/16.*\} accept$')"
+    ntp_at="$(_bl_line "$fwd3" 'udp dport 123 accept$')"
+    bsrc_at="$(_bl_line "$fwd3" "ip saddr @$NFT_GUARD_BYPASS_SOURCE_SET_NAME ip daddr != $SB_FAKEIP_INET4_RANGE accept\$")"
+    if [ -n "$first_drop" ] && [ -n "$local_at" ] && [ "$local_at" -lt "$first_drop" ]; then
+        pass "blockleaks:globalproxy — local destinations stay reachable for LAN clients"
+    else
+        fail "blockleaks:globalproxy — localv4 not accepted ahead of the blanket drop" "$fwd3"
+    fi
+    if [ -n "$first_drop" ] && [ -n "$ntp_at" ] && [ "$ntp_at" -lt "$first_drop" ]; then
+        pass "blockleaks:globalproxy — exclude_ntp traffic is accepted, as in the marking model"
+    else
+        fail "blockleaks:globalproxy — exclude_ntp is not mirrored into the guard" "$fwd3"
+    fi
+    if [ -n "$first_drop" ] && [ -n "$bsrc_at" ] && [ "$bsrc_at" -lt "$first_drop" ] &&
+        _bl_section "$out3" GUARD | sed -n "/set $NFT_GUARD_BYPASS_SOURCE_SET_NAME {/,/}/p" | grep -q "192.168.50.9"; then
+        pass "blockleaks:globalproxy — bypassed devices (routing_excluded_ips) are accepted"
+    else
+        fail "blockleaks:globalproxy — bypassed devices are not mirrored into the guard" "$fwd3"
+    fi
+    first_drop="$(_bl_line "$out3c" 'drop$')"
+    local_at="$(_bl_line "$out3c" '^[[:space:]]*ip daddr \{.*192\.168\.0\.0/16.*\} accept$')"
+    if [ -n "$first_drop" ] && [ -n "$local_at" ] && [ "$local_at" -lt "$first_drop" ]; then
+        pass "blockleaks:globalproxy — router traffic to local destinations survives the blanket drop"
+    else
+        fail "blockleaks:globalproxy — output_guard blackholes local destinations" "$out3c"
     fi
 
-    # ── invalid fully_routed_ips must not abort the atomic rebuild ───
+    # ── block_doh: the DoH resolvers are marked, so they are held too ─
+    local t5="bl_doh_$$" g5="bl_doh_guard_$$" out5
+    out5="$(SCN_TABLE="$t5" SCN_GUARD="$g5" SCN_BLOCKLEAKS=1 SCN_IPV6=0 SCN_BLOCKDOH=1 \
+        SCN_GLOBALPROXY="" SCN_FULLROUTED="" sh "$drv" 2>&1)"
+    nft delete table inet "$t5" 2>/dev/null || true
+    nft delete table inet "$g5" 2>/dev/null || true
+    if _bl_chain "$(_bl_section "$out5" GUARD)" forward_guard | grep -Eq "ip daddr \{.*8\.8\.8\.8.*\} $cnt\$"; then
+        pass "blockleaks:doh — DoH resolvers are held with block_doh (no direct DoH during the window)"
+    else
+        fail "blockleaks:doh — DoH resolvers are not held with block_doh" "$(_bl_section "$out5" GUARD | grep -i drop)"
+    fi
+
+    # ── IPv6: the v6 half of the program is valid nft and mirrors v4 ──
+    local t6="bl_v6_$$" g6="bl_v6_guard_$$" out6 fwd6
+    out6="$(SCN_TABLE="$t6" SCN_GUARD="$g6" SCN_BLOCKLEAKS=1 SCN_IPV6=1 SCN_BLOCKDOH=1 SCN_NTP=1         SCN_EXCLUDED="192.168.50.9 fd12:3456::9" SCN_GLOBALPROXY=""         SCN_FULLROUTED="192.168.50.7 fd12:3456::7" sh "$drv" 2>&1)"
+    nft delete table inet "$t6" 2>/dev/null || true
+    nft delete table inet "$g6" 2>/dev/null || true
+    fwd6="$(_bl_chain "$(_bl_section "$out6" GUARD)" forward_guard)"
+    first_drop="$(_bl_line "$fwd6" 'drop$')"
+    local_at="$(_bl_line "$fwd6" 'ip6 daddr \{.*fe80::/10.*\} accept$')"
+    if printf '%s
+' "$out6" | grep -q '^apply-rc=0$' &&
+        echo "$fwd6" | grep -Eq "ip6 daddr $SB_FAKEIP_INET6_RANGE $cnt\$" &&
+        echo "$fwd6" | grep -Eq "ip6 saddr @$NFT_GUARD_SOURCE_SET_NAME_V6 $cnt\$" &&
+        [ -n "$first_drop" ] && [ -n "$local_at" ] && [ "$local_at" -lt "$first_drop" ]; then
+        pass "blockleaks:ipv6 — the IPv6 rules load and keep the same accept-before-drop order"
+    else
+        fail "blockleaks:ipv6 — the IPv6 guard is missing or malformed" "$(printf '%s
+' "$out6" | grep -E 'apply-rc|rror' ; echo "$fwd6")"
+    fi
+    [ "${TEST_VERBOSE:-0}" = "1" ] && _bl_section "$out6" GUARD
+
+    # ── invalid fully_routed_ips must not abort the rebuild ──────────
     local t4="bl_bad_$$" g4="bl_bad_guard_$$" out4
     out4="$(SCN_TABLE="$t4" SCN_GUARD="$g4" SCN_BLOCKLEAKS=1 SCN_IPV6=0 \
         SCN_GLOBALPROXY="" SCN_FULLROUTED="192.168.50.7 not_an_ip" sh "$drv" 2>&1)"
     nft delete table inet "$t4" 2>/dev/null || true
-    if printf '%s\n' "$out4" | sed -n '/---GUARD---/,/---DNS---/p' | grep -q "chain forward_guard"; then
+    if _bl_section "$out4" GUARD | grep -q "chain forward_guard"; then
         pass "blockleaks:robust — a bad fully_routed_ips entry does not abort the guard"
     else
         fail "blockleaks:robust — guard not built with a bad fully_routed_ips entry" "$(printf '%s\n' "$out4" | grep -i 'error' || true)"
@@ -1388,6 +1622,35 @@ BLEOF
     nft delete table inet "$g4" 2>/dev/null || true
 
     rm -f "$drv"
+
+    # ── package prerm: release on removal, keep the option on upgrade ─
+    local mk="${NETSHIFT_SRC}/../Makefile" prerm="/tmp/netshift-blockleaks-prerm-$$.sh" stub="/tmp/netshift-blockleaks-stub-$$.sh"
+    if [ ! -r "$mk" ]; then
+        skip "blockleaks:prerm (package Makefile not found at $mk)"
+        return
+    fi
+    printf '#!/bin/sh\necho "stop-release=${NETSHIFT_BLOCK_LEAKS_RELEASE:-0}"\n' > "$stub"
+    chmod +x "$stub"
+    # The script as the package ships it ($$ -> $), with the two absolute paths
+    # pointed at stand-ins so nothing on this system is touched.
+    awk '/^define Package\/netshift\/prerm/{p=1;next} /^endef/{if(p)exit} p' "$mk" |
+        sed -e 's/\$\$/$/g' -e "s|/etc/init.d/netshift|$stub|g" -e "s|/etc/iproute2/rt_tables|/dev/null|g" > "$prerm"
+    if [ -s "$prerm" ] && ! grep -q 'uci ' "$prerm"; then
+        pass "blockleaks:prerm — the stored option is not rewritten by the package script"
+    else
+        fail "blockleaks:prerm — prerm still edits the config (an upgrade would switch the option off)" "$(grep -n 'uci ' "$prerm")"
+    fi
+    if [ "$(env -u PKG_UPGRADE sh "$prerm" 2>&1)" = "stop-release=1" ]; then
+        pass "blockleaks:prerm — removal stops the service with the kill switch released"
+    else
+        fail "blockleaks:prerm — removal does not release the kill switch" "$(env -u PKG_UPGRADE sh "$prerm" 2>&1)"
+    fi
+    if [ "$(PKG_UPGRADE=1 sh "$prerm" 2>&1)" = "stop-release=0" ]; then
+        pass "blockleaks:prerm — an upgrade keeps the kill switch armed"
+    else
+        fail "blockleaks:prerm — an upgrade releases the kill switch" "$(PKG_UPGRADE=1 sh "$prerm" 2>&1)"
+    fi
+    rm -f "$prerm" "$stub"
 }
 
 # ─────────────────────────────────────────────────────────────────

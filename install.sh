@@ -638,7 +638,10 @@ sing_box() {
     if [ "$(printf '%s\n%s\n' "$sing_box_version" "$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than the required version $required_version."
         msg "Removing old version..."
-        service netshift stop 2>/dev/null || service podkop stop 2>/dev/null || true
+        # block_leaks would keep DNS and the guard table closed after the stop,
+        # and the packages below could not be downloaded: release it for this
+        # stop only (the next start arms it again).
+        (export NETSHIFT_BLOCK_LEAKS_RELEASE=1 && service netshift stop) 2>/dev/null || service podkop stop 2>/dev/null || true
         pkg_remove sing-box
     fi
 }

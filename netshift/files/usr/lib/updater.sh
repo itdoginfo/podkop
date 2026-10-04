@@ -1035,8 +1035,12 @@ updates_teardown_redirect() {
         return 1
     fi
 
-    updates_log "Self-heal: tearing down the NetShift redirect via /etc/init.d/netshift stop"
-    /etc/init.d/netshift stop >/dev/null 2>&1 || true
+    # block_leaks keeps the guard table and the DNS redirect in place across a
+    # stop, which is the very deadlock this heal exists to break. Release it for
+    # this one stop (the stored option is untouched); the restore epilogue's
+    # `start` arms it again.
+    updates_log "Self-heal: tearing down the NetShift redirect via /etc/init.d/netshift stop (block_leaks, if enabled, is released until the redirect is restored)"
+    NETSHIFT_BLOCK_LEAKS_RELEASE=1 /etc/init.d/netshift stop >/dev/null 2>&1 || true
     UPDATES_HEAL_REDIRECT_DOWN=1
     return 0
 }

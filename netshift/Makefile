@@ -34,14 +34,14 @@ endef
 define Package/netshift/prerm
 #!/bin/sh
 
-# block_leaks keeps dnsmasq pointed at the (now dead) sing-box DNS inbound while
-# the service is down, so clear it before the stop below: otherwise a removal
-# would leave the router without DNS.
-uci -q set netshift.settings.block_leaks='0'
-uci -q commit netshift
-
-[ -r /usr/lib/netshift/constants.sh ] && . /usr/lib/netshift/constants.sh
-nft delete table inet "${NFT_GUARD_TABLE_NAME:-NetShiftGuard}" 2> /dev/null || true
+# block_leaks keeps dnsmasq pointed at the (now dead) sing-box DNS inbound and
+# the guard table armed while the service is down. On a REMOVAL that would leave
+# the router without DNS, so the stop below releases the kill switch: DNS is
+# handed back and the guard table is deleted. The stored option is left alone -
+# /etc/config/netshift is a conffile, and an upgrade (which runs this script
+# too) must not switch the user's protection off. On an upgrade the kill switch
+# simply stays armed, as across any restart.
+[ "$${PKG_UPGRADE}" = "1" ] || export NETSHIFT_BLOCK_LEAKS_RELEASE=1
 
 grep -q "105 netshift" /etc/iproute2/rt_tables && sed -i "/105 netshift/d" /etc/iproute2/rt_tables
 

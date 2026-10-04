@@ -50,7 +50,8 @@ config settings 'settings'
         # proxied domains wait too. Direct (non-proxied) traffic is unaffected
         # while sing-box is up. Boot before the first start is not covered (nft
         # state is cleared on reboot). Set to 0 and restart the service to
-        # release.
+        # release. Before downgrading to a version without this option, release
+        # it first (or run `nft delete table inet NetShiftGuard`).
         option block_leaks '0'
         #option latency_test_url 'https://www.gstatic.com/generate_204'
         option enable_ipv6 '0'
