@@ -87,6 +87,36 @@ export const DNS_SERVER_OPTIONS = {
   '2606:4700:4700::1111': '2606:4700:4700::1111 (Cloudflare IPv6)',
   '2620:fe::fe': '2620:fe::fe (Quad9 IPv6)',
 };
+// Ready-made entries for the additional DNS servers (dns_pool_server), one per
+// transport the pool understands. The list accepts any other scheme://host too.
+export const DNS_POOL_PRESETS = {
+  'udp://8.8.8.8': 'Google - UDP (8.8.8.8)',
+  'tcp://8.8.8.8': 'Google - TCP (8.8.8.8)',
+  'dot://dns.google': 'Google - DoT (dns.google)',
+  'doh://dns.google/dns-query': 'Google - DoH (dns.google)',
+  'doh3://dns.google/dns-query': 'Google - DoH3 (dns.google)',
+  'udp://1.1.1.1': 'Cloudflare - UDP (1.1.1.1)',
+  'tcp://1.1.1.1': 'Cloudflare - TCP (1.1.1.1)',
+  'dot://one.one.one.one': 'Cloudflare - DoT (one.one.one.one)',
+  'doh://cloudflare-dns.com/dns-query': 'Cloudflare - DoH (cloudflare-dns.com)',
+  'doh3://cloudflare-dns.com/dns-query':
+    'Cloudflare - DoH3 (cloudflare-dns.com)',
+  'udp://9.9.9.9': 'Quad9 - UDP (9.9.9.9)',
+  'dot://dns.quad9.net': 'Quad9 - DoT (dns.quad9.net)',
+  'doh://dns.quad9.net/dns-query': 'Quad9 - DoH (dns.quad9.net)',
+  'udp://94.140.14.14': 'AdGuard - UDP (94.140.14.14)',
+  'dot://dns.adguard-dns.com': 'AdGuard - DoT (dns.adguard-dns.com)',
+  'doh://dns.adguard-dns.com/dns-query': 'AdGuard - DoH (dns.adguard-dns.com)',
+  'doh3://dns.adguard-dns.com/dns-query':
+    'AdGuard - DoH3 (dns.adguard-dns.com)',
+  'doq://dns.adguard-dns.com': 'AdGuard - DoQ (dns.adguard-dns.com)',
+  'udp://77.88.8.8': 'Yandex - UDP (77.88.8.8)',
+  'dot://common.dot.dns.yandex.net': 'Yandex - DoT (common.dot.dns.yandex.net)',
+  'doh://common.dns.yandex.net/dns-query':
+    'Yandex - DoH (common.dns.yandex.net)',
+  'dot://dns.mullvad.net': 'Mullvad - DoT (dns.mullvad.net)',
+  'doh://dns.mullvad.net/dns-query': 'Mullvad - DoH (dns.mullvad.net)',
+};
 export const BOOTSTRAP_DNS_SERVER_OPTIONS = {
   '77.88.8.8': '77.88.8.8 (Yandex DNS)',
   '77.88.8.1': '77.88.8.1 (Yandex DNS)',

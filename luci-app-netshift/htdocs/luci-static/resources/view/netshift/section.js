@@ -191,6 +191,40 @@ function createSectionContent(section) {
 
   o = section.taboption(
     "subscription",
+    form.Value,
+    "subscription_update_time",
+    _("Update time"),
+    _(
+      "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists",
+    ),
+  );
+  // The same default as SUBSCRIPTION_UPDATE_TIME_DEFAULT in
+  // netshift/files/usr/lib/constants.sh: change both together.
+  o.default = "09:52";
+  o.placeholder = "09:52";
+  o.rmempty = true;
+  o.depends({
+    connection_type: "proxy",
+    proxy_config_type: "subscription",
+    subscription_update_interval: "1d",
+  });
+  o.validate = function (section_id, value) {
+    // Empty means "keep the default" (an existing config has no such option)
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateTime(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.taboption(
+    "subscription",
     form.ListValue,
     "subscription_group_mode",
     _("Subscription grouping"),
@@ -510,6 +544,29 @@ function createSectionContent(section) {
   o = section.taboption(
     "connection",
     form.Flag,
+    "reality_mlkem",
+    _("Reality: post-quantum key share (X25519MLKEM768)"),
+    _(
+      "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  // Not offered for a hand-written outbound JSON (it carries its own TLS block)
+  [
+    "url",
+    "selector",
+    "urltest",
+    "selector_text",
+    "urltest_text",
+    "subscription",
+  ].forEach((type) =>
+    o.depends({ connection_type: "proxy", proxy_config_type: type }),
+  );
+
+  o = section.taboption(
+    "connection",
+    form.Flag,
     "global_proxy",
     _("Global Proxy"),
     _("Route all unmatched traffic through this section's outbound.") +
@@ -524,6 +581,48 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
+
+  o = section.taboption(
+    "connection",
+    form.ListValue,
+    "outbound_detour_section",
+    _("Connect through another section"),
+    _(
+      "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly.",
+    ),
+  );
+  o.depends("connection_type", "proxy");
+  o.rmempty = true;
+  // One option object renders the widget of every section, so the list is the same
+  // for all of them: enabled proxy/VPN sections. A section choosing itself is
+  // refused by the validator instead.
+  o.load = function () {
+    const sections = this.map?.data?.state?.values?.netshift ?? {};
+
+    this.keylist = [""];
+    this.vallist = [_("Direct (no chaining)")];
+
+    for (const secName in sections) {
+      const sec = sections[secName];
+      if (
+        sec[".type"] === "section" &&
+        sec["disabled"] !== "1" &&
+        (sec["connection_type"] === "proxy" || sec["connection_type"] === "vpn")
+      ) {
+        this.keylist.push(secName);
+        this.vallist.push(secName);
+      }
+    }
+
+    return form.ListValue.prototype.load.apply(this, arguments);
+  };
+  o.validate = function (section_id, value) {
+    if (value && value === section_id) {
+      return _("A section cannot be chained through itself");
+    }
+
+    return true;
+  };
 
   o = section.taboption(
     "connection",

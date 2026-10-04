@@ -14,6 +14,9 @@
 // Dashboard content
 "require view.netshift.dashboard as dashboard";
 
+// Local devices content
+"require view.netshift.devices as devices";
+
 // Diagnostic content
 "require view.netshift.diagnostic as diagnostic";
 
@@ -75,6 +78,24 @@ const EntryPoint = {
 
     // Render settings content
     settings.createSettingsContent(settingsSection);
+
+    // Devices tab: drives the Fully Routed IPs / Routing Excluded IPs widgets
+    const devicesSection = netshiftMap.section(
+      form.TypedSection,
+      "devices",
+      _("Devices"),
+    );
+    devicesSection.anonymous = true;
+    devicesSection.addremove = false;
+    devicesSection.cfgsections = function () {
+      return ["devices"];
+    };
+
+    devices.createDevicesContent(
+      devicesSection,
+      sectionsSection,
+      settingsSection,
+    );
 
     // Component Manager tab
     const managerSection = netshiftMap.section(

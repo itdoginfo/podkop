@@ -4,6 +4,10 @@ import {
   preserveScrollForPage,
 } from '../../../helpers';
 import { prettyBytes } from '../../../helpers/prettyBytes';
+import {
+  loadDashboardViewPrefs,
+  saveDashboardViewPrefs,
+} from '../../../helpers/dashboardView';
 import { CustomNetShiftMethods, NetShiftShellMethods } from '../../methods';
 import { logger, socket, store, StoreType } from '../../services';
 import { renderSections, renderWidget } from './partials';
@@ -137,6 +141,22 @@ async function handleChooseOutbound(selector: string, tag: string) {
   await fetchDashboardSections();
 }
 
+function handleToggleViewMode() {
+  const widget = store.get().sectionsWidget;
+  const viewMode = widget.viewMode === 'list' ? 'tiles' : 'list';
+
+  saveDashboardViewPrefs({ viewMode, sortByPing: widget.sortByPing });
+  store.set({ sectionsWidget: { ...widget, viewMode } });
+}
+
+function handleToggleSortByPing() {
+  const widget = store.get().sectionsWidget;
+  const sortByPing = !widget.sortByPing;
+
+  saveDashboardViewPrefs({ viewMode: widget.viewMode, sortByPing });
+  store.set({ sectionsWidget: { ...widget, sortByPing } });
+}
+
 function updateSectionsWidget(
   update: (
     widget: StoreType['sectionsWidget'],
@@ -214,6 +234,10 @@ async function renderSectionsWidget() {
       onChooseOutbound: () => {},
       latencyFetching: false,
       pendingOutbounds: [],
+      viewMode: sectionsWidget.viewMode,
+      sortByPing: sectionsWidget.sortByPing,
+      onToggleViewMode: () => {},
+      onToggleSortByPing: () => {},
     });
 
     return preserveScrollForPage(() => {
@@ -234,11 +258,29 @@ async function renderSectionsWidget() {
       onChooseOutbound: (selector, tag) => {
         handleChooseOutbound(selector, tag);
       },
+      viewMode: sectionsWidget.viewMode,
+      sortByPing: sectionsWidget.sortByPing,
+      onToggleViewMode: handleToggleViewMode,
+      onToggleSortByPing: handleToggleSortByPing,
     }),
   );
 
+  // The lists scroll on their own and are rebuilt on every latency result:
+  // keep the position of each one.
+  const listScroll = new Map<string, number>();
+  container!
+    .querySelectorAll<HTMLElement>('[data-list-key]')
+    .forEach((list) =>
+      listScroll.set(list.dataset.listKey ?? '', list.scrollTop),
+    );
+
   return preserveScrollForPage(() => {
     container!.replaceChildren(...renderedWidgets);
+    container!
+      .querySelectorAll<HTMLElement>('[data-list-key]')
+      .forEach((list) => {
+        list.scrollTop = listScroll.get(list.dataset.listKey ?? '') ?? 0;
+      });
   });
 }
 
@@ -426,6 +468,15 @@ async function onPageMount() {
 
   // Add new listener
   store.subscribe(onStoreUpdate);
+
+  // The page reset above also reset the view choice to what it was when the page
+  // was loaded: take the saved one (it may have been changed since).
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      ...loadDashboardViewPrefs(),
+    },
+  });
 
   // Initial sections fetch
   await fetchDashboardSections();
