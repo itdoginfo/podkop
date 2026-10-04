@@ -55,6 +55,11 @@ SUBSCRIPTION_UPDATE_APPLY_FAILED=3
 # default. Both the cron collector and the `subscription_update <interval>`
 # section filter read this constant, so the two cannot drift apart silently.
 SUBSCRIPTION_UPDATE_INTERVAL_DEFAULT="1h"
+# Time of day (router local time, HH:MM) at which a "1d" subscription section is
+# refreshed when its own `subscription_update_time` says nothing usable: the
+# option is absent (every existing conffile) or is not a valid HH:MM. This is the
+# time the daily job always ran at, so an upgrade keeps its schedule.
+SUBSCRIPTION_UPDATE_TIME_DEFAULT="09:52"
 # Deferred startup subscription refresh (start_subscription_startup_retry_worker):
 # a feed that is unreachable is retried every SUBSCRIPTION_RETRY_INTERVAL
 # seconds for as long as it takes. A feed that downloads but does not apply is
@@ -103,6 +108,10 @@ NFT_LOCALV6_SET_NAME="localv6"
 # sing-box (task-034). The per-section outbound is still selected by sing-box
 # route rules — nft only decides enter-or-not, so a single union set is enough.
 NFT_COMMON_SET_NAME="netshift_subnets"
+# Destinations that bypass sing-box completely (exclusion sections with
+# bypass_singbox): returned before any mark, so the traffic never enters tproxy.
+NFT_BYPASS_SET_NAME="netshift_bypass"
+NFT_BYPASS_SET_NAME_V6="netshift_bypass_v6"
 # IPv6 mirror of NFT_COMMON_SET_NAME (only created/used when IPv6 is enabled).
 NFT_COMMON_SET_NAME_V6="netshift_subnets_v6"
 NFT_DISCORD_SET_NAME="netshift_discord_subnets"
@@ -110,11 +119,23 @@ NFT_INTERFACE_SET_NAME="interfaces"
 NFT_FAKEIP_MARK="0x00100000"
 NFT_OUTBOUND_MARK="0x00200000"
 
+## LuCI
+# Where the LuCI app keeps its views. The package installs them in a
+# content-hashed view/netshift_<hash>/ (luci-app-netshift/cache-bust.sh); a
+# hand-copied dev tree may still be view/netshift/.
+LUCI_VIEW_DIR="/www/luci-static/resources/view"
+LUCI_MENU_FILE="/usr/share/luci/menu.d/luci-app-netshift.json"
+
 ## sing-box
 SB_REQUIRED_VERSION="1.12.0"
 # First sing-box-extended release (the part after "-extended-") whose VLESS
 # outbound has the `encryption` field; its pre-releases already carry it.
 SB_EXTENDED_VLESS_ENCRYPTION_MIN="2.0.0"
+# First sing-box-extended release whose Reality client has the
+# `support_x25519mlkem768` option (it keeps the X25519MLKEM768 key share that
+# REALITY servers on Xray-core >= 26.9.8 require). Older extended builds and
+# stock sing-box do not know the field and would fail `sing-box check`.
+SB_EXTENDED_REALITY_MLKEM_MIN="2.7.2"
 # ── sing-box extended lite (third core variant) ─────────────────────
 # Version suffix that marks a lite build: the release tag and the version
 # banner of the binary are the upstream extended tag plus this suffix
@@ -150,6 +171,15 @@ UPDATES_SING_BOX_LITE_ORPHAN_CACHE="/etc/sing-box-version.cache"
 MONITOR_CHECK_INTERVAL=10
 # How often the monitor looks for a server picked outside LuCI (Clash dashboard).
 MONITOR_CACHE_SNAPSHOT_INTERVAL=60
+# Priority node selection (section option priority_mode): how often the monitor
+# re-checks the servers of such a section, and how long one latency probe may take.
+PRIORITY_CHECK_INTERVAL_DEFAULT=30
+PRIORITY_PROBE_TIMEOUT_MS=3000
+PRIORITY_MAX_PROBES=10
+# URL the probes use, and the time one check cycle may take in total (the monitor also
+# supervises sing-box, so the cycle must not hold it for long).
+PRIORITY_PROBE_URL="https://www.gstatic.com/generate_204"
+PRIORITY_CYCLE_BUDGET=15
 MONITOR_MAX_CRASHES=5
 MONITOR_BACKOFF_BASE=10
 MONITOR_BACKOFF_MAX=300
@@ -201,9 +231,32 @@ UPDATES_NETSHIFT_PKG_LUCI="luci-app-netshift"
 UPDATES_NETSHIFT_PKG_I18N_RU="luci-i18n-netshift-ru"
 # DNS
 SB_DNS_SERVER_TAG="dns-server"
+# GeoIP country flags for subscription servers whose name has none
+# (geoip_flags). Looked up once and kept in GEOIP_CACHE_FILE; a failed lookup
+# is retried after GEOIP_NEGATIVE_TTL seconds, a found country after GEOIP_POSITIVE_TTL.
+GEOIP_API_URL="https://api.country.is"
+GEOIP_CACHE_FILE="$NETSHIFT_STATE_DIR/geoip.json"
+GEOIP_LINKS_FILE="$TMP_SING_BOX_FOLDER/geoip-links.json"
+GEOIP_POSITIVE_TTL=2592000
+GEOIP_NEGATIVE_TTL=86400
+GEOIP_BATCH_SIZE=100
+GEOIP_MAX_HOSTS=300
+# The name-resolving phase of a lookup stops after this many misses or seconds in total,
+# so DNS that is down or slow cannot hold the config build for minutes.
+GEOIP_RESOLVE_MAX_FAILURES=10
+GEOIP_RESOLVE_BUDGET=60
+# URL of the dashboard latency test (settings.latency_test_url overrides it)
+LATENCY_TEST_URL_DEFAULT="https://www.gstatic.com/generate_204"
+# Multi-DNS pool (issue #74): extra upstreams are "<SB_DNS_SERVER_TAG>-<n>" (n >= 2),
+# the evaluated responses are tagged "<SB_DNS_POOL_RESPONSE_PREFIX><n>". It needs the
+# DNS rule actions evaluate/respond/race that sing-box 1.14.0 introduced.
+SB_DNS_POOL_RESPONSE_PREFIX="dns-pool-response-"
+SB_DNS_EVALUATE_MIN="1.14.0"
+DNS_POOL_TIMEOUT_DEFAULT="2s"
+DNS_POOL_MAX_SERVERS=8
 SB_FAKEIP_DNS_SERVER_TAG="fakeip-server"
 SB_FAKEIP_INET4_RANGE="198.18.0.0/15"
-SB_FAKEIP_INET6_RANGE="fd00:ec3a::/32"
+SB_FAKEIP_INET6_RANGE="2001:2::/48"
 SB_BOOTSTRAP_SERVER_TAG="bootstrap-dns-server"
 SB_FAKEIP_DNS_RULE_TAG="fakeip-dns-rule-tag"
 SB_INVERT_FAKEIP_DNS_RULE_TAG="invert-fakeip-dns-rule-tag"

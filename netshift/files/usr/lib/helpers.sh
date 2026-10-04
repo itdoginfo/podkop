@@ -263,6 +263,8 @@ url_get_port() {
 
     case "$url" in
     \[*\]:*) echo "${url##*]:}" ;;
+    # A bracketed IPv6 literal without a port is not "host:port".
+    \[*\]) echo "" ;;
     *:*) echo "${url#*:}" ;;
     *) echo "" ;;
     esac
@@ -894,6 +896,22 @@ get_sing_box_version() {
               print $NF }')"
     fi
     echo "${version:-1.0}"
+}
+
+# Returns 0 if the given (or detected) sing-box core is at least the given
+# upstream release. Only the part in front of the first "-" is compared, so
+# "1.14.1-extended-2.7.2-lite" counts as 1.14.1 whatever the fork adds after it;
+# an undetectable core reports "1.0" and fails every gate.
+# Arguments:
+#   $1 - minimum upstream release (e.g. "1.14.0")
+#   $2 - optional sing-box version string (defaults to get_sing_box_version)
+is_sing_box_at_least() {
+    local required="$1"
+    local version="${2:-}"
+
+    [ -n "$version" ] || version="$(get_sing_box_version)"
+
+    is_min_package_version "${version%%-*}" "$required"
 }
 
 # Returns 0 if the given (or detected) sing-box version is an "extended" build
@@ -1860,6 +1878,13 @@ normalize_subscription_to_singbox() {
     local udp_over_tcp config new_config lines_file
     local line scheme idx kept skipped final_count builder_tag builder_out_tag
     local fragment display_name first_char xray_uris xray_unsupported
+
+    # The normalized body is cached per URL and reused until the next download,
+    # so it must not depend on the per-section reality_mlkem option (set by
+    # set_section_reality_mlkem): the key share is added when the outbounds are
+    # prepared for the config (sing_box_cf_prepare_subscription_batch), where
+    # switching the option off or changing the core takes effect immediately.
+    local NETSHIFT_REALITY_MLKEM=0
 
     [ -s "$src_file" ] || return 1
     # Strip a leading UTF-8 BOM (EF BB BF) if present; it would otherwise break

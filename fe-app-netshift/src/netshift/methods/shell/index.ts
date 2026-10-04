@@ -33,6 +33,10 @@ export const NetShiftShellMethods = {
     callBaseMethod<NetShift.GetSingBoxStatus>(
       NetShift.AvailableMethods.GET_SING_BOX_STATUS,
     ),
+  getGeoipFlags: async () =>
+    callBaseMethod<Record<string, string>>(
+      NetShift.AvailableMethods.GET_GEOIP_FLAGS,
+    ),
   getClashApiProxies: async () =>
     callBaseMethod<ClashAPI.Proxies>(NetShift.AvailableMethods.CLASH_API, [
       NetShift.AvailableClashAPIMethods.GET_PROXIES,

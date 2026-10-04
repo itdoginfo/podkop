@@ -12,6 +12,7 @@ export const validDomains = [
   ['Adguard dns', 'dns.adguard-dns.com'],
   ['Nextdns dns', 'dns.nextdns.io/xxxxxxx'],
   ['Long domain (63 chars in label)', 'a'.repeat(63) + '.com'],
+  ['I2P domain (numeric TLD)', 'tracker2.postman.i2p'],
 ];
 
 export const invalidDomains = [
@@ -24,6 +25,7 @@ export const invalidDomains = [
   ['Starting with dash', '-example.com'],
   ['Trailing dot', 'example.com.'],
   ['Too short TLD', 'example.c'],
+  ['All-numeric TLD', 'example.123'],
   ['With protocol (not allowed)', 'http://example.com'],
   ['Too long label (>63 chars)', 'a'.repeat(64) + '.com'],
   ['Too long domain (>253 chars)', Array(40).fill('abcdef').join('.') + '.com'],
@@ -34,6 +36,8 @@ export const dotTLDTests = [
   ['Dot TLD not allowed (.net)', '.net', false, false],
   ['Invalid with double dot', '..net', true, false],
   ['Invalid single word TLD (net)', 'net', true, false],
+  ['Dot TLD with digit (.i2p)', '.i2p', true, true],
+  ['Dot TLD with digit not allowed (.i2p)', '.i2p', false, false],
 ];
 
 describe('validateDomain', () => {
@@ -74,6 +78,7 @@ export const domainRuleTests = [
   ['With deep path', 'example.com/path/to/resource', false],
   ['With protocol', 'http://example.com', false],
   ['No TLD', 'localhost', false],
+  ['I2P domain (numeric TLD)', 'tracker2.postman.i2p', true],
 ];
 
 describe('validateDomainRule', () => {
