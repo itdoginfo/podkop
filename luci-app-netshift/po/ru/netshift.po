@@ -1,15 +1,15 @@
 # RU translations for NETSHIFT package.
 # Copyright (C) 2026 THE NETSHIFT'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# yandexru45, 2026.
+# agent, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 17:38+0300\n"
-"PO-Revision-Date: 2026-10-03 17:38+0300\n"
-"Last-Translator: yandexru45\n"
+"POT-Creation-Date: 2026-10-04 11:16+0300\n"
+"PO-Revision-Date: 2026-10-04 11:16+0300\n"
+"Last-Translator: agent\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -31,6 +31,9 @@ msgstr "✘ Отключено"
 
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
+
+msgid "Active"
+msgstr ""
 
 msgid "Active Connections"
 msgstr "Активные соединения"
@@ -632,6 +635,9 @@ msgstr "Лёгкая сборка расширенного ядра для ус�
 msgid "Line"
 msgstr "Строка"
 
+msgid "List"
+msgstr ""
+
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
 
@@ -926,6 +932,9 @@ msgstr "Сервис sing-box существует"
 msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr "Версия Sing-box совместима (новее 1.12.4)"
 
+msgid "Sort by ping"
+msgstr ""
+
 msgid "Source and output interfaces, and Bad WAN interface monitoring"
 msgstr "Входящий и исходящий интерфейсы, а также мониторинг интерфейсов Bad WAN"
 
@@ -1021,6 +1030,9 @@ msgstr "URL-адрес, используемый для проверки под�
 
 msgid "This is a security trade-off: an attacker could intercept the fetch."
 msgstr "Это компромисс в безопасности: злоумышленник может перехватить загрузку."
+
+msgid "Tiles"
+msgstr ""
 
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
