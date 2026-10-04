@@ -14802,6 +14802,29 @@ test_subscription_geoip() {
         echo "links-merge-and-cache:$(jq -c '[has("main-out"), has("second-out")]' "$GEOIP_LINKS_FILE"):$(calls dig)/$(calls curl)"
         rm -f "$GEOIP_LINKS_FILE"
         echo "links-no-file-is-empty-object:$(get_geoip_flags)"
+
+        # --- a shared entry point ("mirror"): the name states its country, the
+        # address does not. The name wins and the disagreement is logged (issue
+        # #94: on a real subscription 4 nodes named de1/pl1/fi1/se1 behind one RU
+        # mirror host were stamped RU, and a country filter for DE silently dropped
+        # one of the five DE nodes of that subscription).
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls" "$W/curl.calls" "$W/curl.bodies" "$W/log"
+        GEO_DIG="de-mirror.example=9.9.9.1 main3-mirror.example=8.8.8.8"
+        GEO_API='[{"ip":"9.9.9.1","country":"DE"},{"ip":"8.8.8.8","country":"RU"}]'
+        jq -n '{outbounds: [
+            {type:"vless", tag:"de1-vless-ws", server:"de-mirror.example"},
+            {type:"vless", tag:"de1-vless-ws-3", server:"main3-mirror.example"},
+            {type:"vless", tag:"pl1-hysteria2", server:"main3-mirror.example"},
+            {type:"vless", tag:"russia-vless-ws", server:"main3-mirror.example"},
+            {type:"vless", tag:"node-1", server:"main3-mirror.example"},
+            {type:"vless", remark:"Remarked", server:"main3-mirror.example"}]}' > "$W/m.json"
+        subscription_geoip_annotate "$W/m.json"
+        PL="$(country_code_to_flag_emoji PL)"; RU="$(country_code_to_flag_emoji RU)"
+        echo "mirror-name-wins:$(names "$W/m.json" | jq -c --arg de "$DE" --arg pl "$PL" --arg ru "$RU" '. == [
+            ($de + " de1-vless-ws"), ($de + " de1-vless-ws-3"), ($pl + " pl1-hysteria2"),
+            ($ru + " russia-vless-ws"), ($ru + " node-1"), ($ru + " Remarked")]')"
+        echo "mirror-warned:$(grep -c 'shared entry point' "$W/log")"
+        echo "mirror-warn-names:$(grep -c 'de1-vless-ws-3' "$W/log")"
         rm -rf "$W"
     )"
 
@@ -14845,6 +14868,9 @@ test_subscription_geoip() {
     _gp_check "a silent service changes nothing" "silent-service-unchanged:yes"
     _gp_check "a silent service caches nothing" "silent-service-no-cache:none"
     _gp_check "a non-JSON answer is warned about" "garbage-warned:1"
+    _gp_check "a country stated by the name wins over the address of a shared entry point" "mirror-name-wins:true"
+    _gp_check "the shared-entry-point disagreement is logged" "mirror-warned:1"
+    _gp_check "the log names the affected servers" "mirror-warn-names:1"
 }
 
 # ─────────────────────────────────────────────────────────────────

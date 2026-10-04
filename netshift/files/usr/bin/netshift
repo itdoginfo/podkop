@@ -5206,24 +5206,66 @@ geoip_lookup_hosts() {
 # $1 merged subscription file: writes the flag-annotated file back in place.
 subscription_geoip_annotate() {
     local merged="$1"
-    local hosts
+    local hosts mismatched count examples
 
     hosts="$(geoip_hosts_without_flag "$merged")"
     [ -n "$hosts" ] || return 0
     geoip_lookup_hosts "$hosts"
     local cache="$GEOIP_CACHE"
 
-    # Put the flags in front of the names that have none.
+    # A server name that starts with a two-letter country (de1-…, us2, nl-…) states
+    # its own country, and that is what the user groups and filters by. The
+    # looked-up country, on the other hand, is the country of the ADDRESS the node
+    # connects to — and for many providers that address is a shared entry point
+    # ("mirror") serving nodes advertised in different countries, so the lookup
+    # answers the country of the entry, not of the exit node. The name wins there.
+    # REPRODUCED on hardware: 4 nodes named de1/pl1/fi1/se1 behind one RU mirror host
+    # were stamped RU, and a country filter for DE silently dropped one of the five
+    # DE nodes of that subscription. The disagreement is reported rather than
+    # hidden, because it is exactly what a shared entry point looks like.
+    mismatched="$(jq -r '
+        def is_ascii_letter: (. >= 65 and . <= 90) or (. >= 97 and . <= 122);
+        def name_country_hint:
+            (. // "") | explode as $c
+            | if ($c | length) < 2 then ""
+              elif ($c[0] | is_ascii_letter) and ($c[1] | is_ascii_letter)
+                   and (($c | length) == 2 or (($c[2] | is_ascii_letter) | not))
+              then ($c[0:2] | implode | ascii_upcase)
+              else "" end;
+        .outbounds[]?
+        | ((.tag // .remark // "") | tostring) as $name
+        | (($cache[.server // ""].cc) // "") as $cc
+        | ($name | name_country_hint) as $hint
+        | select($hint != "" and $cc != "" and $hint != $cc)
+        | "\($name) (address \($cc), name \($hint))"' --argjson cache "$cache" "$merged" 2> /dev/null)"
+    if [ -n "$mismatched" ]; then
+        count="$(printf '%s\n' "$mismatched" | grep -c .)"
+        examples="$(printf '%s\n' "$mismatched" | head -n 3 | tr '\n' ';')"
+        log "GeoIP: $count server name(s) state a country their address does not match, which is what a shared entry point (mirror) looks like; the name is used: $examples" "warn"
+    fi
+
+    # Put the flags in front of the names that have none: the country stated by the
+    # name itself when there is one, otherwise the looked-up one.
     jq -c --argjson cache "$cache" '
         def has_flag: explode as $c
             | [range(0; ($c | length) - 1) | select(($c[.] | . >= 127462 and . <= 127487)
                 and ($c[. + 1] | . >= 127462 and . <= 127487))] | length > 0;
         def flag($cc): ($cc | ascii_upcase | explode | map(. - 65 + 127462) | implode);
+        def is_ascii_letter: (. >= 65 and . <= 90) or (. >= 97 and . <= 122);
+        def name_country_hint:
+            (. // "") | explode as $c
+            | if ($c | length) < 2 then ""
+              elif ($c[0] | is_ascii_letter) and ($c[1] | is_ascii_letter)
+                   and (($c | length) == 2 or (($c[2] | is_ascii_letter) | not))
+              then ($c[0:2] | implode | ascii_upcase)
+              else "" end;
         .outbounds |= map(
             ((.tag // .remark // "") | tostring) as $name
-            | (($cache[.server // ""].cc) // "") as $cc
+            | (($cache[.server // ""].cc) // "") as $looked_up
+            | ($name | name_country_hint) as $hint
+            | (if $hint != "" then $hint else $looked_up end) as $cc
             | if ($name | has_flag | not) and (($cc | length) == 2)
-                and ($cc | explode | all((. >= 65 and . <= 90) or (. >= 97 and . <= 122)))
+                and ($cc | explode | all(is_ascii_letter))
               then (if has("tag") then .tag = (flag($cc) + " " + $name) else .remark = (flag($cc) + " " + $name) end)
               else . end)' "$merged" > "$merged.geoip" 2> /dev/null && chmod 600 "$merged.geoip" && mv "$merged.geoip" "$merged"
     rm -f "$merged.geoip"
