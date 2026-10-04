@@ -30,14 +30,10 @@ header() {
     printf "\n${BOLD}${CYAN}━━━ %s ━━━${NC}\n" "$1"
 }
 
-
-
 pass() {
     PASS=$((PASS + 1))
     printf "  ${GREEN}✓${NC} %s\n" "$1"
 }
-
-
 
 fail() {
     FAIL=$((FAIL + 1))
@@ -47,14 +43,10 @@ fail() {
     fi
 }
 
-
-
 skip() {
     SKIP=$((SKIP + 1))
     printf "  ${YELLOW}⊘${NC} %s (skipped)\n" "$1"
 }
-
-
 
 summary() {
     printf "\n${BOLD}──────────────────────────────────────${NC}\n"
@@ -72,8 +64,6 @@ summary() {
         exit 0
     fi
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Dependency Check
@@ -110,8 +100,6 @@ test_deps() {
         fi
     fi
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Shell Syntax & Loading
@@ -192,8 +180,6 @@ EOF
     rm -f "$source_test"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: UCI Config Validation
 # ─────────────────────────────────────────────────────────────────
@@ -236,8 +222,6 @@ test_config() {
     section_count=$(grep -c "^config section\|^#config section" "$config")
     pass "Sections in config: $section_count"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Helper Functions
@@ -319,8 +303,6 @@ TESTEOF
     rm -f "$tmp" "$h_out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: NFT Rules Syntax
 # ─────────────────────────────────────────────────────────────────
@@ -363,8 +345,6 @@ test_nft() {
         nft delete table inet "$test_table" 2>/dev/null
     fi
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: NFT IPv6 TProxy regression (B-01 blocker guard)
@@ -463,8 +443,6 @@ test_nft_ipv6() {
 
     nft delete table inet "$test_table" 2>/dev/null
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Destination-selective nft marking (task-034 + router-originated OUTPUT marking fix)
@@ -599,8 +577,6 @@ config_list_foreach() {
 _orig_cg=config_get
 
 # Extract the shipped functions verbatim (column-0 opener to column-0 '}').
-
-
 for fn in nft_init_interfaces_set populate_netshift_subnets_from_file \
           populate_netshift_subnets_from_string nft_mark_fully_routed_source_ips \
           _nft_mark_fully_routed_ips_for_section _nft_mark_fully_routed_ip_handler \
@@ -612,20 +588,16 @@ done
 # This harness has no `disabled` option: sections are never disabled.
 section_is_disabled() { return 1; }
 
-
-
 # The fully_routed handler reads connection_type via config_get; make that
 # section a proxy section so its IPs get a source mark rule.
 config_get() {
-    # $1=varname $2=section $3=option [default]
+    eval "$1=\"\${4:-}\""
     case "$3" in
-        connection_type) eval "$1=\"\$CC_CUR_CT\"" ;;
-        proxy_config_type) eval "$1=\"\$CC_CUR_PCT\"" ;;
-        *) eval "$1=\"\${4:-}\"" ;;
+        source_network_interfaces) eval "$1=\"selmark0\"" ;;
+        connection_type) eval "$1=\"proxy\"" ;;
+        fully_routed_ips) eval "$1=\"${SCN_FULLROUTED:-}\"" ;;
     esac
 }
-
-
 
 # SCN_PRESEED: when set, do NOT start from a clean slate. Instead leave behind a
 # STALE mark-EVERYTHING table (as a previous global_proxy/0.8.6 run would) and
@@ -957,12 +929,8 @@ LIB="LIB_DIR_PLACEHOLDER"
 . "$LIB/helpers.sh"
 log() { :; }
 echolog() { :; }
-
-
 nolog() { :; }
-# Hermetic no-op stub for the redownload+restart path (verbatim reuse is what
-
-
+for fn in get_global_proxy_section _determine_global_proxy_section \
           foreach_active_section _active_section_dispatch section_is_disabled \
           section_has_configured_outbound get_subscription_urls_for_section \
           _collect_subscription_url_handler; do
@@ -1228,8 +1196,6 @@ SIEOF
 
     rm -f "$drv" "$route_json"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: graceful-skip of unsupported proxy schemes + splithttp→xhttp (task-038)
@@ -1517,8 +1483,6 @@ USEOF
     rm -f "$drv" "$out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: extended-only links are skipped as a whole on stock sing-box
 # ─────────────────────────────────────────────────────────────────
@@ -1660,8 +1624,6 @@ EGEOF
     fi
     rm -f "$drv" "$out"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: VLESS Encryption passthrough + extended gate
@@ -2140,8 +2102,6 @@ VEEOF
     rm -f "$drv" "$out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Text-list Selector / URLTest (task-051)
 #
@@ -2344,8 +2304,6 @@ TLEOF
     rm -f "$drv" "$out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Ruleset import chunk-size default (upstream port 0c99ddd)
 #
@@ -2490,8 +2448,6 @@ CHUNKEOF
 
     rm -rf "$work"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Domain case normalization (issue #52)
@@ -2700,8 +2656,6 @@ DOMCASEEOF
 
     rm -rf "$work"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Monitor procd-lock fd hygiene (task-035) + monitor-leak (task-036)
@@ -3002,8 +2956,6 @@ MONEOF
     rm -rf "$work"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: sing-box Config Generation
 # ─────────────────────────────────────────────────────────────────
@@ -3217,8 +3169,6 @@ VMEOF
     rm -f "$vm_tmp" "$vm_out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Proxy Link Escaping (issue #50)
 # ─────────────────────────────────────────────────────────────────
@@ -3338,8 +3288,6 @@ LINKEOF
     rm -f "$drv" "$link_out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Diagnostics Commands
 # ─────────────────────────────────────────────────────────────────
@@ -3377,8 +3325,6 @@ test_diagnostics() {
         fi
     fi
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: jq Helpers
@@ -3418,8 +3364,6 @@ JQEOF
     fi
     rm -f "$jq_error_file"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Config Manager JSON Generation
@@ -3529,8 +3473,6 @@ CMEOF
     fi
     rm -f "$cm_tmp" "$cm_out"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Subscription JSON Validation
@@ -4968,8 +4910,6 @@ config_list_foreach() {
 }
 
 # Extract the shipped functions verbatim (column-0 opener to column-0 '}').
-
-
 for fn in get_subscription_url_hash get_subscription_json_path \
           get_subscription_url_cache_path get_subscription_rejected_cache_path \
           get_subscription_user_agent_cache_path _collect_subscription_url_handler \
@@ -4993,8 +4933,6 @@ write_feed() {
     printf '%s' "$_url" > "$(get_subscription_url_cache_path "$_sec" "$_h")"
 }
 
-
-
 # Helper: build the merged file exactly like the subscription) branch and run
 # the facade once. Echoes the resulting config to stdout; sets MERGED_COUNT.
 merge_and_add() {
@@ -5017,8 +4955,6 @@ merge_and_add() {
     done
     MERGED_COUNT="$(jq -r '.outbounds | length' "$_merged" 2>/dev/null)"
 }
-
-
 
 # ── CASE 1: multi-URL merge — two feeds, distinct node names ──────────
 s1="sec1"
@@ -5247,10 +5183,12 @@ SUBSCRIPTION_CACHE_FOLDER="/tmp/netshift-cc-cache-$$"
 # Quiet logger; record subscription_update invocation count + control its rc.
 SUB_UPDATE_CALLS=0
 SUB_UPDATE_RC=0
+log() { :; }
+echolog() { :; }
+nolog() { :; }
+# Hermetic no-op stub for the redownload+restart path (verbatim reuse is what
 # the production worker does; here we only assert the worker CALLS it).
 subscription_update() { SUB_UPDATE_CALLS=$((SUB_UPDATE_CALLS + 1)); return "$SUB_UPDATE_RC"; }
-
-
 
 # config_foreach / config_get stubs driven by the CC_SECTIONS table:
 #   CC_SECTIONS = newline list of "<section>|<connection_type>|<proxy_config_type>"
@@ -5269,14 +5207,22 @@ config_foreach() {
     done < "$_cf_tmp"
     rm -f "$_cf_tmp"
 }
-
-
+config_get() {
+    # $1=varname $2=section $3=option [default]
+    case "$3" in
+        connection_type) eval "$1=\"\$CC_CUR_CT\"" ;;
+        proxy_config_type) eval "$1=\"\$CC_CUR_PCT\"" ;;
+        *) eval "$1=\"\${4:-}\"" ;;
+    esac
+}
 
 # Extract the worker VERBATIM from the shipped bin (column-0 opener → column-0 '}').
 eval "$(awk '/^subscription_clear_cache_and_redownload\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 eval "$(awk '/^foreach_active_section\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 eval "$(awk '/^_active_section_dispatch\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 # The stubbed sections in this harness are never disabled.
+section_is_disabled() { return 1; }
+
 # Seed helper: write the four per-feed sidecars for a synthetic (section,hash).
 seed_feed() {
     _s="$1"; _h="$2"
@@ -5285,8 +5231,6 @@ seed_feed() {
     printf 'rej'   > "$SUBSCRIPTION_CACHE_FOLDER/${_s}.${_h}.rejected"
     printf 'ua'    > "$SUBSCRIPTION_CACHE_FOLDER/${_s}.${_h}.user_agent"
 }
-
-
 
 # ── CASE 1: ≥2 feeds seeded, sections configured → all files deleted, dir
 #            preserved, subscription_update called, JSON success:true ───────
@@ -5425,8 +5369,6 @@ subscription_clear_cache_and_redownload() {
     echo '{"success":true,"message":"router-hit"}'
     return 0
 }
-
-
 # Silence updater.sh's own logger if it defines one after sourcing.
 eval "$(awk '/^component_action\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "UPD_PATH")"
 # No $()-capture (would subshell-trap ROUTER_HIT); write JSON to a file.
@@ -5713,8 +5655,6 @@ FGEOF
 
     rm -rf "$work"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: per-subscription urltest groups (several subscription_url in one section)
@@ -6219,8 +6159,6 @@ FDEOF
     rm -rf "$work"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Insecure subscription fetch flag (task-021b)
 #
@@ -6365,8 +6303,6 @@ IFEOF
 
     rm -rf "$work"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Async component-action job state (updater.sh)
@@ -6666,8 +6602,6 @@ SEOF
 
     rm -rf "$jdir" "$stub"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: Core-switch connectivity self-heal + rollback (updater.sh, task-009)
@@ -7464,8 +7398,6 @@ APKEOF
     rm -rf "$work"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Subscription rejected-hash validity (task-011)
 # ─────────────────────────────────────────────────────────────────
@@ -7674,8 +7606,6 @@ RHEOF
     rm -f "$drv" "$rh_out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: DNS via outbound (task-014) — detour wiring + fail-safe cascade
 # ─────────────────────────────────────────────────────────────────
@@ -7867,8 +7797,6 @@ DDEOF
     fi
     rm -f "$drv" "$dd_out"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: EDNS Client Subnet (issue #36)
@@ -8162,8 +8090,6 @@ ECSEOF
     rm -f "$drv" "$ecs_out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: scalar `option subscription_url` read-fallback + option->list migration
 # (task-048)
@@ -8344,8 +8270,6 @@ SUBOPTEOF
         rm -f /etc/config/netshift
     fi
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: per-section subscription auto-update interval (issue #51)
@@ -9354,8 +9278,6 @@ SUBCRONEOF
     rm -f "$drv" "$sub_out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: global_proxy route rule semantics
 # ─────────────────────────────────────────────────────────────────
@@ -9463,8 +9385,6 @@ test_global_proxy() {
         skip "sing-box not installed — skipping global_proxy config check"
     fi
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: LuCI views cache busting
@@ -9728,8 +9648,6 @@ test_luci_cache_bust() {
         fail "the menu path is netshift_<hash>/netshift" "$(echo "$out" | grep '^menu-path' )"
     fi
 }
-
-
 
 # Test: Reality X25519MLKEM768 per-section option
 # ─────────────────────────────────────────────────────────────────
@@ -10068,8 +9986,6 @@ SUBEOF
     _rm_check "option on a subscription section: on" "gate-subscription:1"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: BitTorrent exclusion (issue #56)
 # ─────────────────────────────────────────────────────────────────
@@ -10297,8 +10213,6 @@ BTEOF
     rm -f "$drv" "$bt_out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Stock sing-box update check (task-017)
 # ─────────────────────────────────────────────────────────────────
@@ -10432,8 +10346,6 @@ DRVEOF
     rm -rf "$work"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Extended sing-box Update Check — v-prefix regression (task-019)
 # ─────────────────────────────────────────────────────────────────
@@ -10528,8 +10440,6 @@ DRVEOF
     unset STUBEXT_INSTALLED STUBEXT_RELEASES STUBEXT_TAG
     rm -rf "$work"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: sing-box-extended asset selection on 32-bit ARM (issue #37)
@@ -10961,8 +10871,6 @@ UCIDRV
 
     rm -rf "$work"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: sing-box extended lite — third core variant
@@ -11743,8 +11651,6 @@ DRVEOF
     rm -rf "$work"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: NetShift update check on-demand (task-029)
 # ─────────────────────────────────────────────────────────────────
@@ -11878,8 +11784,6 @@ DRVEOF
     rm -rf "$work"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: NetShift latest-tag parse — minified vs pretty JSON (task-047)
 # ─────────────────────────────────────────────────────────────────
@@ -11999,8 +11903,6 @@ DRVEOF
     unset STUBLT_FN STUBLT_BODY STUBLT_INSTALLED
     rm -rf "$work"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: GitHub redirect-based latest-tag + deterministic asset URLs (task-049)
@@ -12133,8 +12035,6 @@ DRVEOF
     unset STUBGR_FN STUBGR_REDIRECT STUBGR_BODY
     rm -rf "$work"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: NetShift self-update (task-017)
@@ -12493,8 +12393,6 @@ DRVEOF
     rm -rf "$work"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: core-swap backup integrity (task-027)
 # ─────────────────────────────────────────────────────────────────
@@ -12645,8 +12543,6 @@ DRVEOF
 
     rm -rf "$work"
 }
-
-
 
 test_hot_reload() {
     header "Subscription Update Without NetShift Restart (sing-box SIGHUP)"
@@ -13376,8 +13272,6 @@ HREOF
     rm -f "$drv" "$out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: Domain/subnet list separators — commas and ANY ASCII whitespace
 #
@@ -13616,8 +13510,6 @@ DSEOF
 
     rm -f "$drv" "$out"
 }
-
-
 
 # ─────────────────────────────────────────────────────────────────
 # Test: selected server survives a reboot (sing-box cache DB copy)
@@ -14007,8 +13899,6 @@ CPEOF
     rm -f "$drv" "$out"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: `disabled` option for sections (issue #42)
 # ─────────────────────────────────────────────────────────────────
@@ -14234,8 +14124,6 @@ test_section_disabled() {
     _sd_check "active download proxy section keeps its route" "inbounds-active-routes-to-section:yes"
 }
 
-
-
 # ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
@@ -14315,136 +14203,19 @@ test_urltest_filters() {
     _uf_check "an invalid country code is warned about" "bad-code-warned:ok"
     _uf_check "no keywords and no countries: empty filter (unchanged behaviour)" "no-filter-empty:ok"
 }
-
-
 # ─────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────
-main() {
-    printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
-    printf "Source: %s\n" "$NETSHIFT_SRC"
-    printf "OpenWrt: %s\n" "$(grep OPENWRT_RELEASE /etc/os-release 2>/dev/null | cut -d'"' -f2 || echo 'unknown')"
-    printf "Kernel: %s\n" "$(uname -r 2>/dev/null || echo 'unknown')"
-    printf "\n"
-
-    local target="${1:-all}"
-
-    case "$target" in
-        all)
-            test_deps
-            test_syntax
-            test_config
-            test_helpers
-            test_jq_helpers
-            test_config_manager
-            test_sing_box_config
-            test_proxy_link_escaping
-            test_nft
-            test_nft_ipv6
-            test_selective_marking
-            test_section_isolation
-            test_monitor_fd_hygiene
-            test_unsupported_skip
-            test_extended_gate_skip
-            test_vless_encryption
-            test_text_list_outbound
-            test_ruleset_chunk_size
-            test_domain_case
-            test_diagnostics
-            test_subscription
-            test_fastest_group
-            test_feed_groups
-            test_insecure_fetch
-            test_rejected_hash
-            test_jobstate
-            test_selfheal
-            test_dns_via_outbound
-            test_dns_client_subnet
-            test_sub_url_option
-            test_sub_cron
-            test_global_proxy
-            test_reality_mlkem
-            test_luci_cache_bust
-            test_bittorrent_direct
-            test_check_update_stable
-            test_check_update_extended
-            test_sing_box_extended_arm_arch
-            test_sing_box_lite
-            test_check_update_netshift
-            test_netshift_latest_tag
-            test_github_redirect_tag
-            test_self_update_netshift
-            test_backup_integrity
-            test_hot_reload
-            test_domain_separators
-            test_cache_persist
-            test_dns_pool
-            test_ipv6_routing
-            test_section_disabled
-            test_urltest_filters
-            ;;
-        deps)        test_deps ;;
-        syntax)      test_syntax ;;
-        config)      test_config ;;
-        helpers)     test_helpers ;;
-        nft)         test_nft ;;
-        nftv6)       test_nft_ipv6 ;;
-        selmark)     test_selective_marking ;;
-        isolation)   test_section_isolation ;;
-        monfd)       test_monitor_fd_hygiene ;;
-        unsupported) test_unsupported_skip ;;
-        extgate)     test_extended_gate_skip ;;
-        vlessenc)    test_vless_encryption ;;
-        textlist)    test_text_list_outbound ;;
-        chunkcheck)  test_ruleset_chunk_size ;;
-        domcase)     test_domain_case ;;
-        diagnostics) test_diagnostics ;;
-        subscription) test_subscription ;;
-        fastest)     test_fastest_group ;;
-        feedgroups)  test_feed_groups ;;
-        insecure)    test_insecure_fetch ;;
-        rejected)    test_rejected_hash ;;
-        jobstate)    test_jobstate ;;
-        selfheal)    test_selfheal ;;
-        dnsdetour)   test_dns_via_outbound ;;
-        ecssubnet)   test_dns_client_subnet ;;
-        suburlopt)   test_sub_url_option ;;
-        subcron)     test_sub_cron ;;
-        globalproxy) test_global_proxy ;;
-        realitymlkem) test_reality_mlkem ;;
-        cachebust) test_luci_cache_bust ;;
-        bittorrent)  test_bittorrent_direct ;;
-        stablecheck) test_check_update_stable ;;
-        extcheck)    test_check_update_extended ;;
-        sbextarch)   test_sing_box_extended_arm_arch ;;
-        sbextlite)   test_sing_box_lite ;;
-        netshiftcheck) test_check_update_netshift ;;
-        latesttag)   test_netshift_latest_tag ;;
-        ghredirect)  test_github_redirect_tag ;;
-        selfupdate)  test_self_update_netshift ;;
-        backupguard) test_backup_integrity ;;
-        hotreload)   test_hot_reload ;;
-        domsep)      test_domain_separators ;;
-        cachepersist) test_cache_persist ;;
-        jq)          test_jq_helpers ;;
-        cm)          test_config_manager ;;
-        sb)          test_sing_box_config ;;
-        proxylink)   test_proxy_link_escaping ;;
-        dnspool)     test_dns_pool ;;
-        ipv6routing) test_ipv6_routing ;;
-        utfilters)   test_urltest_filters ;;
-        sectiondisabled) test_section_disabled ;;
-        *)
-            echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy realitymlkem bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist sectiondisabled utfilters cachebust ipv6routing dnspool"
-            exit 1
-            ;;
-    esac
-
-    summary
-}
-
-
+# Test: IPv6 compatibility (issue #38)
+# ─────────────────────────────────────────────────────────────────
+# With IPv6 enabled the v6 TProxy inbound (tproxy-in-v6) must be matched by the
+# SAME route rules as the v4 one (before this it matched none and v6 flows fell
+# through to the default), and the FakeIP v6 range must be a routable global
+# prefix (2001:2::/48), not the ULA fd00::/8 that dnsmasq rebind protection drops.
+#   - constant: SB_FAKEIP_INET6_RANGE is not in fc00::/7
+#   - IPv6 off: every rule keeps the plain string inbound (byte-identical config)
+#   - IPv6 on: the same rules match ["tproxy-in","tproxy-in-v6"]
+#   - the generated config passes `sing-box check`
 test_ipv6_routing() {
     header "IPv6 Compatibility (issue #38)"
 
@@ -14696,6 +14467,22 @@ V6EOF
     rm -f "$drv" "$v6_out"
 }
 
+# ─────────────────────────────────────────────────────────────────
+
+# Test: Multi-DNS upstream pool (issue #74)
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL sing_box_configure_dns_pool / _dns_pool_collect_entry /
+# is_valid_dns_pool_timeout (extracted verbatim from the bin) and the real
+# manager/facade helpers against a stubbed UCI layer. Asserts:
+#   - default (mode absent / single) and every unusable setup leave the config
+#     byte-identical to the single-upstream one (upgrade safety);
+#   - fallback: the primary and the list are asked in order, each but the last
+#     gets evaluate + respond (NOERROR / NXDOMAIN), the last one is `final`;
+#   - race: every upstream is evaluated, the respond rules carry race, `final`
+#     stays the primary;
+#   - sing-box < 1.14.0 ignores the pool with a warning (the rule actions do
+#     not exist there); entry validation, limits, detour and bootstrap resolver;
+#   - the six transports map to the right sing-box server types.
 test_dns_pool() {
     header "Multi-DNS upstream pool (issue #74)"
 
@@ -14924,28 +14711,130 @@ DPEOF
     rm -f "$drv" "$dp_out"
 }
 
+# ─────────────────────────────────────────────────────────────────
 
+main() {
+    printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
+    printf "Source: %s\n" "$NETSHIFT_SRC"
+    printf "OpenWrt: %s\n" "$(grep OPENWRT_RELEASE /etc/os-release 2>/dev/null | cut -d'"' -f2 || echo 'unknown')"
+    printf "Kernel: %s\n" "$(uname -r 2>/dev/null || echo 'unknown')"
+    printf "\n"
+
+    local target="${1:-all}"
+
+    case "$target" in
+        all)
+            test_deps
+            test_syntax
+            test_config
+            test_helpers
+            test_jq_helpers
+            test_config_manager
+            test_sing_box_config
+            test_proxy_link_escaping
+            test_nft
+            test_nft_ipv6
+            test_selective_marking
+            test_section_isolation
+            test_monitor_fd_hygiene
+            test_unsupported_skip
+            test_extended_gate_skip
+            test_vless_encryption
+            test_text_list_outbound
+            test_ruleset_chunk_size
+            test_domain_case
+            test_diagnostics
+            test_subscription
+            test_fastest_group
+            test_feed_groups
+            test_insecure_fetch
+            test_rejected_hash
+            test_jobstate
+            test_selfheal
+            test_dns_via_outbound
+            test_dns_client_subnet
+            test_sub_url_option
+            test_sub_cron
+            test_global_proxy
+            test_reality_mlkem
+            test_luci_cache_bust
+            test_bittorrent_direct
+            test_check_update_stable
+            test_check_update_extended
+            test_sing_box_extended_arm_arch
+            test_sing_box_lite
+            test_check_update_netshift
+            test_netshift_latest_tag
+            test_github_redirect_tag
+            test_self_update_netshift
+            test_backup_integrity
+            test_hot_reload
+            test_domain_separators
+            test_cache_persist
+            test_section_disabled
+            test_ipv6_routing
+            test_dns_pool
+            test_urltest_filters
+            ;;
+        deps)        test_deps ;;
+        syntax)      test_syntax ;;
+        config)      test_config ;;
+        helpers)     test_helpers ;;
+        nft)         test_nft ;;
+        nftv6)       test_nft_ipv6 ;;
+        selmark)     test_selective_marking ;;
+        isolation)   test_section_isolation ;;
+        monfd)       test_monitor_fd_hygiene ;;
+        unsupported) test_unsupported_skip ;;
+        extgate)     test_extended_gate_skip ;;
+        vlessenc)    test_vless_encryption ;;
+        textlist)    test_text_list_outbound ;;
+        chunkcheck)  test_ruleset_chunk_size ;;
+        domcase)     test_domain_case ;;
+        diagnostics) test_diagnostics ;;
+        subscription) test_subscription ;;
+        fastest)     test_fastest_group ;;
+        feedgroups)  test_feed_groups ;;
+        insecure)    test_insecure_fetch ;;
+        rejected)    test_rejected_hash ;;
+        jobstate)    test_jobstate ;;
+        selfheal)    test_selfheal ;;
+        dnsdetour)   test_dns_via_outbound ;;
+        ecssubnet)   test_dns_client_subnet ;;
+        suburlopt)   test_sub_url_option ;;
+        subcron)     test_sub_cron ;;
+        globalproxy) test_global_proxy ;;
+        realitymlkem) test_reality_mlkem ;;
+        cachebust) test_luci_cache_bust ;;
+        bittorrent)  test_bittorrent_direct ;;
+        stablecheck) test_check_update_stable ;;
+        extcheck)    test_check_update_extended ;;
+        sbextarch)   test_sing_box_extended_arm_arch ;;
+        sbextlite)   test_sing_box_lite ;;
+        netshiftcheck) test_check_update_netshift ;;
+        latesttag)   test_netshift_latest_tag ;;
+        ghredirect)  test_github_redirect_tag ;;
+        selfupdate)  test_self_update_netshift ;;
+        backupguard) test_backup_integrity ;;
+        hotreload)   test_hot_reload ;;
+        domsep)      test_domain_separators ;;
+        cachepersist) test_cache_persist ;;
+        jq)          test_jq_helpers ;;
+        cm)          test_config_manager ;;
+        sb)          test_sing_box_config ;;
+        proxylink)   test_proxy_link_escaping ;;
+        sectiondisabled) test_section_disabled ;;
+        dnspool)     test_dns_pool ;;
+        utfilters)   test_urltest_filters ;;
+        ipv6routing) test_ipv6_routing ;;
+        *)
+            echo "Unknown test: $target"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist dnspool utfilters ipv6routing realitymlkem cachebust"
+            exit 1
+            ;;
+    esac
+
+    summary
+}
 
 main "$@"
-# Test: IPv6 compatibility (issue #38)
-# With IPv6 enabled the v6 TProxy inbound (tproxy-in-v6) must be matched by the
-# SAME route rules as the v4 one (before this it matched none and v6 flows fell
-# through to the default), and the FakeIP v6 range must be a routable global
-# prefix (2001:2::/48), not the ULA fd00::/8 that dnsmasq rebind protection drops.
-#   - constant: SB_FAKEIP_INET6_RANGE is not in fc00::/7
-#   - IPv6 off: every rule keeps the plain string inbound (byte-identical config)
-#   - IPv6 on: the same rules match ["tproxy-in","tproxy-in-v6"]
-#   - the generated config passes `sing-box check`
-# Test: Multi-DNS upstream pool (issue #74)
-# Runs the REAL sing_box_configure_dns_pool / _dns_pool_collect_entry /
-# is_valid_dns_pool_timeout (extracted verbatim from the bin) and the real
-# manager/facade helpers against a stubbed UCI layer. Asserts:
-#   - default (mode absent / single) and every unusable setup leave the config
-#     byte-identical to the single-upstream one (upgrade safety);
-#   - fallback: the primary and the list are asked in order, each but the last
-#     gets evaluate + respond (NOERROR / NXDOMAIN), the last one is `final`;
-#   - race: every upstream is evaluated, the respond rules carry race, `final`
-#     stays the primary;
-#   - sing-box < 1.14.0 ignores the pool with a warning (the rule actions do
-#     not exist there); entry validation, limits, detour and bootstrap resolver;
-#   - the six transports map to the right sing-box server types.
