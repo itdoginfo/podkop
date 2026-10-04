@@ -93,6 +93,9 @@ export namespace Podkop {
     connection_type: 'proxy';
     proxy_config_type: 'urltest';
     urltest_proxy_links: string[];
+    urltest_fallback_links?: string[];
+    urltest_download_check?: 'default' | 'off' | 'custom';
+    urltest_download_url?: string;
   }
 
   export interface ConfigProxySelectorSection {

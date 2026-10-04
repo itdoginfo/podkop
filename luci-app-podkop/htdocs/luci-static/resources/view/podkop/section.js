@@ -129,6 +129,31 @@ function createSectionContent(section) {
   };
 
   o = section.option(
+    form.DynamicList,
+    "urltest_fallback_links",
+    _("Fallback URLs") +
+      ' <span class="cbi-tooltip-container">ℹ️<span class="cbi-tooltip">' +
+      _("Available with podkop-engine r10 or later") +
+      "</span></span>",
+    _("Used in this order only while none of the URLTest proxy links responds")
+  );
+  o.depends("proxy_config_type", "urltest");
+  o.validate = function (section_id, value) {
+    // Optional
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateProxyUrl(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.option(
     form.ListValue,
     "urltest_check_interval",
     _("URLTest Check Interval"),
@@ -177,6 +202,49 @@ function createSectionContent(section) {
   o.default = "https://www.gstatic.com/generate_204";
   o.rmempty = false;
   o.depends("proxy_config_type", "urltest");
+
+  o.validate = function (section_id, value) {
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateUrl(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.option(
+    form.ListValue,
+    "urltest_download_check",
+    _("Download Check") +
+      ' <span class="cbi-tooltip-container">ℹ️<span class="cbi-tooltip">' +
+      _("Available with podkop-engine r10 or later") +
+      "</span></span>",
+    _("Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped")
+  );
+  o.value("default", _("Default"));
+  o.value("off", _("Disabled"));
+  o.value("custom", _("Custom URL"));
+  o.default = "default";
+  o.depends("proxy_config_type", "urltest");
+
+  o = section.option(
+    form.Value,
+    "urltest_download_url",
+    _("Download Check URL"),
+    _("The URL must serve at least 64 KiB or announce a shorter length")
+  );
+  o.value("https://speed.cloudflare.com/__down?bytes=65536", "https://speed.cloudflare.com/__down?bytes=65536 (Cloudflare)");
+  o.value("https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js", "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js (Google)");
+  o.value("https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js", "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js (jsDelivr)");
+  o.value("https://cachefly.cachefly.net/1mb.test", "https://cachefly.cachefly.net/1mb.test (CacheFly)");
+  o.default = "https://speed.cloudflare.com/__down?bytes=65536";
+  o.rmempty = false;
+  o.depends({ proxy_config_type: "urltest", urltest_download_check: "custom" });
 
   o.validate = function (section_id, value) {
     if (!value || value.length === 0) {

@@ -793,9 +793,13 @@ async function getDashboardSections() {
         const outbound = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-urltest-out`
         );
+        const links = [
+          ...section.urltest_proxy_links ?? [],
+          ...section.urltest_fallback_links ?? []
+        ];
         const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
           code: item?.code || "",
-          displayName: getProxyUrlName(section.urltest_proxy_links?.[index]) || item?.value?.name || "",
+          displayName: getProxyUrlName(links[index]) || item?.value?.name || "",
           latency: item?.value?.history?.[0]?.delay || 0,
           type: item?.value?.type || "",
           selected: selector?.value?.now === item?.code

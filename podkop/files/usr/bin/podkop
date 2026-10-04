@@ -681,12 +681,16 @@ configure_outbound_handler() {
         urltest)
             log "Detected proxy configuration type: urltest" "debug"
             local urltest_proxy_links udp_over_tcp i urltest_tag selector_tag outbound_tag outbound_tags \
-                urltest_outbounds selector_outbounds urltest_check_interval urltest_tolerance urltest_testing_url
+                urltest_outbounds selector_outbounds urltest_check_interval urltest_tolerance urltest_testing_url \
+                urltest_fallback_links fallback_tags urltest_fallbacks urltest_download_check urltest_download_url
             config_get urltest_proxy_links "$section" "urltest_proxy_links"
+            config_get urltest_fallback_links "$section" "urltest_fallback_links"
             config_get udp_over_tcp "$section" "enable_udp_over_tcp"
             config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
             config_get urltest_tolerance "$section" "urltest_tolerance" 50
             config_get urltest_testing_url "$section" "urltest_testing_url" "https://www.gstatic.com/generate_204"
+            config_get urltest_download_check "$section" "urltest_download_check" "default"
+            config_get urltest_download_url "$section" "urltest_download_url"
 
             if [ -z "$urltest_proxy_links" ]; then
                 log "URLTest proxy links is not set. Aborted." "fatal"
@@ -705,12 +709,26 @@ configure_outbound_handler() {
                 i=$((i + 1))
             done
 
+            i=1
+            for link in $urltest_fallback_links; do
+                config="$(sing_box_cf_add_proxy_outbound "$config" "$section-fallback-$i" "$link" "$udp_over_tcp")"
+                outbound_tag="$(get_outbound_tag_by_section "$section-fallback-$i")"
+                if [ -z "$fallback_tags" ]; then
+                    fallback_tags="$outbound_tag"
+                else
+                    fallback_tags="$fallback_tags,$outbound_tag"
+                fi
+                i=$((i + 1))
+            done
+
             urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
             selector_tag="$(get_outbound_tag_by_section "$section")"
             urltest_outbounds="$(comma_string_to_json_array "$outbound_tags")"
-            selector_outbounds="$(comma_string_to_json_array "$outbound_tags,$urltest_tag")"
+            urltest_fallbacks="$(comma_string_to_json_array "$fallback_tags")"
+            selector_outbounds="$(comma_string_to_json_array "$outbound_tags${fallback_tags:+,$fallback_tags},$urltest_tag")"
             config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds" \
-                "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
+                "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance" "" "" \
+                "$urltest_fallbacks" "$urltest_download_check" "$urltest_download_url")"
             config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag")"
             ;;
         *)
@@ -1841,6 +1859,7 @@ show_config() {
     sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
         -e '/option outbound_json/,/^}/c\	option outbound_json '\''MASKED'\''' \
         -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(list urltest_fallback_links\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(list selector_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e "s@\\(option domain_resolver_dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
