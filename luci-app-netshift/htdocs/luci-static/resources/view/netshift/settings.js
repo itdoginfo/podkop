@@ -99,6 +99,73 @@ function createSettingsContent(section) {
 
   o = section.taboption(
     "dns",
+    form.ListValue,
+    "dns_pool_mode",
+    _("Multiple DNS servers"),
+    _(
+      "How the additional DNS servers are used together with the main one. Needs sing-box 1.14 or newer; on an older core only the main server is used.",
+    ),
+  );
+  o.value("single", _("Main server only"));
+  o.value("fallback", _("Priority: next server if the previous one fails"));
+  o.value("race", _("Parallel: the first usable answer wins"));
+  o.default = "single";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "dns",
+    form.DynamicList,
+    "dns_pool_server",
+    _("Additional DNS servers"),
+    _(
+      "Pick a ready-made server or type your own: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. In priority mode the order is the priority after the main server.",
+    ),
+  );
+  Object.entries(main.DNS_POOL_PRESETS).forEach(([key, label]) => {
+    o.value(key, label);
+  });
+  o.depends("dns_pool_mode", "fallback");
+  o.depends("dns_pool_mode", "race");
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateDnsPoolServer(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.taboption(
+    "dns",
+    form.Value,
+    "dns_pool_timeout",
+    _("DNS server timeout"),
+    _(
+      "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s",
+    ),
+  );
+  o.depends("dns_pool_mode", "fallback");
+  o.depends("dns_pool_mode", "race");
+  o.default = "2s";
+  o.rmempty = false;
+  o.validate = function (section_id, value) {
+    const validation = main.validateDnsPoolTimeout(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.taboption(
+    "dns",
     form.Flag,
     "dns_via_outbound",
     _("Route main DNS through proxy/VPN"),
