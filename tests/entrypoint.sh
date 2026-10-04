@@ -588,6 +588,11 @@ done
 # This harness has no `disabled` option: sections are never disabled.
 section_is_disabled() { return 1; }
 
+# No bypass sets in this harness (the bypass test covers them): the default
+# marking rules are exactly what is checked here.
+nft_bypass_requested() { return 1; }
+nft_bypass_source_ips() { :; }
+
 # The fully_routed handler reads connection_type via config_get; make that
 # section a proxy section so its IPs get a source mark rule.
 config_get() {
@@ -1263,6 +1268,9 @@ is_sing_box_extended() { return 0; }
 # or per-link warnings are produced and the section is wrongly marked unavailable.
 eval "$(awk '/^_build_proxy_member_outbounds\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 eval "$(awk '/^configure_outbound_handler\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+# configure_outbound_handler calls set_section_reality_mlkem first; these sections
+# never opt into it (covered by the realitymlkem test), so the stub keeps it off.
+set_section_reality_mlkem() { NETSHIFT_REALITY_MLKEM=0; }
 eval "$(awk '/^mark_section_outbound_unavailable\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 
 # Table-driven UCI stub. Per-section options are read from US_<section>_<opt>
@@ -2152,6 +2160,9 @@ is_sing_box_extended() { return 0; }
 # awk-extract the SHIPPED helper + handler + unavailable marker verbatim.
 eval "$(awk '/^_build_proxy_member_outbounds\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 eval "$(awk '/^configure_outbound_handler\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+# configure_outbound_handler calls set_section_reality_mlkem first; these sections
+# never opt into it (covered by the realitymlkem test), so the stub keeps it off.
+set_section_reality_mlkem() { NETSHIFT_REALITY_MLKEM=0; }
 eval "$(awk '/^mark_section_outbound_unavailable\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 
 _tl_key() { printf 'TL_%s_%s' "$(printf '%s' "$1" | tr '.-' '__')" "$2"; }
@@ -3019,7 +3030,7 @@ test_sing_box_config() {
     fi
 
     # Test with IPv6 fakeip
-    jq '.dns.servers[0].inet6_range = "fd00:ec3a::/32"' "${test_config}.2" > "${test_config}.5"
+    jq '.dns.servers[0].inet6_range = "2001:2::/48"' "${test_config}.2" > "${test_config}.5"
 
     if sing-box -c "${test_config}.5" check > /dev/null 2>&1; then
         pass "sing-box validates config with IPv6 FakeIP"
@@ -5182,7 +5193,13 @@ echolog() { :; }
 nolog() { :; }
 # Hermetic no-op stub for the redownload+restart path (verbatim reuse is what
 # the production worker does; here we only assert the worker CALLS it).
-subscription_update() { SUB_UPDATE_CALLS=$((SUB_UPDATE_CALLS + 1)); return "$SUB_UPDATE_RC"; }
+subscription_update_unlocked() { SUB_UPDATE_CALLS=$((SUB_UPDATE_CALLS + 1)); return "$SUB_UPDATE_RC"; }
+# The worker holds the subscription update lock around the wipe + redownload;
+# the real lock helpers run against a scratch lock directory.
+SUBSCRIPTION_UPDATE_LOCK_DIR="/tmp/netshift-cc-lock-$$"
+SUBSCRIPTION_UPDATE_LOCK_WAIT=1
+SUBSCRIPTION_UPDATE_BUSY=4
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
 
 # config_foreach / config_get stubs driven by the CC_SECTIONS table:
 #   CC_SECTIONS = newline list of "<section>|<connection_type>|<proxy_config_type>"
@@ -5214,6 +5231,9 @@ config_get() {
 eval "$(awk '/^subscription_clear_cache_and_redownload\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 eval "$(awk '/^foreach_active_section\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 eval "$(awk '/^_active_section_dispatch\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^subscription_update_lock_owner_alive\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^subscription_update_lock_acquire\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^subscription_update_lock_release\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 # The stubbed sections in this harness are never disabled.
 section_is_disabled() { return 1; }
 
@@ -5351,6 +5371,49 @@ else
     echo 'cc-case5-empty-constant-noop:FAIL'
 fi
 rm -rf "$guard_root"
+
+# ── CASE 5b: the lock. Every case above must have released it; while another
+#             update holds it, the worker neither wipes the cache nor starts a
+#             second update, and says so. ─────────────────────────────────────
+if [ ! -e "$SUBSCRIPTION_UPDATE_LOCK_DIR" ]; then
+    echo 'cc-lock-released-after-run:OK'
+else
+    echo 'cc-lock-released-after-run:FAIL'
+fi
+# CASE 5 left the constant empty: point it back at a scratch cache dir.
+SUBSCRIPTION_CACHE_FOLDER="/tmp/netshift-cc-cache-$$"
+rm -rf "$SUBSCRIPTION_CACHE_FOLDER"
+mkdir -p "$SUBSCRIPTION_CACHE_FOLDER"
+seed_feed "sec1" "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+CC_SECTIONS="sec1|proxy|subscription"
+SUB_UPDATE_CALLS=0
+SUB_UPDATE_RC=0
+cc_holder="/tmp/netshift-cc-holder-$$.sh"
+printf 'sleep 30\n:\n' > "$cc_holder"
+sh "$cc_holder" &
+cc_holder_pid=$!
+mkdir -p "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+echo "$cc_holder_pid" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
+cc5b_out="/tmp/netshift-cc-json5b-$$"
+subscription_clear_cache_and_redownload > "$cc5b_out"
+cc5b_rc=$?
+cc5b_json="$(cat "$cc5b_out")"
+rm -f "$cc5b_out"
+cc5b_left=$(ls -1 "$SUBSCRIPTION_CACHE_FOLDER" 2>/dev/null | wc -l)
+if [ "$cc5b_rc" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] && [ "$SUB_UPDATE_CALLS" -eq 0 ] && [ "$cc5b_left" -eq 4 ] &&
+    printf '%s' "$cc5b_json" | jq -e '.success == false and (.message | contains("already running"))' > /dev/null 2>&1; then
+    echo 'cc-busy-keeps-cache-and-reports:OK'
+else
+    echo "cc-busy-keeps-cache-and-reports(rc=$cc5b_rc calls=$SUB_UPDATE_CALLS left=$cc5b_left json=$cc5b_json):FAIL"
+fi
+if [ "$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid" 2>/dev/null)" = "$cc_holder_pid" ]; then
+    echo 'cc-busy-leaves-foreign-lock:OK'
+else
+    echo 'cc-busy-leaves-foreign-lock:FAIL'
+fi
+kill "$cc_holder_pid" 2>/dev/null
+wait "$cc_holder_pid" 2>/dev/null
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR" "$cc_holder" "$SUBSCRIPTION_CACHE_FOLDER"
 
 # ── CASE 6: router dispatch — `component_action subscription clear_cache`
 #            reaches the worker (also the path the async fork uses) ──────────
@@ -6340,6 +6403,8 @@ UPDATES_JOB_DIR="${JOBSTUB_DIR:-/tmp/netshift-jobstub-state}"
 case "$1" in
 component_action)
     # Stubbed worker: emit a (possibly delayed) JSON object then exit STUB_RC.
+    # STUB_ARGS_FILE records the arguments it was started with, one per line.
+    [ -n "$STUB_ARGS_FILE" ] && printf '[%s]\n' "$@" > "$STUB_ARGS_FILE"
     [ -n "$STUB_SLEEP" ] && sleep "$STUB_SLEEP"
     if [ -z "$STUB_JSON" ]; then
         STUB_JSON='{"success":true,"version":"1.0.0-extended"}'
@@ -6348,7 +6413,8 @@ component_action)
     exit "${STUB_RC:-0}"
     ;;
 component_action_async)
-    component_action_async "$2" "$3"
+    # Same forwarding as the shipped CLI dispatcher.
+    component_action_async "$2" "$3" "$4" "$5"
     ;;
 component_action_status)
     component_action_status "$2"
@@ -6489,6 +6555,45 @@ another stray line {not-json}
         pass "finished status without a worker warning has an empty one"
     else
         fail "finished status warning not empty" "$status_json"
+    fi
+
+    # ── 2b. extra arguments reach the worker untouched ──────────────────────
+    # `subscription update_feed <section> <feed>`: the feed is a sing-box tag
+    # with a space and a non-ASCII prefix, so it must arrive as ONE argument.
+    local args_file="$jdir/worker-args" args_json args_id args_waited=0 args_want
+    args_json="$(JOBSTUB_DIR="$jdir" STUB_ARGS_FILE="$args_file" \
+        "$stub" component_action_async subscription update_feed "my sub" "⚡ feed one (2)")"
+    args_id="$(echo "$args_json" | jq -r '.job_id')"
+    while [ "$args_waited" -lt 15 ]; do
+        jq -e '.running == false' "$jdir/$args_id.json" > /dev/null 2>&1 && break
+        sleep 1
+        args_waited=$((args_waited + 1))
+    done
+    args_want="[component_action]
+[subscription]
+[update_feed]
+[my sub]
+[⚡ feed one (2)]"
+    if [ "$(cat "$args_file" 2>/dev/null)" = "$args_want" ]; then
+        pass "async forwards the extra arguments to the worker verbatim"
+    else
+        fail "async did not forward the extra arguments" "$(cat "$args_file" 2>/dev/null)"
+    fi
+    # An action without extra arguments still starts (they arrive empty).
+    args_json="$(JOBSTUB_DIR="$jdir" STUB_ARGS_FILE="$args_file" \
+        "$stub" component_action_async subscription update)"
+    args_id="$(echo "$args_json" | jq -r '.job_id')"
+    args_waited=0
+    while [ "$args_waited" -lt 15 ]; do
+        jq -e '.running == false' "$jdir/$args_id.json" > /dev/null 2>&1 && break
+        sleep 1
+        args_waited=$((args_waited + 1))
+    done
+    if [ "$(sed -n '1,3p' "$args_file" 2>/dev/null | tr '\n' ' ')" = "[component_action] [subscription] [update] " ] &&
+        ! sed -n '4,$p' "$args_file" | grep -q '[^][]'; then
+        pass "async without extra arguments passes none to the worker"
+    else
+        fail "async without extra arguments passed something" "$(cat "$args_file" 2>/dev/null)"
     fi
 
     # ── 3. invalid / traversal job ids are rejected safely ──────────────────
@@ -8331,14 +8436,26 @@ crontab() {
     esac
 }
 
-for fn in get_subscription_cron_line_for_interval \
+for fn in is_valid_subscription_update_time \
+          get_section_subscription_update_time \
+          cron_number cron_field_matches \
+          subscription_daily_minute_is_free suggest_free_daily_minute \
+          warn_daily_subscription_time_collisions \
+          get_subscription_cron_line_for_interval \
           _collect_subscription_update_interval \
           sync_subscription_cron_jobs \
           remove_cron_job \
           foreach_active_section _active_section_dispatch section_is_disabled \
-          subscription_update; do
+          subscription_update subscription_update_unlocked \
+          subscription_update_lock_owner_alive subscription_update_lock_acquire \
+          subscription_update_lock_release subscription_update_worker_result \
+          get_subscription_feed_display_name \
+          subscription_resolve_feed_url_by_name subscription_resolve_feed_url \
+          subscription_update_all_worker subscription_update_feed_worker; do
     eval "$(extract "$fn")"
 done
+# The update lock lives in the scratch dir, never in the container's /var/run.
+SUBSCRIPTION_UPDATE_LOCK_DIR="$WORK/subscription-update.lock"
 
 has_line() { grep -qxF "$1" "$CRONTAB_FILE"; }
 job_count() { grep -c "/usr/bin/netshift subscription_update" "$CRONTAB_FILE"; }
@@ -8356,7 +8473,10 @@ for spec in "30m|*/30 * * * *" "1h|17 * * * *" "3h|7 */3 * * *" "6h|24 */6 * * *
     iv="${spec%%|*}"
     want="${spec#*|}"
     got="$(get_subscription_cron_line_for_interval "$iv")"
-    if [ "$got" = "$want /usr/bin/netshift subscription_update $iv" ]; then
+    # The daily job also names its time ("1d HH:MM"), default 09:52.
+    sfx=""
+    [ "$iv" = "1d" ] && sfx=" 09:52"
+    if [ "$got" = "$want /usr/bin/netshift subscription_update $iv$sfx" ]; then
         echo "subcron:schedule-$iv:OK"
     else
         echo "subcron:schedule-$iv:FAIL [got '$got']"
@@ -8500,7 +8620,7 @@ if has_line "*/30 * * * * /usr/bin/netshift subscription_update 30m"; then
 else
     echo "subcron:fast-keeps-30m:FAIL [$(tr '\n' ';' < "$CRONTAB_FILE")]"
 fi
-if has_line "52 9 * * * /usr/bin/netshift subscription_update 1d"; then
+if has_line "52 9 * * * /usr/bin/netshift subscription_update 1d 09:52"; then
     echo 'subcron:slow-keeps-1d:OK'
 else
     echo "subcron:slow-keeps-1d:FAIL [$(tr '\n' ';' < "$CRONTAB_FILE")]"
@@ -8635,6 +8755,388 @@ else
     echo "subcron:no-subscription-no-job:FAIL [$(tr '\n' ';' < "$CRONTAB_FILE")]"
 fi
 
+# ── Configurable daily time (issue #54) ──────────────────────────
+# is_valid_subscription_update_time: HH:MM, 00:00-23:59, two digits each.
+time_ok=1
+for t in 00:00 00:59 09:52 12:00 19:30 20:00 23:59; do
+    is_valid_subscription_update_time "$t" || { time_ok=0; echo "# time-detail valid rejected: $t"; }
+done
+for t in "" 24:00 12:60 9:15 09:5 0930 09:15:30 09.15 ab:cd " 09:15" 09:15pm -1:00 "09:15 "; do
+    is_valid_subscription_update_time "$t" && { time_ok=0; echo "# time-detail invalid accepted: [$t]"; }
+done
+if [ "$time_ok" = "1" ]; then
+    echo 'subcron:time-validation:OK'
+else
+    echo 'subcron:time-validation:FAIL'
+fi
+
+# The cron fields are plain numbers: 04:05 -> "5 4", 00:00 -> "0 0", and 08:09 /
+# 09:08 must not hit the octal trap ($((08)) is an error in ash).
+time_ok=1
+for spec in "04:30|30 4" "00:00|0 0" "08:09|9 8" "09:08|8 9" "23:59|59 23" "10:10|10 10" "00:05|5 0"; do
+    t="${spec%%|*}"
+    want="${spec#*|} * * * /usr/bin/netshift subscription_update 1d $t"
+    got="$(get_subscription_cron_line_for_interval 1d "$t")"
+    [ "$got" = "$want" ] || { time_ok=0; echo "# time-detail $t: got [$got] want [$want]"; }
+done
+if [ "$time_ok" = "1" ]; then
+    echo 'subcron:daily-time-cron-fields:OK'
+else
+    echo 'subcron:daily-time-cron-fields:FAIL'
+fi
+# An invalid time never turns into a job, and a time on another interval is not
+# part of that interval's line.
+if get_subscription_cron_line_for_interval 1d 25:00 > /dev/null 2>&1; then
+    echo 'subcron:daily-time-invalid-rejected:FAIL [25:00 accepted]'
+else
+    echo 'subcron:daily-time-invalid-rejected:OK'
+fi
+if [ "$(get_subscription_cron_line_for_interval 1h 04:30)" = "17 * * * * /usr/bin/netshift subscription_update 1h" ]; then
+    echo 'subcron:time-ignored-for-other-intervals:OK'
+else
+    echo 'subcron:time-ignored-for-other-intervals:FAIL'
+fi
+
+cat > "$WORK/daily_times" <<'CFGEOF'
+config section 'night'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/night'
+        option subscription_update_interval '1d'
+        option subscription_update_time '04:30'
+
+config section 'night2'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/night2'
+        option subscription_update_interval '1d'
+        option subscription_update_time '04:30'
+
+config section 'legacy'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/legacy'
+        option subscription_update_interval '1d'
+CFGEOF
+: > "$LOG_FILE"
+sync "$WORK/daily_times"
+if has_line "30 4 * * * /usr/bin/netshift subscription_update 1d 04:30" &&
+    has_line "52 9 * * * /usr/bin/netshift subscription_update 1d 09:52"; then
+    echo 'subcron:daily-time-own-job:OK'
+else
+    echo "subcron:daily-time-own-job:FAIL [$(tr '\n' ';' < "$CRONTAB_FILE")]"
+fi
+# Two sections on 04:30 share ONE job, the section without the option keeps the
+# time the daily job always ran at (upgrade: existing configs do not change).
+if [ "$(job_count)" = "2" ]; then
+    echo 'subcron:daily-same-time-one-job:OK'
+else
+    echo "subcron:daily-same-time-one-job:FAIL [$(tr '\n' ';' < "$CRONTAB_FILE")]"
+fi
+# The time survives a service restart / package upgrade: the jobs are rebuilt
+# from UCI, so rebuilding again yields the identical crontab.
+first_crontab="$(sort "$CRONTAB_FILE")"
+sync "$WORK/daily_times" keep
+if [ "$(sort "$CRONTAB_FILE")" = "$first_crontab" ] && [ "$(job_count)" = "2" ]; then
+    echo 'subcron:daily-time-stable-across-rebuilds:OK'
+else
+    echo "subcron:daily-time-stable-across-rebuilds:FAIL [$(tr '\n' ';' < "$CRONTAB_FILE")]"
+fi
+
+cat > "$WORK/bad_time" <<'CFGEOF'
+config section 'oops'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/oops'
+        option subscription_update_interval '1d'
+        option subscription_update_time '25:99'
+CFGEOF
+: > "$LOG_FILE"
+sync "$WORK/bad_time"
+if has_line "52 9 * * * /usr/bin/netshift subscription_update 1d 09:52" && [ "$(job_count)" = "1" ]; then
+    echo 'subcron:bad-time-falls-back-to-default:OK'
+else
+    echo "subcron:bad-time-falls-back-to-default:FAIL [$(tr '\n' ';' < "$CRONTAB_FILE")]"
+fi
+if grep -q "^\[warn\] Invalid subscription_update_time '25:99' in section 'oops'" "$LOG_FILE"; then
+    echo 'subcron:bad-time-warned:OK'
+else
+    echo "subcron:bad-time-warned:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+
+# A time on a non-daily interval is not used: the section keeps its interval job.
+cat > "$WORK/time_on_hourly" <<'CFGEOF'
+config section 'hourly'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/hourly'
+        option subscription_update_interval '1h'
+        option subscription_update_time '04:30'
+CFGEOF
+: > "$LOG_FILE"
+sync "$WORK/time_on_hourly"
+if has_line "17 * * * * /usr/bin/netshift subscription_update 1h" && [ "$(job_count)" = "1" ]; then
+    echo 'subcron:time-on-hourly-ignored:OK'
+else
+    echo "subcron:time-on-hourly-ignored:FAIL [$(tr '\n' ';' < "$CRONTAB_FILE")]"
+fi
+# ... and says so: a value that silently does nothing is a trap.
+if grep -q "^\[warn\] subscription_update_time '04:30' in section 'hourly' is ignored" "$LOG_FILE"; then
+    echo 'subcron:time-on-hourly-warned:OK'
+else
+    echo "subcron:time-on-hourly-warned:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+
+# The user picks the daily minute, so a minute another job fires at is only
+# warned about (the two would race). 04:30 clashes with the 30-minute job.
+cat > "$WORK/clash" <<'CFGEOF'
+config section 'fast'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/fast'
+        option subscription_update_interval '30m'
+
+config section 'daily'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/daily'
+        option subscription_update_interval '1d'
+        option subscription_update_time '04:30'
+CFGEOF
+: > "$LOG_FILE"
+sync "$WORK/clash"
+if grep -q "^\[warn\] The daily subscription update at 04:30 runs at the same time as the subscription update 30m cron job" "$LOG_FILE" &&
+    has_line "30 4 * * * /usr/bin/netshift subscription_update 1d 04:30"; then
+    echo 'subcron:daily-minute-clash-warned:OK'
+else
+    echo "subcron:daily-minute-clash-warned:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+sed -i "s/'04:30'/'04:31'/" "$WORK/clash"
+: > "$LOG_FILE"
+sync "$WORK/clash"
+if grep -q "runs at the same time as" "$LOG_FILE"; then
+    echo 'subcron:daily-minute-no-clash-silent:FAIL [warned for 04:31]'
+else
+    echo 'subcron:daily-minute-no-clash-silent:OK'
+fi
+# The hint for a minute with a leading zero must not hit the octal trap either.
+sed -i "s/'04:31'/'04:00'/" "$WORK/clash"
+: > "$LOG_FILE"
+sync "$WORK/clash"
+if grep -q "for example :05" "$LOG_FILE"; then
+    echo 'subcron:clash-hint-leading-zero:OK'
+else
+    echo "subcron:clash-hint-leading-zero:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+
+# The collision check compares the HOUR as well: the 3h job fires at 7 */3 only
+# in hours divisible by 3, so a daily 04:07 never meets it, 03:07 does.
+cat > "$WORK/clash3h" <<'CFGEOF'
+config section 'threeh'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/threeh'
+        option subscription_update_interval '3h'
+
+config section 'daily'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/daily'
+        option subscription_update_interval '1d'
+        option subscription_update_time '04:07'
+CFGEOF
+: > "$LOG_FILE"
+sync "$WORK/clash3h"
+if grep -q "runs at the same time as" "$LOG_FILE"; then
+    echo 'subcron:clash-3h-other-hour-silent:FAIL [warned for 04:07]'
+else
+    echo 'subcron:clash-3h-other-hour-silent:OK'
+fi
+sed -i "s/'04:07'/'03:07'/" "$WORK/clash3h"
+: > "$LOG_FILE"
+sync "$WORK/clash3h"
+if grep -q "^\[warn\] The daily subscription update at 03:07 runs at the same time as the subscription update 3h cron job" "$LOG_FILE"; then
+    echo 'subcron:clash-3h-same-hour-warned:OK'
+else
+    echo "subcron:clash-3h-same-hour-warned:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+
+# The list_update job (minute 13) is covered too: it is in the crontab by the
+# time the subscription jobs are synced, whatever update_interval is set.
+cat > "$WORK/clash_lists" <<'CFGEOF'
+config section 'daily'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/daily'
+        option subscription_update_interval '1d'
+        option subscription_update_time '09:13'
+CFGEOF
+printf '%s\n' '13 */3 * * * /usr/bin/netshift list_update' > "$CRONTAB_FILE"
+: > "$LOG_FILE"
+sync "$WORK/clash_lists" keep
+if grep -q "^\[warn\] The daily subscription update at 09:13 runs at the same time as the lists update cron job" "$LOG_FILE"; then
+    echo 'subcron:clash-list-update-warned:OK'
+else
+    echo "subcron:clash-list-update-warned:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+sed -i "s/'09:13'/'10:13'/" "$WORK/clash_lists"
+printf '%s\n' '13 */3 * * * /usr/bin/netshift list_update' > "$CRONTAB_FILE"
+: > "$LOG_FILE"
+sync "$WORK/clash_lists" keep
+if grep -q "runs at the same time as" "$LOG_FILE"; then
+    echo 'subcron:clash-list-update-other-hour-silent:FAIL [warned for 10:13 vs 13 */3]'
+else
+    echo 'subcron:clash-list-update-other-hour-silent:OK'
+fi
+printf '%s\n' '13 * * * * /usr/bin/netshift list_update' > "$CRONTAB_FILE"
+: > "$LOG_FILE"
+sync "$WORK/clash_lists" keep
+if grep -q "^\[warn\] The daily subscription update at 10:13 runs at the same time as the lists update cron job" "$LOG_FILE"; then
+    echo 'subcron:clash-list-update-hourly-warned:OK'
+else
+    echo "subcron:clash-list-update-hourly-warned:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+
+# The suggested minute is the next free one: 04:30 clashes with the 30-minute job
+# and :35 is free.
+cat > "$WORK/clash_hint" <<'CFGEOF'
+config section 'fast'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/fast'
+        option subscription_update_interval '30m'
+
+config section 'daily'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/daily'
+        option subscription_update_interval '1d'
+        option subscription_update_time '04:30'
+CFGEOF
+: > "$LOG_FILE"
+sync "$WORK/clash_hint"
+if grep -q "for example :35" "$LOG_FILE"; then
+    echo 'subcron:clash-hint-free-minute:OK'
+else
+    echo "subcron:clash-hint-free-minute:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+# A hint minute that another job fires at is skipped: with :35 taken by a
+# list_update job the hint moves on to :40.
+printf '%s\n' '35 * * * * /usr/bin/netshift list_update' > "$CRONTAB_FILE"
+: > "$LOG_FILE"
+sync "$WORK/clash_hint" keep
+if grep -q "for example :40" "$LOG_FILE" && ! grep -q "for example :35" "$LOG_FILE"; then
+    echo 'subcron:clash-hint-skips-busy-minute:OK'
+else
+    echo "subcron:clash-hint-skips-busy-minute:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+
+# cron fields with leading zeros match their number; a zero step is no guard-bypass.
+if cron_field_matches "07" 7 && ! cron_field_matches "07" 8 && cron_field_matches "*/00" 5 &&
+    cron_field_matches "*/05" 10 && ! cron_field_matches "*/05" 11; then
+    echo 'subcron:cron-field-leading-zeros:OK'
+else
+    echo 'subcron:cron-field-leading-zeros:FAIL'
+fi
+
+# The default time collides with none of the fixed jobs: a config with every
+# other interval and the list_update job stays silent.
+cat > "$WORK/clash_default" <<'CFGEOF'
+config section 'a30'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/a'
+        option subscription_update_interval '30m'
+
+config section 'a1h'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/b'
+        option subscription_update_interval '1h'
+
+config section 'a3h'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/c'
+        option subscription_update_interval '3h'
+
+config section 'a6h'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/d'
+        option subscription_update_interval '6h'
+
+config section 'a12h'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/e'
+        option subscription_update_interval '12h'
+
+config section 'dailydef'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/f'
+        option subscription_update_interval '1d'
+CFGEOF
+printf '%s\n' '13 */3 * * * /usr/bin/netshift list_update' > "$CRONTAB_FILE"
+: > "$LOG_FILE"
+sync "$WORK/clash_default" keep
+if grep -q "runs at the same time as" "$LOG_FILE"; then
+    echo "subcron:default-time-silent:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+else
+    echo 'subcron:default-time-silent:OK'
+fi
+# 6h and 12h are compared by hour as well: 6h fires at :24 in hours 0,6,12,18.
+sed -i "s/option subscription_update_interval '1d'/option subscription_update_interval '1d'\n        option subscription_update_time '06:24'/" "$WORK/clash_default"
+: > "$LOG_FILE"
+sync "$WORK/clash_default"
+if grep -q "^\[warn\] The daily subscription update at 06:24 runs at the same time as the subscription update 6h cron job" "$LOG_FILE"; then
+    echo 'subcron:clash-6h-same-hour-warned:OK'
+else
+    echo "subcron:clash-6h-same-hour-warned:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+sed -i "s/'06:24'/'07:24'/" "$WORK/clash_default"
+: > "$LOG_FILE"
+sync "$WORK/clash_default"
+if grep -q "runs at the same time as" "$LOG_FILE"; then
+    echo 'subcron:clash-6h-other-hour-silent:FAIL'
+else
+    echo 'subcron:clash-6h-other-hour-silent:OK'
+fi
+sed -i "s/'07:24'/'12:40'/" "$WORK/clash_default"
+: > "$LOG_FILE"
+sync "$WORK/clash_default"
+if grep -q "^\[warn\] The daily subscription update at 12:40 runs at the same time as the subscription update 12h cron job" "$LOG_FILE"; then
+    echo 'subcron:clash-12h-same-hour-warned:OK'
+else
+    echo "subcron:clash-12h-same-hour-warned:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+
+# A time on a non-daily section names the interval the UCI really holds, also
+# when it is one this version does not schedule.
+cat > "$WORK/ignored_unknown" <<'CFGEOF'
+config section 'odd'
+        option connection_type 'proxy'
+        option proxy_config_type 'subscription'
+        option subscription_url 'https://example.com/odd'
+        option subscription_update_interval '2h'
+        option subscription_update_time '04:30'
+CFGEOF
+: > "$LOG_FILE"
+sync "$WORK/ignored_unknown"
+if grep -q "is ignored: it only applies to the 1d interval, this section is on 2h" "$LOG_FILE"; then
+    echo 'subcron:ignored-time-names-configured-interval:OK'
+else
+    echo "subcron:ignored-time-names-configured-interval:FAIL [$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+
+# The CLI usage text documents the HH:MM argument.
+if grep -q "(1d takes an optional HH:MM" "$BIN"; then
+    echo 'subcron:usage-documents-time:OK'
+else
+    echo 'subcron:usage-documents-time:FAIL'
+fi
+
 # ── remove_cron_job clears the legacy bare job and the interval jobs ──
 # stop_main calls it, and the interval jobs are matched by the same
 # `/usr/bin/netshift subscription_update` substring as the old interval-less one.
@@ -8693,7 +9195,7 @@ mkdir -p "$(dirname "$SUBSCRIPTION_PENDING_APPLY_FLAG")"
 rc=$?
 rm -f /etc/config/nsfixture
 if [ "$rc" -eq 0 ] && [ "$(job_count)" = "2" ] &&
-    has_line "52 9 * * * /usr/bin/netshift subscription_update 1d" &&
+    has_line "52 9 * * * /usr/bin/netshift subscription_update 1d 09:52" &&
     has_line "*/30 * * * * /usr/bin/netshift subscription_update 30m"; then
     echo 'subcron:start-main-builds-jobs:OK'
 else
@@ -8725,8 +9227,10 @@ config_get() {
     case "$2:$3" in
     fast:connection_type | slow:connection_type | odd:connection_type) eval "$1=proxy" ;;
     fast:proxy_config_type | slow:proxy_config_type | odd:proxy_config_type) eval "$1=subscription" ;;
+    plain:proxy_config_type) eval "$1=url" ;;
     fast:subscription_update_interval) eval "$1=30m" ;;
     slow:subscription_update_interval) eval "$1=1d" ;;
+    slow:subscription_update_time) eval "$1=04:30" ;;
     odd:subscription_update_interval) eval "$1=2h" ;;
     *) eval "$1=\"\${4:-}\"" ;;
     esac
@@ -8758,7 +9262,7 @@ reload_sing_box_config_in_place() { return 0; }
 updated_sections() {
     : > "$WORK/updated.log"
     rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
-    subscription_update "$1" > /dev/null 2>&1
+    subscription_update "$1" "${2:-}" > /dev/null 2>&1
     printf '%s' "$(sort -u "$WORK/updated.log" | tr '\n' ' ')"
 }
 
@@ -8783,6 +9287,34 @@ if [ "$got" = "odd " ]; then
 else
     echo "subcron:filter-1h-picks-unknown-value:FAIL [$got]"
 fi
+# The daily job names its time: it updates only the sections at that time. A bare
+# "1d" (an older crontab line, a manual run) keeps meaning every daily section.
+got="$(updated_sections 1d 04:30)"
+if [ "$got" = "slow " ]; then
+    echo 'subcron:filter-1d-time-matches:OK'
+else
+    echo "subcron:filter-1d-time-matches:FAIL [$got]"
+fi
+got="$(updated_sections 1d 09:52)"
+if [ "$got" = "" ]; then
+    echo 'subcron:filter-1d-other-time-noop:OK'
+else
+    echo "subcron:filter-1d-other-time-noop:FAIL [$got]"
+fi
+: > "$LOG_FILE"
+got="$(updated_sections 1d 25:99)"
+if [ "$got" = "slow " ] && grep -q "Invalid subscription update time '25:99'" "$LOG_FILE"; then
+    echo 'subcron:filter-1d-invalid-time-updates-daily:OK'
+else
+    echo "subcron:filter-1d-invalid-time-updates-daily:FAIL [$got|$(tr '\n' ';' < "$LOG_FILE")]"
+fi
+got="$(updated_sections 1h 04:30)"
+if [ "$got" = "odd " ]; then
+    echo 'subcron:filter-time-ignored-for-other-intervals:OK'
+else
+    echo "subcron:filter-time-ignored-for-other-intervals:FAIL [$got]"
+fi
+
 got="$(updated_sections '')"
 if [ "$got" = "fast odd slow " ]; then
     echo 'subcron:no-filter-updates-all:OK'
@@ -8832,21 +9364,21 @@ else
     echo "subcron:unknown-arg-case-updates-all:FAIL [$got]"
 fi
 
-# ── optional [section] / [url] filters (dashboard per-feed refresh) ──
-# $2 narrows the run to one section, $3 to one feed URL inside it. Both are how
+# ── optional section / url filters (dashboard per-feed refresh) ──
+# $3 narrows the run to one section, $4 to one feed URL inside it. Both are how
 # the Dashboard refresh buttons call the function; the cron path above never
 # passes them, so this must not change its behaviour.
 updated_sections_section() {
     : > "$WORK/updated.log"
     rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
-    subscription_update "" "$1" > /dev/null 2>&1
+    subscription_update "" "" "$1" > /dev/null 2>&1
     printf '%s' "$(sort -u "$WORK/updated.log" | tr '\n' ' ')"
 }
 downloaded_urls() {
     : > "$WORK/updated.log"
     : > "$WORK/downloaded-urls.log"
     rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
-    subscription_update "" "$1" "$2" > /dev/null 2>&1
+    subscription_update "" "" "$1" "$2" > /dev/null 2>&1
     printf '%s' "$(sort -u "$WORK/downloaded-urls.log" | tr '\n' ' ')"
 }
 
@@ -8862,7 +9394,7 @@ if [ "$got" = "" ]; then
 else
     echo "subcron:section-filter-unknown-noop:FAIL [$got]"
 fi
-subscription_update "" nope > /dev/null 2>&1
+subscription_update "" "" nope > /dev/null 2>&1
 if [ "$?" -eq 0 ]; then
     echo 'subcron:section-filter-unknown-rc:OK'
 else
@@ -8879,6 +9411,242 @@ if [ "$got" = "https://feed.example.com/fast-a https://feed.example.com/fast-b "
     echo 'subcron:section-filter-all-feeds:OK'
 else
     echo "subcron:section-filter-all-feeds:FAIL [$got]"
+fi
+# The daily time stays the second argument: the section filter must not eat it.
+got="$(updated_sections 1d 04:30)"
+if [ "$got" = "slow " ]; then
+    echo 'subcron:time-filter-still-second-arg:OK'
+else
+    echo "subcron:time-filter-still-second-arg:FAIL [$got]"
+fi
+
+# ── the update lock: one subscription update at a time ──
+# A live owner is a process whose command line names netshift (every real run
+# is `/usr/bin/netshift ...`); the holder script's name provides that here.
+LOCK_HOLDER="$WORK/netshift-lock-holder.sh"
+printf 'sleep 60\n:\n' > "$LOCK_HOLDER"
+hold_lock() {
+    sh "$LOCK_HOLDER" &
+    HOLDER_PID=$!
+    mkdir -p "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+    echo "$HOLDER_PID" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
+}
+drop_lock_holder() {
+    kill "$HOLDER_PID" 2> /dev/null
+    wait "$HOLDER_PID" 2> /dev/null
+}
+
+if [ ! -e "$SUBSCRIPTION_UPDATE_LOCK_DIR" ]; then
+    echo 'subcron:lock-released-after-every-run:OK'
+else
+    echo 'subcron:lock-released-after-every-run:FAIL'
+fi
+
+# A dashboard worker (nowait) does not start next to a running update.
+hold_lock
+: > "$WORK/updated.log"
+SUBSCRIPTION_UPDATE_LOCK_MODE=nowait
+subscription_update > /dev/null 2>&1
+rc=$?
+unset SUBSCRIPTION_UPDATE_LOCK_MODE
+if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] && [ ! -s "$WORK/updated.log" ] &&
+    [ "$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid")" = "$HOLDER_PID" ]; then
+    echo 'subcron:lock-nowait-busy:OK'
+else
+    echo "subcron:lock-nowait-busy:FAIL [rc=$rc]"
+fi
+
+# A scheduled run waits, and gives up with the same code once the wait is over.
+SUBSCRIPTION_UPDATE_LOCK_WAIT=2
+: > "$WORK/updated.log"
+subscription_update > /dev/null 2>&1
+rc=$?
+if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] && [ ! -s "$WORK/updated.log" ]; then
+    echo 'subcron:lock-wait-times-out:OK'
+else
+    echo "subcron:lock-wait-times-out:FAIL [rc=$rc]"
+fi
+
+# ...and runs as soon as the owner is done within the wait.
+SUBSCRIPTION_UPDATE_LOCK_WAIT=20
+(
+    sleep 2
+    rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+) &
+releaser_pid=$!
+: > "$WORK/updated.log"
+rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+subscription_update 30m > /dev/null 2>&1
+rc=$?
+wait "$releaser_pid" 2> /dev/null
+if [ "$rc" -eq 0 ] && [ "$(sort -u "$WORK/updated.log" | tr '\n' ' ')" = "fast " ] &&
+    [ ! -e "$SUBSCRIPTION_UPDATE_LOCK_DIR" ]; then
+    echo 'subcron:lock-wait-runs-after-release:OK'
+else
+    echo "subcron:lock-wait-runs-after-release:FAIL [rc=$rc]"
+fi
+drop_lock_holder
+
+# A lock whose owner died (killed mid-update, the restart an update triggers)
+# is taken over instead of blocking every later update.
+hold_lock
+drop_lock_holder
+: > "$WORK/updated.log"
+rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+SUBSCRIPTION_UPDATE_LOCK_MODE=nowait
+subscription_update 30m > /dev/null 2>&1
+rc=$?
+unset SUBSCRIPTION_UPDATE_LOCK_MODE
+if [ "$rc" -eq 0 ] && [ -s "$WORK/updated.log" ] && grep -q "lock is stale" "$LOG_FILE"; then
+    echo 'subcron:lock-stale-owner-taken-over:OK'
+else
+    echo "subcron:lock-stale-owner-taken-over:FAIL [rc=$rc]"
+fi
+
+# The owner pid now belongs to something that is not a netshift run.
+sleep 60 &
+foreign_pid=$!
+mkdir -p "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+echo "$foreign_pid" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
+SUBSCRIPTION_UPDATE_LOCK_MODE=nowait
+subscription_update 30m > /dev/null 2>&1
+rc=$?
+unset SUBSCRIPTION_UPDATE_LOCK_MODE
+kill "$foreign_pid" 2> /dev/null
+wait "$foreign_pid" 2> /dev/null
+if [ "$rc" -eq 0 ]; then
+    echo 'subcron:lock-reused-pid-taken-over:OK'
+else
+    echo "subcron:lock-reused-pid-taken-over:FAIL [rc=$rc]"
+fi
+
+# A lock directory left without a pid file (owner died right after mkdir).
+mkdir -p "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+SUBSCRIPTION_UPDATE_LOCK_MODE=nowait
+subscription_update 30m > /dev/null 2>&1
+rc=$?
+unset SUBSCRIPTION_UPDATE_LOCK_MODE
+if [ "$rc" -eq 0 ] && [ ! -e "$SUBSCRIPTION_UPDATE_LOCK_DIR" ]; then
+    echo 'subcron:lock-ownerless-taken-over:OK'
+else
+    echo "subcron:lock-ownerless-taken-over:FAIL [rc=$rc]"
+fi
+
+# ── dashboard workers: `component_action subscription update[_feed]` ──
+# 'fast' has two feeds on one host, so their dashboard blocks are named
+# "feed.example.com" and "feed.example.com (2)"; the block tag carries the
+# "⚡ " prefix and, when another section already owns the tag, a "-N" suffix.
+feed_worker() {
+    : > "$WORK/updated.log"
+    : > "$WORK/downloaded-urls.log"
+    rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+    subscription_update_feed_worker "$@" > "$WORK/worker.out" 2> /dev/null
+    WORKER_RC=$?
+    WORKER_JSON="$(tail -n 1 "$WORK/worker.out")"
+    WORKER_URLS="$(sort -u "$WORK/downloaded-urls.log" | tr '\n' ' ')"
+}
+worker_ok() { printf '%s' "$WORKER_JSON" | jq -e '.success == true' > /dev/null 2>&1; }
+worker_failed_with() {
+    printf '%s' "$WORKER_JSON" | jq -e --arg t "$1" '.success == false and (.message | contains($t))' > /dev/null 2>&1
+}
+
+feed_worker fast
+if [ "$WORKER_RC" -eq 0 ] && worker_ok &&
+    [ "$WORKER_URLS" = "https://feed.example.com/fast-a https://feed.example.com/fast-b " ]; then
+    echo 'subcron:feed-worker-whole-section:OK'
+else
+    echo "subcron:feed-worker-whole-section:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+fi
+feed_worker fast "⚡ feed.example.com"
+if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-a " ]; then
+    echo 'subcron:feed-worker-by-tag:OK'
+else
+    echo "subcron:feed-worker-by-tag:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+fi
+feed_worker fast "⚡ feed.example.com (2)"
+if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-b " ]; then
+    echo 'subcron:feed-worker-by-tag-second-feed:OK'
+else
+    echo "subcron:feed-worker-by-tag-second-feed:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+fi
+# Another section already owns "⚡ feed.example.com": sing-box got the tag with
+# a dedup suffix, and that is what the dashboard sends.
+feed_worker fast "⚡ feed.example.com-1"
+if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-a " ]; then
+    echo 'subcron:feed-worker-deduplicated-tag:OK'
+else
+    echo "subcron:feed-worker-deduplicated-tag:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+fi
+feed_worker fast "⚡ feed.example.com (2)-3"
+if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-b " ]; then
+    echo 'subcron:feed-worker-deduplicated-tag-second-feed:OK'
+else
+    echo "subcron:feed-worker-deduplicated-tag-second-feed:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+fi
+# The bare block name (no prefix) is accepted too.
+feed_worker fast "feed.example.com (2)"
+if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-b " ]; then
+    echo 'subcron:feed-worker-by-bare-name:OK'
+else
+    echo "subcron:feed-worker-by-bare-name:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+fi
+# An unknown block must fail loudly, never fall back to "refresh everything".
+for unknown in "⚡ other.example.com" "⚡ feed.example.com-x" "⚡ -1" "⚡ "; do
+    feed_worker fast "$unknown"
+    if [ "$WORKER_RC" -ne 0 ] && [ -z "$WORKER_URLS" ] && worker_failed_with "was not found"; then
+        echo "subcron:feed-worker-unknown-feed [$unknown]:OK"
+    else
+        echo "subcron:feed-worker-unknown-feed [$unknown]:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+    fi
+done
+feed_worker plain
+if [ "$WORKER_RC" -ne 0 ] && [ -z "$WORKER_URLS" ] && worker_failed_with "not a subscription section"; then
+    echo 'subcron:feed-worker-rejects-non-subscription:OK'
+else
+    echo "subcron:feed-worker-rejects-non-subscription:FAIL [rc=$WORKER_RC json=$WORKER_JSON]"
+fi
+feed_worker ""
+if [ "$WORKER_RC" -ne 0 ] && worker_failed_with "section is required"; then
+    echo 'subcron:feed-worker-requires-section:OK'
+else
+    echo "subcron:feed-worker-requires-section:FAIL [rc=$WORKER_RC json=$WORKER_JSON]"
+fi
+
+# Both workers refuse to run next to another update and say why.
+hold_lock
+feed_worker fast
+if [ "$WORKER_RC" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] && [ -z "$WORKER_URLS" ] && worker_failed_with "already running"; then
+    echo 'subcron:feed-worker-busy:OK'
+else
+    echo "subcron:feed-worker-busy:FAIL [rc=$WORKER_RC json=$WORKER_JSON]"
+fi
+: > "$WORK/updated.log"
+subscription_update_all_worker > "$WORK/worker.out" 2> /dev/null
+WORKER_RC=$?
+WORKER_JSON="$(tail -n 1 "$WORK/worker.out")"
+if [ "$WORKER_RC" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] && [ ! -s "$WORK/updated.log" ] && worker_failed_with "already running"; then
+    echo 'subcron:all-worker-busy:OK'
+else
+    echo "subcron:all-worker-busy:FAIL [rc=$WORKER_RC json=$WORKER_JSON]"
+fi
+drop_lock_holder
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+
+: > "$WORK/updated.log"
+rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+subscription_update_all_worker > "$WORK/worker.out" 2> /dev/null
+WORKER_RC=$?
+WORKER_JSON="$(tail -n 1 "$WORK/worker.out")"
+if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$(sort -u "$WORK/updated.log" | tr '\n' ' ')" = "fast odd slow " ]; then
+    echo 'subcron:all-worker-updates-every-section:OK'
+else
+    echo "subcron:all-worker-updates-every-section:FAIL [rc=$WORKER_RC json=$WORKER_JSON]"
+fi
+# The nowait mode is the worker's own: a later scheduled run still waits.
+if [ -z "${SUBSCRIPTION_UPDATE_LOCK_MODE:-}" ]; then
+    echo 'subcron:worker-lock-mode-does-not-leak:OK'
+else
+    echo "subcron:worker-lock-mode-does-not-leak:FAIL [$SUBSCRIPTION_UPDATE_LOCK_MODE]"
 fi
 
 rm -rf "$WORK"
@@ -9018,228 +9786,603 @@ test_global_proxy() {
 }
 
 # ─────────────────────────────────────────────────────────────────
-# Test: `disabled` option for sections (issue #42)
+# Test: LuCI views cache busting
 # ─────────────────────────────────────────────────────────────────
-# Runs the REAL section_is_disabled / foreach_active_section /
-# section_has_configured_outbound / section_has_enabled_lists (extracted
-# verbatim from the bin) against a stubbed UCI layer. Asserts:
-#   - a section with `disabled '1'` is skipped by foreach_active_section and
-#     is reported as having no outbound and no enabled lists;
-#   - `disabled '0'` and a MISSING option (every pre-existing config) keep the
-#     section fully active (upgrade safety);
-#   - the callback bookkeeping is restored after the walk (nesting-safe).
-test_section_disabled() {
-    header "Section disabled option (issue #42)"
+# LuCI requests view modules as .../view/<name>.js?v=<LuCI core version>, which
+# does not change when this app is updated, so a browser kept serving the
+# previous version's JS. luci-app-netshift/cache-bust.sh (run from the package
+# Makefile) installs the views in a content-hashed view/netshift_<hash>/ and
+# points the requires and the menu at it, so every new build has new URLs.
+# Runs the REAL script on a copy of the source tree and checks:
+#   - directory renamed, every `require view.netshift.<x>` and the menu path
+#     rewritten, nothing left pointing at the old directory;
+#   - the tag follows the content (and the stamped version), and is stable;
+#   - a broken tree fails instead of producing a package that cannot load;
+# plus the backend lookup of the installed LuCI app version (get_luci_app_version),
+# which has to find main.js in the hashed directory.
+test_luci_cache_bust() {
+    header "LuCI views cache busting"
 
+    local src="${NETSHIFT_LUCI_SRC:-/luci-app-netshift}"
     local bin="${NETSHIFT_SRC}/usr/bin/netshift"
-    if [ ! -r "$bin" ]; then
-        skip "netshift bin not found"
+    if [ ! -r "$src/cache-bust.sh" ] || [ ! -d "$src/htdocs" ]; then
+        fail "cachebust" "luci-app-netshift source not mounted at $src (mount ../luci-app-netshift at /luci-app-netshift)"
+        return
+    fi
+    if [ ! -r "$bin" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "cachebust - bin/netshift or jq not found"
         return
     fi
 
+    local work="/tmp/netshift-cachebust-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
     local out
     out="$(
-        # shellcheck disable=SC2030
-        extract() {
-            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
-        }
-        eval "$(extract section_is_disabled)"
-        eval "$(extract _active_section_dispatch)"
-        eval "$(extract foreach_active_section)"
-        eval "$(extract section_has_configured_outbound)"
-        eval "$(extract section_has_enabled_lists)"
-        eval "$(extract _check_outbound_section)"
-        eval "$(extract has_outbound_section)"
-        eval "$(extract _determine_first_outbound_section)"
-        eval "$(extract get_first_outbound_section)"
-        eval "$(extract _determine_global_proxy_section)"
-        eval "$(extract get_global_proxy_section)"
-        _active_section_callback=
+        W="$work"
+        view_rel="htdocs/luci-static/resources/view"
 
-        SD_SECTIONS="alpha beta gamma delta"
-        sd_key() { printf 'SD_%s_%s' "$1" "$2"; }
+        fresh() { # $1=name: copy of the source tree, version stamped like the Makefile does
+            rm -rf "$W/$1"
+            mkdir -p "$W/$1"
+            cp -R "$src/htdocs" "$src/root" "$W/$1/"
+            sed -i -e "s/__COMPILED_VERSION_VARIABLE__/${2:-0.9.9}/g" "$W/$1/$view_rel/netshift/main.js"
+        }
+        run() { sh "$src/cache-bust.sh" "$W/$1/htdocs" "$W/$1/root" > "$W/$1.out" 2>&1; }
+        tag_of() { ls "$W/$1/$view_rel" | grep '^netshift_' | head -1; }
+
+        fresh a
+        run a && echo "script-ok:yes" || echo "script-ok:no"
+        tag="$(tag_of a)"
+        echo "tag-shape:$(printf '%s' "$tag" | grep -Eq '^netshift_[0-9a-f]{8}$' && echo yes || echo no)"
+        echo "old-dir-gone:$([ -d "$W/a/$view_rel/netshift" ] && echo no || echo yes)"
+
+        # Same files as in the source tree, just moved.
+        moved=yes
+        for f in "$src/htdocs/luci-static/resources/view/netshift"/*.js; do
+            [ -f "$W/a/$view_rel/$tag/$(basename "$f")" ] || moved=no
+        done
+        echo "all-views-moved:$moved"
+
+        echo "no-old-requires:$(grep -l 'view\.netshift\.' "$W/a/$view_rel/$tag"/*.js > /dev/null 2>&1 && echo no || echo yes)"
+        echo "requires-new-dir:$(grep -h 'require view\.' "$W/a/$view_rel/$tag"/*.js | grep -vc "require view\.$tag\." | grep -qx 0 && echo yes || echo no)"
+        deps=yes
+        for ref in $(grep -ho "require view\.$tag\.[A-Za-z0-9_]*" "$W/a/$view_rel/$tag"/*.js | sort -u | sed "s/.*\.//"); do
+            [ -f "$W/a/$view_rel/$tag/$ref.js" ] || deps=no
+        done
+        echo "every-require-resolves:$deps"
+        echo "has-requires:$(grep -hc "require view\.$tag\." "$W/a/$view_rel/$tag"/*.js | awk '{n+=$1} END{print (n>0)?"yes":"no"}')"
+
+        menu="$W/a/root/usr/share/luci/menu.d/luci-app-netshift.json"
+        echo "menu-path:$(jq -r '."admin/services/netshift".action.path' "$menu")"
+        echo "menu-only-path-changed:$([ "$(jq -S 'del(."admin/services/netshift".action.path)' "$menu")" = "$(jq -S 'del(."admin/services/netshift".action.path)' "$src/root/usr/share/luci/menu.d/luci-app-netshift.json")" ] && echo yes || echo no)"
+        echo "menu-target-exists:$([ -f "$W/a/$view_rel/$(jq -r '."admin/services/netshift".action.path' "$menu" | cut -d/ -f1)/netshift.js" ] && echo yes || echo no)"
+
+        # Deterministic: the same build gives the same directory.
+        fresh b
+        run b || echo "run-b:failed"
+        echo "deterministic:$([ "$(tag_of b)" = "$tag" ] && echo yes || echo no)"
+        # The tag follows the stamped version (a new release => new URLs) ...
+        fresh c 0.9.10
+        run c || echo "run-c:failed"
+        echo "changes-with-version:$([ "$(tag_of c)" != "$tag" ] && echo yes || echo no)"
+        # ... and the content.
+        fresh d
+        printf '\n// edit\n' >> "$W/d/$view_rel/netshift/section.js"
+        run d || echo "run-d:failed"
+        echo "changes-with-content:$([ "$(tag_of d)" != "$tag" ] && echo yes || echo no)"
+
+        # The tag is the md5 of the stamped views concatenated in byte order.
+        fresh m
+        want_tag="netshift_$(cd "$W/m/$view_rel/netshift" && LC_ALL=C cat ./*.js | LC_ALL=C md5sum | cut -c1-8)"
+        run m || echo "run-m:failed"
+        echo "tag-is-content-md5:$([ "$(tag_of m)" = "$want_tag" ] && echo yes || echo no)"
+
+        # A broken tree must fail the build.
+        fresh e
+        rm -rf "$W/e/$view_rel/netshift"
+        run e && echo "missing-views-fails:no" || echo "missing-views-fails:yes"
+        echo "missing-views-message:$(grep -c 'view/netshift not found' "$W/e.out")"
+        fresh f
+        rm -f "$W/f/root/usr/share/luci/menu.d/luci-app-netshift.json"
+        run f && echo "missing-menu-fails:no" || echo "missing-menu-fails:yes"
+        echo "missing-menu-message:$(grep -c 'luci-app-netshift.json not found' "$W/f.out")"
+        # A require that points at a view that does not exist is caught.
+        fresh g
+        sed -i 's/require view\.netshift\.main as main/require view.netshift.nosuchview as main/' "$W/g/$view_rel/netshift/diagnostic.js"
+        run g && echo "dangling-require-fails:no" || echo "dangling-require-fails:yes"
+        # A leftover path-form reference and a reference to another hash are caught too.
+        fresh h
+        printf '\nL.resource("view/netshift/main.js");\n' >> "$W/h/$view_rel/netshift/diagnostic.js"
+        run h && echo "path-form-reference-fails:no" || echo "path-form-reference-fails:yes"
+        fresh i
+        printf '\n// require view.netshift_deadbeef.main\n' >> "$W/i/$view_rel/netshift/diagnostic.js"
+        run i && echo "foreign-hash-reference-fails:no" || echo "foreign-hash-reference-fails:yes"
+        # No .js views at all, and a second run over a processed tree, fail with a clear error.
+        fresh j
+        rm -f "$W/j/$view_rel/netshift"/*.js
+        run j && echo "empty-views-fails:no" || echo "empty-views-fails:yes"
+        echo "empty-views-message:$(grep -c 'no .js views' "$W/j.out")"
+        fresh k
+        run k || echo "run-k:failed"
+        run k && echo "rerun-fails:no" || echo "rerun-fails:yes"
+        echo "rerun-message:$(grep -c 'view/netshift not found' "$W/k.out")"
+        # The target directory already there next to a plain view/netshift: refused.
+        fresh x
+        run x || echo "run-x:failed"
+        mkdir -p "$W/x/$view_rel/netshift"
+        cp "$src/htdocs/luci-static/resources/view/netshift"/*.js "$W/x/$view_rel/netshift/"
+        sed -i -e "s/__COMPILED_VERSION_VARIABLE__/0.9.9/g" "$W/x/$view_rel/netshift/main.js"
+        run x && echo "already-exists-fails:no" || echo "already-exists-fails:yes"
+        echo "already-exists-message:$(grep -c 'already exists' "$W/x.out")"
+        # A version placeholder that was never stamped fails the build instead of
+        # shipping a bundle that cannot tell its version.
+        rm -rf "$W/n"; mkdir -p "$W/n"
+        cp -R "$src/htdocs" "$src/root" "$W/n/"
+        run n && echo "unstamped-version-fails:no" || echo "unstamped-version-fails:yes"
+        echo "unstamped-version-message:$(grep -c 'version placeholder not stamped' "$W/n.out")"
+
+        # ── backend: version of the installed LuCI app ──────────────────
+        log() { :; }
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        eval "$(awk -v f="get_luci_app_version" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        mkver() { mkdir -p "$LUCI_VIEW_DIR/$1"; printf 'var NETSHIFT_LUCI_APP_VERSION = "%s";\n' "$2" > "$LUCI_VIEW_DIR/$1/main.js"; }
+        # The version line of the REAL bundle, as built and stamped, is understood.
+        LUCI_VIEW_DIR="$W/a/$view_rel"
+        echo "version-real-bundle:$(get_luci_app_version)"
+        LUCI_VIEW_DIR="$W/luciview"
+        LUCI_MENU_FILE="$W/no-such-menu.json"
+        rm -rf "$LUCI_VIEW_DIR"; mkdir -p "$LUCI_VIEW_DIR"
+        echo "version-none:$(get_luci_app_version)"
+        mkver netshift 0.8.0
+        echo "version-legacy-dir:$(get_luci_app_version)"
+        # Dates are made by creation order (a one-second gap), never by fixed dates.
+        sleep 1
+        mkver netshift_1a2b3c4d 0.9.9.5
+        echo "version-hashed-dir-wins:$(get_luci_app_version)"
+        rm -rf "$LUCI_VIEW_DIR/netshift"
+        echo "version-hashed-dir:$(get_luci_app_version)"
+        # Without a menu entry the newest main.js is the installed one, whichever way
+        # the hash of a leftover directory sorts.
+        rm -rf "$LUCI_VIEW_DIR"; mkdir -p "$LUCI_VIEW_DIR"
+        mkver netshift_ffffffff 0.9.9.4; mkver netshift_00000000 0.9.9.4
+        sleep 1
+        mkver netshift_1a2b3c4d 0.9.9.5
+        echo "version-old-dirs-lose:$(get_luci_app_version)"
+        # With the menu entry, the directory it opens is the installed one even when a
+        # leftover (a downgrade, a manual copy) is newer.
+        printf '{"admin/services/netshift":{"action":{"type":"view","path":"netshift_1a2b3c4d/netshift"}}}\n' > "$LUCI_MENU_FILE"
+        sleep 1
+        mkver netshift_22222222 0.9.9.6
+        echo "version-menu-wins-over-newer-leftover:$(get_luci_app_version)"
+        # A menu entry that points to a directory that is not there is ignored.
+        printf '{"admin/services/netshift":{"action":{"type":"view","path":"netshift_99999999/netshift"}}}\n' > "$LUCI_MENU_FILE"
+        echo "version-menu-dangling-falls-back:$(get_luci_app_version)"
+        rm -f "$LUCI_MENU_FILE"
+        # A main.js without the version line is skipped, never reported as an empty
+        # string; with nothing usable left the app is installed but of unknown version.
+        rm -rf "$LUCI_VIEW_DIR"; mkdir -p "$LUCI_VIEW_DIR"
+        mkver netshift_1a2b3c4d 0.9.9.5
+        mkdir -p "$LUCI_VIEW_DIR/netshift_00000001"
+        printf 'var SOMETHING_ELSE = 1;\n' > "$LUCI_VIEW_DIR/netshift_00000001/main.js"
+        echo "version-missing-line-skipped:$(get_luci_app_version)"
+        rm -rf "$LUCI_VIEW_DIR/netshift_1a2b3c4d"
+        echo "version-missing-line:$(get_luci_app_version)"
+
+        # ── package postinst: earlier view directories are removed, the installed one stays
+        mk="$src/Makefile"
+        awk '/^define Package\/\$\(PKG_NAME\)\/postinst/{p=1;next} /^endef/{if(p)exit} p' "$mk" | sed 's/\$\$/$/g' > "$W/postinst.sh"
+        echo "postinst-extracted:$([ -s "$W/postinst.sh" ] && echo yes || echo no)"
+        PV="$W/pi/view"; PM="$W/pi/menu.json"
+        rm -rf "$W/pi"; mkdir -p "$PV/netshift_aaaaaaaa" "$PV/netshift_bbbbbbbb" "$PV/netshift_cccccccc" "$PV/netshift" "$PV/other"
+        printf '{"admin/services/netshift":{"action":{"type":"view","path":"netshift_bbbbbbbb/netshift"}}}\n' > "$PM"
+        ( LUCI_VIEW_DIR="$PV" LUCI_MENU_FILE="$PM" sh "$W/postinst.sh" ) > /dev/null 2>&1
+        echo "postinst-keeps-active:$(ls "$PV" | tr '\n' ',')"
+        # Image build (IPKG_INSTROOT set): nothing is touched.
+        mkdir -p "$PV/netshift_aaaaaaaa"
+        ( IPKG_INSTROOT=/x LUCI_VIEW_DIR="$PV" LUCI_MENU_FILE="$PM" sh "$W/postinst.sh" ) > /dev/null 2>&1
+        echo "postinst-image-build-untouched:$([ -d "$PV/netshift_aaaaaaaa" ] && echo yes || echo no)"
+        # No usable menu entry: nothing is removed.
+        printf '{}\n' > "$PM"
+        ( LUCI_VIEW_DIR="$PV" LUCI_MENU_FILE="$PM" sh "$W/postinst.sh" ) > /dev/null 2>&1
+        echo "postinst-no-menu-removes-nothing:$([ -d "$PV/netshift_aaaaaaaa" ] && [ -d "$PV/netshift_bbbbbbbb" ] && echo yes || echo no)"
+    )"
+    rm -rf "$work"
+
+    _cb_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _cb_check "the script succeeds on the source tree" "script-ok:yes"
+    _cb_check "the views directory is named netshift_<8 hex>" "tag-shape:yes"
+    _cb_check "the old view/netshift directory is gone" "old-dir-gone:yes"
+    _cb_check "every view file is kept, only moved" "all-views-moved:yes"
+    _cb_check "no require points at the old directory" "no-old-requires:yes"
+    _cb_check "every require uses the new directory" "requires-new-dir:yes"
+    _cb_check "the views do require each other (rewrite is exercised)" "has-requires:yes"
+    _cb_check "every required view exists in the new directory" "every-require-resolves:yes"
+    _cb_check "the menu opens the hashed directory" "menu-target-exists:yes"
+    _cb_check "only the menu path changed in the menu file" "menu-only-path-changed:yes"
+    _cb_check "the same build gives the same directory" "deterministic:yes"
+    _cb_check "a new version gets a new directory" "changes-with-version:yes"
+    _cb_check "changed content gets a new directory" "changes-with-content:yes"
+    _cb_check "a missing views directory fails the build" "missing-views-fails:yes"
+    _cb_check "a missing menu file fails the build" "missing-menu-fails:yes"
+    _cb_check "a require of a missing view fails the build" "dangling-require-fails:yes"
+    _cb_check "no LuCI app: not installed" "version-none:not installed"
+    _cb_check "version is read from a legacy view/netshift directory" "version-legacy-dir:0.8.0"
+    _cb_check "the hashed directory wins over a legacy one" "version-hashed-dir-wins:0.9.9.5"
+    _cb_check "version is read from the hashed directory" "version-hashed-dir:0.9.9.5"
+    _cb_check "the real bundle's version line is understood" "version-real-bundle:0.9.9"
+    _cb_check "leftover older directories lose, whichever way their hash sorts" "version-old-dirs-lose:0.9.9.5"
+    _cb_check "the menu entry names the installed directory, even when a leftover is newer" "version-menu-wins-over-newer-leftover:0.9.9.5"
+    _cb_check "a menu entry to a missing directory is ignored" "version-menu-dangling-falls-back:0.9.9.6"
+    _cb_check "postinst is found in the Makefile" "postinst-extracted:yes"
+    _cb_check "postinst removes earlier view directories and keeps the installed one" "postinst-keeps-active:netshift_bbbbbbbb,other,"
+    _cb_check "postinst does nothing during an image build" "postinst-image-build-untouched:yes"
+    _cb_check "postinst removes nothing without a usable menu entry" "postinst-no-menu-removes-nothing:yes"
+    _cb_check "a main.js without a version line is skipped for one that has it" "version-missing-line-skipped:0.9.9.5"
+    _cb_check "only a main.js without a version line: unknown, not an empty string or not installed" "version-missing-line:unknown"
+    _cb_check "a missing views directory says so" "missing-views-message:1"
+    _cb_check "a missing menu file says so" "missing-menu-message:1"
+    _cb_check "a second run over a processed tree reports the missing source directory" "rerun-message:1"
+    _cb_check "an existing target directory is refused" "already-exists-fails:yes"
+    _cb_check "...with its own message" "already-exists-message:1"
+    _cb_check "an unstamped version placeholder fails the build" "unstamped-version-fails:yes"
+    _cb_check "...and says so" "unstamped-version-message:1"
+    _cb_check "the tag is the md5 of the stamped views" "tag-is-content-md5:yes"
+    _cb_check "a leftover view/netshift path reference fails the build" "path-form-reference-fails:yes"
+    _cb_check "a reference to another hash fails the build" "foreign-hash-reference-fails:yes"
+    _cb_check "no .js views fails the build" "empty-views-fails:yes"
+    _cb_check "no .js views: the error says so" "empty-views-message:1"
+    _cb_check "a second run over a processed tree fails" "rerun-fails:yes"
+    if echo "$out" | grep -q '^menu-path:netshift_[0-9a-f]\{8\}/netshift$'; then
+        pass "the menu path is netshift_<hash>/netshift"
+    else
+        fail "the menu path is netshift_<hash>/netshift" "$(echo "$out" | grep '^menu-path' )"
+    fi
+}
+
+# Test: Reality X25519MLKEM768 per-section option
+# ─────────────────────────────────────────────────────────────────
+# REALITY servers on Xray-core >= 26.9.8 reject a client that does not offer the
+# X25519MLKEM768 key share, and sing-box strips it by default. sing-box-extended
+# 2.7.2+ has `tls.reality.support_x25519mlkem768` to keep it. The per-section
+# `reality_mlkem` option must:
+#   - do nothing by default (no field: older Xray servers may fail with it);
+#   - add the field ONLY to Reality outbounds, for link sections and for
+#     subscription batches, when the option is on;
+#   - be ignored, with a warning, on a core that does not know the field
+#     (stock sing-box, extended < 2.7.2), because that field would fail
+#     `sing-box check` and take the whole section down.
+# The REAL set_section_reality_mlkem / facade / config manager run here.
+test_reality_mlkem() {
+    header "Reality X25519MLKEM768 option"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local f
+    for f in constants.sh helpers.sh sing_box_config_manager.sh sing_box_config_facade.sh helpers.jq; do
+        if [ ! -r "$lib/$f" ]; then
+            skip "reality_mlkem - $f not found"
+            return
+        fi
+    done
+    if [ ! -r "$bin" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "reality_mlkem - bin/netshift or jq not found"
+        return
+    fi
+
+    # The facade sources its siblings from the runtime path.
+    mkdir -p /usr/lib/netshift
+    for f in constants.sh helpers.sh sing_box_config_manager.sh sing_box_config_facade.sh helpers.jq; do
+        ln -sf "$lib/$f" "/usr/lib/netshift/$f"
+    done
+
+    local out
+    out="$(
+        RM_LOG="/tmp/netshift-realitymlkem-$$.log"
+        : > "$RM_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$RM_LOG"; }
+        echolog() { log "$1" "${2:-info}"; }
+        nolog() { :; }
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        NETSHIFT_LIB="$lib"
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        eval "$(awk -v f="set_section_reality_mlkem" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+
+        # UCI stub for config_get_bool: RM_<section>_<option>
+        # UCI stub for config_get: connection_type / proxy_config_type of section s
         config_get() {
             local _v
-            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
-            [ -n "$_v" ] || _v="$4"
+            eval "_v=\"\${RM_${2}_${3}:-}\""
+            [ -n "$_v" ] || case "$3" in
+            connection_type) _v="${RM_conn:-proxy}" ;;
+            proxy_config_type) _v="${RM_ptype:-url}" ;;
+            esac
             eval "$1=\"\$_v\""
         }
         config_get_bool() {
             local _v
-            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
+            eval "_v=\"\${RM_${2}_${3}:-}\""
             [ -n "$_v" ] || _v="$4"
             case "$_v" in 1 | on | true | yes | enabled) _v=1 ;; *) _v=0 ;; esac
             eval "$1=\"\$_v\""
         }
-        config_foreach() {
-            local _cb="$1" _t="$2" _s
-            shift 2
-            for _s in $SD_SECTIONS; do "$_cb" "$_s" "$@"; done
+
+        gate() { # $1=core version, $2=option value ("" = option absent)
+            NETSHIFT_SING_BOX_VERSION="$1"
+            export NETSHIFT_SING_BOX_VERSION
+            RM_s_reality_mlkem="$2"
+            : > "$RM_LOG"
+            set_section_reality_mlkem s
+            printf '%s' "$NETSHIFT_REALITY_MLKEM"
         }
+        echo "gate-default-off:$(gate 1.14.1-extended-2.7.2-lite '')"
+        echo "gate-off-explicit:$(gate 1.14.1-extended-2.7.2-lite 0)"
+        echo "gate-lite-2.7.2:$(gate 1.14.1-extended-2.7.2-lite 1)"
+        echo "gate-extended-2.7.2:$(gate 1.14.1-extended-2.7.2 1)"
+        echo "gate-extended-newer:$(gate 1.14.2-extended-2.8.0 1)"
+        echo "gate-extended-2.7.1:$(gate 1.14.0-extended-2.7.1 1)"
+        warned="no"
+        grep -q "^\[warn\] Section 's': reality_mlkem needs sing-box-extended $SB_EXTENDED_REALITY_MLKEM_MIN" "$RM_LOG" && warned="yes"
+        echo "gate-old-extended-warned:$warned"
+        # Two-digit minor: a plain string comparison would sort 2.10.0 below 2.7.2.
+        echo "gate-extended-2.10.0:$(gate 1.15.0-extended-2.10.0 1)"
+        echo "gate-stock:$(gate 1.13.14 1)"
+        warned="no"
+        grep -q "^\[warn\] Section 's': reality_mlkem needs sing-box-extended $SB_EXTENDED_REALITY_MLKEM_MIN" "$RM_LOG" && warned="yes"
+        echo "gate-stock-warned:$warned"
+        gate 1.14.1-extended-2.7.2-lite '' > /dev/null
+        warned="no"
+        [ -s "$RM_LOG" ] && warned="yes"
+        echo "gate-off-silent:$([ "$warned" = no ] && echo yes || echo no)"
 
-        # alpha: active (no `disabled` option at all = every existing config)
-        # beta:  disabled '1'    gamma: disabled '0'    delta: disabled '1'
-        for s in alpha beta gamma delta; do
-            eval "SD_${s}_connection_type=proxy"
-            eval "SD_${s}_proxy_config_type=url"
-            eval "SD_${s}_proxy_string=vless://x@example.com:443"
-            eval "SD_${s}_community_lists=russia_inside"
+        mlk() { printf '%s' "$1" | jq -r '.outbounds[0].tls.reality // {} | if has("support_x25519mlkem768") then (.support_x25519mlkem768 | tostring) else "absent" end'; }
+        LINK_R='vless://11111111-2222-3333-4444-555555555555@r.example.com:443?encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=jNXHt1yRo0vDuchQlIP6Z0ZvjT3KtzVI-T4E7RoLJS0&security=reality&sid=0123abcd&sni=r.example.com&type=tcp'
+        LINK_T='vless://11111111-2222-3333-4444-555555555555@t.example.com:443?encryption=none&security=tls&sni=t.example.com&type=tcp'
+        base='{"outbounds":[]}'
+
+        unset NETSHIFT_REALITY_MLKEM
+        echo "link-default:$(mlk "$(sing_box_cf_add_proxy_outbound "$base" r "$LINK_R" 0)")"
+        NETSHIFT_REALITY_MLKEM=0
+        echo "link-off:$(mlk "$(sing_box_cf_add_proxy_outbound "$base" r "$LINK_R" 0)")"
+        NETSHIFT_REALITY_MLKEM=1
+        echo "link-on:$(mlk "$(sing_box_cf_add_proxy_outbound "$base" r "$LINK_R" 0)")"
+        echo "link-on-tls-untouched:$(mlk "$(sing_box_cf_add_proxy_outbound "$base" t "$LINK_T" 0)")"
+        # Everything else about the Reality block is unchanged by the flag.
+        on="$(sing_box_cf_add_proxy_outbound "$base" r "$LINK_R" 0)"
+        NETSHIFT_REALITY_MLKEM=0
+        off="$(sing_box_cf_add_proxy_outbound "$base" r "$LINK_R" 0)"
+        same="no"
+        [ "$(printf '%s' "$on" | jq -S 'del(.outbounds[0].tls.reality.support_x25519mlkem768)')" = "$(printf '%s' "$off" | jq -S .)" ] && same="yes"
+        echo "link-on-otherwise-identical:$same"
+
+        # Subscription batch: only Reality nodes get the field.
+        SUBJ="/tmp/netshift-realitymlkem-sub-$$.json"
+        cat > "$SUBJ" << 'SUBEOF'
+{"outbounds":[
+ {"type":"vless","tag":"reality-node","server":"r.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","flow":"xtls-rprx-vision","tls":{"enabled":true,"server_name":"r.example.com","utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"enabled":true,"public_key":"jNXHt1yRo0vDuchQlIP6Z0ZvjT3KtzVI-T4E7RoLJS0","short_id":"0123abcd"}}},
+ {"type":"vless","tag":"tls-node","server":"t.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","tls":{"enabled":true,"server_name":"t.example.com"}},
+ {"type":"trojan","tag":"plain-node","server":"p.example.com","server_port":443,"password":"x"}
+]}
+SUBEOF
+        batch_field() { # $1=tag
+            printf '%s' "$BATCH" | jq -r --arg t "$1" '.outbounds[] | select(.tag==$t) | .tls.reality as $r | $r | if . == null then "no-reality" elif has("support_x25519mlkem768") then (.support_x25519mlkem768 | tostring) else "absent" end'
+        }
+        NETSHIFT_REALITY_MLKEM=0
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ" '[]' '[]')"
+        echo "batch-off:$(batch_field reality-node)"
+        NETSHIFT_REALITY_MLKEM=1
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ" '[]' '[]')"
+        echo "batch-on-reality:$(batch_field reality-node)"
+        echo "batch-on-tls-untouched:$(batch_field tls-node)"
+        echo "batch-on-plain-untouched:$(batch_field plain-node)"
+        echo "batch-on-count:$(printf '%s' "$BATCH" | jq -r '.count')"
+
+        # The flag is authoritative in both directions: a body cached while the
+        # option was on (field already present) loses it once the option is off
+        # or the core cannot take it, and keeps it while the option is on.
+        SUBJ2="/tmp/netshift-realitymlkem-sub2-$$.json"
+        jq '.outbounds[0].tls.reality.support_x25519mlkem768 = true' "$SUBJ" > "$SUBJ2"
+        NETSHIFT_REALITY_MLKEM=0
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ2" '[]' '[]')"
+        echo "batch-off-strips-cached-field:$(batch_field reality-node)"
+        NETSHIFT_REALITY_MLKEM=1
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ2" '[]' '[]')"
+        echo "batch-on-keeps-cached-field:$(batch_field reality-node)"
+        rm -f "$SUBJ2"
+
+        # The normalized subscription cache never depends on the option: a URI
+        # body parsed with the flag ON comes out without the field.
+        NSRC="/tmp/netshift-realitymlkem-norm-$$.txt"
+        NOUT="/tmp/netshift-realitymlkem-norm-$$.json"
+        printf '%s\n' "$LINK_R" > "$NSRC"
+        NETSHIFT_REALITY_MLKEM=1
+        if normalize_subscription_to_singbox "$NSRC" "$NOUT" s; then
+            echo "normalize-ignores-flag:$(jq -r '[.outbounds[] | .tls.reality // {} | if has("support_x25519mlkem768") then (.support_x25519mlkem768 | tostring) else "absent" end] | unique | join(",")' "$NOUT")"
+        else
+            echo "normalize-ignores-flag:normalize-failed"
+        fi
+        echo "normalize-restores-flag:$NETSHIFT_REALITY_MLKEM"
+        rm -f "$NSRC" "$NOUT"
+
+        # The user's own outbound JSON is never touched, flag on or not.
+        RAW='{"type":"vless","server":"r.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","tls":{"enabled":true,"reality":{"enabled":true,"public_key":"jNXHt1yRo0vDuchQlIP6Z0ZvjT3KtzVI-T4E7RoLJS0","short_id":"0123abcd"}}}'
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        NETSHIFT_REALITY_MLKEM=1
+        got="$(sing_box_cf_add_json_outbound "$base" raw "$RAW" | jq -cS '.outbounds[0] | del(.tag)')"
+        want="$(printf '%s' "$RAW" | jq -cS .)"
+        [ "$got" = "$want" ] && echo "raw-outbound-json-untouched:yes" || echo "raw-outbound-json-untouched:no [$got]"
+
+        # Seam: the option goes through the REAL set_section_reality_mlkem from
+        # the bin and the result reaches the facade, end to end (no hand-set flag).
+        seam() { # $1=core version, $2=option
+            NETSHIFT_SING_BOX_VERSION="$1"
+            export NETSHIFT_SING_BOX_VERSION
+            RM_s_reality_mlkem="$2"
+            : > "$RM_LOG"
+            set_section_reality_mlkem s
+            mlk "$(sing_box_cf_add_proxy_outbound "$base" r "$LINK_R" 0)"
+        }
+        echo "seam-lite-on:$(seam 1.14.1-extended-2.7.2-lite 1)"
+        echo "seam-lite-off:$(seam 1.14.1-extended-2.7.2-lite 0)"
+        echo "seam-stock-on:$(seam 1.13.14 1)"
+        echo "seam-old-extended-on:$(seam 1.14.0-extended-2.7.1 1)"
+
+        # fp other than chrome: the option would be a silent no-op, so it is warned about.
+        LINK_F='vless://11111111-2222-3333-4444-555555555555@r.example.com:443?encryption=none&flow=xtls-rprx-vision&fp=firefox&pbk=jNXHt1yRo0vDuchQlIP6Z0ZvjT3KtzVI-T4E7RoLJS0&security=reality&sid=0123abcd&sni=r.example.com&type=tcp'
+        LINK_N='vless://11111111-2222-3333-4444-555555555555@r.example.com:443?encryption=none&flow=xtls-rprx-vision&pbk=jNXHt1yRo0vDuchQlIP6Z0ZvjT3KtzVI-T4E7RoLJS0&security=reality&sid=0123abcd&sni=r.example.com&type=tcp'
+        NETSHIFT_REALITY_MLKEM=1
+        : > "$RM_LOG"
+        sing_box_cf_add_proxy_outbound "$base" r "$LINK_R" 0 > /dev/null
+        grep -q "key share is only sent with fp=chrome" "$RM_LOG" && echo "fp-chrome-silent:no" || echo "fp-chrome-silent:yes"
+        : > "$RM_LOG"
+        sing_box_cf_add_proxy_outbound "$base" r "$LINK_F" 0 > /dev/null
+        grep -q "key share is only sent with fp=chrome" "$RM_LOG" && echo "fp-other-warned:yes" || echo "fp-other-warned:no"
+        NETSHIFT_REALITY_MLKEM=0
+        : > "$RM_LOG"
+        sing_box_cf_add_proxy_outbound "$base" r "$LINK_F" 0 > /dev/null
+        grep -q "key share is only sent with fp=chrome" "$RM_LOG" && echo "fp-other-off-silent:no" || echo "fp-other-off-silent:yes"
+
+        # A link that does not use the chrome fingerprint never gets the field (the
+        # core could reject it next to another fingerprint), and the log says so.
+        NETSHIFT_REALITY_MLKEM=1
+        : > "$RM_LOG"
+        echo "link-fp-other-no-field:$(mlk "$(sing_box_cf_add_proxy_outbound "$base" r "$LINK_F" 0)")"
+        grep -q "has fingerprint 'firefox': the X25519MLKEM768 key share is only sent with fp=chrome, so it is not added for this link" "$RM_LOG" && echo "link-fp-other-says-so:yes" || echo "link-fp-other-says-so:no"
+        : > "$RM_LOG"
+        echo "link-no-fp-no-field:$(mlk "$(sing_box_cf_add_proxy_outbound "$base" r "$LINK_N" 0)")"
+        grep -q "has no fingerprint: the X25519MLKEM768 key share is only sent with fp=chrome, so it is not added for this link" "$RM_LOG" && echo "link-no-fp-says-so:yes" || echo "link-no-fp-says-so:no"
+
+        # Subscription nodes: only chrome nodes get the field; a field that is already
+        # there (provider's sing-box config) is removed from every other Reality
+        # node, also when the node carries no `enabled` key or a string value.
+        SUBJ3="/tmp/netshift-realitymlkem-sub3-$$.json"
+        cat > "$SUBJ3" << 'SUBEOF'
+{"outbounds":[
+ {"type":"vless","tag":"chrome","server":"a.example.com","server_port":443,"uuid":"u","tls":{"enabled":true,"utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"enabled":true,"public_key":"k","short_id":"s"}}},
+ {"type":"vless","tag":"firefox","server":"b.example.com","server_port":443,"uuid":"u","tls":{"enabled":true,"utls":{"enabled":true,"fingerprint":"firefox"},"reality":{"enabled":true,"public_key":"k","short_id":"s","support_x25519mlkem768":true}}},
+ {"type":"vless","tag":"nofp","server":"c.example.com","server_port":443,"uuid":"u","tls":{"enabled":true,"reality":{"enabled":true,"public_key":"k","short_id":"s"}}},
+ {"type":"vless","tag":"noenabled","server":"d.example.com","server_port":443,"uuid":"u","tls":{"enabled":true,"utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"public_key":"k","short_id":"s","support_x25519mlkem768":true}}},
+ {"type":"vless","tag":"stringtrue","server":"e.example.com","server_port":443,"uuid":"u","tls":{"enabled":true,"utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"enabled":"true","public_key":"k","short_id":"s","support_x25519mlkem768":true}}}
+]}
+SUBEOF
+        NETSHIFT_REALITY_MLKEM=1
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ3" '[]' '[]')"
+        echo "batch-fp-on:$(batch_field chrome),$(batch_field firefox),$(batch_field nofp),$(batch_field noenabled),$(batch_field stringtrue)"
+        NETSHIFT_REALITY_MLKEM=0
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ3" '[]' '[]')"
+        echo "batch-fp-off:$(batch_field chrome),$(batch_field firefox),$(batch_field nofp),$(batch_field noenabled),$(batch_field stringtrue)"
+        rm -f "$SUBJ3"
+
+        # A provider node with a scalar `tls` (or `utls`) must not abort the whole
+        # batch: the other nodes still come through.
+        SUBJ4="/tmp/netshift-realitymlkem-sub4-$$.json"
+        cat > "$SUBJ4" << 'SUBEOF'
+{"outbounds":[
+ {"type":"vless","tag":"scalar-tls","server":"s.example.com","server_port":443,"uuid":"u","tls":"none"},
+ {"type":"vless","tag":"scalar-utls","server":"u.example.com","server_port":443,"uuid":"u","tls":{"enabled":true,"utls":"chrome","reality":{"enabled":true,"public_key":"k","short_id":"s"}}},
+ {"type":"vless","tag":"chrome","server":"a.example.com","server_port":443,"uuid":"u","tls":{"enabled":true,"utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"enabled":true,"public_key":"k","short_id":"s"}}}
+]}
+SUBEOF
+        for flag in 0 1; do
+            NETSHIFT_REALITY_MLKEM=$flag
+            BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ4" '[]' '[]')"
+            echo "batch-scalar-tls-$flag:count=$(printf '%s' "$BATCH" | jq -r '.count // "abort"') chrome=$(batch_field chrome) scalar-utls=$(batch_field scalar-utls)"
         done
-        SD_beta_disabled=1
-        SD_gamma_disabled=0
-        SD_delta_disabled=1
+        rm -f "$SUBJ4"
 
-        visited=""
-        sd_visit() { visited="$visited $1"; }
-        foreach_active_section sd_visit "section"
-        echo "walk:${visited# }"
+        # The core version is resolved once per run, not once per section (a subshell:
+        # the stub must not outlive this check).
+        VCOUNT="/tmp/netshift-realitymlkem-vcount-$$"; : > "$VCOUNT"
+        echo "version-resolved-once:$(
+            get_sing_box_version() { # the real one reuses NETSHIFT_SING_BOX_VERSION when it is set
+                if [ -n "${NETSHIFT_SING_BOX_VERSION:-}" ]; then echo "$NETSHIFT_SING_BOX_VERSION"; return; fi
+                echo x >> "$VCOUNT"; echo "1.14.1-extended-2.7.2-lite"
+            }
+            unset NETSHIFT_SING_BOX_VERSION
+            RM_s_reality_mlkem=1
+            set_section_reality_mlkem s; set_section_reality_mlkem s; set_section_reality_mlkem s
+            echo "$(wc -l < "$VCOUNT" | tr -d ' ')/$NETSHIFT_REALITY_MLKEM"
+        )"
+        rm -f "$VCOUNT"
 
-        section_is_disabled alpha && echo "alpha-disabled:yes" || echo "alpha-disabled:no"
-        section_is_disabled beta && echo "beta-disabled:yes" || echo "beta-disabled:no"
-        section_is_disabled gamma && echo "gamma-disabled:yes" || echo "gamma-disabled:no"
-
-        section_has_configured_outbound alpha && echo "alpha-outbound:yes" || echo "alpha-outbound:no"
-        section_has_configured_outbound beta && echo "beta-outbound:yes" || echo "beta-outbound:no"
-        section_has_enabled_lists alpha && echo "alpha-lists:yes" || echo "alpha-lists:no"
-        section_has_enabled_lists beta && echo "beta-lists:yes" || echo "beta-lists:no"
-
-        echo "callback-restored:${_active_section_callback:-empty}"
-
-        # Selection helpers: a disabled section is never the first outbound and
-        # never the global-proxy section, even when it comes first / asks for it.
-        SD_beta_global_proxy=1
-        SD_gamma_global_proxy=1
-        SD_SECTIONS="beta alpha gamma"
-        echo "first-outbound:$(get_first_outbound_section)"
-        echo "global-proxy:$(get_global_proxy_section)"
-        has_outbound_section && echo "has-outbound:yes" || echo "has-outbound:no"
-
-        # The walker must hand back the callback's status (list_update relies on
-        # `foreach_active_section ... || update_failed=1` to report a failed run).
-        SD_SECTIONS="alpha gamma"
-        sd_fail() { return 1; }
-        sd_pass() { return 0; }
-        foreach_active_section sd_fail "section" && echo "rc-failing-callback:0" || echo "rc-failing-callback:1"
-        foreach_active_section sd_pass "section" && echo "rc-passing-callback:0" || echo "rc-passing-callback:1"
-        echo "rc-callback-restored:${_active_section_callback:-empty}"
-
-        # Only disabled sections left -> as if there were no sections at all.
-        SD_SECTIONS="beta delta"
-        echo "only-disabled-first:[$(get_first_outbound_section)]"
-        echo "only-disabled-global:[$(get_global_proxy_section)]"
-        has_outbound_section && echo "only-disabled-has-outbound:yes" || echo "only-disabled-has-outbound:no"
+        # Sections the option cannot apply to say so instead of ignoring it silently.
+        RM_conn=direct
+        echo "gate-not-proxy:$(gate 1.14.1-extended-2.7.2-lite 1)"
+        grep -q "^\[warn\] Section 's': reality_mlkem does not apply" "$RM_LOG" && echo "gate-not-proxy-warned:yes" || echo "gate-not-proxy-warned:no"
+        RM_conn=proxy; RM_ptype=outbound
+        echo "gate-outbound-json:$(gate 1.14.1-extended-2.7.2-lite 1)"
+        grep -q "^\[warn\] Section 's': reality_mlkem does not apply" "$RM_LOG" && echo "gate-outbound-json-warned:yes" || echo "gate-outbound-json-warned:no"
+        RM_ptype=subscription
+        echo "gate-subscription:$(gate 1.14.1-extended-2.7.2-lite 1)"
+        RM_conn=""; RM_ptype=""
+        rm -f "$SUBJ" "$RM_LOG"
     )"
 
-    _sd_check() {
+    _rm_check() {
         if echo "$out" | grep -qxF "$2"; then
             pass "$1"
         else
-            fail "$1" "wanted line [$2] in: $(echo "$out" | tr '\n' '|')"
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
         fi
     }
 
-    _sd_check "disabled sections are skipped by foreach_active_section" "walk:alpha gamma"
-    _sd_check "missing disabled option keeps the section active" "alpha-disabled:no"
-    _sd_check "disabled '1' is detected" "beta-disabled:yes"
-    _sd_check "disabled '0' keeps the section active" "gamma-disabled:no"
-    _sd_check "active section has a configured outbound" "alpha-outbound:yes"
-    _sd_check "disabled section has no configured outbound" "beta-outbound:no"
-    _sd_check "active section has enabled lists" "alpha-lists:yes"
-    _sd_check "disabled section has no enabled lists" "beta-lists:no"
-    _sd_check "foreach_active_section restores its callback state" "callback-restored:empty"
-    _sd_check "disabled section is never the first outbound" "first-outbound:alpha"
-    _sd_check "disabled section is never the global-proxy section" "global-proxy:gamma"
-    _sd_check "active sections still count as having an outbound" "has-outbound:yes"
-    _sd_check "foreach_active_section returns a failing callback status" "rc-failing-callback:1"
-    _sd_check "foreach_active_section returns 0 when callbacks succeed" "rc-passing-callback:0"
-    _sd_check "foreach_active_section restores its callback after a failure" "rc-callback-restored:empty"
-    _sd_check "only disabled sections: no first outbound" "only-disabled-first:[]"
-    _sd_check "only disabled sections: no global-proxy section" "only-disabled-global:[]"
-    _sd_check "only disabled sections: has_outbound_section is false" "only-disabled-has-outbound:no"
-
-    # A disabled section picked in "Download Lists via specific proxy section"
-    # has no outbound, so nothing may reference "<section>-out" (sing-box check
-    # would fail and the whole service would not start).
-    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
-    local facade_lib="${NETSHIFT_LIB_DIR}/sing_box_config_facade.sh"
-    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
-    if ! command -v jq > /dev/null 2>&1 || [ ! -r "$cm_lib" ] || [ ! -r "$facade_lib" ] || [ ! -r "$jq_helpers" ]; then
-        skip "download proxy section disabled: jq / libs not available"
-        return
-    fi
-
-    mkdir -p /usr/lib/netshift
-    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
-    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
-    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
-
-    out="$(
-        # shellcheck disable=SC2030,SC2031
-        extract() {
-            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
-        }
-        . "${NETSHIFT_LIB_DIR}/constants.sh"
-        . "${NETSHIFT_LIB_DIR}/helpers.sh"
-        . "${NETSHIFT_LIB_DIR}/logging.sh" 2>/dev/null || log() { :; }
-        . "$facade_lib"
-        for fn in section_is_disabled _active_section_dispatch foreach_active_section \
-            subscription_outbound_is_unavailable download_proxy_section_is_unavailable \
-            sing_box_additional_inbounds get_download_detour_tag; do
-            eval "$(extract "$fn")"
-        done
-        _active_section_callback=
-        SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
-
-        SD_PROXY_SECTION=""
-        config_get() {
-            case "$2:$3" in
-            settings:download_lists_via_proxy_section) eval "$1=\"\$SD_PROXY_SECTION\"" ;;
-            *) eval "$1=\"\${4:-}\"" ;;
-            esac
-        }
-        config_get_bool() {
-            case "$2:$3" in
-            settings:download_lists_via_proxy) eval "$1=1" ;;
-            beta:disabled) eval "$1=1" ;;
-            *) eval "$1=\"\${4:-0}\"" ;;
-            esac
-        }
-        config_foreach() { :; }
-        get_outbound_tag_by_section() { echo "$1-out"; }
-
-        base='{"inbounds":[],"outbounds":[{"type":"direct","tag":"direct-out"},{"type":"direct","tag":"alpha-out"}],"route":{"rules":[],"final":"direct-out"}}'
-
-        SD_PROXY_SECTION=beta
-        echo "detour-disabled:[$(get_download_detour_tag)]"
-        config="$base"
-        sing_box_additional_inbounds
-        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "beta-out")] | length == 0' > /dev/null &&
-            echo "inbounds-disabled-no-dangling-outbound:yes" || echo "inbounds-disabled-no-dangling-outbound:no"
-        echo "$config" | jq -e '[.route.rules[] | select(.action == "reject")] | length == 1' > /dev/null &&
-            echo "inbounds-disabled-rejects:yes" || echo "inbounds-disabled-rejects:no"
-        if command -v sing-box > /dev/null 2>&1; then
-            printf '%s' "$config" | jq 'walk(if type == "object" then del(.__service_tag) else . end)' > /tmp/sd-dl-disabled.json
-            sing-box -c /tmp/sd-dl-disabled.json check > /dev/null 2>&1 &&
-                echo "inbounds-disabled-singbox-check:yes" || echo "inbounds-disabled-singbox-check:no"
-            rm -f /tmp/sd-dl-disabled.json
-        fi
-
-        SD_PROXY_SECTION=alpha
-        echo "detour-active:[$(get_download_detour_tag)]"
-        config="$base"
-        sing_box_additional_inbounds
-        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "alpha-out")] | length == 1' > /dev/null &&
-            echo "inbounds-active-routes-to-section:yes" || echo "inbounds-active-routes-to-section:no"
-    )"
-
-    _sd_check "disabled download proxy section: no detour tag" "detour-disabled:[]"
-    _sd_check "disabled download proxy section: no route to its outbound" "inbounds-disabled-no-dangling-outbound:yes"
-    _sd_check "disabled download proxy section: proxy requests are rejected" "inbounds-disabled-rejects:yes"
-    if command -v sing-box > /dev/null 2>&1; then
-        _sd_check "disabled download proxy section: config passes sing-box check" "inbounds-disabled-singbox-check:yes"
-    fi
-    _sd_check "active download proxy section keeps its detour tag" "detour-active:[alpha-out]"
-    _sd_check "active download proxy section keeps its route" "inbounds-active-routes-to-section:yes"
+    _rm_check "off by default: the option absent leaves the field out" "gate-default-off:0"
+    _rm_check "off explicitly stays off" "gate-off-explicit:0"
+    _rm_check "extended-lite 2.7.2 enables it" "gate-lite-2.7.2:1"
+    _rm_check "extended 2.7.2 enables it" "gate-extended-2.7.2:1"
+    _rm_check "a newer extended enables it" "gate-extended-newer:1"
+    _rm_check "extended 2.7.1 (no such field) ignores it" "gate-extended-2.7.1:0"
+    _rm_check "extended 2.10.0 (two-digit minor) enables it" "gate-extended-2.10.0:1"
+    _rm_check "old extended: ignoring it is warned about" "gate-old-extended-warned:yes"
+    _rm_check "stock sing-box ignores it" "gate-stock:0"
+    _rm_check "stock sing-box: ignoring it is warned about" "gate-stock-warned:yes"
+    _rm_check "no warning when the option is off" "gate-off-silent:yes"
+    _rm_check "link: no field when the flag is unset" "link-default:absent"
+    _rm_check "link: no field when the flag is off" "link-off:absent"
+    _rm_check "link: Reality outbound gets support_x25519mlkem768" "link-on:true"
+    _rm_check "link: a plain TLS outbound is never touched" "link-on-tls-untouched:absent"
+    _rm_check "link: the flag changes nothing else in the outbound" "link-on-otherwise-identical:yes"
+    _rm_check "subscription: no field when the flag is off" "batch-off:absent"
+    _rm_check "subscription: Reality nodes get the field" "batch-on-reality:true"
+    _rm_check "subscription: TLS nodes are untouched" "batch-on-tls-untouched:no-reality"
+    _rm_check "subscription: non-TLS nodes are untouched" "batch-on-plain-untouched:no-reality"
+    _rm_check "subscription: every node is kept" "batch-on-count:3"
+    _rm_check "subscription: a cached field is removed when the option is off" "batch-off-strips-cached-field:absent"
+    _rm_check "subscription: a cached field stays when the option is on" "batch-on-keeps-cached-field:true"
+    _rm_check "subscription cache: normalizing ignores the option" "normalize-ignores-flag:absent"
+    _rm_check "subscription cache: normalizing restores the flag" "normalize-restores-flag:1"
+    _rm_check "outbound_json: raw outbound is never touched" "raw-outbound-json-untouched:yes"
+    _rm_check "seam: extended-lite 2.7.2 + option on puts the field in the outbound" "seam-lite-on:true"
+    _rm_check "seam: option off leaves the outbound without it" "seam-lite-off:absent"
+    _rm_check "seam: stock core leaves the outbound without it" "seam-stock-on:absent"
+    _rm_check "seam: extended 2.7.1 leaves the outbound without it" "seam-old-extended-on:absent"
+    _rm_check "fp=chrome: no warning" "fp-chrome-silent:yes"
+    _rm_check "fp other than chrome: warned about" "fp-other-warned:yes"
+    _rm_check "fp other than chrome with the option off: silent" "fp-other-off-silent:yes"
+    _rm_check "a link with another fingerprint gets no field" "link-fp-other-no-field:absent"
+    _rm_check "...and the log says why" "link-fp-other-says-so:yes"
+    _rm_check "a link without a fingerprint gets no field" "link-no-fp-no-field:absent"
+    _rm_check "...and the log says why (no fingerprint)" "link-no-fp-says-so:yes"
+    _rm_check "subscription, option on: only the chrome node has the field" "batch-fp-on:true,absent,absent,absent,absent"
+    _rm_check "subscription, option off: the field is removed from every Reality node" "batch-fp-off:absent,absent,absent,absent,absent"
+    _rm_check "subscription: a scalar tls/utls node does not abort the batch (option off)" "batch-scalar-tls-0:count=3 chrome=absent scalar-utls=absent"
+    _rm_check "subscription: a scalar tls/utls node does not abort the batch (option on)" "batch-scalar-tls-1:count=3 chrome=true scalar-utls=absent"
+    _rm_check "the core version is resolved once for several sections" "version-resolved-once:1/1"
+    _rm_check "option on a non-proxy section: off, with a warning" "gate-not-proxy:0"
+    _rm_check "...warned" "gate-not-proxy-warned:yes"
+    _rm_check "option on an outbound_json section: off, with a warning" "gate-outbound-json:0"
+    _rm_check "...warned" "gate-outbound-json-warned:yes"
+    _rm_check "option on a subscription section: on" "gate-subscription:1"
 }
 
 # ─────────────────────────────────────────────────────────────────
@@ -9321,7 +10464,7 @@ get_outbound_tag_by_section() { echo "$1-out"; }
 subscription_outbound_is_unavailable() { return 1; }
 
 # Pull the real route builder + its two helpers VERBATIM out of the bin.
-for fn in section_is_disabled _active_section_dispatch foreach_active_section \
+for fn in section_is_disabled _active_section_dispatch foreach_active_section tproxy_route_inbounds \
     sing_box_configure_route configure_common_reject_route_rule configure_common_direct_route_rule; do
     eval "$(awk -v name="$fn" '$0 == name "() {"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
@@ -12206,10 +13349,15 @@ fi
 
 # ── subscription_update applies a changed feed without a restart ──────
 eval "$(extract subscription_update)"
+eval "$(extract subscription_update_unlocked)"
+eval "$(extract subscription_update_lock_owner_alive)"
+eval "$(extract subscription_update_lock_acquire)"
+eval "$(extract subscription_update_lock_release)"
 eval "$(extract foreach_active_section)"
 eval "$(extract _active_section_dispatch)"
 section_is_disabled() { return 1; }
 
+SUBSCRIPTION_UPDATE_LOCK_DIR="$HR_DIR/subscription-update.lock"
 TMP_SUBSCRIPTION_FOLDER="$HR_DIR/sub-tmp"
 TMP_SING_BOX_FOLDER="$HR_DIR/sing-box"
 SUBSCRIPTION_PENDING_APPLY_FLAG="$TMP_SING_BOX_FOLDER/subscription-pending-apply"
@@ -12317,6 +13465,10 @@ HR_DOWNLOAD_RC=0
 HR_DOWNLOAD_DIES=1
 ( subscription_update ) > /dev/null 2>&1
 HR_DOWNLOAD_DIES=0
+# The "killed" run was a subshell of this driver, so the update lock it left
+# names a pid that is still alive here. A really killed process leaves a dead
+# pid, and that takeover is covered by the subcron lock cases.
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
 HR_DOWNLOAD_RC=2
 HR_RELOAD_RC=0
 subscription_update > /dev/null 2>&1
@@ -13007,8 +14159,31 @@ SNAPSHOTS=0
 sleep() { :; }
 sing_box_process_exists() { TICKS=$((TICKS + 1)); [ "$TICKS" -le 7 ]; }
 snapshot_sing_box_cache() { SNAPSHOTS=$((SNAPSHOTS + 1)); }
+# No priority sections in this scenario; the interval is the default (30 s).
+priority_check_interval() { echo 30; }
+priority_check_sections() { :; }
 monitor_sing_box
 check cp-monitor-snapshots-once-per-minute '[ "$SNAPSHOTS" = "1" ]'
+
+# The priority check follows the clock, not the tick count: with a clock that moves
+# 10 s per tick it runs every third tick; when a check itself takes 20 s the next one is
+# due on the very next tick instead of being pushed back.
+FAKE_NOW=1000
+PRIORITY_CALLS=0
+CHECK_COST=0
+date() { echo "$FAKE_NOW"; }
+sleep() { FAKE_NOW=$((FAKE_NOW + 10)); }
+priority_check_sections() { PRIORITY_CALLS=$((PRIORITY_CALLS + 1)); FAKE_NOW=$((FAKE_NOW + CHECK_COST)); }
+TICKS=0
+monitor_sing_box
+check cp-monitor-priority-runs-by-the-clock '[ "$PRIORITY_CALLS" = "2" ]'
+FAKE_NOW=1000; PRIORITY_CALLS=0; CHECK_COST=20; TICKS=0
+monitor_sing_box
+check cp-monitor-slow-priority-check-does-not-stretch-the-interval '[ "$PRIORITY_CALLS" -ge 4 ]'
+unset -f date
+sleep() { :; }
+priority_check_sections() { :; }
+TICKS=0
 
 # ── restore marks the cache as restored; a crash then heals it ─────────
 # H1: a restore records that the cache now running came from the copy.
@@ -13156,6 +14331,231 @@ CPEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: `disabled` option for sections (issue #42)
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL section_is_disabled / foreach_active_section /
+# section_has_configured_outbound / section_has_enabled_lists (extracted
+# verbatim from the bin) against a stubbed UCI layer. Asserts:
+#   - a section with `disabled '1'` is skipped by foreach_active_section and
+#     is reported as having no outbound and no enabled lists;
+#   - `disabled '0'` and a MISSING option (every pre-existing config) keep the
+#     section fully active (upgrade safety);
+#   - the callback bookkeeping is restored after the walk (nesting-safe).
+test_section_disabled() {
+    header "Section disabled option (issue #42)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ]; then
+        skip "netshift bin not found"
+        return
+    fi
+
+    local out
+    out="$(
+        # shellcheck disable=SC2030
+        extract() {
+            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
+        }
+        eval "$(extract section_is_disabled)"
+        eval "$(extract _active_section_dispatch)"
+        eval "$(extract foreach_active_section)"
+        eval "$(extract section_has_configured_outbound)"
+        eval "$(extract section_has_enabled_lists)"
+        eval "$(extract _check_outbound_section)"
+        eval "$(extract has_outbound_section)"
+        eval "$(extract _determine_first_outbound_section)"
+        eval "$(extract get_first_outbound_section)"
+        eval "$(extract _determine_global_proxy_section)"
+        eval "$(extract get_global_proxy_section)"
+        _active_section_callback=
+
+        SD_SECTIONS="alpha beta gamma delta"
+        sd_key() { printf 'SD_%s_%s' "$1" "$2"; }
+        config_get() {
+            local _v
+            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
+            [ -n "$_v" ] || _v="$4"
+            eval "$1=\"\$_v\""
+        }
+        config_get_bool() {
+            local _v
+            eval "_v=\"\${$(sd_key "$2" "$3"):-}\""
+            [ -n "$_v" ] || _v="$4"
+            case "$_v" in 1 | on | true | yes | enabled) _v=1 ;; *) _v=0 ;; esac
+            eval "$1=\"\$_v\""
+        }
+        config_foreach() {
+            local _cb="$1" _t="$2" _s
+            shift 2
+            for _s in $SD_SECTIONS; do "$_cb" "$_s" "$@"; done
+        }
+
+        # alpha: active (no `disabled` option at all = every existing config)
+        # beta:  disabled '1'    gamma: disabled '0'    delta: disabled '1'
+        for s in alpha beta gamma delta; do
+            eval "SD_${s}_connection_type=proxy"
+            eval "SD_${s}_proxy_config_type=url"
+            eval "SD_${s}_proxy_string=vless://x@example.com:443"
+            eval "SD_${s}_community_lists=russia_inside"
+        done
+        SD_beta_disabled=1
+        SD_gamma_disabled=0
+        SD_delta_disabled=1
+
+        visited=""
+        sd_visit() { visited="$visited $1"; }
+        foreach_active_section sd_visit "section"
+        echo "walk:${visited# }"
+
+        section_is_disabled alpha && echo "alpha-disabled:yes" || echo "alpha-disabled:no"
+        section_is_disabled beta && echo "beta-disabled:yes" || echo "beta-disabled:no"
+        section_is_disabled gamma && echo "gamma-disabled:yes" || echo "gamma-disabled:no"
+
+        section_has_configured_outbound alpha && echo "alpha-outbound:yes" || echo "alpha-outbound:no"
+        section_has_configured_outbound beta && echo "beta-outbound:yes" || echo "beta-outbound:no"
+        section_has_enabled_lists alpha && echo "alpha-lists:yes" || echo "alpha-lists:no"
+        section_has_enabled_lists beta && echo "beta-lists:yes" || echo "beta-lists:no"
+
+        echo "callback-restored:${_active_section_callback:-empty}"
+
+        # Selection helpers: a disabled section is never the first outbound and
+        # never the global-proxy section, even when it comes first / asks for it.
+        SD_beta_global_proxy=1
+        SD_gamma_global_proxy=1
+        SD_SECTIONS="beta alpha gamma"
+        echo "first-outbound:$(get_first_outbound_section)"
+        echo "global-proxy:$(get_global_proxy_section)"
+        has_outbound_section && echo "has-outbound:yes" || echo "has-outbound:no"
+
+        # The walker must hand back the callback's status (list_update relies on
+        # `foreach_active_section ... || update_failed=1` to report a failed run).
+        SD_SECTIONS="alpha gamma"
+        sd_fail() { return 1; }
+        sd_pass() { return 0; }
+        foreach_active_section sd_fail "section" && echo "rc-failing-callback:0" || echo "rc-failing-callback:1"
+        foreach_active_section sd_pass "section" && echo "rc-passing-callback:0" || echo "rc-passing-callback:1"
+        echo "rc-callback-restored:${_active_section_callback:-empty}"
+
+        # Only disabled sections left -> as if there were no sections at all.
+        SD_SECTIONS="beta delta"
+        echo "only-disabled-first:[$(get_first_outbound_section)]"
+        echo "only-disabled-global:[$(get_global_proxy_section)]"
+        has_outbound_section && echo "only-disabled-has-outbound:yes" || echo "only-disabled-has-outbound:no"
+    )"
+
+    _sd_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted line [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _sd_check "disabled sections are skipped by foreach_active_section" "walk:alpha gamma"
+    _sd_check "missing disabled option keeps the section active" "alpha-disabled:no"
+    _sd_check "disabled '1' is detected" "beta-disabled:yes"
+    _sd_check "disabled '0' keeps the section active" "gamma-disabled:no"
+    _sd_check "active section has a configured outbound" "alpha-outbound:yes"
+    _sd_check "disabled section has no configured outbound" "beta-outbound:no"
+    _sd_check "active section has enabled lists" "alpha-lists:yes"
+    _sd_check "disabled section has no enabled lists" "beta-lists:no"
+    _sd_check "foreach_active_section restores its callback state" "callback-restored:empty"
+    _sd_check "disabled section is never the first outbound" "first-outbound:alpha"
+    _sd_check "disabled section is never the global-proxy section" "global-proxy:gamma"
+    _sd_check "active sections still count as having an outbound" "has-outbound:yes"
+    _sd_check "foreach_active_section returns a failing callback status" "rc-failing-callback:1"
+    _sd_check "foreach_active_section returns 0 when callbacks succeed" "rc-passing-callback:0"
+    _sd_check "foreach_active_section restores its callback after a failure" "rc-callback-restored:empty"
+    _sd_check "only disabled sections: no first outbound" "only-disabled-first:[]"
+    _sd_check "only disabled sections: no global-proxy section" "only-disabled-global:[]"
+    _sd_check "only disabled sections: has_outbound_section is false" "only-disabled-has-outbound:no"
+
+    # A disabled section picked in "Download Lists via specific proxy section"
+    # has no outbound, so nothing may reference "<section>-out" (sing-box check
+    # would fail and the whole service would not start).
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local facade_lib="${NETSHIFT_LIB_DIR}/sing_box_config_facade.sh"
+    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
+    if ! command -v jq > /dev/null 2>&1 || [ ! -r "$cm_lib" ] || [ ! -r "$facade_lib" ] || [ ! -r "$jq_helpers" ]; then
+        skip "download proxy section disabled: jq / libs not available"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
+    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
+
+    out="$(
+        # shellcheck disable=SC2030,SC2031
+        extract() {
+            awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin"
+        }
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        . "${NETSHIFT_LIB_DIR}/helpers.sh"
+        . "${NETSHIFT_LIB_DIR}/logging.sh" 2>/dev/null || log() { :; }
+        . "$facade_lib"
+        for fn in section_is_disabled _active_section_dispatch foreach_active_section \
+            subscription_outbound_is_unavailable download_proxy_section_is_unavailable \
+            sing_box_additional_inbounds get_download_detour_tag; do
+            eval "$(extract "$fn")"
+        done
+        _active_section_callback=
+        SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+
+        SD_PROXY_SECTION=""
+        config_get() {
+            case "$2:$3" in
+            settings:download_lists_via_proxy_section) eval "$1=\"\$SD_PROXY_SECTION\"" ;;
+            *) eval "$1=\"\${4:-}\"" ;;
+            esac
+        }
+        config_get_bool() {
+            case "$2:$3" in
+            settings:download_lists_via_proxy) eval "$1=1" ;;
+            beta:disabled) eval "$1=1" ;;
+            *) eval "$1=\"\${4:-0}\"" ;;
+            esac
+        }
+        config_foreach() { :; }
+        get_outbound_tag_by_section() { echo "$1-out"; }
+
+        base='{"inbounds":[],"outbounds":[{"type":"direct","tag":"direct-out"},{"type":"direct","tag":"alpha-out"}],"route":{"rules":[],"final":"direct-out"}}'
+
+        SD_PROXY_SECTION=beta
+        echo "detour-disabled:[$(get_download_detour_tag)]"
+        config="$base"
+        sing_box_additional_inbounds
+        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "beta-out")] | length == 0' > /dev/null &&
+            echo "inbounds-disabled-no-dangling-outbound:yes" || echo "inbounds-disabled-no-dangling-outbound:no"
+        echo "$config" | jq -e '[.route.rules[] | select(.action == "reject")] | length == 1' > /dev/null &&
+            echo "inbounds-disabled-rejects:yes" || echo "inbounds-disabled-rejects:no"
+        if command -v sing-box > /dev/null 2>&1; then
+            printf '%s' "$config" | jq 'walk(if type == "object" then del(.__service_tag) else . end)' > /tmp/sd-dl-disabled.json
+            sing-box -c /tmp/sd-dl-disabled.json check > /dev/null 2>&1 &&
+                echo "inbounds-disabled-singbox-check:yes" || echo "inbounds-disabled-singbox-check:no"
+            rm -f /tmp/sd-dl-disabled.json
+        fi
+
+        SD_PROXY_SECTION=alpha
+        echo "detour-active:[$(get_download_detour_tag)]"
+        config="$base"
+        sing_box_additional_inbounds
+        echo "$config" | jq -e '[.route.rules[] | select(.outbound == "alpha-out")] | length == 1' > /dev/null &&
+            echo "inbounds-active-routes-to-section:yes" || echo "inbounds-active-routes-to-section:no"
+    )"
+
+    _sd_check "disabled download proxy section: no detour tag" "detour-disabled:[]"
+    _sd_check "disabled download proxy section: no route to its outbound" "inbounds-disabled-no-dangling-outbound:yes"
+    _sd_check "disabled download proxy section: proxy requests are rejected" "inbounds-disabled-rejects:yes"
+    if command -v sing-box > /dev/null 2>&1; then
+        _sd_check "disabled download proxy section: config passes sing-box check" "inbounds-disabled-singbox-check:yes"
+    fi
+    _sd_check "active download proxy section keeps its detour tag" "detour-active:[alpha-out]"
+    _sd_check "active download proxy section keeps its route" "inbounds-active-routes-to-section:yes"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
 # country_code_to_flag_emoji / build_subscription_filter_json (country codes turn
@@ -13235,8 +14635,1410 @@ test_urltest_filters() {
     _uf_check "no keywords and no countries: empty filter (unchanged behaviour)" "no-filter-empty:ok"
 }
 # ─────────────────────────────────────────────────────────────────
+# Test: GeoIP country flags for subscription servers
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL subscription_geoip_annotate / geoip_hosts_without_flag /
+# geoip_resolve_host (extracted verbatim from the bin) with stubbed dig / curl.
+# Asserts: only names WITHOUT a flag are annotated; each address is looked up once
+# (later runs read the cache); private / FakeIP answers never leave the router;
+# offline and a silent service change nothing and are retried later; failures are
+# retried only after their TTL; the flag equals the one the country filter builds.
+test_subscription_geoip() {
+    header "Subscription GeoIP country flags"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ] || [ ! -r "${NETSHIFT_LIB_DIR}/helpers.sh" ] \
+        || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / constants.sh / helpers.sh / jq not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        . "${NETSHIFT_LIB_DIR}/helpers.sh"
+        W="/tmp/netshift-geoip-$$"; rm -rf "$W"; mkdir -p "$W"
+        GEOIP_CACHE_FILE="$W/geoip.json"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$W/log"; }
+        for fn in country_code_to_flag_emoji geoip_hosts_without_flag geoip_is_private_ip geoip_resolve_host geoip_lookup_hosts subscription_geoip_annotate \
+            geoip_section_enabled geoip_name_has_flag geoip_link_host geoip_collect_host geoip_collect_link geoip_collect_json \
+            geoip_flush_links configure_outbound_geoip_handler get_geoip_flags; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        # geoip_flags comes from GEO_FLAGS, bootstrap from the default
+        config_get() {
+            case "$3" in
+            geoip_flags) eval "$1=\"\${GEO_FLAGS:-$4}\"" ;;
+            *) eval "$1=\"$4\"" ;;
+            esac
+        }
+
+        # dig stub: GEO_DIG="host=ip ..." ; counts calls
+        dig() {
+            local host="" a
+            for a in "$@"; do case "$a" in @*|+*|A) ;; *) host="$a" ;; esac; done
+            echo x >> "$W/dig.calls"
+            local pair
+            for pair in $GEO_DIG; do [ "${pair%%=*}" = "$host" ] && echo "${pair#*=}"; done
+            return 0
+        }
+        # curl stub: records the POST body, answers GEO_API (a JSON array) or nothing
+        curl() {
+            local body="" prev=""
+            for a in "$@"; do [ "$prev" = "-d" ] && body="$a"; prev="$a"; done
+            echo x >> "$W/curl.calls"; printf '%s\n' "$body" >> "$W/curl.bodies"
+            [ -n "$GEO_API" ] && printf '%s' "$GEO_API"
+            return 0
+        }
+        calls() { [ -f "$W/$1.calls" ] && wc -l < "$W/$1.calls" | tr -d ' ' || echo 0; }
+
+        NL="$(country_code_to_flag_emoji NL)"; JP="$(country_code_to_flag_emoji JP)"; DE="$(country_code_to_flag_emoji DE)"
+        mkfile() {
+            jq -n --arg de "$DE" --arg nl "$NL" '{outbounds: [
+              {type:"vless", tag: ($de + " Berlin"), server:"de.example"},
+              {type:"vless", tag:"Amsterdam", server:"nl.example"},
+              {type:"vless", tag:"Tokyo", server:"1.2.3.4"},
+              {type:"vless", tag:"Unknown", server:"xx.example"},
+              {type:"vless", tag:"Private", server:"priv.example"},
+              {type:"vless", tag:"Fake", server:"fake.example"},
+              {type:"vless", remark:"Remarked", server:"nl.example"},
+              {type:"vless", tag:("Premium " + $nl), server:"mid.example"}]}' > "$1"
+        }
+        names() { jq -c '[.outbounds[] | (.tag // .remark)]' "$1"; }
+        GEO_DIG="de.example=9.9.9.1 nl.example=5.5.5.5 xx.example=6.6.6.6 priv.example=192.168.1.5 fake.example=198.18.0.7 mid.example=7.7.7.7"
+        GEO_API="$(printf '[{"ip":"5.5.5.5","country":"NL"},{"ip":"1.2.3.4","country":"JP"}]')"
+
+        mkfile "$W/a.json"; subscription_geoip_annotate "$W/a.json"
+        echo "annotated:$(names "$W/a.json" | jq -c --arg nl "$NL" --arg jp "$JP" --arg de "$DE" '. == [($de + " Berlin"), ($nl + " Amsterdam"), ($jp + " Tokyo"), "Unknown", "Private", "Fake", ($nl + " Remarked"), ("Premium " + $nl)]')"
+        echo "one-batch-request:$(calls curl)"
+        body="$(cat "$W/curl.bodies")"
+        echo "only-public-ips-sent:$(printf '%s' "$body" | jq -c 'sort == ["1.2.3.4","5.5.5.5","6.6.6.6"]')"
+        echo "flagged-names-not-looked-up:$(printf '%s' "$body" | grep -c '9.9.9.1\|7.7.7.7')"
+        echo "cache-written:$(jq -c 'keys | sort' "$GEOIP_CACHE_FILE")"
+        echo "cache-failure-entry:$(jq -r '.["xx.example"].cc' "$GEOIP_CACHE_FILE")|"
+
+        # second run: no dig, no curl, same result
+        : > "$W/dig.calls"; : > "$W/curl.calls"
+        mkfile "$W/b.json"; subscription_geoip_annotate "$W/b.json"
+        echo "second-run-same:$([ "$(names "$W/b.json")" = "$(names "$W/a.json")" ] && echo yes || echo no)"
+        echo "second-run-no-network:$(calls dig)/$(calls curl)"
+
+        # a failure is retried only after its TTL
+        jq '.["xx.example"].ts = 1' "$GEOIP_CACHE_FILE" > "$W/c.tmp" && mv "$W/c.tmp" "$GEOIP_CACHE_FILE"
+        GEO_API='[{"ip":"5.5.5.5","country":"NL"},{"ip":"6.6.6.6","country":"FR"}]'
+        : > "$W/curl.calls"
+        mkfile "$W/c.json"; subscription_geoip_annotate "$W/c.json"
+        FR="$(country_code_to_flag_emoji FR)"
+        echo "expired-failure-retried:$(calls curl):$(names "$W/c.json" | jq -r --arg fr "$FR" '.[3] == ($fr + " Unknown")')"
+
+        # offline: nothing resolves -> stops early, nothing changes, no request
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls" "$W/curl.calls" "$W/curl.bodies"
+        GEO_DIG=""
+        jq -n '{outbounds: [range(0; 12) | {type:"vless", tag:("N" + tostring), server:("h" + tostring + ".example")}]}' > "$W/d.json"
+        cp "$W/d.json" "$W/d.orig"
+        subscription_geoip_annotate "$W/d.json"
+        echo "offline-unchanged:$([ "$(jq -cS . "$W/d.json")" = "$(jq -cS . "$W/d.orig")" ] && echo yes || echo no)"
+        echo "offline-stops-early:$([ "$(calls dig)" -le "$GEOIP_RESOLVE_MAX_FAILURES" ] && echo yes || echo no)"
+        echo "offline-no-request:$(calls curl)"
+        echo "offline-no-cache:$([ -e "$GEOIP_CACHE_FILE" ] && echo written || echo none)"
+
+        # offline with FEW hosts: nothing is known, so nothing is remembered (not even
+        # as a day-long failure)
+        rm -f "$GEOIP_CACHE_FILE"; GEO_DIG=""
+        jq -n '{outbounds: [range(0; 2) | {type:"vless", tag:("M" + tostring), server:("m" + tostring + ".example")}]}' > "$W/d2.json"
+        subscription_geoip_annotate "$W/d2.json"
+        echo "offline-few-hosts-no-cache:$([ -e "$GEOIP_CACHE_FILE" ] && echo written || echo none)"
+
+        # DNS that answers only now and then: the total number of misses ends the phase
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls" "$W/curl.calls" "$W/curl.bodies"
+        GEO_DIG="$(i=0; while [ $i -lt 40 ]; do [ $((i % 2)) -eq 0 ] && printf 'p%s.example=5.5.5.5 ' "$i"; i=$((i + 1)); done)"
+        jq -n '{outbounds: [range(0; 40) | {type:"vless", tag:("P" + tostring), server:("p" + tostring + ".example")}]}' > "$W/d3.json"
+        GEO_API='[{"ip":"5.5.5.5","country":"NL"}]'
+        subscription_geoip_annotate "$W/d3.json"
+        echo "flaky-dns-bounded:$([ "$(calls dig)" -le $((GEOIP_RESOLVE_MAX_FAILURES * 2 + 2)) ] && echo yes || echo no)"
+        # ... and so does the time budget (0 s: the first miss ends it)
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls"; GEO_DIG=""
+        GEOIP_RESOLVE_BUDGET=0; subscription_geoip_annotate "$W/d3.json"
+        echo "time-budget-ends-the-phase:$(calls dig)"
+        GEOIP_RESOLVE_BUDGET=60
+
+        # addresses that are never sent out, IPv6 included
+        rm -f "$GEOIP_CACHE_FILE" "$W/curl.calls" "$W/curl.bodies"
+        GEO_API='[{"ip":"2606:4700::1111","country":"US"}]'
+        GEO_DIG=""
+        jq -n --arg fake "${SB_FAKEIP_INET6_RANGE%%/*}1" '{outbounds: [
+            {type:"vless", tag:"ula", server:"fd12:3456::1"}, {type:"vless", tag:"ll", server:"fe80::1"},
+            {type:"vless", tag:"lo", server:"::1"}, {type:"vless", tag:"fk", server:$fake},
+            {type:"vless", tag:"cgnat", server:"100.64.1.1"}, {type:"vless", tag:"pub6", server:"2606:4700::1111"}]}' > "$W/d4.json"
+        subscription_geoip_annotate "$W/d4.json"
+        echo "ipv6-private-never-sent:$(cat "$W/curl.bodies" | jq -c 'sort')"
+        echo "fakeip-from-constants:$(for ip in "${SB_FAKEIP_INET4_RANGE%%/*}" 198.19.5.5 198.20.0.1; do geoip_is_private_ip "$ip" && printf 'p' || printf 'u'; done)"
+
+        # files keep owner-only access
+        echo "cache-mode:$(ls -ld "$GEOIP_CACHE_FILE" | cut -c1-10)"
+        mkfile "$W/g.json"; chmod 600 "$W/g.json"; subscription_geoip_annotate "$W/g.json"
+        echo "annotated-file-mode:$(ls -ld "$W/g.json" | cut -c1-10)"
+
+        # a silent service: names unchanged and nothing cached (retry next build)
+        GEO_DIG="de.example=9.9.9.1 nl.example=5.5.5.5"; GEO_API=""
+        rm -f "$GEOIP_CACHE_FILE"
+        mkfile "$W/e.json"; cp "$W/e.json" "$W/e.orig"; subscription_geoip_annotate "$W/e.json"
+        echo "silent-service-unchanged:$([ "$(jq -cS . "$W/e.json")" = "$(jq -cS . "$W/e.orig")" ] && echo yes || echo no)"
+        echo "silent-service-no-cache:$([ -e "$GEOIP_CACHE_FILE" ] && echo written || echo none)"
+        GEO_API="not json"; : > "$W/log"
+        mkfile "$W/f.json"; subscription_geoip_annotate "$W/f.json"
+        echo "garbage-warned:$(grep -c 'lookup service did not answer' "$W/log")"
+
+        # --- links added by hand: the country goes to GEOIP_LINKS_FILE per outbound tag
+        VMFRAG="${VMFRAG_PLACEHOLDER:-}"
+        GEOIP_LINKS_FILE="$W/links.json"
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls" "$W/curl.calls" "$W/curl.bodies"
+        GEO_DIG="de.example=9.9.9.1 nl.example=5.5.5.5 jp.example=1.2.3.4 vm.example=5.5.5.5"
+        GEO_API='[{"ip":"5.5.5.5","country":"NL"},{"ip":"1.2.3.4","country":"JP"},{"ip":"9.9.9.1","country":"DE"}]'
+        VM="vmess://$(printf '%s' '{"v":"2","ps":"VM node","add":"vm.example","port":"443","id":"u"}' | base64 | tr -d '\n')"
+        VMF="vmess://$(printf '%s' "{\"v\":\"2\",\"ps\":\"$NL VM flagged\",\"add\":\"de.example\",\"port\":\"443\",\"id\":\"u\"}" | base64 | tr -d '\n')"
+        FLAGGED_FRAG="%F0%9F%87%A9%F0%9F%87%AA"   # the German flag, percent-encoded as links carry it
+        configure_outbound_handler() {
+            geoip_collect_link "$1-7-out" "${VM}#%F0%9F%87%A9%F0%9F%87%AA%20Frag"
+            geoip_collect_json "$1-8-out" '{"type":"vless","tag":"%F0%9F%87%A9%F0%9F%87%AA%20Enc","server":"de.example"}'
+            geoip_collect_link "$1-out" "vless://u@nl.example:443?security=tls#Amsterdam%20node"
+            geoip_collect_link "$1-1-out" "trojan://p@jp.example:443#"
+            geoip_collect_link "$1-2-out" "vless://u@de.example:443#${FLAGGED_FRAG}%20Berlin"
+            geoip_collect_link "$1-3-out" "$VM"
+            geoip_collect_link "$1-4-out" "$VMF"
+            geoip_collect_json "$1-5-out" '{"type":"vless","tag":"Json node","server":"nl.example"}'
+            geoip_collect_json "$1-6-out" "{\"type\":\"vless\",\"tag\":\"$DE json\",\"server\":\"de.example\"}"
+            return 7
+        }
+        GEO_FLAGS=0
+        configure_outbound_geoip_handler off; rc=$?
+        echo "links-off-no-lookup:$(calls dig)/$(calls curl):$([ -e "$GEOIP_LINKS_FILE" ] && echo file || echo none)"
+        GEO_FLAGS=1
+        configure_outbound_geoip_handler main; rc=$?
+        echo "links-keep-exit-status:$rc"
+        echo "links-flags:$(get_geoip_flags | jq -c --sort-keys '. == {"main-1-out":"JP","main-3-out":"NL","main-5-out":"NL","main-out":"NL"}')"
+        echo "links-flagged-names-skipped:$(jq -c '[has("main-2-out"), has("main-4-out"), has("main-6-out"), has("main-7-out"), has("main-8-out")]' "$GEOIP_LINKS_FILE")"
+        echo "links-file-mode:$(ls -ld "$GEOIP_LINKS_FILE" | cut -c1-10)"
+        echo "links-one-request:$(calls curl)"
+        echo "links-not-sent-flagged:$(grep -c '9.9.9.1' "$W/curl.bodies")"
+        : > "$W/dig.calls"; : > "$W/curl.calls"
+        configure_outbound_geoip_handler second > /dev/null
+        echo "links-merge-and-cache:$(jq -c '[has("main-out"), has("second-out")]' "$GEOIP_LINKS_FILE"):$(calls dig)/$(calls curl)"
+        rm -f "$GEOIP_LINKS_FILE"
+        echo "links-no-file-is-empty-object:$(get_geoip_flags)"
+        rm -rf "$W"
+    )"
+
+    _gp_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _gp_check "names without a flag get the flag of their country (tag and remark)" "annotated:true"
+    _gp_check "all addresses go out in ONE batch request" "one-batch-request:1"
+    _gp_check "only public addresses are sent (no private / FakeIP / flagged servers)" "only-public-ips-sent:true"
+    _gp_check "servers that already have a flag are never looked up" "flagged-names-not-looked-up:0"
+    _gp_check "the results (and the failures) are cached per host" 'cache-written:["1.2.3.4","fake.example","nl.example","priv.example","xx.example"]'
+    _gp_check "a manual link is looked up and its country kept per outbound tag" "links-flags:true"
+    _gp_check "geoip.json and the links file are owner-only" "links-file-mode:-rw-------"
+    _gp_check "a link or JSON name that already has a flag is never looked up" "links-flagged-names-skipped:[false,false,false,false,false]"
+    _gp_check "the handler keeps the exit status of the section build" "links-keep-exit-status:7"
+    _gp_check "a section without the option does no lookup" "links-off-no-lookup:0/0:none"
+    _gp_check "all manual hosts go out in one request" "links-one-request:1"
+    _gp_check "a host with a flag in the name is not sent" "links-not-sent-flagged:0"
+    _gp_check "the next section reuses the cache and keeps earlier results" "links-merge-and-cache:[true,true]:0/0"
+    _gp_check "no lookup file reads as an empty object" "links-no-file-is-empty-object:{}"
+    _gp_check "an unknown address is cached as a failure" "cache-failure-entry:|"
+    _gp_check "a second build gives the same names" "second-run-same:yes"
+    _gp_check "a second build makes no DNS and no HTTP request" "second-run-no-network:0/0"
+    _gp_check "an expired failure is looked up again" "expired-failure-retried:1:true"
+    _gp_check "offline: the names stay as they were" "offline-unchanged:yes"
+    _gp_check "offline: the lookup stops after a few misses" "offline-stops-early:yes"
+    _gp_check "offline: no request is made" "offline-no-request:0"
+    _gp_check "offline: nothing is cached" "offline-no-cache:none"
+    _gp_check "offline with a few hosts: nothing is cached either" "offline-few-hosts-no-cache:none"
+    _gp_check "DNS that answers only now and then: the lookup phase is bounded" "flaky-dns-bounded:yes"
+    _gp_check "the time budget ends the lookup phase" "time-budget-ends-the-phase:1"
+    _gp_check "private, link-local, loopback, ULA, FakeIP and CGNAT addresses (IPv6 too) are never sent" 'ipv6-private-never-sent:["2606:4700::1111"]'
+    _gp_check "the FakeIP ranges come from the constants" "fakeip-from-constants:ppu"
+    _gp_check "geoip.json is owner-only" "cache-mode:-rw-------"
+    _gp_check "the annotated subscription file stays owner-only" "annotated-file-mode:-rw-------"
+    _gp_check "a silent service changes nothing" "silent-service-unchanged:yes"
+    _gp_check "a silent service caches nothing" "silent-service-no-cache:none"
+    _gp_check "a non-JSON answer is warned about" "garbage-warned:1"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────
+# Test: IPv6 compatibility (issue #38)
+# ─────────────────────────────────────────────────────────────────
+# With IPv6 enabled the v6 TProxy inbound (tproxy-in-v6) must be matched by the
+# SAME route rules as the v4 one (before this it matched none and v6 flows fell
+# through to the default), and the FakeIP v6 range must be a routable global
+# prefix (2001:2::/48), not the ULA fd00::/8 that dnsmasq rebind protection drops.
+#   - constant: SB_FAKEIP_INET6_RANGE is not in fc00::/7
+#   - IPv6 off: every rule keeps the plain string inbound (byte-identical config)
+#   - IPv6 on: the same rules match ["tproxy-in","tproxy-in-v6"]
+#   - the generated config passes `sing-box check`
+test_ipv6_routing() {
+    header "IPv6 Compatibility (issue #38)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local facade_lib="${NETSHIFT_LIB_DIR}/sing_box_config_facade.sh"
+    local constants_lib="${NETSHIFT_LIB_DIR}/constants.sh"
+    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$cm_lib" ] || [ ! -r "$facade_lib" ] || [ ! -r "$constants_lib" ] || [ ! -r "$jq_helpers" ] \
+        || [ ! -r "$bin" ]; then
+        skip "config manager / facade / constants / helpers.jq / netshift bin not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
+    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/netshift-ipv6routing-$$.sh"
+    cat > "$drv" << 'V6EOF'
+LIB="NETSHIFT_LIB"
+BIN="BIN_PATH"
+FACADE="FACADE_PATH"
+
+. "$LIB/constants.sh"
+. "$LIB/helpers.sh"
+. "$LIB/logging.sh" 2>/dev/null || log() { :; }
+. "$FACADE"
+
+# UCI stub: UC_<section>_<option> (list options are space separated)
+config_get_bool() {
+    eval "$1=\"\${UC_${2}_${3}:-$4}\""
+    return 0
+}
+config_get() {
+    eval "$1=\"\${UC_${2}_${3}:-$4}\""
+    return 0
+}
+config_foreach() { local _cb="$1" _s; shift; for _s in $UC_SECTIONS; do "$_cb" "$_s" "$@"; done; }
+config_list_foreach() {
+    local _s="$1" _o="$2" _cb="$3" _i _v
+    shift 3
+    eval "_v=\"\${UC_${_s}_${_o}:-}\""
+    for _i in $_v; do "$_cb" "$_i" "$@"; done
+}
+get_global_proxy_section() { echo ""; }
+netshift_ipv6_enabled() { [ "$V6" = "1" ]; }
+get_sections_by_connection_type() { echo ""; }
+get_first_outbound_section() { echo "main"; }
+get_outbound_tag_by_section() { echo "$1-out"; }
+subscription_outbound_is_unavailable() { return 1; }
+
+for fn in section_is_disabled _active_section_dispatch foreach_active_section exclude_source_ip_from_routing_handler \
+    tproxy_route_inbounds sing_box_configure_route configure_common_reject_route_rule configure_common_direct_route_rule; do
+    eval "$(awk -v name="$fn" '$0 == name "() {"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+done
+if command -v tproxy_route_inbounds > /dev/null 2>&1 &&
+    command -v sing_box_configure_route > /dev/null 2>&1; then
+    echo 'ipv6-real-functions-loaded:OK'
+else
+    echo 'ipv6-real-functions-loaded:FAIL'
+fi
+
+# FakeIP v6 range must not be a ULA (fc00::/7), whose AAAA answers dnsmasq
+# rebind protection drops and for which clients have no route.
+case "$SB_FAKEIP_INET6_RANGE" in
+fc* | fd* | FC* | FD*) echo 'ipv6-fakeip-range-not-ula:FAIL' ;;
+*) echo 'ipv6-fakeip-range-not-ula:OK' ;;
+esac
+
+base=$(jq -n \
+    --arg direct "$SB_DIRECT_OUTBOUND_TAG" \
+    --arg tproxy "$SB_TPROXY_INBOUND_TAG" \
+    --arg listen "$SB_TPROXY_INBOUND_ADDRESS" \
+    --argjson port "$SB_TPROXY_INBOUND_PORT" \
+    --arg dns "$SB_DNS_SERVER_TAG" \
+    --arg fakeip "$SB_FAKEIP_DNS_SERVER_TAG" \
+    --arg v4 "$SB_FAKEIP_INET4_RANGE" \
+    --arg v6 "$SB_FAKEIP_INET6_RANGE" \
+    '{
+    log: { disabled: false, level: "warn", timestamp: true },
+    dns: {
+        servers: [
+            { type: "udp", tag: $dns, server: "77.88.8.8" },
+            { type: "fakeip", tag: $fakeip, inet4_range: $v4, inet6_range: $v6 }
+        ],
+        rules: [], final: $dns, strategy: "prefer_ipv4", independent_cache: true
+    },
+    inbounds: [
+        { type: "tproxy", tag: $tproxy, listen: $listen, listen_port: $port },
+        { type: "tproxy", tag: ($tproxy + "-v6"), listen: "::1", listen_port: 1603 }
+    ],
+    outbounds: [
+        { type: "direct", tag: $direct },
+        { type: "direct", tag: "main-out" }
+    ],
+    route: { rules: [], rule_set: [], final: $direct, auto_detect_interface: true }
+}')
+
+# The routing excluded IPs add one more route rule (a source rule that also has to
+# match both inbounds); block_doh adds the DoH-block rule; quic adds a reject rule.
+UC_SECTIONS=""
+UC_settings_routing_excluded_ips="192.168.1.5"
+UC_settings_block_doh=1
+UC_settings_disable_quic=1
+
+gen() {
+    V6="$1"
+    config="$base"
+    sing_box_configure_route
+    printf '%s' "$config"
+}
+
+cfg_off=$(gen 0)
+cfg_on=$(gen 1)
+# All of them are really generated by this driver (not silently skipped).
+echo "$cfg_on" | jq -e '[.route.rules[] | select(.action == "route" or .action == "reject")] | length >= 4' > /dev/null 2>&1 &&
+    echo 'ipv6-driver-generates-all-rule-kinds:OK' || echo 'ipv6-driver-generates-all-rule-kinds:FAIL'
+TPROXY="$SB_TPROXY_INBOUND_TAG"
+
+# IPv6 off: only plain string inbounds, no v6 tag anywhere in the rules.
+echo "$cfg_off" | jq -e --arg t "$TPROXY" \
+    '[.route.rules[] | select(.action == "route" or .action == "reject") | .inbound]
+     | length > 0 and all(. == $t)' > /dev/null 2>&1 &&
+    echo 'ipv6-off-plain-inbound:OK' || echo 'ipv6-off-plain-inbound:FAIL'
+
+# IPv6 on: the check-domain rule (always generated) matches both inbounds.
+echo "$cfg_on" | jq -e --arg t "$TPROXY" --arg d "$CHECK_PROXY_IP_DOMAIN" \
+    '[.route.rules[] | select(.domain == $d and .action == "route")]
+     | length == 1 and .[0].inbound == [$t, ($t + "-v6")]' > /dev/null 2>&1 &&
+    echo 'ipv6-on-check-domain-both-inbounds:OK' || echo 'ipv6-on-check-domain-both-inbounds:FAIL'
+
+# IPv6 on: every route/reject rule that had the v4 inbound now has both.
+echo "$cfg_on" | jq -e --arg t "$TPROXY" \
+    '[.route.rules[] | select(.action == "route" or .action == "reject") | .inbound]
+     | length > 0 and all(. == [$t, ($t + "-v6")])' > /dev/null 2>&1 &&
+    echo 'ipv6-on-all-rules-both-inbounds:OK' || echo 'ipv6-on-all-rules-both-inbounds:FAIL'
+
+# The helpers accept a bare tag and a JSON array alike.
+bare='{"route":{"rules":[]}}'
+one=$(sing_box_cm_add_route_rule "$bare" "t1" "tproxy-in" "direct-out")
+two=$(sing_box_cm_add_route_rule "$bare" "t2" '["tproxy-in","tproxy-in-v6"]' "direct-out")
+rej=$(sing_box_cm_add_reject_route_rule "$bare" "t3" '["tproxy-in","tproxy-in-v6"]')
+echo "$one" | jq -e '.route.rules[0].inbound == "tproxy-in"' > /dev/null 2>&1 &&
+    echo 'ipv6-helper-route-string:OK' || echo 'ipv6-helper-route-string:FAIL'
+echo "$two" | jq -e '.route.rules[0].inbound == ["tproxy-in","tproxy-in-v6"]' > /dev/null 2>&1 &&
+    echo 'ipv6-helper-route-array:OK' || echo 'ipv6-helper-route-array:FAIL'
+echo "$rej" | jq -e '.route.rules[0].inbound == ["tproxy-in","tproxy-in-v6"]' > /dev/null 2>&1 &&
+    echo 'ipv6-helper-reject-array:OK' || echo 'ipv6-helper-reject-array:FAIL'
+
+# Address family preference: IPv6 on -> ONE resolve rule, for the IPv6 inbound only
+# (prefer_ipv6, pinned to the main DNS server); the IPv4 inbound keeps the global
+# strategy exactly as without IPv6, so IPv4 flows do not change.
+echo "$cfg_on" | jq -e --arg t "$TPROXY" --arg dns "$SB_DNS_SERVER_TAG" \
+    '[.route.rules[] | select(.action == "resolve")] as $r
+     | ($r | length) == 1
+       and $r[0].inbound == ($t + "-v6") and $r[0].strategy == "prefer_ipv6" and $r[0].server == $dns' > /dev/null 2>&1 &&
+    echo 'ipv6-on-resolve-rule-v6-only-pinned:OK' || echo 'ipv6-on-resolve-rule-v6-only-pinned:FAIL'
+echo "$cfg_on" | jq -e \
+    '([.route.rules[] | .action] | index("hijack-dns")) as $h
+     | ([.route.rules[] | .action] | index("resolve")) as $r
+     | ([.route.rules[] | .action] | index("route")) as $route
+     | $r == ($h + 1) and $r < $route' > /dev/null 2>&1 &&
+    echo 'ipv6-on-resolve-before-route-rules:OK' || echo 'ipv6-on-resolve-before-route-rules:FAIL'
+echo "$cfg_off" | jq -e '[.route.rules[] | select(.action == "resolve")] | length == 0' > /dev/null 2>&1 &&
+    echo 'ipv6-off-no-resolve-rules:OK' || echo 'ipv6-off-no-resolve-rules:FAIL'
+# The route part of the IPv4 flows is identical with and without IPv6 once the
+# inbound match and the v6-only resolve rule are set aside.
+norm='[.route.rules[] | select(.action != "resolve") | del(.inbound) | del(.["__service_tag"])]'
+[ "$(echo "$cfg_on" | jq -cS "$norm")" = "$(echo "$cfg_off" | jq -cS "$norm")" ] &&
+    echo 'ipv6-on-v4-rules-same-as-off:OK' || echo 'ipv6-on-v4-rules-same-as-off:FAIL'
+
+# dns.strategy: prefer_ipv4 with IPv6 (as in the generated base), ipv4_only without.
+d_set=$(sing_box_cm_configure_dns "$base" "$SB_DNS_SERVER_TAG" "ipv4_only" true)
+echo "$d_set" | jq -e '.dns.strategy == "ipv4_only"' > /dev/null 2>&1 &&
+    echo 'ipv6-dns-strategy-kept:OK' || echo 'ipv6-dns-strategy-kept:FAIL'
+
+# The helpers: an empty inbound is a JSON empty string, not a jq error; the DoH-block
+# helper takes the array form too.
+emp=$(sing_box_cm_add_route_rule "$bare" "t4" "" "direct-out")
+echo "$emp" | jq -e '.route.rules[0].inbound == ""' > /dev/null 2>&1 &&
+    echo 'ipv6-helper-empty-inbound:OK' || echo 'ipv6-helper-empty-inbound:FAIL'
+doh=$(sing_box_cm_add_doh_block_route_rule "$bare" "t5" '["tproxy-in","tproxy-in-v6"]' "1.1.1.1/32" "2606:4700::/32")
+echo "$doh" | jq -e '[.route.rules[] | select(.rule_set != null)][0].inbound == ["tproxy-in","tproxy-in-v6"]' > /dev/null 2>&1 &&
+    echo 'ipv6-helper-doh-block-array:OK' || echo 'ipv6-helper-doh-block-array:FAIL'
+
+# Stale FakeIP mappings: when the recorded IPv6 FakeIP range differs (an upgrade moved
+# it) the sing-box cache and its flash copy are dropped once; same range keeps them;
+# without IPv6 nothing is touched or recorded.
+eval "$(awk -v name="drop_stale_fakeip_cache" '$0 == name "() {"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+FW="/tmp/netshift-v6cache-$$"; rm -rf "$FW"; mkdir -p "$FW"
+NETSHIFT_STATE_DIR="$FW"; NETSHIFT_CACHE_BACKUP="$FW/cache.db"; NETSHIFT_CACHE_SELECTION="$FW/cache.db.selection"
+get_sing_box_cache_path() { echo "$FW/live.db"; }
+FLOG="$FW/log"; log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$FLOG"; }
+mkcache() { : > "$FW/live.db"; : > "$NETSHIFT_CACHE_BACKUP"; : > "$NETSHIFT_CACHE_SELECTION"; }
+have() { [ -e "$FW/live.db" ] && echo kept || echo dropped; }
+chk() { [ "$2" = "$3" ] && echo "$1:OK" || echo "$1:FAIL [got '$2' want '$3']"; }
+V6=1; mkcache; drop_stale_fakeip_cache
+chk ipv6-fakeip-cache-unrecorded-dropped "$(have):$(cat "$FW/fakeip-v6-range"):$(grep -c '^\[warn\] IPv6 FakeIP range is now' "$FLOG")" "dropped:$SB_FAKEIP_INET6_RANGE:1"
+mkcache; drop_stale_fakeip_cache
+chk ipv6-fakeip-cache-same-range-kept "$(have)" kept
+printf '%s\n' 'fd00:ec3a::/32' > "$FW/fakeip-v6-range"; mkcache; drop_stale_fakeip_cache
+chk ipv6-fakeip-cache-changed-range-dropped "$(have):$([ -e "$NETSHIFT_CACHE_BACKUP" ] && echo copy-kept || echo copy-dropped)" dropped:copy-dropped
+rm -f "$FW/fakeip-v6-range"; V6=0; mkcache; drop_stale_fakeip_cache
+chk ipv6-fakeip-cache-ipv6-off-untouched "$(have):$([ -e "$FW/fakeip-v6-range" ] && echo recorded || echo none)" kept:none
+rm -rf "$FW"
+
+# sing-box validation of the SAVED artifacts.
+if command -v sing-box > /dev/null 2>&1; then
+    sing_box_cm_save_config_to_file "$cfg_off" /tmp/v6-off.json
+    sing_box_cm_save_config_to_file "$cfg_on" /tmp/v6-on.json
+    sing-box -c /tmp/v6-off.json check > /dev/null 2>&1 &&
+        echo 'ipv6-off-singbox-check:OK' || echo 'ipv6-off-singbox-check:FAIL'
+    sing-box -c /tmp/v6-on.json check > /dev/null 2>&1 &&
+        echo 'ipv6-on-singbox-check:OK' || echo 'ipv6-on-singbox-check:FAIL'
+    rm -f /tmp/v6-off.json /tmp/v6-on.json
+else
+    echo 'ipv6-off-singbox-check:SKIP'
+    echo 'ipv6-on-singbox-check:SKIP'
+fi
+
+echo 'DONE'
+V6EOF
+    sed -i "s|NETSHIFT_LIB|$NETSHIFT_LIB_DIR|g; s|BIN_PATH|$bin|; s|FACADE_PATH|$facade_lib|" "$drv"
+
+    local v6_out="/tmp/netshift-ipv6routing-out-$$.log"
+    ash "$drv" > "$v6_out" 2>&1 || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK) pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP) skip "$line" ;;
+            DONE) saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$v6_out"
+    if [ "$saw_done" = "1" ]; then
+        pass "ipv6-driver-completed:OK"
+    else
+        fail "ipv6-driver-completed:FAIL (driver aborted early)" "$(tail -20 "$v6_out")"
+    fi
+    rm -f "$drv" "$v6_out"
+}
+
+# ─────────────────────────────────────────────────────────────────
+
+# Test: Multi-DNS upstream pool (issue #74)
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL sing_box_configure_dns_pool / _dns_pool_collect_entry /
+# is_valid_dns_pool_timeout (extracted verbatim from the bin) and the real
+# manager/facade helpers against a stubbed UCI layer. Asserts:
+#   - default (mode absent / single) and every unusable setup leave the config
+#     byte-identical to the single-upstream one (upgrade safety);
+#   - fallback: the primary and the list are asked in order, each but the last
+#     gets evaluate + respond (NOERROR / NXDOMAIN), the last one is `final`;
+#   - race: every upstream is evaluated, the respond rules carry race, `final`
+#     stays the primary;
+#   - sing-box < 1.14.0 ignores the pool with a warning (the rule actions do
+#     not exist there); entry validation, limits, detour and bootstrap resolver;
+#   - the six transports map to the right sing-box server types.
+test_dns_pool() {
+    header "Multi-DNS upstream pool (issue #74)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local facade_lib="${NETSHIFT_LIB_DIR}/sing_box_config_facade.sh"
+    local constants_lib="${NETSHIFT_LIB_DIR}/constants.sh"
+    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$cm_lib" ] || [ ! -r "$facade_lib" ] || [ ! -r "$constants_lib" ] || [ ! -r "$jq_helpers" ] \
+        || [ ! -r "$bin" ]; then
+        skip "config manager / facade / constants / helpers.jq / netshift bin not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
+    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/netshift-dnspool-$$.sh"
+    cat > "$drv" << 'DPEOF'
+LIB="NETSHIFT_LIB"
+BIN="BIN_PATH"
+FACADE="FACADE_PATH"
+
+. "$LIB/constants.sh"
+. "$LIB/helpers.sh"
+LOGF="/tmp/netshift-dnspool-log-$$"
+log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOGF"; }
+. "$FACADE"
+
+# UCI stubs: DP_MODE / DP_TIMEOUT / DP_ENTRIES (space separated entries)
+config_get() {
+    case "$3" in
+    dns_pool_mode) eval "$1=\"\${DP_MODE:-}\"" ;;
+    dns_pool_timeout) eval "$1=\"\${DP_TIMEOUT:-\${4:-}}\"" ;;
+    *) eval "$1=\"\${4:-}\"" ;;
+    esac
+}
+config_get_bool() { eval "$1=\"\${DP_BLOCK_DOH:-0}\""; }
+config_list_foreach() {
+    local _e
+    for _e in $DP_ENTRIES; do "$3" "$_e"; done
+}
+for fn in is_valid_dns_pool_timeout _dns_pool_collect_entry sing_box_configure_dns_pool; do
+    eval "$(awk -v name="$fn" '$0 == name "() {"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+done
+if command -v sing_box_configure_dns_pool > /dev/null 2>&1 &&
+    command -v _dns_pool_collect_entry > /dev/null 2>&1; then
+    echo 'dnspool-real-functions-loaded:OK'
+else
+    echo 'dnspool-real-functions-loaded:FAIL'
+fi
+
+ok() { [ "$1" = "$2" ] && echo "$3:OK" || echo "$3:FAIL [got '$1' want '$2']"; }
+
+# ── version gate ───────────────────────────────────────────────────
+for spec in "1.14.0|yes" "1.14.1|yes" "1.14.1-extended-2.7.2-lite|yes" "1.15.0|yes" "1.100.0|yes" \
+    "1.13.14-extended-2.5.3|no" "1.12.22|no" "1.9.0|no" "1.0|no"; do
+    v="${spec%%|*}"
+    if is_sing_box_at_least "$SB_DNS_EVALUATE_MIN" "$v"; then got=yes; else got=no; fi
+    ok "$got" "${spec#*|}" "dnspool-gate-$v"
+done
+
+# ── url_get_port on bracketed IPv6 (a literal without a port has none) ──
+ok "$(url_get_port "[2001:db8::1]")" "" "dnspool-url-port-ipv6-no-port"
+ok "$(url_get_port "[2001:db8::1]:853/x")" "853" "dnspool-url-port-ipv6-with-port"
+ok "$(url_get_port "dns.example:853")" "853" "dnspool-url-port-host-port"
+
+# ── timeout syntax ─────────────────────────────────────────────────
+for t in 500ms 2s 10s 1ms; do
+    is_valid_dns_pool_timeout "$t" && echo "dnspool-timeout-ok-$t:OK" || echo "dnspool-timeout-ok-$t:FAIL"
+done
+for t in "" 0s 2 s 1.5s 2m -1s "2 s" 0ms; do
+    is_valid_dns_pool_timeout "$t" && echo "dnspool-timeout-bad-[$t]:FAIL" || echo "dnspool-timeout-bad-[$t]:OK"
+done
+
+base='{"dns":{"servers":[{"type":"udp","tag":"bootstrap-dns-server","server":"77.88.8.8","server_port":53},{"type":"udp","tag":"dns-server","server":"8.8.8.8","server_port":53}],"rules":[{"action":"route","server":"fakeip-server"}],"final":"dns-server"}}'
+
+gen() { # $1=version $2=mode $3=entries $4=timeout $5=detour
+    export NETSHIFT_SING_BOX_VERSION="$1"
+    DP_MODE="$2"; DP_ENTRIES="$3"; DP_TIMEOUT="$4"
+    : > "$LOGF"
+    config="$base"
+    sing_box_configure_dns_pool "$5"
+    printf '%s' "$config"
+}
+same() { [ "$(printf '%s' "$1" | jq -cS .)" = "$(printf '%s' "$base" | jq -cS .)" ]; }
+warned() { grep -q "^\[warn\] .*$1" "$LOGF"; }
+
+E2="udp://1.1.1.1 dot://dns.quad9.net"
+V=1.14.1
+
+# ── unchanged setups ───────────────────────────────────────────────
+c="$(gen $V "" "$E2")"; same "$c" && echo 'dnspool-mode-absent-unchanged:OK' || echo 'dnspool-mode-absent-unchanged:FAIL'
+c="$(gen $V single "$E2")"; same "$c" && echo 'dnspool-single-unchanged:OK' || echo 'dnspool-single-unchanged:FAIL'
+c="$(gen $V bogus "$E2")"; same "$c" && warned "Unknown dns_pool_mode" && echo 'dnspool-unknown-mode-unchanged-warned:OK' || echo 'dnspool-unknown-mode-unchanged-warned:FAIL'
+c="$(gen $V fallback "")"; same "$c" && warned "no valid dns_pool_server" && echo 'dnspool-empty-list-unchanged-warned:OK' || echo 'dnspool-empty-list-unchanged-warned:FAIL'
+c="$(gen 1.13.14-extended-2.5.3 fallback "$E2")"; same "$c" && warned "needs sing-box 1.14.0" && echo 'dnspool-old-core-unchanged-warned:OK' || echo 'dnspool-old-core-unchanged-warned:FAIL'
+c="$(gen 1.13.14-extended-2.5.3 race "$E2")"; same "$c" && echo 'dnspool-old-core-race-unchanged:OK' || echo 'dnspool-old-core-race-unchanged:FAIL'
+
+# ── fallback ───────────────────────────────────────────────────────
+c="$(gen $V fallback "$E2")"
+echo "$c" | jq -e '[.dns.servers[].tag] == ["bootstrap-dns-server","dns-server","dns-server-2","dns-server-3"]' > /dev/null &&
+    echo 'dnspool-fallback-servers:OK' || echo 'dnspool-fallback-servers:FAIL'
+echo "$c" | jq -e '.dns.final == "dns-server-3"' > /dev/null &&
+    echo 'dnspool-fallback-final-is-last:OK' || echo 'dnspool-fallback-final-is-last:FAIL'
+echo "$c" | jq -e '.dns.rules[0].server == "fakeip-server" and (.dns.rules | length) == 7' > /dev/null &&
+    echo 'dnspool-fallback-keeps-existing-rules-first:OK' || echo 'dnspool-fallback-keeps-existing-rules-first:FAIL'
+echo "$c" | jq -e '[.dns.rules[1:][] | [.action, .server // .match_response, .response_rcode // ""]] ==
+    [["evaluate","dns-server",""],["respond","dns-pool-response-1","NOERROR"],["respond","dns-pool-response-1","NXDOMAIN"],
+     ["evaluate","dns-server-2",""],["respond","dns-pool-response-2","NOERROR"],["respond","dns-pool-response-2","NXDOMAIN"]]' > /dev/null &&
+    echo 'dnspool-fallback-rule-order:OK' || echo "dnspool-fallback-rule-order:FAIL [$(echo "$c" | jq -c '[.dns.rules[1:][] | [.action, .server // .match_response]]')]"
+echo "$c" | jq -e '[.dns.rules[] | select(.action == "evaluate") | .timeout] == ["2s","2s"] and ([.dns.rules[] | select(.race)] | length) == 0' > /dev/null &&
+    echo 'dnspool-fallback-timeout-no-race:OK' || echo 'dnspool-fallback-timeout-no-race:FAIL'
+
+# ── race ───────────────────────────────────────────────────────────
+c="$(gen $V race "$E2" 500ms)"
+echo "$c" | jq -e '.dns.final == "dns-server"' > /dev/null &&
+    echo 'dnspool-race-final-is-primary:OK' || echo 'dnspool-race-final-is-primary:FAIL'
+echo "$c" | jq -e '[.dns.rules[] | select(.action == "evaluate") | .server] == ["dns-server","dns-server-2","dns-server-3"]
+    and ([.dns.rules[] | select(.action == "evaluate") | .timeout] | unique) == ["500ms"]' > /dev/null &&
+    echo 'dnspool-race-evaluates-all-with-timeout:OK' || echo 'dnspool-race-evaluates-all-with-timeout:FAIL'
+echo "$c" | jq -e '[.dns.rules[] | select(.action == "respond")] as $r
+    | ($r | length) == 6 and ($r | all(.race == true)) and ([$r[].response_rcode] | unique) == ["NOERROR","NXDOMAIN"]' > /dev/null &&
+    echo 'dnspool-race-respond-rules-race:OK' || echo 'dnspool-race-respond-rules-race:FAIL'
+echo "$c" | jq -e '([.dns.rules[] | .action] | index("respond")) > ([.dns.rules[] | .action] | rindex("evaluate"))' > /dev/null &&
+    echo 'dnspool-race-evaluate-before-respond:OK' || echo 'dnspool-race-evaluate-before-respond:FAIL'
+c="$(gen $V race "$E2" "oops")"
+echo "$c" | jq -e '[.dns.rules[] | select(.action == "evaluate") | .timeout] | unique == ["2s"]' > /dev/null && warned "Invalid dns_pool_timeout" &&
+    echo 'dnspool-bad-timeout-defaults-warned:OK' || echo 'dnspool-bad-timeout-defaults-warned:FAIL'
+
+# ── entries ────────────────────────────────────────────────────────
+c="$(gen $V fallback "udp://1.1.1.1 bogus http://x.example udp://bad_host udp://1.1.1.1:99999 udp://8.8.4.4/path udp://1.2.3.4. udp://1234 udp://9.9.9.9")"
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-")) | .server] == ["1.1.1.1","9.9.9.9"]' > /dev/null &&
+    echo 'dnspool-bad-entries-skipped:OK' || echo "dnspool-bad-entries-skipped:FAIL [$(echo "$c" | jq -c '[.dns.servers[].server]')]"
+n=0; for w in "expected <scheme>" "unknown scheme" "not an IP address or domain" "out of range" "a path is only allowed"; do warned "$w" && n=$((n + 1)); done
+ok "$n" 5 "dnspool-bad-entries-each-warned"
+# 'loose' IPv4 forms that is_ipv4 takes and sing-box refuses are skipped with a warning
+ok "$(grep -c "^\[warn\] Ignoring dns_pool_server 'udp://1.2.3.4.': '1.2.3.4.' is not an IP\|^\[warn\] Ignoring dns_pool_server 'udp://1234': '1234' is not an IP" "$LOGF")" 2 "dnspool-loose-ipv4-skipped-warned"
+
+# ── host names are case-insensitive: the host is lowered, the path keeps its case ──
+c="$(gen $V fallback "dot://DNS.QUAD9.NET doh://DNS.Google/Dns-Query udp://1.1.1.1")"
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-")) | [.server, .path // ""]] == [["dns.quad9.net",""],["dns.google","/Dns-Query"],["1.1.1.1",""]]' > /dev/null &&
+    echo 'dnspool-uppercase-host-lowered-path-kept:OK' || echo "dnspool-uppercase-host-lowered-path-kept:FAIL [$(echo "$c" | jq -c '[.dns.servers[] | [.server,.path]]')]"
+
+# ── block_doh: doh/doh3 upstreams without a detour are called out ──
+DP_BLOCK_DOH=1
+c="$(gen $V race "doh://dns.google/dns-query udp://1.1.1.1")"; warned "DoH blocking is enabled and the DNS pool has doh/doh3" && echo 'dnspool-blockdoh-doh-warned:OK' || echo 'dnspool-blockdoh-doh-warned:FAIL'
+c="$(gen $V race "doh3://dns.adguard-dns.com/dns-query")"; warned "DoH blocking is enabled and the DNS pool has doh/doh3" && echo 'dnspool-blockdoh-doh3-warned:OK' || echo 'dnspool-blockdoh-doh3-warned:FAIL'
+c="$(gen $V race "doh://dns.google/dns-query" "" main-out)"; warned "DoH blocking" && echo 'dnspool-blockdoh-detour-silent:FAIL' || echo 'dnspool-blockdoh-detour-silent:OK'
+c="$(gen $V race "udp://1.1.1.1 dot://dns.quad9.net")"; warned "DoH blocking" && echo 'dnspool-blockdoh-no-doh-silent:FAIL' || echo 'dnspool-blockdoh-no-doh-silent:OK'
+DP_BLOCK_DOH=0
+c="$(gen $V race "doh://dns.google/dns-query")"; warned "DoH blocking" && echo 'dnspool-blockdoh-off-silent:FAIL' || echo 'dnspool-blockdoh-off-silent:OK'
+many=""; i=1; while [ $i -le 12 ]; do many="$many udp://10.0.0.$i"; i=$((i + 1)); done
+c="$(gen $V race "$many")"
+ok "$(echo "$c" | jq '[.dns.servers[] | select(.tag | startswith("dns-server"))] | length')" "$DNS_POOL_MAX_SERVERS" "dnspool-max-upstreams"
+warned "at most $DNS_POOL_MAX_SERVERS upstreams" && echo 'dnspool-max-upstreams-warned:OK' || echo 'dnspool-max-upstreams-warned:FAIL'
+
+# ── transports, detour, resolver ───────────────────────────────────
+c="$(gen $V race "udp://1.1.1.1 tcp://1.1.1.1:5353 dot://dns.quad9.net doh://dns.google/dns-query doh3://dns.adguard-dns.com/dns-query doq://dns.adguard-dns.com:8853 udp://[2001:4860:4860::8888]" "" main-out)"
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-")) | [.type, .server, .server_port, .path // ""]] ==
+    [["udp","1.1.1.1",53,""],["tcp","1.1.1.1",5353,""],["tls","dns.quad9.net",853,""],["https","dns.google",443,"/dns-query"],
+     ["h3","dns.adguard-dns.com",443,"/dns-query"],["quic","dns.adguard-dns.com",8853,""],["udp","2001:4860:4860::8888",53,""]]' > /dev/null &&
+    echo 'dnspool-transports-map:OK' || echo "dnspool-transports-map:FAIL [$(echo "$c" | jq -c '[.dns.servers[] | select(.tag | startswith("dns-server-")) | [.type,.server,.server_port,.path]]')]"
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-")) | .detour] | all(. == "main-out")' > /dev/null &&
+    echo 'dnspool-detour-on-every-upstream:OK' || echo 'dnspool-detour-on-every-upstream:FAIL'
+# jq on OpenWrt has no regex: hostnames are the servers that are neither dotted-quad nor IPv6
+echo "$c" | jq -e '[.dns.servers[] | select(.tag | startswith("dns-server-"))] as $s
+    | ($s | map(select(.server == "dns.quad9.net" or .server == "dns.google" or .server == "dns.adguard-dns.com")) | all(.domain_resolver == "bootstrap-dns-server"))
+    and ($s | map(select(.server == "1.1.1.1" or .server == "2001:4860:4860::8888")) | all((.domain_resolver // "") == ""))' > /dev/null &&
+    echo 'dnspool-bootstrap-resolver-only-for-hostnames:OK' || echo 'dnspool-bootstrap-resolver-only-for-hostnames:FAIL'
+c="$(gen $V race "udp://1.1.1.1" "" "")"
+echo "$c" | jq -e '[.dns.servers[] | .detour // "none"] | all(. == "none")' > /dev/null &&
+    echo 'dnspool-no-detour-when-direct:OK' || echo 'dnspool-no-detour-when-direct:FAIL'
+
+# ── the generated config validates on a core that knows the actions ──
+# /usr/local/bin/sing-box-1.14 is a stock sing-box 1.14 that the test image carries next
+# to its older default core (tests/Dockerfile).
+SBN=/usr/local/bin/sing-box-1.14
+if [ -x "$SBN" ] && is_sing_box_at_least "$SB_DNS_EVALUATE_MIN" "$("$SBN" version 2> /dev/null | awk 'NR==1{print $3}')"; then
+    for m in fallback race; do
+        gen $V $m "$E2" > /tmp/dnspool-$m.json
+        jq '. + {route:{default_domain_resolver:"dns-server"}} | .dns.rules |= map(select(.action != "route"))
+            | walk(if type == "object" then del(.__service_tag) else . end)' /tmp/dnspool-$m.json > /tmp/dnspool-$m-check.json
+        "$SBN" -c /tmp/dnspool-$m-check.json check > /dev/null 2>&1 &&
+            echo "dnspool-$m-singbox-check:OK" || echo "dnspool-$m-singbox-check:FAIL"
+    done
+    # the check really tells: a rule with a wrong field name is refused
+    jq '(.dns.rules[] | select(.action == "evaluate")) += {tmieout: "2s"}' /tmp/dnspool-race-check.json > /tmp/dnspool-bad-check.json
+    "$SBN" -c /tmp/dnspool-bad-check.json check > /dev/null 2>&1 &&
+        echo 'dnspool-singbox-check-rejects-bad-field:FAIL' || echo 'dnspool-singbox-check-rejects-bad-field:OK'
+    rm -f /tmp/dnspool-*.json
+else
+    echo 'dnspool-fallback-singbox-check:SKIP'
+    echo 'dnspool-race-singbox-check:SKIP'
+fi
+
+rm -f "$LOGF"
+echo 'DONE'
+DPEOF
+    sed -i "s|NETSHIFT_LIB|$NETSHIFT_LIB_DIR|g; s|BIN_PATH|$bin|; s|FACADE_PATH|$facade_lib|" "$drv"
+
+    local dp_out="/tmp/netshift-dnspool-out-$$.log"
+    ash "$drv" > "$dp_out" 2>&1 || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK) pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP) skip "$line" ;;
+            DONE) saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$dp_out"
+    if [ "$saw_done" = "1" ]; then
+        pass "dnspool-driver-completed:OK"
+    else
+        fail "dnspool-driver-completed:FAIL (driver aborted early)" "$(tail -20 "$dp_out")"
+    fi
+    rm -f "$drv" "$dp_out"
+}
+
+# ─────────────────────────────────────────────────────────────────
+
+# Test: Chained connections (outbound_detour_section)
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL configure_outbound_detour_handler / _outbound_detour_chain_is_usable
+# (extracted verbatim from the bin) and sing_box_cm_set_outbounds_detour against a
+# stubbed UCI layer. Asserts:
+#   - the section's real proxy outbounds (leaves of selector/urltest, or the
+#     single outbound) get `detour` = the target's tag, the target's own members
+#     and outbounds with their own detour are left alone;
+#   - sections without the option (every existing config) are untouched;
+#   - a chain that cannot be built (unknown/blocked target, itself, a loop, an
+#     unavailable target) never falls back to a direct connection: the section is
+#     marked unavailable and gets no detour.
+test_cascade() {
+    header "Chained connections (outbound_detour_section)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local constants_lib="${NETSHIFT_LIB_DIR}/constants.sh"
+    local jq_helpers="${NETSHIFT_LIB_DIR}/helpers.jq"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$cm_lib" ] || [ ! -r "$constants_lib" ] || [ ! -r "$jq_helpers" ] || [ ! -r "$bin" ]; then
+        skip "config manager / constants / helpers.jq / netshift bin not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$jq_helpers" /usr/lib/netshift/helpers.jq
+    ln -sf "${NETSHIFT_LIB_DIR}/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$cm_lib" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/netshift-cascade-$$.sh"
+    cat > "$drv" << 'CCEOF'
+LIB="NETSHIFT_LIB"
+BIN="BIN_PATH"
+
+. "$LIB/constants.sh"
+. "$LIB/helpers.sh"
+. "$LIB/sing_box_config_manager.sh"
+log() { :; }
+echolog() { :; }
+
+# UCI stub: CC_<section>_<option>
+config_get() {
+    local _v
+    eval "_v=\"\${CC_${2}_${3}:-}\""
+    [ -n "$_v" ] || _v="$4"
+    eval "$1=\"\$_v\""
+}
+for fn in subscription_outbound_is_unavailable mark_section_outbound_unavailable _outbound_detour_chain_is_usable \
+    configure_outbound_detour_handler _outbound_detour_break sing_box_reject_unmatched_for_broken_chain; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+done
+if command -v configure_outbound_detour_handler > /dev/null 2>&1; then
+    echo 'cascade-real-functions-loaded:OK'
+else
+    echo 'cascade-real-functions-loaded:FAIL'
+fi
+
+base='{"outbounds":[
+ {"type":"direct","tag":"direct-out"},
+ {"type":"vless","tag":"a-out","server":"a.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555"},
+ {"type":"vless","tag":"m1","server":"m1.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555"},
+ {"type":"vless","tag":"m2","server":"m2.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","detour":"custom"},
+ {"type":"urltest","tag":"b-urltest-out","outbounds":["m1","m2"]},
+ {"type":"selector","tag":"b-out","outbounds":["m1","m2","b-urltest-out"],"default":"b-urltest-out"},
+ {"type":"vless","tag":"c-out","server":"c.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555"},
+ {"type":"vless","tag":"d-out","server":"d.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555"},
+ {"type":"selector","tag":"r-out","outbounds":["direct-out","a-out"],"default":"direct-out"},
+ {"type":"vless","tag":"l1","server":"l1.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555"},
+ {"type":"selector","tag":"loop-out","outbounds":["loop-out","l1"],"default":"l1"}],
+ "route":{"rules":[{"action":"route","outbound":"c-out"}]}}'
+
+for s in a b c d e r loop x; do eval "CC_${s}_connection_type=proxy"; done
+CC_r_proxy_config_type=outbound
+CC_e_connection_type=block
+SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+
+detour_of() { printf '%s' "$config" | jq -r --arg t "$1" '.outbounds[] | select(.tag == $t) | .detour // "none"'; }
+unavailable() { case " $SUBSCRIPTION_UNAVAILABLE_SECTIONS " in *" $1 "*) echo yes ;; *) echo no ;; esac; }
+run() { # $1 = section
+    config="$base"; SUBSCRIPTION_UNAVAILABLE_SECTIONS=""; CHAIN_BROKEN_SECTIONS=""
+    configure_outbound_detour_handler "$1"
+}
+ok() { [ "$1" = "$2" ] && echo "$3:OK" || echo "$3:FAIL [got '$1' want '$2']"; }
+jqc() { printf '%s' "$config" | jq -c "$1"; }
+
+# ── no option: untouched ───────────────────────────────────────────
+run a
+ok "$(printf '%s' "$config" | jq -cS .)" "$(printf '%s' "$base" | jq -cS .)" "cascade-no-option-untouched"
+ok "$(unavailable a)" no "cascade-no-option-available"
+
+# ── single outbound through a selector target ──────────────────────
+CC_a_outbound_detour_section=b
+run a
+ok "$(detour_of a-out)" "b-out" "cascade-single-outbound-detour"
+ok "$(detour_of m1)$(detour_of m2)" "nonecustom" "cascade-target-members-untouched"
+ok "$(unavailable a)" no "cascade-valid-chain-available"
+
+# ── selector section through a single outbound: leaves get it, own detour kept ──
+CC_a_outbound_detour_section=""
+CC_b_outbound_detour_section=c
+run b
+ok "$(detour_of m1)" "c-out" "cascade-selector-leaf-detour"
+ok "$(detour_of m2)" "custom" "cascade-own-detour-kept"
+ok "$(detour_of b-out)$(detour_of b-urltest-out)$(detour_of c-out)" "nonenonenone" "cascade-groups-and-target-untouched"
+CC_b_outbound_detour_section=""
+
+# ── three-hop chain: every section chained to the next ─────────────
+CC_a_outbound_detour_section=c
+CC_c_outbound_detour_section=d
+config="$base"; SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+configure_outbound_detour_handler a; configure_outbound_detour_handler c
+ok "$(detour_of a-out)$(detour_of c-out)$(detour_of d-out)" "c-outd-outnone" "cascade-three-hops"
+CC_a_outbound_detour_section=""; CC_c_outbound_detour_section=""
+
+# ── chains that cannot be built never go direct ────────────────────
+bad() { # $1=section $2=target $3=label
+    eval "CC_${1}_outbound_detour_section=$2"
+    run "$1"
+    ok "$(unavailable "$1")$(detour_of "${1}-out")" "yesnone" "$3"
+    eval "CC_${1}_outbound_detour_section="
+}
+bad a nosuch cascade-unknown-target-rejected
+bad a e cascade-block-target-rejected
+bad a a cascade-self-target-rejected
+bad a b-missing cascade-missing-outbound-rejected
+CC_c_outbound_detour_section=a
+bad a c cascade-loop-rejected
+CC_c_outbound_detour_section=""
+# a target that is a proxy section in the config but has no outbound (a disabled one)
+bad a x cascade-target-without-outbound-rejected
+# a broken chain is remembered for the global-proxy handling
+CC_a_outbound_detour_section=nosuch; run a
+case " $CHAIN_BROKEN_SECTIONS " in *" a "*) echo 'cascade-broken-chain-remembered:OK' ;; *) echo 'cascade-broken-chain-remembered:FAIL' ;; esac
+CC_a_outbound_detour_section=""
+# a raw outbound group (user JSON) is refused: its members may belong to other
+# sections or be the shared direct outbound, which must never get a detour
+CC_r_outbound_detour_section=b; run r
+ok "$(unavailable r)$(detour_of direct-out)$(detour_of a-out)$(detour_of r-out)" "yesnonenonenone" "cascade-raw-group-refused-direct-out-untouched"
+CC_r_outbound_detour_section=""
+# the shared direct outbound never gets a detour, even reached through a section group
+CC_loop_outbound_detour_section=b
+config="$base"; SUBSCRIPTION_UNAVAILABLE_SECTIONS=""; CHAIN_BROKEN_SECTIONS=""
+configure_outbound_detour_handler loop
+ok "$(unavailable loop)$(detour_of l1)$(detour_of direct-out)" "nob-outnone" "cascade-self-referencing-selector-terminates"
+CC_loop_outbound_detour_section=""
+# a failing update must not wipe the config: the section is rejected instead
+CC_a_outbound_detour_section=b
+sing_box_cm_set_outbounds_detour() { return 1; }
+run a
+ok "$(unavailable a)$([ -n "$config" ] && echo config-kept)" "yesconfig-kept" "cascade-failed-update-keeps-config"
+unset -f sing_box_cm_set_outbounds_detour
+. "$LIB/sing_box_config_manager.sh"
+CC_a_outbound_detour_section=""
+# global proxy section with a broken chain: the unmatched traffic is rejected (the
+# catch-all reject rule is the last one), a healthy chain adds nothing
+get_global_proxy_section() { echo "a"; }
+config="$base"; CHAIN_BROKEN_SECTIONS=" a"
+sing_box_reject_unmatched_for_broken_chain
+ok "$(jqc '[.route.rules[-1] | .action, (.outbound // "none"), (.inbound // "none")] | join(",")')" '"reject,none,none"' "cascade-global-broken-chain-rejects-last"
+config="$base"; CHAIN_BROKEN_SECTIONS=""
+sing_box_reject_unmatched_for_broken_chain
+ok "$(jqc '.route.rules | length')" 1 "cascade-global-healthy-chain-no-reject"
+config="$base"; CHAIN_BROKEN_SECTIONS=" b"
+sing_box_reject_unmatched_for_broken_chain
+ok "$(jqc '.route.rules | length')" 1 "cascade-other-section-broken-no-global-reject"
+get_global_proxy_section() { echo ""; }
+
+# a target marked unavailable (failed subscription) takes the chain down with it
+CC_a_outbound_detour_section=d
+config="$base"; SUBSCRIPTION_UNAVAILABLE_SECTIONS=" d"
+configure_outbound_detour_handler a
+ok "$(unavailable a)$(detour_of a-out)" "yesnone" "cascade-unavailable-target-rejected"
+# ... also further down the chain
+CC_a_outbound_detour_section=c; CC_c_outbound_detour_section=d
+config="$base"; SUBSCRIPTION_UNAVAILABLE_SECTIONS=" d"
+configure_outbound_detour_handler a
+ok "$(unavailable a)$(detour_of a-out)" "yesnone" "cascade-unavailable-further-down-rejected"
+CC_a_outbound_detour_section=""; CC_c_outbound_detour_section=""
+
+# ── the chained config validates ───────────────────────────────────
+if command -v sing-box > /dev/null 2>&1; then
+    CC_a_outbound_detour_section=b
+    run a
+    printf '%s' "$config" | jq '. + {dns:{servers:[{type:"udp",tag:"d",server:"1.1.1.1"}]},route:{default_domain_resolver:"d",final:"direct-out"}} | .outbounds += [{type:"direct",tag:"custom"}]' > /tmp/cascade-chk.json
+    sing-box -c /tmp/cascade-chk.json check > /dev/null 2>&1 &&
+        echo 'cascade-singbox-check:OK' || echo 'cascade-singbox-check:FAIL'
+    # ... and so does one that ends in the catch-all reject rule
+    config="$(sing_box_cm_add_final_reject_rule "$config" "final-reject")"
+    printf '%s' "$config" | jq '. + {dns:{servers:[{type:"udp",tag:"d",server:"1.1.1.1"}]},route:(.route + {default_domain_resolver:"d",final:"direct-out"})}
+        | .outbounds += [{type:"direct",tag:"custom"}] | walk(if type == "object" then del(.__service_tag) else . end)' > /tmp/cascade-chk2.json
+    sing-box -c /tmp/cascade-chk2.json check > /dev/null 2>&1 &&
+        echo 'cascade-final-reject-singbox-check:OK' || echo 'cascade-final-reject-singbox-check:FAIL'
+    rm -f /tmp/cascade-chk.json /tmp/cascade-chk2.json
+else
+    echo 'cascade-singbox-check:SKIP'
+fi
+echo 'DONE'
+CCEOF
+    sed -i "s|NETSHIFT_LIB|$NETSHIFT_LIB_DIR|g; s|BIN_PATH|$bin|" "$drv"
+
+    local cc_out="/tmp/netshift-cascade-out-$$.log"
+    ash "$drv" > "$cc_out" 2>&1 || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK) pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP) skip "$line" ;;
+            DONE) saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$cc_out"
+    if [ "$saw_done" = "1" ]; then
+        pass "cascade-driver-completed:OK"
+    else
+        fail "cascade-driver-completed:FAIL (driver aborted early)" "$(tail -20 "$cc_out")"
+    fi
+    rm -f "$drv" "$cc_out"
+}
+
+# ─────────────────────────────────────────────────────────────────
+
+# Test: URL of the dashboard latency test
+# ─────────────────────────────────────────────────────────────────
+# The `latency_test_url` setting of clash_api, extracted verbatim from the bin:
+# default when absent, a configured http(s) URL is used, anything else falls back
+# to the default and says so in the log.
+test_latency_url() {
+    header "Latency test URL"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / constants.sh / jq not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        . "${NETSHIFT_LIB_DIR}/helpers.sh"
+        LOGF="/tmp/netshift-ltu-log-$$"
+        : > "$LOGF"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOGF"; }
+        eval "$(awk -v f="clash_api" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+
+        get_service_listen_address() { echo ""; }
+        config_get_bool() { eval "$1=0"; }
+        config_get() {
+            case "$3" in
+            latency_test_url) if [ "${LTU_SET:-0}" = 1 ]; then eval "$1=\"\$LTU\""; else eval "$1=\"\${LTU:-$4}\""; fi ;;
+            *) eval "$1=\"$4\"" ;;
+            esac
+        }
+        curl() { local a; for a in "$@"; do case "$a" in url=*) echo "{\"$a\":1}" ;; esac; done; }
+        asked() { clash_api get_proxy_latency p | jq -r 'keys[0]'; }
+        LTU=""; echo "latency-default:$(asked)"
+        echo "latency-default-silent:$(grep -c 'Invalid latency_test_url' "$LOGF")"
+        LTU="https://cp.cloudflare.com/generate_204"; echo "latency-custom:$(asked)"
+        : > "$LOGF"
+        LTU="not a url"; echo "latency-invalid-falls-back:$(asked)"
+        echo "latency-invalid-warned:$(grep -c "^\[warn\] Invalid latency_test_url 'not a url" "$LOGF")"
+        LTU="ftp://example.com/x"; echo "latency-bad-scheme-falls-back:$(asked)"
+        : > "$LOGF"; LTU_SET=1; LTU=""; echo "latency-empty-uses-default:$(asked) warned=$(grep -c 'Invalid latency_test_url' "$LOGF")"
+        : > "$LOGF"; LTU="https://user:secret@example.com/x y"; asked > /dev/null
+        echo "latency-warning-redacted:$(grep -c 'secret' "$LOGF")"
+        LTU_SET=0
+        rm -f "$LOGF"
+    )"
+
+    _ltu_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _ltu_check "latency test: default URL when the setting is absent" 'latency-default:url=https://www.gstatic.com/generate_204'
+    _ltu_check "latency test: the default is not reported as invalid" 'latency-default-silent:0'
+    _ltu_check "latency test: configured URL is used" 'latency-custom:url=https://cp.cloudflare.com/generate_204'
+    _ltu_check "latency test: an invalid URL falls back to the default" 'latency-invalid-falls-back:url=https://www.gstatic.com/generate_204'
+    _ltu_check "latency test: ...and the log says so" 'latency-invalid-warned:1'
+    _ltu_check "latency test: a non-http scheme falls back to the default" 'latency-bad-scheme-falls-back:url=https://www.gstatic.com/generate_204'
+    _ltu_check "latency test: an empty option (cleared field) uses the default without a warning" 'latency-empty-uses-default:url=https://www.gstatic.com/generate_204 warned=0'
+    _ltu_check "latency test: the warning does not leak credentials of the value" 'latency-warning-redacted:0'
+}
+
+# ─────────────────────────────────────────────────────────────────
+
+# Test: Priority node selection (priority_mode)
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL priority_select_for_section / _priority_check_section_handler /
+# priority_check_interval (extracted verbatim from the bin) against a stubbed
+# Clash API. Asserts:
+#   - the FIRST server that answers is selected, in list order, and the selector
+#     goes back to a higher one when it recovers;
+#   - nothing is switched when the right server is already selected, when nothing
+#     answers, or when there is nothing to choose from (groups are not probed);
+#   - names with spaces / non-ASCII characters survive; the probe count is capped;
+#   - sections without the option are never probed.
+test_priority_selection() {
+    header "Priority node selection"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / constants.sh / jq not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        PR_LOG="/tmp/netshift-prio-log-$$"; PR_SET="/tmp/netshift-prio-set-$$"; PR_PROBE="/tmp/netshift-prio-probe-$$"
+        : > "$PR_LOG"; : > "$PR_SET"; : > "$PR_PROBE"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$PR_LOG"; }
+        for fn in priority_check_interval priority_clash_setup priority_select_for_section _priority_warn_once \
+            _priority_collect_section_handler priority_check_sections; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        PRIORITY_WARNED=""; PRIORITY_RESUME=0
+        PRIORITY_DEADLINE=$(($(date +%s) + 3600))
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        section_is_disabled() { [ "${PR_DISABLED:-0}" = 1 ]; }
+        config_get_bool() { eval "$1=\"\${PR_MODE:-0}\""; }
+        config_get() {
+            case "$3" in
+            priority_check_interval) eval "$1=\"\${PR_INTERVAL:-$4}\"" ;;
+            service_listen_address) eval "$1=\"\${PR_LISTEN:-}\"" ;;
+            yacd_secret_key) eval "$1=\"\${PR_SECRET:-}\"" ;;
+            connection_type) eval "$1=\"\${PR_CONN:-proxy}\"" ;;
+            *) eval "$1=\"$4\"" ;;
+            esac
+        }
+        network_get_ipaddr() { eval "$1=192.168.1.1"; }
+
+        # PR_NOW = selected server, PR_ALL = newline separated members ("|" = group member),
+        # PR_ALIVE = newline separated servers that answer
+        proxies_json() {
+            jq -n --arg now "$PR_NOW" --arg all "$PR_ALL" '
+                ($all | split("\n") | map(select(. != ""))) as $members
+                | {proxies: ({"s-out": {type: "Selector", now: $now, all: $members}}
+                    + ($members | map({key: ., value: {type: (if endswith("-urltest-out") then "URLTest" else "Vless" end)}}) | from_entries))}'
+        }
+        priority_fetch_proxies() { [ -n "$PR_NOCLASH" ] && return 1; proxies_json; }
+        priority_probe_delay() {
+            printf '%s\n' "$1" >> "$PR_PROBE"
+            if printf '%s\n' "$PR_ALIVE" | grep -qxF "$1"; then echo 120; else echo 0; fi
+        }
+        clash_api() {
+            case "$1" in
+            set_group_proxy)
+                printf '%s>%s\n' "$2" "$3" >> "$PR_SET"
+                echo '{"success":true}'
+                ;;
+            esac
+        }
+        run() { # $1 now  $2 members  $3 alive
+            PR_NOW="$1"; PR_ALL="$2"; PR_ALIVE="$3"
+            : > "$PR_SET"; : > "$PR_PROBE"; : > "$PR_LOG"
+            PRIORITY_PROXIES_JSON="$(proxies_json)"
+            priority_select_for_section s
+        }
+        set_of() { tr '\n' ',' < "$PR_SET"; }
+        probes_of() { tr '\n' ',' < "$PR_PROBE"; }
+
+        run B "$(printf 'A\nB\nC')" "$(printf 'A\nB\nC')"
+        echo "first-alive-wins:$(set_of)"
+        run A "$(printf 'A\nB\nC')" "$(printf 'A\nB\nC')"
+        echo "already-selected-no-switch:[$(set_of)] probes=$(probes_of)"
+        run C "$(printf 'A\nB\nC')" "$(printf 'B\nC')"
+        echo "dead-first-second-wins:$(set_of) probes=$(probes_of)"
+        run C "$(printf 'A\nB\nC')" "C"
+        echo "only-last-alive-already-selected:[$(set_of)]"
+        run B "$(printf 'A\nB\nC')" ""
+        echo "none-alive-keeps:[$(set_of)] warned=$(grep -c '^\[warn\] Priority selection.*none of the first 3' "$PR_LOG")"
+        run B "$(printf 'A\ns-urltest-out\nB')" "$(printf 'A\nB')"
+        echo "group-member-skipped:$(set_of) probes=$(probes_of)"
+        run "X" "s-urltest-out" "A"
+        echo "only-groups-no-op:[$(set_of)] probes=[$(probes_of)]"
+        priority_select_for_section s
+        echo "only-groups-warned-once:$(grep -c "^\[warn\] Priority selection for section 's': no individual servers" "$PR_LOG")"
+        run B "$(printf '\360\237\207\263\360\237\207\261 Node 1\nNode two\nB')" "$(printf '\360\237\207\263\360\237\207\261 Node 1\nB')"
+        [ "$(set_of)" = "s-out>$(printf '\360\237\207\263\360\237\207\261 Node 1'),"  ] && echo "names-with-spaces-and-flags:ok" || echo "names-with-spaces-and-flags:wrong [$(set_of)]"
+        many="$(i=1; while [ $i -le 12 ]; do echo "N$i"; i=$((i + 1)); done)"
+        run N12 "$many" "N11"
+        [ "$(wc -l < "$PR_PROBE" | tr -d ' ')" = "$PRIORITY_MAX_PROBES" ] && echo "probe-cap:[$(set_of)] capped" || echo "probe-cap:wrong"
+
+        # collecting: only enabled proxy sections with the option are checked
+        PR_NOW=B; PR_ALL="$(printf 'A\nB')"; PR_ALIVE="A"
+        collected() { PRIORITY_SECTIONS_TO_CHECK=""; "$@"; echo "[${PRIORITY_SECTIONS_TO_CHECK# }]"; }
+        PR_MODE=0; echo "option-off-never-collected:$(collected _priority_collect_section_handler s)"
+        PR_MODE=1; echo "option-on-collected:$(collected _priority_collect_section_handler s)"
+        PR_DISABLED=1; echo "disabled-section-never-collected:$(collected _priority_collect_section_handler s)"
+        PR_DISABLED=0
+        PR_CONN=vpn; : > "$PR_LOG"; PRIORITY_SECTIONS_TO_CHECK=""
+        _priority_collect_section_handler s; _priority_collect_section_handler s
+        echo "non-proxy-section-not-collected-warned-once:[${PRIORITY_SECTIONS_TO_CHECK# }] warned=$(grep -c "^\[warn\] Priority selection for section 's': priority_mode applies to proxy sections only" "$PR_LOG")"
+        PR_CONN=proxy
+
+        # a section that is not in the running sing-box (failed subscription): quiet no-op
+        PR_NOW=B; PR_ALL="A"; PR_ALIVE="A"; : > "$PR_SET"; : > "$PR_PROBE"; : > "$PR_LOG"
+        PRIORITY_PROXIES_JSON='{"proxies":{}}'
+        priority_select_for_section s
+        echo "section-not-running-quiet:[$(probes_of)][$(set_of)] warned=$(grep -c '^\[warn\]' "$PR_LOG")"
+
+        # the time budget of the cycle: a spent budget probes nothing and says nothing
+        PRIORITY_DEADLINE=0
+        run B "$(printf 'A\nB')" "A"
+        echo "budget-spent-no-probes-no-warning:[$(probes_of)][$(set_of)] warned=$(grep -c '^\[warn\]' "$PR_LOG")"
+        PRIORITY_DEADLINE=$(($(date +%s) + 3600))
+
+        # a whole cycle: sections that do not fit the budget go first next time
+        config_foreach() { local _cb="$1" _s; shift; for _s in $PR_SECTIONS; do "$_cb" "$_s" "$@"; done; }
+        PR_ORDER="/tmp/netshift-prio-order-$$"; : > "$PR_ORDER"
+        priority_select_for_section() { echo "$1" >> "$PR_ORDER"; }
+        PR_MODE=1; PR_SECTIONS="a b c"; PR_NOW=B; PR_ALL=A; PR_NOCLASH=""
+        PRIORITY_CYCLE_BUDGET=3600; PRIORITY_RESUME=0
+        priority_check_sections
+        echo "cycle-all-sections-in-order:$(tr '\n' ',' < "$PR_ORDER")"
+        : > "$PR_ORDER"; PRIORITY_CYCLE_BUDGET=-1; PRIORITY_RESUME=0
+        priority_check_sections; priority_check_sections; priority_check_sections; priority_check_sections
+        echo "cycle-budget-rotates:$(tr '\n' ',' < "$PR_ORDER")"
+        : > "$PR_ORDER"; PR_NOCLASH=1; PRIORITY_CYCLE_BUDGET=3600
+        priority_check_sections
+        echo "cycle-clash-down-checks-nothing:[$(tr '\n' ',' < "$PR_ORDER")]"
+        PR_NOCLASH=""; rm -f "$PR_ORDER"
+
+        # the monitor's Clash API address: the override wins, the secret becomes a header,
+        # and nothing is logged on the way (it runs every cycle)
+        : > "$PR_LOG"
+        PR_LISTEN="10.9.8.7"; PR_SECRET="topsecret"; priority_clash_setup
+        echo "clash-setup-override:$PRIORITY_CLASH_URL|$PRIORITY_CLASH_AUTH"
+        PR_LISTEN=""; PR_SECRET=""; priority_clash_setup
+        echo "clash-setup-lan-no-auth:$PRIORITY_CLASH_URL|$PRIORITY_CLASH_AUTH"
+        echo "clash-setup-silent:$(wc -l < "$PR_LOG" | tr -d ' ')"
+
+        # interval
+        PR_INTERVAL=""; echo "interval-default:$(priority_check_interval)"
+        PR_INTERVAL=45; echo "interval-custom:$(priority_check_interval)"
+        PR_INTERVAL=3; echo "interval-below-tick:$(priority_check_interval)"
+        PR_INTERVAL=abc; echo "interval-invalid:$(priority_check_interval)"
+        PR_INTERVAL=0; echo "interval-zero:$(priority_check_interval)"
+        rm -f "$PR_LOG" "$PR_SET" "$PR_PROBE"
+    )"
+
+    _pr_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _pr_check "the first working server is selected (switch back from a lower one)" "first-alive-wins:s-out>A,"
+    _pr_check "no switch when the best server is already selected (and only it is probed)" "already-selected-no-switch:[] probes=A,"
+    _pr_check "a dead first server: the next working one wins, probed in order" "dead-first-second-wins:s-out>B, probes=A,B,"
+    _pr_check "the only working server is already selected: no switch" "only-last-alive-already-selected:[]"
+    _pr_check "nothing answers: keep the selection and warn" "none-alive-keeps:[] warned=1"
+    _pr_check "group members are not probed" "group-member-skipped:s-out>A, probes=A,"
+    _pr_check "only groups: nothing to do" "only-groups-no-op:[] probes=[]"
+    _pr_check "only groups: the log says the option has no effect, once" "only-groups-warned-once:1"
+    _pr_check "names with spaces and flag emoji survive" "names-with-spaces-and-flags:ok"
+    _pr_check "the probe count is capped (and nothing is switched past it)" "probe-cap:[] capped"
+    _pr_check "option off: the section is never collected" "option-off-never-collected:[]"
+    _pr_check "option on: the section is collected" "option-on-collected:[s]"
+    _pr_check "a disabled section is never collected" "disabled-section-never-collected:[]"
+    _pr_check "a non-proxy section is not collected, and that is said once" "non-proxy-section-not-collected-warned-once:[] warned=1"
+    _pr_check "a section that is not in the running sing-box is a quiet no-op" "section-not-running-quiet:[][] warned=0"
+    _pr_check "a spent time budget probes nothing and warns about nothing" "budget-spent-no-probes-no-warning:[][] warned=0"
+    _pr_check "a cycle checks every collected section in order" "cycle-all-sections-in-order:a,b,c,"
+    _pr_check "sections that did not fit the budget are checked first next time" "cycle-budget-rotates:a,b,c,a,"
+    _pr_check "Clash API down: the cycle checks nothing" "cycle-clash-down-checks-nothing:[]"
+    _pr_check "the monitor's Clash API address: override and secret header" "clash-setup-override:http://10.9.8.7:9090|Authorization: Bearer topsecret"
+    _pr_check "...the LAN address and no header otherwise" "clash-setup-lan-no-auth:http://192.168.1.1:9090|"
+    _pr_check "...without logging anything" "clash-setup-silent:0"
+    _pr_check "interval: default" "interval-default:30"
+    _pr_check "interval: custom value" "interval-custom:45"
+    _pr_check "interval: not below the monitor tick" "interval-below-tick:10"
+    _pr_check "interval: invalid value falls back" "interval-invalid:30"
+    _pr_check "interval: zero falls back" "interval-zero:30"
+}
+
+# ─────────────────────────────────────────────────────────────────
+
+# Test: Bypass sing-box for excluded destinations / devices
+# ─────────────────────────────────────────────────────────────────
+# Runs the REAL nft_select_subnet_target / populate_netshift_subnets_from_file /
+# nft_bypass_requested / nft_bypass_source_ips (bin) and
+# nft_add_selective_marking_rules (nft.sh) against a recording `nft` stub. Asserts:
+#   - without bypass nothing changes: same rules, subnets go to the union set;
+#   - an exclusion section with bypass_singbox feeds the bypass set, any other
+#     section (also an exclusion one without the flag) still the union set, and the
+#     choice never leaks from one section to the next;
+#   - the bypass `return` rules come FIRST in every chain, also under global proxy;
+#   - bypass_excluded_ips returns the listed devices before any mark (IPv6 only when
+#     IPv6 is enabled).
+test_bypass() {
+    header "Bypass sing-box (excluded destinations / devices)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local nftsh="${NETSHIFT_LIB_DIR}/nft.sh"
+    if [ ! -r "$bin" ] || [ ! -r "$nftsh" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ]; then
+        skip "netshift bin / nft.sh / constants.sh not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        for fn in nft_select_subnet_target populate_netshift_subnets_from_file _nft_bypass_section_handler \
+            nft_bypass_requested _nft_bypass_source_ip_handler nft_bypass_source_ips; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        eval "$(awk '/^nft_add_selective_marking_rules\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$nftsh")"
+        BP_LOGF="/tmp/netshift-bypass-log-$$"; : > "$BP_LOGF"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$BP_LOGF"; }
+        section_is_disabled() { [ "${BP_DISABLED:-}" = "$1" ]; }
+
+        NFT_LOG="/tmp/netshift-bypass-$$"; : > "$NFT_LOG"
+        nft() {
+            case "$1 $2" in
+            "list set") return 0 ;;
+            esac
+            echo "$*" >> "$NFT_LOG"
+        }
+        nft_add_set_elements_from_file_chunked() { echo "fill4 $3" >> "$NFT_LOG"; }
+        nft_add_set_elements_from_file_chunked_v6() { echo "fill6 $3" >> "$NFT_LOG"; }
+        V6=0
+        netshift_ipv6_enabled() { [ "$V6" = 1 ]; }
+
+        # UCI stubs: BP_<section>_<option>; sections list in BP_SECTIONS
+        config_get() { eval "$1=\"\${BP_${2}_${3}:-$4}\""; }
+        config_get_bool() {
+            local _v
+            eval "_v=\"\${BP_${2}_${3}:-$4}\""
+            case "$_v" in 1) eval "$1=1" ;; *) eval "$1=0" ;; esac
+        }
+        config_foreach() { local _s; for _s in $BP_SECTIONS; do "$1" "$_s"; done; }
+        config_list_foreach() { local _i _cb="$3"; for _i in $BP_EXCL_LIST; do "$_cb" "$_i"; done; }
+
+        BP_SECTIONS="ex_bypass ex_plain prox"
+        BP_ex_bypass_connection_type=exclusion; BP_ex_bypass_bypass_singbox=1
+        BP_ex_plain_connection_type=exclusion
+        BP_prox_connection_type=proxy; BP_prox_bypass_singbox=1
+
+        # target selection
+        : > "$NFT_LOG"; nft_select_subnet_target ex_bypass
+        echo "target-bypass-section:$NFT_SUBNET_SET/$NFT_SUBNET_SET_V6/$NFT_SUBNET_IS_BYPASS"
+        nft_select_subnet_target ex_plain
+        echo "target-plain-exclusion:$NFT_SUBNET_SET/$NFT_SUBNET_IS_BYPASS"
+        nft_select_subnet_target prox
+        echo "target-proxy-section-ignores-flag:$NFT_SUBNET_SET/$NFT_SUBNET_IS_BYPASS"
+        nft_select_subnet_target ex_bypass; nft_select_subnet_target prox
+        echo "target-no-leak:$NFT_SUBNET_SET"
+
+        # populate follows the target (and the default when nothing was selected)
+        tmp="/tmp/netshift-bypass-list-$$"; echo 1.2.3.0/24 > "$tmp"
+        : > "$NFT_LOG"; nft_select_subnet_target ex_bypass; populate_netshift_subnets_from_file "$tmp"
+        echo "populate-bypass:$(tr '\n' ',' < "$NFT_LOG")"
+        V6=1; : > "$NFT_LOG"; populate_netshift_subnets_from_file "$tmp"
+        echo "populate-bypass-v6:$(tr '\n' ',' < "$NFT_LOG")"
+        : > "$NFT_LOG"; nft_select_subnet_target prox; populate_netshift_subnets_from_file "$tmp"
+        echo "populate-union:$(tr '\n' ',' < "$NFT_LOG")"
+        V6=0; unset NFT_SUBNET_SET NFT_SUBNET_SET_V6
+        : > "$NFT_LOG"; populate_netshift_subnets_from_file "$tmp"
+        echo "populate-default-unselected:$(tr '\n' ',' < "$NFT_LOG")"
+        rm -f "$tmp"
+
+        # requested?
+        nft_bypass_requested && echo "requested-section:yes" || echo "requested-section:no"
+        BP_SECTIONS="ex_plain prox"
+        nft_bypass_requested && echo "requested-none:yes" || echo "requested-none:no"
+        BP_settings_bypass_excluded_ips=1
+        nft_bypass_requested && echo "requested-ips-flag:yes" || echo "requested-ips-flag:no"
+        BP_settings_bypass_excluded_ips=0
+        # a disabled bypass section requests nothing
+        BP_SECTIONS="ex_bypass ex_plain prox"; BP_DISABLED=ex_bypass
+        nft_bypass_requested && echo "requested-disabled-section:yes" || echo "requested-disabled-section:no"
+        BP_DISABLED=""
+        nft_bypass_requested && echo "requested-enabled-section:yes" || echo "requested-enabled-section:no"
+
+        # marking rules: untouched without bypass, bypass returns first with it
+        NFT_TABLE_NAME=T
+        marks() { : > "$NFT_LOG"; nft_add_selective_marking_rules mangle "$1" 0 iifname "@ifs"; cat "$NFT_LOG"; }
+        unset NFT_BYPASS_ACTIVE
+        off="$(marks 0 | tr '\n' ';')"
+        echo "marks-off-first-is-union:$(marks 0 | head -1 | grep -c "@$NFT_COMMON_SET_NAME meta mark set")"
+        NFT_BYPASS_ACTIVE=1
+        on="$(marks 0)"
+        echo "marks-on-first-return:$(echo "$on" | head -1 | grep -c "ip daddr @$NFT_BYPASS_SET_NAME return")"
+        echo "marks-on-rest-unchanged:$([ "$(echo "$on" | tail -n +2 | tr '\n' ';')" = "$off" ] && echo yes || echo no)"
+        echo "marks-on-global-first-return:$(marks 1 | head -1 | grep -c "ip daddr @$NFT_BYPASS_SET_NAME return")"
+        echo "marks-on-global-then-mark-all:$(marks 1 | sed -n 2p | grep -c 'l4proto tcp meta mark set')"
+        echo "marks-on-no-v6-rule:$(marks 0 | grep -c "$NFT_BYPASS_SET_NAME_V6")"
+        V6=1; echo "marks-on-v6-rule:$(marks 0 | grep -c "ip6 daddr @$NFT_BYPASS_SET_NAME_V6 return")"; V6=0
+
+        # devices
+        BP_EXCL_LIST="192.168.1.30 2001:db8::5"; BP_settings_routing_excluded_ips="$BP_EXCL_LIST"
+        BP_settings_bypass_excluded_ips=0
+        : > "$NFT_LOG"; nft_bypass_source_ips
+        echo "source-flag-off:[$(tr '\n' ';' < "$NFT_LOG")]"
+        BP_settings_bypass_excluded_ips=1
+        : > "$NFT_LOG"; nft_bypass_source_ips
+        echo "source-v4-only:$(tr '\n' ';' < "$NFT_LOG")"
+        V6=1; : > "$NFT_LOG"; nft_bypass_source_ips
+        echo "source-v4-and-v6:$(tr '\n' ';' < "$NFT_LOG")"
+        # the flag on an empty device list is no silent no-op
+        BP_EXCL_LIST=""; BP_settings_routing_excluded_ips=""
+        : > "$NFT_LOG"; : > "$BP_LOGF"; nft_bypass_source_ips
+        echo "source-empty-list:[$(tr '\n' ';' < "$NFT_LOG")] warned=$(grep -c '^\[warn\] bypass_excluded_ips is on, but routing_excluded_ips is empty' "$BP_LOGF")"
+        BP_EXCL_LIST="192.168.1.30"; BP_settings_routing_excluded_ips="192.168.1.30"
+        : > "$BP_LOGF"; nft_bypass_source_ips
+        echo "source-list-no-warning:$(grep -c 'nothing to bypass' "$BP_LOGF")"
+        rm -f "$NFT_LOG" "$BP_LOGF"
+    )"
+
+    _bp_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _bp_check "exclusion section with bypass_singbox targets the bypass sets" "target-bypass-section:netshift_bypass/netshift_bypass_v6/1"
+    _bp_check "an exclusion section without the flag keeps the union set" "target-plain-exclusion:netshift_subnets/0"
+    _bp_check "the flag is ignored outside exclusion sections" "target-proxy-section-ignores-flag:netshift_subnets/0"
+    _bp_check "the choice does not leak into the next section" "target-no-leak:netshift_subnets"
+    _bp_check "subnets of a bypass section fill the bypass set" "populate-bypass:fill4 netshift_bypass,"
+    _bp_check "IPv6 subnets fill the v6 bypass set too" "populate-bypass-v6:fill4 netshift_bypass,fill6 netshift_bypass_v6,"
+    _bp_check "other sections still fill the union set" "populate-union:fill4 netshift_subnets,fill6 netshift_subnets_v6,"
+    _bp_check "without any selection the union set is the default" "populate-default-unselected:fill4 netshift_subnets,"
+    _bp_check "a section asks for bypass" "requested-section:yes"
+    _bp_check "no flag anywhere: not requested" "requested-none:no"
+    _bp_check "bypass_excluded_ips alone requests it" "requested-ips-flag:yes"
+    _bp_check "without bypass the marking rules start with the union set" "marks-off-first-is-union:1"
+    _bp_check "with bypass the first rule returns the bypass set" "marks-on-first-return:1"
+    _bp_check "with bypass the other rules are exactly the old ones" "marks-on-rest-unchanged:yes"
+    _bp_check "under global proxy the bypass return still comes first" "marks-on-global-first-return:1"
+    _bp_check "under global proxy mark-all follows the return" "marks-on-global-then-mark-all:1"
+    _bp_check "no v6 bypass rule without IPv6" "marks-on-no-v6-rule:0"
+    _bp_check "v6 bypass rule with IPv6" "marks-on-v6-rule:1"
+    _bp_check "bypass_excluded_ips off: no device rules" "source-flag-off:[]"
+    _bp_check "device rules: the device's FakeIP traffic is still marked into sing-box, then the rest returns (IPv4 only without IPv6)" "source-v4-only:add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 ip daddr 198.18.0.0/15 meta mark set 0x00100000 counter;add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 counter return;"
+    _bp_check "device rules: IPv6 devices with IPv6" "source-v4-and-v6:add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 ip daddr 198.18.0.0/15 meta mark set 0x00100000 counter;add rule inet T mangle iifname @interfaces ip saddr 192.168.1.30 counter return;add rule inet T mangle iifname @interfaces ip6 saddr 2001:db8::5 ip6 daddr 2001:2::/48 meta mark set 0x00100000 counter;add rule inet T mangle iifname @interfaces ip6 saddr 2001:db8::5 counter return;"
+    _bp_check "device bypass on an empty device list: nothing added, warned" "source-empty-list:[] warned=1"
+    _bp_check "a non-empty device list: no warning" "source-list-no-warning:0"
+    _bp_check "a disabled bypass section requests nothing" "requested-disabled-section:no"
+    _bp_check "an enabled bypass section requests the bypass" "requested-enabled-section:yes"
+}
+
+# ─────────────────────────────────────────────────────────────────
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -13280,7 +16082,8 @@ main() {
             test_sub_url_option
             test_sub_cron
             test_global_proxy
-            test_section_disabled
+            test_reality_mlkem
+            test_luci_cache_bust
             test_bittorrent_direct
             test_check_update_stable
             test_check_update_extended
@@ -13294,7 +16097,15 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_section_disabled
+            test_ipv6_routing
+            test_dns_pool
+            test_cascade
+            test_latency_url
+            test_priority_selection
+            test_bypass
             test_urltest_filters
+            test_subscription_geoip
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -13324,7 +16135,8 @@ main() {
         suburlopt)   test_sub_url_option ;;
         subcron)     test_sub_cron ;;
         globalproxy) test_global_proxy ;;
-        sectiondisabled) test_section_disabled ;;
+        realitymlkem) test_reality_mlkem ;;
+        cachebust) test_luci_cache_bust ;;
         bittorrent)  test_bittorrent_direct ;;
         stablecheck) test_check_update_stable ;;
         extcheck)    test_check_update_extended ;;
@@ -13338,14 +16150,22 @@ main() {
         hotreload)   test_hot_reload ;;
         domsep)      test_domain_separators ;;
         cachepersist) test_cache_persist ;;
+        latencyurl)  test_latency_url ;;
+        geoip)       test_subscription_geoip ;;
         jq)          test_jq_helpers ;;
         cm)          test_config_manager ;;
         sb)          test_sing_box_config ;;
         proxylink)   test_proxy_link_escaping ;;
+        sectiondisabled) test_section_disabled ;;
+        dnspool)     test_dns_pool ;;
+        cascade)     test_cascade ;;
+        priority)    test_priority_selection ;;
+        bypass)      test_bypass ;;
         utfilters)   test_urltest_filters ;;
+        ipv6routing) test_ipv6_routing ;;
         *)
             echo "Unknown test: $target"
-            echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist utfilters"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust"
             exit 1
             ;;
     esac

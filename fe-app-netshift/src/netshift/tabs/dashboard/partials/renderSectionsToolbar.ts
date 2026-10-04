@@ -4,6 +4,8 @@ interface IRenderSectionsToolbarProps {
   // Hidden when the dashboard has no subscription section to refresh.
   visible: boolean;
   refreshing: boolean;
+  // Another subscription refresh is running: only one may run at a time.
+  disabled: boolean;
   onRefreshAll: () => void;
 }
 
@@ -12,6 +14,7 @@ interface IRenderSectionsToolbarProps {
 export function renderSectionsToolbar({
   visible,
   refreshing,
+  disabled,
   onRefreshAll,
 }: IRenderSectionsToolbarProps) {
   if (!visible) {
@@ -27,6 +30,7 @@ export function renderSectionsToolbar({
     renderButton({
       text: _('Refresh all subscriptions'),
       loading: refreshing,
+      disabled,
       onClick: onRefreshAll,
       classNames: ['dashboard-refresh-all-subscriptions'],
     }),

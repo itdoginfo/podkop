@@ -45,6 +45,7 @@ export namespace NetShift {
   // show_system_info        Show system information
   // get_status              Get netshift service status
   // get_sing_box_status     Get sing-box service status
+  // get_geoip_flags         GeoIP country of manually added links
   // check_dns_available     Check DNS server availability
   // global_check            Run global system check
 
@@ -55,6 +56,7 @@ export namespace NetShift {
     GET_STATUS = 'get_status',
     CHECK_SING_BOX = 'check_sing_box',
     GET_SING_BOX_STATUS = 'get_sing_box_status',
+    GET_GEOIP_FLAGS = 'get_geoip_flags',
     CLASH_API = 'clash_api',
     RESTART = 'restart',
     START = 'start',
@@ -97,11 +99,10 @@ export namespace NetShift {
     // Per-subscription blocks of a subscription section with several feeds;
     // their outbounds are chosen through the same selector (`code`).
     subgroups?: OutboundSubgroup[];
-    // Subscription sections only: the UCI section name and its configured feed
-    // URLs, so the dashboard can refresh a single feed/section after a click.
+    // Subscription sections only: the UCI section name, so the dashboard can
+    // refresh the section (or one of its feeds) after a click.
     isSubscription?: boolean;
     sectionName?: string;
-    subscriptionUrls?: string[];
   }
 
   export interface ConfigProxyUrlTestSection {
@@ -134,6 +135,7 @@ export namespace NetShift {
     subscription_url: string[];
     subscription_format_preference?: 'auto' | 'xray' | 'singbox';
     subscription_update_interval?: string;
+    subscription_update_time?: string;
     subscription_group_mode?: 'off' | 'country' | 'prefix';
     subscription_group_prefix_len?: string;
     subscription_filter_include_keywords?: string[];

@@ -3045,7 +3045,8 @@ component_action() {
         subscription_update_all_worker
         ;;
     subscription:update_feed)
-        # Refresh ONE feed: arg1 = section, arg2 = feed block name or feed URL.
+        # Refresh ONE section: arg1 = section, arg2 = the tag of the feed block
+        # to narrow it to (optional; without it every feed of the section).
         subscription_update_feed_worker "$arg1" "$arg2"
         ;;
     *)

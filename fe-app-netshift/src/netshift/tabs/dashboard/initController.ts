@@ -5,6 +5,10 @@ import {
 } from '../../../helpers';
 import { prettyBytes } from '../../../helpers/prettyBytes';
 import { showToast } from '../../../helpers/showToast';
+import {
+  loadDashboardViewPrefs,
+  saveDashboardViewPrefs,
+} from '../../../helpers/dashboardView';
 import { CustomNetShiftMethods, NetShiftShellMethods } from '../../methods';
 import { logger, socket, store, StoreType } from '../../services';
 import {
@@ -143,6 +147,22 @@ async function handleChooseOutbound(selector: string, tag: string) {
   await fetchDashboardSections();
 }
 
+function handleToggleViewMode() {
+  const widget = store.get().sectionsWidget;
+  const viewMode = widget.viewMode === 'list' ? 'tiles' : 'list';
+
+  saveDashboardViewPrefs({ viewMode, sortByPing: widget.sortByPing });
+  store.set({ sectionsWidget: { ...widget, viewMode } });
+}
+
+function handleToggleSortByPing() {
+  const widget = store.get().sectionsWidget;
+  const sortByPing = !widget.sortByPing;
+
+  saveDashboardViewPrefs({ viewMode: widget.viewMode, sortByPing });
+  store.set({ sectionsWidget: { ...widget, sortByPing } });
+}
+
 function updateSectionsWidget(
   update: (
     widget: StoreType['sectionsWidget'],
@@ -199,72 +219,89 @@ async function handleTestSectionLatency(section: NetShift.OutboundGroup) {
   }
 }
 
-// Refreshes one subscription feed (or the only feed of a single-feed section).
-// The backend re-downloads the feed, re-applies the config and restarts
-// sing-box; the button spins until the async job reports back.
+// The key of the "refresh all subscriptions" run in subscriptionRefreshKey.
+const REFRESH_ALL_KEY = 'all';
+
+// Runs one subscription refresh at a time. Two backend updates side by side
+// race on the feed cache and on the sing-box reload, so while one is in flight
+// every refresh button is disabled and a second call is dropped here.
+// The marker is cleared whatever happens: a failed sections refetch must not
+// leave the buttons spinning until the tab is reopened.
+async function runSubscriptionRefresh(
+  key: string,
+  run: () => Promise<void>,
+): Promise<void> {
+  if (store.get().sectionsWidget.subscriptionRefreshKey) {
+    return;
+  }
+
+  updateSectionsWidget(() => ({ subscriptionRefreshKey: key }));
+
+  try {
+    await run();
+    await fetchDashboardSections();
+  } catch (e) {
+    logger.error('[DASHBOARD]', 'runSubscriptionRefresh - e', e);
+  } finally {
+    updateSectionsWidget(() => ({ subscriptionRefreshKey: null }));
+  }
+}
+
+// Refreshes one subscription feed block, or every feed of a section when the
+// button sits on the section header. The backend re-downloads the feed(s) and
+// applies the change; the button spins until the async job reports back.
 async function handleRefreshFeed(
   section: NetShift.OutboundGroup,
   feed: IRefreshFeedTarget,
 ) {
-  const target = feed.url || feed.name;
+  await runSubscriptionRefresh(feed.key, async () => {
+    try {
+      const result = await NetShiftShellMethods.refreshSubscriptionFeed(
+        section.sectionName ?? section.code,
+        feed.feed,
+      );
 
-  if (!target) {
-    return;
-  }
-
-  updateSectionsWidget((widget) => ({
-    refreshingFeedKeys: [...widget.refreshingFeedKeys, feed.key],
-  }));
-
-  try {
-    const result = await NetShiftShellMethods.refreshSubscriptionFeed(
-      section.sectionName ?? section.code,
-      target,
-    );
-
-    if (result.success) {
-      showToast(_('Subscription updated'), 'success');
-    } else {
-      logger.error('[DASHBOARD]', 'handleRefreshFeed - result', result);
-      showToast(result.message || _('Failed to update subscription'), 'error');
+      if (result.success) {
+        showToast(_('Subscription updated'), 'success');
+      } else {
+        logger.error('[DASHBOARD]', 'handleRefreshFeed - result', result);
+        showToast(
+          result.message || _('Failed to update subscription'),
+          'error',
+        );
+      }
+    } catch (e) {
+      logger.error('[DASHBOARD]', 'handleRefreshFeed - e', e);
+      showToast(_('Failed to update subscription'), 'error');
     }
-  } catch (e) {
-    logger.error('[DASHBOARD]', 'handleRefreshFeed - e', e);
-    showToast(_('Failed to update subscription'), 'error');
-  } finally {
-    await fetchDashboardSections();
-    updateSectionsWidget((widget) => ({
-      refreshingFeedKeys: widget.refreshingFeedKeys.filter(
-        (item) => item !== feed.key,
-      ),
-    }));
-  }
+  });
 }
 
 async function handleRefreshAllSubscriptions() {
-  updateSectionsWidget(() => ({ refreshingAllSubscriptions: true }));
-  showToast(_('Updating all subscriptions… this may take a minute'), 'info');
+  await runSubscriptionRefresh(REFRESH_ALL_KEY, async () => {
+    showToast(_('Updating all subscriptions… this may take a minute'), 'info');
 
-  try {
-    const result = await NetShiftShellMethods.refreshAllSubscriptions();
+    try {
+      const result = await NetShiftShellMethods.refreshAllSubscriptions();
 
-    if (result.success) {
-      showToast(_('All subscriptions updated'), 'success');
-    } else {
-      logger.error(
-        '[DASHBOARD]',
-        'handleRefreshAllSubscriptions - result',
-        result,
-      );
-      showToast(result.message || _('Failed to update subscriptions'), 'error');
+      if (result.success) {
+        showToast(_('All subscriptions updated'), 'success');
+      } else {
+        logger.error(
+          '[DASHBOARD]',
+          'handleRefreshAllSubscriptions - result',
+          result,
+        );
+        showToast(
+          result.message || _('Failed to update subscriptions'),
+          'error',
+        );
+      }
+    } catch (e) {
+      logger.error('[DASHBOARD]', 'handleRefreshAllSubscriptions - e', e);
+      showToast(_('Failed to update subscriptions'), 'error');
     }
-  } catch (e) {
-    logger.error('[DASHBOARD]', 'handleRefreshAllSubscriptions - e', e);
-    showToast(_('Failed to update subscriptions'), 'error');
-  } finally {
-    await fetchDashboardSections();
-    updateSectionsWidget(() => ({ refreshingAllSubscriptions: false }));
-  }
+  });
 }
 
 // Renderer
@@ -293,6 +330,10 @@ async function renderSectionsWidget() {
       onChooseOutbound: () => {},
       latencyFetching: false,
       pendingOutbounds: [],
+      viewMode: sectionsWidget.viewMode,
+      sortByPing: sectionsWidget.sortByPing,
+      onToggleViewMode: () => {},
+      onToggleSortByPing: () => {},
     });
 
     return preserveScrollForPage(() => {
@@ -303,7 +344,8 @@ async function renderSectionsWidget() {
   toolbarContainer?.replaceChildren(
     renderSectionsToolbar({
       visible: sectionsWidget.data.some((section) => section.isSubscription),
-      refreshing: sectionsWidget.refreshingAllSubscriptions,
+      refreshing: sectionsWidget.subscriptionRefreshKey === REFRESH_ALL_KEY,
+      disabled: Boolean(sectionsWidget.subscriptionRefreshKey),
       onRefreshAll: handleRefreshAllSubscriptions,
     }),
   );
@@ -321,13 +363,31 @@ async function renderSectionsWidget() {
       onChooseOutbound: (selector, tag) => {
         handleChooseOutbound(selector, tag);
       },
+      viewMode: sectionsWidget.viewMode,
+      sortByPing: sectionsWidget.sortByPing,
+      onToggleViewMode: handleToggleViewMode,
+      onToggleSortByPing: handleToggleSortByPing,
       onRefreshFeed: handleRefreshFeed,
-      refreshingFeedKeys: sectionsWidget.refreshingFeedKeys,
+      subscriptionRefreshKey: sectionsWidget.subscriptionRefreshKey,
     }),
   );
 
+  // The lists scroll on their own and are rebuilt on every latency result:
+  // keep the position of each one.
+  const listScroll = new Map<string, number>();
+  container!
+    .querySelectorAll<HTMLElement>('[data-list-key]')
+    .forEach((list) =>
+      listScroll.set(list.dataset.listKey ?? '', list.scrollTop),
+    );
+
   return preserveScrollForPage(() => {
     container!.replaceChildren(...renderedWidgets);
+    container!
+      .querySelectorAll<HTMLElement>('[data-list-key]')
+      .forEach((list) => {
+        list.scrollTop = listScroll.get(list.dataset.listKey ?? '') ?? 0;
+      });
   });
 }
 
@@ -515,6 +575,15 @@ async function onPageMount() {
 
   // Add new listener
   store.subscribe(onStoreUpdate);
+
+  // The page reset above also reset the view choice to what it was when the page
+  // was loaded: take the saved one (it may have been changed since).
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      ...loadDashboardViewPrefs(),
+    },
+  });
 
   // Initial sections fetch
   await fetchDashboardSections();

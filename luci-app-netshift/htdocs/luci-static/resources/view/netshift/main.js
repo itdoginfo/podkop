@@ -81,9 +81,9 @@ function validateIP(ip) {
 
 // src/validators/validateDomain.ts
 function validateDomain(domain, allowDotTLD = false) {
-  const domainRegex = /^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$/;
+  const domainRegex = /^(?=.{1,253}(?:\/|$))(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+(?:(?=[a-zA-Z0-9]*[a-zA-Z])[a-zA-Z0-9]{2,}|xn--[a-zA-Z0-9-]{1,59}[a-zA-Z0-9])(?:\/[^\s]*)?$/;
   if (allowDotTLD) {
-    const dotTLD = /^\.[a-zA-Z]{2,}$/;
+    const dotTLD = /^\.(?=[a-zA-Z0-9]*[a-zA-Z])[a-zA-Z0-9]{2,}$/;
     if (dotTLD.test(domain)) {
       return { valid: true, message: _("Valid") };
     }
@@ -206,6 +206,26 @@ function validatePath(value) {
     message: _(
       'Invalid path format. Path must start with "/" and contain valid characters'
     )
+  };
+}
+
+// src/validators/validateTime.ts
+function validateTime(value) {
+  if (!value) {
+    return {
+      valid: false,
+      message: _("Time cannot be empty")
+    };
+  }
+  if (/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+    return {
+      valid: true,
+      message: _("Valid")
+    };
+  }
+  return {
+    valid: false,
+    message: _("Invalid time format. Use HH:MM from 00:00 to 23:59")
   };
 }
 
@@ -787,6 +807,55 @@ function validateProxyUrlList(value) {
   return { valid: true, message: "" };
 }
 
+// src/validators/validateDnsPool.ts
+var DNS_POOL_SCHEMES = ["udp", "tcp", "dot", "doh", "doh3", "doq"];
+var DNS_POOL_PATH_SCHEMES = ["doh", "doh3"];
+function validateDnsPoolServer(value) {
+  if (!value) {
+    return { valid: false, message: _("DNS server cannot be empty") };
+  }
+  const separator = value.indexOf("://");
+  if (separator < 0) {
+    return {
+      valid: false,
+      message: _(
+        "Use scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. Example: doh://dns.google/dns-query"
+      )
+    };
+  }
+  const scheme = value.slice(0, separator);
+  const rest = value.slice(separator + 3);
+  if (!DNS_POOL_SCHEMES.includes(scheme)) {
+    return {
+      valid: false,
+      message: _("Unknown DNS scheme. Use udp, tcp, dot, doh, doh3 or doq")
+    };
+  }
+  if (!DNS_POOL_PATH_SCHEMES.includes(scheme) && rest.includes("/")) {
+    return {
+      valid: false,
+      message: _("A path is only allowed for doh and doh3")
+    };
+  }
+  if (/\s/.test(value)) {
+    return { valid: false, message: _("DNS server must not contain spaces") };
+  }
+  const address = validateDNS(rest);
+  if (!address.valid) {
+    return address;
+  }
+  return { valid: true, message: _("Valid") };
+}
+function validateDnsPoolTimeout(value) {
+  if (/^[1-9][0-9]*(ms|s)$/.test(value)) {
+    return { valid: true, message: _("Valid") };
+  }
+  return {
+    valid: false,
+    message: _("Invalid timeout. Examples: 500ms, 2s")
+  };
+}
+
 // src/helpers/parseValueList.ts
 function parseValueList(value) {
   return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
@@ -835,6 +904,7 @@ var NetShift;
     AvailableMethods2["GET_STATUS"] = "get_status";
     AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
     AvailableMethods2["GET_SING_BOX_STATUS"] = "get_sing_box_status";
+    AvailableMethods2["GET_GEOIP_FLAGS"] = "get_geoip_flags";
     AvailableMethods2["CLASH_API"] = "clash_api";
     AvailableMethods2["RESTART"] = "restart";
     AvailableMethods2["START"] = "start";
@@ -874,13 +944,13 @@ function parseComponentActionStatus(stdout) {
 function normalizeResultBuild(build) {
   return build === "elf" || build === "compressed" ? build : void 0;
 }
-async function pollSingBoxComponentAction(fetchStatus, sleepFn = sleep, intervalMs = POLL_INTERVAL_MS, maxPolls = MAX_POLLS) {
+async function pollSingBoxComponentAction(fetchStatus, sleepFn = sleep, intervalMs = POLL_INTERVAL_MS, maxPolls = MAX_POLLS, messages) {
   for (let poll = 0; poll < maxPolls; poll += 1) {
     const status = await fetchStatus();
     if (!status) {
       return {
         success: false,
-        message: _("Core switch failed")
+        message: messages?.failed ?? _("Core switch failed")
       };
     }
     if (status.running !== true) {
@@ -896,7 +966,7 @@ async function pollSingBoxComponentAction(fetchStatus, sleepFn = sleep, interval
   }
   return {
     success: false,
-    message: _("Core switch timed out")
+    message: messages?.timedOut ?? _("Core switch timed out")
   };
 }
 
@@ -932,7 +1002,7 @@ function parseComponentCheckUpdate(stdout) {
 }
 
 // src/netshift/methods/shell/index.ts
-async function startAndPollComponentAction(component, action, extraArgs = []) {
+async function startAndPollComponentAction(component, action, extraArgs, messages) {
   const startResponse = await executeShellCommand({
     command: "/usr/bin/netshift",
     args: ["component_action_async", component, action, ...extraArgs]
@@ -952,16 +1022,28 @@ async function startAndPollComponentAction(component, action, extraArgs = []) {
     };
   }
   const jobId = start.job_id;
-  return pollSingBoxComponentAction(async () => {
-    const statusResponse = await executeShellCommand({
-      command: "/usr/bin/netshift",
-      args: ["component_action_status", jobId]
-    });
-    if (!statusResponse.stdout) {
-      return null;
-    }
-    return parseComponentActionStatus(statusResponse.stdout);
-  });
+  return pollSingBoxComponentAction(
+    async () => {
+      const statusResponse = await executeShellCommand({
+        command: "/usr/bin/netshift",
+        args: ["component_action_status", jobId]
+      });
+      if (!statusResponse.stdout) {
+        return null;
+      }
+      return parseComponentActionStatus(statusResponse.stdout);
+    },
+    void 0,
+    void 0,
+    void 0,
+    messages
+  );
+}
+function getSubscriptionPollMessages() {
+  return {
+    failed: _("Failed to read the subscription update status"),
+    timedOut: _("Subscription update timed out")
+  };
 }
 var NetShiftShellMethods = {
   checkDNSAvailable: async () => callBaseMethod(
@@ -979,6 +1061,9 @@ var NetShiftShellMethods = {
   ),
   getSingBoxStatus: async () => callBaseMethod(
     NetShift.AvailableMethods.GET_SING_BOX_STATUS
+  ),
+  getGeoipFlags: async () => callBaseMethod(
+    NetShift.AvailableMethods.GET_GEOIP_FLAGS
   ),
   getClashApiProxies: async () => callBaseMethod(NetShift.AvailableMethods.CLASH_API, [
     NetShift.AvailableClashAPIMethods.GET_PROXIES
@@ -1172,12 +1257,23 @@ var NetShiftShellMethods = {
   // subscription update` → start+poll. Does NOT wipe the cache, so it is the
   // lightweight sibling of clearSubscriptionCache. Drives the dashboard
   // "refresh all subscriptions" button.
-  refreshAllSubscriptions: async () => startAndPollComponentAction("subscription", "update"),
-  // Refresh ONE subscription feed (async): `component_action_async subscription
-  // update_feed <section> <feed>`. `feed` is the dashboard feed-block name (the
-  // backend resolves it to its URL) or the raw feed URL for single-feed
-  // sections. Drives the per-feed refresh buttons.
-  refreshSubscriptionFeed: async (section, feed) => startAndPollComponentAction("subscription", "update_feed", [section, feed]),
+  refreshAllSubscriptions: async () => startAndPollComponentAction(
+    "subscription",
+    "update",
+    [],
+    getSubscriptionPollMessages()
+  ),
+  // Refresh ONE subscription section (async): `component_action_async
+  // subscription update_feed <section> [feed]`. `feed` is the sing-box tag of a
+  // dashboard feed block ("⚡ <name>"), which the backend resolves to the feed
+  // URL; without it every feed of the section is refreshed. Drives the
+  // per-section and per-feed refresh buttons.
+  refreshSubscriptionFeed: async (section, feed) => startAndPollComponentAction(
+    "subscription",
+    "update_feed",
+    feed ? [section, feed] : [section],
+    getSubscriptionPollMessages()
+  ),
   // NetShift self-update (async) — STABLE task-017 contract:
   // component_action_async netshift self_update + component_action_status <job>.
   // Reuses the component-agnostic poll. Because the package install swaps
@@ -1322,6 +1418,8 @@ async function getDashboardSections() {
       data: []
     };
   }
+  const geoipResponse = await NetShiftShellMethods.getGeoipFlags();
+  const geoipFlags = geoipResponse.success && geoipResponse.data && typeof geoipResponse.data === "object" ? geoipResponse.data : {};
   const proxies = Object.entries(clashProxies.data.proxies).map(
     ([key, value]) => ({
       code: key,
@@ -1430,13 +1528,10 @@ async function getDashboardSections() {
         };
       }
       if (section.proxy_config_type === "subscription") {
-        const rawSubscriptionUrls = section.subscription_url;
-        const subscriptionUrls = Array.isArray(rawSubscriptionUrls) ? rawSubscriptionUrls : rawSubscriptionUrls ? [rawSubscriptionUrls] : [];
         return {
           ...buildSubscriptionOutboundGroup(section[".name"], proxies),
           isSubscription: true,
-          sectionName: section[".name"],
-          subscriptionUrls
+          sectionName: section[".name"]
         };
       }
     }
@@ -1466,9 +1561,19 @@ async function getDashboardSections() {
       outbounds: []
     };
   });
+  const flagged = data.map((group) => ({
+    ...group,
+    outbounds: group.outbounds.map((outbound) => ({
+      ...outbound,
+      displayName: withCountryFlag(
+        outbound.displayName,
+        geoipFlags[outbound.code]
+      )
+    }))
+  }));
   return {
     success: true,
-    data
+    data: flagged
   };
 }
 
@@ -1567,6 +1672,31 @@ var DNS_SERVER_OPTIONS = {
   "2001:4860:4860::8888": "2001:4860:4860::8888 (Google IPv6)",
   "2606:4700:4700::1111": "2606:4700:4700::1111 (Cloudflare IPv6)",
   "2620:fe::fe": "2620:fe::fe (Quad9 IPv6)"
+};
+var DNS_POOL_PRESETS = {
+  "udp://8.8.8.8": "Google - UDP (8.8.8.8)",
+  "tcp://8.8.8.8": "Google - TCP (8.8.8.8)",
+  "dot://dns.google": "Google - DoT (dns.google)",
+  "doh://dns.google/dns-query": "Google - DoH (dns.google)",
+  "doh3://dns.google/dns-query": "Google - DoH3 (dns.google)",
+  "udp://1.1.1.1": "Cloudflare - UDP (1.1.1.1)",
+  "tcp://1.1.1.1": "Cloudflare - TCP (1.1.1.1)",
+  "dot://one.one.one.one": "Cloudflare - DoT (one.one.one.one)",
+  "doh://cloudflare-dns.com/dns-query": "Cloudflare - DoH (cloudflare-dns.com)",
+  "doh3://cloudflare-dns.com/dns-query": "Cloudflare - DoH3 (cloudflare-dns.com)",
+  "udp://9.9.9.9": "Quad9 - UDP (9.9.9.9)",
+  "dot://dns.quad9.net": "Quad9 - DoT (dns.quad9.net)",
+  "doh://dns.quad9.net/dns-query": "Quad9 - DoH (dns.quad9.net)",
+  "udp://94.140.14.14": "AdGuard - UDP (94.140.14.14)",
+  "dot://dns.adguard-dns.com": "AdGuard - DoT (dns.adguard-dns.com)",
+  "doh://dns.adguard-dns.com/dns-query": "AdGuard - DoH (dns.adguard-dns.com)",
+  "doh3://dns.adguard-dns.com/dns-query": "AdGuard - DoH3 (dns.adguard-dns.com)",
+  "doq://dns.adguard-dns.com": "AdGuard - DoQ (dns.adguard-dns.com)",
+  "udp://77.88.8.8": "Yandex - UDP (77.88.8.8)",
+  "dot://common.dot.dns.yandex.net": "Yandex - DoT (common.dot.dns.yandex.net)",
+  "doh://common.dns.yandex.net/dns-query": "Yandex - DoH (common.dns.yandex.net)",
+  "dot://dns.mullvad.net": "Mullvad - DoT (dns.mullvad.net)",
+  "doh://dns.mullvad.net/dns-query": "Mullvad - DoH (dns.mullvad.net)"
 };
 var BOOTSTRAP_DNS_SERVER_OPTIONS = {
   "77.88.8.8": "77.88.8.8 (Yandex DNS)",
@@ -1742,6 +1872,31 @@ var TabService = class _TabService {
   }
 };
 var TabServiceInstance = TabService.getInstance();
+
+// src/helpers/dashboardView.ts
+var STORAGE_KEY = "netshift_dashboard_view";
+var DEFAULT_DASHBOARD_VIEW = {
+  viewMode: "list",
+  sortByPing: false
+};
+function loadDashboardViewPrefs() {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      viewMode: parsed?.viewMode === "tiles" ? "tiles" : "list",
+      sortByPing: parsed?.sortByPing === true
+    };
+  } catch {
+    return { ...DEFAULT_DASHBOARD_VIEW };
+  }
+}
+function saveDashboardViewPrefs(prefs) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+  } catch {
+  }
+}
 
 // src/netshift/tabs/diagnostic/helpers/getCheckTitle.ts
 function getCheckTitle(name) {
@@ -2050,8 +2205,8 @@ var initialStore = {
     failed: false,
     latencyTestingSections: [],
     latencyPendingOutbounds: [],
-    refreshingFeedKeys: [],
-    refreshingAllSubscriptions: false,
+    subscriptionRefreshKey: null,
+    ...loadDashboardViewPrefs(),
     data: []
   },
   ...initialDiagnosticStore,
@@ -3079,7 +3234,89 @@ ${styles}
 ${styles2}
 `;
 
+// src/netshift/tabs/dashboard/latency.ts
+var GROUP_TYPES = ["urltest", "selector"];
+function isGroup(outbound) {
+  return GROUP_TYPES.includes(outbound.type.toLowerCase());
+}
+function getAllOutbounds(section) {
+  return [
+    ...section.outbounds,
+    ...(section.subgroups ?? []).flatMap((subgroup) => subgroup.outbounds)
+  ];
+}
+function unique(codes) {
+  return [...new Set(codes.filter(Boolean))];
+}
+function getLatencyTargets(section) {
+  if (!section.withTagSelect) {
+    return { probe: unique([section.outbounds[0]?.code ?? ""]), groups: [] };
+  }
+  const outbounds = getAllOutbounds(section);
+  return {
+    probe: unique(
+      outbounds.filter((item) => !isGroup(item)).map((item) => item.code)
+    ),
+    groups: unique(outbounds.filter(isGroup).map((item) => item.code))
+  };
+}
+function setOutboundLatency(sections, code, latency) {
+  const update = (outbounds) => outbounds.map(
+    (outbound) => outbound.code === code ? { ...outbound, latency } : outbound
+  );
+  return sections.map((section) => ({
+    ...section,
+    outbounds: update(section.outbounds),
+    ...section.subgroups ? {
+      subgroups: section.subgroups.map((subgroup) => ({
+        ...subgroup,
+        outbounds: update(subgroup.outbounds)
+      }))
+    } : {}
+  }));
+}
+async function runWithConcurrency(items, limit, worker) {
+  const queue = [...items];
+  async function next() {
+    const item = queue.shift();
+    if (item === void 0) {
+      return;
+    }
+    await worker(item);
+    return next();
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, queue.length) }, () => next())
+  );
+}
+
+// src/netshift/tabs/dashboard/sortOutbounds.ts
+function sortOutboundsByLatency(outbounds) {
+  const groups = outbounds.filter(isGroup);
+  const servers = outbounds.filter((item) => !isGroup(item)).map((item, index) => ({ item, index })).sort((a, b) => {
+    const left = a.item.latency > 0 ? a.item.latency : Infinity;
+    const right = b.item.latency > 0 ? b.item.latency : Infinity;
+    if (left === right) {
+      return a.index - b.index;
+    }
+    return left < right ? -1 : 1;
+  }).map(({ item }) => item);
+  return [...groups, ...servers];
+}
+
 // src/netshift/tabs/dashboard/partials/renderSections.ts
+function getLatencyClassName(latency) {
+  if (!latency) {
+    return "pdk_dashboard-page__outbound-grid__item__latency--empty";
+  }
+  if (latency < 800) {
+    return "pdk_dashboard-page__outbound-grid__item__latency--green";
+  }
+  if (latency < 1500) {
+    return "pdk_dashboard-page__outbound-grid__item__latency--yellow";
+  }
+  return "pdk_dashboard-page__outbound-grid__item__latency--red";
+}
 function renderFailedState() {
   return E(
     "div",
@@ -3110,32 +3347,26 @@ function renderDefaultState({
   onTestLatency,
   latencyFetching,
   pendingOutbounds,
+  viewMode,
+  sortByPing,
+  onToggleViewMode,
+  onToggleSortByPing,
   onRefreshFeed,
-  refreshingFeedKeys
+  subscriptionRefreshKey
 }) {
   const canRefresh = Boolean(section.isSubscription && onRefreshFeed);
   const hasSubgroups = (section.subgroups?.length ?? 0) > 0;
   function renderRefreshButton(feed) {
     return renderButton({
       text: _("Refresh subscription"),
-      loading: refreshingFeedKeys?.includes(feed.key),
+      loading: subscriptionRefreshKey === feed.key,
+      disabled: Boolean(subscriptionRefreshKey),
       onClick: () => onRefreshFeed?.(section, feed),
       classNames: ["dashboard-sections-grid-item-refresh-subscription"]
     });
   }
   function renderOutbound(outbound) {
-    function getLatencyClass() {
-      if (!outbound.latency) {
-        return "pdk_dashboard-page__outbound-grid__item__latency--empty";
-      }
-      if (outbound.latency < 800) {
-        return "pdk_dashboard-page__outbound-grid__item__latency--green";
-      }
-      if (outbound.latency < 1500) {
-        return "pdk_dashboard-page__outbound-grid__item__latency--yellow";
-      }
-      return "pdk_dashboard-page__outbound-grid__item__latency--red";
-    }
+    const getLatencyClass = () => getLatencyClassName(outbound.latency);
     return E(
       "div",
       {
@@ -3159,6 +3390,58 @@ function renderDefaultState({
       ]
     );
   }
+  function renderRow(outbound) {
+    return E(
+      "div",
+      {
+        class: `pdk_dashboard-page__outbound-row ${outbound.selected ? "pdk_dashboard-page__outbound-row--active" : ""} ${section.withTagSelect ? "pdk_dashboard-page__outbound-row--selectable" : ""}`,
+        click: () => section.withTagSelect && onChooseOutbound(section.code, outbound.code)
+      },
+      [
+        E(
+          "b",
+          { class: "pdk_dashboard-page__outbound-row__name" },
+          outbound.displayName
+        ),
+        E(
+          "span",
+          { class: "pdk_dashboard-page__outbound-row__type" },
+          outbound.type
+        ),
+        pendingOutbounds.includes(outbound.code) ? renderSkeleton("width: 44px; height: 16px; margin-left: auto") : E(
+          "span",
+          {
+            class: `pdk_dashboard-page__outbound-row__latency ${getLatencyClassName(outbound.latency)}`
+          },
+          outbound.latency ? `${outbound.latency}ms` : "N/A"
+        ),
+        outbound.selected ? E(
+          "span",
+          { class: "pdk_dashboard-page__outbound-row__badge" },
+          _("Active")
+        ) : E("span", {
+          class: "pdk_dashboard-page__outbound-row__badge-space"
+        })
+      ]
+    );
+  }
+  function renderOutbounds(outbounds, key) {
+    const items = sortByPing ? sortOutboundsByLatency(outbounds) : outbounds;
+    if (viewMode === "tiles") {
+      return E(
+        "div",
+        { class: "pdk_dashboard-page__outbound-grid" },
+        items.map((outbound) => renderOutbound(outbound))
+      );
+    }
+    const list = E(
+      "div",
+      { class: "pdk_dashboard-page__outbound-list" },
+      items.map((outbound) => renderRow(outbound))
+    );
+    list.dataset.listKey = key;
+    return list;
+  }
   return E("div", { class: "card pdk_dashboard-page__outbound-section" }, [
     // Title with test latency
     E("div", { class: "pdk_dashboard-page__outbound-section__title-section" }, [
@@ -3169,33 +3452,29 @@ function renderDefaultState({
         },
         section.displayName
       ),
-      E(
-        "div",
-        {
-          class: "pdk_dashboard-page__outbound-section__title-section__actions"
-        },
-        [
-          // A multi-feed section offers one refresh per feed block below; a
-          // single-feed section gets its only refresh button here.
-          ...canRefresh && !hasSubgroups && (section.subscriptionUrls?.length ?? 0) > 0 ? [
-            renderRefreshButton({
-              url: section.subscriptionUrls?.[0],
-              key: section.code
-            })
-          ] : [],
-          latencyFetching ? renderSkeleton("width: 99px; height: 28px") : renderButton({
-            text: _("Test latency"),
-            onClick: () => onTestLatency(),
-            classNames: ["dashboard-sections-grid-item-test-latency"]
-          })
-        ]
-      )
+      E("div", { class: "pdk_dashboard-page__outbound-section__controls" }, [
+        // A section split into feed blocks offers one refresh per block below.
+        // Any other subscription section (one feed, country/prefix groups, or
+        // several feeds of which only one gave nodes) gets a single button
+        // here that refreshes every feed of the section.
+        ...canRefresh && !hasSubgroups ? [renderRefreshButton({ key: section.code })] : [],
+        renderButton({
+          text: viewMode === "list" ? _("Tiles") : _("List"),
+          onClick: () => onToggleViewMode()
+        }),
+        renderButton({
+          text: _("Sort by ping"),
+          onClick: () => onToggleSortByPing(),
+          classNames: sortByPing ? ["pdk_dashboard-page__control--on"] : []
+        }),
+        latencyFetching ? renderSkeleton("width: 99px; height: 28px") : renderButton({
+          text: _("Test latency"),
+          onClick: () => onTestLatency(),
+          classNames: ["dashboard-sections-grid-item-test-latency"]
+        })
+      ])
     ]),
-    E(
-      "div",
-      { class: "pdk_dashboard-page__outbound-grid" },
-      section.outbounds.map((outbound) => renderOutbound(outbound))
-    ),
+    renderOutbounds(section.outbounds, section.code),
     ...(section.subgroups ?? []).map(
       (subgroup) => E("div", { class: "pdk_dashboard-page__outbound-subgroup" }, [
         E("div", { class: "pdk_dashboard-page__outbound-subgroup__header" }, [
@@ -3206,16 +3485,12 @@ function renderDefaultState({
           ),
           ...canRefresh ? [
             renderRefreshButton({
-              name: subgroup.displayName,
+              feed: subgroup.code,
               key: subgroup.code
             })
           ] : []
         ]),
-        E(
-          "div",
-          { class: "pdk_dashboard-page__outbound-grid" },
-          subgroup.outbounds.map((outbound) => renderOutbound(outbound))
-        )
+        renderOutbounds(subgroup.outbounds, `${section.code}:${subgroup.code}`)
       ])
     )
   ]);
@@ -3234,6 +3509,7 @@ function renderSections(props) {
 function renderSectionsToolbar({
   visible,
   refreshing,
+  disabled,
   onRefreshAll
 }) {
   if (!visible) {
@@ -3248,6 +3524,7 @@ function renderSectionsToolbar({
     renderButton({
       text: _("Refresh all subscriptions"),
       loading: refreshing,
+      disabled,
       onClick: onRefreshAll,
       classNames: ["dashboard-refresh-all-subscriptions"]
     })
@@ -3368,7 +3645,13 @@ function render() {
           onChooseOutbound: () => {
           },
           latencyFetching: false,
-          pendingOutbounds: []
+          pendingOutbounds: [],
+          viewMode: "list",
+          sortByPing: false,
+          onToggleViewMode: () => {
+          },
+          onToggleSortByPing: () => {
+          }
         })
       )
     ]
@@ -3414,62 +3697,6 @@ async function fetchServicesInfo() {
       }
     });
   }
-}
-
-// src/netshift/tabs/dashboard/latency.ts
-var GROUP_TYPES = ["urltest", "selector"];
-function isGroup(outbound) {
-  return GROUP_TYPES.includes(outbound.type.toLowerCase());
-}
-function getAllOutbounds(section) {
-  return [
-    ...section.outbounds,
-    ...(section.subgroups ?? []).flatMap((subgroup) => subgroup.outbounds)
-  ];
-}
-function unique(codes) {
-  return [...new Set(codes.filter(Boolean))];
-}
-function getLatencyTargets(section) {
-  if (!section.withTagSelect) {
-    return { probe: unique([section.outbounds[0]?.code ?? ""]), groups: [] };
-  }
-  const outbounds = getAllOutbounds(section);
-  return {
-    probe: unique(
-      outbounds.filter((item) => !isGroup(item)).map((item) => item.code)
-    ),
-    groups: unique(outbounds.filter(isGroup).map((item) => item.code))
-  };
-}
-function setOutboundLatency(sections, code, latency) {
-  const update = (outbounds) => outbounds.map(
-    (outbound) => outbound.code === code ? { ...outbound, latency } : outbound
-  );
-  return sections.map((section) => ({
-    ...section,
-    outbounds: update(section.outbounds),
-    ...section.subgroups ? {
-      subgroups: section.subgroups.map((subgroup) => ({
-        ...subgroup,
-        outbounds: update(subgroup.outbounds)
-      }))
-    } : {}
-  }));
-}
-async function runWithConcurrency(items, limit, worker) {
-  const queue = [...items];
-  async function next() {
-    const item = queue.shift();
-    if (item === void 0) {
-      return;
-    }
-    await worker(item);
-    return next();
-  }
-  await Promise.all(
-    Array.from({ length: Math.min(limit, queue.length) }, () => next())
-  );
 }
 
 // src/netshift/tabs/dashboard/initController.ts
@@ -3575,6 +3802,18 @@ async function handleChooseOutbound(selector, tag) {
   await NetShiftShellMethods.setClashApiGroupProxy(selector, tag);
   await fetchDashboardSections();
 }
+function handleToggleViewMode() {
+  const widget = store.get().sectionsWidget;
+  const viewMode = widget.viewMode === "list" ? "tiles" : "list";
+  saveDashboardViewPrefs({ viewMode, sortByPing: widget.sortByPing });
+  store.set({ sectionsWidget: { ...widget, viewMode } });
+}
+function handleToggleSortByPing() {
+  const widget = store.get().sectionsWidget;
+  const sortByPing = !widget.sortByPing;
+  saveDashboardViewPrefs({ viewMode: widget.viewMode, sortByPing });
+  store.set({ sectionsWidget: { ...widget, sortByPing } });
+}
 function updateSectionsWidget(update) {
   const widget = store.get().sectionsWidget;
   store.set({ sectionsWidget: { ...widget, ...update(widget) } });
@@ -3611,59 +3850,66 @@ async function handleTestSectionLatency(section) {
     }));
   }
 }
-async function handleRefreshFeed(section, feed) {
-  const target = feed.url || feed.name;
-  if (!target) {
+var REFRESH_ALL_KEY = "all";
+async function runSubscriptionRefresh(key, run) {
+  if (store.get().sectionsWidget.subscriptionRefreshKey) {
     return;
   }
-  updateSectionsWidget((widget) => ({
-    refreshingFeedKeys: [...widget.refreshingFeedKeys, feed.key]
-  }));
+  updateSectionsWidget(() => ({ subscriptionRefreshKey: key }));
   try {
-    const result = await NetShiftShellMethods.refreshSubscriptionFeed(
-      section.sectionName ?? section.code,
-      target
-    );
-    if (result.success) {
-      showToast(_("Subscription updated"), "success");
-    } else {
-      logger.error("[DASHBOARD]", "handleRefreshFeed - result", result);
-      showToast(result.message || _("Failed to update subscription"), "error");
-    }
-  } catch (e) {
-    logger.error("[DASHBOARD]", "handleRefreshFeed - e", e);
-    showToast(_("Failed to update subscription"), "error");
-  } finally {
+    await run();
     await fetchDashboardSections();
-    updateSectionsWidget((widget) => ({
-      refreshingFeedKeys: widget.refreshingFeedKeys.filter(
-        (item) => item !== feed.key
-      )
-    }));
+  } catch (e) {
+    logger.error("[DASHBOARD]", "runSubscriptionRefresh - e", e);
+  } finally {
+    updateSectionsWidget(() => ({ subscriptionRefreshKey: null }));
   }
 }
-async function handleRefreshAllSubscriptions() {
-  updateSectionsWidget(() => ({ refreshingAllSubscriptions: true }));
-  showToast(_("Updating all subscriptions\u2026 this may take a minute"), "info");
-  try {
-    const result = await NetShiftShellMethods.refreshAllSubscriptions();
-    if (result.success) {
-      showToast(_("All subscriptions updated"), "success");
-    } else {
-      logger.error(
-        "[DASHBOARD]",
-        "handleRefreshAllSubscriptions - result",
-        result
+async function handleRefreshFeed(section, feed) {
+  await runSubscriptionRefresh(feed.key, async () => {
+    try {
+      const result = await NetShiftShellMethods.refreshSubscriptionFeed(
+        section.sectionName ?? section.code,
+        feed.feed
       );
-      showToast(result.message || _("Failed to update subscriptions"), "error");
+      if (result.success) {
+        showToast(_("Subscription updated"), "success");
+      } else {
+        logger.error("[DASHBOARD]", "handleRefreshFeed - result", result);
+        showToast(
+          result.message || _("Failed to update subscription"),
+          "error"
+        );
+      }
+    } catch (e) {
+      logger.error("[DASHBOARD]", "handleRefreshFeed - e", e);
+      showToast(_("Failed to update subscription"), "error");
     }
-  } catch (e) {
-    logger.error("[DASHBOARD]", "handleRefreshAllSubscriptions - e", e);
-    showToast(_("Failed to update subscriptions"), "error");
-  } finally {
-    await fetchDashboardSections();
-    updateSectionsWidget(() => ({ refreshingAllSubscriptions: false }));
-  }
+  });
+}
+async function handleRefreshAllSubscriptions() {
+  await runSubscriptionRefresh(REFRESH_ALL_KEY, async () => {
+    showToast(_("Updating all subscriptions\u2026 this may take a minute"), "info");
+    try {
+      const result = await NetShiftShellMethods.refreshAllSubscriptions();
+      if (result.success) {
+        showToast(_("All subscriptions updated"), "success");
+      } else {
+        logger.error(
+          "[DASHBOARD]",
+          "handleRefreshAllSubscriptions - result",
+          result
+        );
+        showToast(
+          result.message || _("Failed to update subscriptions"),
+          "error"
+        );
+      }
+    } catch (e) {
+      logger.error("[DASHBOARD]", "handleRefreshAllSubscriptions - e", e);
+      showToast(_("Failed to update subscriptions"), "error");
+    }
+  });
 }
 async function renderSectionsWidget() {
   logger.debug("[DASHBOARD]", "renderSectionsWidget");
@@ -3688,7 +3934,13 @@ async function renderSectionsWidget() {
       onChooseOutbound: () => {
       },
       latencyFetching: false,
-      pendingOutbounds: []
+      pendingOutbounds: [],
+      viewMode: sectionsWidget.viewMode,
+      sortByPing: sectionsWidget.sortByPing,
+      onToggleViewMode: () => {
+      },
+      onToggleSortByPing: () => {
+      }
     });
     return preserveScrollForPage(() => {
       container.replaceChildren(renderedWidget);
@@ -3697,7 +3949,8 @@ async function renderSectionsWidget() {
   toolbarContainer?.replaceChildren(
     renderSectionsToolbar({
       visible: sectionsWidget.data.some((section) => section.isSubscription),
-      refreshing: sectionsWidget.refreshingAllSubscriptions,
+      refreshing: sectionsWidget.subscriptionRefreshKey === REFRESH_ALL_KEY,
+      disabled: Boolean(sectionsWidget.subscriptionRefreshKey),
       onRefreshAll: handleRefreshAllSubscriptions
     })
   );
@@ -3714,12 +3967,23 @@ async function renderSectionsWidget() {
       onChooseOutbound: (selector, tag) => {
         handleChooseOutbound(selector, tag);
       },
+      viewMode: sectionsWidget.viewMode,
+      sortByPing: sectionsWidget.sortByPing,
+      onToggleViewMode: handleToggleViewMode,
+      onToggleSortByPing: handleToggleSortByPing,
       onRefreshFeed: handleRefreshFeed,
-      refreshingFeedKeys: sectionsWidget.refreshingFeedKeys
+      subscriptionRefreshKey: sectionsWidget.subscriptionRefreshKey
     })
+  );
+  const listScroll = /* @__PURE__ */ new Map();
+  container.querySelectorAll("[data-list-key]").forEach(
+    (list) => listScroll.set(list.dataset.listKey ?? "", list.scrollTop)
   );
   return preserveScrollForPage(() => {
     container.replaceChildren(...renderedWidgets);
+    container.querySelectorAll("[data-list-key]").forEach((list) => {
+      list.scrollTop = listScroll.get(list.dataset.listKey ?? "") ?? 0;
+    });
   });
 }
 async function renderBandwidthWidget() {
@@ -3862,6 +4126,12 @@ async function onStoreUpdate(next, prev, diff) {
 async function onPageMount() {
   onPageUnmount();
   store.subscribe(onStoreUpdate);
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      ...loadDashboardViewPrefs()
+    }
+  });
   await fetchDashboardSections();
   await fetchServicesInfo();
   await connectToClashSockets();
@@ -3988,17 +4258,90 @@ var styles3 = `
     font-weight: 700;
 }
 
-.pdk_dashboard-page__outbound-section__title-section__actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
 .pdk_dashboard-page__outbound-grid {
     margin-top: 5px;
     display: grid;
     grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
     grid-gap: 10px;
+}
+
+.pdk_dashboard-page__outbound-section__controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pdk_dashboard-page__control--on {
+    border-color: var(--primary-color-high, dodgerblue);
+    color: var(--primary-color-high, dodgerblue);
+}
+
+.pdk_dashboard-page__outbound-list {
+    margin-top: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.pdk_dashboard-page__outbound-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: var(--ns-card-border-width) solid var(--ns-card-border);
+    border-radius: 8px;
+    transition: border 0.2s ease;
+}
+
+.pdk_dashboard-page__outbound-row--selectable {
+    cursor: pointer;
+}
+
+.pdk_dashboard-page__outbound-row--selectable:hover {
+    border-color: var(--primary-color-high, dodgerblue);
+}
+
+.pdk_dashboard-page__outbound-row--active {
+    border-color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__outbound-row__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdk_dashboard-page__outbound-row__type {
+    flex: none;
+    font-size: 0.85em;
+    padding: 1px 8px;
+    border-radius: 6px;
+    opacity: 0.75;
+    border: var(--ns-card-border-width) solid var(--ns-card-border);
+}
+
+.pdk_dashboard-page__outbound-row__latency {
+    margin-left: auto;
+    flex: none;
+}
+
+.pdk_dashboard-page__outbound-row__badge,
+.pdk_dashboard-page__outbound-row__badge-space {
+    flex: none;
+    width: 76px;
+    text-align: center;
+}
+
+.pdk_dashboard-page__outbound-row__badge {
+    font-size: 0.85em;
+    padding: 2px 0;
+    border-radius: 6px;
+    color: var(--success-color-medium, green);
+    border: var(--ns-card-border-width) solid var(--success-color-medium, green);
 }
 
 .pdk_dashboard-page__outbound-subgroup {
@@ -6602,6 +6945,66 @@ function insertIfObj(condition, object) {
   return condition ? object : {};
 }
 
+// src/helpers/withCountryFlag.ts
+var FLAG_PAIR = /[\u{1F1E6}-\u{1F1FF}]{2}/u;
+var REGIONAL_INDICATOR_A = 127462;
+function withCountryFlag(name, countryCode) {
+  if (!countryCode || !/^[A-Za-z]{2}$/.test(countryCode)) {
+    return name;
+  }
+  if (FLAG_PAIR.test(name)) {
+    return name;
+  }
+  const flag = String.fromCodePoint(
+    ...countryCode.toUpperCase().split("").map((letter) => REGIONAL_INDICATOR_A + letter.charCodeAt(0) - 65)
+  );
+  return name ? `${flag} ${name}` : flag;
+}
+
+// src/helpers/deviceRouting.ts
+var DEVICE_ROUTE_DEFAULT = "";
+var DEVICE_ROUTE_EXCLUDED = "netshift:excluded";
+function toIpList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+function getDeviceRoute(state, ip) {
+  for (const [section, ips] of Object.entries(state.sections)) {
+    if (ips.includes(ip)) {
+      return section;
+    }
+  }
+  if (state.excluded.includes(ip)) {
+    return DEVICE_ROUTE_EXCLUDED;
+  }
+  return DEVICE_ROUTE_DEFAULT;
+}
+function setDeviceRoute(state, ip, route) {
+  const sections = {};
+  for (const [section, ips] of Object.entries(state.sections)) {
+    sections[section] = ips.filter((item) => item !== ip);
+  }
+  const excluded = state.excluded.filter((item) => item !== ip);
+  if (route === DEVICE_ROUTE_EXCLUDED) {
+    excluded.push(ip);
+  } else if (route !== DEVICE_ROUTE_DEFAULT) {
+    sections[route] = [...sections[route] ?? [], ip];
+  }
+  return { sections, excluded };
+}
+function listedDeviceIps(state) {
+  const seen = /* @__PURE__ */ new Set();
+  for (const ips of [...Object.values(state.sections), state.excluded]) {
+    ips.forEach((ip) => seen.add(ip));
+  }
+  return [...seen];
+}
+
 // src/main.ts
 if (typeof structuredClone !== "function")
   globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -6613,8 +7016,12 @@ return baseclass.extend({
   COMMAND_SCHEDULING,
   COMMAND_TIMEOUT,
   CustomNetShiftMethods,
+  DEFAULT_DASHBOARD_VIEW,
+  DEVICE_ROUTE_DEFAULT,
+  DEVICE_ROUTE_EXCLUDED,
   DIAGNOSTICS_INITIAL_DELAY,
   DIAGNOSTICS_UPDATE_INTERVAL,
+  DNS_POOL_PRESETS,
   DNS_SERVER_OPTIONS,
   DOMAIN_LIST_OPTIONS,
   DashboardTab,
@@ -6640,21 +7047,29 @@ return baseclass.extend({
   executeShellCommand,
   getClashUIUrl,
   getClashWsUrl,
+  getDeviceRoute,
   getProxyUrlName,
   injectGlobalStyles,
   insertIf,
   insertIfObj,
+  listedDeviceIps,
+  loadDashboardViewPrefs,
   logger,
   maskIP,
   onMount,
   parseQueryString,
   parseValueList,
   preserveScrollForPage,
+  saveDashboardViewPrefs,
+  setDeviceRoute,
   socket,
   splitProxyString,
   store,
   svgEl,
+  toIpList,
   validateDNS,
+  validateDnsPoolServer,
+  validateDnsPoolTimeout,
   validateDomain,
   validateDomainRule,
   validateIP,
@@ -6667,8 +7082,10 @@ return baseclass.extend({
   validateShadowsocksUrl,
   validateSocksUrl,
   validateSubnet,
+  validateTime,
   validateTrojanUrl,
   validateUrl,
   validateVlessUrl,
+  withCountryFlag,
   withTimeout
 });

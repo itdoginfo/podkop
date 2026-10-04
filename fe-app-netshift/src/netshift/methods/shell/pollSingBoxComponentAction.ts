@@ -38,6 +38,14 @@ export interface ComponentActionStatus {
   build?: string;
 }
 
+// What the poll reports when it cannot tell how the job ended. The loop is
+// shared by every async component action, so a caller that is not the core
+// switch passes its own wording.
+export interface ComponentActionPollMessages {
+  failed: string;
+  timedOut: string;
+}
+
 // ~2s between polls; ~150 polls ≈ 5 min backstop against a wedged job.
 export const POLL_INTERVAL_MS = 2000;
 export const MAX_POLLS = 150;
@@ -65,13 +73,15 @@ function normalizeResultBuild(
  * individual `component_action_status` exec (well under the rpcd 30s wall); the
  * loop runs until the job is no longer running (a parse failure or
  * `running === false` is terminal). `sleepFn` is injected so tests can avoid
- * real 2s waits.
+ * real 2s waits. `messages` replaces the core-switch wording of the two
+ * poll-level failures (unreadable status, backstop reached).
  */
 export async function pollSingBoxComponentAction(
   fetchStatus: () => Promise<ComponentActionStatus | null>,
   sleepFn: (ms: number) => Promise<void> = sleep,
   intervalMs: number = POLL_INTERVAL_MS,
   maxPolls: number = MAX_POLLS,
+  messages?: ComponentActionPollMessages,
 ): Promise<SingBoxComponentActionResult> {
   for (let poll = 0; poll < maxPolls; poll += 1) {
     const status = await fetchStatus();
@@ -80,7 +90,7 @@ export async function pollSingBoxComponentAction(
     if (!status) {
       return {
         success: false,
-        message: _('Core switch failed'),
+        message: messages?.failed ?? _('Core switch failed'),
       };
     }
 
@@ -99,6 +109,6 @@ export async function pollSingBoxComponentAction(
 
   return {
     success: false,
-    message: _('Core switch timed out'),
+    message: messages?.timedOut ?? _('Core switch timed out'),
   };
 }

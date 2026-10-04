@@ -1,13 +1,32 @@
 import { renderButton } from '../../../../partials';
 import { NetShift } from '../../../types';
 import { SKELETON_SHIMMER_DURATION } from '../../../../constants';
+import type { DashboardViewMode } from '../../../../helpers/dashboardView';
+import { sortOutboundsByLatency } from '../sortOutbounds';
 
-// A specific subscription feed to refresh: the dashboard feed-block name (the
-// backend resolves it to its URL) or the raw URL for a single-feed section.
-// `key` is the section/subgroup code used to show the button's loading state.
+// The color class of a delay: the same thresholds for tiles and list rows.
+function getLatencyClassName(latency: number) {
+  if (!latency) {
+    return 'pdk_dashboard-page__outbound-grid__item__latency--empty';
+  }
+
+  if (latency < 800) {
+    return 'pdk_dashboard-page__outbound-grid__item__latency--green';
+  }
+
+  if (latency < 1500) {
+    return 'pdk_dashboard-page__outbound-grid__item__latency--yellow';
+  }
+
+  return 'pdk_dashboard-page__outbound-grid__item__latency--red';
+}
+
+// What a refresh button updates: one feed block (`feed` is the block's
+// sing-box group tag, which the backend resolves to the feed URL) or, without
+// `feed`, every feed of the section. `key` is the section/subgroup code that
+// marks the button as the one in progress.
 export interface IRefreshFeedTarget {
-  name?: string;
-  url?: string;
+  feed?: string;
   key: string;
 }
 
@@ -20,13 +39,20 @@ interface IRenderSectionsProps {
   latencyFetching: boolean;
   // Outbound codes whose latency is being measured right now.
   pendingOutbounds: string[];
+  viewMode: DashboardViewMode;
+  sortByPing: boolean;
+  onToggleViewMode: () => void;
+  onToggleSortByPing: () => void;
   // Subscription sections only: refresh one feed (subgroup header) or the whole
-  // section (single-feed section header). Absent outside the dashboard.
+  // section (header of a section without feed blocks). Absent outside the
+  // dashboard.
   onRefreshFeed?: (
     section: NetShift.OutboundGroup,
     feed: IRefreshFeedTarget,
   ) => void;
-  refreshingFeedKeys?: string[];
+  // The refresh in flight ('all', or the key of the button that started it):
+  // that button spins, every other refresh button is disabled.
+  subscriptionRefreshKey?: string | null;
 }
 
 function renderFailedState() {
@@ -66,8 +92,12 @@ export function renderDefaultState({
   onTestLatency,
   latencyFetching,
   pendingOutbounds,
+  viewMode,
+  sortByPing,
+  onToggleViewMode,
+  onToggleSortByPing,
   onRefreshFeed,
-  refreshingFeedKeys,
+  subscriptionRefreshKey,
 }: IRenderSectionsProps) {
   // Subscription refresh is only offered when the dashboard wired the handler
   // (the loading/failed placeholders render without one).
@@ -77,28 +107,15 @@ export function renderDefaultState({
   function renderRefreshButton(feed: IRefreshFeedTarget) {
     return renderButton({
       text: _('Refresh subscription'),
-      loading: refreshingFeedKeys?.includes(feed.key),
+      loading: subscriptionRefreshKey === feed.key,
+      disabled: Boolean(subscriptionRefreshKey),
       onClick: () => onRefreshFeed?.(section, feed),
       classNames: ['dashboard-sections-grid-item-refresh-subscription'],
     });
   }
 
   function renderOutbound(outbound: NetShift.Outbound) {
-    function getLatencyClass() {
-      if (!outbound.latency) {
-        return 'pdk_dashboard-page__outbound-grid__item__latency--empty';
-      }
-
-      if (outbound.latency < 800) {
-        return 'pdk_dashboard-page__outbound-grid__item__latency--green';
-      }
-
-      if (outbound.latency < 1500) {
-        return 'pdk_dashboard-page__outbound-grid__item__latency--yellow';
-      }
-
-      return 'pdk_dashboard-page__outbound-grid__item__latency--red';
-    }
+    const getLatencyClass = () => getLatencyClassName(outbound.latency);
 
     return E(
       'div',
@@ -128,6 +145,69 @@ export function renderDefaultState({
     );
   }
 
+  function renderRow(outbound: NetShift.Outbound) {
+    return E(
+      'div',
+      {
+        class: `pdk_dashboard-page__outbound-row ${outbound.selected ? 'pdk_dashboard-page__outbound-row--active' : ''} ${section.withTagSelect ? 'pdk_dashboard-page__outbound-row--selectable' : ''}`,
+        click: () =>
+          section.withTagSelect &&
+          onChooseOutbound(section.code, outbound.code),
+      },
+      [
+        E(
+          'b',
+          { class: 'pdk_dashboard-page__outbound-row__name' },
+          outbound.displayName,
+        ),
+        E(
+          'span',
+          { class: 'pdk_dashboard-page__outbound-row__type' },
+          outbound.type,
+        ),
+        pendingOutbounds.includes(outbound.code)
+          ? renderSkeleton('width: 44px; height: 16px; margin-left: auto')
+          : E(
+              'span',
+              {
+                class: `pdk_dashboard-page__outbound-row__latency ${getLatencyClassName(outbound.latency)}`,
+              },
+              outbound.latency ? `${outbound.latency}ms` : 'N/A',
+            ),
+        outbound.selected
+          ? E(
+              'span',
+              { class: 'pdk_dashboard-page__outbound-row__badge' },
+              _('Active'),
+            )
+          : E('span', {
+              class: 'pdk_dashboard-page__outbound-row__badge-space',
+            }),
+      ],
+    );
+  }
+
+  function renderOutbounds(outbounds: NetShift.Outbound[], key: string) {
+    const items = sortByPing ? sortOutboundsByLatency(outbounds) : outbounds;
+
+    if (viewMode === 'tiles') {
+      return E(
+        'div',
+        { class: 'pdk_dashboard-page__outbound-grid' },
+        items.map((outbound) => renderOutbound(outbound)),
+      );
+    }
+
+    const list = E(
+      'div',
+      { class: 'pdk_dashboard-page__outbound-list' },
+      items.map((outbound) => renderRow(outbound)),
+    );
+    list.dataset.listKey = key;
+
+    return list;
+  }
+
   return E('div', { class: 'card pdk_dashboard-page__outbound-section' }, [
     // Title with test latency
     E('div', { class: 'pdk_dashboard-page__outbound-section__title-section' }, [
@@ -138,39 +218,33 @@ export function renderDefaultState({
         },
         section.displayName,
       ),
-      E(
-        'div',
-        {
-          class: 'pdk_dashboard-page__outbound-section__title-section__actions',
-        },
-        [
-          // A multi-feed section offers one refresh per feed block below; a
-          // single-feed section gets its only refresh button here.
-          ...(canRefresh &&
-          !hasSubgroups &&
-          (section.subscriptionUrls?.length ?? 0) > 0
-            ? [
-                renderRefreshButton({
-                  url: section.subscriptionUrls?.[0],
-                  key: section.code,
-                }),
-              ]
-            : []),
-          latencyFetching
-            ? renderSkeleton('width: 99px; height: 28px')
-            : renderButton({
-                text: _('Test latency'),
-                onClick: () => onTestLatency(),
-                classNames: ['dashboard-sections-grid-item-test-latency'],
-              }),
-        ],
-      ),
+      E('div', { class: 'pdk_dashboard-page__outbound-section__controls' }, [
+        // A section split into feed blocks offers one refresh per block below.
+        // Any other subscription section (one feed, country/prefix groups, or
+        // several feeds of which only one gave nodes) gets a single button
+        // here that refreshes every feed of the section.
+        ...(canRefresh && !hasSubgroups
+          ? [renderRefreshButton({ key: section.code })]
+          : []),
+        renderButton({
+          text: viewMode === 'list' ? _('Tiles') : _('List'),
+          onClick: () => onToggleViewMode(),
+        }),
+        renderButton({
+          text: _('Sort by ping'),
+          onClick: () => onToggleSortByPing(),
+          classNames: sortByPing ? ['pdk_dashboard-page__control--on'] : [],
+        }),
+        latencyFetching
+          ? renderSkeleton('width: 99px; height: 28px')
+          : renderButton({
+              text: _('Test latency'),
+              onClick: () => onTestLatency(),
+              classNames: ['dashboard-sections-grid-item-test-latency'],
+            }),
+      ]),
     ]),
-    E(
-      'div',
-      { class: 'pdk_dashboard-page__outbound-grid' },
-      section.outbounds.map((outbound) => renderOutbound(outbound)),
-    ),
+    renderOutbounds(section.outbounds, section.code),
     ...(section.subgroups ?? []).map((subgroup) =>
       E('div', { class: 'pdk_dashboard-page__outbound-subgroup' }, [
         E('div', { class: 'pdk_dashboard-page__outbound-subgroup__header' }, [
@@ -182,17 +256,13 @@ export function renderDefaultState({
           ...(canRefresh
             ? [
                 renderRefreshButton({
-                  name: subgroup.displayName,
+                  feed: subgroup.code,
                   key: subgroup.code,
                 }),
               ]
             : []),
         ]),
-        E(
-          'div',
-          { class: 'pdk_dashboard-page__outbound-grid' },
-          subgroup.outbounds.map((outbound) => renderOutbound(outbound)),
-        ),
+        renderOutbounds(subgroup.outbounds, `${section.code}:${subgroup.code}`),
       ]),
     ),
   ]);

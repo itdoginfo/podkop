@@ -2,6 +2,7 @@ import { callBaseMethod } from './callBaseMethod';
 import { ClashAPI, NetShift } from '../../types';
 import { executeShellCommand } from '../../../helpers';
 import {
+  ComponentActionPollMessages,
   ComponentActionStartResponse,
   ComponentActionStatus,
   SingBoxComponentActionResult,
@@ -14,12 +15,14 @@ import { parseComponentCheckUpdate } from './parseComponentCheckUpdate';
 // completion. A component action can outlast the rpcd ~30s wall (a subscription
 // refresh re-downloads feeds and restarts sing-box), so it MUST go through the
 // start+poll mechanism instead of a single long exec. Used by the dashboard
-// subscription refresh buttons; the sing-box/netshift/cache paths above keep
-// their own tailored error handling.
+// subscription refresh buttons; the sing-box/netshift/cache paths below keep
+// their own tailored error handling. `messages` words the failures the poll
+// itself reports (unreadable status, backstop reached) for this action.
 async function startAndPollComponentAction(
   component: string,
   action: string,
-  extraArgs: string[] = [],
+  extraArgs: string[],
+  messages: ComponentActionPollMessages,
 ): Promise<SingBoxComponentActionResult> {
   const startResponse = await executeShellCommand({
     command: '/usr/bin/netshift',
@@ -46,18 +49,33 @@ async function startAndPollComponentAction(
 
   const jobId = start.job_id;
 
-  return pollSingBoxComponentAction(async () => {
-    const statusResponse = await executeShellCommand({
-      command: '/usr/bin/netshift',
-      args: ['component_action_status', jobId],
-    });
+  return pollSingBoxComponentAction(
+    async () => {
+      const statusResponse = await executeShellCommand({
+        command: '/usr/bin/netshift',
+        args: ['component_action_status', jobId],
+      });
 
-    if (!statusResponse.stdout) {
-      return null;
-    }
+      if (!statusResponse.stdout) {
+        return null;
+      }
 
-    return parseComponentActionStatus(statusResponse.stdout);
-  });
+      return parseComponentActionStatus(statusResponse.stdout);
+    },
+    undefined,
+    undefined,
+    undefined,
+    messages,
+  );
+}
+
+// The poll could not tell how a subscription refresh ended. The job may still
+// finish on the router, so the wording does not claim it failed there.
+function getSubscriptionPollMessages(): ComponentActionPollMessages {
+  return {
+    failed: _('Failed to read the subscription update status'),
+    timedOut: _('Subscription update timed out'),
+  };
 }
 
 export const NetShiftShellMethods = {
@@ -82,6 +100,10 @@ export const NetShiftShellMethods = {
   getSingBoxStatus: async () =>
     callBaseMethod<NetShift.GetSingBoxStatus>(
       NetShift.AvailableMethods.GET_SING_BOX_STATUS,
+    ),
+  getGeoipFlags: async () =>
+    callBaseMethod<Record<string, string>>(
+      NetShift.AvailableMethods.GET_GEOIP_FLAGS,
     ),
   getClashApiProxies: async () =>
     callBaseMethod<ClashAPI.Proxies>(NetShift.AvailableMethods.CLASH_API, [
@@ -329,16 +351,27 @@ export const NetShiftShellMethods = {
   // lightweight sibling of clearSubscriptionCache. Drives the dashboard
   // "refresh all subscriptions" button.
   refreshAllSubscriptions: async (): Promise<SingBoxComponentActionResult> =>
-    startAndPollComponentAction('subscription', 'update'),
-  // Refresh ONE subscription feed (async): `component_action_async subscription
-  // update_feed <section> <feed>`. `feed` is the dashboard feed-block name (the
-  // backend resolves it to its URL) or the raw feed URL for single-feed
-  // sections. Drives the per-feed refresh buttons.
+    startAndPollComponentAction(
+      'subscription',
+      'update',
+      [],
+      getSubscriptionPollMessages(),
+    ),
+  // Refresh ONE subscription section (async): `component_action_async
+  // subscription update_feed <section> [feed]`. `feed` is the sing-box tag of a
+  // dashboard feed block ("⚡ <name>"), which the backend resolves to the feed
+  // URL; without it every feed of the section is refreshed. Drives the
+  // per-section and per-feed refresh buttons.
   refreshSubscriptionFeed: async (
     section: string,
-    feed: string,
+    feed?: string,
   ): Promise<SingBoxComponentActionResult> =>
-    startAndPollComponentAction('subscription', 'update_feed', [section, feed]),
+    startAndPollComponentAction(
+      'subscription',
+      'update_feed',
+      feed ? [section, feed] : [section],
+      getSubscriptionPollMessages(),
+    ),
   // NetShift self-update (async) — STABLE task-017 contract:
   // component_action_async netshift self_update + component_action_status <job>.
   // Reuses the component-agnostic poll. Because the package install swaps

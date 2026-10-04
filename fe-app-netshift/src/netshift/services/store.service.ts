@@ -1,4 +1,6 @@
 import { NetShift } from '../types';
+import { loadDashboardViewPrefs } from '../../helpers/dashboardView';
+import type { DashboardViewMode } from '../../helpers/dashboardView';
 import { initialDiagnosticStore } from '../tabs/diagnostic/diagnostic.store';
 import { initialManagerStore } from '../tabs/manager/manager.store';
 import type { ManagerComponentKey } from '../tabs/manager/cards';
@@ -175,11 +177,15 @@ export interface StoreType {
     // waiting for their result.
     latencyTestingSections: string[];
     latencyPendingOutbounds: string[];
-    // Subscription refresh in flight: the keys (section.code for a single-feed
-    // section, subgroup.code for one feed block) being refreshed, and whether
-    // the global "refresh all subscriptions" action is running.
-    refreshingFeedKeys: string[];
-    refreshingAllSubscriptions: boolean;
+    // The subscription refresh in flight, if any: 'all' for the "refresh all
+    // subscriptions" action, otherwise the key of the button that started it
+    // (section.code for a whole section, subgroup.code for one feed block).
+    // One at a time: every refresh button is disabled while it is set, since
+    // two backend subscription updates must not run side by side.
+    subscriptionRefreshKey: string | null;
+    // How the server lists are shown (kept in the browser).
+    viewMode: DashboardViewMode;
+    sortByPing: boolean;
   };
   diagnosticsRunAction: {
     loading: boolean;
@@ -258,8 +264,8 @@ const initialStore: StoreType = {
     failed: false,
     latencyTestingSections: [],
     latencyPendingOutbounds: [],
-    refreshingFeedKeys: [],
-    refreshingAllSubscriptions: false,
+    subscriptionRefreshKey: null,
+    ...loadDashboardViewPrefs(),
     data: [],
   },
   ...initialDiagnosticStore,

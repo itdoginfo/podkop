@@ -1,6 +1,10 @@
 import { getConfigSections } from './getConfigSections';
 import { NetShift } from '../../types';
-import { getProxyUrlName, splitProxyString } from '../../../helpers';
+import {
+  getProxyUrlName,
+  splitProxyString,
+  withCountryFlag,
+} from '../../../helpers';
 import { NetShiftShellMethods } from '../shell';
 import { buildSubscriptionOutboundGroup } from './buildSubscriptionOutboundGroup';
 
@@ -19,6 +23,15 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
       data: [],
     };
   }
+
+  // Countries of manually added links (GeoIP option); an error just means no flags.
+  const geoipResponse = await NetShiftShellMethods.getGeoipFlags();
+  const geoipFlags: Record<string, string> =
+    geoipResponse.success &&
+    geoipResponse.data &&
+    typeof geoipResponse.data === 'object'
+      ? geoipResponse.data
+      : {};
 
   const proxies = Object.entries(clashProxies.data.proxies).map(
     ([key, value]) => ({
@@ -160,23 +173,12 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
         }
 
         if (section.proxy_config_type === 'subscription') {
-          // The dashboard offers a refresh button per feed (subgroup) and, for a
-          // single-feed section, one on the section header. Both need the UCI
-          // section name and its feed list; the legacy scalar shape is tolerated.
-          const rawSubscriptionUrls = (
-            section as { subscription_url?: string | string[] }
-          ).subscription_url;
-          const subscriptionUrls = Array.isArray(rawSubscriptionUrls)
-            ? rawSubscriptionUrls
-            : rawSubscriptionUrls
-              ? [rawSubscriptionUrls]
-              : [];
-
+          // The dashboard refresh buttons address the backend by the UCI
+          // section name.
           return {
             ...buildSubscriptionOutboundGroup(section['.name'], proxies),
             isSubscription: true,
             sectionName: section['.name'],
-            subscriptionUrls,
           };
         }
       }
@@ -210,8 +212,19 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
       };
     });
 
+  const flagged = data.map((group) => ({
+    ...group,
+    outbounds: group.outbounds.map((outbound) => ({
+      ...outbound,
+      displayName: withCountryFlag(
+        outbound.displayName,
+        geoipFlags[outbound.code],
+      ),
+    })),
+  }));
+
   return {
     success: true,
-    data,
+    data: flagged,
   };
 }

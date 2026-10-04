@@ -174,6 +174,28 @@ describe('pollSingBoxComponentAction', () => {
     expect(fetchStatus).toHaveBeenCalledTimes(5);
   });
 
+  it('words the poll-level failures with the caller messages when given', async () => {
+    const messages = { failed: 'status unreadable', timedOut: 'too slow' };
+
+    const failed = await pollSingBoxComponentAction(
+      makeFetchStatus([null]),
+      noSleep,
+      0,
+      5,
+      messages,
+    );
+    const timedOut = await pollSingBoxComponentAction(
+      vi.fn(async () => ({ running: true, success: true })),
+      noSleep,
+      0,
+      3,
+      messages,
+    );
+
+    expect(failed).toEqual({ success: false, message: 'status unreadable' });
+    expect(timedOut).toEqual({ success: false, message: 'too slow' });
+  });
+
   it('returns immediately on a terminal-first status', async () => {
     const fetchStatus = makeFetchStatus([
       {
