@@ -131,11 +131,8 @@ function createSectionContent(section) {
   o = section.option(
     form.DynamicList,
     "urltest_fallback_links",
-    _("Fallback URLs") +
-      ' <span class="cbi-tooltip-container">ℹ️<span class="cbi-tooltip">' +
-      _("Available with podkop-engine r10 or later") +
-      "</span></span>",
-    _("Used in this order only while none of the URLTest proxy links responds")
+    _("Fallback URLs"),
+    _("Used in this order only while none of the URLTest proxy links responds. Requires podkop-engine r10 or later")
   );
   o.depends("proxy_config_type", "urltest");
   o.validate = function (section_id, value) {
@@ -220,11 +217,8 @@ function createSectionContent(section) {
   o = section.option(
     form.ListValue,
     "urltest_download_check",
-    _("Download Check") +
-      ' <span class="cbi-tooltip-container">ℹ️<span class="cbi-tooltip">' +
-      _("Available with podkop-engine r10 or later") +
-      "</span></span>",
-    _("Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped")
+    _("Download Check"),
+    _("Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped. Requires podkop-engine r10 or later")
   );
   o.value("default", _("Default"));
   o.value("off", _("Disabled"));
@@ -238,10 +232,9 @@ function createSectionContent(section) {
     _("Download Check URL"),
     _("The URL must serve at least 64 KiB or announce a shorter length")
   );
-  o.value("https://speed.cloudflare.com/__down?bytes=65536", "https://speed.cloudflare.com/__down?bytes=65536 (Cloudflare)");
-  o.value("https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js", "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js (Google)");
-  o.value("https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js", "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js (jsDelivr)");
-  o.value("https://cachefly.cachefly.net/1mb.test", "https://cachefly.cachefly.net/1mb.test (CacheFly)");
+  Object.entries(main.URLTEST_DOWNLOAD_URL_OPTIONS).forEach(([key, label]) => {
+    o.value(key, _(label));
+  });
   o.default = "https://speed.cloudflare.com/__down?bytes=65536";
   o.rmempty = false;
   o.depends({ proxy_config_type: "urltest", urltest_download_check: "custom" });

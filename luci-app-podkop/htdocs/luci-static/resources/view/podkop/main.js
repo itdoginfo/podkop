@@ -938,6 +938,12 @@ var DNS_SERVER_OPTIONS = {
   "unfiltered.adguard-dns.com": "unfiltered.adguard-dns.com (AdGuard Unfiltered)",
   "family.adguard-dns.com": "family.adguard-dns.com (AdGuard Family)"
 };
+var URLTEST_DOWNLOAD_URL_OPTIONS = {
+  "https://speed.cloudflare.com/__down?bytes=65536": "https://speed.cloudflare.com/__down?bytes=65536 (Cloudflare)",
+  "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js": "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js (Google)",
+  "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js": "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js (jsDelivr)",
+  "https://cachefly.cachefly.net/1mb.test": "https://cachefly.cachefly.net/1mb.test (CacheFly)"
+};
 var BOOTSTRAP_DNS_SERVER_OPTIONS = {
   "77.88.8.8": "77.88.8.8 (Yandex DNS)",
   "77.88.8.1": "77.88.8.1 (Yandex DNS)",
@@ -4911,6 +4917,7 @@ return baseclass.extend({
   TabService,
   TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
+  URLTEST_DOWNLOAD_URL_OPTIONS,
   bulkValidate,
   coreService,
   executeShellCommand,
