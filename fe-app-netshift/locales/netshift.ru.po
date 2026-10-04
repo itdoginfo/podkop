@@ -32,6 +32,9 @@ msgstr "✘ Отключено"
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
 
+msgid "77.88.8.8 (Yandex)"
+msgstr "77.88.8.8 (Yandex)"
+
 msgid "A path is only allowed for doh and doh3"
 msgstr ""
 
@@ -158,6 +161,15 @@ msgstr "Очистка кеша подписок и повторная загр�
 msgid "Close"
 msgstr "Закрыть"
 
+msgid "cloudflare-dns.com/dns-query (Cloudflare DoH)"
+msgstr "cloudflare-dns.com/dns-query (Cloudflare DoH)"
+
+msgid "common.dns.yandex.net/dns-query (Yandex DoH)"
+msgstr "common.dns.yandex.net/dns-query (Yandex DoH)"
+
+msgid "common.dot.dns.yandex.net (Yandex DoT)"
+msgstr "common.dot.dns.yandex.net (Yandex DoT)"
+
 msgid "Community Lists"
 msgstr ""
 
@@ -248,6 +260,9 @@ msgstr ""
 msgid "Direct (no chaining)"
 msgstr ""
 
+msgid "Directly"
+msgstr "Напрямую"
+
 msgid "Disable autostart"
 msgstr "Отключить автостарт"
 
@@ -269,14 +284,23 @@ msgstr ""
 msgid "DNS"
 msgstr "DNS"
 
+msgid "DNS (own DNS server for the domains)"
+msgstr "DNS (свой DNS-сервер для доменов)"
+
 msgid "DNS on router"
 msgstr "DNS на роутере"
 
 msgid "DNS outbound section"
 msgstr "Секция outbound для DNS"
 
+msgid "DNS over HTTP/3 (DoH3)"
+msgstr "DNS через HTTP/3 (DoH3)"
+
 msgid "DNS over HTTPS (DoH)"
 msgstr "DNS через HTTPS (DoH)"
+
+msgid "DNS over QUIC (DoQ)"
+msgstr "DNS через QUIC (DoQ)"
 
 msgid "DNS over TLS (DoT)"
 msgstr "DNS через TLS (DoT)"
@@ -301,6 +325,15 @@ msgstr ""
 
 msgid "DNS server timeout"
 msgstr ""
+
+msgid "dns.adguard-dns.com/dns-query (AdGuard DoH)"
+msgstr "dns.adguard-dns.com/dns-query (AdGuard DoH)"
+
+msgid "dns.google/dns-query (Google DoH)"
+msgstr "dns.google/dns-query (Google DoH)"
+
+msgid "dns.quad9.net/dns-query (Quad9 DoH)"
+msgstr "dns.quad9.net/dns-query (Quad9 DoH)"
 
 msgid "Do not panic, everything can be fixed, just..."
 msgstr "Не паникуйте, всё можно исправить, просто..."
@@ -791,6 +824,9 @@ msgstr ""
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
 
+msgid "Optional: query this DNS server through the outbound of another section. If that outbound is not usable the queries go out directly."
+msgstr "Необязательно: опрашивать этот DNS-сервер через outbound другой секции. Если этот outbound недоступен, запросы уходят напрямую."
+
 msgid "Outbound Config"
 msgstr ""
 
@@ -832,6 +868,9 @@ msgstr ""
 
 msgid "Priority: next server if the previous one fails"
 msgstr ""
+
+msgid "Protocol of this section's own DNS server"
+msgstr "Протокол собственного DNS-сервера этой секции"
 
 msgid "Protocol toggles, file paths and logging. Block DoH only after switching upstream DNS to UDP or DoT."
 msgstr "Переключатели протоколов, пути к файлам и журналирование. Включайте блокировку DoH только после переключения вышестоящего DNS на UDP или DoT."
@@ -971,6 +1010,9 @@ msgstr ""
 msgid "Self-update failed"
 msgstr "Не удалось обновить"
 
+msgid "Send DNS queries through section"
+msgstr "Отправлять DNS-запросы через секцию"
+
 msgid "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable."
 msgstr "Отправлять этот IP-адрес или префикс с каждым DNS-запросом (EDNS Client Subnet, RFC 7871), чтобы геораспределённые сервисы определяли ближайший к вам узел. Оставьте пустым, чтобы отключить."
 
@@ -1085,6 +1127,9 @@ msgstr "Системная информация"
 msgid "Table exist"
 msgstr "Таблица существует"
 
+msgid "TCP"
+msgstr "TCP"
+
 msgid "Test latency"
 msgstr "Тестирование задержки"
 
@@ -1093,6 +1138,9 @@ msgstr ""
 
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
+
+msgid "The domains of this section's lists are resolved by this server instead of the main one and are not sent through any tunnel (split DNS). Address, address:port or host/path for DoH"
+msgstr "Домены из списков этой секции резолвит этот сервер вместо основного, и через туннель они не идут (split DNS). Адрес, адрес:порт или хост/путь для DoH"
 
 msgid "The interval between connectivity tests"
 msgstr ""
