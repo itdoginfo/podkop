@@ -1,0 +1,247 @@
+{
+  "schema_version": "pi-background-tasks.delegate-runtime-budget.v1",
+  "task_id": "dbf97c526b69862618a6b1ebcbdd05af3",
+  "launch_nonce": "948aacc5f8711f440fa54d3f2e95c2fa",
+  "policy": {
+    "live_provider_context_owner": "pi_and_provider",
+    "retained_growth_estimator": "provable_1_byte_per_token",
+    "finalization_input_reserve_tokens": 32768,
+    "finalization_trigger_tokens": 8192
+  },
+  "retained_growth_budget_tokens": 941428,
+  "retained_growth_tokens": 392798,
+  "retained_tool_result_bytes": 240079,
+  "spilled_tool_result_bytes": 0,
+  "context_pressure_spill_bytes": 0,
+  "finalization_requested": false,
+  "finalization_reason": null,
+  "first_request_observed_input_tokens": 14637,
+  "calibration_violation": null,
+  "latest_context_estimate": {
+    "request_ordinal": 24,
+    "retained_utf8_bytes": 427592,
+    "estimated_input_tokens": 404709,
+    "allowed_input_tokens": 1019904,
+    "signed_headroom_tokens": 615195,
+    "dominant_byte_class": "dense_ascii",
+    "finalization_requested": false
+  },
+  "context_measurements": [
+    {
+      "request_ordinal": 1,
+      "retained_utf8_bytes": 52225,
+      "estimated_input_tokens": 45708,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 974196,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 2,
+      "retained_utf8_bytes": 79324,
+      "estimated_input_tokens": 63810,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 956094,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 3,
+      "retained_utf8_bytes": 97161,
+      "estimated_input_tokens": 81516,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 938388,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 4,
+      "retained_utf8_bytes": 116191,
+      "estimated_input_tokens": 100517,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 919387,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 5,
+      "retained_utf8_bytes": 136894,
+      "estimated_input_tokens": 121010,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 898894,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 6,
+      "retained_utf8_bytes": 144098,
+      "estimated_input_tokens": 127918,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 891986,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 7,
+      "retained_utf8_bytes": 144579,
+      "estimated_input_tokens": 128397,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 891507,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 8,
+      "retained_utf8_bytes": 152494,
+      "estimated_input_tokens": 136303,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 883601,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 9,
+      "retained_utf8_bytes": 164230,
+      "estimated_input_tokens": 147063,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 872841,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 10,
+      "retained_utf8_bytes": 171681,
+      "estimated_input_tokens": 154487,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 865417,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 11,
+      "retained_utf8_bytes": 189720,
+      "estimated_input_tokens": 172484,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 847420,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 12,
+      "retained_utf8_bytes": 257554,
+      "estimated_input_tokens": 239622,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 780282,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 13,
+      "retained_utf8_bytes": 263360,
+      "estimated_input_tokens": 245390,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 774514,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 14,
+      "retained_utf8_bytes": 276901,
+      "estimated_input_tokens": 258861,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 761043,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 15,
+      "retained_utf8_bytes": 295335,
+      "estimated_input_tokens": 276897,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 743007,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 16,
+      "retained_utf8_bytes": 299739,
+      "estimated_input_tokens": 281285,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 738619,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 17,
+      "retained_utf8_bytes": 315241,
+      "estimated_input_tokens": 295876,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 724028,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 18,
+      "retained_utf8_bytes": 331435,
+      "estimated_input_tokens": 311762,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 708142,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 19,
+      "retained_utf8_bytes": 374467,
+      "estimated_input_tokens": 353604,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 666300,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 20,
+      "retained_utf8_bytes": 391102,
+      "estimated_input_tokens": 368496,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 651408,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 21,
+      "retained_utf8_bytes": 394913,
+      "estimated_input_tokens": 372182,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 647722,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 22,
+      "retained_utf8_bytes": 397563,
+      "estimated_input_tokens": 374832,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 645072,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 23,
+      "retained_utf8_bytes": 401270,
+      "estimated_input_tokens": 378526,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 641378,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    },
+    {
+      "request_ordinal": 24,
+      "retained_utf8_bytes": 427592,
+      "estimated_input_tokens": 404709,
+      "allowed_input_tokens": 1019904,
+      "signed_headroom_tokens": 615195,
+      "dominant_byte_class": "dense_ascii",
+      "finalization_requested": false
+    }
+  ]
+}

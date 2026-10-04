@@ -1,0 +1,64 @@
+Warning: No project session found with id 'delegate-879e54e2979ae82ed18062a81ba7035d'; creating a new session with that id.
+## Вердикт
+
+**APPROVE** — прошлый блокер (локали) и все три should-fix закрыты по-настоящему: локали перегенерированы генератором (в диффе нет ни одной удалённой записи `msgid`/непустой `msgstr`, у новых записей есть `#:`, порядок совпадает с `extract-calls`), предупреждение о пересечении переписано на чтение реального crontab с проверкой минуты **и** часа, добавлен warn для времени на не-`1d` интервале; блокеров не нашёл.
+
+## Ведомость утверждений автора
+
+| Утверждение | Вердикт | Доказательство |
+|---|---|---|
+| Новая опция `subscription_update_time` (ЧЧ:ММ, 00:00–23:59, местное время), дефолт `09:52` | VERIFIED | `constants.sh:62`; `netshift:1995-2016`, `:2042`; `section.js:192-219`; `validateTime.ts:13` |
+| Дефолт воспроизводит зашитое в main `52 9` (существующие конфиги не меняются) | VERIFIED | `/home/dark/netshift` (HEAD=`refs/heads/main`) `netshift/files/usr/bin/netshift:2017` = `52 9 * * * /usr/bin/netshift subscription_update 1d`; `get_subscription_cron_line_for_interval 1d` без $2 даёт `52 9 * * * … 1d 09:52` |
+| Невалидное значение → дефолт + warn, секция не выпадает из обновления | VERIFIED | `netshift:2010-2013`, `:2440-2447` (фильтр сбрасывается в «все ежедневные»); тесты `bad-time-falls-back-to-default`, `bad-time-warned`, `filter-1d-invalid-time-updates-daily` |
+| Секции с одним временем делят одно задание, с разным — своё | VERIFIED | ключ `1d@HH:MM` (`:2095-2097`), `sort -u` (`:2119`), разбор `*@*` (`:2121-2123`); тест `daily-same-time-one-job` |
+| `subscription_update 1d 04:30` обновляет только секции на это время; голый `1d` — все ежедневные | VERIFIED | `:2431-2447` + фильтр `:2469-2472`; диспетчер `:6145`; тесты `filter-1d-time-matches` / `filter-1d-other-time-noop` |
+| Расписание переживает перезапуск/обновление пакета | VERIFIED | пересборка из UCI при каждом старте: `start_main` `:1114-1115`, `reload(){stop;start;}` `:1409-1413`; снос старых строк `:2114`; тест `daily-time-stable-across-rebuilds` |
+| Предупреждение о пересечении переписано: читается реальный crontab, сравниваются минута и час (`*`, `*/N`, число) | VERIFIED | `:2166-2200`, `cron_field_matches` `:2139-2156` |
+| `list_update` (минута 13, любой `update_interval`) покрыт | VERIFIED (с оговоркой) | `add_cron_job` `:1950-1962` ставит `13 * * * *` / `13 */3` / `13 */12` / `13 9` / `13 9 */3`; sync идёт после `add_cron_job` (`:1114-1115`); тесты `clash-list-update-*`. Оговорка: если ни у одной секции нет списков, задания `list_update` в crontab нет вообще — тогда и пересечения нет |
+| `3h/6h/12h` больше не дают ложных срабатываний (04:07 молчит, 03:07 предупреждает) | VERIFIED для `3h`, остальное — по чтению кода | тест `clash-3h-other-hour-silent` / `clash-3h-same-hour-warned`; для `6h` (`24 */6`) и `12h` (`40 */12`) арифметика `value % step` та же, но тестов нет |
+| Поле «день месяца» игнорируется, `3d` может предупредить в «неправильный» день (отмечено в комментарии) | VERIFIED | комментарий `:2163-2165`; код читает только `job_minute`/`job_hour` |
+| Время на не-`1d` интервале игнорируется **с warn**, README обновлён | VERIFIED | `:2085-2090`; тест `time-on-hourly-warned`; README-хунк с «оно игнорируется, и это тоже попадает в лог» |
+| Локали: `calls.json` — источник, pot/po согласованы, русские строки сохранены | VERIFIED | `calls.json` содержит все 4 новых ключа (`:1252`, `:2313`, `:2327`, `:2433`) + `validateTime.ts:15` в places ключа «Valid»; в `netshift.pot`/`templates/netshift.pot` у новых записей есть `#:`; `netshift.ru.po:536-537, 980-981, 986-987, 1025-1026` — переводы на месте; **в диффе нет ни одного `-msgid` и ни одного `-msgstr "…"`** — потерь нет; порядок (`Invalid S…` < `Invalid time…` < `Invalid T…`, `Update NetShift` < `Update time` < `Updating…`) соответствует `localeCompare` |
+| Файлы pot/po действительно сгенерированы, а не правлены руками | VERIFIED | полная перенумерация всех `#:` по файлу (churn по всем записям), совпадающие blob-хеши: `fe-app-netshift/locales/netshift.pot` и `luci-app-netshift/po/templates/netshift.pot` — оба `e353487..3cfca4c`; `netshift.ru.po` и `po/ru/netshift.po` — оба `66c45ee..851c5a7` |
+| `validateTime` + тесты, поле в `section.js`, пересобранный `main.js`, `yarn ci` (561), ShellCheck, smoke | PARTIAL | код и тест-файл корректны (`validateTime.ts`, `tests/validateTime.test.js`, `index.ts`, `main.js` +2 хунка, `section.js:215` через `main.validateTime`); прогон `yarn ci`/smoke/ShellCheck я воспроизвести не могу (нет bash/docker) — см. «Не проверено» |
+| Тесты `subcron`: 59 проверок, 17 новых (в описании PR) | PARTIAL (устарело) | после второго коммита новых проверок ~23 (`time-validation`, `daily-time-cron-fields`, `daily-time-invalid-rejected`, `time-ignored-for-other-intervals`, `daily-time-own-job`, `daily-same-time-one-job`, `daily-time-stable-across-rebuilds`, `bad-time-*`×2, `time-on-hourly-*`×2, `daily-minute-clash-warned`, `daily-minute-no-clash-silent`, `clash-hint-leading-zero`, `clash-3h-*`×2, `clash-list-update-*`×3, `filter-1d-time-matches`, `filter-1d-other-time-noop`, `filter-1d-invalid-time-updates-daily`, `filter-time-ignored-for-other-intervals`) — текст PR не обновлён |
+| «Ветка независима от остальных» | VERIFIED | в дереве PR нет ни `section_is_disabled`, ни `foreach_active_section` (#69) — ветка стоит на main; диф против main чистый |
+
+## Блокеры
+
+нет.
+
+## Should-fix
+
+1. **Подсказка «возьмите другую минуту» сама может указывать на занятую минуту.** `netshift:2199` предлагает `$(printf '%02d' $(((daily_minute + 5) % 60)))` без проверки, свободна ли она: при секции `30m` и дневном времени `04:55` подсказка выдаст `:00`, а `04:25` → `:30` — ровно те минуты, на которых и стоит задание `*/30`. Минимальный фикс: подбирать `+5` в цикле до первого `cron_field_matches`, либо заменить текст на «выберите минуту, которую не использует другое задание NetShift».
+2. **Usage-текст CLI не обновлён под новый второй аргумент.** `netshift:6087-6089` описывает `subscription_update` как «with an interval (30m|1h|3h|6h|12h|1d) only the sections using it» и молчит про `HH:MM`, хотя именно эту форму пишет cron (`:2048`) и документирует README. Пользователь, набравший `netshift` без аргументов, о фильтре по времени не узнает. Фикс — добавить строку вида `an optional HH:MM narrows the 1d job`.
+3. **Дефолт `09:52` продублирован в трёх местах** (`constants.sh:62`, `section.js:193` `o.default`/`:194` `o.placeholder`, README) без какого-либо гейта на рассинхрон. Прецедент (`1h`) в проекте есть, но здесь цена ошибки выше: разойдутся — UI будет показывать одно время, а cron ставить другое. Фикс: комментарий-ссылка в `section.js` на `SUBSCRIPTION_UPDATE_TIME_DEFAULT`, либо тест, сверяющий `o.default` с константой.
+4. **Порядок мержа из прошлого ревью не закрыт.** Прошлый ревьюер требовал перебазировать #70 на #69: список извлечения функций `for fn in …` (`tests/entrypoint.sh:8216-8223`) и `netshift/files/usr/bin/netshift` правятся в #69/#70/#71, и текстовый мерж не является сборкой. Автор на это не ответил, ветка по-прежнему стоит на main. Это не дефект кода, но пункт чеклиста, который стоит подтвердить явно (после мержа #69 — перегенерировать `main.js`, его пересобирают три PR).
+
+## Nitpicks
+
+- **`cron_field_matches` при ведущем нуле в чужом crontab-поле даёт пропуск.** Ветка `*[!0-9]*` не срабатывает для `07`, и `[ "07" = "7" ]` ложно (`:2154`). NetShift сам такие поля не пишет (`:1950-1962`, `:2023-2048`), так что недостижимо, но проверка «любое нечисловое → считаем совпадением» логичнее распространить и на ведущие нули.
+- **`*/00` проходит мимо guard'а** `"…| 0)"` (`:2150`): строка `00` не равна `0`, и `$((value % 00))` — деление на ноль. Недостижимо (генерируются только `*/3`, `*/6`, `*/12`, `*/30`), но защита неполная.
+- **Списки и диапазоны (`1,2`, `1-5`) трактуются как совпадение** (`:2153`) → возможен ложный warn, если такой crontab-поле попадёт под grep `/usr/bin/netshift (list_update|subscription_update)`. В комментарии это осознанно задокументировано.
+- **Смешанный случай «интервал неизвестен + задано время»** даёт два warn'а подряд, и второй говорит «this section uses 1h», хотя в UCI лежит, например, `2h` (`:2085-2090`). Формулировку можно уточнить.
+- **Игнор дня месяца** (`3d`-задание `13 9 */3 * *`) задокументирован только комментарием в коде (`:2163-2165`), но не в README и не в подсказке поля — пользователь увидит warn в день, когда `list_update` не запускается.
+- **Хедер `.pot` теперь `Last-Translator: cergo666 <cergo666@ya.ru>`** — метаданные сгенерированного файла подхватили git-identity автора. Безвредно, но это шум в диффе; в `.po` остался `yandexru45`, т.е. файлы разъезжаются по хедеру.
+- **`echo "$subscription_update_time"`** (`:2015`) — потенциальная интерпретация `-n`/эскейпов, но до `echo` значение всегда проходит `is_valid_subscription_update_time`, поэтому безопасно.
+
+## Тесты
+
+- Новые кейсы **зарегистрированы и исполняются**: `test_sub_cron` входит и в набор `all` (`tests/entrypoint.sh:13008`), и в селектор `subcron` (`:13050`).
+- Функции берутся **из настоящего бинарника** awk-извлечением (`extract()`, `:8177-8179`) — проверяются `is_valid_subscription_update_time`, `get_section_subscription_update_time`, `cron_field_matches`, `warn_daily_subscription_time_collisions`, `get_subscription_cron_line_for_interval`, `_collect_subscription_update_interval`, `sync_subscription_cron_jobs`, `subscription_update`. Это не тесты собственного стаба: стабируются только `crontab` (файл вместо бинарника, с записью через temp+mv — `:8201-8214`) и `log` (в файл, `:8195`).
+- **Упали бы без правки** — да, и по делу: `schedule-1d`/`slow-keeps-1d`/`start-main-builds-jobs` теперь требуют суффикс ` 09:52` (без правки строки нет), `daily-time-cron-fields` требует разбора второго аргумента, `daily-time-own-job`/`daily-same-time-one-job` — ключа `1d@HH:MM`, `daily-minute-clash-warned`/`clash-3h-same-hour-warned`/`clash-list-update-*` — несуществовавшей функции `warn_daily_subscription_time_collisions`, `filter-1d-other-time-noop` — фильтра по времени (старый код обновил бы `slow`).
+- Сильные места: проверка отсутствия восьмеричной ловушки (`08:09`→`9 8`, `00:05`→`5 0`, `clash-hint-leading-zero`), проверка стабильности расписания при повторной пересборке, проверка warn'а про игнор на не-`1d`.
+- Пробелы покрытия: нет кейса «дефолт `09:52` + секции `30m/1h/3h/6h/12h` + `list_update` → **тишина**» (проверяется только тишина `04:31` против `30m`); нет кейса `6h`/`12h`; нет кейса «дневное время совпадает с **другим дневным** заданием» (недостижимо из-за дедупа — стоило бы зафиксировать явно); нет проверки, что `remove_cron_job` снимает строку с временем (косвенно покрыто `remove-cron-job-clears-all`).
+- Тесты локалей (что `calls.json` — источник) не добавлены; защита от повторения блокера держится только на ревью.
+
+## Не проверено и остаточные риски
+
+- **Ничего не запускал** (нет bash/docker/сети): не воспроизведены `yarn ci` (561 тест), `shellcheck -S error`, smoke-набор на голове `233c886`, а также сам блок `subcron`. Утверждение «smoke зелёный в CI» и «ShellCheck чистый» принимаю на веру; поведение тестов выведено из чтения кода и стабов. Эксперимент: `docker compose -f tests/docker-compose.yml run --rm netshift-test subcron` + `yarn ci`.
+- **`main.js` — результат сборки** проверить не могу; по диффу он согласован с `index.ts` (порядок функций и алфавитный список экспортов), но факт «сборка не оставляет diff» не подтверждён. Эксперимент: `cd fe-app-netshift && yarn ci && git status --porcelain`.
+- **Поведение `depends` в LuCI** для неактивного поля не проверено (luci-base в репозитории нет): если LuCI сохраняет скрытый по `depends` виджет, то у секции с интервалом `1h` в UCI окажется `subscription_update_time='09:52'` и на каждом старте будет висеть warn «is ignored». Проверить: в UI переключить секцию с `1d` на `1h`, сохранить, посмотреть `uci show netshift`.
+- **Формат реального `crontab -l`** (busybox) в проде: если строка приходит с двойными пробелами/табом, сравнение `*"subscription_update 1d $daily_time"` (`:2188`) не совпадёт и дневное задание предупредит само о себе. NetShift пишет строки сам через одинарные пробелы, поэтому риск низкий, но на «чужом» crontab не исключён.
+- **Права/ACL**: изменений не требуется — ACL выдаёт весь пакет `netshift` целиком (`luci-app-netshift.json`), а не по опциям; это я проверил, но запись новой опции через UI вживую не тестировал.
+- **Пересечение с #69/#71** по `tests/entrypoint.sh` и `netshift` остаётся; финальное поведение зависит от порядка мержа и от перегенерации `main.js` после него.

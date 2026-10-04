@@ -1,0 +1,10 @@
+{
+  "schema_version": "pi-background-tasks.delegate-child-terminal.v1",
+  "task_id": "d8301ce0cda1e16dd78e366f00b16f51c",
+  "launch_nonce": "0a8b61840c22d79176223cc835b51566",
+  "code": "child_turn_limit",
+  "message": "delegate child exceeded its 24 turn limit",
+  "turns": 25,
+  "tool_calls": 44,
+  "spilled_artifacts": []
+}

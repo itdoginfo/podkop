@@ -1,0 +1,6 @@
+  11 | >>>     make package/luci-app-netshift/compile -j4 V=s
+  12 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c make defconfig &&     make package/netshift/compile -j4 V=s &&     make package/luci-app-netshift/compile -j4 V=s" did not complete successfully: exit code: 2
+Unable to find image 'netshift:apk-098' locally
+Error response from daemon: pull access denied for netshift, repository does not exist or may require 'docker login'

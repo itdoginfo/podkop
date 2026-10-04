@@ -1,0 +1,29 @@
+{
+  "id": "b4acf9a96",
+  "name": "apk-arm-повтор",
+  "command": "nice -n 15 docker build -f /tmp/Dockerfile-arm --build-arg NETSHIFT_VERSION=0.9.9 --progress=plain -t netshift:apk-arm099 . > /tmp/arm-build.log 2>&1; echo \"BUILD_EXIT=$?\" >> /tmp/arm-build.log; tail -3 /tmp/arm-build.log",
+  "description": "Пересборка arm-пакетов с логом на диск",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0e429-dd5b-732f-8142-055ccfdd60f8-7746/b4acf9a96.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790617379943,
+  "endTime": 1790619295580,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 1238857,
+  "bytesWritten": 95,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 3600,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

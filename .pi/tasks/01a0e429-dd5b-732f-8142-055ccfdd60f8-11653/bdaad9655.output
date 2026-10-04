@@ -1,0 +1,7 @@
+
+ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: docker/setup-buildx-action@v3.11.1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+OpenWrt rootfs smoke tests: .github#2
+
+Run Differential ShellCheck (36382766285) has already completed with 'success'
+CI FINAL EXIT=0

@@ -1,0 +1,30 @@
+{
+  "id": "b77979fdb",
+  "name": "verify PR73 package builds",
+  "command": "chmod +x /tmp/prrev/verify-pr73.sh && bash /tmp/prrev/verify-pr73.sh",
+  "description": "Build ipk+apk with PR73 and main Dockerfiles from the same source tree, compare payloads (verifies the CI path that never runs on the PR)",
+  "status": "failed",
+  "outputPath": ".pi/tasks/01a0fd69-ba5a-763a-a77a-b99c470f40f6-13160/b77979fdb.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790959212129,
+  "endTime": 1790960149487,
+  "exitCode": 1,
+  "signal": null,
+  "pid": 18647,
+  "bytesWritten": 610,
+  "isAgent": false,
+  "surviveReload": false,
+  "error": "Exited with code 1",
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 3600,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

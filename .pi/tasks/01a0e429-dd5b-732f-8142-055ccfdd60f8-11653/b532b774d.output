@@ -1,0 +1,63 @@
+#21 resolving provenance for metadata file
+#21 DONE 0.0s
+ Image netshift-evolution:test Built 
+  [0;32m✓[0m ds-mixed-separators:OK
+  [0;32m✓[0m ds-vt-ff:OK
+  [0;32m✓[0m ds-comment-trailing:OK
+  [0;32m✓[0m ds-comment-header:OK
+  [0;32m✓[0m ds-invalid-dropped:OK
+  [0;32m✓[0m ds-empty:OK
+  [0;32m✓[0m ds-config-no-abort:OK
+  [0;32m✓[0m ds-subnet-config-no-abort:OK
+  [0;32m✓[0m ds-ruleset-domains:OK
+  [0;32m✓[0m ds-ruleset-subnets:OK
+  [0;32m✓[0m ds-missing-value-no-abort:OK
+  [0;32m✓[0m ds-missing-value-empty:OK
+  [0;32m✓[0m ds-missing-mode-no-abort:OK
+  [0;32m✓[0m ds-singbox-check:OK
+  [0;32m✓[0m ds-driver-completed:OK
+
+[1m[0;36m━━━ Selected Server Survives Reboot (sing-box cache DB copy) ━━━[0m
+  [0;32m✓[0m cp-restore-without-copy-noop
+  [0;32m✓[0m cp-restore-after-reboot
+  [0;32m✓[0m cp-restore-keeps-live-db
+  [0;32m✓[0m cp-restore-skips-flash-cache-path
+  [0;32m✓[0m cp-volatile-tmp
+  [0;32m✓[0m cp-volatile-var
+  [0;32m✓[0m cp-flash-not-volatile
+  [0;32m✓[0m cp-selection-lists-selectors-only
+  [0;32m✓[0m cp-selection-uses-lan-address
+  [0;32m✓[0m cp-selection-no-auth-without-secret
+  [0;32m✓[0m cp-selection-sends-secret
+  [0;32m✓[0m cp-selection-honours-listen-override
+  [0;32m✓[0m cp-selection-empty-when-api-down
+  [0;32m✓[0m cp-snapshot-without-live-db-noop
+  [0;32m✓[0m cp-snapshot-api-down-noop
+  [0;32m✓[0m cp-snapshot-copies-live-db
+  [0;32m✓[0m cp-snapshot-records-selection
+  [0;32m✓[0m cp-snapshot-mode-600
+  [0;32m✓[0m cp-snapshot-no-leftover-tmp
+  [0;32m✓[0m cp-snapshot-same-selection-no-write
+  [0;32m✓[0m cp-snapshot-new-selection-rewrites
+  [0;32m✓[0m cp-snapshot-legacy-copy-retaken
+  [0;32m✓[0m cp-snapshot-unstable-keeps-old-copy
+  [0;32m✓[0m cp-snapshot-unstable-no-leftover-tmp
+  [0;32m✓[0m cp-snapshot-unstable-logs-warn
+  [0;32m✓[0m cp-snapshot-retry-after-write
+  [0;32m✓[0m cp-snapshot-skips-flash-cache-path
+  [0;32m✓[0m cp-monitor-snapshots-once-per-minute
+  [0;32m✓[0m cp-restore-sets-restored-flag
+  [0;32m✓[0m cp-heal-drops-restored-cache
+  [0;32m✓[0m cp-heal-noop-without-restore
+  [0;32m✓[0m cp-monitor-heals-restored-cache
+  [0;32m✓[0m cp-clash-api-204-snapshots
+  [0;32m✓[0m cp-clash-api-404-no-snapshot
+  [0;32m✓[0m cp-start-restores-before-sing-box
+  [0;32m✓[0m cp-set-group-proxy-snapshots
+  [0;32m✓[0m cp-stop-does-not-snapshot
+  [0;32m✓[0m cp-monitor-heals-on-crash
+  [0;32m✓[0m cp-driver-completed
+
+[1m──────────────────────────────────────[0m
+Results: [0;32m856 passed[0m / [0;31m0 failed[0m / [1;33m2 skipped[0m
+[0;32m[1m✓ ALL TESTS PASSED[0m (856 test(s))

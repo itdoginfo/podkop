@@ -1,0 +1,29 @@
+{
+  "id": "b788bbf62",
+  "name": "apk-сборка-докер",
+  "command": "docker build -f Dockerfile-apk --build-arg NETSHIFT_VERSION=0.9.8-test --cpus=6 --memory=8g -t netshift:ci-apk-local . 2>&1 | tail -5 && rm -f /tmp/apk-pkg.tar && cid=$(docker create netshift:ci-apk-local) && docker cp \"$cid\":/builder/bin/packages/x86_64/utilities/. /tmp/netshift-apk-out/ 2>/dev/null; docker cp \"$cid\":/builder/bin/packages/x86_64/luci/. /tmp/netshift-apk-out/ 2>/dev/null; docker rm \"$cid\" >/dev/null; ls -la /tmp/netshift-apk-out/ && echo \"BUILD DONE\"",
+  "description": "Docker-сборка apk-пакетов netshift",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0e429-dd5b-732f-8142-055ccfdd60f8-7746/b788bbf62.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790607324285,
+  "endTime": 1790607351051,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 11544,
+  "bytesWritten": 4353,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 2400,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

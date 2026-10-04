@@ -1,0 +1,28 @@
+{
+  "id": "b1582ecb4",
+  "name": "Post-merge gates on main",
+  "command": "sh /tmp/netshift-review/post-merge-gates.sh 2>&1 | tee /tmp/netshift-review/evidence/postmerge-gates.log",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0f87d-93d4-7732-9f28-82b241afbdec-9264/b1582ecb4.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790880975571,
+  "endTime": 1790881045524,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 444088,
+  "bytesWritten": 543,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 1800,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

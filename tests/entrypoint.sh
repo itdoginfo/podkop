@@ -1631,6 +1631,159 @@ EGEOF
 }
 
 # ─────────────────────────────────────────────────────────────────
+# Test: HTTPUpgrade transport + whole-link skip on an unknown transport
+# ─────────────────────────────────────────────────────────────────
+# httpupgrade is an UPSTREAM sing-box transport (shipped since 1.8), so it must
+# be applied regardless of the sing-box-extended gate. Support for it was lost
+# when main was rebuilt without PR #28 (issue #66): such nodes stayed as
+# outbounds WITHOUT a transport — valid, still listed in their group, but unable
+# to connect. A genuinely unknown transport must now skip the WHOLE link (config
+# UNCHANGED, non-zero return) instead of keeping a transportless node, the same
+# contract as the XHTTP-on-stock-core path.
+# Drives the REAL facade/manager; synthetic values only.
+test_httpupgrade_transport() {
+    header "HTTPUpgrade transport + skip on unknown transport"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local facade_lib="$lib/sing_box_config_facade.sh"
+    if [ ! -r "$facade_lib" ]; then
+        fail "facade lib not found"
+        return
+    fi
+
+    # The facade sources helpers + manager from /usr/lib/netshift.
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/test-hu-$$.sh"
+    local out="/tmp/test-hu-out-$$.txt"
+    cat > "$drv" << 'HUEOF'
+. "CONST_LIB"
+. "FACADE_LIB"
+
+LOG_FILE="/tmp/hu-log-$$.log"
+: > "$LOG_FILE"
+log()     { printf '%s|%s\n' "${2:-info}" "$1" >> "$LOG_FILE"; }
+echolog() { printf '%s|%s\n' "${2:-info}" "$1" >> "$LOG_FILE"; }
+nolog()   { :; }
+
+base='{"outbounds":[]}'
+
+# ── (1) vless ?type=httpupgrade: transport applied, host falls back to sni ────
+HU="vless://99999999-aaaa-bbbb-cccc-dddddddddddd@h.example.com:443?type=httpupgrade&security=tls&sni=h.example.com&path=/hu"
+out_hu=$(sing_box_cf_add_proxy_outbound "$base" "hu" "$HU" "0")
+printf '%s' "$out_hu" | jq -e '.outbounds[0].transport.type=="httpupgrade"' >/dev/null 2>&1 \
+    && echo 'hu-url-type:OK' || echo 'hu-url-type:FAIL'
+printf '%s' "$out_hu" | jq -e '.outbounds[0].transport.path=="/hu"' >/dev/null 2>&1 \
+    && echo 'hu-url-path:OK' || echo 'hu-url-path:FAIL'
+printf '%s' "$out_hu" | jq -e '.outbounds[0].transport.host=="h.example.com"' >/dev/null 2>&1 \
+    && echo 'hu-url-host-from-sni:OK' || echo 'hu-url-host-from-sni:FAIL'
+
+# ── (2) explicit ?host= wins over the sni ─────────────────────────────
+HUH="vless://99999999-aaaa-bbbb-cccc-dddddddddddd@h.example.com:443?type=httpupgrade&security=tls&sni=h.example.com&path=/hu&host=cdn.example.net"
+out_huh=$(sing_box_cf_add_proxy_outbound "$base" "huh" "$HUH" "0")
+printf '%s' "$out_huh" | jq -e '.outbounds[0].transport.host=="cdn.example.net"' >/dev/null 2>&1 \
+    && echo 'hu-url-host-from-link:OK' || echo 'hu-url-host-from-link:FAIL'
+
+# ── (3) trojan with an empty path defaults to "/" ───────────────────
+HUT="trojan://synthetic-pass@t.example.com:443?type=httpupgrade&security=tls&sni=t.example.com"
+out_hut=$(sing_box_cf_add_proxy_outbound "$base" "hut" "$HUT" "0")
+printf '%s' "$out_hut" | jq -e '.outbounds[0].transport.type=="httpupgrade" and .outbounds[0].transport.path=="/"' >/dev/null 2>&1 \
+    && echo 'hu-trojan-default-path:OK' || echo 'hu-trojan-default-path:FAIL'
+
+# ── (4) NO extended gate: a stock core still gets the transport ──────────────
+is_sing_box_extended() { return 1; }
+out_hu_stock=$(sing_box_cf_add_proxy_outbound "$base" "hus" "$HU" "0")
+printf '%s' "$out_hu_stock" | jq -e '.outbounds[0].transport.type=="httpupgrade"' >/dev/null 2>&1 \
+    && echo 'hu-no-extended-gate:OK' || echo 'hu-no-extended-gate:FAIL'
+
+# ── (5) vmess net=httpupgrade (vmess itself needs the extended core) ────────
+is_sing_box_extended() { return 0; }
+HU_JSON='{"v":"2","ps":"hu","add":"vm.example.com","port":"443","id":"11111111-2222-3333-4444-555555555555","aid":"0","net":"httpupgrade","host":"vm.example.com","path":"/vmhu","tls":"tls","sni":"vm.example.com"}'
+HUV="vmess://$(printf '%s' "$HU_JSON" | base64 | tr -d '\n')"
+out_huv=$(sing_box_cf_add_proxy_outbound "$base" "huv" "$HUV" "0")
+printf '%s' "$out_huv" | jq -e '.outbounds[0].transport.type=="httpupgrade" and .outbounds[0].transport.path=="/vmhu" and .outbounds[0].transport.host=="vm.example.com"' >/dev/null 2>&1 \
+    && echo 'hu-vmess-net:OK' || echo 'hu-vmess-net:FAIL'
+
+# ── (6) unknown transport: the WHOLE link is skipped, not left transportless ──
+: > "$LOG_FILE"
+out_unk=$(sing_box_cf_add_proxy_outbound "$base" "unk" "vless://99999999-aaaa-bbbb-cccc-dddddddddddd@u.example.com:443?type=quantum-magic&security=tls&sni=u.example.com" "0")
+rc_unk=$?
+if [ "$rc_unk" != "0" ] && [ "$out_unk" = "$base" ] && grep -q '^error|.*Unknown transport' "$LOG_FILE"; then
+    echo 'hu-unknown-skipped:OK'
+else
+    echo "hu-unknown-skipped:FAIL (rc=$rc_unk)"
+fi
+printf '%s' "$out_unk" | jq -e '[.outbounds[] | select(.transport == null)] | length == 0' >/dev/null 2>&1 \
+    && echo 'hu-unknown-no-transportless-outbound:OK' || echo 'hu-unknown-no-transportless-outbound:FAIL'
+
+# ── (7) unknown vmess net: same skip contract ────────────────────────────────
+UNK_JSON='{"v":"2","ps":"unk","add":"u.example.com","port":"443","id":"11111111-2222-3333-4444-555555555555","aid":"0","net":"quantum-magic","tls":"tls","sni":"u.example.com"}'
+UNKV="vmess://$(printf '%s' "$UNK_JSON" | base64 | tr -d '\n')"
+: > "$LOG_FILE"
+out_unkv=$(sing_box_cf_add_proxy_outbound "$base" "unkv" "$UNKV" "0")
+rc_unkv=$?
+if [ "$rc_unkv" != "0" ] && [ "$out_unkv" = "$base" ] && grep -q '^error|.*Unknown VMess transport' "$LOG_FILE"; then
+    echo 'hu-unknown-vmess-skipped:OK'
+else
+    echo "hu-unknown-vmess-skipped:FAIL (rc=$rc_unkv)"
+fi
+
+# ── (9) a link WITHOUT `type=` is plain TCP, not an unknown transport ────────
+# Regression guard: the skip branch must not swallow ordinary links that simply
+# omit `type=` (they carry no transport block at all).
+NOTYPE="vless://99999999-aaaa-bbbb-cccc-dddddddddddd@nt.example.com:443?security=tls&sni=nt.example.com"
+out_nt=$(sing_box_cf_add_proxy_outbound "$base" "nt" "$NOTYPE" "0")
+rc_nt=$?
+if [ "$rc_nt" = "0" ] \
+    && printf '%s' "$out_nt" | jq -e '(.outbounds | length) == 1 and .outbounds[0].transport == null' >/dev/null 2>&1; then
+    echo 'hu-no-type-is-plain-tcp:OK'
+else
+    echo "hu-no-type-is-plain-tcp:FAIL (rc=$rc_nt)"
+fi
+
+# ── (10) whole-chain: a real sing-box check accepts the httpupgrade outbound ──
+hu_full="/tmp/hu-full-$$.json"
+printf '%s' "$out_hu" | jq '{
+    log: { level: "error" },
+    inbounds: [],
+    outbounds: (.outbounds + [ { type: "direct", tag: "direct-out" } ]),
+    route: { final: "direct-out" }
+}' > "$hu_full" 2>/dev/null
+if command -v sing-box > /dev/null 2>&1; then
+    sing-box -c "$hu_full" check > /dev/null 2>&1 \
+        && echo 'hu-singbox-check:OK' || echo 'hu-singbox-check:FAIL'
+else
+    echo 'hu-singbox-check:SKIP'
+fi
+rm -f "$hu_full"
+
+rm -f "$LOG_FILE"
+echo 'DONE'
+HUEOF
+    sed -i "s|CONST_LIB|$lib/constants.sh|g; s|FACADE_LIB|$facade_lib|g" "$drv"
+
+    sh "$drv" > "$out" 2>/dev/null || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK)    pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP*) skip "$line" ;;
+            DONE)    saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "hu-driver-completed:OK"
+    else
+        fail "hu-driver-completed:FAIL (driver aborted early)"
+    fi
+    rm -f "$drv" "$out"
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Test: VLESS Encryption passthrough + extended gate
 # ─────────────────────────────────────────────────────────────────
 # A vless:// link may carry the ML-KEM-768 + X25519 handshake in encryption=.
@@ -15889,6 +16042,7 @@ main() {
             test_monitor_fd_hygiene
             test_unsupported_skip
             test_extended_gate_skip
+            test_httpupgrade_transport
             test_vless_encryption
             test_text_list_outbound
             test_ruleset_chunk_size
@@ -15943,6 +16097,7 @@ main() {
         monfd)       test_monitor_fd_hygiene ;;
         unsupported) test_unsupported_skip ;;
         extgate)     test_extended_gate_skip ;;
+        httpupgrade) test_httpupgrade_transport ;;
         vlessenc)    test_vless_encryption ;;
         textlist)    test_text_list_outbound ;;
         chunkcheck)  test_ruleset_chunk_size ;;
@@ -15992,7 +16147,7 @@ main() {
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade"
             exit 1
             ;;
     esac

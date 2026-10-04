@@ -1,0 +1,195 @@
+yarn run v1.22.22
+$ yarn format && yarn lint --max-warnings=0 && yarn test --run && yarn build
+$ prettier --write src
+src/constants.ts 70ms (unchanged)
+src/helpers/copyToClipboard.ts 10ms (unchanged)
+src/helpers/downloadAsTxt.ts 6ms (unchanged)
+src/helpers/executeShellCommand.ts 5ms (unchanged)
+src/helpers/getClashApiUrl.ts 3ms (unchanged)
+src/helpers/getProxyUrlName.ts 4ms (unchanged)
+src/helpers/index.ts 2ms (unchanged)
+src/helpers/injectGlobalStyles.ts 2ms (unchanged)
+src/helpers/insertIf.ts 5ms (unchanged)
+src/helpers/maskIP.ts 3ms (unchanged)
+src/helpers/normalizeCompiledVersion.ts 1ms (unchanged)
+src/helpers/onMount.ts 4ms (unchanged)
+src/helpers/parseQueryString.ts 6ms (unchanged)
+src/helpers/parseValueList.ts 4ms (unchanged)
+src/helpers/preserveScrollForPage.ts 2ms (unchanged)
+src/helpers/prettyBytes.ts 5ms (unchanged)
+src/helpers/removeVersionPrefix.ts 1ms (unchanged)
+src/helpers/showToast.ts 3ms (unchanged)
+src/helpers/splitProxyString.ts 2ms (unchanged)
+src/helpers/svgEl.ts 6ms (unchanged)
+src/helpers/tests/maskIp.test.js 33ms (unchanged)
+src/helpers/withTimeout.ts 4ms (unchanged)
+src/icons/index.ts 1ms (unchanged)
+src/icons/renderBookOpenTextIcon24.ts 3ms (unchanged)
+src/icons/renderCheckIcon24.ts 2ms (unchanged)
+src/icons/renderCircleAlertIcon24.ts 3ms (unchanged)
+src/icons/renderCircleCheckBigIcon24.ts 2ms (unchanged)
+src/icons/renderCircleCheckIcon24.ts 3ms (unchanged)
+src/icons/renderCirclePlayIcon24.ts 2ms (unchanged)
+src/icons/renderCircleSlashIcon24.ts 2ms (unchanged)
+src/icons/renderCircleStopIcon24.ts 2ms (unchanged)
+src/icons/renderCircleXIcon24.ts 2ms (unchanged)
+src/icons/renderCogIcon24.ts 4ms (unchanged)
+src/icons/renderLoaderCircleIcon24.ts 2ms (unchanged)
+src/icons/renderPauseIcon24.ts 2ms (unchanged)
+src/icons/renderPlayIcon24.ts 1ms (unchanged)
+src/icons/renderRotateCcwIcon24.ts 1ms (unchanged)
+src/icons/renderSearchIcon24.ts 3ms (unchanged)
+src/icons/renderSquareChartGanttIcon24.ts 2ms (unchanged)
+src/icons/renderTriangleAlertIcon24.ts 1ms (unchanged)
+src/icons/renderXIcon24.ts 1ms (unchanged)
+src/luci.d.ts 6ms (unchanged)
+src/main.ts 1ms (unchanged)
+src/netshift/api.ts 3ms (unchanged)
+src/netshift/fetchers/fetchServicesInfo.ts 2ms (unchanged)
+src/netshift/fetchers/index.ts 1ms (unchanged)
+src/netshift/index.ts 1ms (unchanged)
+src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts 12ms (unchanged)
+src/netshift/methods/custom/getClashApiSecret.ts 2ms (unchanged)
+src/netshift/methods/custom/getConfigSections.ts 1ms (unchanged)
+src/netshift/methods/custom/getDashboardSections.ts 17ms (unchanged)
+src/netshift/methods/custom/index.ts 2ms (unchanged)
+src/netshift/methods/custom/tests/buildSubscriptionOutboundGroup.test.ts 10ms (unchanged)
+src/netshift/methods/fakeip/getFakeIpCheck.ts 2ms (unchanged)
+src/netshift/methods/fakeip/getIpCheck.ts 2ms (unchanged)
+src/netshift/methods/fakeip/index.ts 1ms (unchanged)
+src/netshift/methods/index.ts 1ms (unchanged)
+src/netshift/methods/shell/callBaseMethod.ts 2ms (unchanged)
+src/netshift/methods/shell/index.ts 18ms (unchanged)
+src/netshift/methods/shell/parseComponentCheckUpdate.ts 3ms (unchanged)
+src/netshift/methods/shell/pollSingBoxComponentAction.ts 8ms (unchanged)
+src/netshift/methods/shell/sleep.ts 1ms (unchanged)
+src/netshift/methods/shell/tests/parseComponentCheckUpdate.test.js 5ms (unchanged)
+src/netshift/methods/shell/tests/pollSingBoxComponentAction.test.js 8ms (unchanged)
+src/netshift/methods/shell/tests/singBoxComponentAction.test.js 4ms (unchanged)
+src/netshift/services/core.service.ts 4ms (unchanged)
+src/netshift/services/index.ts 1ms (unchanged)
+src/netshift/services/logger.service.ts 5ms (unchanged)
+src/netshift/services/netshiftLogWatcher.service.ts 8ms (unchanged)
+src/netshift/services/socket.service.ts 10ms (unchanged)
+src/netshift/services/store.service.ts 12ms (unchanged)
+src/netshift/services/tab.service.ts 5ms (unchanged)
+src/netshift/tabs/dashboard/index.ts 1ms (unchanged)
+src/netshift/tabs/dashboard/initController.ts 23ms (unchanged)
+src/netshift/tabs/dashboard/partials/index.ts 1ms (unchanged)
+src/netshift/tabs/dashboard/partials/renderSections.ts 6ms (unchanged)
+src/netshift/tabs/dashboard/partials/renderWidget.ts 2ms (unchanged)
+src/netshift/tabs/dashboard/render.ts 2ms (unchanged)
+src/netshift/tabs/dashboard/styles.ts 1ms (unchanged)
+src/netshift/tabs/diagnostic/checks/contstants.ts 2ms (unchanged)
+src/netshift/tabs/diagnostic/checks/runDnsCheck.ts 4ms (unchanged)
+src/netshift/tabs/diagnostic/checks/runFakeIPCheck.ts 4ms (unchanged)
+src/netshift/tabs/diagnostic/checks/runNftCheck.ts 4ms (unchanged)
+src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts 4ms (unchanged)
+src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts 3ms (unchanged)
+src/netshift/tabs/diagnostic/checks/updateCheckStore.ts 2ms (unchanged)
+src/netshift/tabs/diagnostic/diagnostic.store.ts 4ms (unchanged)
+src/netshift/tabs/diagnostic/helpers/getCheckTitle.ts 1ms (unchanged)
+src/netshift/tabs/diagnostic/helpers/getMeta.ts 1ms (unchanged)
+src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts 4ms (unchanged)
+src/netshift/tabs/diagnostic/index.ts 1ms (unchanged)
+src/netshift/tabs/diagnostic/initController.ts 22ms (unchanged)
+src/netshift/tabs/diagnostic/partials/index.ts 1ms (unchanged)
+src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts 4ms (unchanged)
+src/netshift/tabs/diagnostic/partials/renderCheckSection.ts 6ms (unchanged)
+src/netshift/tabs/diagnostic/partials/renderRunAction.ts 1ms (unchanged)
+src/netshift/tabs/diagnostic/partials/renderSystemInfo.ts 3ms (unchanged)
+src/netshift/tabs/diagnostic/partials/renderWikiDisclaimer.ts 2ms (unchanged)
+src/netshift/tabs/diagnostic/renderDiagnostic.ts 1ms (unchanged)
+src/netshift/tabs/diagnostic/styles.ts 1ms (unchanged)
+src/netshift/tabs/diagnostic/tests/getNetshiftVersionRow.test.ts 3ms (unchanged)
+src/netshift/tabs/index.ts 1ms (unchanged)
+src/netshift/tabs/manager/cards.ts 8ms (unchanged)
+src/netshift/tabs/manager/index.ts 1ms (unchanged)
+src/netshift/tabs/manager/initController.ts 13ms (unchanged)
+src/netshift/tabs/manager/manager.store.ts 1ms (unchanged)
+src/netshift/tabs/manager/render.ts 2ms (unchanged)
+src/netshift/tabs/manager/styles.ts 1ms (unchanged)
+src/netshift/tabs/manager/tests/cards.test.js 13ms (unchanged)
+src/netshift/types.ts 6ms (unchanged)
+src/partials/button/renderButton.ts 3ms (unchanged)
+src/partials/button/styles.ts 1ms (unchanged)
+src/partials/index.ts 1ms (unchanged)
+src/partials/modal/renderModal.ts 3ms (unchanged)
+src/partials/modal/styles.ts 1ms (unchanged)
+src/styles.ts 1ms (unchanged)
+src/validators/bulkValidate.ts 3ms (unchanged)
+src/validators/index.ts 1ms (unchanged)
+src/validators/tests/validateDns.test.js 2ms (unchanged)
+src/validators/tests/validateDomain.test.js 6ms (unchanged)
+src/validators/tests/validateHysteriaUrl.test.js 4ms (unchanged)
+src/validators/tests/validateIp.test.js 4ms (unchanged)
+src/validators/tests/validatePath.test.js 3ms (unchanged)
+src/validators/tests/validateProxyUrlList.test.js 5ms (unchanged)
+src/validators/tests/validateShadowsocksUrl.test.js 2ms (unchanged)
+src/validators/tests/validateSocksUrl.test.js 2ms (unchanged)
+src/validators/tests/validateSubnet.test.js 2ms (unchanged)
+src/validators/tests/validateTrojanUrl.test.js 3ms (unchanged)
+src/validators/tests/validateUrl.test.js 2ms (unchanged)
+src/validators/tests/validateVlessUrl.test.js 2ms (unchanged)
+src/validators/tests/validateVmessUrl.test.js 7ms (unchanged)
+src/validators/types.ts 2ms (unchanged)
+src/validators/validateDns.ts 2ms (unchanged)
+src/validators/validateDomain.ts 2ms (unchanged)
+src/validators/validateHysteriaUrl.ts 5ms (unchanged)
+src/validators/validateIp.ts 5ms (unchanged)
+src/validators/validateOutboundJson.ts 1ms (unchanged)
+src/validators/validatePath.ts 1ms (unchanged)
+src/validators/validateProxyUrl.ts 2ms (unchanged)
+src/validators/validateProxyUrlList.ts 2ms (unchanged)
+src/validators/validateShadowsocksUrl.ts 4ms (unchanged)
+src/validators/validateSocksUrl.ts 4ms (unchanged)
+src/validators/validateSubnet.ts 4ms (unchanged)
+src/validators/validateTrojanUrl.ts 7ms (unchanged)
+src/validators/validateUrl.ts 3ms (unchanged)
+src/validators/validateVlessUrl.ts 3ms (unchanged)
+src/validators/validateVmessUrl.ts 4ms (unchanged)
+$ eslint src --ext .ts,.tsx --max-warnings=0
+$ vitest --run
+
+ RUN  v3.2.4 /home/dark/netshift/.pr-review/pr58/fe-app-netshift
+
+ ✓ src/netshift/methods/custom/tests/buildSubscriptionOutboundGroup.test.ts (4 tests) 4ms
+ ✓ src/validators/tests/validateVmessUrl.test.js (31 tests) 9ms
+ ✓ src/netshift/tabs/manager/tests/cards.test.js (19 tests) 8ms
+ ✓ src/validators/tests/validateDomain.test.js (36 tests) 6ms
+ ✓ src/validators/tests/validateSocksUrl.test.js (20 tests) 6ms
+ ✓ src/validators/tests/validateIp.test.js (63 tests) 9ms
+ ✓ src/validators/tests/validateVlessUrl.test.js (22 tests) 11ms
+ ✓ src/validators/tests/validateTrojanUrl.test.js (27 tests) 6ms
+ ✓ src/validators/tests/validateSubnet.test.js (27 tests) 7ms
+ ✓ src/validators/tests/validateHysteriaUrl.test.js (18 tests) 6ms
+ ✓ src/validators/tests/validateDns.test.js (152 tests) 26ms
+ ✓ src/netshift/methods/shell/tests/pollSingBoxComponentAction.test.js (7 tests) 13ms
+ ✓ src/validators/tests/validateUrl.test.js (19 tests) 14ms
+ ✓ src/validators/tests/validateProxyUrlList.test.js (13 tests) 7ms
+ ✓ src/netshift/methods/shell/tests/singBoxComponentAction.test.js (3 tests) 6ms
+ ✓ src/validators/tests/validateShadowsocksUrl.test.js (10 tests) 6ms
+ ✓ src/netshift/methods/shell/tests/parseComponentCheckUpdate.test.js (8 tests) 4ms
+ ✓ src/helpers/tests/maskIp.test.js (14 tests) 6ms
+ ✓ src/validators/tests/validatePath.test.js (15 tests) 5ms
+ ✓ src/netshift/tabs/diagnostic/tests/getNetshiftVersionRow.test.ts (3 tests) 3ms
+
+ Test Files  20 passed (20)
+      Tests  511 passed (511)
+   Start at  21:36:40
+   Duration  758ms (transform 799ms, setup 197ms, collect 1.67s, tests 163ms, environment 3ms, prepare 2.08s)
+
+$ tsup src/main.ts
+CLI Building entry: src/main.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.0
+CLI Using tsup config: /home/dark/netshift/.pr-review/pr58/fe-app-netshift/tsup.config.ts
+CLI Target: es2020
+ESM Build start
+ESM ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/main.js 170.56 KB
+ESM ⚡️ Build success in 28ms
+✅ Patched LuCI build: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/main.js
+Done in 5.07s.
+=== CI EXIT=0 ===
+=== GIT STATUS AFTER BUILD ===
+=== DIFFSTAT AFTER BUILD ===
