@@ -1,0 +1,96 @@
+=== extended binary sha256 check ===
+c4b6a7367fc25e7a37289ea917fbf836d385b552a097ea5f643480d7fbe2768f  sbx.tar.gz
+sing-box-1.13.14-extended-2.5.3-linux-amd64-musl/LICENSE
+sing-box-1.13.14-extended-2.5.3-linux-amd64-musl/sing-box
+=== merge-bases ===
+2322ccdb45c13bf8d8f3c6e29d3ef2ca094bef31
+2322ccdb45c13bf8d8f3c6e29d3ef2ca094bef31
+=== ns-base: build ===
+#20 resolving provenance for metadata file
+#20 DONE 0.0s
+ Image netshift-evolution:test Built 
+=== ns-base: run all ===
+exit=0
+  [0;32m✓[0m cp-snapshot-unstable-no-leftover-tmp
+  [0;32m✓[0m cp-snapshot-unstable-logs-warn
+  [0;32m✓[0m cp-snapshot-retry-after-write
+  [0;32m✓[0m cp-snapshot-skips-flash-cache-path
+  [0;32m✓[0m cp-monitor-snapshots-once-per-minute
+  [0;32m✓[0m cp-restore-sets-restored-flag
+  [0;32m✓[0m cp-heal-drops-restored-cache
+  [0;32m✓[0m cp-heal-noop-without-restore
+  [0;32m✓[0m cp-monitor-heals-restored-cache
+  [0;32m✓[0m cp-clash-api-204-snapshots
+  [0;32m✓[0m cp-clash-api-404-no-snapshot
+  [0;32m✓[0m cp-start-restores-before-sing-box
+  [0;32m✓[0m cp-set-group-proxy-snapshots
+  [0;32m✓[0m cp-stop-does-not-snapshot
+  [0;32m✓[0m cp-monitor-heals-on-crash
+  [0;32m✓[0m cp-driver-completed
+
+[1m──────────────────────────────────────[0m
+Results: [0;32m697 passed[0m / [0;31m0 failed[0m / [1;33m1 skipped[0m
+[0;32m[1m✓ ALL TESTS PASSED[0m (697 test(s))
+=== ns-m58: build ===
+#20 resolving provenance for metadata file
+#20 DONE 0.0s
+ Image netshift-evolution:test Built 
+=== ns-m58: run all ===
+exit=0
+  [0;32m✓[0m cp-snapshot-unstable-no-leftover-tmp
+  [0;32m✓[0m cp-snapshot-unstable-logs-warn
+  [0;32m✓[0m cp-snapshot-retry-after-write
+  [0;32m✓[0m cp-snapshot-skips-flash-cache-path
+  [0;32m✓[0m cp-monitor-snapshots-once-per-minute
+  [0;32m✓[0m cp-restore-sets-restored-flag
+  [0;32m✓[0m cp-heal-drops-restored-cache
+  [0;32m✓[0m cp-heal-noop-without-restore
+  [0;32m✓[0m cp-monitor-heals-restored-cache
+  [0;32m✓[0m cp-clash-api-204-snapshots
+  [0;32m✓[0m cp-clash-api-404-no-snapshot
+  [0;32m✓[0m cp-start-restores-before-sing-box
+  [0;32m✓[0m cp-set-group-proxy-snapshots
+  [0;32m✓[0m cp-stop-does-not-snapshot
+  [0;32m✓[0m cp-monitor-heals-on-crash
+  [0;32m✓[0m cp-driver-completed
+
+[1m──────────────────────────────────────[0m
+Results: [0;32m747 passed[0m / [0;31m0 failed[0m / [1;33m1 skipped[0m
+[0;32m[1m✓ ALL TESTS PASSED[0m (747 test(s))
+=== ns-m44: build ===
+#21 resolving provenance for metadata file
+#21 DONE 0.0s
+ Image netshift-evolution:test Built 
+=== ns-m44: run all ===
+exit=0
+  [0;32m✓[0m cp-snapshot-unstable-no-leftover-tmp
+  [0;32m✓[0m cp-snapshot-unstable-logs-warn
+  [0;32m✓[0m cp-snapshot-retry-after-write
+  [0;32m✓[0m cp-snapshot-skips-flash-cache-path
+  [0;32m✓[0m cp-monitor-snapshots-once-per-minute
+  [0;32m✓[0m cp-restore-sets-restored-flag
+  [0;32m✓[0m cp-heal-drops-restored-cache
+  [0;32m✓[0m cp-heal-noop-without-restore
+  [0;32m✓[0m cp-monitor-heals-restored-cache
+  [0;32m✓[0m cp-clash-api-204-snapshots
+  [0;32m✓[0m cp-clash-api-404-no-snapshot
+  [0;32m✓[0m cp-start-restores-before-sing-box
+  [0;32m✓[0m cp-set-group-proxy-snapshots
+  [0;32m✓[0m cp-stop-does-not-snapshot
+  [0;32m✓[0m cp-monitor-heals-on-crash
+  [0;32m✓[0m cp-driver-completed
+
+[1m──────────────────────────────────────[0m
+Results: [0;32m778 passed[0m / [0;31m0 failed[0m / [1;33m1 skipped[0m
+[0;32m[1m✓ ALL TESTS PASSED[0m (778 test(s))
+=== shellcheck m58 ===
+docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: "sh": executable file not found in $PATH
+
+Run 'docker run --help' for more information
+SHELLCHECK ISSUES ns-m58
+=== shellcheck m44 ===
+docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: "sh": executable file not found in $PATH
+
+Run 'docker run --help' for more information
+SHELLCHECK ISSUES ns-m44
+ALL_DONE

@@ -2304,7 +2304,11 @@ dnsmasq_restore() {
     log "Restoring the dnsmasq configuration"
     local shutdown_correctly
     config_get shutdown_correctly "settings" "shutdown_correctly"
-    if [ "$shutdown_correctly" -eq 1 ]; then
+    # A stop with block_leaks on is a correct shutdown that deliberately LEFT
+    # dnsmasq pointed at sing-box. When the kill switch is released afterwards
+    # (package removal, the option switched off) the restore is still owed, so
+    # the ownership sentinel decides, not the shutdown flag alone.
+    if [ "$shutdown_correctly" -eq 1 ] && ! dnsmasq_is_configured_for_netshift; then
         log "Previous shutdown of netshift was correct, reconfiguration of dnsmasq is not required"
         return 0
     fi

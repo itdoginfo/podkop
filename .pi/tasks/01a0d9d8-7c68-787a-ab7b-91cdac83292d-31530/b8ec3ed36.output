@@ -1,0 +1,1692 @@
+################ SMOKE pr58 ################
+ Container tests-netshift-test-run-c6a0477d0b40 Creating 
+ Container tests-netshift-test-run-c6a0477d0b40 Created 
+[1mNetshift Evolution — Smoke Test Suite[0m
+Source: /netshift/files
+OpenWrt: OpenWrt 24.10.6 r29141-81be8a8869
+Kernel: 7.0.0-34-generic
+
+
+[1m[0;36m━━━ Dependency Check ━━━[0m
+  [0;32m✓[0m sing-box is available (/usr/bin/sing-box)
+  [0;32m✓[0m curl is available (/usr/bin/curl)
+  [0;32m✓[0m jq is available (/usr/bin/jq)
+  [0;32m✓[0m base64 is available (/bin/base64)
+  [0;32m✓[0m dig is available (/usr/bin/dig)
+  [0;32m✓[0m nft is available (/usr/sbin/nft)
+  [0;32m✓[0m ash is available (/bin/ash)
+  [0;32m✓[0m sing-box version: 1.12.22
+  [0;32m✓[0m jq version: 1.8.1
+
+[1m[0;36m━━━ Shell Syntax & Library Loading ━━━[0m
+  [0;32m✓[0m Syntax OK: constants.sh
+  [0;32m✓[0m Syntax OK: helpers.sh
+  [0;32m✓[0m Syntax OK: logging.sh
+  [0;32m✓[0m Syntax OK: nft.sh
+  [0;32m✓[0m Syntax OK: rulesets.sh
+  [0;32m✓[0m Syntax OK: sing_box_config_manager.sh
+  [0;32m✓[0m Syntax OK: sing_box_config_facade.sh
+  [0;32m✓[0m Syntax OK: updater.sh
+  [0;32m✓[0m Syntax OK: netshift
+  [0;32m✓[0m netshift CLI free of double-encode mojibake
+  [0;32m✓[0m logging.sh can be sourced
+
+[1m[0;36m━━━ UCI Config Validation ━━━[0m
+  [0;32m✓[0m Config file exists: /netshift/files/etc/config/netshift
+  [0;32m✓[0m settings section present
+  [0;32m✓[0m section (proxy) present
+  [0;32m✓[0m option shutdown_correctly present
+  [0;32m✓[0m option dns_type present
+  [0;32m✓[0m option connection_type present
+  [0;32m✓[0m option proxy_config_type present
+  [0;32m✓[0m Sections in config: 4
+
+[1m[0;36m━━━ Helper Functions ━━━[0m
+  [0;32m✓[0m ipv4:OK
+  [0;32m✓[0m ipv4-bad:OK
+  [0;32m✓[0m ipv6-literal:OK
+  [0;32m✓[0m ipv6-literal-neg:OK
+  [0;32m✓[0m ipv4cidr:OK
+  [0;32m✓[0m 6fcf-0c39-65eb-d622hwid:OK
+  [0;32m✓[0m model:OK
+  [0;32m✓[0m url-host:OK
+  [0;32m✓[0m url-port:OK
+  [0;32m✓[0m url-ipv6-port:OK
+  [0;32m✓[0m url-decode:OK
+  [0;32m✓[0m url-decode-component:OK
+  [0;32m✓[0m url-decode-bare-percent:OK
+  [0;32m✓[0m url-query-param-decode:OK
+  [0;32m✓[0m helpers-driver-completed:OK
+
+[1m[0;36m━━━ jq Helper Functions ━━━[0m
+  [0;32m✓[0m helpers.jq extend_key_value merges arrays
+
+[1m[0;36m━━━ sing-box Config Manager (jq) ━━━[0m
+  [0;32m✓[0m jq: direct outbound added to config
+  [0;32m✓[0m jq: TProxy inbound added to config
+  [0;32m✓[0m jq: route rule added to config
+  [0;32m✓[0m cm-vmess-type:OK
+  [0;32m✓[0m cm-vmess-server:OK
+  [0;32m✓[0m cm-vmess-port:OK
+  [0;32m✓[0m cm-vmess-uuid:OK
+  [0;32m✓[0m cm-vmess-security-default:OK
+  [0;32m✓[0m cm-vmess-aid-omitted:OK
+  [0;32m✓[0m cm-vmess-security-explicit:OK
+  [0;32m✓[0m cm-vmess-aid-number:OK
+  [0;32m✓[0m cm-doh-cidrs-v4-v6:OK
+  [0;32m✓[0m cm-doh-route-rule:OK
+  [0;32m✓[0m cm-driver-completed:OK
+
+[1m[0;36m━━━ sing-box Config Generation ━━━[0m
+  [0;32m✓[0m sing-box validates minimal config
+  [0;32m✓[0m sing-box validates config with FakeIP
+  [0;32m✓[0m sing-box validates config with TProxy
+  [0;32m✓[0m sing-box validates inline ruleset (DoH block)
+  [0;32m✓[0m sing-box validates config with IPv6 FakeIP
+  [0;32m✓[0m vmess-frag-link-has-hash:OK
+  [0;32m✓[0m vmess-plus-body-has-plus:OK
+  [0;32m✓[0m vmess-ws-type:OK
+  [0;32m✓[0m vmess-ws-server:OK
+  [0;32m✓[0m vmess-ws-port:OK
+  [0;32m✓[0m vmess-ws-aid-omitted:OK
+  [0;32m✓[0m vmess-ws-transport:OK
+  [0;32m✓[0m vmess-ws-path:OK
+  [0;32m✓[0m vmess-ws-host:OK
+  [0;32m✓[0m vmess-ws-tls:OK
+  [0;32m✓[0m vmess-ws-sni:OK
+  [0;32m✓[0m vmess-ws-alpn:OK
+  [0;32m✓[0m vmess-ws-fp:OK
+  [0;32m✓[0m vmess-tcp-type:OK
+  [0;32m✓[0m vmess-tcp-no-transport:OK
+  [0;32m✓[0m vmess-tcp-no-tls:OK
+  [0;32m✓[0m vmess-tcp-security:OK
+  [0;32m✓[0m vmess-plus-type:OK
+  [0;32m✓[0m vmess-plus-server:OK
+  [0;32m✓[0m vmess-plus-port:OK
+  [0;32m✓[0m vmess-plus-uuid:OK
+  [0;32m✓[0m vmess-frag-type:OK
+  [0;32m✓[0m vmess-frag-server:OK
+  [0;32m✓[0m vmess-frag-port:OK
+  [0;32m✓[0m vmess-frag-uuid:OK
+  [0;32m✓[0m vmess-frag-transport:OK
+  [0;32m✓[0m vmess-frag-path:OK
+  [0;32m✓[0m vmess-frag-tls:OK
+  [0;32m✓[0m vmess-frag-sni:OK
+  [0;32m✓[0m vmess-gate-unchanged:OK
+  [0;32m✓[0m vmess-driver-completed:OK
+
+[1m[0;36m━━━ Proxy Link Escaping (%40 / %23 / '+') ━━━[0m
+  [0;32m✓[0m trojan-pct40:OK
+  [0;32m✓[0m trojan-plus:OK
+  [0;32m✓[0m trojan-pct23:OK
+  [0;32m✓[0m trojan-mixed:OK
+  [0;32m✓[0m trojan-utf8:OK
+  [0;32m✓[0m trojan-fragment:OK
+  [0;32m✓[0m hy2-escaped-password:OK
+  [0;32m✓[0m socks-escaped-password:OK
+  [0;32m✓[0m ss-base64-plus-fixture:OK
+  [0;32m✓[0m ss-base64-plus:OK
+  [0;32m✓[0m query-value-percent:OK
+  [0;32m✓[0m query-value-plus-space:OK
+  [0;32m✓[0m plain-link-unchanged:OK
+  [0;32m✓[0m singbox-check-abc%40def:OK
+  [0;32m✓[0m singbox-check-abc%23def:OK
+  [0;32m✓[0m singbox-check-abc+def:OK
+  [0;32m✓[0m proxy-link-driver-completed:OK
+
+[1m[0;36m━━━ NFT Rules Syntax ━━━[0m
+  [0;32m✓[0m nft table creation works
+  [0;32m✓[0m nft set and element operations work
+  [0;32m✓[0m nft chain creation works
+
+[1m[0;36m━━━ NFT IPv6 TProxy Regression ━━━[0m
+  [0;32m✓[0m nft-v6-set-element:OK (ipv6_addr interval set + fc00::/7)
+  [0;32m✓[0m nft-v6-tproxy-bracketed:OK (normalizes to [::1]:1603)
+  [0;32m✓[0m nft-v6-tproxy-no-bare:OK (no portless bare ip6 form)
+
+[1m[0;36m━━━ Destination-selective nft marking (task-034) ━━━[0m
+  [0;32m✓[0m selective:constants — NFT_COMMON_SET_NAME(+v6) defined
+  [0;32m✓[0m selective:default — proxied-subnets set rule present in mangle (@netshift_subnets)
+  [0;32m✓[0m selective:default — FakeIP range marked in mangle (198.18.0.0/15) [domain routing intact]
+  [0;32m✓[0m selective:default — union set netshift_subnets created
+  [0;32m✓[0m selective:output — proxied-subnets mark present in mangle_output (@netshift_subnets)
+  [0;32m✓[0m selective:output — FakeIP range marked in mangle_output (198.18.0.0/15) [router-originated domain routing]
+  [0;32m✓[0m selective:output — no iifname qualifier in mangle_output (router-originated rules can match)
+  [0;32m✓[0m selective:bypass — NO unconditional mark-all rule (direct IP NOT marked)
+  [0;32m✓[0m selective:output-order — localv4 + outbound-mark returns precede the marks (loop-safe)
+  [0;32m✓[0m selective:globalproxy — mark-EVERYTHING rules present under global_proxy
+  [0;32m✓[0m selective:globalproxy-output — mark-EVERYTHING tcp rule present in mangle_output
+  [0;32m✓[0m selective:globalproxy-output — mark-EVERYTHING udp rule present in mangle_output
+  [0;32m✓[0m selective:globalproxy — selective @set rule correctly bypassed
+  [0;32m✓[0m selective:ipv6 — v6 union set mark rule present (@netshift_subnets_v6)
+  [0;32m✓[0m selective:ipv6 — no mark-all rule with IPv6 enabled
+  [0;32m✓[0m selective:ipv6 — FakeIP v6 range marked (fd00:ec3a::/32)
+  [0;32m✓[0m selective:ipv6-output — v6 union set mark present in mangle_output (@netshift_subnets_v6)
+  [0;32m✓[0m selective:ipv6-output — FakeIP v6 range marked in mangle_output (fd00:ec3a::/32)
+  [0;32m✓[0m selective:fullrouted — fully_routed_ips source-mark rule present
+  [0;32m✓[0m selective:respawn — NO stale mark-all rule survives a respawn (table flushed)
+  [0;32m✓[0m selective:respawn — selective @set rule present after respawn
+  [0;32m✓[0m selective:respawn — union set netshift_subnets present after respawn
+  [0;32m✓[0m selective:respawn — exactly one @set mark rule per chain (rebuilt, not appended)
+  [0;32m✓[0m selective:doh — DoH CIDR marked in mangle (1.1.1.1)
+  [0;32m✓[0m selective:doh-output — DoH CIDR marked in mangle_output (1.1.1.1)
+  [0;32m✓[0m selective:doh-output — v6 DoH CIDR marked in mangle_output (2606:4700:4700::1111)
+  [0;32m✓[0m selective:realgp — real get_global_proxy_section returns empty for global_proxy=0 (selective branch)
+  [0;32m✓[0m selective:singboxcheck — 2-section selective config validates
+
+[1m[0;36m━━━ Section-isolation invariant (task-033) ━━━[0m
+  [0;32m✓[0m si-default-mark-present:OK (2097152, number)
+  [0;32m✓[0m si-mark-distinct-from-fakeip:OK
+  [0;32m✓[0m si-empty-mark-byte-parity:OK
+  [0;32m✓[0m si-empty-mark-omitted:OK
+  [0;32m✓[0m si-driver-completed:OK
+  [0;32m✓[0m si-2section-unreachable-check:OK (sing-box accepts config + route.default_mark)
+  [0;32m✓[0m si-config-has-default-mark:OK
+  [0;32m✓[0m si-live-loop-fakeip-blackholes:OK (fakeip-marked egress loops, as in the bug)
+  [0;32m✓[0m si-live-loop-outbound-escapes:OK (outbound-marked egress reaches internet -> fail-open)
+
+[1m[0;36m━━━ Monitor procd-lock fd Hygiene (task-035) + leak (task-036) ━━━[0m
+  [0;32m✓[0m monfd-monitor-alive-pidfile:OK
+  [0;32m✓[0m monfd-no-sentinel-lock-fd:OK
+  [0;32m✓[0m monfd-fd1000-not-lock:OK
+  [0;32m✓[0m monfd-second-flock-immediate:OK
+  [0;32m✓[0m monfd-prior-monitor-killed:OK
+  [0;32m✓[0m monfd-exactly-one-monitor:OK
+  [0;32m✓[0m monfd-respawn-no-lock-fd:OK
+
+[1m[0;36m━━━ Graceful-skip unsupported protocol + splithttp alias (task-038) ━━━[0m
+  [0;32m✓[0m us-urltest-no-abort:OK
+  [0;32m✓[0m us-urltest-config-not-wiped:OK
+  [0;32m✓[0m us-urltest-vless-present:OK
+  [0;32m✓[0m us-urltest-hy2-present:OK
+  [0;32m✓[0m us-urltest-unsupported-absent:OK
+  [0;32m✓[0m us-urltest-members-clean:OK
+  [0;32m✓[0m us-urltest-warning-logged:OK
+  [0;32m✓[0m us-urltest-singbox-check:OK
+  [0;32m✓[0m us-selector-no-abort:OK
+  [0;32m✓[0m us-selector-vless-present:OK
+  [0;32m✓[0m us-selector-members-clean:OK
+  [0;32m✓[0m us-selector-singbox-check:OK
+  [0;32m✓[0m us-single-no-crash:OK
+  [0;32m✓[0m us-single-no-outbound:OK
+  [0;32m✓[0m us-single-rest-continues:OK
+  [0;32m✓[0m us-single-marked-unavailable:OK
+  [0;32m✓[0m us-single-error-logged:OK
+  [0;32m✓[0m us-splithttp-url-xhttp:OK
+  [0;32m✓[0m us-splithttp-url-path:OK
+  [0;32m✓[0m us-splithttp-gate-off:OK
+  [1;33m⊘[0m us-splithttp-singbox-check:SKIP (skipped)
+  [0;32m✓[0m us-xray-splithttp-type-xhttp:OK
+  [0;32m✓[0m us-xray-splithttp-path:OK
+  [0;32m✓[0m us-xray-splithttp-normalized:OK
+  [0;32m✓[0m us-driver-completed:OK
+
+[1m[0;36m━━━ Text-list Selector / URLTest (task-051) ━━━[0m
+  [0;32m✓[0m tl-seltxt-no-abort:OK
+  [0;32m✓[0m tl-seltxt-vless1-present:OK
+  [0;32m✓[0m tl-seltxt-vless2-present:OK
+  [0;32m✓[0m tl-seltxt-ss-crlf-present:OK
+  [0;32m✓[0m tl-seltxt-tuic-absent:OK
+  [0;32m✓[0m tl-seltxt-members-clean:OK
+  [0;32m✓[0m tl-seltxt-default-first:OK
+  [0;32m✓[0m tl-seltxt-warning-logged:OK
+  [0;32m✓[0m tl-seltxt-singbox-check:OK
+  [0;32m✓[0m tl-urltxt-no-abort:OK
+  [0;32m✓[0m tl-urltxt-urltest-members-clean:OK
+  [0;32m✓[0m tl-urltxt-selector-over-urltest:OK
+  [0;32m✓[0m tl-urltxt-singbox-check:OK
+  [0;32m✓[0m tl-check-seltxt-found:OK
+  [0;32m✓[0m tl-check-urltxt-found:OK
+  [0;32m✓[0m tl-driver-completed:OK
+
+[1m[0;36m━━━ Ruleset Chunk Size Default (upstream 0c99ddd) ━━━[0m
+  [0;32m✓[0m chunk-domain-calls-3:OK
+  [0;32m✓[0m chunk-domain-sizes-1000-1000-500:OK
+  [0;32m✓[0m chunk-subnet-calls-3:OK
+  [0;32m✓[0m chunk-subnet-sizes-1000-1000-500:OK
+  [0;32m✓[0m chunk-only-domain-suffix-ip-cidr-keys:OK
+  [0;32m✓[0m chunk-driver-completed:OK
+
+[1m[0;36m━━━ Domain case normalization (issue #52) ━━━[0m
+  [0;32m✓[0m domcase-dynamic-domains:OK
+  [0;32m✓[0m domcase-dynamic-uppercase-absent:OK
+  [0;32m✓[0m domcase-dynamic-path-absent:OK
+  [0;32m✓[0m domcase-dynamic-invalid-absent:OK
+  [0;32m✓[0m domcase-dynamic-all-lowercase:OK
+  [0;32m✓[0m domcase-dynamic-path-logged:OK
+  [0;32m✓[0m domcase-dynamic-singbox-check:OK
+  [0;32m✓[0m domcase-text-domains:OK
+  [0;32m✓[0m domcase-text-all-lowercase:OK
+  [0;32m✓[0m domcase-text-singbox-check:OK
+  [0;32m✓[0m domcase-listfile-domains:OK
+  [0;32m✓[0m domcase-listfile-all-lowercase:OK
+  [0;32m✓[0m domcase-empty-no-crash:OK
+  [0;32m✓[0m domcase-empty-singbox-check:OK
+  [0;32m✓[0m domcase-driver-completed:OK
+
+[1m[0;36m━━━ Diagnostics Commands ━━━[0m
+  [0;32m✓[0m sing-box version works
+  [0;32m✓[0m sing-box check accepts empty config
+  [0;32m✓[0m dig DNS resolution works
+
+[1m[0;36m━━━ Subscription JSON Validation ━━━[0m
+  [0;32m✓[0m Subscription proxy count correct: 4 (ss + vless + trojan + hysteria2)
+  [0;32m✓[0m Subscription outbound tags extracted correctly
+  [0;32m✓[0m Country flag grouping: 4 grouped, 1 ungrouped
+  [0;32m✓[0m Prefix grouping (len 2): US=2 DE=1 X=1, groups=3, ungrouped=0
+  [0;32m✓[0m Prefix grouping consistency vs country: identical grouping over flag tags
+  [0;32m✓[0m Prefix grouping bad/empty len falls back to 2 (no crash)
+  [0;32m✓[0m Prefix grouping space-key: 'A '=2 'B '=1, groups=2, ungrouped=0
+
+  [1mFallback Subscription Normalizer[0m
+  [0;32m✓[0m fb-caseA-rc:OK
+  [0;32m✓[0m fb-caseA-count(>=4 got 5):OK
+  [0;32m✓[0m fb-caseA-validate:OK
+  [0;32m✓[0m fb-caseB-rc:OK
+  [0;32m✓[0m fb-caseB-count(>=2 got 2):OK
+  [0;32m✓[0m fb-caseB-validate:OK
+  [0;32m✓[0m fb-caseC-rc:OK
+  [0;32m✓[0m fb-caseC-count(==2 valid got 2):OK
+  [0;32m✓[0m fb-caseD-rc-nonzero:OK
+  [0;32m✓[0m fb-caseD-no-usable-output:OK
+  [0;32m✓[0m fb-caseE-rc:OK
+  [0;32m✓[0m fb-caseE-count(==2 got 2):OK
+  [0;32m✓[0m fb-caseE-validate:OK
+  [0;32m✓[0m fb-caseE-reality-fields:OK
+  [0;32m✓[0m fb-caseF-rc:OK
+  [0;32m✓[0m fb-caseF-validate:OK
+  [0;32m✓[0m fb-caseF-no-null-sid:OK
+  [0;32m✓[0m fb-caseG-rc:OK
+  [0;32m✓[0m fb-caseG-dedup(==3 got 3):OK
+  [0;32m✓[0m fb-caseG-servers:OK
+  [0;32m✓[0m fb-caseH-rc:OK
+  [0;32m✓[0m fb-caseH-vless-kept(==1 got 1):OK
+  [0;32m✓[0m fb-caseH-vmess-counted:OK
+  [0;32m✓[0m fb-caseI-auto-default-first:OK
+  [0;32m✓[0m fb-caseI-auto-has-v2rayN:OK
+  [0;32m✓[0m fb-caseI-auto-default-unique:OK
+  [0;32m✓[0m fb-caseI-preferred-second-unique:OK
+  [0;32m✓[0m fb-caseI-configured-only:OK
+  [0;32m✓[0m fb-caseI-emptypref-default-first:OK
+  [0;32m✓[0m fb-caseI-autopref-default-first:OK
+  [0;32m✓[0m fb-caseI-singboxpref-default-first:OK
+  [0;32m✓[0m fb-caseI-xraypref-xray-first:OK
+  [0;32m✓[0m fb-caseI-xraypref-first-versioned:OK
+  [0;32m✓[0m fb-caseI-xraypref-outranks-default-and-cache:OK
+  [0;32m✓[0m fb-caseI-xraypref-dedup:OK
+  [0;32m✓[0m fb-caseI-unknownpref-auto-first:OK
+  [0;32m✓[0m fb-caseI-configured-overrides-pref:OK
+  [0;32m✓[0m fb-caseJ-include-only:OK
+  [0;32m✓[0m fb-caseJ-exclude-only:OK
+  [0;32m✓[0m fb-caseJ-include-exclude:OK
+  [0;32m✓[0m fb-caseJ-ascii-ci:OK
+  [0;32m✓[0m fb-caseJ-emoji-substring:OK
+  [0;32m✓[0m fb-caseJ-empty-include-keeps-all:OK
+  [0;32m✓[0m fb-caseJ-filter-removes-all-zero-kept:OK
+  [0;32m✓[0m fb-caseK-cyrillic-mixed-include:OK
+  [0;32m✓[0m fb-caseK-cyrillic-lower-upper-include:OK
+  [0;32m✓[0m fb-caseK-cyrillic-exclude:OK
+  [0;32m✓[0m fb-caseK-yo-fold:OK
+  [0;32m✓[0m fb-caseK-emoji-flag-include:OK
+  [0;32m✓[0m fb-caseK-ascii-no-regression:OK
+  [0;32m✓[0m fb-caseL-hy2-scheme:OK
+  [0;32m✓[0m fb-caseL-hy2-auth-host-port:OK
+  [0;32m✓[0m fb-caseL-hy2-query-params:OK
+  [0;32m✓[0m fb-caseM-v1-and-missing-skipped:OK
+  [0;32m✓[0m fb-caseN-dedup-count(==4):OK
+  [0;32m✓[0m fb-caseN-first-seen-order:OK
+  [0;32m✓[0m fb-caseO-rc:OK
+  [0;32m✓[0m fb-caseO-validate:OK
+  [0;32m✓[0m fb-caseO-hy2-outbound-fields:OK
+  [0;32m✓[0m fb-caseO-singbox-check:OK
+  [0;32m✓[0m fb-caseP-gzip-to-text:OK
+  [0;32m✓[0m fb-caseP-text-passthrough:OK
+  [0;32m✓[0m fb-caseP-gzip-then-validate:OK
+  [0;32m✓[0m fb-caseQ-nul-is-binary:OK
+  [0;32m✓[0m fb-caseQ-text-not-binary:OK
+  [0;32m✓[0m fb-driver-completed:OK
+
+  [1mMulti-URL Subscription Merge[0m
+  [0;32m✓[0m mu-case1-merged-count-3:OK
+  [0;32m✓[0m mu-case1-both-feeds-present:OK
+  [0;32m✓[0m mu-case1-tags-json-3:OK
+  [0;32m✓[0m mu-case2-samename-dedup:OK
+  [0;32m✓[0m mu-case2-suffix-dedup-present:OK
+  [0;32m✓[0m mu-case3-partial-best-effort:OK
+  [0;32m✓[0m mu-case3-not-unavailable:OK
+  [0;32m✓[0m mu-case4-all-fail-unavailable:OK
+  [0;32m✓[0m mu-case5-distinct-cache-files:OK
+  [0;32m✓[0m mu-case5-rejected-per-url-isolated:OK
+  [0;32m✓[0m mu-case6-single-option-1elem:OK
+  [0;32m✓[0m mu-case6-backcompat-config:OK
+  [0;32m✓[0m mu-driver-completed:OK
+
+  [1mClear Subscription Cache[0m
+  [0;32m✓[0m cc-case1-all-deleted(before=12 after=0):OK
+  [0;32m✓[0m cc-case1-dir-preserved:OK
+  [0;32m✓[0m cc-case1-json-success-true:OK
+  [0;32m✓[0m cc-case1-redownload-invoked:OK
+  [0;32m✓[0m cc-case2-empty-dir-success:OK
+  [0;32m✓[0m cc-case2b-missing-dir-success:OK
+  [0;32m✓[0m cc-case3-no-subs-graceful:OK
+  [0;32m✓[0m cc-case4-redownload-fail-surfaced:OK
+  [0;32m✓[0m cc-case5-guard-scoped-to-cache-dir:OK
+  [0;32m✓[0m cc-case5-empty-constant-noop:OK
+  [0;32m✓[0m cc-case6-router-dispatch:OK
+
+[1m[0;36m━━━ Fastest Cross-Group urltest (task-050) ━━━[0m
+  [0;32m✓[0m fastest-region-extracted:OK
+  [0;32m✓[0m fastest-nested-urltest-members:OK
+  [0;32m✓[0m fastest-selector-default-membership:OK
+  [0;32m✓[0m fastest-singbox-check-passes:OK
+  [0;32m✓[0m fastest-single-group-no-nest:OK
+  [0;32m✓[0m fastest-off-mode-unchanged:OK
+
+[1m[0;36m━━━ Per-Subscription urltest Groups ━━━[0m
+  [0;32m✓[0m fg-region-extracted:OK
+  [0;32m✓[0m fg-name-fragment:OK
+  [0;32m✓[0m fg-name-fragment-utf8:OK
+  [0;32m✓[0m fg-name-fragment-ctrl:OK
+  [0;32m✓[0m fg-name-host:OK
+  [0;32m✓[0m fg-name-empty-fragment:OK
+  [0;32m✓[0m fg-name-userinfo-port:OK
+  [0;32m✓[0m fg-name-at-in-path:OK
+  [0;32m✓[0m fg-name-ipv6:OK
+  [0;32m✓[0m fg-name-fallback:OK
+  [0;32m✓[0m fg-name-fragment-trim:OK
+  [0;32m✓[0m fg-name-fragment-blank:OK
+  [0;32m✓[0m fg-hash-ignores-fragment:OK
+  [0;32m✓[0m fg-hash-distinct-urls:OK
+  [0;32m✓[0m fg-download-drops-fragment:OK
+  [0;32m✓[0m fg-download-proxy-drops-fragment:OK
+  [0;32m✓[0m fg-connectivity-drops-fragment:OK
+  [0;32m✓[0m fg-merge-a-rc:OK
+  [0;32m✓[0m fg-merge-bad-rc:OK
+  [0;32m✓[0m fg-merge-b-rc:OK
+  [0;32m✓[0m fg-merge-feeds:OK
+  [0;32m✓[0m fg-merge-proxies-only:OK
+  [0;32m✓[0m fg-facade-tags:OK
+  [0;32m✓[0m fg-facade-feeds:OK
+  [0;32m✓[0m fg-facade-marker-stripped:OK
+  [0;32m✓[0m fg-facade-unmarked-feeds:OK
+  [0;32m✓[0m fg-groups-two:OK
+  [0;32m✓[0m fg-groups-null-feeds:OK
+  [0;32m✓[0m fg-groups-short-feeds:OK
+  [0;32m✓[0m fg-groups-missing-name:OK
+  [0;32m✓[0m fg-off-two-feed-urltests:OK
+  [0;32m✓[0m fg-off-two-selector:OK
+  [0;32m✓[0m fg-off-two-singbox-check:OK
+  [0;32m✓[0m fg-off-single-feed-unchanged:OK
+  [0;32m✓[0m fg-off-no-feed-info-unchanged:OK
+  [0;32m✓[0m fg-off-duplicate-names-unique:OK
+  [0;32m✓[0m fg-driver-completed:OK
+
+[1m[0;36m━━━ Insecure Subscription Fetch Flag (task-021b) ━━━[0m
+  [0;32m✓[0m if-normal-off: no --no-check-certificate (secure default)
+  [0;32m✓[0m if-normal-on: --no-check-certificate present
+  [0;32m✓[0m if-proxy-off: no --no-check-certificate (secure default)
+  [0;32m✓[0m if-proxy-on: --no-check-certificate present
+  [0;32m✓[0m if-ipv4-on: -4 and --no-check-certificate both present
+  [0;32m✓[0m if-ipv4-off: no --no-check-certificate (secure default)
+
+[1m[0;36m━━━ Subscription Rejected-Hash Validity (task-011) ━━━[0m
+  [0;32m✓[0m rh-case1-filter-no-rejected:OK
+  [0;32m✓[0m rh-case1-blocked-state-set:OK
+  [0;32m✓[0m rh-case2-recovery-rejected-removed:OK
+  [0;32m✓[0m rh-case3-valid-body-not-vetoed:OK
+  [0;32m✓[0m rh-case4-no-proxy-body-vetoed:OK
+  [0;32m✓[0m rh-case5-normal-valid-usable:OK
+  [0;32m✓[0m rh-case6-genuine-unusable-recorded:OK
+
+[1m[0;36m━━━ Async Component-Action Job State (updater.sh) ━━━[0m
+  [0;32m✓[0m async returns success+job_id ({"success":true,"job_id":"1790361415-31204","message":"Component action started"})
+  [0;32m✓[0m async returned fast (0s, well under 30s)
+  [0;32m✓[0m running state file created
+  [0;32m✓[0m running state has running:true,success:true,exit_code:null
+  [0;32m✓[0m running pid recorded (31219)
+  [0;32m✓[0m finished status surfaces success/version/exit_code
+  [0;32m✓[0m failed worker recorded (success:false, exit_code:3, message surfaced)
+  [0;32m✓[0m finished parser extracts the LAST well-formed JSON object from noisy stdout
+  [0;32m✓[0m finished status surfaces the worker warning
+  [0;32m✓[0m finished status without a worker warning has an empty one
+  [0;32m✓[0m invalid job_id rejected safely: '../foo'
+  [0;32m✓[0m invalid job_id rejected safely: '../../etc/passwd'
+  [0;32m✓[0m invalid job_id rejected safely: 'foo/bar'
+  [0;32m✓[0m invalid job_id rejected safely: 'a b'
+  [0;32m✓[0m invalid job_id rejected safely: ''
+  [0;32m✓[0m invalid job_id rejected safely: '.'
+  [0;32m✓[0m jobstate-traversal-rejected:OK
+  [0;32m✓[0m jobstate-valid-id-accepted:OK
+  [0;32m✓[0m jobstate-validate-driver-completed:OK
+  [0;32m✓[0m jobstate-stale-marked-finished:OK
+  [0;32m✓[0m jobstate-stale-driver-completed:OK
+
+[1m[0;36m━━━ Core-switch Connectivity Self-Heal + Rollback (updater.sh) ━━━[0m
+  [0;32m✓[0m selfheal-init-stub-logs:OK
+  [0;32m✓[0m selfheal-preflight-pass-proceeds:OK
+  [0;32m✓[0m selfheal-preflight-pass-no-teardown:OK
+  [0;32m✓[0m selfheal-preflight-pass-resolv-untouched:OK
+  [0;32m✓[0m selfheal-opkg-restart-after-backup-freed:OK
+  [0;32m✓[0m selfheal-dns-heal-proceeds:OK
+  [0;32m✓[0m selfheal-dns-heal-resolv-restored:OK
+  [0;32m✓[0m selfheal-dns-heal-no-teardown:OK
+  [0;32m✓[0m selfheal-teardown-heal-proceeds:OK
+  [0;32m✓[0m selfheal-teardown-taken:OK
+  [0;32m✓[0m selfheal-teardown-bringup-called:OK
+  [0;32m✓[0m selfheal-teardown-resolv-restored:OK
+  [0;32m✓[0m selfheal-heal-fail-aborts-successfalse:OK
+  [0;32m✓[0m selfheal-heal-fail-binary-intact:OK
+  [0;32m✓[0m selfheal-heal-fail-resolv-restored:OK
+  [0;32m✓[0m selfheal-heal-fail-bringup-called:OK
+  [0;32m✓[0m selfheal-stable-install-fail-successfalse:OK
+  [0;32m✓[0m selfheal-stable-install-fail-backup-restored:OK
+  [0;32m✓[0m selfheal-apk-indexed-stable-installed:OK
+  [0;32m✓[0m selfheal-apk-indexed-world-untouched:OK
+  [0;32m✓[0m selfheal-apk-restart-after-backup-freed:OK
+  [0;32m✓[0m selfheal-apk-unindexed-stable-installed:OK
+  [0;32m✓[0m selfheal-apk-fetch-not-in-backup-tmpfs:OK
+  [0;32m✓[0m selfheal-apk-fetch-dirs-cleaned:OK
+  [0;32m✓[0m selfheal-apk-unindexed-world-pin-dropped:OK
+  [0;32m✓[0m selfheal-apk-unindexed-world-entry-kept:OK
+  [0;32m✓[0m selfheal-apk-not-landed-successfalse:OK
+  [0;32m✓[0m selfheal-apk-not-landed-core-intact:OK
+  [0;32m✓[0m selfheal-apk-not-landed-no-restart:OK
+  [0;32m✓[0m selfheal-apk-stale-pin-hash-pin-dropped:OK
+  [0;32m✓[0m selfheal-apk-stale-pin-reported:OK
+  [0;32m✓[0m selfheal-apk-tagged-world-entry-kept:OK
+  [0;32m✓[0m selfheal-apk-no-netshift-in-world-no-del:OK
+  [0;32m✓[0m selfheal-apk-no-netshift-in-world-reported:OK
+  [0;32m✓[0m selfheal-apk-del-took-core-rolled-back:OK
+  [0;32m✓[0m selfheal-apk-leftover-pin-dropped-fix-route:OK
+  [0;32m✓[0m selfheal-apk-leftover-pin-dropped-file-route:OK
+  [0;32m✓[0m selfheal-apk-leftover-pin-no-netshift-reported:OK
+  [0;32m✓[0m selfheal-apk-excluded-netshift-no-del:OK
+  [0;32m✓[0m selfheal-apk-failed-switch-reports-pin:OK
+  [0;32m✓[0m selfheal-apk-del-took-netshift-reported:OK
+  [0;32m✓[0m selfheal-no-runnable-core-successfalse:OK
+  [0;32m✓[0m selfheal-no-runnable-core-rolled-back:OK
+  [0;32m✓[0m selfheal-failing-core-rolled-back:OK
+
+[1m[0;36m━━━ DNS via Outbound (task-014) ━━━[0m
+  [0;32m✓[0m dns-on-main-has-detour:OK
+  [0;32m✓[0m dns-on-bootstrap-no-detour:OK
+  [0;32m✓[0m dns-on-fakeip-no-detour:OK
+  [0;32m✓[0m dns-off-main-no-detour:OK
+  [0;32m✓[0m dns-off-byte-parity:OK
+  [0;32m✓[0m dns-on-singbox-check:OK
+  [0;32m✓[0m dns-off-singbox-check:OK
+  [0;32m✓[0m cascade-off-empty:OK
+  [0;32m✓[0m cascade-explicit-valid:OK
+  [0;32m✓[0m cascade-invalid-to-first:OK
+  [0;32m✓[0m cascade-empty-to-first:OK
+  [0;32m✓[0m cascade-no-outbound-direct:OK
+  [0;32m✓[0m cascade-block-direct:OK
+  [0;32m✓[0m cascade-exclusion-direct:OK
+  [0;32m✓[0m cascade-subscription-unavailable-direct:OK
+  [0;32m✓[0m dnsdetour-driver-completed:OK
+
+[1m[0;36m━━━ EDNS Client Subnet (issue #36) ━━━[0m
+  [0;32m✓[0m shipped config ships dns_client_subnet empty (feature off by default)
+  [0;32m✓[0m ecs-absent-no-field:OK
+  [0;32m✓[0m ecs-absent-singbox-check:OK
+  [0;32m✓[0m ecs-empty-no-field:OK
+  [0;32m✓[0m ecs-set-ipv4-prefix:OK
+  [0;32m✓[0m ecs-set-ipv4-singbox-check:OK
+  [0;32m✓[0m ecs-set-bare-address:OK
+  [0;32m✓[0m ecs-set-ipv6-prefix:OK
+  [0;32m✓[0m ecs-set-ipv6-singbox-check:OK
+  [0;32m✓[0m ecs-servers-unchanged:OK
+  [0;32m✓[0m ecs-invalid-skipped:OK
+  [0;32m✓[0m ecs-invalid-warned:OK
+  [0;32m✓[0m ecs-invalid-keeps-config-valid:OK
+  [0;32m✓[0m ecs-cm-set-field:OK
+  [0;32m✓[0m ecs-validator-matrix:OK
+  [0;32m✓[0m ecs-validator-matches-singbox:OK
+  [0;32m✓[0m ecssubnet-driver-completed:OK
+
+[1m[0;36m━━━ Scalar option subscription_url read-fallback + migration (task-048) ━━━[0m
+  [0;32m✓[0m suburlopt:scalar-read:OK
+  [0;32m✓[0m suburlopt:scalar-hasoutbound:OK
+  [0;32m✓[0m suburlopt:list-read:OK
+  [0;32m✓[0m suburlopt:migrate-flag:OK
+  [0;32m✓[0m suburlopt:migrate-value:OK
+  [0;32m✓[0m suburlopt:migrate-equrl-preserved:OK
+  [0;32m✓[0m suburlopt:migrate-islist:OK
+  [0;32m✓[0m suburlopt:migrate-equrl-islist:OK
+  [0;32m✓[0m suburlopt:migrate-equrl-single:OK
+  [0;32m✓[0m suburlopt:migrate-idempotent:OK
+  [0;32m✓[0m suburlopt:migrate-idempotent-value:OK
+  [0;32m✓[0m suburlopt:migrate-idempotent-equrl:OK
+
+[1m[0;36m━━━ Per-section subscription update interval (issue #51) ━━━[0m
+  [0;32m✓[0m subcron:schedule-30m:OK
+  [0;32m✓[0m subcron:schedule-1h:OK
+  [0;32m✓[0m subcron:schedule-3h:OK
+  [0;32m✓[0m subcron:schedule-6h:OK
+  [0;32m✓[0m subcron:schedule-12h:OK
+  [0;32m✓[0m subcron:schedule-1d:OK
+  [0;32m✓[0m subcron:schedule-unknown-rejected:OK
+  [0;32m✓[0m subcron:schedule-empty-rejected:OK
+  [0;32m✓[0m subcron:distinct-minutes:OK
+  [0;32m✓[0m subcron:fast-keeps-30m:OK
+  [0;32m✓[0m subcron:slow-keeps-1d:OK
+  [0;32m✓[0m subcron:one-job-per-interval:OK
+  [0;32m✓[0m subcron:order-independent:OK
+  [0;32m✓[0m subcron:no-interval-less-job:OK
+  [0;32m✓[0m subcron:legacy-job-dropped:OK
+  [0;32m✓[0m subcron:list-update-job-kept:OK
+  [0;32m✓[0m subcron:legacy-replaced-by-intervals:OK
+  [0;32m✓[0m subcron:missing-option-uses-default:OK
+  [0;32m✓[0m subcron:missing-option-single-job:OK
+  [0;32m✓[0m subcron:shared-interval-deduped:OK
+  [0;32m✓[0m subcron:idempotent:OK
+  [0;32m✓[0m subcron:unknown-interval-falls-back-to-default:OK
+  [0;32m✓[0m subcron:unknown-interval-one-job:OK
+  [0;32m✓[0m subcron:unknown-interval-not-scheduled:OK
+  [0;32m✓[0m subcron:unknown-interval-warned:OK
+  [0;32m✓[0m subcron:known-interval-not-warned:OK
+  [0;32m✓[0m subcron:unknown-interval-shares-default-job:OK
+  [0;32m✓[0m subcron:no-subscription-no-job:OK
+  [0;32m✓[0m subcron:remove-cron-job-clears-all:OK
+  [0;32m✓[0m subcron:start-main-builds-jobs:OK
+  [0;32m✓[0m subcron:start-main-ran-through:OK
+  [0;32m✓[0m subcron:filter-30m-only-fast:OK
+  [0;32m✓[0m subcron:filter-1d-only-slow:OK
+  [0;32m✓[0m subcron:filter-1h-picks-unknown-value:OK
+  [0;32m✓[0m subcron:no-filter-updates-all:OK
+  [0;32m✓[0m subcron:filter-unused-interval-noop:OK
+  [0;32m✓[0m subcron:filter-unused-interval-rc:OK
+  [0;32m✓[0m subcron:unknown-arg-updates-all:OK
+  [0;32m✓[0m subcron:unknown-arg-warned:OK
+  [0;32m✓[0m subcron:unknown-arg-rc:OK
+  [0;32m✓[0m subcron:unknown-arg-case-updates-all:OK
+  [0;32m✓[0m subcron-driver-completed
+
+[1m[0;36m━━━ Global Proxy Route Semantics ━━━[0m
+  [0;32m✓[0m global_proxy route.final points to global-out
+  [0;32m✓[0m global_proxy exclusion route rule is constrained by rule_set
+  [0;32m✓[0m global_proxy exclusion rule routes global-user-domains direct-out
+  [0;32m✓[0m global_proxy routing_excluded_ips supports IPv6 source_ip_cidr
+  [0;32m✓[0m sing-box validates global_proxy route config
+
+[1m[0;36m━━━ BitTorrent Exclusion (issue #56) ━━━[0m
+  [0;32m✓[0m bittorrent-real-functions-loaded:OK
+  [0;32m✓[0m bittorrent-upgrade-absent-no-rule:OK
+  [0;32m✓[0m bittorrent-off-no-rule:OK
+  [0;32m✓[0m bittorrent-absent-vs-off-parity:OK
+  [0;32m✓[0m bittorrent-on-rule-shape:OK
+  [0;32m✓[0m bittorrent-on-after-sniff:OK
+  [0;32m✓[0m bittorrent-on-immediately-after-sniff:OK
+  [0;32m✓[0m bittorrent-on-purely-additive:OK
+  [0;32m✓[0m bittorrent-absent-singbox-check:OK
+  [0;32m✓[0m bittorrent-on-singbox-check:OK
+  [0;32m✓[0m bittorrent-on-survives-save:OK
+  [0;32m✓[0m bittorrent-helper-appends-rule:OK
+  [0;32m✓[0m bittorrent-driver-completed:OK
+
+[1m[0;36m━━━ Stock sing-box Update Check (task-017) ━━━[0m
+  [0;32m✓[0m stablecheck-installed-eq-candidate-latest:OK
+  [0;32m✓[0m stablecheck-candidate-newer-outdated:OK
+  [0;32m✓[0m stablecheck-absent-not_installed:OK
+  [0;32m✓[0m stablecheck-feed-unreachable-successfalse:OK
+
+[1m[0;36m━━━ Extended sing-box Update Check — v-prefix (task-019) ━━━[0m
+  [0;32m✓[0m extcheck-vprefix-installed-eq-latest:OK
+  [0;32m✓[0m extcheck-older-outdated:OK
+  [0;32m✓[0m extcheck-fetch-failure-successfalse:OK
+
+[1m[0;36m━━━ sing-box-extended ARM asset selection (issue #37) ━━━[0m
+  [0;32m✓[0m sbext-armv7-vfpv3-uses-armv7-tarball
+  [0;32m✓[0m sbext-armv7-vfpv3-asset-url
+  [0;32m✓[0m sbext-armv7-no-fpu-uses-openwrt-package
+  [0;32m✓[0m sbext-armv7-no-fpu-asset-url
+  [0;32m✓[0m sbext-armv7-vfpv3d16-uses-armv7-tarball
+  [0;32m✓[0m sbext-armv7-vfpv2-uses-armv6-tarball
+  [0;32m✓[0m sbext-armv7-vfpv2-asset-url
+  [0;32m✓[0m sbext-armv7-no-features-keeps-armv7
+  [0;32m✓[0m sbext-armv7-no-features-asset-url
+  [0;32m✓[0m sbext-no-fpu-no-distrib-arch-refuses
+  [0;32m✓[0m sbext-option-empty-falls-back-to-auto
+  [0;32m✓[0m sbext-option-unknown-falls-back-to-auto
+  [0;32m✓[0m sbext-option-armv6-forces-armv6
+  [0;32m✓[0m sbext-option-armv7-forces-armv7
+  [0;32m✓[0m sbext-option-openwrt-forces-package
+  [0;32m✓[0m sbext-aarch64-uses-arm64
+  [0;32m✓[0m sbext-armv6-host-with-vfp-uses-armv6
+  [0;32m✓[0m sbext-armv6-host-no-fpu-uses-openwrt-package
+  [0;32m✓[0m sbext-x86-64-uses-amd64
+  [0;32m✓[0m sbext-riscv64-uses-riscv64
+  [0;32m✓[0m sbext-e2e-no-fpu-installs-openwrt-package
+  [0;32m✓[0m sbext-e2e-install-json-success
+  [0;32m✓[0m sbext-e2e-vfpv3-installs-armv7-tarball
+  [0;32m✓[0m sbext-e2e-vfpv2-installs-armv6-tarball
+  [0;32m✓[0m sbext-e2e-payload-less-package-fails-cleanly
+  [0;32m✓[0m sbext-arch-driver-completed
+  [0;32m✓[0m sbext-upgrade-absent-option-keeps-armv7
+  [0;32m✓[0m sbext-upgrade-absent-option-detects-package
+  [0;32m✓[0m sbext-upgrade-empty-option-detects-package
+  [0;32m✓[0m sbext-upgrade-unknown-option-detects-package
+  [0;32m✓[0m sbext-upgrade-option-forces-armv7
+  [0;32m✓[0m sbext-upgrade-option-forces-armv6
+  [0;32m✓[0m sbext-upgrade-option-forces-package
+  [0;32m✓[0m sbext-upgrade-driver-completed
+
+[1m[0;36m━━━ NetShift Update Check — on-demand + v-prefix (task-029) ━━━[0m
+  [0;32m✓[0m netshiftcheck-get_system_info-no-network:OK
+  [0;32m✓[0m netshiftcheck-vprefix-installed-eq-latest:OK
+  [0;32m✓[0m netshiftcheck-older-outdated:OK
+  [0;32m✓[0m netshiftcheck-both-vprefix-latest:OK
+  [0;32m✓[0m netshiftcheck-json-shape:OK
+  [0;32m✓[0m netshiftcheck-fetch-failure-successfalse:OK
+  [0;32m✓[0m netshiftcheck-dev-build-graceful:OK
+
+[1m[0;36m━━━ NetShift latest-tag jq parse (task-047) ━━━[0m
+  [0;32m✓[0m latesttag-minified-returns-tag-not-url:OK
+  [0;32m✓[0m latesttag-pretty-returns-tag:OK
+  [0;32m✓[0m latesttag-ratelimit-empty-nonzero:OK
+  [0;32m✓[0m latesttag-e2e-check-minified-latest:OK
+
+[1m[0;36m━━━ GitHub redirect latest-tag + asset URLs (task-049) ━━━[0m
+  [0;32m✓[0m ghredirect:tag-from-redirect:OK
+  [0;32m✓[0m ghredirect:tag-trailing-slash-rejected:OK
+  [0;32m✓[0m ghredirect:nonmatch-falls-back:OK
+  [0;32m✓[0m ghredirect:ratelimit-empty:OK
+  [0;32m✓[0m ghredirect:asset-ipk:OK
+  [0;32m✓[0m ghredirect:asset-apk:OK
+
+[1m[0;36m━━━ NetShift Self-Update (task-017) ━━━[0m
+  [0;32m✓[0m selfupdate-connfail-aborts-successfalse:OK
+  [0;32m✓[0m selfupdate-connfail-no-install:OK
+  [0;32m✓[0m selfupdate-connfail-resolv-restored:OK
+  [0;32m✓[0m selfupdate-dlfail-successfalse:OK
+  [0;32m✓[0m selfupdate-dlfail-no-install:OK
+  [0;32m✓[0m selfupdate-dlfail-config-intact:OK
+  [0;32m✓[0m selfupdate-happy-successtrue-version:OK
+  [0;32m✓[0m selfupdate-happy-core-luci-installed-no-ru:OK
+  [0;32m✓[0m selfupdate-happy-resolv-untouched:OK
+  [0;32m✓[0m selfupdate-happy-download-dir-cleaned:OK
+  [0;32m✓[0m selfupdate-already-current-idempotent:OK
+  [0;32m✓[0m selfupdate-already-current-no-install:OK
+  [0;32m✓[0m selfupdate-ru-installed-upgraded:OK
+  [0;32m✓[0m selfupdate-noop-detected-successfalse:OK
+  [0;32m✓[0m selfupdate-noop-install-attempted:OK
+  [0;32m✓[0m selfupdate-noop-config-intact:OK
+  [0;32m✓[0m selfupdate-noop-download-dir-cleaned:OK
+
+[1m[0;36m━━━ Core-swap Backup Integrity (task-027) ━━━[0m
+  [0;32m✓[0m backupguard-verify-complete-ok
+  [0;32m✓[0m backupguard-verify-truncated-detected
+  [0;32m✓[0m backupguard-verify-missing-detected
+  [0;32m✓[0m backupguard-verify-absent-source-ok
+  [0;32m✓[0m backupguard-iscomplete-match
+  [0;32m✓[0m backupguard-iscomplete-mismatch
+  [0;32m✓[0m backupguard-iscomplete-missing
+  [0;32m✓[0m backupguard-rollback-refuses-truncated
+  [0;32m✓[0m backupguard-rollback-truncated-not-moved
+  [0;32m✓[0m backupguard-rollback-restores-complete
+
+[1m[0;36m━━━ Subscription Update Without NetShift Restart (sing-box SIGHUP) ━━━[0m
+  [0;32m✓[0m hr-prepare-fresh-file-referenced
+  [0;32m✓[0m hr-prepare-existing-file-referenced
+  [0;32m✓[0m hr-prepare-user-file-rebuilt
+  [0;32m✓[0m hr-prepare-local-file-rebuilt
+  [0;32m✓[0m hr-prepare-same-tag-fresh-once
+  [0;32m✓[0m hr-prepare-same-tag-existing-once
+  [0;32m✓[0m hr-prepare-remote-file-kept
+  [0;32m✓[0m hr-prepare-corrupt-file-recreated
+  [0;32m✓[0m hr-prepare-second-rule-gets-reference
+  [0;32m✓[0m hr-prepare-user-subnets-file
+  [0;32m✓[0m hr-prepare-local-subnets-file
+  [0;32m✓[0m hr-prepare-remote-subnets-file
+  [0;32m✓[0m hr-proc-cmdline-gone-process-silent
+  [0;32m✓[0m hr-reload-not-running-restarts
+  [0;32m✓[0m hr-reload-build-failure-keeps-running-config
+  [0;32m✓[0m hr-reload-unchanged-config-no-signal
+  [0;32m✓[0m hr-reload-changed-config-sighup
+  [0;32m✓[0m hr-reload-signal-failure-restarts
+  [0;32m✓[0m hr-reload-transient-process-only-restarts
+  [0;32m✓[0m hr-reload-conffile-mismatch-restarts
+  [0;32m✓[0m hr-reload-daemon-gone-after-signal-restarts
+  [0;32m✓[0m hr-reload-foreign-daemon-not-signalled
+  [0;32m✓[0m hr-update-changed-feed-reloads-without-restart
+  [0;32m✓[0m hr-update-unchanged-feed-no-reload
+  [0;32m✓[0m hr-update-unchanged-feed-no-marker
+  [0;32m✓[0m hr-update-reload-failure-propagates
+  [0;32m✓[0m hr-update-failed-apply-marked
+  [0;32m✓[0m hr-update-pending-apply-retried
+  [0;32m✓[0m hr-update-killed-after-cache-write-applied-next-run
+  [0;32m✓[0m hr-worker-unreachable-feed-polled
+  [0;32m✓[0m hr-worker-apply-failures-back-off-and-stop
+  [0;32m✓[0m hr-worker-backoff-capped
+  [0;32m✓[0m hr-start-built-config-drops-marker
+  [0;32m✓[0m hr-start-syncs-subscription-cron-jobs
+  [0;32m✓[0m hr-start-rejected-config-keeps-marker
+  [0;32m✓[0m hr-start-rejected-config-skips-cron-sync
+  [0;32m✓[0m hr-save-config-rejected-keeps-running-file
+  [0;32m✓[0m hr-save-config-accepted-replaces-file
+  [0;32m✓[0m hr-driver-completed
+
+[1m[0;36m━━━ Domain/Subnet List Separators (issue #53) ━━━[0m
+  [0;32m✓[0m ds-tab-domains:OK
+  [0;32m✓[0m ds-tab-subnets:OK
+  [0;32m✓[0m ds-tab-run:OK
+  [0;32m✓[0m ds-tab-padded:OK
+  [0;32m✓[0m ds-space-regression:OK
+  [0;32m✓[0m ds-comma-regression:OK
+  [0;32m✓[0m ds-newline-regression:OK
+  [0;32m✓[0m ds-crlf-regression:OK
+  [0;32m✓[0m ds-mixed-separators:OK
+  [0;32m✓[0m ds-vt-ff:OK
+  [0;32m✓[0m ds-comment-trailing:OK
+  [0;32m✓[0m ds-comment-header:OK
+  [0;32m✓[0m ds-invalid-dropped:OK
+  [0;32m✓[0m ds-empty:OK
+  [0;32m✓[0m ds-config-no-abort:OK
+  [0;32m✓[0m ds-subnet-config-no-abort:OK
+  [0;32m✓[0m ds-ruleset-domains:OK
+  [0;32m✓[0m ds-ruleset-subnets:OK
+  [0;32m✓[0m ds-missing-value-no-abort:OK
+  [0;32m✓[0m ds-missing-value-empty:OK
+  [0;32m✓[0m ds-missing-mode-no-abort:OK
+  [0;32m✓[0m ds-singbox-check:OK
+  [0;32m✓[0m ds-driver-completed:OK
+
+[1m[0;36m━━━ Selected Server Survives Reboot (sing-box cache DB copy) ━━━[0m
+  [0;32m✓[0m cp-restore-without-copy-noop
+  [0;32m✓[0m cp-restore-after-reboot
+  [0;32m✓[0m cp-restore-keeps-live-db
+  [0;32m✓[0m cp-restore-skips-flash-cache-path
+  [0;32m✓[0m cp-volatile-tmp
+  [0;32m✓[0m cp-volatile-var
+  [0;32m✓[0m cp-flash-not-volatile
+  [0;32m✓[0m cp-selection-lists-selectors-only
+  [0;32m✓[0m cp-selection-uses-lan-address
+  [0;32m✓[0m cp-selection-no-auth-without-secret
+  [0;32m✓[0m cp-selection-sends-secret
+  [0;32m✓[0m cp-selection-honours-listen-override
+  [0;32m✓[0m cp-selection-empty-when-api-down
+  [0;32m✓[0m cp-snapshot-without-live-db-noop
+  [0;32m✓[0m cp-snapshot-api-down-noop
+  [0;32m✓[0m cp-snapshot-copies-live-db
+  [0;32m✓[0m cp-snapshot-records-selection
+  [0;32m✓[0m cp-snapshot-mode-600
+  [0;32m✓[0m cp-snapshot-no-leftover-tmp
+  [0;32m✓[0m cp-snapshot-same-selection-no-write
+  [0;32m✓[0m cp-snapshot-new-selection-rewrites
+  [0;32m✓[0m cp-snapshot-legacy-copy-retaken
+  [0;32m✓[0m cp-snapshot-unstable-keeps-old-copy
+  [0;32m✓[0m cp-snapshot-unstable-no-leftover-tmp
+  [0;32m✓[0m cp-snapshot-unstable-logs-warn
+  [0;32m✓[0m cp-snapshot-retry-after-write
+  [0;32m✓[0m cp-snapshot-skips-flash-cache-path
+  [0;32m✓[0m cp-monitor-snapshots-once-per-minute
+  [0;32m✓[0m cp-restore-sets-restored-flag
+  [0;32m✓[0m cp-heal-drops-restored-cache
+  [0;32m✓[0m cp-heal-noop-without-restore
+  [0;32m✓[0m cp-monitor-heals-restored-cache
+  [0;32m✓[0m cp-clash-api-204-snapshots
+  [0;32m✓[0m cp-clash-api-404-no-snapshot
+  [0;32m✓[0m cp-start-restores-before-sing-box
+  [0;32m✓[0m cp-set-group-proxy-snapshots
+  [0;32m✓[0m cp-stop-does-not-snapshot
+  [0;32m✓[0m cp-monitor-heals-on-crash
+  [0;32m✓[0m cp-driver-completed
+
+[1m──────────────────────────────────────[0m
+Results: [0;32m734 passed[0m / [0;31m0 failed[0m / [1;33m1 skipped[0m
+[0;32m[1m✓ ALL TESTS PASSED[0m (734 test(s))
+################ SMOKE pr58 EXIT=0 ################
+################ SMOKE pr44 ################
+ Container tests-netshift-test-run-f0446cdecc38 Creating 
+ Container tests-netshift-test-run-f0446cdecc38 Created 
+[1mNetshift Evolution — Smoke Test Suite[0m
+Source: /netshift/files
+OpenWrt: OpenWrt 24.10.6 r29141-81be8a8869
+Kernel: 7.0.0-34-generic
+
+
+[1m[0;36m━━━ Dependency Check ━━━[0m
+  [0;32m✓[0m sing-box is available (/usr/bin/sing-box)
+  [0;32m✓[0m curl is available (/usr/bin/curl)
+  [0;32m✓[0m jq is available (/usr/bin/jq)
+  [0;32m✓[0m base64 is available (/bin/base64)
+  [0;32m✓[0m dig is available (/usr/bin/dig)
+  [0;32m✓[0m nft is available (/usr/sbin/nft)
+  [0;32m✓[0m ash is available (/bin/ash)
+  [0;32m✓[0m sing-box version: 1.12.22
+  [0;32m✓[0m jq version: 1.8.1
+
+[1m[0;36m━━━ Shell Syntax & Library Loading ━━━[0m
+  [0;32m✓[0m Syntax OK: constants.sh
+  [0;32m✓[0m Syntax OK: helpers.sh
+  [0;32m✓[0m Syntax OK: logging.sh
+  [0;32m✓[0m Syntax OK: nft.sh
+  [0;32m✓[0m Syntax OK: rulesets.sh
+  [0;32m✓[0m Syntax OK: sing_box_config_manager.sh
+  [0;32m✓[0m Syntax OK: sing_box_config_facade.sh
+  [0;32m✓[0m Syntax OK: updater.sh
+  [0;32m✓[0m Syntax OK: netshift
+  [0;32m✓[0m netshift CLI free of double-encode mojibake
+  [0;32m✓[0m logging.sh can be sourced
+
+[1m[0;36m━━━ UCI Config Validation ━━━[0m
+  [0;32m✓[0m Config file exists: /netshift/files/etc/config/netshift
+  [0;32m✓[0m settings section present
+  [0;32m✓[0m section (proxy) present
+  [0;32m✓[0m option shutdown_correctly present
+  [0;32m✓[0m option dns_type present
+  [0;32m✓[0m option connection_type present
+  [0;32m✓[0m option proxy_config_type present
+  [0;32m✓[0m Sections in config: 4
+
+[1m[0;36m━━━ Helper Functions ━━━[0m
+  [0;32m✓[0m ipv4:OK
+  [0;32m✓[0m ipv4-bad:OK
+  [0;32m✓[0m ipv6-literal:OK
+  [0;32m✓[0m ipv6-literal-neg:OK
+  [0;32m✓[0m ipv4cidr:OK
+  [0;32m✓[0m 6fcf-0c39-65eb-d622hwid:OK
+  [0;32m✓[0m model:OK
+  [0;32m✓[0m url-host:OK
+  [0;32m✓[0m url-port:OK
+  [0;32m✓[0m url-ipv6-port:OK
+  [0;32m✓[0m url-decode:OK
+  [0;32m✓[0m url-decode-component:OK
+  [0;32m✓[0m url-decode-bare-percent:OK
+  [0;32m✓[0m url-query-param-decode:OK
+  [0;32m✓[0m helpers-driver-completed:OK
+
+[1m[0;36m━━━ jq Helper Functions ━━━[0m
+  [0;32m✓[0m helpers.jq extend_key_value merges arrays
+
+[1m[0;36m━━━ sing-box Config Manager (jq) ━━━[0m
+  [0;32m✓[0m jq: direct outbound added to config
+  [0;32m✓[0m jq: TProxy inbound added to config
+  [0;32m✓[0m jq: route rule added to config
+  [0;32m✓[0m cm-vmess-type:OK
+  [0;32m✓[0m cm-vmess-server:OK
+  [0;32m✓[0m cm-vmess-port:OK
+  [0;32m✓[0m cm-vmess-uuid:OK
+  [0;32m✓[0m cm-vmess-security-default:OK
+  [0;32m✓[0m cm-vmess-aid-omitted:OK
+  [0;32m✓[0m cm-vmess-security-explicit:OK
+  [0;32m✓[0m cm-vmess-aid-number:OK
+  [0;32m✓[0m cm-doh-cidrs-v4-v6:OK
+  [0;32m✓[0m cm-doh-route-rule:OK
+  [0;32m✓[0m cm-driver-completed:OK
+
+[1m[0;36m━━━ sing-box Config Generation ━━━[0m
+  [0;32m✓[0m sing-box validates minimal config
+  [0;32m✓[0m sing-box validates config with FakeIP
+  [0;32m✓[0m sing-box validates config with TProxy
+  [0;32m✓[0m sing-box validates inline ruleset (DoH block)
+  [0;32m✓[0m sing-box validates config with IPv6 FakeIP
+  [0;32m✓[0m vmess-frag-link-has-hash:OK
+  [0;32m✓[0m vmess-plus-body-has-plus:OK
+  [0;32m✓[0m vmess-ws-type:OK
+  [0;32m✓[0m vmess-ws-server:OK
+  [0;32m✓[0m vmess-ws-port:OK
+  [0;32m✓[0m vmess-ws-aid-omitted:OK
+  [0;32m✓[0m vmess-ws-transport:OK
+  [0;32m✓[0m vmess-ws-path:OK
+  [0;32m✓[0m vmess-ws-host:OK
+  [0;32m✓[0m vmess-ws-tls:OK
+  [0;32m✓[0m vmess-ws-sni:OK
+  [0;32m✓[0m vmess-ws-alpn:OK
+  [0;32m✓[0m vmess-ws-fp:OK
+  [0;32m✓[0m vmess-tcp-type:OK
+  [0;32m✓[0m vmess-tcp-no-transport:OK
+  [0;32m✓[0m vmess-tcp-no-tls:OK
+  [0;32m✓[0m vmess-tcp-security:OK
+  [0;32m✓[0m vmess-plus-type:OK
+  [0;32m✓[0m vmess-plus-server:OK
+  [0;32m✓[0m vmess-plus-port:OK
+  [0;32m✓[0m vmess-plus-uuid:OK
+  [0;32m✓[0m vmess-frag-type:OK
+  [0;32m✓[0m vmess-frag-server:OK
+  [0;32m✓[0m vmess-frag-port:OK
+  [0;32m✓[0m vmess-frag-uuid:OK
+  [0;32m✓[0m vmess-frag-transport:OK
+  [0;32m✓[0m vmess-frag-path:OK
+  [0;32m✓[0m vmess-frag-tls:OK
+  [0;32m✓[0m vmess-frag-sni:OK
+  [0;32m✓[0m vmess-gate-unchanged:OK
+  [0;32m✓[0m vmess-driver-completed:OK
+
+[1m[0;36m━━━ Proxy Link Escaping (%40 / %23 / '+') ━━━[0m
+  [0;32m✓[0m trojan-pct40:OK
+  [0;32m✓[0m trojan-plus:OK
+  [0;32m✓[0m trojan-pct23:OK
+  [0;32m✓[0m trojan-mixed:OK
+  [0;32m✓[0m trojan-utf8:OK
+  [0;32m✓[0m trojan-fragment:OK
+  [0;32m✓[0m hy2-escaped-password:OK
+  [0;32m✓[0m socks-escaped-password:OK
+  [0;32m✓[0m ss-base64-plus-fixture:OK
+  [0;32m✓[0m ss-base64-plus:OK
+  [0;32m✓[0m query-value-percent:OK
+  [0;32m✓[0m query-value-plus-space:OK
+  [0;32m✓[0m plain-link-unchanged:OK
+  [0;32m✓[0m singbox-check-abc%40def:OK
+  [0;32m✓[0m singbox-check-abc%23def:OK
+  [0;32m✓[0m singbox-check-abc+def:OK
+  [0;32m✓[0m proxy-link-driver-completed:OK
+
+[1m[0;36m━━━ NFT Rules Syntax ━━━[0m
+  [0;32m✓[0m nft table creation works
+  [0;32m✓[0m nft set and element operations work
+  [0;32m✓[0m nft chain creation works
+
+[1m[0;36m━━━ NFT IPv6 TProxy Regression ━━━[0m
+  [0;32m✓[0m nft-v6-set-element:OK (ipv6_addr interval set + fc00::/7)
+  [0;32m✓[0m nft-v6-tproxy-bracketed:OK (normalizes to [::1]:1603)
+  [0;32m✓[0m nft-v6-tproxy-no-bare:OK (no portless bare ip6 form)
+
+[1m[0;36m━━━ Destination-selective nft marking (task-034) ━━━[0m
+  [0;32m✓[0m selective:constants — NFT_COMMON_SET_NAME(+v6) defined
+  [0;32m✓[0m selective:default — proxied-subnets set rule present in mangle (@netshift_subnets)
+  [0;32m✓[0m selective:default — FakeIP range marked in mangle (198.18.0.0/15) [domain routing intact]
+  [0;32m✓[0m selective:default — union set netshift_subnets created
+  [0;32m✓[0m selective:output — proxied-subnets mark present in mangle_output (@netshift_subnets)
+  [0;32m✓[0m selective:output — FakeIP range marked in mangle_output (198.18.0.0/15) [router-originated domain routing]
+  [0;32m✓[0m selective:output — no iifname qualifier in mangle_output (router-originated rules can match)
+  [0;32m✓[0m selective:bypass — NO unconditional mark-all rule (direct IP NOT marked)
+  [0;32m✓[0m selective:output-order — localv4 + outbound-mark returns precede the marks (loop-safe)
+  [0;32m✓[0m selective:globalproxy — mark-EVERYTHING rules present under global_proxy
+  [0;32m✓[0m selective:globalproxy-output — mark-EVERYTHING tcp rule present in mangle_output
+  [0;32m✓[0m selective:globalproxy-output — mark-EVERYTHING udp rule present in mangle_output
+  [0;32m✓[0m selective:globalproxy — selective @set rule correctly bypassed
+  [0;32m✓[0m selective:ipv6 — v6 union set mark rule present (@netshift_subnets_v6)
+  [0;32m✓[0m selective:ipv6 — no mark-all rule with IPv6 enabled
+  [0;32m✓[0m selective:ipv6 — FakeIP v6 range marked (fd00:ec3a::/32)
+  [0;32m✓[0m selective:ipv6-output — v6 union set mark present in mangle_output (@netshift_subnets_v6)
+  [0;32m✓[0m selective:ipv6-output — FakeIP v6 range marked in mangle_output (fd00:ec3a::/32)
+  [0;32m✓[0m selective:fullrouted — fully_routed_ips source-mark rule present
+  [0;32m✓[0m selective:respawn — NO stale mark-all rule survives a respawn (table flushed)
+  [0;32m✓[0m selective:respawn — selective @set rule present after respawn
+  [0;32m✓[0m selective:respawn — union set netshift_subnets present after respawn
+  [0;32m✓[0m selective:respawn — exactly one @set mark rule per chain (rebuilt, not appended)
+  [0;32m✓[0m selective:doh — DoH CIDR marked in mangle (1.1.1.1)
+  [0;32m✓[0m selective:doh-output — DoH CIDR marked in mangle_output (1.1.1.1)
+  [0;32m✓[0m selective:doh-output — v6 DoH CIDR marked in mangle_output (2606:4700:4700::1111)
+  [0;32m✓[0m selective:realgp — real get_global_proxy_section returns empty for global_proxy=0 (selective branch)
+  [0;32m✓[0m selective:singboxcheck — 2-section selective config validates
+
+[1m[0;36m━━━ Section-isolation invariant (task-033) ━━━[0m
+  [0;32m✓[0m si-default-mark-present:OK (2097152, number)
+  [0;32m✓[0m si-mark-distinct-from-fakeip:OK
+  [0;32m✓[0m si-empty-mark-byte-parity:OK
+  [0;32m✓[0m si-empty-mark-omitted:OK
+  [0;32m✓[0m si-driver-completed:OK
+  [0;32m✓[0m si-2section-unreachable-check:OK (sing-box accepts config + route.default_mark)
+  [0;32m✓[0m si-config-has-default-mark:OK
+  [0;32m✓[0m si-live-loop-fakeip-blackholes:OK (fakeip-marked egress loops, as in the bug)
+  [0;32m✓[0m si-live-loop-outbound-escapes:OK (outbound-marked egress reaches internet -> fail-open)
+
+[1m[0;36m━━━ Monitor procd-lock fd Hygiene (task-035) + leak (task-036) ━━━[0m
+  [0;32m✓[0m monfd-monitor-alive-pidfile:OK
+  [0;32m✓[0m monfd-no-sentinel-lock-fd:OK
+  [0;32m✓[0m monfd-fd1000-not-lock:OK
+  [0;32m✓[0m monfd-second-flock-immediate:OK
+  [0;32m✓[0m monfd-prior-monitor-killed:OK
+  [0;32m✓[0m monfd-exactly-one-monitor:OK
+  [0;32m✓[0m monfd-respawn-no-lock-fd:OK
+
+[1m[0;36m━━━ Graceful-skip unsupported protocol + splithttp alias (task-038) ━━━[0m
+  [0;32m✓[0m us-urltest-no-abort:OK
+  [0;32m✓[0m us-urltest-config-not-wiped:OK
+  [0;32m✓[0m us-urltest-vless-present:OK
+  [0;32m✓[0m us-urltest-hy2-present:OK
+  [0;32m✓[0m us-urltest-unsupported-absent:OK
+  [0;32m✓[0m us-urltest-members-clean:OK
+  [0;32m✓[0m us-urltest-warning-logged:OK
+  [0;32m✓[0m us-urltest-singbox-check:OK
+  [0;32m✓[0m us-selector-no-abort:OK
+  [0;32m✓[0m us-selector-vless-present:OK
+  [0;32m✓[0m us-selector-members-clean:OK
+  [0;32m✓[0m us-selector-singbox-check:OK
+  [0;32m✓[0m us-single-no-crash:OK
+  [0;32m✓[0m us-single-no-outbound:OK
+  [0;32m✓[0m us-single-rest-continues:OK
+  [0;32m✓[0m us-single-marked-unavailable:OK
+  [0;32m✓[0m us-single-error-logged:OK
+  [0;32m✓[0m us-splithttp-url-xhttp:OK
+  [0;32m✓[0m us-splithttp-url-path:OK
+  [0;32m✓[0m us-splithttp-gate-off:OK
+  [1;33m⊘[0m us-splithttp-singbox-check:SKIP (skipped)
+  [0;32m✓[0m us-xray-splithttp-type-xhttp:OK
+  [0;32m✓[0m us-xray-splithttp-path:OK
+  [0;32m✓[0m us-xray-splithttp-normalized:OK
+  [0;32m✓[0m us-driver-completed:OK
+
+[1m[0;36m━━━ VLESS Encryption passthrough + extended gate ━━━[0m
+  [0;32m✓[0m ve-version-parse:OK
+  [0;32m✓[0m ve-version-parse-suffix:OK
+  [0;32m✓[0m ve-cache-sub-outbounds:OK
+  [0;32m✓[0m ve-cache-sub-one-call:OK
+  [0;32m✓[0m ve-cache-members-one-call:OK
+  [0;32m✓[0m ve-valid-accepts-mlkem768x25519plus.native.0rtt.U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4:OK
+  [0;32m✓[0m ve-valid-accepts-mlkem768x25519plus.xorpub.1rtt.U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4:OK
+  [0;32m✓[0m ve-valid-accepts-mlkem768x25519plus.random.0rtt.100-111-1111.75-0-111.U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4.U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4:OK
+  [0;32m✓[0m ve-valid-rejects-[]:OK
+  [0;32m✓[0m ve-valid-rejects-[none]:OK
+  [0;32m✓[0m ve-valid-rejects-[mlkem768x25519plus.native.0rtt]:OK
+  [0;32m✓[0m ve-valid-rejects-[mlkem768x25519plus.native.0rtt.]:OK
+  [0;32m✓[0m ve-valid-rejects-[mlkem768.native.0rtt.U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4]:OK
+  [0;32m✓[0m ve-valid-rejects-[mlkem768x25519plus.fast.0rtt.U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4]:OK
+  [0;32m✓[0m ve-valid-rejects-[mlkem768x25519plus.native.2rtt.U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4]:OK
+  [0;32m✓[0m ve-valid-rejects-[mlkem768x25519plus.native.0rtt.U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4..U8FmnIZILXq_jbMEEiPCkNENtc8sTHgADfkO5zB6_E4]:OK
+  [0;32m✓[0m ve-valid-rejects-[mlkem768x25519plus.native.0rtt.AB CD]:OK
+  [0;32m✓[0m ve-valid-rejects-[mlkem768x25519plus.native.0rtt.AB+CD]:OK
+  [0;32m✓[0m ve-valid-rejects-[mlkem768x25519plus.native.0rtt.AB%2BCD]:OK
+  [0;32m✓[0m ve-min-accepts-1.13.14-extended-2.5.0:OK
+  [0;32m✓[0m ve-min-accepts-1.13.18-extended-2.6.5:OK
+  [0;32m✓[0m ve-min-accepts-1.12.22-extended-2.0.0:OK
+  [0;32m✓[0m ve-min-accepts-1.12.22-extended-2.0.0-rc.1:OK
+  [0;32m✓[0m ve-min-rejects-1.13.11-extended-1.6.2:OK
+  [0;32m✓[0m ve-min-rejects-1.12.12-extended-1.5.0:OK
+  [0;32m✓[0m ve-min-rejects-1.13.14:OK
+  [0;32m✓[0m ve-min-rejects-1.12.0:OK
+  [0;32m✓[0m ve-ext-pq-rc0:OK
+  [0;32m✓[0m ve-ext-pq-field:OK
+  [0;32m✓[0m ve-ext-none-omitted:OK
+  [0;32m✓[0m ve-ext-absent-omitted:OK
+  [0;32m✓[0m ve-ext-percent-decoded:OK
+  [0;32m✓[0m ve-ext-malformed-skipped-[mlkem768x25519plus.native.0rtt.AAAA+BBBB]:OK
+  [0;32m✓[0m ve-ext-malformed-skipped-[mlkem768x25519plus.native.0rtt.AAAA%2BBBBB]:OK
+  [0;32m✓[0m ve-ext-malformed-skipped-[mlkem768x25519plus.native.0rtt.AAAA%25BBBB]:OK
+  [0;32m✓[0m ve-ext-malformed-skipped-[mlkem768x25519plus.native]:OK
+  [0;32m✓[0m ve-stock-pq-skip-rc:OK
+  [0;32m✓[0m ve-stock-pq-config-unchanged:OK
+  [0;32m✓[0m ve-stock-pq-logged:OK
+  [0;32m✓[0m ve-stock-plain-unaffected:OK
+  [0;32m✓[0m ve-ext162-pq-skip:OK
+  [0;32m✓[0m ve-stock-members-no-dangling:OK
+  [0;32m✓[0m ve-stock-members-outbounds:OK
+  [0;32m✓[0m ve-stock-urltest-check:OK
+  [0;32m✓[0m ve-stock-pq-only-no-members:OK
+  [0;32m✓[0m ve-ext-members-both:OK
+  [1;33m⊘[0m ve-ext-urltest-check:SKIP (skipped)
+  [0;32m✓[0m ve-xray-pq-encryption:OK
+  [0;32m✓[0m ve-xray-plain-none:OK
+  [0;32m✓[0m ve-xray-roundtrip:OK
+  [0;32m✓[0m ve-xray-bad-key-kept:OK
+  [0;32m✓[0m ve-xray-bad-key-rejected-loudly:OK
+  [0;32m✓[0m ve-driver-completed:OK
+
+[1m[0;36m━━━ Text-list Selector / URLTest (task-051) ━━━[0m
+  [0;32m✓[0m tl-seltxt-no-abort:OK
+  [0;32m✓[0m tl-seltxt-vless1-present:OK
+  [0;32m✓[0m tl-seltxt-vless2-present:OK
+  [0;32m✓[0m tl-seltxt-ss-crlf-present:OK
+  [0;32m✓[0m tl-seltxt-tuic-absent:OK
+  [0;32m✓[0m tl-seltxt-members-clean:OK
+  [0;32m✓[0m tl-seltxt-default-first:OK
+  [0;32m✓[0m tl-seltxt-warning-logged:OK
+  [0;32m✓[0m tl-seltxt-singbox-check:OK
+  [0;32m✓[0m tl-urltxt-no-abort:OK
+  [0;32m✓[0m tl-urltxt-urltest-members-clean:OK
+  [0;32m✓[0m tl-urltxt-selector-over-urltest:OK
+  [0;32m✓[0m tl-urltxt-singbox-check:OK
+  [0;32m✓[0m tl-check-seltxt-found:OK
+  [0;32m✓[0m tl-check-urltxt-found:OK
+  [0;32m✓[0m tl-driver-completed:OK
+
+[1m[0;36m━━━ Ruleset Chunk Size Default (upstream 0c99ddd) ━━━[0m
+  [0;32m✓[0m chunk-domain-calls-3:OK
+  [0;32m✓[0m chunk-domain-sizes-1000-1000-500:OK
+  [0;32m✓[0m chunk-subnet-calls-3:OK
+  [0;32m✓[0m chunk-subnet-sizes-1000-1000-500:OK
+  [0;32m✓[0m chunk-only-domain-suffix-ip-cidr-keys:OK
+  [0;32m✓[0m chunk-driver-completed:OK
+
+[1m[0;36m━━━ Domain case normalization (issue #52) ━━━[0m
+  [0;32m✓[0m domcase-dynamic-domains:OK
+  [0;32m✓[0m domcase-dynamic-uppercase-absent:OK
+  [0;32m✓[0m domcase-dynamic-path-absent:OK
+  [0;32m✓[0m domcase-dynamic-invalid-absent:OK
+  [0;32m✓[0m domcase-dynamic-all-lowercase:OK
+  [0;32m✓[0m domcase-dynamic-path-logged:OK
+  [0;32m✓[0m domcase-dynamic-singbox-check:OK
+  [0;32m✓[0m domcase-text-domains:OK
+  [0;32m✓[0m domcase-text-all-lowercase:OK
+  [0;32m✓[0m domcase-text-singbox-check:OK
+  [0;32m✓[0m domcase-listfile-domains:OK
+  [0;32m✓[0m domcase-listfile-all-lowercase:OK
+  [0;32m✓[0m domcase-empty-no-crash:OK
+  [0;32m✓[0m domcase-empty-singbox-check:OK
+  [0;32m✓[0m domcase-driver-completed:OK
+
+[1m[0;36m━━━ Diagnostics Commands ━━━[0m
+  [0;32m✓[0m sing-box version works
+  [0;32m✓[0m sing-box check accepts empty config
+  [0;32m✓[0m dig DNS resolution works
+
+[1m[0;36m━━━ Subscription JSON Validation ━━━[0m
+  [0;32m✓[0m Subscription proxy count correct: 4 (ss + vless + trojan + hysteria2)
+  [0;32m✓[0m Subscription outbound tags extracted correctly
+  [0;32m✓[0m Country flag grouping: 4 grouped, 1 ungrouped
+  [0;32m✓[0m Prefix grouping (len 2): US=2 DE=1 X=1, groups=3, ungrouped=0
+  [0;32m✓[0m Prefix grouping consistency vs country: identical grouping over flag tags
+  [0;32m✓[0m Prefix grouping bad/empty len falls back to 2 (no crash)
+  [0;32m✓[0m Prefix grouping space-key: 'A '=2 'B '=1, groups=2, ungrouped=0
+
+  [1mFallback Subscription Normalizer[0m
+  [0;32m✓[0m fb-caseA-rc:OK
+  [0;32m✓[0m fb-caseA-count(>=4 got 5):OK
+  [0;32m✓[0m fb-caseA-validate:OK
+  [0;32m✓[0m fb-caseB-rc:OK
+  [0;32m✓[0m fb-caseB-count(>=2 got 2):OK
+  [0;32m✓[0m fb-caseB-validate:OK
+  [0;32m✓[0m fb-caseC-rc:OK
+  [0;32m✓[0m fb-caseC-count(==2 valid got 2):OK
+  [0;32m✓[0m fb-caseD-rc-nonzero:OK
+  [0;32m✓[0m fb-caseD-no-usable-output:OK
+  [0;32m✓[0m fb-caseE-rc:OK
+  [0;32m✓[0m fb-caseE-count(==2 got 2):OK
+  [0;32m✓[0m fb-caseE-validate:OK
+  [0;32m✓[0m fb-caseE-reality-fields:OK
+  [0;32m✓[0m fb-caseF-rc:OK
+  [0;32m✓[0m fb-caseF-validate:OK
+  [0;32m✓[0m fb-caseF-no-null-sid:OK
+  [0;32m✓[0m fb-caseG-rc:OK
+  [0;32m✓[0m fb-caseG-dedup(==3 got 3):OK
+  [0;32m✓[0m fb-caseG-servers:OK
+  [0;32m✓[0m fb-caseH-rc:OK
+  [0;32m✓[0m fb-caseH-vless-kept(==1 got 1):OK
+  [0;32m✓[0m fb-caseH-vmess-counted:OK
+  [0;32m✓[0m fb-caseI-auto-default-first:OK
+  [0;32m✓[0m fb-caseI-auto-has-v2rayN:OK
+  [0;32m✓[0m fb-caseI-auto-default-unique:OK
+  [0;32m✓[0m fb-caseI-preferred-second-unique:OK
+  [0;32m✓[0m fb-caseI-configured-only:OK
+  [0;32m✓[0m fb-caseI-emptypref-default-first:OK
+  [0;32m✓[0m fb-caseI-autopref-default-first:OK
+  [0;32m✓[0m fb-caseI-singboxpref-default-first:OK
+  [0;32m✓[0m fb-caseI-xraypref-xray-first:OK
+  [0;32m✓[0m fb-caseI-xraypref-first-versioned:OK
+  [0;32m✓[0m fb-caseI-xraypref-outranks-default-and-cache:OK
+  [0;32m✓[0m fb-caseI-xraypref-dedup:OK
+  [0;32m✓[0m fb-caseI-unknownpref-auto-first:OK
+  [0;32m✓[0m fb-caseI-configured-overrides-pref:OK
+  [0;32m✓[0m fb-caseJ-include-only:OK
+  [0;32m✓[0m fb-caseJ-exclude-only:OK
+  [0;32m✓[0m fb-caseJ-include-exclude:OK
+  [0;32m✓[0m fb-caseJ-ascii-ci:OK
+  [0;32m✓[0m fb-caseJ-emoji-substring:OK
+  [0;32m✓[0m fb-caseJ-empty-include-keeps-all:OK
+  [0;32m✓[0m fb-caseJ-filter-removes-all-zero-kept:OK
+  [0;32m✓[0m fb-caseK-cyrillic-mixed-include:OK
+  [0;32m✓[0m fb-caseK-cyrillic-lower-upper-include:OK
+  [0;32m✓[0m fb-caseK-cyrillic-exclude:OK
+  [0;32m✓[0m fb-caseK-yo-fold:OK
+  [0;32m✓[0m fb-caseK-emoji-flag-include:OK
+  [0;32m✓[0m fb-caseK-ascii-no-regression:OK
+  [0;32m✓[0m fb-caseL-hy2-scheme:OK
+  [0;32m✓[0m fb-caseL-hy2-auth-host-port:OK
+  [0;32m✓[0m fb-caseL-hy2-query-params:OK
+  [0;32m✓[0m fb-caseM-v1-and-missing-skipped:OK
+  [0;32m✓[0m fb-caseN-dedup-count(==4):OK
+  [0;32m✓[0m fb-caseN-first-seen-order:OK
+  [0;32m✓[0m fb-caseO-rc:OK
+  [0;32m✓[0m fb-caseO-validate:OK
+  [0;32m✓[0m fb-caseO-hy2-outbound-fields:OK
+  [0;32m✓[0m fb-caseO-singbox-check:OK
+  [0;32m✓[0m fb-caseP-gzip-to-text:OK
+  [0;32m✓[0m fb-caseP-text-passthrough:OK
+  [0;32m✓[0m fb-caseP-gzip-then-validate:OK
+  [0;32m✓[0m fb-caseQ-nul-is-binary:OK
+  [0;32m✓[0m fb-caseQ-text-not-binary:OK
+  [0;32m✓[0m fb-driver-completed:OK
+
+  [1mMulti-URL Subscription Merge[0m
+  [0;32m✓[0m mu-case1-merged-count-3:OK
+  [0;32m✓[0m mu-case1-both-feeds-present:OK
+  [0;32m✓[0m mu-case1-tags-json-3:OK
+  [0;32m✓[0m mu-case2-samename-dedup:OK
+  [0;32m✓[0m mu-case2-suffix-dedup-present:OK
+  [0;32m✓[0m mu-case3-partial-best-effort:OK
+  [0;32m✓[0m mu-case3-not-unavailable:OK
+  [0;32m✓[0m mu-case4-all-fail-unavailable:OK
+  [0;32m✓[0m mu-case5-distinct-cache-files:OK
+  [0;32m✓[0m mu-case5-rejected-per-url-isolated:OK
+  [0;32m✓[0m mu-case6-single-option-1elem:OK
+  [0;32m✓[0m mu-case6-backcompat-config:OK
+  [0;32m✓[0m mu-driver-completed:OK
+
+  [1mClear Subscription Cache[0m
+  [0;32m✓[0m cc-case1-all-deleted(before=12 after=0):OK
+  [0;32m✓[0m cc-case1-dir-preserved:OK
+  [0;32m✓[0m cc-case1-json-success-true:OK
+  [0;32m✓[0m cc-case1-redownload-invoked:OK
+  [0;32m✓[0m cc-case2-empty-dir-success:OK
+  [0;32m✓[0m cc-case2b-missing-dir-success:OK
+  [0;32m✓[0m cc-case3-no-subs-graceful:OK
+  [0;32m✓[0m cc-case4-redownload-fail-surfaced:OK
+  [0;32m✓[0m cc-case5-guard-scoped-to-cache-dir:OK
+  [0;32m✓[0m cc-case5-empty-constant-noop:OK
+  [0;32m✓[0m cc-case6-router-dispatch:OK
+
+[1m[0;36m━━━ Fastest Cross-Group urltest (task-050) ━━━[0m
+  [0;32m✓[0m fastest-region-extracted:OK
+  [0;32m✓[0m fastest-nested-urltest-members:OK
+  [0;32m✓[0m fastest-selector-default-membership:OK
+  [0;32m✓[0m fastest-singbox-check-passes:OK
+  [0;32m✓[0m fastest-single-group-no-nest:OK
+  [0;32m✓[0m fastest-off-mode-unchanged:OK
+
+[1m[0;36m━━━ Insecure Subscription Fetch Flag (task-021b) ━━━[0m
+  [0;32m✓[0m if-normal-off: no --no-check-certificate (secure default)
+  [0;32m✓[0m if-normal-on: --no-check-certificate present
+  [0;32m✓[0m if-proxy-off: no --no-check-certificate (secure default)
+  [0;32m✓[0m if-proxy-on: --no-check-certificate present
+  [0;32m✓[0m if-ipv4-on: -4 and --no-check-certificate both present
+  [0;32m✓[0m if-ipv4-off: no --no-check-certificate (secure default)
+
+[1m[0;36m━━━ Subscription Rejected-Hash Validity (task-011) ━━━[0m
+  [0;32m✓[0m rh-case1-filter-no-rejected:OK
+  [0;32m✓[0m rh-case1-blocked-state-set:OK
+  [0;32m✓[0m rh-case2-recovery-rejected-removed:OK
+  [0;32m✓[0m rh-case3-valid-body-not-vetoed:OK
+  [0;32m✓[0m rh-case4-no-proxy-body-vetoed:OK
+  [0;32m✓[0m rh-case5-normal-valid-usable:OK
+  [0;32m✓[0m rh-case6-genuine-unusable-recorded:OK
+
+[1m[0;36m━━━ Async Component-Action Job State (updater.sh) ━━━[0m
+  [0;32m✓[0m async returns success+job_id ({"success":true,"job_id":"1790361459-33174","message":"Component action started"})
+  [0;32m✓[0m async returned fast (0s, well under 30s)
+  [0;32m✓[0m running state file created
+  [0;32m✓[0m running state has running:true,success:true,exit_code:null
+  [0;32m✓[0m running pid recorded (33189)
+  [0;32m✓[0m finished status surfaces success/version/exit_code
+  [0;32m✓[0m failed worker recorded (success:false, exit_code:3, message surfaced)
+  [0;32m✓[0m finished parser extracts the LAST well-formed JSON object from noisy stdout
+  [0;32m✓[0m finished status surfaces the worker warning
+  [0;32m✓[0m finished status without a worker warning has an empty one
+  [0;32m✓[0m invalid job_id rejected safely: '../foo'
+  [0;32m✓[0m invalid job_id rejected safely: '../../etc/passwd'
+  [0;32m✓[0m invalid job_id rejected safely: 'foo/bar'
+  [0;32m✓[0m invalid job_id rejected safely: 'a b'
+  [0;32m✓[0m invalid job_id rejected safely: ''
+  [0;32m✓[0m invalid job_id rejected safely: '.'
+  [0;32m✓[0m jobstate-traversal-rejected:OK
+  [0;32m✓[0m jobstate-valid-id-accepted:OK
+  [0;32m✓[0m jobstate-validate-driver-completed:OK
+  [0;32m✓[0m jobstate-stale-marked-finished:OK
+  [0;32m✓[0m jobstate-stale-driver-completed:OK
+
+[1m[0;36m━━━ Core-switch Connectivity Self-Heal + Rollback (updater.sh) ━━━[0m
+  [0;32m✓[0m selfheal-init-stub-logs:OK
+  [0;32m✓[0m selfheal-preflight-pass-proceeds:OK
+  [0;32m✓[0m selfheal-preflight-pass-no-teardown:OK
+  [0;32m✓[0m selfheal-preflight-pass-resolv-untouched:OK
+  [0;32m✓[0m selfheal-opkg-restart-after-backup-freed:OK
+  [0;32m✓[0m selfheal-dns-heal-proceeds:OK
+  [0;32m✓[0m selfheal-dns-heal-resolv-restored:OK
+  [0;32m✓[0m selfheal-dns-heal-no-teardown:OK
+  [0;32m✓[0m selfheal-teardown-heal-proceeds:OK
+  [0;32m✓[0m selfheal-teardown-taken:OK
+  [0;32m✓[0m selfheal-teardown-bringup-called:OK
+  [0;32m✓[0m selfheal-teardown-resolv-restored:OK
+  [0;32m✓[0m selfheal-heal-fail-aborts-successfalse:OK
+  [0;32m✓[0m selfheal-heal-fail-binary-intact:OK
+  [0;32m✓[0m selfheal-heal-fail-resolv-restored:OK
+  [0;32m✓[0m selfheal-heal-fail-bringup-called:OK
+  [0;32m✓[0m selfheal-stable-install-fail-successfalse:OK
+  [0;32m✓[0m selfheal-stable-install-fail-backup-restored:OK
+  [0;32m✓[0m selfheal-apk-indexed-stable-installed:OK
+  [0;32m✓[0m selfheal-apk-indexed-world-untouched:OK
+  [0;32m✓[0m selfheal-apk-restart-after-backup-freed:OK
+  [0;32m✓[0m selfheal-apk-unindexed-stable-installed:OK
+  [0;32m✓[0m selfheal-apk-fetch-not-in-backup-tmpfs:OK
+  [0;32m✓[0m selfheal-apk-fetch-dirs-cleaned:OK
+  [0;32m✓[0m selfheal-apk-unindexed-world-pin-dropped:OK
+  [0;32m✓[0m selfheal-apk-unindexed-world-entry-kept:OK
+  [0;32m✓[0m selfheal-apk-not-landed-successfalse:OK
+  [0;32m✓[0m selfheal-apk-not-landed-core-intact:OK
+  [0;32m✓[0m selfheal-apk-not-landed-no-restart:OK
+  [0;32m✓[0m selfheal-apk-stale-pin-hash-pin-dropped:OK
+  [0;32m✓[0m selfheal-apk-stale-pin-reported:OK
+  [0;32m✓[0m selfheal-apk-tagged-world-entry-kept:OK
+  [0;32m✓[0m selfheal-apk-no-netshift-in-world-no-del:OK
+  [0;32m✓[0m selfheal-apk-no-netshift-in-world-reported:OK
+  [0;32m✓[0m selfheal-apk-del-took-core-rolled-back:OK
+  [0;32m✓[0m selfheal-apk-leftover-pin-dropped-fix-route:OK
+  [0;32m✓[0m selfheal-apk-leftover-pin-dropped-file-route:OK
+  [0;32m✓[0m selfheal-apk-leftover-pin-no-netshift-reported:OK
+  [0;32m✓[0m selfheal-apk-excluded-netshift-no-del:OK
+  [0;32m✓[0m selfheal-apk-failed-switch-reports-pin:OK
+  [0;32m✓[0m selfheal-apk-del-took-netshift-reported:OK
+  [0;32m✓[0m selfheal-no-runnable-core-successfalse:OK
+  [0;32m✓[0m selfheal-no-runnable-core-rolled-back:OK
+  [0;32m✓[0m selfheal-failing-core-rolled-back:OK
+
+[1m[0;36m━━━ DNS via Outbound (task-014) ━━━[0m
+  [0;32m✓[0m dns-on-main-has-detour:OK
+  [0;32m✓[0m dns-on-bootstrap-no-detour:OK
+  [0;32m✓[0m dns-on-fakeip-no-detour:OK
+  [0;32m✓[0m dns-off-main-no-detour:OK
+  [0;32m✓[0m dns-off-byte-parity:OK
+  [0;32m✓[0m dns-on-singbox-check:OK
+  [0;32m✓[0m dns-off-singbox-check:OK
+  [0;32m✓[0m cascade-off-empty:OK
+  [0;32m✓[0m cascade-explicit-valid:OK
+  [0;32m✓[0m cascade-invalid-to-first:OK
+  [0;32m✓[0m cascade-empty-to-first:OK
+  [0;32m✓[0m cascade-no-outbound-direct:OK
+  [0;32m✓[0m cascade-block-direct:OK
+  [0;32m✓[0m cascade-exclusion-direct:OK
+  [0;32m✓[0m cascade-subscription-unavailable-direct:OK
+  [0;32m✓[0m dnsdetour-driver-completed:OK
+
+[1m[0;36m━━━ EDNS Client Subnet (issue #36) ━━━[0m
+  [0;32m✓[0m shipped config ships dns_client_subnet empty (feature off by default)
+  [0;32m✓[0m ecs-absent-no-field:OK
+  [0;32m✓[0m ecs-absent-singbox-check:OK
+  [0;32m✓[0m ecs-empty-no-field:OK
+  [0;32m✓[0m ecs-set-ipv4-prefix:OK
+  [0;32m✓[0m ecs-set-ipv4-singbox-check:OK
+  [0;32m✓[0m ecs-set-bare-address:OK
+  [0;32m✓[0m ecs-set-ipv6-prefix:OK
+  [0;32m✓[0m ecs-set-ipv6-singbox-check:OK
+  [0;32m✓[0m ecs-servers-unchanged:OK
+  [0;32m✓[0m ecs-invalid-skipped:OK
+  [0;32m✓[0m ecs-invalid-warned:OK
+  [0;32m✓[0m ecs-invalid-keeps-config-valid:OK
+  [0;32m✓[0m ecs-cm-set-field:OK
+  [0;32m✓[0m ecs-validator-matrix:OK
+  [0;32m✓[0m ecs-validator-matches-singbox:OK
+  [0;32m✓[0m ecssubnet-driver-completed:OK
+
+[1m[0;36m━━━ Scalar option subscription_url read-fallback + migration (task-048) ━━━[0m
+  [0;32m✓[0m suburlopt:scalar-read:OK
+  [0;32m✓[0m suburlopt:scalar-hasoutbound:OK
+  [0;32m✓[0m suburlopt:list-read:OK
+  [0;32m✓[0m suburlopt:migrate-flag:OK
+  [0;32m✓[0m suburlopt:migrate-value:OK
+  [0;32m✓[0m suburlopt:migrate-equrl-preserved:OK
+  [0;32m✓[0m suburlopt:migrate-islist:OK
+  [0;32m✓[0m suburlopt:migrate-equrl-islist:OK
+  [0;32m✓[0m suburlopt:migrate-equrl-single:OK
+  [0;32m✓[0m suburlopt:migrate-idempotent:OK
+  [0;32m✓[0m suburlopt:migrate-idempotent-value:OK
+  [0;32m✓[0m suburlopt:migrate-idempotent-equrl:OK
+
+[1m[0;36m━━━ Per-section subscription update interval (issue #51) ━━━[0m
+  [0;32m✓[0m subcron:schedule-30m:OK
+  [0;32m✓[0m subcron:schedule-1h:OK
+  [0;32m✓[0m subcron:schedule-3h:OK
+  [0;32m✓[0m subcron:schedule-6h:OK
+  [0;32m✓[0m subcron:schedule-12h:OK
+  [0;32m✓[0m subcron:schedule-1d:OK
+  [0;32m✓[0m subcron:schedule-unknown-rejected:OK
+  [0;32m✓[0m subcron:schedule-empty-rejected:OK
+  [0;32m✓[0m subcron:distinct-minutes:OK
+  [0;32m✓[0m subcron:fast-keeps-30m:OK
+  [0;32m✓[0m subcron:slow-keeps-1d:OK
+  [0;32m✓[0m subcron:one-job-per-interval:OK
+  [0;32m✓[0m subcron:order-independent:OK
+  [0;32m✓[0m subcron:no-interval-less-job:OK
+  [0;32m✓[0m subcron:legacy-job-dropped:OK
+  [0;32m✓[0m subcron:list-update-job-kept:OK
+  [0;32m✓[0m subcron:legacy-replaced-by-intervals:OK
+  [0;32m✓[0m subcron:missing-option-uses-default:OK
+  [0;32m✓[0m subcron:missing-option-single-job:OK
+  [0;32m✓[0m subcron:shared-interval-deduped:OK
+  [0;32m✓[0m subcron:idempotent:OK
+  [0;32m✓[0m subcron:unknown-interval-falls-back-to-default:OK
+  [0;32m✓[0m subcron:unknown-interval-one-job:OK
+  [0;32m✓[0m subcron:unknown-interval-not-scheduled:OK
+  [0;32m✓[0m subcron:unknown-interval-warned:OK
+  [0;32m✓[0m subcron:known-interval-not-warned:OK
+  [0;32m✓[0m subcron:unknown-interval-shares-default-job:OK
+  [0;32m✓[0m subcron:no-subscription-no-job:OK
+  [0;32m✓[0m subcron:remove-cron-job-clears-all:OK
+  [0;32m✓[0m subcron:start-main-builds-jobs:OK
+  [0;32m✓[0m subcron:start-main-ran-through:OK
+  [0;32m✓[0m subcron:filter-30m-only-fast:OK
+  [0;32m✓[0m subcron:filter-1d-only-slow:OK
+  [0;32m✓[0m subcron:filter-1h-picks-unknown-value:OK
+  [0;32m✓[0m subcron:no-filter-updates-all:OK
+  [0;32m✓[0m subcron:filter-unused-interval-noop:OK
+  [0;32m✓[0m subcron:filter-unused-interval-rc:OK
+  [0;32m✓[0m subcron:unknown-arg-updates-all:OK
+  [0;32m✓[0m subcron:unknown-arg-warned:OK
+  [0;32m✓[0m subcron:unknown-arg-rc:OK
+  [0;32m✓[0m subcron:unknown-arg-case-updates-all:OK
+  [0;32m✓[0m subcron-driver-completed
+
+[1m[0;36m━━━ Global Proxy Route Semantics ━━━[0m
+  [0;32m✓[0m global_proxy route.final points to global-out
+  [0;32m✓[0m global_proxy exclusion route rule is constrained by rule_set
+  [0;32m✓[0m global_proxy exclusion rule routes global-user-domains direct-out
+  [0;32m✓[0m global_proxy routing_excluded_ips supports IPv6 source_ip_cidr
+  [0;32m✓[0m sing-box validates global_proxy route config
+
+[1m[0;36m━━━ BitTorrent Exclusion (issue #56) ━━━[0m
+  [0;32m✓[0m bittorrent-real-functions-loaded:OK
+  [0;32m✓[0m bittorrent-upgrade-absent-no-rule:OK
+  [0;32m✓[0m bittorrent-off-no-rule:OK
+  [0;32m✓[0m bittorrent-absent-vs-off-parity:OK
+  [0;32m✓[0m bittorrent-on-rule-shape:OK
+  [0;32m✓[0m bittorrent-on-after-sniff:OK
+  [0;32m✓[0m bittorrent-on-immediately-after-sniff:OK
+  [0;32m✓[0m bittorrent-on-purely-additive:OK
+  [0;32m✓[0m bittorrent-absent-singbox-check:OK
+  [0;32m✓[0m bittorrent-on-singbox-check:OK
+  [0;32m✓[0m bittorrent-on-survives-save:OK
+  [0;32m✓[0m bittorrent-helper-appends-rule:OK
+  [0;32m✓[0m bittorrent-driver-completed:OK
+
+[1m[0;36m━━━ Stock sing-box Update Check (task-017) ━━━[0m
+  [0;32m✓[0m stablecheck-installed-eq-candidate-latest:OK
+  [0;32m✓[0m stablecheck-candidate-newer-outdated:OK
+  [0;32m✓[0m stablecheck-absent-not_installed:OK
+  [0;32m✓[0m stablecheck-feed-unreachable-successfalse:OK
+
+[1m[0;36m━━━ Extended sing-box Update Check — v-prefix (task-019) ━━━[0m
+  [0;32m✓[0m extcheck-vprefix-installed-eq-latest:OK
+  [0;32m✓[0m extcheck-older-outdated:OK
+  [0;32m✓[0m extcheck-fetch-failure-successfalse:OK
+
+[1m[0;36m━━━ sing-box-extended ARM asset selection (issue #37) ━━━[0m
+  [0;32m✓[0m sbext-armv7-vfpv3-uses-armv7-tarball
+  [0;32m✓[0m sbext-armv7-vfpv3-asset-url
+  [0;32m✓[0m sbext-armv7-no-fpu-uses-openwrt-package
+  [0;32m✓[0m sbext-armv7-no-fpu-asset-url
+  [0;32m✓[0m sbext-armv7-vfpv3d16-uses-armv7-tarball
+  [0;32m✓[0m sbext-armv7-vfpv2-uses-armv6-tarball
+  [0;32m✓[0m sbext-armv7-vfpv2-asset-url
+  [0;32m✓[0m sbext-armv7-no-features-keeps-armv7
+  [0;32m✓[0m sbext-armv7-no-features-asset-url
+  [0;32m✓[0m sbext-no-fpu-no-distrib-arch-refuses
+  [0;32m✓[0m sbext-option-empty-falls-back-to-auto
+  [0;32m✓[0m sbext-option-unknown-falls-back-to-auto
+  [0;32m✓[0m sbext-option-armv6-forces-armv6
+  [0;32m✓[0m sbext-option-armv7-forces-armv7
+  [0;32m✓[0m sbext-option-openwrt-forces-package
+  [0;32m✓[0m sbext-aarch64-uses-arm64
+  [0;32m✓[0m sbext-armv6-host-with-vfp-uses-armv6
+  [0;32m✓[0m sbext-armv6-host-no-fpu-uses-openwrt-package
+  [0;32m✓[0m sbext-x86-64-uses-amd64
+  [0;32m✓[0m sbext-riscv64-uses-riscv64
+  [0;32m✓[0m sbext-e2e-no-fpu-installs-openwrt-package
+  [0;32m✓[0m sbext-e2e-install-json-success
+  [0;32m✓[0m sbext-e2e-vfpv3-installs-armv7-tarball
+  [0;32m✓[0m sbext-e2e-vfpv2-installs-armv6-tarball
+  [0;32m✓[0m sbext-e2e-payload-less-package-fails-cleanly
+  [0;32m✓[0m sbext-arch-driver-completed
+  [0;32m✓[0m sbext-upgrade-absent-option-keeps-armv7
+  [0;32m✓[0m sbext-upgrade-absent-option-detects-package
+  [0;32m✓[0m sbext-upgrade-empty-option-detects-package
+  [0;32m✓[0m sbext-upgrade-unknown-option-detects-package
+  [0;32m✓[0m sbext-upgrade-option-forces-armv7
+  [0;32m✓[0m sbext-upgrade-option-forces-armv6
+  [0;32m✓[0m sbext-upgrade-option-forces-package
+  [0;32m✓[0m sbext-upgrade-driver-completed
+
+[1m[0;36m━━━ NetShift Update Check — on-demand + v-prefix (task-029) ━━━[0m
+  [0;32m✓[0m netshiftcheck-get_system_info-no-network:OK
+  [0;32m✓[0m netshiftcheck-vprefix-installed-eq-latest:OK
+  [0;32m✓[0m netshiftcheck-older-outdated:OK
+  [0;32m✓[0m netshiftcheck-both-vprefix-latest:OK
+  [0;32m✓[0m netshiftcheck-json-shape:OK
+  [0;32m✓[0m netshiftcheck-fetch-failure-successfalse:OK
+  [0;32m✓[0m netshiftcheck-dev-build-graceful:OK
+
+[1m[0;36m━━━ NetShift latest-tag jq parse (task-047) ━━━[0m
+  [0;32m✓[0m latesttag-minified-returns-tag-not-url:OK
+  [0;32m✓[0m latesttag-pretty-returns-tag:OK
+  [0;32m✓[0m latesttag-ratelimit-empty-nonzero:OK
+  [0;32m✓[0m latesttag-e2e-check-minified-latest:OK
+
+[1m[0;36m━━━ GitHub redirect latest-tag + asset URLs (task-049) ━━━[0m
+  [0;32m✓[0m ghredirect:tag-from-redirect:OK
+  [0;32m✓[0m ghredirect:tag-trailing-slash-rejected:OK
+  [0;32m✓[0m ghredirect:nonmatch-falls-back:OK
+  [0;32m✓[0m ghredirect:ratelimit-empty:OK
+  [0;32m✓[0m ghredirect:asset-ipk:OK
+  [0;32m✓[0m ghredirect:asset-apk:OK
+
+[1m[0;36m━━━ NetShift Self-Update (task-017) ━━━[0m
+  [0;32m✓[0m selfupdate-connfail-aborts-successfalse:OK
+  [0;32m✓[0m selfupdate-connfail-no-install:OK
+  [0;32m✓[0m selfupdate-connfail-resolv-restored:OK
+  [0;32m✓[0m selfupdate-dlfail-successfalse:OK
+  [0;32m✓[0m selfupdate-dlfail-no-install:OK
+  [0;32m✓[0m selfupdate-dlfail-config-intact:OK
+  [0;32m✓[0m selfupdate-happy-successtrue-version:OK
+  [0;32m✓[0m selfupdate-happy-core-luci-installed-no-ru:OK
+  [0;32m✓[0m selfupdate-happy-resolv-untouched:OK
+  [0;32m✓[0m selfupdate-happy-download-dir-cleaned:OK
+  [0;32m✓[0m selfupdate-already-current-idempotent:OK
+  [0;32m✓[0m selfupdate-already-current-no-install:OK
+  [0;32m✓[0m selfupdate-ru-installed-upgraded:OK
+  [0;32m✓[0m selfupdate-noop-detected-successfalse:OK
+  [0;32m✓[0m selfupdate-noop-install-attempted:OK
+  [0;32m✓[0m selfupdate-noop-config-intact:OK
+  [0;32m✓[0m selfupdate-noop-download-dir-cleaned:OK
+
+[1m[0;36m━━━ Core-swap Backup Integrity (task-027) ━━━[0m
+  [0;32m✓[0m backupguard-verify-complete-ok
+  [0;32m✓[0m backupguard-verify-truncated-detected
+  [0;32m✓[0m backupguard-verify-missing-detected
+  [0;32m✓[0m backupguard-verify-absent-source-ok
+  [0;32m✓[0m backupguard-iscomplete-match
+  [0;32m✓[0m backupguard-iscomplete-mismatch
+  [0;32m✓[0m backupguard-iscomplete-missing
+  [0;32m✓[0m backupguard-rollback-refuses-truncated
+  [0;32m✓[0m backupguard-rollback-truncated-not-moved
+  [0;32m✓[0m backupguard-rollback-restores-complete
+
+[1m[0;36m━━━ Subscription Update Without NetShift Restart (sing-box SIGHUP) ━━━[0m
+  [0;32m✓[0m hr-prepare-fresh-file-referenced
+  [0;32m✓[0m hr-prepare-existing-file-referenced
+  [0;32m✓[0m hr-prepare-user-file-rebuilt
+  [0;32m✓[0m hr-prepare-local-file-rebuilt
+  [0;32m✓[0m hr-prepare-same-tag-fresh-once
+  [0;32m✓[0m hr-prepare-same-tag-existing-once
+  [0;32m✓[0m hr-prepare-remote-file-kept
+  [0;32m✓[0m hr-prepare-corrupt-file-recreated
+  [0;32m✓[0m hr-prepare-second-rule-gets-reference
+  [0;32m✓[0m hr-prepare-user-subnets-file
+  [0;32m✓[0m hr-prepare-local-subnets-file
+  [0;32m✓[0m hr-prepare-remote-subnets-file
+  [0;32m✓[0m hr-proc-cmdline-gone-process-silent
+  [0;32m✓[0m hr-reload-not-running-restarts
+  [0;32m✓[0m hr-reload-build-failure-keeps-running-config
+  [0;32m✓[0m hr-reload-unchanged-config-no-signal
+  [0;32m✓[0m hr-reload-changed-config-sighup
+  [0;32m✓[0m hr-reload-signal-failure-restarts
+  [0;32m✓[0m hr-reload-transient-process-only-restarts
+  [0;32m✓[0m hr-reload-conffile-mismatch-restarts
+  [0;32m✓[0m hr-reload-daemon-gone-after-signal-restarts
+  [0;32m✓[0m hr-reload-foreign-daemon-not-signalled
+  [0;32m✓[0m hr-update-changed-feed-reloads-without-restart
+  [0;32m✓[0m hr-update-unchanged-feed-no-reload
+  [0;32m✓[0m hr-update-unchanged-feed-no-marker
+  [0;32m✓[0m hr-update-reload-failure-propagates
+  [0;32m✓[0m hr-update-failed-apply-marked
+  [0;32m✓[0m hr-update-pending-apply-retried
+  [0;32m✓[0m hr-update-killed-after-cache-write-applied-next-run
+  [0;32m✓[0m hr-worker-unreachable-feed-polled
+  [0;32m✓[0m hr-worker-apply-failures-back-off-and-stop
+  [0;32m✓[0m hr-worker-backoff-capped
+  [0;32m✓[0m hr-start-built-config-drops-marker
+  [0;32m✓[0m hr-start-syncs-subscription-cron-jobs
+  [0;32m✓[0m hr-start-rejected-config-keeps-marker
+  [0;32m✓[0m hr-start-rejected-config-skips-cron-sync
+  [0;32m✓[0m hr-save-config-rejected-keeps-running-file
+  [0;32m✓[0m hr-save-config-accepted-replaces-file
+  [0;32m✓[0m hr-driver-completed
+
+[1m[0;36m━━━ Domain/Subnet List Separators (issue #53) ━━━[0m
+  [0;32m✓[0m ds-tab-domains:OK
+  [0;32m✓[0m ds-tab-subnets:OK
+  [0;32m✓[0m ds-tab-run:OK
+  [0;32m✓[0m ds-tab-padded:OK
+  [0;32m✓[0m ds-space-regression:OK
+  [0;32m✓[0m ds-comma-regression:OK
+  [0;32m✓[0m ds-newline-regression:OK
+  [0;32m✓[0m ds-crlf-regression:OK
+  [0;32m✓[0m ds-mixed-separators:OK
+  [0;32m✓[0m ds-vt-ff:OK
+  [0;32m✓[0m ds-comment-trailing:OK
+  [0;32m✓[0m ds-comment-header:OK
+  [0;32m✓[0m ds-invalid-dropped:OK
+  [0;32m✓[0m ds-empty:OK
+  [0;32m✓[0m ds-config-no-abort:OK
+  [0;32m✓[0m ds-subnet-config-no-abort:OK
+  [0;32m✓[0m ds-ruleset-domains:OK
+  [0;32m✓[0m ds-ruleset-subnets:OK
+  [0;32m✓[0m ds-missing-value-no-abort:OK
+  [0;32m✓[0m ds-missing-value-empty:OK
+  [0;32m✓[0m ds-missing-mode-no-abort:OK
+  [0;32m✓[0m ds-singbox-check:OK
+  [0;32m✓[0m ds-driver-completed:OK
+
+[1m[0;36m━━━ Selected Server Survives Reboot (sing-box cache DB copy) ━━━[0m
+  [0;32m✓[0m cp-restore-without-copy-noop
+  [0;32m✓[0m cp-restore-after-reboot
+  [0;32m✓[0m cp-restore-keeps-live-db
+  [0;32m✓[0m cp-restore-skips-flash-cache-path
+  [0;32m✓[0m cp-volatile-tmp
+  [0;32m✓[0m cp-volatile-var
+  [0;32m✓[0m cp-flash-not-volatile
+  [0;32m✓[0m cp-selection-lists-selectors-only
+  [0;32m✓[0m cp-selection-uses-lan-address
+  [0;32m✓[0m cp-selection-no-auth-without-secret
+  [0;32m✓[0m cp-selection-sends-secret
+  [0;32m✓[0m cp-selection-honours-listen-override
+  [0;32m✓[0m cp-selection-empty-when-api-down
+  [0;32m✓[0m cp-snapshot-without-live-db-noop
+  [0;32m✓[0m cp-snapshot-api-down-noop
+  [0;32m✓[0m cp-snapshot-copies-live-db
+  [0;32m✓[0m cp-snapshot-records-selection
+  [0;32m✓[0m cp-snapshot-mode-600
+  [0;32m✓[0m cp-snapshot-no-leftover-tmp
+  [0;32m✓[0m cp-snapshot-same-selection-no-write
+  [0;32m✓[0m cp-snapshot-new-selection-rewrites
+  [0;32m✓[0m cp-snapshot-legacy-copy-retaken
+  [0;32m✓[0m cp-snapshot-unstable-keeps-old-copy
+  [0;32m✓[0m cp-snapshot-unstable-no-leftover-tmp
+  [0;32m✓[0m cp-snapshot-unstable-logs-warn
+  [0;32m✓[0m cp-snapshot-retry-after-write
+  [0;32m✓[0m cp-snapshot-skips-flash-cache-path
+  [0;32m✓[0m cp-monitor-snapshots-once-per-minute
+  [0;32m✓[0m cp-restore-sets-restored-flag
+  [0;32m✓[0m cp-heal-drops-restored-cache
+  [0;32m✓[0m cp-heal-noop-without-restore
+  [0;32m✓[0m cp-monitor-heals-restored-cache
+  [0;32m✓[0m cp-clash-api-204-snapshots
+  [0;32m✓[0m cp-clash-api-404-no-snapshot
+  [0;32m✓[0m cp-start-restores-before-sing-box
+  [0;32m✓[0m cp-set-group-proxy-snapshots
+  [0;32m✓[0m cp-stop-does-not-snapshot
+  [0;32m✓[0m cp-monitor-heals-on-crash
+  [0;32m✓[0m cp-driver-completed
+
+[1m──────────────────────────────────────[0m
+Results: [0;32m749 passed[0m / [0;31m0 failed[0m / [1;33m2 skipped[0m
+[0;32m[1m✓ ALL TESTS PASSED[0m (749 test(s))
+################ SMOKE pr44 EXIT=0 ################

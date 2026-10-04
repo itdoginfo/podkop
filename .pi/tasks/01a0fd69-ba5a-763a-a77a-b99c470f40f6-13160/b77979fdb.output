@@ -1,0 +1,10 @@
+[19:40:12] start (version stamp 0.9.9.9)
+[19:40:12] BUILD netshift-ipk-pr73 (Dockerfile-ipk from /tmp/prwork/pr73)
+[19:41:11]    netshift-ipk-pr73 build OK
+[19:41:12] BUILD netshift-apk-pr73 (Dockerfile-apk from /tmp/prwork/pr73)
+[19:41:27]    netshift-apk-pr73 build OK
+[19:41:27] BUILD netshift-ipk-main (Dockerfile-ipk from /home/dark/netshift)
+[19:47:17]    netshift-ipk-main build OK
+[19:47:17] BUILD netshift-apk-main (Dockerfile-apk from /home/dark/netshift)
+[19:55:49]    netshift-apk-main build OK
+/tmp/prrev/verify-pr73.sh: строка 28: tag: не заданы границы переменной

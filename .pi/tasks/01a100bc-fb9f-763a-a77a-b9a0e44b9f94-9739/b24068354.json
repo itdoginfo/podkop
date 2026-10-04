@@ -1,0 +1,29 @@
+{
+  "id": "b24068354",
+  "name": "npm install fe-app deps",
+  "command": "cd /home/dark/netshift/fe-app-netshift && npm install --no-audit --no-fund 2>&1 | tail -15",
+  "description": "npm install devDeps (tsup, vitest, prettier, eslint) для локальной регенерации main.js и локалей",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a100bc-fb9f-763a-a77a-b9a0e44b9f94-9739/b24068354.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1791101696318,
+  "endTime": 1791101697166,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 14686,
+  "bytesWritten": 21,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 600,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

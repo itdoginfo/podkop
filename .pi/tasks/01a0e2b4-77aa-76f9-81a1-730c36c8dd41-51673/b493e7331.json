@@ -1,0 +1,28 @@
+{
+  "id": "b493e7331",
+  "name": "Smoke: base+PR58+PR44",
+  "command": "cd /tmp && echo \"=== extended binary sha256 check ===\" && curl -sSL -o sbx.tar.gz \"https://github.com/shtorm-7/sing-box-extended/releases/download/v1.13.14-extended-2.5.3/sing-box-1.13.14-extended-2.5.3-linux-amd64-musl.tar.gz\" && sha256sum sbx.tar.gz && tar -tzf sbx.tar.gz | head -4 && echo \"=== merge-bases ===\" && git -C /home/dark/netshift merge-base gh-main pr-58 && git -C /home/dark/netshift merge-base gh-main pr-44 && for wt in ns-base ns-m58 ns-m44; do cd /tmp/$wt; echo \"=== $wt: build ===\"; docker compose -f tests/docker-compose.yml down --remove-orphans 2>/dev/null; docker compose -f tests/docker-compose.yml build 2>&1 | tail -3; echo \"=== $wt: run all ===\"; docker compose -f tests/docker-compose.yml run --rm netshift-test all > /tmp/smoke-$wt.log 2>&1; echo \"exit=$?\"; tail -20 /tmp/smoke-$wt.log; docker compose -f tests/docker-compose.yml down --remove-orphans 2>/dev/null; done; echo \"=== shellcheck m58 ===\"; docker run --rm -v /tmp/ns-m58:/mnt --entrypoint sh koalaman/shellcheck:stable -c 'shellcheck -S error -s sh /mnt/install.sh /mnt/netshift/files/usr/bin/netshift /mnt/netshift/files/usr/lib/*.sh' && echo \"SHELLCHECK CLEAN ns-m58\" || echo \"SHELLCHECK ISSUES ns-m58\"; echo \"=== shellcheck m44 ===\"; docker run --rm -v /tmp/ns-m44:/mnt --entrypoint sh koalaman/shellcheck:stable -c 'shellcheck -S error -s sh /mnt/install.sh /mnt/netshift/files/usr/bin/netshift /mnt/netshift/files/usr/lib/*.sh' && echo \"SHELLCHECK CLEAN ns-m44\" || echo \"SHELLCHECK ISSUES ns-m44\"; echo ALL_DONE",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0e2b4-77aa-76f9-81a1-730c36c8dd41-51673/b493e7331.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790510421748,
+  "endTime": 1790510640624,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 76931,
+  "bytesWritten": 4501,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 2400,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

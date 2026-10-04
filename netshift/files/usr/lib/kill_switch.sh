@@ -140,10 +140,20 @@ kill_switch_emit_elements() {
     return 0
 }
 
+# Add one chunk of elements ($2, comma-separated) to the guard set $1. Fed
+# through stdin because a chunk of ranges does not fit a single command-line
+# argument. A failed chunk is tried once more (a transient netlink error must
+# not leave a hole in the guard) before it is reported.
+_kill_switch_add_chunk() {
+    local set="$1" chunk="$2"
+
+    echo "add element inet $NFT_GUARD_TABLE_NAME $set { $chunk }" | nft -f - && return 0
+    echo "add element inet $NFT_GUARD_TABLE_NAME $set { $chunk }" | nft -f -
+}
+
 # Load data file $2 into the guard set $1, one nft transaction per chunk. The
 # elements come from `nft list set`, so they may be ranges (a-b) that the
-# CIDR-only chunked helper of nft.sh would skip; they are fed through stdin
-# because a chunk of ranges does not fit a single command-line argument.
+# CIDR-only chunked helper of nft.sh would skip.
 kill_switch_load_elements() {
     local set="$1" data="$2"
     local chunk="" count=0 element rc=0
@@ -155,14 +165,14 @@ kill_switch_load_elements() {
         chunk="${chunk:+$chunk,}$element"
         count=$((count + 1))
         if [ "$count" -ge 5000 ]; then
-            echo "add element inet $NFT_GUARD_TABLE_NAME $set { $chunk }" | nft -f - || rc=1
+            _kill_switch_add_chunk "$set" "$chunk" || rc=1
             chunk=""
             count=0
         fi
     done < "$data"
 
     if [ -n "$chunk" ]; then
-        echo "add element inet $NFT_GUARD_TABLE_NAME $set { $chunk }" | nft -f - || rc=1
+        _kill_switch_add_chunk "$set" "$chunk" || rc=1
     fi
 
     return "$rc"
@@ -406,7 +416,11 @@ kill_switch_apply() {
         echo ""
         echo "    chain forward_guard {"
         echo "        type filter hook forward priority -150; policy accept;"
-        echo "        ct state established,related accept"
+        # Answers to connections opened from OUTSIDE (a forwarded service) are
+        # not LAN traffic escaping the tunnel. Deliberately NOT a blanket
+        # `ct state established accept`: a LAN flow that was already open when
+        # the interception went away must be held like a new one.
+        echo "        ct direction reply accept"
         echo "        oifname \"lo\" accept"
         echo "        iifname @$NFT_GUARD_INTERFACE_SET_NAME oifname @$NFT_GUARD_INTERFACE_SET_NAME accept"
         echo "        meta mark & $NFT_FAKEIP_MARK == $NFT_FAKEIP_MARK accept"
@@ -434,7 +448,9 @@ kill_switch_apply() {
         echo "        oifname @$NFT_GUARD_INTERFACE_SET_NAME accept"
         echo "        meta mark & $NFT_OUTBOUND_MARK == $NFT_OUTBOUND_MARK accept"
         echo "        meta mark & $NFT_FAKEIP_MARK == $NFT_FAKEIP_MARK accept"
-        echo "        ct state established,related accept"
+        # The router answering an inbound connection (SSH/LuCI from a proxied
+        # subnet); its own already-open flows are held, as in the forward chain.
+        echo "        ct direction reply accept"
         _kill_switch_emit_unmarked_accepts "" "$v6"
         _kill_switch_emit_drops "" "$mark_all" "$v6" "$block_doh"
         echo "    }"

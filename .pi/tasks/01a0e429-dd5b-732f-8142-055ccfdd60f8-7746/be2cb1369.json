@@ -1,0 +1,30 @@
+{
+  "id": "be2cb1369",
+  "name": "apk-сборка-arm",
+  "command": "nice -n 15 docker build -f /tmp/Dockerfile-arm --build-arg NETSHIFT_VERSION=0.9.9 -t netshift:apk-arm099 . 2>&1 | tail -4; echo \"BUILD_EXIT=${PIPESTATUS[0]}\"",
+  "description": "Сборка apk под arm_cortex-a7",
+  "status": "killed",
+  "outputPath": ".pi/tasks/01a0e429-dd5b-732f-8142-055ccfdd60f8-7746/be2cb1369.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790611748013,
+  "endTime": 1790613138898,
+  "exitCode": null,
+  "signal": "SIGTERM",
+  "pid": 962052,
+  "bytesWritten": 0,
+  "isAgent": false,
+  "surviveReload": false,
+  "error": "Killed during Pi session shutdown (quit)",
+  "notified": false,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 3600,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}
