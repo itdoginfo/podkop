@@ -1,4 +1,6 @@
 import { NetShift } from '../types';
+import { loadDashboardViewPrefs } from '../../helpers/dashboardView';
+import type { DashboardViewMode } from '../../helpers/dashboardView';
 import { initialDiagnosticStore } from '../tabs/diagnostic/diagnostic.store';
 import { initialManagerStore } from '../tabs/manager/manager.store';
 import type { ManagerComponentKey } from '../tabs/manager/cards';
@@ -175,6 +177,9 @@ export interface StoreType {
     // waiting for their result.
     latencyTestingSections: string[];
     latencyPendingOutbounds: string[];
+    // How the server lists are shown (kept in the browser).
+    viewMode: DashboardViewMode;
+    sortByPing: boolean;
   };
   diagnosticsRunAction: {
     loading: boolean;
@@ -253,6 +258,7 @@ const initialStore: StoreType = {
     failed: false,
     latencyTestingSections: [],
     latencyPendingOutbounds: [],
+    ...loadDashboardViewPrefs(),
     data: [],
   },
   ...initialDiagnosticStore,
