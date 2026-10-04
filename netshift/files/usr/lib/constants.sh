@@ -55,6 +55,11 @@ SUBSCRIPTION_UPDATE_APPLY_FAILED=3
 # default. Both the cron collector and the `subscription_update <interval>`
 # section filter read this constant, so the two cannot drift apart silently.
 SUBSCRIPTION_UPDATE_INTERVAL_DEFAULT="1h"
+# Time of day (router local time, HH:MM) at which a "1d" subscription section is
+# refreshed when its own `subscription_update_time` says nothing usable: the
+# option is absent (every existing conffile) or is not a valid HH:MM. This is the
+# time the daily job always ran at, so an upgrade keeps its schedule.
+SUBSCRIPTION_UPDATE_TIME_DEFAULT="09:52"
 # Deferred startup subscription refresh (start_subscription_startup_retry_worker):
 # a feed that is unreachable is retried every SUBSCRIPTION_RETRY_INTERVAL
 # seconds for as long as it takes. A feed that downloads but does not apply is

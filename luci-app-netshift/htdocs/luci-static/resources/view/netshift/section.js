@@ -191,6 +191,40 @@ function createSectionContent(section) {
 
   o = section.taboption(
     "subscription",
+    form.Value,
+    "subscription_update_time",
+    _("Update time"),
+    _(
+      "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists",
+    ),
+  );
+  // The same default as SUBSCRIPTION_UPDATE_TIME_DEFAULT in
+  // netshift/files/usr/lib/constants.sh: change both together.
+  o.default = "09:52";
+  o.placeholder = "09:52";
+  o.rmempty = true;
+  o.depends({
+    connection_type: "proxy",
+    proxy_config_type: "subscription",
+    subscription_update_interval: "1d",
+  });
+  o.validate = function (section_id, value) {
+    // Empty means "keep the default" (an existing config has no such option)
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateTime(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.taboption(
+    "subscription",
     form.ListValue,
     "subscription_group_mode",
     _("Subscription grouping"),

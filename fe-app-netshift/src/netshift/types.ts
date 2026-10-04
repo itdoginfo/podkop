@@ -129,6 +129,7 @@ export namespace NetShift {
     subscription_url: string[];
     subscription_format_preference?: 'auto' | 'xray' | 'singbox';
     subscription_update_interval?: string;
+    subscription_update_time?: string;
     subscription_group_mode?: 'off' | 'country' | 'prefix';
     subscription_group_prefix_len?: string;
     subscription_filter_include_keywords?: string[];
