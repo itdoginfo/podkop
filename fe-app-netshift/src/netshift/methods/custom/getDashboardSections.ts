@@ -45,6 +45,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
       (section) =>
         section.connection_type !== 'block' &&
         section.connection_type !== 'exclusion' &&
+        section.connection_type !== 'dns' &&
         section['.type'] !== 'settings' &&
         section.disabled !== '1',
     )

@@ -153,6 +153,13 @@ export namespace NetShift {
     connection_type: 'exclusion';
   }
 
+  export interface ConfigDnsSection {
+    connection_type: 'dns';
+    dns_type?: string;
+    dns_server?: string;
+    dns_detour_section?: string;
+  }
+
   export type ConfigBaseSection =
     | ConfigProxyUrlTestSection
     | ConfigProxySelectorSection
@@ -161,7 +168,8 @@ export namespace NetShift {
     | ConfigProxySubscriptionSection
     | ConfigVpnSection
     | ConfigBlockSection
-    | ConfigExclusionSection;
+    | ConfigExclusionSection
+    | ConfigDnsSection;
 
   export type ConfigSection = ConfigBaseSection & {
     '.name': string;

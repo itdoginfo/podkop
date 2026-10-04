@@ -487,9 +487,17 @@ subscription_outbound_is_unavailable() {
 # would make `sing-box check` fail and keep the whole service from starting.
 download_proxy_section_is_unavailable() {
     local section="$1"
+    local connection_type
 
     subscription_outbound_is_unavailable "$section" && return 0
-    section_is_disabled "$section"
+    # A DNS section has no outbound either: "<section>-out" would never exist.
+    section_is_dns_rule "$section" && return 0
+    section_is_disabled "$section" && return 0
+
+    # A section id that is not in the config (deleted after it was picked) has no
+    # outbound either: "<id>-out" would make `sing-box check` fail.
+    config_get connection_type "$section" "connection_type"
+    [ -z "$connection_type" ]
 }
 
 # Mark a non-subscription proxy section (url/selector/urltest) as having no
@@ -4311,6 +4319,9 @@ configure_outbound_handler() {
     exclusion)
         log "Connection type 'exclusion' detected for the $section section – no outbound will be created (handled via route rules)"
         ;;
+    dns)
+        log "Connection type 'dns' detected for the $section section – no outbound will be created (handled via a DNS rule)"
+        ;;
     *)
         log "Unknown connection type '$connection_type' for the $section section. Aborted." "fatal"
         exit 1
@@ -4391,8 +4402,87 @@ sing_box_configure_dns() {
     service_domains=$(comma_string_to_json_array "$FAKEIP_TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
 
+    # After the FakeIP rule: a domain that is also in a proxy/VPN list stays on its
+    # FakeIP path, the DNS sections only take over domains that go out directly.
+    config_foreach configure_dns_section_handler "section"
     # Last: the pool rules match every query that no rule above handled.
     sing_box_configure_dns_pool "$dns_detour_tag"
+}
+
+# --- DNS sections ---------------------------------------------------------------
+# connection_type 'dns': the domains of the section's lists are resolved by the
+# section's own DNS server (dns_type + dns_server, optionally through the outbound
+# of dns_detour_section) instead of the main one. They get real addresses, not
+# FakeIPs, and are not routed through any tunnel, so this is split DNS for traffic
+# that goes out directly (for example a corporate or local zone). Only the domain
+# parts of the lists are used.
+section_is_dns_rule() {
+    local connection_type
+
+    config_get connection_type "$1" "connection_type"
+    [ "$connection_type" = "dns" ]
+}
+
+configure_dns_section_handler() {
+    local section="$1"
+    local dns_type dns_server dns_server_address dns_domain_resolver detour_section detour_tag server_tag
+
+    section_is_dns_rule "$section" || return 0
+
+    if section_is_disabled "$section"; then
+        log "DNS section '$section' is disabled, skipping it" "info"
+        return 0
+    fi
+
+    if ! section_has_enabled_lists "$section"; then
+        log "DNS section '$section' has no lists, skipping it" "warn"
+        return 0
+    fi
+
+    config_get dns_type "$section" "dns_type" "udp"
+    config_get dns_server "$section" "dns_server"
+    case "$dns_type" in
+    udp | tcp | dot | doh | doh3 | doq) ;;
+    *)
+        log "DNS section '$section': unsupported dns_type '$dns_type', skipping it" "error"
+        return 0
+        ;;
+    esac
+    if [ -z "$dns_server" ]; then
+        log "DNS section '$section': dns_server is not set, skipping it" "error"
+        return 0
+    fi
+
+    # A bare IPv6 address ("2001:4860:4860::8888") would be cut at its first colon by
+    # the URL helpers: bracket it like a URL host.
+    case "$dns_server" in
+    \[*) ;;
+    *:*:*) dns_server="[$dns_server]" ;;
+    esac
+
+    dns_server_address="$(url_get_host "$dns_server")"
+    dns_domain_resolver=""
+    if ! is_ipv4 "$dns_server_address" && ! is_ipv6 "$dns_server_address"; then
+        dns_domain_resolver="$SB_BOOTSTRAP_SERVER_TAG"
+    fi
+
+    # A detour that is not usable only makes the queries go out directly (the same
+    # fallback the main DNS has), it never drops the section.
+    detour_tag=""
+    config_get detour_section "$section" "dns_detour_section"
+    if [ -n "$detour_section" ]; then
+        if [ "$detour_section" != "$section" ] && ! subscription_outbound_is_unavailable "$detour_section" &&
+            echo "$config" | jq -e --arg tag "$(get_outbound_tag_by_section "$detour_section")" \
+                'any(.outbounds[]; .tag == $tag)' > /dev/null 2>&1; then
+            detour_tag="$(get_outbound_tag_by_section "$detour_section")"
+        else
+            log "DNS section '$section': dns_detour_section '$detour_section' has no usable outbound; querying directly" "warn"
+        fi
+    fi
+
+    server_tag="$SB_SECTION_DNS_SERVER_PREFIX$section"
+    config=$(sing_box_cf_add_dns_server "$config" "$dns_type" "$server_tag" "$dns_server" "$dns_domain_resolver" "$detour_tag")
+    config=$(sing_box_cm_add_dns_route_rule "$config" "$server_tag" "$SB_SECTION_DNS_RULE_PREFIX$section")
 }
 
 # --- Multi-DNS upstream pool (issue #74) ---------------------------------------
@@ -4724,6 +4814,27 @@ sing_box_configure_route() {
     foreach_active_section include_source_ips_in_routing_handler "section"
 
     foreach_active_section configure_routing_for_section_lists "section"
+
+    prune_dns_section_rules_without_domains
+}
+
+# A DNS section selects its queries by the domain rule-sets of its lists. A section
+# with only subnet lists (or lists that carry no domains) ends up with a rule that
+# has no condition at all, which would send EVERY query of the router to the
+# section's server. Such a rule and its server are dropped, with a warning.
+prune_dns_section_rules_without_domains() {
+    local empty tag
+
+    empty="$(printf '%s' "$config" | jq -r --arg prefix "$SB_SECTION_DNS_RULE_PREFIX" --arg key "$SERVICE_TAG" '
+        [.dns.rules[]? | select(((.[$key] // "") | startswith($prefix)) and (.rule_set == null)) | .[$key] | ltrimstr($prefix)] | .[]' 2> /dev/null)"
+    [ -n "$empty" ] || return 0
+
+    for tag in $empty; do
+        log "DNS section '$tag' has no domain lists (subnets cannot select DNS queries); skipping it" "warn"
+        config=$(printf '%s' "$config" | jq -c --arg server "$SB_SECTION_DNS_SERVER_PREFIX$tag" --arg rule "$SB_SECTION_DNS_RULE_PREFIX$tag" --arg key "$SERVICE_TAG" '
+            .dns.rules |= map(select((.[$key] // "") != $rule))
+            | .dns.servers |= map(select(.tag != $server))')
+    done
 }
 
 include_source_ips_in_routing_handler() {
@@ -5269,6 +5380,8 @@ build_subscription_filter_json() {
 configure_routing_for_section_lists() {
     local section="$1"
 
+    SECTION_DNS_RULE_TAG="$SB_FAKEIP_DNS_RULE_TAG"
+
     log "Configuring routing for '$section' section"
     if ! section_has_enabled_lists "$section"; then
         log "Section '$section' does not have any enabled list, skipping..." "warn"
@@ -5309,6 +5422,11 @@ configure_routing_for_section_lists() {
     exclusion)
         route_rule_tag="$SB_EXCLUSION_RULE_TAG"
         ;;
+    dns)
+        # No route rule: the domains only feed the section's DNS rule.
+        route_rule_tag=""
+        SECTION_DNS_RULE_TAG="$SB_SECTION_DNS_RULE_PREFIX$section"
+        ;;
     *)
         log "Unsupported '$section_connection_type' connection type. Skipping routing for '$section' section" "fatal"
         exit 1
@@ -5325,7 +5443,7 @@ configure_routing_for_section_lists() {
         configure_user_domain_list "$section" "$route_rule_tag"
     fi
 
-    if [ "$user_subnet_list_type" != "disabled" ]; then
+    if [ "$user_subnet_list_type" != "disabled" ] && [ "$section_connection_type" != "dns" ]; then
         log "Processing user subnets routing rules for '$section' section"
         configure_user_subnet_list "$section" "$route_rule_tag"
     fi
@@ -5335,7 +5453,7 @@ configure_routing_for_section_lists() {
         configure_local_domain_lists "$section" "$route_rule_tag"
     fi
 
-    if [ -n "$local_subnet_lists" ]; then
+    if [ -n "$local_subnet_lists" ] && [ "$section_connection_type" != "dns" ]; then
         log "Processing local subnets routing rules for '$section' section"
         configure_local_subnet_lists "$section" "$route_rule_tag"
     fi
@@ -5346,13 +5464,13 @@ configure_routing_for_section_lists() {
             "domains" "$section" "$route_rule_tag"
     fi
 
-    if [ -n "$remote_subnet_lists" ]; then
+    if [ -n "$remote_subnet_lists" ] && [ "$section_connection_type" != "dns" ]; then
         log "Processing remote subnets routing rules for '$section' section"
         config_list_foreach "$section" "remote_subnet_lists" configure_remote_domain_or_subnet_list_handler \
             "subnets" "$section" "$route_rule_tag"
     fi
 
-    if [ "$resolve_real_ip_for_routing" -eq 1 ]; then
+    if [ "$resolve_real_ip_for_routing" -eq 1 ] && [ "$section_connection_type" != "dns" ]; then
         config=$(sing_box_cm_add_resolve_rule "$config" "$route_rule_tag" "$(gen_id)" "$SB_DNS_SERVER_TAG")
         log "Added resolve rule for '$section' section" "debug"
     fi
@@ -5372,7 +5490,7 @@ configure_community_list_handler() {
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "${SECTION_DNS_RULE_TAG:-$SB_FAKEIP_DNS_RULE_TAG}" "rule_set" "$ruleset_tag")
 }
 
 # True when the rule tagged $2 in $1 ("route" or "dns") already references the
@@ -5456,8 +5574,8 @@ prepare_source_ruleset() {
     fi
 
     if [ "$type" = "domains" ] &&
-        ! rule_references_ruleset "dns" "$SB_FAKEIP_DNS_RULE_TAG" "$ruleset_tag"; then
-        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+        ! rule_references_ruleset "dns" "${SECTION_DNS_RULE_TAG:-$SB_FAKEIP_DNS_RULE_TAG}" "$ruleset_tag"; then
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "${SECTION_DNS_RULE_TAG:-$SB_FAKEIP_DNS_RULE_TAG}" "rule_set" "$ruleset_tag")
     fi
 }
 
@@ -5569,7 +5687,7 @@ configure_remote_domain_or_subnet_list_handler() {
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
         domains)
-            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+            config=$(sing_box_cm_patch_dns_route_rule "$config" "${SECTION_DNS_RULE_TAG:-$SB_FAKEIP_DNS_RULE_TAG}" "rule_set" "$ruleset_tag")
             ;;
         subnets) ;;
         *) log "Unsupported remote rule set type: $type" "error" ;;
@@ -5628,13 +5746,11 @@ sing_box_configure_experimental() {
 sing_box_additional_inbounds() {
     log "Configure the additional inbounds of a sing-box JSON configuration"
 
-    local download_lists_via_proxy
-    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
-    if [ "$download_lists_via_proxy" -eq 1 ]; then
+    if service_proxy_needed; then
         local download_lists_via_proxy_section section_outbound_tag
         config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
         if download_proxy_section_is_unavailable "$download_lists_via_proxy_section"; then
-            log "Service download proxy section '$download_lists_via_proxy_section' is unavailable (disabled or its subscription refresh failed); rejecting proxy requests" "warn"
+            log "Service download proxy section '$download_lists_via_proxy_section' is unavailable (missing, disabled or its subscription refresh failed); rejecting proxy requests" "warn"
             config="$(sing_box_cm_add_mixed_inbound "$config" "$SB_SERVICE_MIXED_INBOUND_TAG" "$SB_SERVICE_MIXED_INBOUND_ADDRESS" "$SB_SERVICE_MIXED_INBOUND_PORT")"
             config="$(sing_box_cm_add_reject_route_rule "$config" "$(gen_id)" "$SB_SERVICE_MIXED_INBOUND_TAG")"
         else
@@ -5729,6 +5845,7 @@ sing_box_config_check() {
 
 import_community_subnet_lists() {
     local section="$1"
+    section_is_dns_rule "$section" && return 0
     nft_select_subnet_target "$section"
     local community_lists
     config_get community_lists "$section" "community_lists"
@@ -5859,6 +5976,7 @@ import_domains_from_remote_plain_file() {
 
 import_subnets_from_remote_subnet_lists() {
     local section="$1"
+    section_is_dns_rule "$section" && return 0
     nft_select_subnet_target "$section"
     local remote_subnet_lists
     config_get remote_subnet_lists "$section" "remote_subnet_lists"
@@ -5979,8 +6097,22 @@ import_subnets_from_remote_plain_file() {
 }
 
 ## Support functions
+# The local service proxy (mixed inbound -> the selected proxy section) exists
+# when lists and/or components are downloaded through it.
+service_proxy_needed() {
+    local download_lists_via_proxy download_components_via_proxy
+
+    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
+    config_get_bool download_components_via_proxy "settings" "download_components_via_proxy" 0
+    [ "$download_lists_via_proxy" -eq 1 ] || [ "$download_components_via_proxy" -eq 1 ]
+}
+
+# The local service proxy address for LIST downloads: only with download_lists_via_proxy.
+# The component updater has its own gate (updates_components_proxy_address), so the
+# two flags never carry each other's traffic.
 get_service_proxy_address() {
     local download_lists_via_proxy
+
     config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
     if [ "$download_lists_via_proxy" -eq 1 ]; then
         echo "$SB_SERVICE_MIXED_INBOUND_ADDRESS:$SB_SERVICE_MIXED_INBOUND_PORT"
