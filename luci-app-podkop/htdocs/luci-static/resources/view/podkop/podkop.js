@@ -29,6 +29,11 @@ const SortableTypedSection = form.TypedSection.extend({
 
   renderContents(sectionIds, nodes) {
     const sectionElement = this.super("renderContents", arguments);
+
+    if (sectionIds.length <= 1) {
+      return sectionElement;
+    }
+
     const actionElements = sectionElement.querySelectorAll(
       ":scope > .cbi-section-remove",
     );
