@@ -16044,6 +16044,7 @@ main() {
             test_extended_gate_skip
             test_httpupgrade_transport
             test_scalar_option_fallback
+            test_empty_link_sections
             test_vless_encryption
             test_text_list_outbound
             test_ruleset_chunk_size
@@ -16100,6 +16101,7 @@ main() {
         extgate)     test_extended_gate_skip ;;
         httpupgrade) test_httpupgrade_transport ;;
         scalaropt)   test_scalar_option_fallback ;;
+        emptylink)   test_empty_link_sections ;;
         vlessenc)    test_vless_encryption ;;
         textlist)    test_text_list_outbound ;;
         chunkcheck)  test_ruleset_chunk_size ;;
@@ -16149,7 +16151,7 @@ main() {
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink"
             exit 1
             ;;
     esac
@@ -16494,6 +16496,179 @@ SCEOF
         pass "scalar-driver-completed:OK"
     else
         fail "scalar-driver-completed:FAIL (driver aborted early)" "$(head -5 "$out")"
+    fi
+    rm -f "$drv" "$out"
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test: a section saved with an EMPTY required field degrades, never aborts
+# ─────────────────────────────────────────────────────────────────
+# A required link option left empty (an empty field in the UI, a hand-edited
+# config) used to `log ... "fatal"; exit 1` from configure_outbound_handler.
+# Generation runs AFTER stop_main, which has already flushed the nft table,
+# deleted /tmp/sing-box/rulesets and stopped sing-box, so the exit left the
+# router with no service at all and a config.json on disk naming rule-set files
+# that were gone — `sing-box check` failed on it and nothing came back up until a
+# manual `netshift restart`. REPRODUCED on hardware: adding a section with an
+# empty proxy_string next to a working one made `netshift restart` exit 1, left
+# sing-box DOWN and config.json invalid.
+#
+# Such a section must instead degrade exactly like a link the installed core
+# cannot use: marked unavailable (its traffic is rejected), logged, and the rest
+# of the config still generated and accepted by sing-box.
+# Drives the REAL configure_outbound_handler; synthetic values only.
+test_empty_link_sections() {
+    header "Empty required link option in a section"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local facade_lib="$lib/sing_box_config_facade.sh"
+    if [ ! -r "$facade_lib" ] || [ ! -r "$bin" ]; then
+        fail "facade lib / bin not found"
+        return
+    fi
+
+    # The facade sources helpers + manager from /usr/lib/netshift.
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/test-emptylink-$$.sh"
+    local out="/tmp/test-emptylink-out-$$.txt"
+    cat > "$drv" << 'ELEOF'
+. "CONST_LIB"
+. "FACADE_LIB"
+
+WARN_LOG="/tmp/el-warn-$$.log"
+: > "$WARN_LOG"
+log()     { printf '%s|%s\n' "${2:-info}" "$1" >> "$WARN_LOG"; }
+echolog() { printf '%s|%s\n' "${2:-info}" "$1" >> "$WARN_LOG"; }
+nolog()   { :; }
+
+set_section_reality_mlkem() { NETSHIFT_REALITY_MLKEM=0; }
+tproxy_route_inbounds() { printf 'tproxy-in'; }
+
+eval "$(awk '/^mark_section_outbound_unavailable\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^mark_section_without_links\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^is_truthy_option\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^configure_outbound_handler\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+
+# The subscription branch reads the subscription caches and the keyword filter
+# before it looks at the URLs. Those have their own tests (suburlopt, utfilters),
+# so they are stubbed here; the URL reader answers "no URL configured", which is
+# the shape a section saved with an empty subscription_url has.
+build_subscription_filter_json() { echo '[]'; }
+ensure_subscription_cache_dir() { :; }
+migrate_subscription_cache_from_tmp() { :; }
+reap_legacy_subscription_cache_files() { :; }
+get_subscription_urls_for_section() { :; }
+
+_el_key() { printf 'EL_%s_%s' "$(printf '%s' "$1" | tr '.-' '__')" "$2"; }
+config_get() {
+    local _k _v
+    _k="$(_el_key "$2" "$3")"
+    eval "_v=\"\${$_k:-}\""
+    [ -n "$_v" ] || _v="$4"
+    eval "$1=\"$_v\""
+    return 0
+}
+config_get_bool() { config_get "$@"; case "$(eval echo \$$1)" in 1) eval "$1=1" ;; *) eval "$1=0" ;; esac; }
+
+# One section with its required option absent, driven through the real handler.
+el_case() {
+    local sec="$1" ctype="$2" ptype="$3" marker="$4"
+    local rc n
+
+    : > "$WARN_LOG"
+    config='{"outbounds":[]}'
+    SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+    eval "EL_${sec}_connection_type='$ctype'"
+    [ -n "$ptype" ] && eval "EL_${sec}_proxy_config_type='$ptype'"
+
+    configure_outbound_handler "$sec"
+    rc=$?
+    [ "$rc" = "0" ] && echo "el-${sec}-no-abort:OK" || echo "el-${sec}-no-abort:FAIL rc=$rc"
+
+    case " $SUBSCRIPTION_UNAVAILABLE_SECTIONS " in
+    *" $sec "*) echo "el-${sec}-marked-unavailable:OK" ;;
+    *) echo "el-${sec}-marked-unavailable:FAIL" ;;
+    esac
+
+    # No outbound may be created for the section: a route rule pointing at a tag
+    # that does not exist would fail `sing-box check` for the WHOLE config.
+    n="$(printf '%s' "$config" | jq --arg p "$sec-" '[.outbounds[] | select((.tag // "") | startswith($p))] | length' 2>/dev/null)"
+    [ "$n" = "0" ] && echo "el-${sec}-no-dangling-outbound:OK" || echo "el-${sec}-no-dangling-outbound:FAIL n=$n"
+
+    grep -qF "$marker" "$WARN_LOG" && echo "el-${sec}-error-logged:OK" || echo "el-${sec}-error-logged:FAIL"
+}
+
+el_case urlempty proxy url "no proxy link (proxy_string)"
+el_case selempty proxy selector "no proxy links (selector_proxy_links)"
+el_case urltempty proxy urltest "no proxy links (urltest_proxy_links)"
+el_case seltxtempty proxy selector_text "no proxy links (selector_proxy_links_text)"
+el_case urltxtempty proxy urltest_text "no proxy links (urltest_proxy_links_text)"
+el_case vpnempty vpn "" "VPN interface (interface)"
+el_case subempty proxy subscription "subscription URL (subscription_url)"
+
+# ── A usable section in the same build is untouched ──────────────────────────
+: > "$WARN_LOG"
+config='{"outbounds":[]}'
+SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+EL_goodsec_connection_type="proxy"
+EL_goodsec_proxy_config_type="url"
+EL_goodsec_proxy_string="vless://11111111-2222-3333-4444-555555555555@g.example.com:443?security=tls&sni=g.example.com"
+configure_outbound_handler "goodsec"
+printf '%s' "$config" | jq -e '[.outbounds[] | select(.tag=="goodsec-out")] | length==1' >/dev/null 2>&1 \
+    && echo 'el-good-section-built:OK' || echo 'el-good-section-built:FAIL'
+[ -z "$SUBSCRIPTION_UNAVAILABLE_SECTIONS" ] \
+    && echo 'el-good-section-not-unavailable:OK' || echo 'el-good-section-not-unavailable:FAIL'
+
+# ── The degraded build is a config sing-box accepts ──────────────────────────
+# This is the point of the change: direct + a reject rule for the unavailable
+# section still passes `sing-box check`, so the service keeps running.
+: > "$WARN_LOG"
+config='{"outbounds":[]}'
+SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+EL_rejsec_connection_type="proxy"
+EL_rejsec_proxy_config_type="url"
+configure_outbound_handler "rejsec"
+FULL_JSON="/tmp/el-full-$$.json"
+sing_box_cm_add_reject_route_rule "$config" "rej-rule" "$(tproxy_route_inbounds)" \
+    | jq '{
+        log: { level: "error" },
+        dns: { servers: [ { tag: "dns-server", type: "udp", server: "1.1.1.1" } ], final: "dns-server" },
+        inbounds: [ { type: "tproxy", tag: "tproxy-in", listen: "127.0.0.1", listen_port: 1602 } ],
+        outbounds: (.outbounds + [ { type: "direct", tag: "direct-out" } ]),
+        route: { rules: (.route.rules // []), final: "direct-out" }
+    }' > "$FULL_JSON" 2>/dev/null
+if command -v sing-box > /dev/null 2>&1; then
+    sing-box -c "$FULL_JSON" check > /dev/null 2>&1 \
+        && echo 'el-degraded-config-valid:OK' || echo 'el-degraded-config-valid:FAIL'
+else
+    echo 'el-degraded-config-valid:SKIP'
+fi
+rm -f "$FULL_JSON"
+
+rm -f "$WARN_LOG"
+echo 'DONE'
+ELEOF
+    sed -i "s|CONST_LIB|$lib/constants.sh|g; s|FACADE_LIB|$facade_lib|g; s|BIN_PATH|$bin|g" "$drv"
+
+    sh "$drv" > "$out" 2>/dev/null || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK)    pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP*) skip "$line" ;;
+            DONE)    saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "el-driver-completed:OK"
+    else
+        fail "el-driver-completed:FAIL (driver aborted early)" "$(head -5 "$out")"
     fi
     rm -f "$drv" "$out"
 }

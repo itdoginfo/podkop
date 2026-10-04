@@ -516,6 +516,24 @@ mark_section_outbound_unavailable() {
     esac
 }
 
+# A section saved with an empty required link option (an empty field in the UI, a
+# hand-edited config) must NOT abort the whole build. Generation runs AFTER
+# stop_main, which has already flushed the nft table, deleted the rule-set cache
+# and stopped sing-box, so a fatal exit here leaves the router with no service and
+# no tunnel — and the config.json still on disk names rule-set files that
+# stop_main deleted, so it no longer passes `sing-box check` either (dnsmasq is
+# put back by stop, so plain DNS keeps working; only the tunnel is gone until the
+# configuration is fixed and NetShift is restarted). Degrade the section instead,
+# exactly like a link the installed core cannot use: its traffic is rejected, and
+# the rest of the config still generates. $2 names the missing option.
+mark_section_without_links() {
+    local section="$1"
+    local what="$2"
+
+    echolog "Section '$section' has no $what configured; its traffic will be rejected until the configuration is fixed" "error"
+    mark_section_outbound_unavailable "$section"
+}
+
 get_subscription_download_proxy_address() {
     local section="$1"
     local phase="$2"
@@ -850,8 +868,8 @@ prepare_subscription_cache_for_startup() {
 
     if [ "$url_count" -eq 0 ]; then
         rm -f "$urls_tmp"
-        log "Subscription URL is not set for section '$section'. Aborted." "fatal"
-        exit 1
+        mark_section_without_links "$section" "subscription URL (subscription_url)"
+        return 0
     fi
 
     config_get_bool _download_lists_via_proxy "settings" "download_lists_via_proxy" 0
@@ -3765,8 +3783,8 @@ configure_outbound_handler() {
             config_get udp_over_tcp "$section" "enable_udp_over_tcp"
 
             if [ -z "$proxy_string" ]; then
-                log "Proxy string is not set. Aborted." "fatal"
-                exit 1
+                mark_section_without_links "$section" "proxy link (proxy_string)"
+                return 0
             fi
             # The facade returns non-zero (config echoed UNCHANGED) when the link
             # uses an unsupported scheme. For a single-URL section that is the
@@ -3799,8 +3817,8 @@ configure_outbound_handler() {
             config_get udp_over_tcp "$section" "enable_udp_over_tcp"
 
             if [ -z "$selector_proxy_links" ]; then
-                log "URLTest proxy links is not set. Aborted." "fatal"
-                exit 1
+                mark_section_without_links "$section" "proxy links (selector_proxy_links)"
+                return 0
             fi
 
             _build_proxy_member_outbounds "$section" "$selector_proxy_links" "$udp_over_tcp" "Selector"
@@ -3826,8 +3844,8 @@ configure_outbound_handler() {
             config_get urltest_testing_url "$section" "urltest_testing_url" "$LATENCY_TEST_URL_DEFAULT"
 
             if [ -z "$urltest_proxy_links" ]; then
-                log "URLTest proxy links is not set. Aborted." "fatal"
-                exit 1
+                mark_section_without_links "$section" "proxy links (urltest_proxy_links)"
+                return 0
             fi
 
             _build_proxy_member_outbounds "$section" "$urltest_proxy_links" "$udp_over_tcp" "URLTest"
@@ -3852,8 +3870,8 @@ configure_outbound_handler() {
             config_get udp_over_tcp "$section" "enable_udp_over_tcp"
 
             if [ -z "$selector_text_links" ]; then
-                log "URLTest proxy links is not set. Aborted." "fatal"
-                exit 1
+                mark_section_without_links "$section" "proxy links (selector_proxy_links_text)"
+                return 0
             fi
 
             _build_proxy_member_outbounds "$section" "$selector_text_links" "$udp_over_tcp" "Selector"
@@ -3879,8 +3897,8 @@ configure_outbound_handler() {
             config_get urltest_testing_url "$section" "urltest_testing_url" "$LATENCY_TEST_URL_DEFAULT"
 
             if [ -z "$urltest_text_links" ]; then
-                log "URLTest proxy links is not set. Aborted." "fatal"
-                exit 1
+                mark_section_without_links "$section" "proxy links (urltest_proxy_links_text)"
+                return 0
             fi
 
             _build_proxy_member_outbounds "$section" "$urltest_text_links" "$udp_over_tcp" "URLTest"
@@ -3990,8 +4008,8 @@ configure_outbound_handler() {
 
             if [ "$subscription_url_count" -eq 0 ]; then
                 rm -f "$subscription_urls_tmp"
-                log "Subscription URL is not set. Aborted." "fatal"
-                exit 1
+                mark_section_without_links "$section" "subscription URL (subscription_url)"
+                return 0
             fi
             reap_orphan_subscription_cache_files "$section" "$subscription_urls_tmp"
 
@@ -4278,8 +4296,8 @@ configure_outbound_handler() {
         config_get domain_resolver_dns_server "$section" "domain_resolver_dns_server"
 
         if [ -z "$interface_name" ]; then
-            log "VPN interface is not set. Aborted." "fatal"
-            exit 1
+            mark_section_without_links "$section" "VPN interface (interface)"
+            return 0
         fi
 
         local outbound_tag
