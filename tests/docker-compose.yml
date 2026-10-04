@@ -14,7 +14,7 @@
 #             jobstate, selfheal, dnsdetour, ecssubnet, suburlopt, subcron, globalproxy, realitymlkem, sectiondisabled, cachebust,
 #             bittorrent, dnssection, utfilters, stablecheck, extcheck, sbextarch, sbextlite, netshiftcheck, latesttag,
 #             ghredirect, selfupdate, backupguard, hotreload, cachepersist,
-#             domsep, domcase, ipv6routing, latencyurl, geoip,
+#             domsep, domcase, ipv6routing, latencyurl, geoip, compproxy,
 # ──────────────────────────────────────────────────────────────────
 
 services:
