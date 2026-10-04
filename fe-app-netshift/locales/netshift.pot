@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 07:24+0300\n"
-"PO-Revision-Date: 2026-10-03 07:24+0300\n"
+"POT-Creation-Date: 2026-10-03 14:50+0300\n"
+"PO-Revision-Date: 2026-10-03 14:50+0300\n"
 "Last-Translator: cergo666 <cergo666@ya.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -16,23 +16,27 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/netshift/tabs/dashboard/initController.ts:372
+#: src/netshift/tabs/dashboard/initController.ts:414
 msgid "✔ Enabled"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:383
+#: src/netshift/tabs/dashboard/initController.ts:425
 msgid "✔ Running"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:373
+#: src/netshift/tabs/dashboard/initController.ts:415
 msgid "✘ Disabled"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:384
+#: src/netshift/tabs/dashboard/initController.ts:426
 msgid "✘ Stopped"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:334
+#: src/netshift/tabs/dashboard/partials/renderSections.ts:145
+msgid "Active"
+msgstr ""
+
+#: src/netshift/tabs/dashboard/initController.ts:376
 msgid "Active Connections"
 msgstr ""
 
@@ -249,7 +253,7 @@ msgstr ""
 msgid "Dashboard"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/partials/renderSections.ts:23
+#: src/netshift/tabs/dashboard/partials/renderSections.ts:46
 msgid "Dashboard currently unavailable"
 msgstr ""
 
@@ -354,8 +358,8 @@ msgstr ""
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:268
-#: src/netshift/tabs/dashboard/initController.ts:302
+#: src/netshift/tabs/dashboard/initController.ts:310
+#: src/netshift/tabs/dashboard/initController.ts:344
 msgid "Downlink"
 msgstr ""
 
@@ -853,6 +857,10 @@ msgstr ""
 msgid "Line"
 msgstr ""
 
+#: src/netshift/tabs/dashboard/partials/renderSections.ts:187
+msgid "List"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:352
 msgid "List Update Frequency"
 msgstr ""
@@ -885,7 +893,7 @@ msgstr ""
 msgid "Main DNS via outbound"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:338
+#: src/netshift/tabs/dashboard/initController.ts:380
 msgid "Memory Usage"
 msgstr ""
 
@@ -905,7 +913,7 @@ msgstr ""
 msgid "Must be a number in the range of 50 - 1000"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:370
+#: src/netshift/tabs/dashboard/initController.ts:412
 msgid "NetShift"
 msgstr ""
 
@@ -1208,7 +1216,7 @@ msgstr ""
 msgid "Send upstream DNS queries through a proxy/VPN outbound instead of directly. Bootstrap DNS always stays direct."
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:367
+#: src/netshift/tabs/dashboard/initController.ts:409
 msgid "Services info"
 msgstr ""
 
@@ -1222,7 +1230,7 @@ msgid "Show sing-box config"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:157
-#: src/netshift/tabs/dashboard/initController.ts:381
+#: src/netshift/tabs/dashboard/initController.ts:423
 msgid "Sing-box"
 msgstr ""
 
@@ -1252,6 +1260,10 @@ msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts:67
 msgid "Sing-box version is compatible (newer than 1.12.4)"
+msgstr ""
+
+#: src/netshift/tabs/dashboard/partials/renderSections.ts:191
+msgid "Sort by ping"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:22
@@ -1340,7 +1352,7 @@ msgstr ""
 msgid "Switching sing-box core, this may take a few minutes…"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:331
+#: src/netshift/tabs/dashboard/initController.ts:373
 msgid "System info"
 msgstr ""
 
@@ -1352,7 +1364,7 @@ msgstr ""
 msgid "Table exist"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/partials/renderSections.ts:112
+#: src/netshift/tabs/dashboard/partials/renderSections.ts:198
 msgid "Test latency"
 msgstr ""
 
@@ -1385,15 +1397,19 @@ msgstr ""
 msgid "This is a security trade-off: an attacker could intercept the fetch."
 msgstr ""
 
+#: src/netshift/tabs/dashboard/partials/renderSections.ts:187
+msgid "Tiles"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:152
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:265
+#: src/netshift/tabs/dashboard/initController.ts:307
 msgid "Traffic"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:295
+#: src/netshift/tabs/dashboard/initController.ts:337
 msgid "Traffic Total"
 msgstr ""
 
@@ -1456,8 +1472,8 @@ msgstr ""
 msgid "Updating NetShift, this may take a few minutes; the page will reload…"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:267
-#: src/netshift/tabs/dashboard/initController.ts:298
+#: src/netshift/tabs/dashboard/initController.ts:309
+#: src/netshift/tabs/dashboard/initController.ts:340
 msgid "Uplink"
 msgstr ""
 
