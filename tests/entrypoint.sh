@@ -16043,6 +16043,7 @@ main() {
             test_unsupported_skip
             test_extended_gate_skip
             test_httpupgrade_transport
+            test_scalar_option_fallback
             test_vless_encryption
             test_text_list_outbound
             test_ruleset_chunk_size
@@ -16098,6 +16099,7 @@ main() {
         unsupported) test_unsupported_skip ;;
         extgate)     test_extended_gate_skip ;;
         httpupgrade) test_httpupgrade_transport ;;
+        scalaropt)   test_scalar_option_fallback ;;
         vlessenc)    test_vless_encryption ;;
         textlist)    test_text_list_outbound ;;
         chunkcheck)  test_ruleset_chunk_size ;;
@@ -16147,7 +16149,7 @@ main() {
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt"
             exit 1
             ;;
     esac
@@ -16307,6 +16309,193 @@ test_components_via_proxy() {
     _cp_check "install pre-flight: proxy down, the redirect that carries the proxy is not torn down" "preflight-on-proxy-down:1:proxy"
     _cp_check "install pre-flight: flag off tears the redirect down as before" "preflight-off-blocked:1:teardown"
     _cp_check "install pre-flight: stable direction does not use the proxy" "preflight-stable-direct:1:teardown"
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test: a scalar value of a LIST option is not silently ignored
+# ─────────────────────────────────────────────────────────────────
+# OpenWrt's config_list_foreach iterates ONLY UCI `list` values: it walks the
+# <option>_LENGTH / <option>_ITEMn variables that uci_load creates for a list.
+# A scalar option (`uci set netshift.settings.routing_excluded_ips=10.0.0.5`, a
+# hand-edited config, a config written by a script) has no such variables, so
+# the callback ran ZERO times and the value was silently ignored — while
+# config_get still returned it. "Excluded IPs" (Devices -> Direct) therefore did
+# nothing at all, with nothing in the log, for every writer that is not LuCI.
+# netshift_config_list_foreach adds the scalar fallback.
+#
+# This test deliberately uses the REAL /lib/functions.sh config_list_foreach and
+# the REAL shipped handlers: the other harnesses STUB config_list_foreach (their
+# stub word-splits the value and so accepts a scalar), which is exactly why the
+# bug was invisible to them.
+test_scalar_option_fallback() {
+    header "Scalar (non-list) value of a list option"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$bin" ] || [ ! -r "$lib/constants.sh" ] || [ ! -r "$lib/helpers.sh" ]; then
+        skip "scalar-option (bin / constants.sh / helpers.sh not found)"
+        return
+    fi
+
+    # Both call sites of the option must go through the wrapper: a revert of one
+    # of them would silently break only one of the two paths (nft marks vs the
+    # sing-box direct route rule).
+    local wrapped unwrapped
+    wrapped="$(grep -c 'netshift_config_list_foreach "settings" "routing_excluded_ips"' "$bin" || true)"
+    unwrapped="$(grep -cE '(^|[^_])config_list_foreach "settings" "routing_excluded_ips"' "$bin" || true)"
+    if [ "$wrapped" = "2" ] && [ "$unwrapped" = "0" ]; then
+        pass "scalar:both-call-sites-wrapped — routing_excluded_ips is read through the wrapper twice"
+    else
+        fail "scalar:both-call-sites-wrapped — expected 2 wrapped / 0 bare call sites, got $wrapped / $unwrapped"
+    fi
+
+    local drv="/tmp/test-scalaropt-$$.sh"
+    local out="/tmp/test-scalaropt-out-$$.txt"
+    cat > "$drv" << 'SCEOF'
+set -e
+BIN="BIN_PATH_PLACEHOLDER"
+LIB="LIB_DIR_PLACEHOLDER"
+
+# The platform iterator (REAL one, not a stub) + the runtime contract.
+. /lib/functions.sh
+# shellcheck disable=SC1090
+. "$LIB/constants.sh"
+# shellcheck disable=SC1090
+. "$LIB/nft.sh"
+# shellcheck disable=SC1090
+. "$LIB/helpers.sh"
+
+# The shipped handlers under test (the wrapper comes from helpers.sh).
+for fn in nft_bypass_source_ips _nft_bypass_source_ip_handler \
+    exclude_source_ip_from_routing_handler; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+done
+
+NFT_TABLE_NAME="scalaropt_$$"
+netshift_ipv6_enabled() { return 1; }
+log() { printf 'LOG:%s\n' "$1"; }
+nolog() { :; }
+echolog() { printf 'ECHO:%s\n' "$1"; }
+
+# Capture instead of touching the kernel / the running config.
+nft() { printf 'NFT:%s\n' "$*"; }
+# exclude_source_ip_from_routing_handler assigns the result to the global
+# `config` (command substitution -> subshell), so counting calls has to go
+# through a file that survives the subshell.
+PATCH_LOG="/tmp/scalaropt-patch-$$.log"
+: > "$PATCH_LOG"
+sing_box_cm_patch_route_rule() {
+    local line
+    line="$(printf 'PATCH:tag=%s field=%s value=%s' "$2" "$3" "$4")"
+    printf '%s\n' "$line" >> "$PATCH_LOG"
+    printf '%s' "$line"
+}
+
+write_cfg() {
+    {
+        echo "config settings 'settings'"
+        printf '%s\n' "$1"
+    } > /etc/config/scalaropt
+    config_load scalaropt
+}
+
+CB_N=0
+cb_count() { CB_N=$((CB_N + 1)); }
+
+# ── (1) scalar option: the premise and the fix ────────────────────────────────
+write_cfg "	option bypass_excluded_ips '1'
+	option routing_excluded_ips '10.0.0.5'"
+
+CB_N=0
+config_list_foreach settings routing_excluded_ips cb_count
+[ "$CB_N" -eq 0 ] \
+    && echo 'scalar-premise-platform-ignores-it:OK' \
+    || echo 'scalar-premise-platform-ignores-it:FAIL'
+
+out_nft="$(nft_bypass_source_ips)"
+n_nft="$(printf '%s\n' "$out_nft" | grep -c '^NFT:' || true)"
+[ "$n_nft" -eq 2 ] \
+    && echo 'scalar-nft-rule-count:OK' \
+    || echo "scalar-nft-rule-count:FAIL got=$n_nft"
+printf '%s' "$out_nft" | grep -q '10.0.0.5' \
+    && echo 'scalar-nft-uses-the-address:OK' \
+    || echo 'scalar-nft-uses-the-address:FAIL'
+printf '%s' "$out_nft" | grep -qF "$SB_FAKEIP_INET4_RANGE" \
+    && echo 'scalar-nft-fakeip-mark-first:OK' \
+    || echo 'scalar-nft-fakeip-mark-first:FAIL'
+printf '%s' "$out_nft" | grep -q 'counter return' \
+    && echo 'scalar-nft-return:OK' \
+    || echo 'scalar-nft-return:FAIL'
+
+config=""
+netshift_config_list_foreach settings routing_excluded_ips \
+    exclude_source_ip_from_routing_handler RULE1
+grep -q 'PATCH:tag=RULE1 field=source_ip_cidr value=10.0.0.5' "$PATCH_LOG" \
+    && echo 'scalar-routing-direct-rule:OK' \
+    || echo "scalar-routing-direct-rule:FAIL got=$(cat "$PATCH_LOG")"
+[ "$config" = "PATCH:tag=RULE1 field=source_ip_cidr value=10.0.0.5" ] \
+    && echo 'scalar-routing-rule-tag:OK' \
+    || echo "scalar-routing-rule-tag:FAIL got=$config"
+
+# ── (2) real UCI list: both items, extra argument kept ────────────────────────
+write_cfg "	option bypass_excluded_ips '1'
+	list routing_excluded_ips '10.0.0.11'
+	list routing_excluded_ips '10.0.0.12'"
+
+out_nft="$(nft_bypass_source_ips)"
+n_nft="$(printf '%s\n' "$out_nft" | grep -c '^NFT:' || true)"
+[ "$n_nft" -eq 4 ] \
+    && echo 'list-nft-rule-count:OK' \
+    || echo "list-nft-rule-count:FAIL got=$n_nft"
+for ip in 10.0.0.11 10.0.0.12; do
+    printf '%s' "$out_nft" | grep -q "$ip" \
+        && echo "list-nft-item-$ip:OK" \
+        || echo "list-nft-item-$ip:FAIL"
+done
+
+: > "$PATCH_LOG"
+netshift_config_list_foreach settings routing_excluded_ips \
+    exclude_source_ip_from_routing_handler RULE2
+n_patch="$(grep -c 'PATCH:tag=RULE2 field=source_ip_cidr' "$PATCH_LOG" || true)"
+[ "$n_patch" -eq 2 ] \
+    && echo 'list-routing-two-rules:OK' \
+    || echo "list-routing-two-rules:FAIL got=$n_patch"
+grep -q 'value=10.0.0.12' "$PATCH_LOG" \
+    && echo 'list-routing-second-item:OK' \
+    || echo 'list-routing-second-item:FAIL'
+
+# ── (3) nothing configured: no rule, and the reason is logged ────────────────
+write_cfg "	option bypass_excluded_ips '1'"
+
+out_nft="$(nft_bypass_source_ips)"
+printf '%s' "$out_nft" | grep -q '^NFT:' \
+    && echo 'empty-nft-no-rule:FAIL' \
+    || echo 'empty-nft-no-rule:OK'
+printf '%s' "$out_nft" | grep -q 'routing_excluded_ips is empty' \
+    && echo 'empty-warns:OK' \
+    || echo 'empty-warns:FAIL'
+
+rm -f /etc/config/scalaropt "$PATCH_LOG"
+echo 'DONE'
+SCEOF
+    sed -i "s|BIN_PATH_PLACEHOLDER|$bin|g; s|LIB_DIR_PLACEHOLDER|$lib|g" "$drv"
+
+    sh "$drv" > "$out" 2>/dev/null || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK)    pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            DONE)    saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "scalar-driver-completed:OK"
+    else
+        fail "scalar-driver-completed:FAIL (driver aborted early)" "$(head -5 "$out")"
+    fi
+    rm -f "$drv" "$out"
 }
 
 main "$@"

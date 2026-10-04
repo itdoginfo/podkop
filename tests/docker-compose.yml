@@ -15,6 +15,7 @@
 #             bittorrent, dnssection, utfilters, stablecheck, extcheck, sbextarch, sbextlite, netshiftcheck, latesttag,
 #             ghredirect, selfupdate, backupguard, hotreload, cachepersist,
 #             domsep, domcase, ipv6routing, latencyurl, geoip, compproxy, httpupgrade,
+#             scalaropt,
 # ──────────────────────────────────────────────────────────────────
 
 services:

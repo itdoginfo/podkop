@@ -433,6 +433,48 @@ migration_rename_config_key() {
     fi
 }
 
+# Like config_list_foreach, but also works for an option that is NOT a UCI list.
+#
+# config_list_foreach iterates ONLY list values: it walks the
+# <option>_LENGTH / <option>_ITEMn variables that uci_load creates for a `list`.
+# For a scalar option (`uci set netshift.settings.routing_excluded_ips=10.0.0.5`,
+# a hand-edited file, a config written by a script or by an older version) those
+# variables do not exist, so the callback is called ZERO times and the value is
+# silently ignored — while config_get still returns it. PROVEN on hardware and
+# against OpenWrt's /lib/functions.sh. This wrapper keeps the list path (so list
+# items are never re-split on whitespace) and falls back to word-splitting the
+# scalar value only when the list path produced nothing.
+# Usage: netshift_config_list_foreach <section> <option> <handler> [args...]
+# The handler is called as `<handler> <item> [args...]`.
+_netshift_list_option_dispatch() {
+    NETSHIFT_LIST_OPTION_SEEN=1
+
+    local item="$1"
+    local handler="$2"
+
+    shift 2
+    "$handler" "$item" "$@"
+}
+
+netshift_config_list_foreach() {
+    local section="$1"
+    local option="$2"
+    local handler="$3"
+    local raw item
+
+    shift 3
+
+    NETSHIFT_LIST_OPTION_SEEN=""
+    config_list_foreach "$section" "$option" _netshift_list_option_dispatch "$handler" "$@"
+    [ -n "$NETSHIFT_LIST_OPTION_SEEN" ] && return 0
+
+    config_get raw "$section" "$option"
+    [ -n "$raw" ] || return 0
+    for item in $raw; do
+        "$handler" "$item" "$@"
+    done
+}
+
 # Download URL to file
 redact_url_for_log() {
     local url="$1"

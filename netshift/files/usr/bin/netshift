@@ -1966,7 +1966,7 @@ nft_bypass_source_ips() {
         return 0
     fi
 
-    config_list_foreach "settings" "routing_excluded_ips" _nft_bypass_source_ip_handler
+    netshift_config_list_foreach "settings" "routing_excluded_ips" _nft_bypass_source_ip_handler
 }
 
 # Add a comma/space-separated string of CIDRs into the union destination set(s).
@@ -4792,7 +4792,7 @@ sing_box_configure_route() {
     if [ -n "$routing_excluded_ips" ]; then
         rule_tag="$(gen_id)"
         config=$(sing_box_cm_add_route_rule "$config" "$rule_tag" "$(tproxy_route_inbounds)" "$SB_DIRECT_OUTBOUND_TAG")
-        config_list_foreach "settings" "routing_excluded_ips" exclude_source_ip_from_routing_handler "$rule_tag"
+        netshift_config_list_foreach "settings" "routing_excluded_ips" exclude_source_ip_from_routing_handler "$rule_tag"
     fi
 
     foreach_active_section include_source_ips_in_routing_handler "section"
