@@ -13,6 +13,9 @@
       "ubus": {
         "service": [
           "list"
+        ],
+        "luci-rpc": [
+          "getHostHints"
         ]
       },
       "uci": [

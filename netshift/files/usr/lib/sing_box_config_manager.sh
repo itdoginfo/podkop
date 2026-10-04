@@ -236,24 +236,21 @@ sing_box_cm_add_https_dns_server() {
 }
 
 #######################################
-# Chain a section through another one: set `detour` on every real proxy outbound
-# of the section (the leaves of its selector/urltest groups, or the outbound
-# itself) so its connections to the servers go through the target outbound.
-# Outbounds that already carry their own detour (user JSON), the target's own
-# members and the excluded tags (the shared direct outbound) are left alone, which
-# also keeps a chain from looping back on itself. Group references are followed to
-# a bounded depth, so a self-referencing selector in user JSON cannot recurse forever.
-# For the user's own outbound JSON (raw=1) the members of a group are not followed at
-# all: they may be outbounds of other sections; a raw group is refused (status 3,
-# config unchanged), a raw leaf outbound is chained as it is.
+# Add a TCP, HTTP/3 or QUIC DNS server to the DNS section of a sing-box JSON
+# configuration (the types that have no dedicated helper above).
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
-#   section_tag: string, tag of the section's outbound (its selector or leaf)
-#   target_tag: string, tag of the outbound to chain through
-#   exclude: string (JSON array), tags that never get a detour (default [])
-#   raw: 1 when the section's outbound is the user's own JSON (default 0)
+#   type: string, sing-box DNS server type: tcp, h3 or quic
+#   tag: string, identifier for the DNS server
+#   server_address: string, IP address or hostname of the DNS server
+#   server_port: string or integer, port of the DNS server
+#   path: string, URL path (h3 only, optional)
+#   domain_resolver: string, domain resolver to use for resolving domain names (optional)
+#   detour: string, tag of the upstream outbound (optional)
 # Outputs:
 #   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_other_dns_server "$CONFIG" "quic" "doq-server" "dns.adguard-dns.com" 853)
 #######################################
 sing_box_cm_set_outbounds_detour() {
     local config="$1"
@@ -290,16 +287,6 @@ sing_box_cm_set_outbounds_detour() {
             then . + { detour: $target_tag }
             else . end)'
 }
-
-#######################################
-# Reject everything that no earlier route rule took: a catch-all reject rule that
-# has to be the LAST rule of the route (rules are matched in order).
-# Arguments:
-#   config: string (JSON), sing-box configuration to modify
-#   tag: string, identifier for the route rule
-# Outputs:
-#   Writes updated JSON configuration to stdout
-#######################################
 sing_box_cm_add_final_reject_rule() {
     local config="$1"
     local tag="$2"
@@ -311,6 +298,112 @@ sing_box_cm_add_final_reject_rule() {
             action: "reject",
             $service_tag: $tag
         }]'
+}
+sing_box_cm_add_other_dns_server() {
+    local config="$1"
+    local type="$2"
+    local tag="$3"
+    local server_address="$4"
+    local server_port="$5"
+    local path="$6"
+    local domain_resolver="$7"
+    local detour="$8"
+
+    echo "$config" | jq \
+        --arg type "$type" \
+        --arg tag "$tag" \
+        --arg server_address "$server_address" \
+        --arg server_port "$server_port" \
+        --arg path "$path" \
+        --arg domain_resolver "$domain_resolver" \
+        --arg detour "$detour" \
+        '.dns.servers += [(
+            {
+                type: $type,
+                tag: $tag,
+                server: $server_address,
+                server_port: ($server_port | tonumber)
+            }
+            + (if $type == "h3" and $path != "" then { path: $path } else {} end)
+            + (if $detour != "" then { detour: $detour } else {} end)
+            + (if $domain_resolver != "" then { domain_resolver: $domain_resolver } else {} end)
+        )]'
+}
+
+#######################################
+# Add an `evaluate` DNS rule: send the query to a server and keep the response
+# (under a tag) for later rules, without ending rule evaluation. sing-box >= 1.14.0.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   server: string, tag of the DNS server to query
+#   response_tag: string, tag the evaluated response is saved under
+#   timeout: string, query timeout (e.g. "2s")
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+sing_box_cm_add_dns_evaluate_rule() {
+    local config="$1"
+    local server="$2"
+    local response_tag="$3"
+    local timeout="$4"
+
+    echo "$config" | jq \
+        --arg server "$server" \
+        --arg response_tag "$response_tag" \
+        --arg timeout "$timeout" \
+        '.dns.rules += [{
+            action: "evaluate",
+            server: $server,
+            tag: $response_tag,
+            timeout: $timeout
+        }]'
+}
+
+#######################################
+# Add a `respond` DNS rule: when the evaluated response saved under a tag has the
+# given rcode, return it and end rule evaluation. sing-box >= 1.14.0.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   response_tag: string, tag of the evaluated response to match and return
+#   rcode: string, response code to match (NOERROR, NXDOMAIN, ...)
+#   race: string, "true" makes it a race rule (the first matching race rule wins
+#         while the other queries are still running); anything else is in order
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+sing_box_cm_add_dns_respond_rule() {
+    local config="$1"
+    local response_tag="$2"
+    local rcode="$3"
+    local race="${4:-false}"
+
+    echo "$config" | jq \
+        --arg response_tag "$response_tag" \
+        --arg rcode "$rcode" \
+        --arg race "$race" \
+        '.dns.rules += [(
+            {
+                match_response: $response_tag,
+                response_rcode: $rcode,
+                action: "respond"
+            }
+            + (if $race == "true" then { race: true } else {} end)
+        )]'
+}
+
+#######################################
+# Set the DNS server queries fall back to when no DNS rule answers them.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   final: string, tag of the DNS server
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+sing_box_cm_set_dns_final() {
+    local config="$1"
+    local final="$2"
+
+    echo "$config" | jq --arg final "$final" '.dns.final = $final'
 }
 
 #######################################
@@ -1107,6 +1200,8 @@ sing_box_cm_set_xhttp_transport_for_outbound() {
 #   utls_fingerprint: string, uTLS fingerprint (optional)
 #   reality_public_key: string, Reality public key (optional)
 #   reality_short_id: string, Reality short ID (optional)
+#   reality_mlkem: string, "true" adds `support_x25519mlkem768` to the Reality
+#       block (sing-box-extended only; the caller gates it on the core) (optional)
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -1124,9 +1219,11 @@ sing_box_cm_set_tls_for_outbound() {
     local utls_fingerprint="$6"
     local reality_public_key="$7"
     local reality_short_id="$8"
+    local reality_mlkem="${9:-}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
+        --arg reality_mlkem "$reality_mlkem" \
         --arg server_name "$server_name" \
         --arg insecure "$insecure" \
         --argjson alpn "$alpn" \
@@ -1153,6 +1250,7 @@ sing_box_cm_set_tls_for_outbound() {
                                 public_key: $reality_public_key,
                                 short_id: $reality_short_id
                             }
+                            + (if $reality_mlkem == "true" then {support_x25519mlkem768: true} else {} end)
                         } else {} end)
                     )
                 }
@@ -1349,7 +1447,7 @@ sing_box_cm_configure_route() {
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
 #   tag: string, identifier for the route rule
-#   inbound: string, inbound tag to match
+#   inbound: string, inbound tag to match (or a JSON array of tags)
 #   outbound: string, outbound tag to route matched traffic to
 # Outputs:
 #   Writes updated JSON configuration to stdout
@@ -1365,7 +1463,7 @@ sing_box_cm_add_route_rule() {
     echo "$config" | jq \
         --arg service_tag "$SERVICE_TAG" \
         --arg tag "$tag" \
-        --arg inbound "$inbound" \
+        --argjson inbound "$(_normalize_arg "$inbound")" \
         --arg outbound "$outbound" \
         '.route.rules += [{
             action: "route",
@@ -1384,7 +1482,7 @@ sing_box_cm_add_route_rule() {
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
 #   tag: string, identifier for the route rule
-#   inbound: string, inbound tag to match
+#   inbound: string, inbound tag to match (or a JSON array of tags)
 #   outbound: string, outbound tag the BitTorrent traffic is routed to
 # Outputs:
 #   Writes updated JSON configuration to stdout
@@ -1437,6 +1535,35 @@ sing_box_cm_add_resolve_rule() {
             else .
             end
         ]'
+}
+
+#######################################
+# Add a resolve rule that sets the domain strategy for one inbound.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   inbound: string, inbound tag to match
+#   strategy: string, prefer_ipv4 | prefer_ipv6 | ipv4_only | ipv6_only
+#   server: string, optional DNS server tag to resolve with
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_inbound_resolve_rule "$CONFIG" "tproxy-in-v6" "prefer_ipv6")
+#######################################
+sing_box_cm_add_inbound_resolve_rule() {
+    local config="$1"
+    local inbound="$2"
+    local strategy="$3"
+    local server="${4:-}"
+
+    echo "$config" | jq \
+        --arg inbound "$inbound" \
+        --arg strategy "$strategy" \
+        --arg server "$server" \
+        '.route.rules += [{
+            action: "resolve",
+            inbound: $inbound,
+            strategy: $strategy
+        } + (if $server == "" then {} else {server: $server} end)]'
 }
 
 #######################################
@@ -1497,7 +1624,7 @@ sing_box_cm_add_reject_route_rule() {
     echo "$config" | jq \
         --arg service_tag "$SERVICE_TAG" \
         --arg tag "$tag" \
-        --arg inbound "$inbound" \
+        --argjson inbound "$(_normalize_arg "$inbound")" \
         '.route.rules += [{
             action: "reject",
             inbound: $inbound,
@@ -1511,7 +1638,7 @@ sing_box_cm_add_reject_route_rule() {
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
 #   tag: string, identifier for the route rule and ruleset
-#   inbound: string, inbound tag to match
+#   inbound: string, inbound tag to match (or a JSON array of tags)
 #   doh_ipv4_cidrs: string, space-separated IPv4 CIDRs to block
 #   doh_ipv6_cidrs: string, space-separated IPv6 CIDRs to block
 # Outputs:
@@ -1540,7 +1667,7 @@ sing_box_cm_add_doh_block_route_rule() {
     echo "$config" | jq \
         --arg service_tag "$SERVICE_TAG" \
         --arg tag "$tag" \
-        --arg inbound "$inbound" \
+        --argjson inbound "$(_normalize_arg "$inbound")" \
         --arg ruleset_tag "$ruleset_tag" \
         '.route.rules += [{
             action: "reject",
@@ -1842,7 +1969,9 @@ sing_box_cm_save_config_to_file() {
 
 _normalize_arg() {
     local value="$1"
-    if echo "$value" | jq -e . > /dev/null 2>&1; then
+    if [ -z "$value" ]; then
+        printf '""'
+    elif echo "$value" | jq -e . > /dev/null 2>&1; then
         printf '%s' "$value"
     else
         printf '%s' "$value" | jq -R .
