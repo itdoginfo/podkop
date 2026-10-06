@@ -35,17 +35,19 @@ https://podkop.net/
 # Установка Podkop
 Полное руководство доступно в [документации](https://podkop.net/docs/install/)
 
-Начиная с версии 0.7.23 часть новых возможностей Podkop (например, работа с xhttp и резервные ссылки в URLTest) доступна только при установке форка sing-box — [podkop-engine](https://github.com/FiyeroT/podkop-engine).
+Для установки и обновления достаточно выполнить один скрипт:
+```
+sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
+```
 
-Установить последние версии Podkop и podkop-engine можно одним скриптом:
+Часть возможностей Podkop (например, ссылки с транспортом xhttp и резервные ссылки в URLTest) работает только с альтернативной сборкой sing-box — [podkop-engine](https://github.com/FiyeroT/podkop-engine) версии r11 или новее. С обычным sing-box эти возможности недоступны, остальное работает как раньше.
+
+Установить podkop-engine можно из его [репозитория](https://github.com/FiyeroT/podkop-engine/releases) или альтернативным скриптом, который ставит последние версии Podkop и podkop-engine:
 ```
 wget -O - https://mirror.podkop.net/urjw/scripts/bootstrap.sh | sh
 ```
 
-Podkop без podkop-engine устанавливается и обновляется скриптом:
-```
-sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
-```
+Обратите внимание: альтернативный скрипт отправляет на сервер телеметрию — модель роутера, список установленных пакетов, разметку флеш-памяти, объём оперативной памяти и статусы шагов установки. Эти данные используются для улучшения скрипта и исправления ошибок установки.
 
 ## Будущее
 Планы развития проекта в настоящее время не публикуются в виде открытого roadmap. Обсуждение направлений и задач разработки ведётся авторами и контрибьюторами.
