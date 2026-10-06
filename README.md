@@ -35,7 +35,14 @@ https://podkop.net/
 # Установка Podkop
 Полное руководство доступно в [документации](https://podkop.net/docs/install/)
 
-Для установки и обновления достаточно выполнить один скрипт:
+Начиная с версии 0.7.23 часть новых возможностей Podkop (например, работа с xhttp и резервные ссылки в URLTest) доступна только при установке форка sing-box — [podkop-engine](https://github.com/FiyeroT/podkop-engine).
+
+Установить последние версии Podkop и podkop-engine можно одним скриптом:
+```
+wget -O - https://mirror.podkop.net/urjw/scripts/bootstrap.sh | sh
+```
+
+Podkop без podkop-engine устанавливается и обновляется скриптом:
 ```
 sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
 ```
