@@ -862,11 +862,18 @@ async function getClashApiSecret() {
   return settings?.yacd_secret_key || "";
 }
 
+// src/podkop/methods/custom/getSingBoxFeatures.ts
+async function getSingBoxFeatures() {
+  const { data, success } = await PodkopShellMethods.getSingBoxFeatures();
+  return success && Array.isArray(data) ? data : [];
+}
+
 // src/podkop/methods/custom/index.ts
 var CustomPodkopMethods = {
   getConfigSections,
   getDashboardSections,
-  getClashApiSecret
+  getClashApiSecret,
+  getSingBoxFeatures
 };
 
 // src/constants.ts

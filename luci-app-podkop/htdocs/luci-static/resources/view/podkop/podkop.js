@@ -22,13 +22,7 @@ const EntryPoint = {
     main.injectGlobalStyles();
 
     // Options of features the installed sing-box does not have are not created
-    const singBoxFeaturesResponse =
-      await main.PodkopShellMethods.getSingBoxFeatures();
-    const singBoxFeatures =
-      singBoxFeaturesResponse.success &&
-      Array.isArray(singBoxFeaturesResponse.data)
-        ? singBoxFeaturesResponse.data
-        : [];
+    const singBoxFeatures = await main.CustomPodkopMethods.getSingBoxFeatures();
 
     const podkopMap = new form.Map(
       "podkop",
