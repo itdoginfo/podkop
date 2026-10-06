@@ -50,8 +50,8 @@ msgstr "Необходимо указать хотя бы одну действ�
 msgid "Available actions"
 msgstr "Доступные действия"
 
-msgid "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped. Requires podkop-engine r10 or later"
-msgstr "Перед переключением на сервер через него скачивается 64 КиБ: сервер, который «замораживает» соединения после ~16 КБ, пропускается. Требуется podkop-engine не ниже r10"
+msgid "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped"
+msgstr "Перед переключением на сервер через него скачивается 64 КиБ: сервер, который «замораживает» соединения после ~16 КБ, пропускается"
 
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
@@ -770,8 +770,8 @@ msgstr "URLTest ссылка для проверки"
 msgid "URLTest Tolerance"
 msgstr "URLTest допустимое отклонение"
 
-msgid "Used in this order only while none of the URLTest proxy links responds. Requires podkop-engine r10 or later"
-msgstr "Используются по порядку, только пока не отвечает ни одна из основных ссылок URLTest. Требуется podkop-engine не ниже r10"
+msgid "Used in this order only while none of the URLTest proxy links responds"
+msgstr "Используются по порядку, только пока не отвечает ни одна из основных ссылок URLTest"
 
 msgid "User Domain List Type"
 msgstr "Тип пользовательского списка доменов"

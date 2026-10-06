@@ -622,6 +622,7 @@ var Podkop;
     AvailableMethods2["SHOW_SING_BOX_CONFIG"] = "show_sing_box_config";
     AvailableMethods2["CHECK_LOGS"] = "check_logs";
     AvailableMethods2["GET_SYSTEM_INFO"] = "get_system_info";
+    AvailableMethods2["GET_SING_BOX_FEATURES"] = "get_sing_box_features";
   })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
   let AvailableClashAPIMethods;
   ((AvailableClashAPIMethods2) => {
@@ -696,7 +697,8 @@ var PodkopShellMethods = {
   checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS),
   getSystemInfo: async () => callBaseMethod(
     Podkop.AvailableMethods.GET_SYSTEM_INFO
-  )
+  ),
+  getSingBoxFeatures: async () => callBaseMethod(Podkop.AvailableMethods.GET_SING_BOX_FEATURES)
 };
 
 // src/podkop/methods/custom/getDashboardSections.ts

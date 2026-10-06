@@ -697,6 +697,16 @@ configure_outbound_handler() {
                 exit 1
             fi
 
+            if [ -n "$urltest_fallback_links" ] && ! sing_box_has_feature "urltest.fallbacks"; then
+                log "Fallback links of the $section section are skipped: the installed sing-box does not support them" "warn"
+                urltest_fallback_links=""
+            fi
+
+            if [ "$urltest_download_check" != "default" ] && ! sing_box_has_feature "urltest.download_url"; then
+                log "Download check settings of the $section section are skipped: the installed sing-box does not support them" "warn"
+                urltest_download_check="default"
+            fi
+
             i=1
             for link in $urltest_proxy_links; do
                 config="$(sing_box_cf_add_proxy_outbound "$config" "$section-$i" "$link" "$udp_over_tcp")"
@@ -1888,6 +1898,11 @@ show_system_info() {
     cat /tmp/sysinfo/model
 }
 
+# Prints the features of the installed sing-box as a JSON array
+get_sing_box_features() {
+    sing_box_get_features | jq -R -s -c 'rtrimstr("\n") | split(",") | map(select(length > 0))'
+}
+
 get_system_info() {
     local podkop_version podkop_latest_version luci_app_version sing_box_version openwrt_version device_model
 
@@ -2692,6 +2707,7 @@ Available commands:
     get_status              Get podkop service status
     get_sing_box_status     Get sing-box service status
     get_system_info         Get system information in JSON format
+    get_sing_box_features   Get the features of the installed sing-box in JSON format
     check_dns_available     Check DNS server availability
     global_check            Run global system check
 EOF
@@ -2763,6 +2779,9 @@ get_sing_box_status)
     ;;
 get_system_info)
     get_system_info
+    ;;
+get_sing_box_features)
+    get_sing_box_features
     ;;
 check_dns_available)
     check_dns_available
