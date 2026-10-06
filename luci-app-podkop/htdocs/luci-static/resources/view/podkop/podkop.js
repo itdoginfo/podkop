@@ -1,6 +1,7 @@
 "use strict";
 "require view";
 "require form";
+"require ui";
 "require baseclass";
 "require network";
 "require view.podkop.main as main";
@@ -16,6 +17,69 @@
 
 // Diagnostic content
 "require view.podkop.diagnostic as diagnostic";
+
+const SortableTypedSection = form.TypedSection.extend({
+  handleMove(sectionId, referenceId, after) {
+    const configName = this.uciconfig ?? this.map.config;
+
+    if (this.map.data.move(configName, sectionId, referenceId, after)) {
+      return this.map.save(null, true);
+    }
+  },
+
+  renderContents(sectionIds, nodes) {
+    const sectionElement = this.super("renderContents", arguments);
+
+    if (sectionIds.length <= 1) {
+      return sectionElement;
+    }
+
+    const actionElements = sectionElement.querySelectorAll(
+      ":scope > .cbi-section-remove",
+    );
+
+    actionElements.forEach((actionElement, index) => {
+      const addMoveButton = (title, symbol, referenceId, after, disabled) => {
+        actionElement.insertBefore(
+          E(
+            "button",
+            {
+              class: "btn pdk-partial-button",
+              title,
+              click: ui.createHandlerFn(
+                this,
+                "handleMove",
+                sectionIds[index],
+                referenceId,
+                after,
+              ),
+              disabled: this.map.readonly || disabled || null,
+            },
+            [symbol],
+          ),
+          actionElement.lastElementChild,
+        );
+      };
+
+      addMoveButton(
+        _("Move up"),
+        "🡅",
+        sectionIds[index - 1],
+        false,
+        index === 0,
+      );
+      addMoveButton(
+        _("Move down"),
+        "🡇",
+        sectionIds[index + 1],
+        true,
+        index === sectionIds.length - 1,
+      );
+    });
+
+    return sectionElement;
+  },
+});
 
 const EntryPoint = {
   async render() {
@@ -34,7 +98,7 @@ const EntryPoint = {
 
     // Sections tab
     const sectionsSection = podkopMap.section(
-      form.TypedSection,
+      SortableTypedSection,
       "section",
       _("Sections"),
     );
