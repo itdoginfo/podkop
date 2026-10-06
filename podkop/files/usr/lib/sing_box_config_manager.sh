@@ -966,6 +966,9 @@ sing_box_cm_add_raw_outbound() {
 #   tolerance: string or integer, max latency difference tolerated (optional)
 #   idle_timeout: string or integer, idle timeout duration (optional)
 #   interrupt_exist_connections: boolean, flag to interrupt existing connections ("true"/"false") (optional)
+#   fallbacks: string, JSON array of outbound tags used in order while none of outbounds responds (optional)
+#   download_check: string, download test before switching: "off" or "custom" (optional)
+#   download_url: string, URL of the download test for "custom" (optional)
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -980,6 +983,9 @@ sing_box_cm_add_urltest_outbound() {
     local tolerance="$6"
     local idle_timeout="$7"
     local interrupt_exist_connections="$8"
+    local fallbacks="${9:-[]}"
+    local download_check="${10}"
+    local download_url="${11}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -989,6 +995,9 @@ sing_box_cm_add_urltest_outbound() {
         --arg tolerance "$tolerance" \
         --arg idle_timeout "$idle_timeout" \
         --arg interrupt_exist_connections "$interrupt_exist_connections" \
+        --argjson fallbacks "$fallbacks" \
+        --arg download_check "$download_check" \
+        --arg download_url "$download_url" \
         '.outbounds += [
             {
                 type: "urltest",
@@ -1000,6 +1009,10 @@ sing_box_cm_add_urltest_outbound() {
             + (if $tolerance != "" then {tolerance: ($tolerance | tonumber)} else {} end)
             + (if $idle_timeout != "" then {idle_timeout: $idle_timeout} else {} end)
             + (if $interrupt_exist_connections == "true" then {interrupt_exist_connections: true} else {} end)
+            + (if ($fallbacks | length) > 0 then {fallbacks: $fallbacks} else {} end)
+            + (if $download_check == "off" then {download_url: ""}
+               elif $download_check == "custom" and $download_url != "" then {download_url: $download_url}
+               else {} end)
         ]'
 }
 
