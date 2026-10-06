@@ -1584,35 +1584,6 @@ sing_box_cm_add_resolve_rule() {
 }
 
 #######################################
-# Add a resolve rule that sets the domain strategy for one inbound.
-# Arguments:
-#   config: string (JSON), sing-box configuration to modify
-#   inbound: string, inbound tag to match
-#   strategy: string, prefer_ipv4 | prefer_ipv6 | ipv4_only | ipv6_only
-#   server: string, optional DNS server tag to resolve with
-# Outputs:
-#   Writes updated JSON configuration to stdout
-# Example:
-#   CONFIG=$(sing_box_cm_add_inbound_resolve_rule "$CONFIG" "tproxy-in-v6" "prefer_ipv6")
-#######################################
-sing_box_cm_add_inbound_resolve_rule() {
-    local config="$1"
-    local inbound="$2"
-    local strategy="$3"
-    local server="${4:-}"
-
-    echo "$config" | jq \
-        --arg inbound "$inbound" \
-        --arg strategy "$strategy" \
-        --arg server "$server" \
-        '.route.rules += [{
-            action: "resolve",
-            inbound: $inbound,
-            strategy: $strategy
-        } + (if $server == "" then {} else {server: $server} end)]'
-}
-
-#######################################
 # Patch a routing rule in the route section of a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
