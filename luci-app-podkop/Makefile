@@ -5,6 +5,7 @@ PKG_NAME:=luci-app-podkop
 PKG_VERSION := $(if $(PODKOP_VERSION),$(PODKOP_VERSION),0.$(shell date +%d%m%Y))
 
 PKG_RELEASE:=1
+PODKOP_UI_ASSET_VERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
 
 LUCI_TITLE:=LuCI podkop app
 LUCI_DEPENDS:=+luci-base +podkop
@@ -24,7 +25,11 @@ define Package/$(PKG_NAME)/install
 	$(CP) $(PKG_BUILD_DIR)/htdocs/* $(1)$(HTDOCS)/
 	$(INSTALL_DIR) $(1)/
 	$(CP) $(PKG_BUILD_DIR)/root/* $(1)/
-	sed -i -e 's/__COMPILED_VERSION_VARIABLE__/$(PKG_VERSION)/g' $(1)$(HTDOCS)/luci-static/resources/view/podkop/main.js || true
+	sed -i \
+		-e 's/__COMPILED_VERSION_VARIABLE__/$(PKG_VERSION)/g' \
+		-e 's/__COMPILED_ASSET_VERSION_VARIABLE__/$(PODKOP_UI_ASSET_VERSION)/g' \
+		$(1)$(HTDOCS)/luci-static/resources/view/podkop/*.js \
+		$(1)/etc/uci-defaults/50_luci-podkop || true
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
