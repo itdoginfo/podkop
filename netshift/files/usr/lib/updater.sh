@@ -2961,6 +2961,38 @@ _updates_self_update_download_assets() {
 # Private core of the self-update. Runs NON-interactively; every variable local.
 # Echoes a single JSON object; NEVER exits (returns non-zero on recoverable
 # failure so the wrapper still runs the restore epilogue).
+# A package file smaller than this (bytes) is not a package: an error page or a
+# truncated download (the smallest NetShift package is tens of kilobytes).
+UPDATES_PACKAGE_MIN_SIZE=2048
+
+# Does a downloaded package file look like a package? A rate-limit page or a half
+# written file saved under the name of a package would otherwise reach the package
+# manager (or worse, replace a working installation before failing). Checks the size
+# and the archive format: an .ipk is a gzip'ed archive (tested as a whole),
+# an .apk is a gzip stream (v2) or an "ADB" container (v3).
+updates_package_file_looks_valid() {
+    local file="$1"
+    local size
+
+    [ -f "$file" ] || return 1
+    size="$(wc -c < "$file" 2> /dev/null | tr -d ' ')"
+    case "$size" in
+    '' | *[!0-9]*) return 1 ;;
+    esac
+    [ "$size" -ge "$UPDATES_PACKAGE_MIN_SIZE" ] || return 1
+
+    case "$file" in
+    *.ipk) gzip -t "$file" > /dev/null 2>&1 ;;
+    *.apk)
+        # v3 packages start with "ADB"; v2 are gzip streams (several in a row, which
+        # gzip -t reads as one). There is no od/hexdump on a stock OpenWrt: the
+        # signature is read as text.
+        [ "$(head -c 3 "$file" 2> /dev/null)" = "ADB" ] || gzip -t "$file" > /dev/null 2>&1
+        ;;
+    *) return 0 ;;
+    esac
+}
+
 _updates_self_update_netshift_core() {
     local installed latest pkg file_path candidate_file
     local core_installed core_installed_semver latest_semver
@@ -3008,6 +3040,19 @@ _updates_self_update_netshift_core() {
         echo '{"success":false,"message":"Failed to download the NetShift release packages (GitHub unreachable or no matching assets)"}'
         return 1
     fi
+
+    # Every downloaded file has to look like a package BEFORE anything is installed:
+    # a damaged LuCI package found after the core was replaced would leave the two
+    # at different versions.
+    for candidate_file in "$UPDATES_NETSHIFT_DOWNLOAD_DIR"/*; do
+        [ -f "$candidate_file" ] || continue
+        if ! updates_package_file_looks_valid "$candidate_file"; then
+            updates_log "Self-update: $(basename "$candidate_file") is not a valid package (truncated or an error page); nothing was installed" "error"
+            rm -rf "$UPDATES_NETSHIFT_DOWNLOAD_DIR" 2>/dev/null
+            echo '{"success":false,"message":"A downloaded NetShift package is damaged (not a package file); nothing was changed"}'
+            return 1
+        fi
+    done
 
     # Install core, then LuCI app, then RU i18n if applicable (already filtered
     # to "installed-only" at download time). NON-interactive. The netshift
