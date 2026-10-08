@@ -866,6 +866,9 @@ msgstr "Ожидает запуска"
 msgid "Pick a ready-made server or type your own: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. In priority mode the order is the priority after the main server."
 msgstr "Выберите готовый сервер или введите свой: scheme://host[:port][/path], где scheme — udp, tcp, dot, doh, doh3 или doq. В режиме приоритета порядок задаёт приоритет после основного сервера."
 
+msgid "Plain DNS (port 53) of the devices in the source interfaces is redirected to the router even when a device asks another server, such as a hard-coded 8.8.8.8. Without it such devices never get the FakeIP answers that routing by domain depends on. DNS over TLS/HTTPS is not touched."
+msgstr "Обычный DNS (порт 53) устройств с интерфейсов-источников перенаправляется на роутер, даже если устройство спрашивает другой сервер, например прописанный вручную 8.8.8.8. Без этого такие устройства не получают FakeIP-ответов, от которых зависит маршрутизация по доменам. DNS поверх TLS/HTTPS не затрагивается."
+
 msgid "Prefer servers in list order"
 msgstr "Предпочитать серверы в порядке списка"
 
@@ -1018,6 +1021,9 @@ msgstr "Не удалось обновить"
 
 msgid "Send DNS queries through section"
 msgstr "Отправлять DNS-запросы через секцию"
+
+msgid "Send LAN DNS queries to the router"
+msgstr "Отправлять DNS-запросы LAN на роутер"
 
 msgid "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable."
 msgstr "Отправлять этот IP-адрес или префикс с каждым DNS-запросом (EDNS Client Subnet, RFC 7871), чтобы геораспределённые сервисы определяли ближайший к вам узел. Оставьте пустым, чтобы отключить."

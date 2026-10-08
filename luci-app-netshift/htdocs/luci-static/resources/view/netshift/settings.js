@@ -301,6 +301,18 @@ function createSettingsContent(section) {
   o = section.taboption(
     "network",
     form.Flag,
+    "dns_hijack",
+    _("Send LAN DNS queries to the router"),
+    _(
+      "Plain DNS (port 53) of the devices in the source interfaces is redirected to the router even when a device asks another server, such as a hard-coded 8.8.8.8. Without it such devices never get the FakeIP answers that routing by domain depends on. DNS over TLS/HTTPS is not touched.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "network",
+    form.Flag,
     "enable_output_network_interface",
     _("Enable Output Network Interface"),
     _("You can select Output Network Interface, by default autodetect"),

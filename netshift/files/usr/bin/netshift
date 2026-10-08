@@ -2051,6 +2051,29 @@ _nft_mark_fully_routed_ip_handler() {
     esac
 }
 
+# Clients of the LAN that ask a DNS server of their own (a hard-coded 8.8.8.8, a device
+# with its resolver set by hand) go round the router's DNS, so they never get the
+# FakeIP answers the routing by domain depends on. With dns_hijack every plain DNS
+# query (UDP and TCP port 53) that comes in from the LAN interfaces for an address that
+# is not the router's is sent to the router's own DNS. DNS over TLS/HTTPS is not touched.
+nft_add_dns_hijack() {
+    local hijack dont_touch_dhcp
+
+    config_get_bool hijack "settings" "dns_hijack" 0
+    [ "$hijack" -eq 1 ] || return 0
+
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    if [ "$dont_touch_dhcp" -eq 1 ]; then
+        log "dns_hijack is on, but Dont Touch My DHCP is on too: the router's DNS does not hand out FakeIP answers, so the hijack changes only who answers" "warn"
+    fi
+
+    log "DNS hijack: plain DNS queries of the LAN go to the router" "info"
+    nft add chain inet "$NFT_TABLE_NAME" dns_hijack '{ type nat hook prerouting priority dstnat; policy accept; }'
+    nft add rule inet "$NFT_TABLE_NAME" dns_hijack iifname "@$NFT_INTERFACE_SET_NAME" fib daddr type local return
+    nft add rule inet "$NFT_TABLE_NAME" dns_hijack iifname "@$NFT_INTERFACE_SET_NAME" tcp dport 53 counter redirect to :53
+    nft add rule inet "$NFT_TABLE_NAME" dns_hijack iifname "@$NFT_INTERFACE_SET_NAME" udp dport 53 counter redirect to :53
+}
+
 create_nft_rules() {
     # Rebuild the table deterministically. `nft add chain`/`nft add rule` only
     # ever APPEND, so if a NetShiftTable was left behind by a previous start
@@ -2169,6 +2192,8 @@ create_nft_rules() {
     fi
 
     nft_add_selective_marking_rules mangle "$nft_mark_all" "$nft_block_doh" iifname "@$NFT_INTERFACE_SET_NAME"
+
+    nft_add_dns_hijack
 
     nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto tcp tproxy ip to "$SB_TPROXY_INBOUND_ADDRESS:$SB_TPROXY_INBOUND_PORT" counter
     nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto udp tproxy ip to "$SB_TPROXY_INBOUND_ADDRESS:$SB_TPROXY_INBOUND_PORT" counter

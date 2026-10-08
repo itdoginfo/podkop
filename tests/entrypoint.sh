@@ -581,6 +581,7 @@ for fn in nft_init_interfaces_set populate_netshift_subnets_from_file \
           populate_netshift_subnets_from_string nft_mark_fully_routed_source_ips \
           _nft_mark_fully_routed_ips_for_section _nft_mark_fully_routed_ip_handler \
           foreach_active_section _active_section_dispatch \
+          nft_add_dns_hijack \
           create_nft_rules; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
@@ -16130,6 +16131,95 @@ test_bypass() {
     _bp_check "an enabled bypass section requests the bypass" "requested-enabled-section:yes"
 }
 
+
+# ─────────────────────────────────────────────────────────────────
+# Test: DNS hijack (dns_hijack): plain DNS of the LAN goes to the router
+# ─────────────────────────────────────────────────────────────────
+test_dns_hijack() {
+    header "DNS hijack"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ]; then
+        skip "netshift bin / constants.sh not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        eval "$(awk '/^nft_add_dns_hijack\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        DH_LOG="/tmp/netshift-dnshijack-log-$$"; : > "$DH_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$DH_LOG"; }
+        NFT_LOG="/tmp/netshift-dnshijack-$$"; : > "$NFT_LOG"
+        nft() { echo "$*" >> "$NFT_LOG"; }
+        NFT_TABLE_NAME=T
+        NFT_INTERFACE_SET_NAME=interfaces
+        config_get_bool() {
+            local _v
+            eval "_v=\"\${DH_${3}:-$4}\""
+            case "$_v" in 1) eval "$1=1" ;; *) eval "$1=0" ;; esac
+        }
+
+        # off: nothing is added
+        nft_add_dns_hijack
+        echo "off=[$(grep -c '' "$NFT_LOG")]"
+
+        DH_dns_hijack=1
+        nft_add_dns_hijack
+        echo "chain=$(sed -n '1p' "$NFT_LOG")"
+        echo "local-first=$(sed -n '2p' "$NFT_LOG")"
+        echo "tcp=$(sed -n '3p' "$NFT_LOG")"
+        echo "udp=$(sed -n '4p' "$NFT_LOG")"
+        echo "rules=$(grep -c '' "$NFT_LOG")"
+        echo "no-warning=$(grep -c 'warn' "$DH_LOG")"
+
+        : > "$DH_LOG"; : > "$NFT_LOG"
+        DH_dont_touch_dhcp=1
+        nft_add_dns_hijack
+        echo "dont-touch-warned=$(grep -c 'Dont Touch My DHCP' "$DH_LOG")"
+        echo "dont-touch-still-added=$(grep -c '' "$NFT_LOG")"
+    )"
+
+    _dh() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _dh "off: no rule is added" "off=[0]"
+    _dh "a nat chain at the destination-NAT priority" "chain=add chain inet T dns_hijack { type nat hook prerouting priority dstnat; policy accept; }"
+    _dh "queries for the router itself are left alone, first" "local-first=add rule inet T dns_hijack iifname @interfaces fib daddr type local return"
+    _dh "TCP port 53 is redirected to the router's DNS" "tcp=add rule inet T dns_hijack iifname @interfaces tcp dport 53 counter redirect to :53"
+    _dh "UDP port 53 is redirected to the router's DNS" "udp=add rule inet T dns_hijack iifname @interfaces udp dport 53 counter redirect to :53"
+    _dh "only the LAN interfaces are looked at: four commands in all" "rules=4"
+    _dh "no warning in the usual case" "no-warning=0"
+    _dh "with Dont Touch My DHCP a warning is given" "dont-touch-warned=1"
+    _dh "and the hijack is still made" "dont-touch-still-added=4"
+
+    # the generated rules are loaded as they are written (syntax of the real nft)
+    if command -v nft > /dev/null 2>&1 && nft --version > /dev/null 2>&1; then
+        local ruleset="/tmp/netshift-dnshijack-$$.nft"
+        cat > "$ruleset" << 'NFTEOF'
+table inet T {
+    set interfaces { type ifname; elements = { "br-lan" } }
+    chain dns_hijack {
+        type nat hook prerouting priority dstnat; policy accept;
+        iifname @interfaces fib daddr type local return
+        iifname @interfaces tcp dport 53 counter redirect to :53
+        iifname @interfaces udp dport 53 counter redirect to :53
+    }
+}
+NFTEOF
+        if nft -c -f "$ruleset" > /dev/null 2>&1; then
+            pass "nft accepts the rules"
+        else
+            skip "nft cannot check rules here"
+        fi
+        rm -f "$ruleset"
+    fi
+    rm -f "$NFT_LOG"
+}
 # ─────────────────────────────────────────────────────────────────
 
 main() {
@@ -16205,6 +16295,7 @@ main() {
             test_bypass
             test_urltest_filters
             test_subscription_geoip
+            test_dns_hijack
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -16268,9 +16359,10 @@ main() {
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
+        dnshijack)   test_dns_hijack ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg dnshijack"
             exit 1
             ;;
     esac
