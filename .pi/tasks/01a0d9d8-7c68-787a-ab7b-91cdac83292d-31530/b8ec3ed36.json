@@ -1,0 +1,28 @@
+{
+  "id": "b8ec3ed36",
+  "name": "Smoke suites PR58+PR44",
+  "command": "sh /home/dark/netshift/.pr-review/run-smoke.sh",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0d9d8-7c68-787a-ab7b-91cdac83292d-31530/b8ec3ed36.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790361385446,
+  "endTime": 1790361475431,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 64746,
+  "bytesWritten": 83420,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 3600,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

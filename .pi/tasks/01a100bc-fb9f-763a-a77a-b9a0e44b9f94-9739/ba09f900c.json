@@ -1,0 +1,29 @@
+{
+  "id": "ba09f900c",
+  "name": "full smoke on main",
+  "command": "cd /tmp/wtcheck && git fetch origin -q && git reset --hard -q origin/main && timeout 2400 docker compose -f tests/docker-compose.yml run --rm netshift-test all > /tmp/full_main.log 2>&1; echo \"exit=$?\"; grep -E 'Results:|TESTS' /tmp/full_main.log | tail -3",
+  "description": "Полный smoke-набор (all) на свежем origin/main — проверка целостности после серии мержей",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a100bc-fb9f-763a-a77a-b9a0e44b9f94-9739/ba09f900c.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1791104669238,
+  "endTime": 1791104741934,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 151122,
+  "bytesWritten": 135,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 2700,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

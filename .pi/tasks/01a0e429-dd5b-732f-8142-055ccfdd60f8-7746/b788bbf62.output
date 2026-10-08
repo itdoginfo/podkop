@@ -1,0 +1,57 @@
+unknown flag: --cpus
+
+Usage:  docker buildx build [OPTIONS] PATH | URL | -
+
+Run 'docker buildx build --help' for more information
+total 2128
+drwxr-xr-x  2 dark dark   1000 Sep 28 17:55 .
+drwxrwxrwt 22 root root    600 Sep 28 17:55 ..
+-rw-r--r--  1 dark dark   3999 Sep 28 17:26 liblucihttp-lua-2023.03.15~9b5b683f-r1.apk
+-rw-r--r--  1 dark dark   4434 Sep 28 17:26 liblucihttp-ucode-2023.03.15~9b5b683f-r1.apk
+-rw-r--r--  1 dark dark   8336 Sep 28 17:26 liblucihttp0-2023.03.15~9b5b683f-r1.apk
+-rw-r--r--  1 dark dark  46534 Sep 28 17:28 luci-app-netshift-0.9.8-r1.apk
+-rw-r--r--  1 dark dark 155748 Sep 28 17:26 luci-base-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  55561 Sep 28 17:26 luci-i18n-base-ar-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark   9771 Sep 28 17:26 luci-i18n-base-bg-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark   2402 Sep 28 17:26 luci-i18n-base-bn-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  19784 Sep 28 17:26 luci-i18n-base-ca-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  69151 Sep 28 17:26 luci-i18n-base-cs-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  44705 Sep 28 17:26 luci-i18n-base-da-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  62413 Sep 28 17:26 luci-i18n-base-de-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  15858 Sep 28 17:26 luci-i18n-base-el-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  65926 Sep 28 17:26 luci-i18n-base-es-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark   5852 Sep 28 17:26 luci-i18n-base-fa-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  34656 Sep 28 17:26 luci-i18n-base-fi-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark   6201 Sep 28 17:26 luci-i18n-base-fil-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  47235 Sep 28 17:26 luci-i18n-base-fr-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  68058 Sep 28 17:26 luci-i18n-base-ga-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark   5861 Sep 28 17:26 luci-i18n-base-he-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark   2907 Sep 28 17:26 luci-i18n-base-hi-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  58996 Sep 28 17:26 luci-i18n-base-hu-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  53033 Sep 28 17:26 luci-i18n-base-it-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  40150 Sep 28 17:26 luci-i18n-base-ja-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  54537 Sep 28 17:26 luci-i18n-base-ko-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  69377 Sep 28 17:26 luci-i18n-base-lt-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark   1909 Sep 28 17:26 luci-i18n-base-mr-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark   6168 Sep 28 17:26 luci-i18n-base-ms-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  44852 Sep 28 17:26 luci-i18n-base-nl-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  16498 Sep 28 17:26 luci-i18n-base-no-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  67718 Sep 28 17:26 luci-i18n-base-pl-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  61908 Sep 28 17:26 luci-i18n-base-pt-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  66868 Sep 28 17:26 luci-i18n-base-pt-br-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  59002 Sep 28 17:26 luci-i18n-base-ro-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  79441 Sep 28 17:26 luci-i18n-base-ru-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  23920 Sep 28 17:26 luci-i18n-base-sk-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  19538 Sep 28 17:26 luci-i18n-base-sv-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  70896 Sep 28 17:26 luci-i18n-base-ta-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  53004 Sep 28 17:26 luci-i18n-base-tr-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  75924 Sep 28 17:26 luci-i18n-base-uk-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  54237 Sep 28 17:26 luci-i18n-base-vi-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  53992 Sep 28 17:26 luci-i18n-base-yua-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  62753 Sep 28 17:26 luci-i18n-base-zh-cn-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  59580 Sep 28 17:26 luci-i18n-base-zh-tw-26.124.63982~650a6ca.apk
+-rw-r--r--  1 dark dark  11431 Sep 28 17:28 luci-i18n-netshift-ru-0.260928.29829.apk
+-rw-r--r--  1 dark dark 147330 Sep 28 17:25 netshift-0.9.8-r1.apk
+-rw-r--r--  1 dark dark  14588 Sep 28 17:26 rpcd-mod-luci-20240305-r1.apk
+-rw-r--r--  1 dark dark  22437 Sep 28 17:26 ucode-mod-html-1.apk
+BUILD DONE

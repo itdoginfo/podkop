@@ -1,0 +1,17 @@
+############ 1. SHELLCHECK ############
+shellcheck rc=0  (0 и без вывода = чисто)
+
+############ 2. SMOKE SUITE (OpenWrt rootfs) ############
+smoke rc=0
+Results: 927 passed / 0 failed / 1 skipped
+--- FAILs:
+
+############ 3. FRONTEND (yarn ci + diff check) ############
+yarn ci rc=0
+ESM ⚡️ Build success in 29ms
+✅ Patched LuCI build: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/main.js
+Done in 6.72s.
+--- git status after build (должно быть пусто):
+?? .pi/
+
+############ DONE ############

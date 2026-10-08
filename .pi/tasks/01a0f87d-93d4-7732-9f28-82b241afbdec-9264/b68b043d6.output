@@ -1,0 +1,43 @@
+############ SMOKE SUITE (docker OpenWrt rootfs) ############
+=== PR #73 smoke: started 20:34:52
+=== PR #73 smoke: rc=0 20:35:44 :: Results: 927 passed / 0 failed / 1 skipped
+=== PR #72 smoke: started 20:35:44
+=== PR #72 smoke: rc=0 20:36:36 :: Results: 948 passed / 0 failed / 1 skipped
+=== PR #71 smoke: started 20:36:36
+=== PR #71 smoke: rc=0 20:37:29 :: Results: 947 passed / 0 failed / 1 skipped
+=== PR #70 smoke: started 20:37:29
+=== PR #70 smoke: rc=0 20:38:21 :: Results: 944 passed / 0 failed / 1 skipped
+=== PR #69 smoke: started 20:38:21
+=== PR #69 smoke: rc=0 20:39:14 :: Results: 942 passed / 0 failed / 1 skipped
+=== PR #68 smoke: started 20:39:15
+=== PR #68 smoke: rc=0 20:40:05 :: Results: 927 passed / 0 failed / 1 skipped
+=== PR #67 smoke: started 20:40:05
+=== PR #67 smoke: rc=0 20:40:56 :: Results: 929 passed / 0 failed / 1 skipped
+=== PR #65 smoke: started 20:40:56
+=== PR #65 smoke: rc=0 20:41:47 :: Results: 927 passed / 0 failed / 1 skipped
+=== PR #64 smoke: started 20:41:47
+=== PR #64 smoke: rc=0 20:42:38 :: Results: 927 passed / 0 failed / 1 skipped
+############ FRONTEND (yarn ci) ############
+=== PR #70 frontend: started 20:42:38
+=== PR #70 frontend: rc=0 20:42:46
+=== PR #71 frontend: started 20:42:46
+=== PR #71 frontend: rc=0 20:42:52
+=== PR #69 frontend: started 20:42:52
+=== PR #69 frontend: rc=0 20:42:58
+=== PR #64 frontend: started 20:42:58
+=== PR #64 frontend: rc=0 20:43:05
+=== PR #72 frontend: started 20:43:05
+=== PR #72 frontend: rc=0 20:43:11
+=== PR #73 frontend: started 20:43:11
+=== PR #73 frontend: rc=0 20:43:18
+############ SHELLCHECK (docker koalaman/shellcheck) ############
+=== PR #73 shellcheck: rc=127
+=== PR #72 shellcheck: rc=127
+=== PR #71 shellcheck: rc=127
+=== PR #70 shellcheck: rc=127
+=== PR #69 shellcheck: rc=127
+=== PR #68 shellcheck: rc=127
+=== PR #67 shellcheck: rc=127
+=== PR #65 shellcheck: rc=127
+=== PR #64 shellcheck: rc=127
+############ DONE 20:43:19 ############

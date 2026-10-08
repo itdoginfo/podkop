@@ -1723,8 +1723,8 @@
     "call": "Latest",
     "key": "Latest",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:142",
-      "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:48"
+      "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:48",
+      "src/netshift/tabs/manager/cards.ts:142"
     ]
   },
   {
@@ -2020,8 +2020,8 @@
     "call": "Outdated",
     "key": "Outdated",
     "places": [
-      "src/netshift/tabs/manager/cards.ts:146",
-      "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:38"
+      "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:38",
+      "src/netshift/tabs/manager/cards.ts:146"
     ]
   },
   {
@@ -2497,8 +2497,8 @@
     "call": "Sing-box",
     "key": "Sing-box",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:238",
-      "src/netshift/tabs/dashboard/initController.ts:530"
+      "src/netshift/tabs/dashboard/initController.ts:530",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:238"
     ]
   },
   {
@@ -2923,6 +2923,7 @@
     "call": "unknown",
     "key": "unknown",
     "places": [
+      "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7",
       "src/netshift/tabs/diagnostic/initController.ts:43",
       "src/netshift/tabs/diagnostic/initController.ts:44",
       "src/netshift/tabs/diagnostic/initController.ts:45",
@@ -2934,8 +2935,7 @@
       "src/netshift/tabs/manager/initController.ts:45",
       "src/netshift/tabs/manager/initController.ts:46",
       "src/netshift/tabs/manager/initController.ts:47",
-      "src/netshift/tabs/manager/initController.ts:48",
-      "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7"
+      "src/netshift/tabs/manager/initController.ts:48"
     ]
   },
   {

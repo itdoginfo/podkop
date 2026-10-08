@@ -1,0 +1,76 @@
+Warning: No project session found with id 'delegate-d6476b3e906a5f53197a3adb88aa6067'; creating a new session with that id.
+# Ревью PR #72 «fix(luci): интерфейс больше не залипает на старой версии после обновления» (cergo666, `rc/luci-cache-bust`)
+
+## Вердикт
+
+**CHANGES REQUESTED** — блокеров нет, но запрошенный прошлым ревью статический гейт закрыт только наполовину (workflow не запускается на изменении `cache-bust.sh`), а в `get_luci_app_version` остался воспроизведённый дефект выбора каталога, который тесты PR не покрывают.
+
+## Ведомость утверждений автора
+
+| Утверждение | Вердикт | Доказательство |
+|---|---|---|
+| `cache-bust.sh` вызывается из Makefile после подстановки версии | VERIFIED | `luci-app-netshift/Makefile:27` (sed версии) → `:31` (вызов), порядок задан текстом define |
+| Представления ставятся в `view/netshift_<hash>/`, переписываются `require` и путь в `menu.d` | VERIFIED | `cache-bust.sh:57` (mv), `:58` (require), `:59` (menu); запуск родителя на синтетическом дереве |
+| Хеш — по содержимому вместе с версией, одна сборка → один каталог | VERIFIED | `cache-bust.sh:22` (`LC_ALL=C`), `:47` (`cat *.js \| md5sum`); версия в `main.js` штампуется до вызова (`Makefile:27`), плейсхолдер живёт в `fe-app-netshift/src/netshift/constants.ts:7` → всегда есть в бандле |
+| «Срабатывает уже при первом обновлении» | PARTIAL / UNVERIFIABLE | зависит от сброса серверного индекса LuCI: `luci-app-netshift/root/etc/uci-defaults/50_luci-netshift:3-4` чистит `/var/luci-indexcache*` и `/tmp/luci-indexcache*`, и оба пути апгрейда (opkg/apk и самообновление, `updater.sh:2479-2495`) идут через postinst; реальный апгрейд не воспроизводил |
+| В исходниках раскладка не меняется | VERIFIED | скрипт работает по `$(1)$(HTDOCS)` (установочный корень), build-dir/исходники не трогает |
+| «Битое дерево валит сборку, а не даёт нерабочий пакет» | PARTIAL | guards `cache-bust.sh:30-37, 43-46, 64-72, 73-76, 79-85`; отсутствие `main.js` ловится косвенно (все обёртки делают `require view.$new.main`), но **отсутствие штамповки версии — нет**: `Makefile:27` глушит ошибку через `|| true` (см. should-fix 3) |
+| `get_luci_app_version` ищет в хешированном каталоге, затем в старом | VERIFIED | `netshift/files/usr/bin/netshift:5098-5113`, вызов `:5129`, константа `constants.sh:117` |
+| «Реальная сборка ipk и apk: хеш совпал» | UNVERIFIABLE (по коду — согласуется) | `Dockerfile-ipk`/`Dockerfile-apk` копируют одно и то же дерево, `build.yml` (job `preparation`) отдаёт один `NETSHIFT_VERSION` в оба образа → вход хеша идентичен |
+| «Исходники LuCI принимают имя модуля с `_` и цифрами» | UNVERIFIABLE | исходников LuCI в репозитории нет; принимаю на основании проверки прошлого ревью (`luci.js:2474`, `name.replace(/\./g,'/')`) и теста автора на железе |
+| Smoke-тест `cachebust` — «21 проверка» | PARTIAL | сейчас 28 проверок: 27 вызовов `_cb_check` (`entrypoint.sh:9007-9033`) + проверка `menu-path` (`:9034-9038`). В описании PR число устарело |
+| `cache-bust.sh` добавлен в `include-path`, в команду гейта `AGENTS.md` и в `ash -n` | PARTIAL | `shellcheck.yml:49` ✓, `AGENTS.md:50-52` ✓ (но в бутлете **Backend**), `entrypoint.sh:136-142` ✓; при этом `on.*.paths` (`shellcheck.yml:8-12,17-21`) не содержит `luci-app-netshift/**` → гейт не запускается на PR, меняющем только этот файл (см. should-fix 1) |
+| Аргументы Makefile заквочены | VERIFIED | `luci-app-netshift/Makefile:31`; `$(CURDIR)` = каталог пакета (рецепты выполняются в каталоге пакета — тот же приём `./files/...` работает в `netshift/Makefile:50-59`), при ином поведении сборка падала бы громко |
+| `LC_ALL=C`; тест проверяет, что тег = md5 конкатенации | VERIFIED | `cache-bust.sh:22`; `entrypoint.sh:8947-8950` (`want_tag`), `:9028` |
+| `main.js` без строки версии пропускается → `not installed` | VERIFIED, но семантика спорна | `netshift:5107,5112` (см. should-fix 3) |
+| Guard расширен (путевая форма + чужой хеш), `require` без `\| while`, `grep -q`, внятные ошибки, `run b/c/d` обёрнуты | VERIFIED | `cache-bust.sh:64-72, 73-76, 79-85, 43-46, 52-55`; `entrypoint.sh:8920-8946` |
+
+## Блокеры
+
+**нет.**
+
+## Should-fix
+
+1. **Статический гейт для `cache-bust.sh` включён, но не срабатывает.** `include-path` дополнен (`.github/workflows/shellcheck.yml:49`), а триггеры — нет: `on.push.paths`/`on.pull_request.paths` (`shellcheck.yml:8-12` и `:17-21`) перечисляют только `install.sh`, `netshift/files/usr/bin/**`, `netshift/files/usr/lib/**` и сам файл workflow. PR, который меняет **только** `luci-app-netshift/cache-bust.sh`, не запустит Differential ShellCheck; текущий PR проходит лишь потому, что правит сам `shellcheck.yml`. **Минимальный фикс:** добавить `luci-app-netshift/cache-bust.sh` (или `luci-app-netshift/**`) в оба списка `paths`. Синтаксис при этом всё же прикрыт: `ash -n` в `test_syntax` (`entrypoint.sh:136-142`) и функциональный тест `cachebust` идут в smoke-наборе, а он триггерится на `luci-app-netshift/**` (`openwrt-smoke-tests.yml:10,23`).
+2. **`get_luci_app_version` выбирает лексикографически первый хеш-каталог** (`netshift:5101`: `for dir in "$LUCI_VIEW_DIR"/netshift_* ...`). При остатке старого каталога (неудачный апгрейд, ручная копия по SFTP, `--force-reinstall` поверх dev-дерева) CLI-диагностика покажет **старую** версию; именно этот симптом PR и лечит. Тест это не покрывает: в `entrypoint.sh:8992-8994` второй каталог специально удалён перед проверкой, а `version-hashed-dir-wins` (`:9025`) срабатывает и при старом порядке. **Минимальный фикс** (POSIX, busybox `ls -1dt`):
+   ```sh
+   for file in $(ls -1dt "$LUCI_VIEW_DIR"/netshift_*/main.js "$LUCI_VIEW_DIR"/netshift/main.js 2>/dev/null); do
+       version="$(grep 'var NETSHIFT_LUCI_APP_VERSION' "$file" | cut -d'"' -f2)"
+       [ -n "$version" ] || continue
+       echo "$version"; return 0
+   done
+   echo "not installed"
+   ```
+   (актуальный установленный каталог — самый свежий по mtime; поведение при одном каталоге не меняется).
+3. **«`main.js` без строки версии» отдаётся как `not installed`, а штамповка версии не проверяется сборкой.** `netshift:5107,5112`: если каталог и `main.js` есть, а строки версии в нём нет, приложение объявляется **не установленным** (`global_check` печатает это дословно, `netshift:5650`) — это ложь для установленного приложения. Сценарий достижим: `Makefile:27` содержит `|| true`, т.е. неудавшаяся подстановка `__COMPILED_VERSION_VARIABLE__` не валит сборку, а хеш молча теряет версию. **Минимальный фикс:** (а) в `cache-bust.sh` после `:47` добавить `grep -q '__COMPILED_VERSION_VARIABLE__' "$VIEW"/netshift/main.js && { echo "cache-bust: version placeholder not stamped in main.js" >&2; exit 1; }`; (б) при найденном `main.js` без версии отдавать `unknown` (сенсор, который UI уже понимает), а не `not installed`.
+4. **Документация описывает не то состояние, которое видит установленный пакет.** `AGENTS.md:50-52` помещает `luci-app-netshift/cache-bust.sh` в бутлет **Backend (`netshift/files/**`)**, хотя файл вне этого дерева, а `Layout` (`AGENTS.md:36-38`) и `README.md:309` не фиксируют главное: у **установленного** пакета представления лежат в `view/netshift_<hash>/`, а `view/netshift/` — это только исходники. Для «прочти перед работой» это ровно то расхождение, из-за которого следующий агент сделает неверный вывод. **Минимальный фикс:** вынести файл в отдельный пункт «Packaging/LuCI» и одной строкой добавить хешированную раскладку в `Layout`.
+
+## Nitpicks
+
+- `cache-bust.sh:52-55` (`$VIEW/$new already exists`) в том сценарии, который декларирует тест («повторный прогон»), **недостижим**: на повторном прогоне первым срабатывает guard `:30-33` (`netshift not found` — это и подтвердил прогон родителя). Т.е. сообщение «already exists» не покрыто тестом, а `rerun-fails` проверяет не новый guard.
+- `entrypoint.sh:8981` (`mkver`) дублирует формат строки версии вместо того, чтобы взять реальный `main.js`: после `run a` можно поставить `LUCI_VIEW_DIR="$W/a/htdocs/luci-static/resources/view"` и проверить `0.9.9` — это поймало бы дрейф формата в настоящем бандле (`const` вместо `var` и т.п.), который стаб не заметит.
+- `entrypoint.sh:8947-8949` (`tag-is-content-md5`) пересчитывает md5 в **своей** локали, тогда как скрипт форсит `LC_ALL=C`; равенство держится только потому, что в контейнере OpenWrt локалей нет.
+- `fe-app-netshift/.env.example:21` и `watch-upload.js:22` по-прежнему дефолтят на нехешированный путь; комментарий `:10-20` это объясняет, но остаётся ручной `sed`, а загруженные файлы перезапишет следующий апгрейд пакета — стоит сказать это одной фразой.
+- `README.md:309` описывает `cache-bust.sh`, `AGENTS.md` — нет (см. should-fix 4).
+- Описание PR: «21 проверка» вместо фактических 28 (`entrypoint.sh:9007-9038`).
+- Хеш считается только по `*.js` (`cache-bust.sh:43-47`): если в каталог представлений когда-нибудь попадёт не-JS ресурс, тег не изменится. Сейчас там ровно 7 `.js` (find по `luci-app-netshift/htdocs/**`), так что влияния нет.
+- Guard `cache-bust.sh:64` (`grep -qE 'view[./]netshift[./]'`) — текстовый, поэтому безобидное упоминание старого пути в комментарии/строке представления завалит релиз. Строгость осознанная, но это build-stopper по тексту, а не по семантике.
+- Вне объёма PR: `fe-app-netshift/src/netshift/constants.ts:8-9` (`fakeip.podkop.fyi`, `ip.podkop.fyi`) и `PKG_MAINTAINER=…podkop@itdog.info` — предсуществующий ребрендинг, диффом не затронут.
+
+## Тесты
+
+Кейсы зарегистрированы полно: `all` (`entrypoint.sh:12927`), `cachebust) test_luci_cache_bust` (`:12970`), строка `Available:` (`:12990`), комментарий со списком (`tests/docker-compose.yml`), и само монтирование `../luci-app-netshift:/luci-app-netshift:ro` (там же) — в CI smoke-набор идёт через compose (`openwrt-smoke-tests.yml:45`), значит тест реально исполняется. Важно: при отсутствии монтирования тест делает `skip` (`entrypoint.sh:8874-8882`), а `skip` не валит набор — «тихая» деградация покрытия.
+
+Проверяет ли он код, а не собственный стаб: да — гоняется **настоящий** `cache-bust.sh` на копии дерева, а версия LuCI-приложения читается **настоящей** функцией, извлечённой из `netshift/files/usr/bin/netshift` (`:8980`), не заглушкой.
+
+Что упало бы без правки:
+- дискриминирующие (без них проверка красная): `no-old-requires`, `requires-new-dir`, `every-require-resolves`, `menu-target-exists`, `menu-only-path-changed`, `all-views-moved` — вся перепись; `dangling-require-fails` (цикл `cache-bust.sh:79-85`); `path-form-reference-fails` и `foreign-hash-reference-fails` (guard `:64-72`) — эти два добавлены именно вторым коммитом и без него не работают; `empty-views-message:1` (guard `:43-46`); `version-missing-line` (правка `:5107`); `tag-is-content-md5`, `deterministic`, `changes-with-version`, `changes-with-content` (реализация хеша).
+- **не** дискриминирующие: `missing-views-fails` и `missing-menu-fails` — без guard'ов `mv`/`sed` всё равно падают под `set -eu`, так что эти два проверяют факт ненулевого кода, а не наличие понятного сообщения; `empty-views-fails` — по той же причине (`cat` по неразвернувшемуся glob'у падает); `rerun-fails` — см. nitpick (срабатывает первый guard).
+- `version-hashed-dir-wins` проходит и на старом коде (порядок glob'а и так даёт хеш-каталог первым), а случай «два хеш-каталога» не покрыт ничем — это и есть слепое пятно should-fix 2.
+
+## Не проверено и остаточные риски
+
+- Реальная сборка ipk/apk и совпадение хеша, реальный апгрейд на роутере (в т.ч. apk/OpenWrt 25.x), поведение `uci-defaults` в apk — у меня нет bash, docker и сети; принимаю на веру из отчёта автора. Код-путь согласуется: один `NETSHIFT_VERSION` в оба образа (`build.yml`, job `preparation`), одинаковые `COPY` в `Dockerfile-ipk`/`Dockerfile-apk`.
+- Внутренности LuCI (разрешение имён модулей с `_`/цифрами, диспетчер, имя `.lmo`) — исходников LuCI в репозитории нет; опираюсь на проверку прошлого ревью и тест автора на железе.
+- **Главный остаточный риск правки:** корректность теперь опирается на инвалидацию серверного индекса LuCI (`50_luci-netshift:3-4`). Если постинсталл не отработает (ручное копирование файлов, сторонний инсталлятор), закешированное меню укажет на `view/netshift/netshift.js`, которого после апгрейда уже нет → UI сломается с 404 вместо «старого, но рабочего» интерфейса. Раньше такой индекс оставался безобидным. Стоит либо добавить в README/AGENTS явное требование «после обновления пакета LuCI-индекс должен быть сброшен», либо оставить в пакете однострочный шим `view/netshift/netshift.js`, редиректящий на актуальный каталог.
+- Порядок мержа: подтверждаю замечание прошлого ревью — мержить **последним**; `cachebust` гоняет перепись по финальному содержимому `section.js`/`main.js`, и после #69/#70/#71 (общие `tests/entrypoint.sh` и `netshift/files/usr/bin/netshift`) потребуется ребейз и повторный прогон набора.

@@ -1,0 +1,29 @@
+{
+  "id": "b8062810c",
+  "name": "CI-после-мержа-lite",
+  "command": "gh -R yandexru45/netshift run watch 36396476817 --exit-status > /dev/null 2>&1; r1=$?; gh -R yandexru45/netshift run watch 36396476745 --exit-status > /dev/null 2>&1; r2=$?; echo \"smoke=$r1 shellcheck=$r2\"; gh -R yandexru45/netshift run list --branch main --limit 2 --json displayTitle,conclusion -q '.[] | .displayTitle + \" => \" + (.conclusion // \"running\")'",
+  "description": "CI на main после мержа PR #62",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0e429-dd5b-732f-8142-055ccfdd60f8-11653/b8062810c.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790583497703,
+  "endTime": 1790583560679,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 167514,
+  "bytesWritten": 165,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 1200,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "bef7ead7e",
+  "name": "Frontend gate PR58",
+  "command": "cd /home/dark/netshift/.pr-review/pr58/fe-app-netshift && corepack yarn ci 2>&1; echo \"=== CI EXIT=$? ===\"; cd /home/dark/netshift/.pr-review/pr58 && echo \"=== GIT STATUS AFTER BUILD ===\"; git status --porcelain; echo \"=== DIFFSTAT AFTER BUILD ===\"; git diff --stat",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0d9d8-7c68-787a-ab7b-91cdac83292d-31530/bef7ead7e.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790361396308,
+  "endTime": 1790361401601,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 67174,
+  "bytesWritten": 10508,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 1800,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

@@ -315,7 +315,12 @@ sing_box_cf_add_proxy_outbound() {
         config=$(sing_box_cm_add_vmess_outbound "$config" "$tag" "$vm_server" "$vm_port" "$vm_uuid" \
             "$vm_security" "$vm_alter_id")
         config=$(_add_vmess_transport_and_security "$config" "$tag" "$vm_net" "$vm_host" "$vm_path" \
-            "$vm_tls" "$vm_sni" "$vm_alpn" "$vm_fp" "$vm_server")
+            "$vm_tls" "$vm_sni" "$vm_alpn" "$vm_fp" "$vm_server") || {
+            # An unknown `net` skips the whole link: roll the config back to the
+            # state before this outbound so no transportless member remains.
+            echo "$config_in"
+            return 1
+        }
         ;;
     *)
         # Unsupported scheme: downgrade from fatal to a WARNING + skip. This
@@ -429,7 +434,10 @@ _add_outbound_transport() {
     local transport
     transport=$(url_get_query_param "$url" "type")
     case "$transport" in
-    tcp | raw) ;;
+    # An absent `type` means plain TCP: the link carries no transport block at
+    # all. It MUST be handled here (and not by the skip branch below), otherwise
+    # ordinary links without `type=` would be dropped entirely.
+    tcp | raw | "") ;;
     ws)
         local ws_path ws_host ws_early_data
         ws_path=$(url_get_query_param "$url" "path")
@@ -447,6 +455,20 @@ _add_outbound_transport() {
 
         config=$(
             sing_box_cm_set_grpc_transport_for_outbound "$config" "$outbound_tag" "$grpc_service_name"
+        )
+        ;;
+    httpupgrade)
+        # sing-box's httpupgrade transport (upstream since 1.8, no extended core
+        # required). The Host header lives in a top-level "host" field; when the
+        # link omits it we fall back to the sni so the Host matches the TLS SNI,
+        # which is how most TLS-fronted httpupgrade deployments are set up.
+        local httpupgrade_path httpupgrade_host httpupgrade_sni
+        httpupgrade_path=$(url_get_query_param "$url" "path")
+        httpupgrade_host=$(url_get_query_param "$url" "host")
+        httpupgrade_sni=$(url_get_query_param "$url" "sni")
+        [ -n "$httpupgrade_host" ] || httpupgrade_host="$httpupgrade_sni"
+        config=$(
+            sing_box_cm_set_httpupgrade_transport_for_outbound "$config" "$outbound_tag" "$httpupgrade_path" "$httpupgrade_host"
         )
         ;;
     xhttp | splithttp)
@@ -471,7 +493,14 @@ _add_outbound_transport() {
         config=$(sing_box_cm_set_xhttp_transport_for_outbound "$config" "$outbound_tag" "$xhttp_path" "$xhttp_host" "$xhttp_mode")
         ;;
     *)
-        log "Unknown transport '$transport' detected." "error"
+        # Unknown transport: skip the WHOLE link (echo the config unchanged and
+        # return non-zero, so the caller drops it). Keeping the outbound without
+        # its transport would leave a node that validates but can never connect,
+        # still listed in its group — the same contract as the XHTTP-on-stock
+        # branch above.
+        log "Unknown transport '$transport' detected; skipping the link." "error"
+        echo "$config"
+        return 1
         ;;
     esac
 
@@ -527,9 +556,24 @@ _add_vmess_transport_and_security() {
         config=$(sing_box_cm_set_http_transport_for_outbound "$config" "$outbound_tag" "$path" "$host")
         tls_required=1
         ;;
+    httpupgrade)
+        # V2RayN's `net` uses the same transport names as the URL `type`; the
+        # Host falls back to the sni (see _add_outbound_transport). Upstream
+        # sing-box feature, so no extended-core gate here.
+        local vmess_httpupgrade_host="$host"
+        [ -n "$vmess_httpupgrade_host" ] || vmess_httpupgrade_host="$sni"
+        config=$(
+            sing_box_cm_set_httpupgrade_transport_for_outbound "$config" "$outbound_tag" "$path" "$vmess_httpupgrade_host"
+        )
+        ;;
     tcp | "") ;;
     *)
-        log "Unknown VMess transport '$net' detected." "error"
+        # Unknown transport: skip the WHOLE link (echo the config unchanged and
+        # return non-zero, so the caller drops it) instead of leaving a node
+        # that validates but can never connect.
+        log "Unknown VMess transport '$net' detected; skipping the link." "error"
+        echo "$config"
+        return 1
         ;;
     esac
 

@@ -1,0 +1,29 @@
+{
+  "id": "bb409676b",
+  "name": "compare PR73 payloads",
+  "command": "bash /tmp/prrev/compare-pr73.sh",
+  "description": "Extract and compare ipk/apk payloads built by PR73 vs main Dockerfiles (same sources), incl. .lmo presence",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0fd69-ba5a-763a-a77a-b99c470f40f6-13160/bb409676b.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790961317494,
+  "endTime": 1790961370891,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 518391,
+  "bytesWritten": 19777,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 1800,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

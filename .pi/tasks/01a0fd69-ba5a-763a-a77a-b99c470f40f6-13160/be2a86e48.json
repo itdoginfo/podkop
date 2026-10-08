@@ -1,0 +1,29 @@
+{
+  "id": "be2a86e48",
+  "name": "watch CI on merged main",
+  "command": "bash /tmp/watch-main-ci.sh",
+  "description": "Wait for CI (ShellCheck + smoke) to finish on merged main commit e57998e",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0fd69-ba5a-763a-a77a-b99c470f40f6-13160/be2a86e48.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790964450295,
+  "endTime": 1790964451332,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 602146,
+  "bytesWritten": 203,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 1200,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

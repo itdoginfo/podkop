@@ -1,0 +1,30 @@
+{
+  "id": "b6e38c100",
+  "name": "apk-пересборка",
+  "command": "nice -n 15 docker build -f Dockerfile-apk --build-arg NETSHIFT_VERSION=0.9.8-test -t netshift:apk-098 . 2>&1 | tail -4 && rm -rf /tmp/apk-098 && mkdir -p /tmp/apk-098 && cid=$(docker create netshift:apk-098) && docker cp \"$cid\":/builder/bin/packages/x86_64/utilities/netshift-*.apk /tmp/apk-098/ && docker cp \"$cid\":/builder/bin/packages/x86_64/luci/luci-app-netshift-*.apk /tmp/apk-098/ && docker cp \"$cid\":/builder/bin/packages/x86_64/luci/luci-i18n-netshift-ru-*.apk /tmp/apk-098/ && docker rm \"$cid\" >/dev/null && ls -la /tmp/apk-098/ && echo REBUILD_DONE",
+  "description": "Пересборка apk из main c PR #63",
+  "status": "failed",
+  "outputPath": ".pi/tasks/01a0e429-dd5b-732f-8142-055ccfdd60f8-7746/b6e38c100.output",
+  "cwd": "/home/dark/netshift",
+  "startTime": 1790607783772,
+  "endTime": 1790607972085,
+  "exitCode": 1,
+  "signal": null,
+  "pid": 12841,
+  "bytesWritten": 480,
+  "isAgent": false,
+  "surviveReload": false,
+  "error": "Exited with code 1",
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 2400,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/usr/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}

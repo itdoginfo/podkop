@@ -1,12 +1,48 @@
 name: Frontend CI
 
 on:
+  # Direct pushes to main are how most of this repository lands (see the smoke
+  # tests and shellcheck workflows), and the frontend gates — including the
+  # translation check — used to run on pull requests only, so a direct push could
+  # ship an unformatted bundle, a stale main.js or a half-translated UI with no
+  # gate at all. The same paths filter applies, so this adds no run for changes
+  # that cannot affect the frontend.
+  push:
+    branches:
+      - main
+      - 'rc/**'
+    paths:
+      - 'fe-app-netshift/**'
+      - 'luci-app-netshift/po/**'
+      - 'luci-app-netshift/htdocs/luci-static/resources/view/netshift/**'
+      - '.github/workflows/frontend-ci.yml'
   pull_request:
     paths:
       - 'fe-app-netshift/**'
+      - 'luci-app-netshift/po/**'
       - '.github/workflows/frontend-ci.yml'
 
 jobs:
+  locales-check:
+    name: Translation completeness
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5.0.0
+        with:
+          node-version: '22'
+
+      # check-locales.js has no dependencies, so this job needs no install step:
+      # it fails when a string the UI uses has no translation (msgstr ""), when a
+      # translation is left over from a string that no longer exists, or when the
+      # copy the LuCI package compiles has drifted from the source catalogue.
+      - name: Check translations
+        run: node fe-app-netshift/check-locales.js
+
   frontend-checks:
     name: Frontend Quality Checks
     runs-on: ubuntu-24.04
@@ -50,6 +86,21 @@ jobs:
             echo "::error::Code is not formatted. Run 'yarn format' locally."
             exit 1
           fi
+
+      # The catalogues are generated from locales/calls.json, so a new
+      # translatable string that was never extracted would silently stay
+      # untranslated: the locale check below only sees what calls.json lists.
+      # extract-calls.js is deterministic, so a diff here means it is stale.
+      - name: Check locale call extraction
+        run: |
+          yarn locales:extract-calls
+          if ! git diff --exit-code locales/calls.json; then
+            echo "::error::Translatable strings changed without extracting them. Run 'yarn locales:actualize' locally."
+            exit 1
+          fi
+
+      - name: Check translations
+        run: yarn locales:check
 
       - name: Run linter
         run: yarn lint --max-warnings=0

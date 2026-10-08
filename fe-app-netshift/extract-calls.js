@@ -29,6 +29,13 @@ const files = await glob([
     absolute: true,
 });
 
+// fast-glob does not promise any order, and the order changes from run to run: the
+// "places" of a string that is used in several files then came out in a different
+// order each time, and the "Translatable strings changed without extracting them"
+// check of CI failed on a catalogue that was generated correctly. Fixed order = same
+// file for the same sources.
+files.sort();
+
 const results = {};
 
 for (const file of files) {
