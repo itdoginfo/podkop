@@ -4764,14 +4764,14 @@ sing_box_configure_route() {
 
     config=$(sing_box_cm_add_hijack_dns_route_rule "$config" "protocol" "dns")
 
-    # IPv6 only: the IPv6 TProxy inbound prefers AAAA when a domain is resolved for
-    # routing/dialing (prefer_*, not *_only, so a domain without AAAA still
-    # resolves). The IPv4 inbound keeps the global dns.strategy (prefer_ipv4), as
-    # without IPv6. The rule names the main DNS server explicitly, so it never
-    # falls through to the FakeIP rule of dns.rules.
-    if netshift_ipv6_enabled; then
-        config=$(sing_box_cm_add_inbound_resolve_rule "$config" "${SB_TPROXY_INBOUND_TAG}-v6" "prefer_ipv6" "$SB_DNS_SERVER_TAG")
-    fi
+    # No resolve rule for the IPv6 TProxy inbound. One was added for IPv6 (prefer_ipv6)
+    # and made every IPv6 connection wait for the main DNS to resolve its name BEFORE
+    # routing: a name that resolves only through the tunnel, or that the local resolver
+    # answers wrongly or slowly, then failed over IPv6 while the same connection over
+    # IPv4 worked (the proxy resolves the name itself). The global dns.strategy
+    # (prefer_ipv4) applies to both inbounds: with a direct outbound a name that has
+    # only AAAA records still gets its IPv6 address, because the strategy is a
+    # preference.
 
     local disable_quic
     config_get_bool disable_quic "settings" "disable_quic" 0

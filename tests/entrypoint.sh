@@ -15137,24 +15137,17 @@ echo "$two" | jq -e '.route.rules[0].inbound == ["tproxy-in","tproxy-in-v6"]' > 
 echo "$rej" | jq -e '.route.rules[0].inbound == ["tproxy-in","tproxy-in-v6"]' > /dev/null 2>&1 &&
     echo 'ipv6-helper-reject-array:OK' || echo 'ipv6-helper-reject-array:FAIL'
 
-# Address family preference: IPv6 on -> ONE resolve rule, for the IPv6 inbound only
-# (prefer_ipv6, pinned to the main DNS server); the IPv4 inbound keeps the global
-# strategy exactly as without IPv6, so IPv4 flows do not change.
-echo "$cfg_on" | jq -e --arg t "$TPROXY" --arg dns "$SB_DNS_SERVER_TAG" \
-    '[.route.rules[] | select(.action == "resolve")] as $r
-     | ($r | length) == 1
-       and $r[0].inbound == ($t + "-v6") and $r[0].strategy == "prefer_ipv6" and $r[0].server == $dns' > /dev/null 2>&1 &&
-    echo 'ipv6-on-resolve-rule-v6-only-pinned:OK' || echo 'ipv6-on-resolve-rule-v6-only-pinned:FAIL'
-echo "$cfg_on" | jq -e \
-    '([.route.rules[] | .action] | index("hijack-dns")) as $h
-     | ([.route.rules[] | .action] | index("resolve")) as $r
-     | ([.route.rules[] | .action] | index("route")) as $route
-     | $r == ($h + 1) and $r < $route' > /dev/null 2>&1 &&
-    echo 'ipv6-on-resolve-before-route-rules:OK' || echo 'ipv6-on-resolve-before-route-rules:FAIL'
+# No local resolve rule for the IPv6 inbound. A "resolve" action there made every IPv6
+# connection wait for the main DNS to resolve the name BEFORE routing: a name that
+# resolves only through the tunnel (or that the local resolver does not know) failed
+# over IPv6 while the same connection over IPv4 worked, because the proxy resolves the
+# name itself. With IPv6 on or off no resolve action is generated.
+echo "$cfg_on" | jq -e '[.route.rules[] | select(.action == "resolve")] | length == 0' > /dev/null 2>&1 &&
+    echo 'ipv6-on-no-resolve-rule:OK' || echo 'ipv6-on-no-resolve-rule:FAIL'
 echo "$cfg_off" | jq -e '[.route.rules[] | select(.action == "resolve")] | length == 0' > /dev/null 2>&1 &&
     echo 'ipv6-off-no-resolve-rules:OK' || echo 'ipv6-off-no-resolve-rules:FAIL'
 # The route part of the IPv4 flows is identical with and without IPv6 once the
-# inbound match and the v6-only resolve rule are set aside.
+# inbound match is set aside.
 norm='[.route.rules[] | select(.action != "resolve") | del(.inbound) | del(.["__service_tag"])]'
 [ "$(echo "$cfg_on" | jq -cS "$norm")" = "$(echo "$cfg_off" | jq -cS "$norm")" ] &&
     echo 'ipv6-on-v4-rules-same-as-off:OK' || echo 'ipv6-on-v4-rules-same-as-off:FAIL'
