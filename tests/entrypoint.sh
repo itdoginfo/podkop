@@ -12349,7 +12349,8 @@ JSON
 # Stub the asset download: write a non-empty file only when the marker is set.
 updates_download_to_file() {
     [ -f "$SU_DL_OK" ] || return 1
-    printf 'pkg-bytes\n' > "$2"
+    # a real (if empty) package: the self-update checks that downloads are archives
+    cp "$SU_FIXTURE_PKG" "$2"
     [ -s "$2" ]
 }
 
@@ -12368,6 +12369,9 @@ DRVEOF
     cp -p "$work/init/netshift" "$init_target" 2>/dev/null
     chmod 0755 "$init_target" 2>/dev/null || true
 
+    head -c 4000 /dev/urandom > "$work/fixture-payload"
+    tar -czf "$work/fixture.ipk" -C "$work" fixture-payload
+    export SU_FIXTURE_PKG="$work/fixture.ipk"
     export SU_DNS_OK="$work/dns_ok"
     export SU_HTTP_OK="$work/http_ok"
     export SU_GH_OK="$work/gh_ok"
@@ -12469,6 +12473,32 @@ DRVEOF
         pass "selfupdate-happy-download-dir-cleaned:OK"
     else
         fail "selfupdate-happy-download-dir-cleaned:FAIL" "dl dir remains"
+    fi
+
+    # ── Scenario 3b: the download is an error page, not a package ─────────────
+    # Nothing may be installed and the configuration stays as it was.
+    : > "$SU_DNS_OK"; : > "$SU_HTTP_OK"; : > "$SU_GH_OK"; : > "$SU_DL_OK"; : > "$SU_PKG_OK"
+    printf 'CONFIG-ORIG\n' > "$work/etc-config-netshift"
+    printf 'netshift - 0.8.0-r1\n' > "$work/installed.list"
+    local good_fixture="$SU_FIXTURE_PKG"
+    printf '<html>API rate limit exceeded%s</html>' "$(head -c 3000 /dev/zero | tr '\0' 'x')" > "$work/fixture-page.ipk"
+    export SU_FIXTURE_PKG="$work/fixture-page.ipk"
+    run_scenario
+    export SU_FIXTURE_PKG="$good_fixture"
+    if jq -e '.success == false and (.message | contains("damaged"))' "$out" > /dev/null 2>&1; then
+        pass "selfupdate-damaged-package-refused:OK"
+    else
+        fail "selfupdate-damaged-package-refused:FAIL" "$(cat "$out" 2>/dev/null)"
+    fi
+    if [ ! -f "$work/install.log" ]; then
+        pass "selfupdate-damaged-package-nothing-installed:OK"
+    else
+        fail "selfupdate-damaged-package-nothing-installed:FAIL" "install.log=$(cat "$work/install.log" 2>/dev/null)"
+    fi
+    if [ "$(cat "$work/etc-config-netshift" 2>/dev/null)" = "CONFIG-ORIG" ] && [ ! -d "$work/dl" ]; then
+        pass "selfupdate-damaged-package-config-intact-dir-cleaned:OK"
+    else
+        fail "selfupdate-damaged-package-config-intact-dir-cleaned:FAIL" "$(cat "$work/etc-config-netshift" 2>/dev/null)"
     fi
 
     # ── Scenario 4: already up to date (idempotent) → success:true, no install
@@ -14532,6 +14562,69 @@ DSEOF
     rm -f "$drv" "$ds_out"
 }
 
+test_update_package_check() {
+    header "Self-update: downloaded package files are checked before anything is installed"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local updater="$lib/updater.sh"
+    if [ ! -r "$updater" ] || [ ! -r "$lib/constants.sh" ]; then
+        fail "updater.sh / constants.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-pkgcheck-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        UPDATES_PACKAGE_MIN_SIZE=2048
+        eval "$(awk '/^updates_package_file_looks_valid\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$updater")"
+
+        # a real gzip archive of a few kilobytes
+        head -c 6000 /dev/urandom > "$work/payload"
+        tar -czf "$work/good.ipk" -C "$work" payload
+        check() { updates_package_file_looks_valid "$1" && echo yes || echo no; }
+
+        echo "ipk-good=$(check "$work/good.ipk")"
+        printf '<html>rate limit exceeded</html>%s' "$(head -c 3000 /dev/zero | tr '\0' 'x')" > "$work/page.ipk"
+        echo "ipk-html=$(check "$work/page.ipk")"
+        head -c 100 "$work/good.ipk" > "$work/small.ipk"
+        echo "ipk-tiny=$(check "$work/small.ipk")"
+        head -c 3000 "$work/good.ipk" > "$work/trunc.ipk"
+        echo "ipk-truncated=$(check "$work/trunc.ipk")"
+        cp "$work/good.ipk" "$work/v2.apk"
+        echo "apk-gzip=$(check "$work/v2.apk")"
+        { printf 'ADB.'; head -c 4000 /dev/urandom; } > "$work/v3.apk"
+        echo "apk-adb=$(check "$work/v3.apk")"
+        printf '<html>%s' "$(head -c 3000 /dev/zero | tr '\0' 'x')" > "$work/page.apk"
+        echo "apk-html=$(check "$work/page.apk")"
+        echo "missing=$(check "$work/none.ipk")"
+        : > "$work/empty.ipk"
+        echo "empty=$(check "$work/empty.ipk")"
+    )"
+
+    _pk() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _pk "a real .ipk passes" "ipk-good=yes"
+    _pk "an error page named .ipk is refused" "ipk-html=no"
+    _pk "a tiny file is refused" "ipk-tiny=no"
+    _pk "a truncated .ipk is refused" "ipk-truncated=no"
+    _pk "a gzip .apk passes" "apk-gzip=yes"
+    _pk "an ADB .apk passes" "apk-adb=yes"
+    _pk "an error page named .apk is refused" "apk-html=no"
+    _pk "a missing file is refused" "missing=no"
+    _pk "an empty file is refused" "empty=no"
+
+    rm -rf "$work"
+}
+
 # ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
@@ -16108,6 +16201,7 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_update_package_check
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -16177,12 +16271,13 @@ main() {
         priority)    test_priority_selection ;;
         bypass)      test_bypass ;;
         dnssection)  test_dns_section ;;
+        updatepkg)   test_update_package_check ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg"
             exit 1
             ;;
     esac
