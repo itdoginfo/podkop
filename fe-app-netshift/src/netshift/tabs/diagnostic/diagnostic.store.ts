@@ -95,6 +95,14 @@ export const initialDiagnosticStore: Pick<
       items: [],
       state: 'skipped',
     },
+    {
+      code: DIAGNOSTICS_CHECKS.ENVIRONMENT,
+      title: DIAGNOSTICS_CHECKS_MAP.ENVIRONMENT.title,
+      order: DIAGNOSTICS_CHECKS_MAP.ENVIRONMENT.order,
+      description: _('Not running'),
+      items: [],
+      state: 'skipped',
+    },
   ],
 };
 
@@ -139,6 +147,14 @@ export const loadingDiagnosticsChecksStore: Pick<
       code: DIAGNOSTICS_CHECKS.FAKEIP,
       title: DIAGNOSTICS_CHECKS_MAP.FAKEIP.title,
       order: DIAGNOSTICS_CHECKS_MAP.FAKEIP.order,
+      description: _('Pending'),
+      items: [],
+      state: 'skipped',
+    },
+    {
+      code: DIAGNOSTICS_CHECKS.ENVIRONMENT,
+      title: DIAGNOSTICS_CHECKS_MAP.ENVIRONMENT.title,
+      order: DIAGNOSTICS_CHECKS_MAP.ENVIRONMENT.order,
       description: _('Pending'),
       items: [],
       state: 'skipped',

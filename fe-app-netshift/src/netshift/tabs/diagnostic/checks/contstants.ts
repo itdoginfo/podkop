@@ -6,6 +6,7 @@ export enum DIAGNOSTICS_CHECKS {
   NFT = 'NFT',
   FAKEIP = 'FAKEIP',
   OUTBOUNDS = 'OUTBOUNDS',
+  ENVIRONMENT = 'ENVIRONMENT',
 }
 
 export const DIAGNOSTICS_CHECKS_MAP: Record<
@@ -36,5 +37,10 @@ export const DIAGNOSTICS_CHECKS_MAP: Record<
     order: 5,
     title: getCheckTitle('FakeIP'),
     code: DIAGNOSTICS_CHECKS.FAKEIP,
+  },
+  [DIAGNOSTICS_CHECKS.ENVIRONMENT]: {
+    order: 6,
+    title: getCheckTitle('Environment'),
+    code: DIAGNOSTICS_CHECKS.ENVIRONMENT,
   },
 };

@@ -7099,6 +7099,68 @@ check_fakeip() {
 }
 
 #######################################
+# Facts about the router that decide whether the redirect works at all, and are
+# easy to miss: software/hardware flow offloading (established flows skip the
+# netfilter hooks that carry NetShift marks), a clock far from the real time (TLS
+# and Reality fail), a global IPv6 address while IPv6 handling is off.
+# Outputs a JSON object. The only network access is one HEAD request, to compare
+# the clock; without internet the skew is null.
+#######################################
+check_environment() {
+    local flow_software flow_hardware flow_active now plausible remote_date remote_epoch skew
+    local zone timezone ntp_enabled ipv6_global ipv6_enabled
+
+    flow_software="$(uci -q get firewall.@defaults[0].flow_offloading 2> /dev/null)"
+    flow_hardware="$(uci -q get firewall.@defaults[0].flow_offloading_hw 2> /dev/null)"
+    flow_active=0
+    if nft list flowtables 2> /dev/null | grep -q 'flowtable'; then
+        flow_active=1
+    fi
+
+    now="$(date +%s)"
+    plausible=1
+    [ "$now" -ge "$ENVIRONMENT_MIN_PLAUSIBLE_EPOCH" ] || plausible=0
+
+    skew=""
+    remote_date="$(curl -sI -m 5 "$ENVIRONMENT_CLOCK_PROBE_URL" 2> /dev/null | sed -n 's/^[Dd]ate:[[:space:]]*//p' | tr -d '\r' | sed -n '1p')"
+    if [ -n "$remote_date" ]; then
+        remote_epoch="$(http_date_to_epoch "$remote_date")"
+        if [ -n "$remote_epoch" ]; then
+            skew=$((remote_epoch - now))
+        fi
+    fi
+
+    zone="$(uci -q get system.@system[0].zonename 2> /dev/null)"
+    timezone="$(uci -q get system.@system[0].timezone 2> /dev/null)"
+    ntp_enabled="$(uci -q get system.ntp.enabled 2> /dev/null)"
+    [ "$ntp_enabled" = "0" ] || ntp_enabled=1
+
+    ipv6_global=0
+    if ip -6 addr show scope global 2> /dev/null | grep 'inet6' | grep -vqE 'inet6 f[cd]'; then
+        ipv6_global=1
+    fi
+    config_get_bool ipv6_enabled "settings" "enable_ipv6" 0
+
+    jq -n \
+        --argjson flow_software "$([ "$flow_software" = "1" ] && echo true || echo false)" \
+        --argjson flow_hardware "$([ "$flow_hardware" = "1" ] && echo true || echo false)" \
+        --argjson flow_active "$([ "$flow_active" -eq 1 ] && echo true || echo false)" \
+        --argjson plausible "$([ "$plausible" -eq 1 ] && echo true || echo false)" \
+        --arg skew "$skew" \
+        --arg zone "$zone" \
+        --arg timezone "$timezone" \
+        --argjson ntp "$([ "$ntp_enabled" = "1" ] && echo true || echo false)" \
+        --argjson ipv6_global "$([ "$ipv6_global" -eq 1 ] && echo true || echo false)" \
+        --argjson ipv6_enabled "$([ "$ipv6_enabled" -eq 1 ] && echo true || echo false)" \
+        '{
+            flow_offloading: {software: $flow_software, hardware: $flow_hardware, active: $flow_active},
+            clock: {plausible: $plausible, skew_seconds: (if $skew == "" then null else ($skew | tonumber) end),
+                    ntp_enabled: $ntp, timezone: (if $zone != "" then $zone else $timezone end)},
+            ipv6: {router_has_global: $ipv6_global, netshift_enabled: $ipv6_enabled}
+        }'
+}
+
+#######################################
 # Clash API interface for managing proxies and groups
 # Arguments:
 #   $1 - Action: get_proxies, get_proxy_latency, get_group_latency, set_group_proxy
@@ -7598,6 +7660,7 @@ Available commands:
     get_geoip_flags         Print the GeoIP country of manually added links as JSON
     check_sing_box_logs     Show sing-box logs
     check_fakeip            Test FakeIP on router
+    check_environment       Flow offloading, clock and IPv6 facts that affect the redirect
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -7668,6 +7731,9 @@ check_sing_box_logs)
     ;;
 check_fakeip)
     check_fakeip
+    ;;
+check_environment)
+    check_environment
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"

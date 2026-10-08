@@ -2108,3 +2108,41 @@ normalize_subscription_to_singbox() {
     printf '%s' "$config" | jq '.' > "$out_file" 2>/dev/null || return 1
     return 0
 }
+
+# Converts an HTTP Date header value ("Sun, 04 Oct 2026 09:13:05 GMT") to epoch
+# seconds; prints nothing when it cannot be parsed. busybox date does not read
+# this format, so the fields are rearranged for `date -u -d`.
+http_date_to_epoch() {
+    local value="$1"
+    local day month year time month_number
+
+    # "Sun, 04 Oct 2026 09:13:05 GMT" -> day=04 month=Oct year=2026 time=09:13:05
+    set -- $(printf '%s' "$value" | tr -d ',')
+    [ "$#" -ge 5 ] || return 1
+    day="$2"
+    month="$3"
+    year="$4"
+    time="$5"
+
+    case "$month" in
+    Jan) month_number=01 ;;
+    Feb) month_number=02 ;;
+    Mar) month_number=03 ;;
+    Apr) month_number=04 ;;
+    May) month_number=05 ;;
+    Jun) month_number=06 ;;
+    Jul) month_number=07 ;;
+    Aug) month_number=08 ;;
+    Sep) month_number=09 ;;
+    Oct) month_number=10 ;;
+    Nov) month_number=11 ;;
+    Dec) month_number=12 ;;
+    *) return 1 ;;
+    esac
+
+    case "$year$day" in
+    *[!0-9]*) return 1 ;;
+    esac
+
+    date -u -d "$year-$month_number-$day $time" +%s 2> /dev/null
+}

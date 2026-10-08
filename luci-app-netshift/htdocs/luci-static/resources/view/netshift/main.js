@@ -900,6 +900,7 @@ var NetShift;
   ((AvailableMethods2) => {
     AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
     AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
+    AvailableMethods2["CHECK_ENVIRONMENT"] = "check_environment";
     AvailableMethods2["CHECK_NFT_RULES"] = "check_nft_rules";
     AvailableMethods2["GET_STATUS"] = "get_status";
     AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
@@ -1008,6 +1009,9 @@ var NetShiftShellMethods = {
   ),
   checkFakeIP: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_FAKEIP
+  ),
+  checkEnvironment: async () => callBaseMethod(
+    NetShift.AvailableMethods.CHECK_ENVIRONMENT
   ),
   checkNftRules: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_NFT_RULES
@@ -1861,6 +1865,11 @@ var DIAGNOSTICS_CHECKS_MAP = {
     order: 5,
     title: getCheckTitle("FakeIP"),
     code: "FAKEIP" /* FAKEIP */
+  },
+  ["ENVIRONMENT" /* ENVIRONMENT */]: {
+    order: 6,
+    title: getCheckTitle("Environment"),
+    code: "ENVIRONMENT" /* ENVIRONMENT */
   }
 };
 
@@ -1949,6 +1958,14 @@ var initialDiagnosticStore = {
       description: _("Not running"),
       items: [],
       state: "skipped"
+    },
+    {
+      code: "ENVIRONMENT" /* ENVIRONMENT */,
+      title: DIAGNOSTICS_CHECKS_MAP.ENVIRONMENT.title,
+      order: DIAGNOSTICS_CHECKS_MAP.ENVIRONMENT.order,
+      description: _("Not running"),
+      items: [],
+      state: "skipped"
     }
   ]
 };
@@ -1990,6 +2007,14 @@ var loadingDiagnosticsChecksStore = {
       code: "FAKEIP" /* FAKEIP */,
       title: DIAGNOSTICS_CHECKS_MAP.FAKEIP.title,
       order: DIAGNOSTICS_CHECKS_MAP.FAKEIP.order,
+      description: _("Pending"),
+      items: [],
+      state: "skipped"
+    },
+    {
+      code: "ENVIRONMENT" /* ENVIRONMENT */,
+      title: DIAGNOSTICS_CHECKS_MAP.ENVIRONMENT.title,
+      order: DIAGNOSTICS_CHECKS_MAP.ENVIRONMENT.order,
       description: _("Pending"),
       items: [],
       state: "skipped"
@@ -4577,6 +4602,99 @@ async function runFakeIPCheck() {
   });
 }
 
+// src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts
+var CLOCK_SKEW_WARNING_SECONDS = 300;
+function getEnvironmentItems(data) {
+  const items = [];
+  const flow = data.flow_offloading;
+  if (flow.hardware || flow.software || flow.active) {
+    items.push({
+      state: "warning",
+      key: _("Flow offloading is enabled"),
+      value: _(
+        "Established connections can skip the marks NetShift sets: turn it off in Network - Firewall"
+      )
+    });
+  } else {
+    items.push({
+      state: "success",
+      key: _("Flow offloading is off"),
+      value: ""
+    });
+  }
+  if (!data.clock.plausible) {
+    items.push({
+      state: "error",
+      key: _("The router clock is not set"),
+      value: _("TLS and Reality fail with a wrong time: check NTP")
+    });
+  } else if (data.clock.skew_seconds !== null && Math.abs(data.clock.skew_seconds) > CLOCK_SKEW_WARNING_SECONDS) {
+    items.push({
+      state: "warning",
+      key: _("The router clock is off"),
+      value: `${Math.round(data.clock.skew_seconds / 60)} ${_("min")}`
+    });
+  } else {
+    items.push({
+      state: "success",
+      key: _("The router clock is right"),
+      value: ""
+    });
+  }
+  if (data.ipv6.router_has_global && !data.ipv6.netshift_enabled) {
+    items.push({
+      state: "warning",
+      key: _("The router has a global IPv6 address, IPv6 handling is off"),
+      value: _(
+        "IPv6 traffic goes around the tunnel: enable IPv6 in the settings"
+      )
+    });
+  } else {
+    items.push({
+      state: "success",
+      key: _("IPv6 handling matches the network"),
+      value: ""
+    });
+  }
+  return items;
+}
+
+// src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts
+async function runEnvironmentCheck() {
+  const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.ENVIRONMENT;
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: _("Checking, please wait"),
+    state: "loading",
+    items: []
+  });
+  const response = await NetShiftShellMethods.checkEnvironment();
+  if (!response.success || typeof response.data !== "object" || response.data === null) {
+    updateCheckStore({
+      order,
+      code,
+      title,
+      description: _("Not available"),
+      state: "skipped",
+      items: []
+    });
+    return;
+  }
+  const items = getEnvironmentItems(response.data);
+  const hasError = items.some((item) => item.state === "error");
+  const hasWarning = items.some((item) => item.state === "warning");
+  updateCheckStore({
+    order,
+    code,
+    title,
+    description: hasError ? _("Checks failed") : hasWarning ? _("Issues detected") : _("Checks passed"),
+    state: hasError ? "error" : hasWarning ? "warning" : "success",
+    items
+  });
+}
+
 // src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts
 function renderAvailableActions({
   restart,
@@ -5518,6 +5636,7 @@ async function runChecks() {
     await runNftCheck();
     await runSectionsCheck();
     await runFakeIPCheck();
+    await runEnvironmentCheck();
   } catch (e) {
     logger.error("[DIAGNOSTIC]", "runChecks - e", e);
   } finally {
