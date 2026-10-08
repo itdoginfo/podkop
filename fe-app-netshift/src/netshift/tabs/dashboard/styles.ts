@@ -22,7 +22,7 @@ export const styles = `
 .pdk_dashboard-page__widgets-section {
     margin-top: 10px;
     display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
     grid-gap: 10px;
 }
 
@@ -49,10 +49,16 @@ export const styles = `
     margin-top: 10px;
 }
 
+.pdk_dashboard-page__outbound-section {
+    min-width: 0;
+}
+
 .pdk_dashboard-page__outbound-section__title-section {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
 }
 
 .pdk_dashboard-page__outbound-section__title-section__title {
@@ -63,19 +69,28 @@ export const styles = `
 .pdk_dashboard-page__outbound-grid {
     margin-top: 5px;
     display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
     grid-gap: 10px;
 }
 
 .pdk_dashboard-page__outbound-section__controls {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
 }
 
+/* A pressed toggle must not recolor the text: themes paint .btn with a solid
+   primary background, so a primary-colored label would vanish. Mark it with a
+   check and an outline in the current text color instead. */
 .pdk_dashboard-page__control--on {
-    border-color: var(--primary-color-high, dodgerblue);
-    color: var(--primary-color-high, dodgerblue);
+    font-weight: 700;
+    outline: 2px solid currentColor;
+    outline-offset: 1px;
+}
+
+.pdk_dashboard-page__control--on > span::before {
+    content: '\\2713\\00a0';
 }
 
 .pdk_dashboard-page__outbound-list {
@@ -89,6 +104,7 @@ export const styles = `
 }
 
 .pdk_dashboard-page__outbound-row {
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -198,4 +214,44 @@ export const styles = `
     color: var(--error-color-medium, red);
 }
 
+@media (max-width: 600px) {
+    .pdk_dashboard-page__outbound-section__title-section__title {
+        flex: 1 0 100%;
+    }
+
+    .pdk_dashboard-page__outbound-section__controls {
+        flex: 1 0 100%;
+    }
+
+    .pdk_dashboard-page__outbound-section__controls > * {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .pdk_dashboard-page__outbound-list {
+        max-height: 70vh;
+    }
+
+    .pdk_dashboard-page__outbound-row {
+        flex-wrap: wrap;
+        gap: 4px 6px;
+        padding: 8px;
+    }
+
+    .pdk_dashboard-page__outbound-row__name {
+        flex: 1 0 100%;
+    }
+
+    .pdk_dashboard-page__outbound-row__badge,
+    .pdk_dashboard-page__outbound-row__badge-space {
+        width: auto;
+        min-width: 0;
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+
+    .pdk_dashboard-page__outbound-row__badge-space {
+        display: none;
+    }
+}
 `;

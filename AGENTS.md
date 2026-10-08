@@ -84,6 +84,35 @@ triggers `.github/workflows/build.yml`: it runs the smoke suite, builds the ipk
 and apk packages and attaches them to the GitHub release. Release notes are
 written manually.
 
+The release itself, in order:
+
+1. Bump the `PKG_VERSION` fallback in `netshift/Makefile` to the new version and
+   commit it. CI passes the tag as `NETSHIFT_VERSION`, so the fallback only
+   affects local builds — bump both so they agree.
+2. `git tag <version> && git push origin <version>`. `build.yml` then runs the
+   smoke suite, builds ipk and apk, and creates the release with six assets:
+   `netshift-*`, `luci-app-netshift-*` and `luci-i18n-netshift-ru-*` in both
+   formats. The i18n package carries a date-based version of its own
+   (`luci-i18n-netshift-ru-0.261004.56489`), which the release step renames to
+   the tag — so a filename there is not a version mismatch.
+3. **CI does not set the release body** (`softprops/action-gh-release` is called
+   without `body`/`body_path`). After the release appears, set the notes with
+   `gh release edit <version> --repo yandexru45/netshift --notes-file <file>`.
+4. Verify the assets: `gh release view <version> --json assets` — six files, and
+   the `NETSHIFT_VERSION` inside the built `constants.sh` must equal the tag.
+
+When building locally without `--build-arg NETSHIFT_VERSION=...` to check the
+fallback, beware: an SDK base image can carry an inherited `ENV
+NETSHIFT_VERSION`, which `ENV NETSHIFT_VERSION=${NETSHIFT_VERSION}` does not
+clear, and `make` skips an already-built package. Force a real rebuild (remove
+`build_dir/target-*/netshift-*`, the `stamp/.netshift_installed` stamp and the
+old ipk) before trusting the result.
+
+Frontend gates (`frontend-ci.yml`, including the translation check) run on pull
+requests **and** on pushes to `main`/`rc/**`; the backend gates (shellcheck,
+smoke tests) are push-only, so a pull-request head from a fork gets no CI run at
+all — run the smoke suite locally for those.
+
 ## Local AI tooling (untracked by design)
 
 Agent rules, memory files and tool configs are local-only and gitignored:

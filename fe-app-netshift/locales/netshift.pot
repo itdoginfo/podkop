@@ -1008,8 +1008,8 @@ msgstr ""
 msgid "Latency test URL"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:142
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:48
+#: src/netshift/tabs/manager/cards.ts:142
 msgid "Latest"
 msgstr ""
 
@@ -1182,8 +1182,8 @@ msgstr ""
 msgid "Outbound Configuration"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:146
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:38
+#: src/netshift/tabs/manager/cards.ts:146
 msgid "Outdated"
 msgstr ""
 
@@ -1450,8 +1450,8 @@ msgstr ""
 msgid "Show sing-box config"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:238
 #: src/netshift/tabs/dashboard/initController.ts:423
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:238
 msgid "Sing-box"
 msgstr ""
 
@@ -1684,6 +1684,7 @@ msgstr ""
 msgid "UDP over TCP"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7
 #: src/netshift/tabs/diagnostic/initController.ts:43
 #: src/netshift/tabs/diagnostic/initController.ts:44
 #: src/netshift/tabs/diagnostic/initController.ts:45
@@ -1696,7 +1697,6 @@ msgstr ""
 #: src/netshift/tabs/manager/initController.ts:46
 #: src/netshift/tabs/manager/initController.ts:47
 #: src/netshift/tabs/manager/initController.ts:48
-#: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7
 msgid "unknown"
 msgstr ""
 

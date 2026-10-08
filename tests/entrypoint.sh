@@ -6828,12 +6828,14 @@ FDEOF
     fi
 
     # configure_outbound_handler reaps orphans once the URL list is known and
-    # before any feed is downloaded.
+    # before any feed is downloaded. The "no URL" arm is matched by its own
+    # message (the sibling empty-field arms use mark_section_without_links too,
+    # and the enumeration warning above it also contains "subscription URL").
     local reap_order
     reap_order="$(awk '
         /^configure_outbound_handler\(\) \{/{p=1}
         !p{next}
-        /Subscription URL is not set/{print "empty-check"}
+        /subscription URL \(subscription_url\)/{print "empty-check"}
         /reap_orphan_subscription_cache_files "\$section" "\$subscription_urls_tmp"/{print "reap"}
         /Per-feed download/{print "download"}
         /^\}/{exit}
@@ -12902,7 +12904,8 @@ JSON
 # Stub the asset download: write a non-empty file only when the marker is set.
 updates_download_to_file() {
     [ -f "$SU_DL_OK" ] || return 1
-    printf 'pkg-bytes\n' > "$2"
+    # a real (if empty) package: the self-update checks that downloads are archives
+    cp "$SU_FIXTURE_PKG" "$2"
     [ -s "$2" ]
 }
 
@@ -12921,6 +12924,9 @@ DRVEOF
     cp -p "$work/init/netshift" "$init_target" 2>/dev/null
     chmod 0755 "$init_target" 2>/dev/null || true
 
+    head -c 4000 /dev/urandom > "$work/fixture-payload"
+    tar -czf "$work/fixture.ipk" -C "$work" fixture-payload
+    export SU_FIXTURE_PKG="$work/fixture.ipk"
     export SU_DNS_OK="$work/dns_ok"
     export SU_HTTP_OK="$work/http_ok"
     export SU_GH_OK="$work/gh_ok"
@@ -13022,6 +13028,32 @@ DRVEOF
         pass "selfupdate-happy-download-dir-cleaned:OK"
     else
         fail "selfupdate-happy-download-dir-cleaned:FAIL" "dl dir remains"
+    fi
+
+    # ── Scenario 3b: the download is an error page, not a package ─────────────
+    # Nothing may be installed and the configuration stays as it was.
+    : > "$SU_DNS_OK"; : > "$SU_HTTP_OK"; : > "$SU_GH_OK"; : > "$SU_DL_OK"; : > "$SU_PKG_OK"
+    printf 'CONFIG-ORIG\n' > "$work/etc-config-netshift"
+    printf 'netshift - 0.8.0-r1\n' > "$work/installed.list"
+    local good_fixture="$SU_FIXTURE_PKG"
+    printf '<html>API rate limit exceeded%s</html>' "$(head -c 3000 /dev/zero | tr '\0' 'x')" > "$work/fixture-page.ipk"
+    export SU_FIXTURE_PKG="$work/fixture-page.ipk"
+    run_scenario
+    export SU_FIXTURE_PKG="$good_fixture"
+    if jq -e '.success == false and (.message | contains("damaged"))' "$out" > /dev/null 2>&1; then
+        pass "selfupdate-damaged-package-refused:OK"
+    else
+        fail "selfupdate-damaged-package-refused:FAIL" "$(cat "$out" 2>/dev/null)"
+    fi
+    if [ ! -f "$work/install.log" ]; then
+        pass "selfupdate-damaged-package-nothing-installed:OK"
+    else
+        fail "selfupdate-damaged-package-nothing-installed:FAIL" "install.log=$(cat "$work/install.log" 2>/dev/null)"
+    fi
+    if [ "$(cat "$work/etc-config-netshift" 2>/dev/null)" = "CONFIG-ORIG" ] && [ ! -d "$work/dl" ]; then
+        pass "selfupdate-damaged-package-config-intact-dir-cleaned:OK"
+    else
+        fail "selfupdate-damaged-package-config-intact-dir-cleaned:FAIL" "$(cat "$work/etc-config-netshift" 2>/dev/null)"
     fi
 
     # ── Scenario 4: already up to date (idempotent) → success:true, no install
@@ -15085,6 +15117,69 @@ DSEOF
     rm -f "$drv" "$ds_out"
 }
 
+test_update_package_check() {
+    header "Self-update: downloaded package files are checked before anything is installed"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local updater="$lib/updater.sh"
+    if [ ! -r "$updater" ] || [ ! -r "$lib/constants.sh" ]; then
+        fail "updater.sh / constants.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-pkgcheck-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        UPDATES_PACKAGE_MIN_SIZE=2048
+        eval "$(awk '/^updates_package_file_looks_valid\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$updater")"
+
+        # a real gzip archive of a few kilobytes
+        head -c 6000 /dev/urandom > "$work/payload"
+        tar -czf "$work/good.ipk" -C "$work" payload
+        check() { updates_package_file_looks_valid "$1" && echo yes || echo no; }
+
+        echo "ipk-good=$(check "$work/good.ipk")"
+        printf '<html>rate limit exceeded</html>%s' "$(head -c 3000 /dev/zero | tr '\0' 'x')" > "$work/page.ipk"
+        echo "ipk-html=$(check "$work/page.ipk")"
+        head -c 100 "$work/good.ipk" > "$work/small.ipk"
+        echo "ipk-tiny=$(check "$work/small.ipk")"
+        head -c 3000 "$work/good.ipk" > "$work/trunc.ipk"
+        echo "ipk-truncated=$(check "$work/trunc.ipk")"
+        cp "$work/good.ipk" "$work/v2.apk"
+        echo "apk-gzip=$(check "$work/v2.apk")"
+        { printf 'ADB.'; head -c 4000 /dev/urandom; } > "$work/v3.apk"
+        echo "apk-adb=$(check "$work/v3.apk")"
+        printf '<html>%s' "$(head -c 3000 /dev/zero | tr '\0' 'x')" > "$work/page.apk"
+        echo "apk-html=$(check "$work/page.apk")"
+        echo "missing=$(check "$work/none.ipk")"
+        : > "$work/empty.ipk"
+        echo "empty=$(check "$work/empty.ipk")"
+    )"
+
+    _pk() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _pk "a real .ipk passes" "ipk-good=yes"
+    _pk "an error page named .ipk is refused" "ipk-html=no"
+    _pk "a tiny file is refused" "ipk-tiny=no"
+    _pk "a truncated .ipk is refused" "ipk-truncated=no"
+    _pk "a gzip .apk passes" "apk-gzip=yes"
+    _pk "an ADB .apk passes" "apk-adb=yes"
+    _pk "an error page named .apk is refused" "apk-html=no"
+    _pk "a missing file is refused" "missing=no"
+    _pk "an empty file is refused" "empty=no"
+
+    rm -rf "$work"
+}
+
 # ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
@@ -15357,6 +15452,29 @@ test_subscription_geoip() {
         echo "links-merge-and-cache:$(jq -c '[has("main-out"), has("second-out")]' "$GEOIP_LINKS_FILE"):$(calls dig)/$(calls curl)"
         rm -f "$GEOIP_LINKS_FILE"
         echo "links-no-file-is-empty-object:$(get_geoip_flags)"
+
+        # --- a shared entry point ("mirror"): the name states its country, the
+        # address does not. The name wins and the disagreement is logged (issue
+        # #94: on a real subscription 4 nodes named de1/pl1/fi1/se1 behind one RU
+        # mirror host were stamped RU, and a country filter for DE silently dropped
+        # one of the five DE nodes of that subscription).
+        rm -f "$GEOIP_CACHE_FILE" "$W/dig.calls" "$W/curl.calls" "$W/curl.bodies" "$W/log"
+        GEO_DIG="de-mirror.example=9.9.9.1 main3-mirror.example=8.8.8.8"
+        GEO_API='[{"ip":"9.9.9.1","country":"DE"},{"ip":"8.8.8.8","country":"RU"}]'
+        jq -n '{outbounds: [
+            {type:"vless", tag:"de1-vless-ws", server:"de-mirror.example"},
+            {type:"vless", tag:"de1-vless-ws-3", server:"main3-mirror.example"},
+            {type:"vless", tag:"pl1-hysteria2", server:"main3-mirror.example"},
+            {type:"vless", tag:"russia-vless-ws", server:"main3-mirror.example"},
+            {type:"vless", tag:"node-1", server:"main3-mirror.example"},
+            {type:"vless", remark:"Remarked", server:"main3-mirror.example"}]}' > "$W/m.json"
+        subscription_geoip_annotate "$W/m.json"
+        PL="$(country_code_to_flag_emoji PL)"; RU="$(country_code_to_flag_emoji RU)"
+        echo "mirror-name-wins:$(names "$W/m.json" | jq -c --arg de "$DE" --arg pl "$PL" --arg ru "$RU" '. == [
+            ($de + " de1-vless-ws"), ($de + " de1-vless-ws-3"), ($pl + " pl1-hysteria2"),
+            ($ru + " russia-vless-ws"), ($ru + " node-1"), ($ru + " Remarked")]')"
+        echo "mirror-warned:$(grep -c 'shared entry point' "$W/log")"
+        echo "mirror-warn-names:$(grep -c 'de1-vless-ws-3' "$W/log")"
         rm -rf "$W"
     )"
 
@@ -15400,6 +15518,9 @@ test_subscription_geoip() {
     _gp_check "a silent service changes nothing" "silent-service-unchanged:yes"
     _gp_check "a silent service caches nothing" "silent-service-no-cache:none"
     _gp_check "a non-JSON answer is warned about" "garbage-warned:1"
+    _gp_check "a country stated by the name wins over the address of a shared entry point" "mirror-name-wins:true"
+    _gp_check "the shared-entry-point disagreement is logged" "mirror-warned:1"
+    _gp_check "the log names the affected servers" "mirror-warn-names:1"
 }
 
 # ─────────────────────────────────────────────────────────────────
@@ -15571,24 +15692,17 @@ echo "$two" | jq -e '.route.rules[0].inbound == ["tproxy-in","tproxy-in-v6"]' > 
 echo "$rej" | jq -e '.route.rules[0].inbound == ["tproxy-in","tproxy-in-v6"]' > /dev/null 2>&1 &&
     echo 'ipv6-helper-reject-array:OK' || echo 'ipv6-helper-reject-array:FAIL'
 
-# Address family preference: IPv6 on -> ONE resolve rule, for the IPv6 inbound only
-# (prefer_ipv6, pinned to the main DNS server); the IPv4 inbound keeps the global
-# strategy exactly as without IPv6, so IPv4 flows do not change.
-echo "$cfg_on" | jq -e --arg t "$TPROXY" --arg dns "$SB_DNS_SERVER_TAG" \
-    '[.route.rules[] | select(.action == "resolve")] as $r
-     | ($r | length) == 1
-       and $r[0].inbound == ($t + "-v6") and $r[0].strategy == "prefer_ipv6" and $r[0].server == $dns' > /dev/null 2>&1 &&
-    echo 'ipv6-on-resolve-rule-v6-only-pinned:OK' || echo 'ipv6-on-resolve-rule-v6-only-pinned:FAIL'
-echo "$cfg_on" | jq -e \
-    '([.route.rules[] | .action] | index("hijack-dns")) as $h
-     | ([.route.rules[] | .action] | index("resolve")) as $r
-     | ([.route.rules[] | .action] | index("route")) as $route
-     | $r == ($h + 1) and $r < $route' > /dev/null 2>&1 &&
-    echo 'ipv6-on-resolve-before-route-rules:OK' || echo 'ipv6-on-resolve-before-route-rules:FAIL'
+# No local resolve rule for the IPv6 inbound. A "resolve" action there made every IPv6
+# connection wait for the main DNS to resolve the name BEFORE routing: a name that
+# resolves only through the tunnel (or that the local resolver does not know) failed
+# over IPv6 while the same connection over IPv4 worked, because the proxy resolves the
+# name itself. With IPv6 on or off no resolve action is generated.
+echo "$cfg_on" | jq -e '[.route.rules[] | select(.action == "resolve")] | length == 0' > /dev/null 2>&1 &&
+    echo 'ipv6-on-no-resolve-rule:OK' || echo 'ipv6-on-no-resolve-rule:FAIL'
 echo "$cfg_off" | jq -e '[.route.rules[] | select(.action == "resolve")] | length == 0' > /dev/null 2>&1 &&
     echo 'ipv6-off-no-resolve-rules:OK' || echo 'ipv6-off-no-resolve-rules:FAIL'
 # The route part of the IPv4 flows is identical with and without IPv6 once the
-# inbound match and the v6-only resolve rule are set aside.
+# inbound match is set aside.
 norm='[.route.rules[] | select(.action != "resolve") | del(.inbound) | del(.["__service_tag"])]'
 [ "$(echo "$cfg_on" | jq -cS "$norm")" = "$(echo "$cfg_off" | jq -cS "$norm")" ] &&
     echo 'ipv6-on-v4-rules-same-as-off:OK' || echo 'ipv6-on-v4-rules-same-as-off:FAIL'
@@ -16430,6 +16544,9 @@ test_bypass() {
             nft_bypass_requested _nft_bypass_source_ip_handler nft_bypass_source_ips; do
             eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
         done
+        # nft_bypass_source_ips reads routing_excluded_ips through the scalar-aware
+        # wrapper, which lives in helpers.sh (the bin sources it at runtime).
+        eval "$(awk -v f="netshift_config_list_foreach" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "${NETSHIFT_LIB_DIR}/helpers.sh")"
         eval "$(awk '/^nft_add_selective_marking_rules\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$nftsh")"
         BP_LOGF="/tmp/netshift-bypass-log-$$"; : > "$BP_LOGF"
         log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$BP_LOGF"; }
@@ -16599,6 +16716,8 @@ main() {
             test_unsupported_skip
             test_extended_gate_skip
             test_httpupgrade_transport
+            test_scalar_option_fallback
+            test_empty_link_sections
             test_vless_encryption
             test_text_list_outbound
             test_ruleset_chunk_size
@@ -16631,6 +16750,7 @@ main() {
             test_hot_reload
             test_domain_separators
             test_cache_persist
+            test_update_package_check
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -16655,6 +16775,8 @@ main() {
         unsupported) test_unsupported_skip ;;
         extgate)     test_extended_gate_skip ;;
         httpupgrade) test_httpupgrade_transport ;;
+        scalaropt)   test_scalar_option_fallback ;;
+        emptylink)   test_empty_link_sections ;;
         vlessenc)    test_vless_encryption ;;
         textlist)    test_text_list_outbound ;;
         chunkcheck)  test_ruleset_chunk_size ;;
@@ -16699,12 +16821,13 @@ main() {
         priority)    test_priority_selection ;;
         bypass)      test_bypass ;;
         dnssection)  test_dns_section ;;
+        updatepkg)   test_update_package_check ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark blockleaks isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark blockleaks isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg"
             exit 1
             ;;
     esac
@@ -16864,6 +16987,366 @@ test_components_via_proxy() {
     _cp_check "install pre-flight: proxy down, the redirect that carries the proxy is not torn down" "preflight-on-proxy-down:1:proxy"
     _cp_check "install pre-flight: flag off tears the redirect down as before" "preflight-off-blocked:1:teardown"
     _cp_check "install pre-flight: stable direction does not use the proxy" "preflight-stable-direct:1:teardown"
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test: a scalar value of a LIST option is not silently ignored
+# ─────────────────────────────────────────────────────────────────
+# OpenWrt's config_list_foreach iterates ONLY UCI `list` values: it walks the
+# <option>_LENGTH / <option>_ITEMn variables that uci_load creates for a list.
+# A scalar option (`uci set netshift.settings.routing_excluded_ips=10.0.0.5`, a
+# hand-edited config, a config written by a script) has no such variables, so
+# the callback ran ZERO times and the value was silently ignored — while
+# config_get still returned it. "Excluded IPs" (Devices -> Direct) therefore did
+# nothing at all, with nothing in the log, for every writer that is not LuCI.
+# netshift_config_list_foreach adds the scalar fallback.
+#
+# This test deliberately uses the REAL /lib/functions.sh config_list_foreach and
+# the REAL shipped handlers: the other harnesses STUB config_list_foreach (their
+# stub word-splits the value and so accepts a scalar), which is exactly why the
+# bug was invisible to them.
+test_scalar_option_fallback() {
+    header "Scalar (non-list) value of a list option"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$bin" ] || [ ! -r "$lib/constants.sh" ] || [ ! -r "$lib/helpers.sh" ]; then
+        skip "scalar-option (bin / constants.sh / helpers.sh not found)"
+        return
+    fi
+
+    # Both call sites of the option must go through the wrapper: a revert of one
+    # of them would silently break only one of the two paths (nft marks vs the
+    # sing-box direct route rule).
+    local wrapped unwrapped
+    wrapped="$(grep -c 'netshift_config_list_foreach "settings" "routing_excluded_ips"' "$bin" || true)"
+    unwrapped="$(grep -cE '(^|[^_])config_list_foreach "settings" "routing_excluded_ips"' "$bin" || true)"
+    if [ "$wrapped" = "2" ] && [ "$unwrapped" = "0" ]; then
+        pass "scalar:both-call-sites-wrapped — routing_excluded_ips is read through the wrapper twice"
+    else
+        fail "scalar:both-call-sites-wrapped — expected 2 wrapped / 0 bare call sites, got $wrapped / $unwrapped"
+    fi
+
+    local drv="/tmp/test-scalaropt-$$.sh"
+    local out="/tmp/test-scalaropt-out-$$.txt"
+    cat > "$drv" << 'SCEOF'
+set -e
+BIN="BIN_PATH_PLACEHOLDER"
+LIB="LIB_DIR_PLACEHOLDER"
+
+# The platform iterator (REAL one, not a stub) + the runtime contract.
+. /lib/functions.sh
+# shellcheck disable=SC1090
+. "$LIB/constants.sh"
+# shellcheck disable=SC1090
+. "$LIB/nft.sh"
+# shellcheck disable=SC1090
+. "$LIB/helpers.sh"
+
+# The shipped handlers under test (the wrapper comes from helpers.sh).
+for fn in nft_bypass_source_ips _nft_bypass_source_ip_handler \
+    exclude_source_ip_from_routing_handler; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+done
+
+NFT_TABLE_NAME="scalaropt_$$"
+netshift_ipv6_enabled() { return 1; }
+log() { printf 'LOG:%s\n' "$1"; }
+nolog() { :; }
+echolog() { printf 'ECHO:%s\n' "$1"; }
+
+# Capture instead of touching the kernel / the running config.
+nft() { printf 'NFT:%s\n' "$*"; }
+# exclude_source_ip_from_routing_handler assigns the result to the global
+# `config` (command substitution -> subshell), so counting calls has to go
+# through a file that survives the subshell.
+PATCH_LOG="/tmp/scalaropt-patch-$$.log"
+: > "$PATCH_LOG"
+sing_box_cm_patch_route_rule() {
+    local line
+    line="$(printf 'PATCH:tag=%s field=%s value=%s' "$2" "$3" "$4")"
+    printf '%s\n' "$line" >> "$PATCH_LOG"
+    printf '%s' "$line"
+}
+
+write_cfg() {
+    {
+        echo "config settings 'settings'"
+        printf '%s\n' "$1"
+    } > /etc/config/scalaropt
+    config_load scalaropt
+}
+
+CB_N=0
+cb_count() { CB_N=$((CB_N + 1)); }
+
+# ── (1) scalar option: the premise and the fix ────────────────────────────────
+write_cfg "	option bypass_excluded_ips '1'
+	option routing_excluded_ips '10.0.0.5'"
+
+CB_N=0
+config_list_foreach settings routing_excluded_ips cb_count
+[ "$CB_N" -eq 0 ] \
+    && echo 'scalar-premise-platform-ignores-it:OK' \
+    || echo 'scalar-premise-platform-ignores-it:FAIL'
+
+out_nft="$(nft_bypass_source_ips)"
+n_nft="$(printf '%s\n' "$out_nft" | grep -c '^NFT:' || true)"
+[ "$n_nft" -eq 2 ] \
+    && echo 'scalar-nft-rule-count:OK' \
+    || echo "scalar-nft-rule-count:FAIL got=$n_nft"
+printf '%s' "$out_nft" | grep -q '10.0.0.5' \
+    && echo 'scalar-nft-uses-the-address:OK' \
+    || echo 'scalar-nft-uses-the-address:FAIL'
+printf '%s' "$out_nft" | grep -qF "$SB_FAKEIP_INET4_RANGE" \
+    && echo 'scalar-nft-fakeip-mark-first:OK' \
+    || echo 'scalar-nft-fakeip-mark-first:FAIL'
+printf '%s' "$out_nft" | grep -q 'counter return' \
+    && echo 'scalar-nft-return:OK' \
+    || echo 'scalar-nft-return:FAIL'
+
+config=""
+netshift_config_list_foreach settings routing_excluded_ips \
+    exclude_source_ip_from_routing_handler RULE1
+grep -q 'PATCH:tag=RULE1 field=source_ip_cidr value=10.0.0.5' "$PATCH_LOG" \
+    && echo 'scalar-routing-direct-rule:OK' \
+    || echo "scalar-routing-direct-rule:FAIL got=$(cat "$PATCH_LOG")"
+[ "$config" = "PATCH:tag=RULE1 field=source_ip_cidr value=10.0.0.5" ] \
+    && echo 'scalar-routing-rule-tag:OK' \
+    || echo "scalar-routing-rule-tag:FAIL got=$config"
+
+# ── (2) real UCI list: both items, extra argument kept ────────────────────────
+write_cfg "	option bypass_excluded_ips '1'
+	list routing_excluded_ips '10.0.0.11'
+	list routing_excluded_ips '10.0.0.12'"
+
+out_nft="$(nft_bypass_source_ips)"
+n_nft="$(printf '%s\n' "$out_nft" | grep -c '^NFT:' || true)"
+[ "$n_nft" -eq 4 ] \
+    && echo 'list-nft-rule-count:OK' \
+    || echo "list-nft-rule-count:FAIL got=$n_nft"
+for ip in 10.0.0.11 10.0.0.12; do
+    printf '%s' "$out_nft" | grep -q "$ip" \
+        && echo "list-nft-item-$ip:OK" \
+        || echo "list-nft-item-$ip:FAIL"
+done
+
+: > "$PATCH_LOG"
+netshift_config_list_foreach settings routing_excluded_ips \
+    exclude_source_ip_from_routing_handler RULE2
+n_patch="$(grep -c 'PATCH:tag=RULE2 field=source_ip_cidr' "$PATCH_LOG" || true)"
+[ "$n_patch" -eq 2 ] \
+    && echo 'list-routing-two-rules:OK' \
+    || echo "list-routing-two-rules:FAIL got=$n_patch"
+grep -q 'value=10.0.0.12' "$PATCH_LOG" \
+    && echo 'list-routing-second-item:OK' \
+    || echo 'list-routing-second-item:FAIL'
+
+# ── (3) nothing configured: no rule, and the reason is logged ────────────────
+write_cfg "	option bypass_excluded_ips '1'"
+
+out_nft="$(nft_bypass_source_ips)"
+printf '%s' "$out_nft" | grep -q '^NFT:' \
+    && echo 'empty-nft-no-rule:FAIL' \
+    || echo 'empty-nft-no-rule:OK'
+printf '%s' "$out_nft" | grep -q 'routing_excluded_ips is empty' \
+    && echo 'empty-warns:OK' \
+    || echo 'empty-warns:FAIL'
+
+rm -f /etc/config/scalaropt "$PATCH_LOG"
+echo 'DONE'
+SCEOF
+    sed -i "s|BIN_PATH_PLACEHOLDER|$bin|g; s|LIB_DIR_PLACEHOLDER|$lib|g" "$drv"
+
+    sh "$drv" > "$out" 2>/dev/null || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK)    pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            DONE)    saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "scalar-driver-completed:OK"
+    else
+        fail "scalar-driver-completed:FAIL (driver aborted early)" "$(head -5 "$out")"
+    fi
+    rm -f "$drv" "$out"
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test: a section saved with an EMPTY required field degrades, never aborts
+# ─────────────────────────────────────────────────────────────────
+# A required link option left empty (an empty field in the UI, a hand-edited
+# config) used to `log ... "fatal"; exit 1` from configure_outbound_handler.
+# Generation runs AFTER stop_main, which has already flushed the nft table,
+# deleted /tmp/sing-box/rulesets and stopped sing-box, so the exit left the
+# router with no service at all and a config.json on disk naming rule-set files
+# that were gone — `sing-box check` failed on it and nothing came back up until a
+# manual `netshift restart`. REPRODUCED on hardware: adding a section with an
+# empty proxy_string next to a working one made `netshift restart` exit 1, left
+# sing-box DOWN and config.json invalid.
+#
+# Such a section must instead degrade exactly like a link the installed core
+# cannot use: marked unavailable (its traffic is rejected), logged, and the rest
+# of the config still generated and accepted by sing-box.
+# Drives the REAL configure_outbound_handler; synthetic values only.
+test_empty_link_sections() {
+    header "Empty required link option in a section"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local facade_lib="$lib/sing_box_config_facade.sh"
+    if [ ! -r "$facade_lib" ] || [ ! -r "$bin" ]; then
+        fail "facade lib / bin not found"
+        return
+    fi
+
+    # The facade sources helpers + manager from /usr/lib/netshift.
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/test-emptylink-$$.sh"
+    local out="/tmp/test-emptylink-out-$$.txt"
+    cat > "$drv" << 'ELEOF'
+. "CONST_LIB"
+. "FACADE_LIB"
+
+WARN_LOG="/tmp/el-warn-$$.log"
+: > "$WARN_LOG"
+log()     { printf '%s|%s\n' "${2:-info}" "$1" >> "$WARN_LOG"; }
+echolog() { printf '%s|%s\n' "${2:-info}" "$1" >> "$WARN_LOG"; }
+nolog()   { :; }
+
+set_section_reality_mlkem() { NETSHIFT_REALITY_MLKEM=0; }
+tproxy_route_inbounds() { printf 'tproxy-in'; }
+
+eval "$(awk '/^mark_section_outbound_unavailable\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^mark_section_without_links\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^is_truthy_option\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^configure_outbound_handler\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+
+# The subscription branch reads the subscription caches and the keyword filter
+# before it looks at the URLs. Those have their own tests (suburlopt, utfilters),
+# so they are stubbed here; the URL reader answers "no URL configured", which is
+# the shape a section saved with an empty subscription_url has.
+build_subscription_filter_json() { echo '[]'; }
+ensure_subscription_cache_dir() { :; }
+migrate_subscription_cache_from_tmp() { :; }
+reap_legacy_subscription_cache_files() { :; }
+get_subscription_urls_for_section() { :; }
+
+_el_key() { printf 'EL_%s_%s' "$(printf '%s' "$1" | tr '.-' '__')" "$2"; }
+config_get() {
+    local _k _v
+    _k="$(_el_key "$2" "$3")"
+    eval "_v=\"\${$_k:-}\""
+    [ -n "$_v" ] || _v="$4"
+    eval "$1=\"$_v\""
+    return 0
+}
+config_get_bool() { config_get "$@"; case "$(eval echo \$$1)" in 1) eval "$1=1" ;; *) eval "$1=0" ;; esac; }
+
+# One section with its required option absent, driven through the real handler.
+el_case() {
+    local sec="$1" ctype="$2" ptype="$3" marker="$4"
+    local rc n
+
+    : > "$WARN_LOG"
+    config='{"outbounds":[]}'
+    SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+    eval "EL_${sec}_connection_type='$ctype'"
+    [ -n "$ptype" ] && eval "EL_${sec}_proxy_config_type='$ptype'"
+
+    configure_outbound_handler "$sec"
+    rc=$?
+    [ "$rc" = "0" ] && echo "el-${sec}-no-abort:OK" || echo "el-${sec}-no-abort:FAIL rc=$rc"
+
+    case " $SUBSCRIPTION_UNAVAILABLE_SECTIONS " in
+    *" $sec "*) echo "el-${sec}-marked-unavailable:OK" ;;
+    *) echo "el-${sec}-marked-unavailable:FAIL" ;;
+    esac
+
+    # No outbound may be created for the section: a route rule pointing at a tag
+    # that does not exist would fail `sing-box check` for the WHOLE config.
+    n="$(printf '%s' "$config" | jq --arg p "$sec-" '[.outbounds[] | select((.tag // "") | startswith($p))] | length' 2>/dev/null)"
+    [ "$n" = "0" ] && echo "el-${sec}-no-dangling-outbound:OK" || echo "el-${sec}-no-dangling-outbound:FAIL n=$n"
+
+    grep -qF "$marker" "$WARN_LOG" && echo "el-${sec}-error-logged:OK" || echo "el-${sec}-error-logged:FAIL"
+}
+
+el_case urlempty proxy url "no proxy link (proxy_string)"
+el_case selempty proxy selector "no proxy links (selector_proxy_links)"
+el_case urltempty proxy urltest "no proxy links (urltest_proxy_links)"
+el_case seltxtempty proxy selector_text "no proxy links (selector_proxy_links_text)"
+el_case urltxtempty proxy urltest_text "no proxy links (urltest_proxy_links_text)"
+el_case vpnempty vpn "" "VPN interface (interface)"
+el_case subempty proxy subscription "subscription URL (subscription_url)"
+
+# ── A usable section in the same build is untouched ──────────────────────────
+: > "$WARN_LOG"
+config='{"outbounds":[]}'
+SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+EL_goodsec_connection_type="proxy"
+EL_goodsec_proxy_config_type="url"
+EL_goodsec_proxy_string="vless://11111111-2222-3333-4444-555555555555@g.example.com:443?security=tls&sni=g.example.com"
+configure_outbound_handler "goodsec"
+printf '%s' "$config" | jq -e '[.outbounds[] | select(.tag=="goodsec-out")] | length==1' >/dev/null 2>&1 \
+    && echo 'el-good-section-built:OK' || echo 'el-good-section-built:FAIL'
+[ -z "$SUBSCRIPTION_UNAVAILABLE_SECTIONS" ] \
+    && echo 'el-good-section-not-unavailable:OK' || echo 'el-good-section-not-unavailable:FAIL'
+
+# ── The degraded build is a config sing-box accepts ──────────────────────────
+# This is the point of the change: direct + a reject rule for the unavailable
+# section still passes `sing-box check`, so the service keeps running.
+: > "$WARN_LOG"
+config='{"outbounds":[]}'
+SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+EL_rejsec_connection_type="proxy"
+EL_rejsec_proxy_config_type="url"
+configure_outbound_handler "rejsec"
+FULL_JSON="/tmp/el-full-$$.json"
+sing_box_cm_add_reject_route_rule "$config" "rej-rule" "$(tproxy_route_inbounds)" \
+    | jq '{
+        log: { level: "error" },
+        dns: { servers: [ { tag: "dns-server", type: "udp", server: "1.1.1.1" } ], final: "dns-server" },
+        inbounds: [ { type: "tproxy", tag: "tproxy-in", listen: "127.0.0.1", listen_port: 1602 } ],
+        outbounds: (.outbounds + [ { type: "direct", tag: "direct-out" } ]),
+        route: { rules: (.route.rules // []), final: "direct-out" }
+    }' > "$FULL_JSON" 2>/dev/null
+if command -v sing-box > /dev/null 2>&1; then
+    sing-box -c "$FULL_JSON" check > /dev/null 2>&1 \
+        && echo 'el-degraded-config-valid:OK' || echo 'el-degraded-config-valid:FAIL'
+else
+    echo 'el-degraded-config-valid:SKIP'
+fi
+rm -f "$FULL_JSON"
+
+rm -f "$WARN_LOG"
+echo 'DONE'
+ELEOF
+    sed -i "s|CONST_LIB|$lib/constants.sh|g; s|FACADE_LIB|$facade_lib|g; s|BIN_PATH|$bin|g" "$drv"
+
+    sh "$drv" > "$out" 2>/dev/null || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK)    pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP*) skip "$line" ;;
+            DONE)    saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "el-driver-completed:OK"
+    else
+        fail "el-driver-completed:FAIL (driver aborted early)" "$(head -5 "$out")"
+    fi
+    rm -f "$drv" "$out"
 }
 
 main "$@"
