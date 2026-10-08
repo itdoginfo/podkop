@@ -63,6 +63,10 @@ SUBSCRIPTION_UPDATE_LOCK_WAIT=300
 SUBSCRIPTION_UPDATE_LOCK_RETRIES=3
 # Exit code of `netshift subscription_update` when another update holds the lock.
 SUBSCRIPTION_UPDATE_BUSY=4
+# Exit code of `netshift subscription_update` when the lock could not be taken
+# for a reason other than a running update: its directory cannot be created
+# (tmpfs full, /var/run not writable) or a stale lock would not go away.
+SUBSCRIPTION_UPDATE_LOCK_FAILED=5
 # Interval a subscription section runs on when its own
 # `subscription_update_interval` says nothing usable: the option is absent (an
 # old conffile), or it holds a value the cron table does not know (a hand-edited
@@ -331,6 +335,12 @@ SB_SUBSCRIPTION_FASTEST_GROUP_TAG="⚡ Fastest"
 # contributes nodes gets its own urltest tagged "<prefix><feed name>" next to
 # the section-wide one, so the dashboard can show a Fastest per subscription.
 SB_SUBSCRIPTION_FEED_GROUP_TAG_PREFIX="⚡ "
+# Which feed every per-feed urltest of the running config stands for: one JSON
+# object per line, {"tag","section","hash"} (hash = get_subscription_url_hash of
+# the feed URL). Written with the config, because the tag alone does not say:
+# it is the feed's display name, deduplicated across sections with a "-N" that
+# a feed may also carry in its own name. The per-feed refresh reads it.
+SUBSCRIPTION_FEED_TAGS_FILE="$TMP_SING_BOX_FOLDER/subscription-feed-tags.jsonl"
 # Key stamped on every merged subscription node with its feed index (position
 # in the section's subscription_url list). The facade strips it before the
 # node reaches the config and reports it as SUBSCRIPTION_OUTBOUND_FEEDS_JSON.

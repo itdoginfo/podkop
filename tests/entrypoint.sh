@@ -5907,6 +5907,7 @@ subscription_update_unlocked() { SUB_UPDATE_CALLS=$((SUB_UPDATE_CALLS + 1)); ret
 SUBSCRIPTION_UPDATE_LOCK_DIR="/tmp/netshift-cc-lock-$$"
 SUBSCRIPTION_UPDATE_LOCK_WAIT=1
 SUBSCRIPTION_UPDATE_BUSY=4
+SUBSCRIPTION_UPDATE_LOCK_FAILED=5
 rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
 
 # config_foreach / config_get stubs driven by the CC_SECTIONS table:
@@ -5942,6 +5943,8 @@ eval "$(awk '/^_active_section_dispatch\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "B
 eval "$(awk '/^subscription_update_lock_owner_alive\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 eval "$(awk '/^subscription_update_lock_acquire\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 eval "$(awk '/^subscription_update_lock_release\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^subscription_update_lock_refused\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^subscription_update_worker_result\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 # The stubbed sections in this harness are never disabled.
 section_is_disabled() { return 1; }
 
@@ -6470,6 +6473,8 @@ is_sing_box_extended() { return 0; }
 for fn in sing_box_get_unique_outbound_tag sing_box_build_subscription_feed_groups \
           get_subscription_feed_display_name subscription_merge_feed_outbounds \
           get_subscription_url_hash subscription_merge_section_feeds \
+          subscription_feed_tags_record subscription_feed_tags_publish \
+          subscription_resolve_feed_url \
           get_subscription_json_path get_subscription_url_cache_path \
           subscription_url_cache_matches subscription_cache_is_usable \
           prepare_subscription_cache_for_startup reap_orphan_subscription_cache_files; do
@@ -6481,7 +6486,8 @@ _off_branch() {
 EXTRACT_OFF
 }
 
-# $1 = tags json, $2 = feeds json ("" = unset), $3 = names json, $4 = config
+# $1 = tags json, $2 = feeds json ("" = unset), $3 = names json, $4 = config,
+# $5 = URL hash per feed index ("" = unset: nothing is recorded in the tag map)
 run_off() {
     section="syn"
     selector_tag="syn-out"
@@ -6489,6 +6495,7 @@ run_off() {
     subscription_outbound_feeds_json="$2"
     subscription_feed_names_json="$3"
     config="$4"
+    subscription_feed_hashes_json="${5:-}"
     urltest_testing_url="https://www.gstatic.com/generate_204"
     urltest_check_interval="3m"
     urltest_tolerance="50"
@@ -6615,13 +6622,13 @@ expect_eq fg-facade-unmarked-feeds "$SUBSCRIPTION_OUTBOUND_FEEDS_JSON" '[null,nu
 # ── Feed grouper ──────────────────────────────────────────────────
 expect_eq fg-groups-two \
     "$(sing_box_build_subscription_feed_groups '["a","b","c","d"]' '[0,2,0,2]' '["Feed A","dead","Feed C"]')" \
-    '[{"name":"Feed A","tags":["a","c"]},{"name":"Feed C","tags":["b","d"]}]'
+    '[{"name":"Feed A","tags":["a","c"],"feed":0},{"name":"Feed C","tags":["b","d"],"feed":2}]'
 expect_eq fg-groups-null-feeds \
     "$(sing_box_build_subscription_feed_groups '["a","b"]' '[null,null]' '[]')" '[]'
 expect_eq fg-groups-short-feeds \
-    "$(sing_box_build_subscription_feed_groups '["a","b"]' '[0]' '["A"]')" '[{"name":"A","tags":["a"]}]'
+    "$(sing_box_build_subscription_feed_groups '["a","b"]' '[0]' '["A"]')" '[{"name":"A","tags":["a"],"feed":0}]'
 expect_eq fg-groups-missing-name \
-    "$(sing_box_build_subscription_feed_groups '["a"]' '[1]' '["A"]')" '[{"name":"Subscription 2","tags":["a"]}]'
+    "$(sing_box_build_subscription_feed_groups '["a"]' '[1]' '["A"]')" '[{"name":"Subscription 2","tags":["a"],"feed":1}]'
 
 # ── Flat (off) branch ─────────────────────────────────────────────
 nodes='{"outbounds":[
@@ -6632,6 +6639,8 @@ nodes='{"outbounds":[
 ]}'
 tags='["a1","a2","b1"]'
 P="$SB_SUBSCRIPTION_FEED_GROUP_TAG_PREFIX"
+SUBSCRIPTION_FEED_TAGS_FILE="/tmp/fg-feed-tags-$$.jsonl"
+rm -f "$SUBSCRIPTION_FEED_TAGS_FILE" "$SUBSCRIPTION_FEED_TAGS_FILE.new"
 
 two="$(run_off "$tags" '[0,0,1]' '["Feed A","Feed B"]' "$nodes")"
 if printf '%s' "$two" | jq -e --arg a "${P}Feed A" --arg b "${P}Feed B" '
@@ -6696,6 +6705,38 @@ fi
 dup="$(run_off "$tags" '[0,0,1]' '["same.example.com","same.example.com"]' "$nodes")"
 expect_eq fg-off-duplicate-names-unique \
     "$(printf '%s' "$dup" | jq -c '[.outbounds[] | select(.type == "urltest") | .tag] | length as $n | (unique | length) == $n and $n == 3')" "true"
+
+# ── Feed tag map: which feed a per-feed urltest stands for ────────
+# Another section already owns "⚡ NL", and this one has a feed named "NL" and
+# a feed literally named "NL-1". The first gets the deduplicated tag "⚡ NL-1",
+# which reads exactly like the second feed's name: only the map tells them
+# apart, and the per-feed refresh must follow the map.
+nl_nodes="$(printf '%s' "$nodes" | jq -c --arg t "${P}NL" \
+    '.outbounds += [{"type":"urltest","tag":$t,"outbounds":["a1"]}]')"
+nl_url_first='https://nl.example.com/first#NL'
+nl_url_second='https://nl.example.com/second#NL-1'
+nl_hashes="$(jq -cn --arg a "$(get_subscription_url_hash "$nl_url_first")" \
+    --arg b "$(get_subscription_url_hash "$nl_url_second")" '[$a, $b]')"
+rm -f "$SUBSCRIPTION_FEED_TAGS_FILE.new"
+nl="$(run_off "$tags" '[0,0,1]' '["NL","NL-1"]' "$nl_nodes" "$nl_hashes")"
+expect_eq fg-tagmap-dedup-tags \
+    "$(printf '%s' "$nl" | jq -c --arg p "$P" '[.outbounds[] | select(.type == "urltest" and (.tag | startswith($p))) | .tag]')" \
+    "$(jq -cn --arg p "$P" '["\($p)NL","\($p)NL-1","\($p)NL-1-1"]')"
+expect_eq fg-tagmap-recorded \
+    "$(jq -cs '[.[] | [.tag, .section, .hash]]' "$SUBSCRIPTION_FEED_TAGS_FILE.new" 2> /dev/null)" \
+    "$(jq -cn --arg p "$P" --argjson h "$nl_hashes" '[["\($p)NL-1","syn",$h[0]],["\($p)NL-1-1","syn",$h[1]]]')"
+if [ ! -e "$SUBSCRIPTION_FEED_TAGS_FILE" ]; then ok fg-tagmap-not-live-before-publish; else bad fg-tagmap-not-live-before-publish; fi
+subscription_feed_tags_publish
+get_subscription_urls_for_section() { printf '%s\n' "$nl_url_first" "$nl_url_second"; }
+expect_eq fg-tagmap-dedup-tag-is-first-feed "$(subscription_resolve_feed_url syn "${P}NL-1")" "$nl_url_first"
+expect_eq fg-tagmap-second-feed "$(subscription_resolve_feed_url syn "${P}NL-1-1")" "$nl_url_second"
+expect_eq fg-tagmap-other-section "$(subscription_resolve_feed_url other "${P}NL-1")" ""
+expect_eq fg-tagmap-name-is-not-a-tag "$(subscription_resolve_feed_url syn "NL-1")" ""
+expect_eq fg-tagmap-url-verbatim "$(subscription_resolve_feed_url syn "$nl_url_second")" "$nl_url_second"
+# A build without per-feed groups leaves no map behind.
+subscription_feed_tags_publish
+if [ ! -e "$SUBSCRIPTION_FEED_TAGS_FILE" ]; then ok fg-tagmap-dropped-with-groups; else bad fg-tagmap-dropped-with-groups; fi
+expect_eq fg-tagmap-no-map-no-match "$(subscription_resolve_feed_url syn "${P}NL-1")" ""
 
 # A group entry without name/tags is skipped instead of breaking the config
 # (the builder never emits one; the subshell keeps the stub local).
@@ -9185,12 +9226,13 @@ for fn in is_valid_subscription_update_time \
           subscription_update_lock_process_start subscription_update_lock_take_over           subscription_update_lock_owner_alive subscription_update_lock_acquire \
           subscription_update_lock_release subscription_update_worker_result \
           get_subscription_feed_display_name \
-          subscription_resolve_feed_url_by_name subscription_resolve_feed_url \
+          subscription_update_lock_refused subscription_resolve_feed_url \
           subscription_update_all_worker subscription_update_feed_worker; do
     eval "$(extract "$fn")"
 done
 # The update lock lives in the scratch dir, never in the container's /var/run.
 SUBSCRIPTION_UPDATE_LOCK_DIR="$WORK/subscription-update.lock"
+SUBSCRIPTION_FEED_TAGS_FILE="$WORK/subscription-feed-tags.jsonl"
 
 has_line() { grep -qxF "$1" "$CRONTAB_FILE"; }
 job_count() { grep -c "/usr/bin/netshift subscription_update" "$CRONTAB_FILE"; }
@@ -10268,7 +10310,8 @@ else
 fi
 
 # The lock directory cannot be created at all (tmpfs full, read-only parent):
-# every mode must come back with the busy code, not spin on the takeover path.
+# every mode must come back, not spin on the takeover path, and with its own
+# code: "busy" would tell the user to wait for an update that is not running.
 real_lock_dir="$SUBSCRIPTION_UPDATE_LOCK_DIR"
 : > "$WORK/not-a-directory"
 SUBSCRIPTION_UPDATE_LOCK_DIR="$WORK/not-a-directory/lock"
@@ -10289,8 +10332,9 @@ for lock_mode in nowait wait; do
     else
         wait "$spin_pid"
         rc=$?
-        if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] && [ ! -s "$WORK/updated.log" ] &&
+        if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_LOCK_FAILED" ] && [ ! -s "$WORK/updated.log" ] &&
             [ "$(grep -c "lock is stale" "$LOG_FILE")" -eq 0 ] &&
+            [ "$(grep -c "Another subscription update is still running" "$LOG_FILE")" -eq 0 ] &&
             grep -q "Cannot create the subscription update lock" "$LOG_FILE"; then
             echo "subcron:lock-uncreatable-$lock_mode:OK"
         else
@@ -10302,7 +10346,8 @@ unset SUBSCRIPTION_UPDATE_LOCK_MODE
 SUBSCRIPTION_UPDATE_LOCK_DIR="$real_lock_dir"
 
 # A lock that cannot be taken over (it keeps coming back stale) ends after a
-# bounded number of tries, each logged once.
+# bounded number of tries, each logged once, and is not reported as "busy":
+# no update is running.
 subscription_update_lock_take_over() { :; }
 mkdir -p "$SUBSCRIPTION_UPDATE_LOCK_DIR"
 echo "999999" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
@@ -10311,7 +10356,7 @@ SUBSCRIPTION_UPDATE_LOCK_MODE=nowait
 subscription_update 30m > /dev/null 2>&1
 rc=$?
 unset SUBSCRIPTION_UPDATE_LOCK_MODE
-if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_BUSY" ] &&
+if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_LOCK_FAILED" ] &&
     [ "$(grep -c "lock is stale" "$LOG_FILE")" -eq "$SUBSCRIPTION_UPDATE_LOCK_RETRIES" ] &&
     grep -q "could not be taken over" "$LOG_FILE"; then
     echo 'subcron:lock-takeover-bounded:OK'
@@ -10367,10 +10412,60 @@ else
 fi
 rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
 
+# A lock that belongs to another live update is not this run's to release.
+hold_lock
+subscription_update_lock_release
+if [ "$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid" 2> /dev/null)" = "$HOLDER_PID" ]; then
+    echo 'subcron:lock-release-keeps-foreign-lock:OK'
+else
+    echo 'subcron:lock-release-keeps-foreign-lock:FAIL'
+fi
+drop_lock_holder
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+mkdir -p "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+echo "$$" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
+subscription_update_lock_release
+if [ ! -e "$SUBSCRIPTION_UPDATE_LOCK_DIR" ]; then
+    echo 'subcron:lock-release-removes-own-lock:OK'
+else
+    echo 'subcron:lock-release-removes-own-lock:FAIL'
+fi
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+
+# The takeover renamed a lock whose owner turns out to be alive (it was read as
+# dead a moment earlier): it goes back untouched instead of being deleted.
+hold_lock
+subscription_update_lock_take_over "$HOLDER_PID"
+if [ "$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid" 2> /dev/null)" = "$HOLDER_PID" ] &&
+    [ -z "$(ls -d "$SUBSCRIPTION_UPDATE_LOCK_DIR".stale.* 2> /dev/null)" ]; then
+    echo 'subcron:lock-takeover-keeps-live-owner:OK'
+else
+    echo 'subcron:lock-takeover-keeps-live-owner:FAIL'
+fi
+# A live lock stranded under the private name by a put-back that failed is not
+# deleted by the next takeover either.
+mv "$SUBSCRIPTION_UPDATE_LOCK_DIR" "$SUBSCRIPTION_UPDATE_LOCK_DIR.stale.$$"
+mkdir -p "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+echo "999999" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"
+subscription_update_lock_take_over "999999"
+if [ "$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR.stale.$$/pid" 2> /dev/null)" = "$HOLDER_PID" ]; then
+    echo 'subcron:lock-takeover-keeps-stranded-live-lock:OK'
+else
+    echo 'subcron:lock-takeover-keeps-stranded-live-lock:FAIL'
+fi
+drop_lock_holder
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR" "$SUBSCRIPTION_UPDATE_LOCK_DIR.stale.$$"
+
 # ── dashboard workers: `component_action subscription update[_feed]` ──
-# 'fast' has two feeds on one host, so their dashboard blocks are named
-# "feed.example.com" and "feed.example.com (2)"; the block tag carries the
-# "⚡ " prefix and, when another section already owns the tag, a "-N" suffix.
+# 'fast' has two feeds. A dashboard block is named by the tag of its urltest,
+# and the map written with the config says which feed that tag stands for.
+# $1 = tag of fast-a's block, $2 = tag of fast-b's block.
+feed_tags() {
+    jq -cn --arg tag "$1" --arg hash "$(get_subscription_url_hash "https://feed.example.com/fast-a")" \
+        '{tag: $tag, section: "fast", hash: $hash}' > "$SUBSCRIPTION_FEED_TAGS_FILE"
+    jq -cn --arg tag "$2" --arg hash "$(get_subscription_url_hash "https://feed.example.com/fast-b")" \
+        '{tag: $tag, section: "fast", hash: $hash}' >> "$SUBSCRIPTION_FEED_TAGS_FILE"
+}
 feed_worker() {
     : > "$WORK/updated.log"
     : > "$WORK/downloaded-urls.log"
@@ -10392,11 +10487,19 @@ if [ "$WORKER_RC" -eq 0 ] && worker_ok &&
 else
     echo "subcron:feed-worker-whole-section:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
 fi
+feed_tags "⚡ feed.example.com" "⚡ feed.example.com (2)"
+: > "$LOG_FILE"
 feed_worker fast "⚡ feed.example.com"
 if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-a " ]; then
     echo 'subcron:feed-worker-by-tag:OK'
 else
     echo "subcron:feed-worker-by-tag:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+fi
+# The log counts the feeds this run refreshes, not every feed of the section.
+if grep -q "section 'fast' (1 of 2 feed(s))" "$LOG_FILE"; then
+    echo 'subcron:feed-worker-log-counts-selected:OK'
+else
+    echo "subcron:feed-worker-log-counts-selected:FAIL [$(grep 'feed(s)' "$LOG_FILE" | tr '\n' '|')]"
 fi
 feed_worker fast "⚡ feed.example.com (2)"
 if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-b " ]; then
@@ -10404,8 +10507,9 @@ if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.examp
 else
     echo "subcron:feed-worker-by-tag-second-feed:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
 fi
-# Another section already owns "⚡ feed.example.com": sing-box got the tag with
-# a dedup suffix, and that is what the dashboard sends.
+# Another section already owns "⚡ feed.example.com": sing-box got the tags with
+# a dedup suffix, and those are what the dashboard sends.
+feed_tags "⚡ feed.example.com-1" "⚡ feed.example.com (2)-3"
 feed_worker fast "⚡ feed.example.com-1"
 if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-a " ]; then
     echo 'subcron:feed-worker-deduplicated-tag:OK'
@@ -10418,15 +10522,31 @@ if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.examp
 else
     echo "subcron:feed-worker-deduplicated-tag-second-feed:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
 fi
-# The bare block name (no prefix) is accepted too.
-feed_worker fast "feed.example.com (2)"
-if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-b " ]; then
-    echo 'subcron:feed-worker-by-bare-name:OK'
+# The tag is looked up, never read: here fast-a's block carries a tag that
+# spells the NAME of fast-b's feed (a deduplicated "X" next to a feed literally
+# named "X-1"). The refresh must hit fast-a, the feed the block shows.
+feed_tags "⚡ feed.example.com (2)" "⚡ feed.example.com (2)-1"
+feed_worker fast "⚡ feed.example.com (2)"
+if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-a " ]; then
+    echo 'subcron:feed-worker-tag-spelling-another-feed-name:OK'
 else
-    echo "subcron:feed-worker-by-bare-name:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+    echo "subcron:feed-worker-tag-spelling-another-feed-name:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
 fi
-# An unknown block must fail loudly, never fall back to "refresh everything".
-for unknown in "⚡ other.example.com" "⚡ feed.example.com-x" "⚡ -1" "⚡ "; do
+# The feed URL itself, as it stands in subscription_url, is accepted too.
+feed_worker fast "https://feed.example.com/fast-b"
+if [ "$WORKER_RC" -eq 0 ] && worker_ok && [ "$WORKER_URLS" = "https://feed.example.com/fast-b " ]; then
+    echo 'subcron:feed-worker-by-url:OK'
+else
+    echo "subcron:feed-worker-by-url:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+fi
+# An unknown block must fail loudly, never fall back to "refresh everything":
+# a tag the map does not hold (a bare display name and a guessed dedup suffix
+# among them), a URL of another section, a tag recorded for another section.
+feed_tags "⚡ feed.example.com" "⚡ feed.example.com (2)"
+jq -cn --arg hash "$(get_subscription_url_hash "https://feed.example.com/fast-a")" \
+    '{tag: "⚡ slow block", section: "slow", hash: $hash}' >> "$SUBSCRIPTION_FEED_TAGS_FILE"
+for unknown in "⚡ other.example.com" "⚡ feed.example.com-1" "feed.example.com (2)" "⚡ -1" "⚡ " \
+    "https://feed.example.com/slow" "⚡ slow block"; do
     feed_worker fast "$unknown"
     if [ "$WORKER_RC" -ne 0 ] && [ -z "$WORKER_URLS" ] && worker_failed_with "was not found"; then
         echo "subcron:feed-worker-unknown-feed [$unknown]:OK"
@@ -10434,6 +10554,14 @@ for unknown in "⚡ other.example.com" "⚡ feed.example.com-x" "⚡ -1" "⚡ ";
         echo "subcron:feed-worker-unknown-feed [$unknown]:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
     fi
 done
+# No map at all (the config was built without per-feed groups).
+rm -f "$SUBSCRIPTION_FEED_TAGS_FILE"
+feed_worker fast "⚡ feed.example.com"
+if [ "$WORKER_RC" -ne 0 ] && [ -z "$WORKER_URLS" ] && worker_failed_with "was not found"; then
+    echo 'subcron:feed-worker-no-tag-map:OK'
+else
+    echo "subcron:feed-worker-no-tag-map:FAIL [rc=$WORKER_RC urls=$WORKER_URLS json=$WORKER_JSON]"
+fi
 feed_worker plain
 if [ "$WORKER_RC" -ne 0 ] && [ -z "$WORKER_URLS" ] && worker_failed_with "not a subscription section"; then
     echo 'subcron:feed-worker-rejects-non-subscription:OK'
@@ -10465,6 +10593,21 @@ else
     echo "subcron:all-worker-busy:FAIL [rc=$WORKER_RC json=$WORKER_JSON]"
 fi
 drop_lock_holder
+rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+
+# A lock that cannot be created is reported as such, not as a running update.
+real_lock_dir="$SUBSCRIPTION_UPDATE_LOCK_DIR"
+: > "$WORK/not-a-directory"
+SUBSCRIPTION_UPDATE_LOCK_DIR="$WORK/not-a-directory/lock"
+feed_worker fast
+if [ "$WORKER_RC" -eq "$SUBSCRIPTION_UPDATE_LOCK_FAILED" ] && [ -z "$WORKER_URLS" ] &&
+    worker_failed_with "Cannot take the subscription update lock" &&
+    ! worker_failed_with "already running"; then
+    echo 'subcron:feed-worker-lock-failed:OK'
+else
+    echo "subcron:feed-worker-lock-failed:FAIL [rc=$WORKER_RC json=$WORKER_JSON]"
+fi
+SUBSCRIPTION_UPDATE_LOCK_DIR="$real_lock_dir"
 rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
 
 : > "$WORK/updated.log"
@@ -14218,6 +14361,7 @@ eval "$(extract subscription_update_unlocked)"
 eval "$(extract subscription_update_lock_owner_alive)"
 eval "$(extract subscription_update_lock_acquire)"
 eval "$(extract subscription_update_lock_release)"
+eval "$(extract subscription_update_lock_refused)"
 eval "$(extract foreach_active_section)"
 eval "$(extract _active_section_dispatch)"
 section_is_disabled() { return 1; }

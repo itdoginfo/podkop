@@ -3006,7 +3006,7 @@ subscription_update_unlocked() {
         local section="$1"
         local url urlhash subscription_json_path
         local subscription_url_cache_path service_proxy_address update_result outbounds_count
-        local urls_tmp url_count section_changed feed_usable_count feed_failed_count
+        local urls_tmp url_count selected_count section_changed feed_usable_count feed_failed_count
 
         _subscription_section_selected "$section" || return
 
@@ -3025,8 +3025,13 @@ subscription_update_unlocked() {
         }
         get_subscription_urls_for_section "$section" > "$urls_tmp"
         url_count=0
+        selected_count=0
         while IFS= read -r url || [ -n "$url" ]; do
-            [ -n "$url" ] && url_count=$((url_count + 1))
+            [ -n "$url" ] || continue
+            url_count=$((url_count + 1))
+            if [ -z "$target_url" ] || [ "$url" = "$target_url" ]; then
+                selected_count=$((selected_count + 1))
+            fi
         done < "$urls_tmp"
 
         if [ "$url_count" -eq 0 ]; then
@@ -3036,7 +3041,11 @@ subscription_update_unlocked() {
             return
         fi
 
-        echolog "📥 Updating subscription for section '$section' ($url_count feed(s))..."
+        if [ -n "$target_url" ]; then
+            echolog "📥 Updating subscription for section '$section' ($selected_count of $url_count feed(s))..."
+        else
+            echolog "📥 Updating subscription for section '$section' ($url_count feed(s))..."
+        fi
 
         # Best-effort per-feed download. The section is "changed" (→ restart) if
         # ANY feed changed; the section "failed" only if ALL feeds failed AND none
@@ -3207,29 +3216,47 @@ subscription_update_lock_owner_alive() {
 # Removes a lock whose owner ($1 = the pid read from it) is gone. The directory
 # is first RENAMED to a private name: of several waiters that saw the same dead
 # owner only one rename succeeds, so nobody deletes the directory a faster
-# waiter has just created. If the renamed lock turns out to carry another pid,
-# it changed hands in between and is put back.
+# waiter has just created. What was renamed is deleted only when it still
+# carries that dead owner; a lock that changed hands in between is put back,
+# and if even that fails it is left where it is rather than deleted.
 subscription_update_lock_take_over() {
     local owner_pid="$1"
     local stale_dir="$SUBSCRIPTION_UPDATE_LOCK_DIR.stale.$$"
+    local moved_pid moved_start
 
-    rm -rf "$stale_dir"
+    if [ -e "$stale_dir" ]; then
+        # Left by an earlier put-back that failed: it may be a live lock.
+        moved_pid="$(cat "$stale_dir/pid" 2> /dev/null)"
+        moved_start="$(cat "$stale_dir/start" 2> /dev/null)"
+        subscription_update_lock_owner_alive "$moved_pid" "$moved_start" && return 0
+        rm -rf "$stale_dir"
+    fi
+
     mv "$SUBSCRIPTION_UPDATE_LOCK_DIR" "$stale_dir" 2> /dev/null || return 0
-    if [ "$(cat "$stale_dir/pid" 2> /dev/null)" != "$owner_pid" ] &&
+    moved_pid="$(cat "$stale_dir/pid" 2> /dev/null)"
+    moved_start="$(cat "$stale_dir/start" 2> /dev/null)"
+    if [ "$moved_pid" = "$owner_pid" ] &&
+        ! subscription_update_lock_owner_alive "$moved_pid" "$moved_start"; then
+        rm -rf "$stale_dir"
+        return 0
+    fi
+
+    if [ ! -e "$SUBSCRIPTION_UPDATE_LOCK_DIR" ] &&
         mv "$stale_dir" "$SUBSCRIPTION_UPDATE_LOCK_DIR" 2> /dev/null; then
         return 0
     fi
-    rm -rf "$stale_dir"
+    log "Subscription update lock changed hands (owner pid '${moved_pid:-unknown}') and could not be put back; left at '$stale_dir'" "warn"
 }
 
 # Takes the subscription update lock. $1 = "wait" (default): poll for up to
 # SUBSCRIPTION_UPDATE_LOCK_WAIT seconds; "nowait": fail at once when a live
 # owner holds it. A lock whose owner is gone (killed, OOM, the restart an
-# update triggers) is taken over. Returns 0 with the lock held, 1 otherwise.
+# update triggers) is taken over. Returns 0 with the lock held, 1 when a live
+# owner holds it, 2 when it could not be taken for any other reason.
 #
 # Every path through the loop is bounded: a lock directory that cannot be
 # created at all (tmpfs full, read-only /var/run) and a lock that keeps coming
-# back stale both end in "return 1" after a few tries, never in a spin.
+# back stale both end in "return 2" after a few tries, never in a spin.
 subscription_update_lock_acquire() {
     local mode="${1:-wait}"
     local waited=0 owner_pid owner_start ownerless_checks=0
@@ -3243,7 +3270,7 @@ subscription_update_lock_acquire() {
             create_failures=$((create_failures + 1))
             if [ "$create_failures" -ge "$SUBSCRIPTION_UPDATE_LOCK_RETRIES" ]; then
                 log "Cannot create the subscription update lock '$SUBSCRIPTION_UPDATE_LOCK_DIR' (no space left or the directory is not writable)" "error"
-                return 1
+                return 2
             fi
             sleep 1
             waited=$((waited + 1))
@@ -3264,7 +3291,7 @@ subscription_update_lock_acquire() {
             takeovers=$((takeovers + 1))
             if [ "$takeovers" -gt "$SUBSCRIPTION_UPDATE_LOCK_RETRIES" ]; then
                 log "Subscription update lock '$SUBSCRIPTION_UPDATE_LOCK_DIR' is stale and could not be taken over; giving up" "error"
-                return 1
+                return 2
             fi
             log "Subscription update lock is stale (owner pid '${owner_pid:-unknown}' is gone); taking it over" "warn"
             subscription_update_lock_take_over "$owner_pid"
@@ -3289,14 +3316,36 @@ subscription_update_lock_acquire() {
     if ! echo "$$" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid"; then
         log "Cannot write the owner of the subscription update lock '$SUBSCRIPTION_UPDATE_LOCK_DIR'" "error"
         rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
-        return 1
+        return 2
     fi
     subscription_update_lock_process_start "$$" > "$SUBSCRIPTION_UPDATE_LOCK_DIR/start" 2> /dev/null
     return 0
 }
 
+# Releases the lock, but only a lock this process holds: after a takeover that
+# wrongly judged this owner dead the directory belongs to someone else, and
+# deleting it would let a third update start next to that one.
 subscription_update_lock_release() {
+    local owner_pid
+
+    [ -e "$SUBSCRIPTION_UPDATE_LOCK_DIR" ] || return 0
+    owner_pid="$(cat "$SUBSCRIPTION_UPDATE_LOCK_DIR/pid" 2> /dev/null)"
+    if [ "$owner_pid" != "$$" ]; then
+        log "Subscription update lock now belongs to pid '${owner_pid:-unknown}'; leaving it in place" "warn"
+        return 0
+    fi
     rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+}
+
+# Maps a failed subscription_update_lock_acquire ($1 = its exit code) to the
+# exit code of the update and says why the run is skipped.
+subscription_update_lock_refused() {
+    if [ "$1" -eq 1 ]; then
+        echolog "⚠️ Another subscription update is still running; this run is skipped" "warn"
+        return "$SUBSCRIPTION_UPDATE_BUSY"
+    fi
+    echolog "❌ The subscription update lock could not be taken (see the log); this run is skipped" "error"
+    return "$SUBSCRIPTION_UPDATE_LOCK_FAILED"
 }
 
 # The entry point of every subscription update (cron, CLI, the deferred startup
@@ -3304,12 +3353,15 @@ subscription_update_lock_release() {
 # update lock, same arguments and exit codes. A scheduled run waits for a
 # running update to finish; with SUBSCRIPTION_UPDATE_LOCK_MODE=nowait (the
 # dashboard workers) a second run returns SUBSCRIPTION_UPDATE_BUSY at once.
+# SUBSCRIPTION_UPDATE_LOCK_FAILED means the lock itself is broken.
 subscription_update() {
     local update_rc
 
-    if ! subscription_update_lock_acquire "${SUBSCRIPTION_UPDATE_LOCK_MODE:-wait}"; then
-        echolog "⚠️ Another subscription update is still running; this run is skipped" "warn"
-        return "$SUBSCRIPTION_UPDATE_BUSY"
+    subscription_update_lock_acquire "${SUBSCRIPTION_UPDATE_LOCK_MODE:-wait}"
+    update_rc=$?
+    if [ "$update_rc" -ne 0 ]; then
+        subscription_update_lock_refused "$update_rc"
+        return $?
     fi
 
     subscription_update_unlocked "$@"
@@ -3328,70 +3380,65 @@ subscription_update_worker_result() {
         jq -nc --arg m "$2" '{success:true,message:$m}'
     elif [ "$update_rc" -eq "$SUBSCRIPTION_UPDATE_BUSY" ]; then
         jq -nc '{success:false,message:"Another subscription update is already running; try again when it finishes"}'
+    elif [ "$update_rc" -eq "$SUBSCRIPTION_UPDATE_LOCK_FAILED" ]; then
+        jq -nc --arg m "Cannot take the subscription update lock '$SUBSCRIPTION_UPDATE_LOCK_DIR' (no free space or not writable); see the log" \
+            '{success:false,message:$m}'
     else
         jq -nc --arg m "$3 (rc=$update_rc)" '{success:false,message:$m}'
     fi
 }
 
-# Resolves a dashboard feed block name (the "⚡ <name>" tag's <name>, after the
-# prefix is stripped) back to the feed URL it came from. Mirrors the display-name
-# + duplicate-suffix naming in subscription_merge_section_feeds so a name maps to
-# the SAME feed index the dashboard showed. Prints the URL, or nothing (rc 1)
-# when no feed matches. Used by the per-feed refresh worker.
-subscription_resolve_feed_url_by_name() {
+# Records that the per-feed urltest $1 of section $2 stands for the feed whose
+# URL hash is $3. Collected next to the config being built and published with
+# it by subscription_feed_tags_publish.
+subscription_feed_tags_record() {
+    mkdir -p "${SUBSCRIPTION_FEED_TAGS_FILE%/*}" 2> /dev/null
+    jq -cn --arg tag "$1" --arg section "$2" --arg hash "$3" \
+        '{tag: $tag, section: $section, hash: $hash}' >> "$SUBSCRIPTION_FEED_TAGS_FILE.new" 2> /dev/null
+}
+
+# Makes the map collected during the build the one of the saved config.
+subscription_feed_tags_publish() {
+    if [ -f "$SUBSCRIPTION_FEED_TAGS_FILE.new" ]; then
+        mv -f "$SUBSCRIPTION_FEED_TAGS_FILE.new" "$SUBSCRIPTION_FEED_TAGS_FILE"
+    else
+        rm -f "$SUBSCRIPTION_FEED_TAGS_FILE"
+    fi
+}
+
+# Resolves <feed> ($2) of section $1 to the feed URL. <feed> is either the tag
+# of a dashboard feed block (the per-feed urltest, looked up in the map written
+# with the config) or the feed URL itself as it stands in subscription_url.
+# The tag is never parsed: its text is a display name plus a dedup suffix, and
+# both can be imitated by another feed's own name. Prints the URL, or nothing
+# (rc 1) when <feed> names no feed of the section.
+subscription_resolve_feed_url() {
     local section="$1"
-    local wanted_name="$2"
-    local urls_tmp url name raw_name feed_index=0 taken_json="[]" resolved=""
+    local feed="$2"
+    local urls_tmp url wanted_hash="" resolved=""
 
-    urls_tmp="$(mktemp "${TMPDIR:-/tmp}/netshift-feed-name-urls.XXXXXX")" || return 1
+    [ -n "$feed" ] || return 1
+
+    if [ -r "$SUBSCRIPTION_FEED_TAGS_FILE" ]; then
+        wanted_hash="$(jq -rs --arg tag "$feed" --arg section "$section" '
+            [.[] | select(.tag == $tag and .section == $section) | .hash][0] // empty
+        ' "$SUBSCRIPTION_FEED_TAGS_FILE" 2> /dev/null)"
+    fi
+
+    urls_tmp="$(mktemp "${TMPDIR:-/tmp}/netshift-feed-urls.XXXXXX")" || return 1
     get_subscription_urls_for_section "$section" > "$urls_tmp"
-
     while IFS= read -r url || [ -n "$url" ]; do
         [ -n "$url" ] || continue
-        feed_index=$((feed_index + 1))
-        raw_name="$(get_subscription_feed_display_name "$url" "Subscription $feed_index")"
-        name="$(jq -rn --argjson names "$taken_json" --arg name "$raw_name" --argjson position "$feed_index" '
-            def taken($n): $names | any(. == $n);
-            if taken($name) then
-                first(range($position; $position + 1000) | "\($name) (\(.))" | select(taken(.) | not))
-            else $name end
-        ' 2>/dev/null)"
-        [ -n "$name" ] || name="$raw_name"
-        if [ "$name" = "$wanted_name" ]; then
+        if [ "$url" = "$feed" ] ||
+            { [ -n "$wanted_hash" ] && [ "$(get_subscription_url_hash "$url")" = "$wanted_hash" ]; }; then
             resolved="$url"
             break
         fi
-        taken_json="$(jq -cn --argjson names "$taken_json" --arg name "$name" '$names + [$name]' 2>/dev/null)"
-        [ -n "$taken_json" ] || taken_json="[]"
     done < "$urls_tmp"
     rm -f "$urls_tmp"
 
     [ -n "$resolved" ] || return 1
     printf '%s' "$resolved"
-}
-
-# Resolves a dashboard feed block to its feed URL. $2 is the sing-box tag of the
-# block's urltest group ("⚡ <name>") or the bare name. The group tag went
-# through sing_box_get_unique_outbound_tag, which appends "-N" when another
-# section (or the cross-feed Fastest group) already uses the tag, so a name
-# that matches no feed is tried again without that suffix. An exact match wins,
-# so a feed really named "host-1" is never mistaken for a deduplicated "host".
-subscription_resolve_feed_url() {
-    local section="$1"
-    local feed_name="${2#"$SB_SUBSCRIPTION_FEED_GROUP_TAG_PREFIX"}"
-    local base_name dedup_suffix
-
-    [ -n "$feed_name" ] || return 1
-    subscription_resolve_feed_url_by_name "$section" "$feed_name" && return 0
-
-    dedup_suffix="${feed_name##*-}"
-    base_name="${feed_name%-*}"
-    case "$dedup_suffix" in
-    '' | *[!0-9]*) return 1 ;;
-    esac
-    [ -n "$base_name" ] && [ "$base_name" != "$feed_name" ] || return 1
-
-    subscription_resolve_feed_url_by_name "$section" "$base_name"
 }
 
 # Worker for `component_action subscription update` — refreshes every
@@ -3410,9 +3457,9 @@ subscription_update_all_worker() {
 }
 
 # Worker for `component_action subscription update_feed <section> [feed]` —
-# refreshes ONE section: the feed whose dashboard block is <feed> (the block's
-# group tag, resolved to its URL here), or every feed of the section when
-# <feed> is omitted. Echoes one JSON result; NEVER exits (async fork).
+# refreshes ONE section: the feed <feed> (the tag of its dashboard block or the
+# feed URL itself; resolved here), or every feed of the section when <feed> is
+# omitted. Echoes one JSON result; NEVER exits (async fork).
 subscription_update_feed_worker() {
     local section="$1"
     local feed="$2"
@@ -3474,9 +3521,13 @@ subscription_clear_cache_and_redownload() {
 
     # The wipe and the redownload are one update: a running update must not
     # have its cache deleted under it, and nothing may start between the two.
-    if ! subscription_update_lock_acquire "nowait"; then
-        echo '{"success":false,"message":"Another subscription update is already running; try again when it finishes"}'
-        return "$SUBSCRIPTION_UPDATE_BUSY"
+    subscription_update_lock_acquire "nowait"
+    update_rc=$?
+    if [ "$update_rc" -ne 0 ]; then
+        subscription_update_lock_refused "$update_rc" > /dev/null
+        update_rc=$?
+        subscription_update_worker_result "$update_rc" "" ""
+        return "$update_rc"
     fi
 
     # Detect whether any subscription section is configured at all. If none,
@@ -3622,6 +3673,7 @@ sing_box_configure_outbounds() {
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
     rm -f "$GEOIP_LINKS_FILE"
+    rm -f "$SUBSCRIPTION_FEED_TAGS_FILE.new"
     foreach_active_section configure_outbound_geoip_handler "section"
 
     foreach_active_section configure_outbound_detour_handler "section"
@@ -3898,7 +3950,8 @@ subscription_merge_feed_outbounds() {
 # $2 = file with one subscription URL per line, $3 = merged file (already
 # holding {"outbounds":[]}). Feed index = position in the URL list (dead feeds
 # included), so names stay aligned with the stamped nodes. Sets
-# SUBSCRIPTION_FEED_NAMES_JSON (display name per feed index) and
+# SUBSCRIPTION_FEED_NAMES_JSON (display name per feed index),
+# SUBSCRIPTION_FEED_HASHES_JSON (URL hash per feed index) and
 # SUBSCRIPTION_USABLE_FEED_COUNT.
 subscription_merge_section_feeds() {
     local section="$1"
@@ -3908,6 +3961,7 @@ subscription_merge_section_feeds() {
     local feed_index=0
     local usable_feed_count=0
     local feed_names_json="[]"
+    local feed_hashes_json="[]"
     local merged_hashes=""
 
     while IFS= read -r subscription_url || [ -n "$subscription_url" ]; do
@@ -3926,6 +3980,8 @@ subscription_merge_section_feeds() {
         ' 2>/dev/null)"
         [ -n "$feed_names_json" ] || feed_names_json="[]"
         urlhash="$(get_subscription_url_hash "$subscription_url")"
+        feed_hashes_json="$(jq -cn --argjson hashes "$feed_hashes_json" --arg hash "$urlhash" '$hashes + [$hash]' 2>/dev/null)"
+        [ -n "$feed_hashes_json" ] || feed_hashes_json="[]"
         # Links that differ only in #fragment share one cache file; merging
         # it twice would duplicate every node.
         case " $merged_hashes " in
@@ -3958,13 +4014,14 @@ subscription_merge_section_feeds() {
     done < "$subscription_urls_file"
 
     SUBSCRIPTION_FEED_NAMES_JSON="$feed_names_json"
+    SUBSCRIPTION_FEED_HASHES_JSON="$feed_hashes_json"
     SUBSCRIPTION_USABLE_FEED_COUNT="$usable_feed_count"
 }
 
 # Splits the kept subscription tags back per feed. $1 = tags (JSON array),
 # $2 = feed index per tag (parallel JSON array, null = unknown), $3 = feed
-# display names indexed by feed. Prints [{name, tags}] for every feed that kept
-# at least one node, in feed order; tags without a feed index are left out.
+# display names indexed by feed. Prints [{name, tags, feed}] for every feed that
+# kept at least one node, in feed order; tags without a feed index are left out.
 sing_box_build_subscription_feed_groups() {
     local tags_json="$1"
     local feeds_json="$2"
@@ -3977,7 +4034,8 @@ sing_box_build_subscription_feed_groups() {
             | {
                 name: (($names[$f] // "") | tostring
                     | if length > 0 then . else "Subscription \($f + 1)" end),
-                tags: [$pairs[] | select(.feed == $f) | .tag]
+                tags: [$pairs[] | select(.feed == $f) | .tag],
+                feed: $f
               }]
     ' 2>/dev/null
 }
@@ -4256,7 +4314,7 @@ configure_outbound_handler() {
                 subscription_filter_include_keywords_json subscription_filter_exclude_keywords_json \
                 subscription_keyword_filter_active urlhash subscription_json_path subscription_url_cache_path \
                 should_download had_usable_cache merged_json_path merged_node_count \
-                usable_feed_count subscription_feed_names_json \
+                usable_feed_count subscription_feed_names_json subscription_feed_hashes_json \
                 subscription_outbound_feeds_json
 
             config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
@@ -4407,6 +4465,7 @@ configure_outbound_handler() {
             subscription_merge_section_feeds "$section" "$subscription_urls_tmp" "$merged_json_path"
             usable_feed_count="$SUBSCRIPTION_USABLE_FEED_COUNT"
             subscription_feed_names_json="$SUBSCRIPTION_FEED_NAMES_JSON"
+            subscription_feed_hashes_json="$SUBSCRIPTION_FEED_HASHES_JSON"
             rm -f "$subscription_urls_tmp"
 
             merged_node_count="$(jq -r '.outbounds | length' "$merged_json_path" 2>/dev/null)"
@@ -4554,7 +4613,7 @@ configure_outbound_handler() {
                 else
                     # Create urltest + selector (default subscription behaviour)
                     local feed_groups_json feed_groups_count feed_group_index feed_group_name feed_group_tags \
-                        feed_urltest_tag feed_urltest_tags_json
+                        feed_group_hash feed_urltest_tag feed_urltest_tags_json
                     urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
                     urltest_outbounds="$subscription_outbound_tags_json"
 
@@ -4581,6 +4640,9 @@ configure_outbound_handler() {
                         while [ "$feed_group_index" -lt "$feed_groups_count" ]; do
                             feed_group_name="$(printf '%s' "$feed_groups_json" | jq -r --argjson i "$feed_group_index" '.[$i].name // empty' 2>/dev/null)"
                             feed_group_tags="$(printf '%s' "$feed_groups_json" | jq -c --argjson i "$feed_group_index" '.[$i].tags // empty' 2>/dev/null)"
+                            feed_group_hash="$(printf '%s' "$feed_groups_json" | jq -r --argjson i "$feed_group_index" \
+                                --argjson hashes "${subscription_feed_hashes_json:-[]}" \
+                                '.[$i].feed as $f | if ($f | type) == "number" then $hashes[$f] // empty else empty end' 2>/dev/null)"
                             feed_group_index=$((feed_group_index + 1))
                             if [ -z "$feed_group_name" ] || [ -z "$feed_group_tags" ]; then
                                 log "Subscription section '$section': cannot read per-subscription group $feed_group_index; skipping it" "warn"
@@ -4591,6 +4653,10 @@ configure_outbound_handler() {
                             config="$(sing_box_cm_add_urltest_outbound "$config" "$feed_urltest_tag" "$feed_group_tags" \
                                 "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
                             feed_urltest_tags_json="$(printf '%s' "$feed_urltest_tags_json" | jq -ac --arg tag "$feed_urltest_tag" '. + [$tag]')"
+                            # The tag is what the dashboard sends back to refresh
+                            # this one feed; only this map says which feed it is.
+                            [ -n "$feed_group_hash" ] &&
+                                subscription_feed_tags_record "$feed_urltest_tag" "$section" "$feed_group_hash"
                         done
                         log "Subscription section '$section': $feed_groups_count per-subscription urltest group(s)" "debug"
                     fi
@@ -6195,6 +6261,7 @@ sing_box_save_config() {
     sing_box_cm_save_config_to_file "$config" "$temp_file_path"
 
     sing_box_config_check "$temp_file_path"
+    subscription_feed_tags_publish
 
     current_config_hash=$(md5sum "$sing_box_config_path" 2> /dev/null | awk '{print $1}')
     temp_config_hash=$(md5sum "$temp_file_path" | awk '{print $1}')
@@ -7946,8 +8013,8 @@ Available commands:
                             subscription clear_cache to wipe all caches + redownload,
                             subscription update to refresh every subscription,
                             subscription update_feed <section> [feed] to refresh
-                            one section, or only the feed whose dashboard block
-                            tag is <feed>)
+                            one section, or only the feed <feed>: its URL or
+                            the tag of its dashboard block)
     component_action_async  Start component_action in background; echoes a job_id
                             (use with component_action_status to poll the outcome)
     component_action_status Report an async component action by job_id: <job_id>
