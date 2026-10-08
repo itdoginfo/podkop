@@ -322,3 +322,9 @@ SUBNETS_OVH="${GITHUB_RAW_URL}/Subnets/IPv4/ovh.lst"
 SUBNETS_DIGITALOCEAN="${GITHUB_RAW_URL}/Subnets/IPv4/digitalocean.lst"
 SUBNETS_CLOUDFRONT="${GITHUB_RAW_URL}/Subnets/IPv4/cloudfront.lst"
 COMMUNITY_SERVICES="russia_inside russia_outside ukraine_inside geoblock block porn news anime youtube hdrezka tiktok google_ai google_play hodca discord meta twitter cloudflare cloudfront digitalocean hetzner ovh telegram roblox"
+
+# Environment hints (check_environment): a clock earlier than this (2025-01-01) is
+# certainly not the real time, and the response header of this URL is compared
+# with the router clock.
+ENVIRONMENT_MIN_PLAUSIBLE_EPOCH=1735689600
+ENVIRONMENT_CLOCK_PROBE_URL="https://www.cloudflare.com/"
