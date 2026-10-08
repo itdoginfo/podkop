@@ -49,6 +49,7 @@ services:
     # ── Volumes (source code bind mount) ─────────────────────────
     volumes:
       - ../netshift/files:/netshift/files:ro
+      - ../netshift/Makefile:/netshift/Makefile:ro
       - ../luci-app-netshift:/luci-app-netshift:ro
       - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - ./test-results:/tmp/test-results

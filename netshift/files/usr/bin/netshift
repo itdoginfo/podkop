@@ -21,6 +21,7 @@ check_required_file "$NETSHIFT_LIB/sing_box_config_facade.sh"
 check_required_file "$NETSHIFT_LIB/logging.sh"
 check_required_file "$NETSHIFT_LIB/rulesets.sh"
 check_required_file "$NETSHIFT_LIB/updater.sh"
+check_required_file "$NETSHIFT_LIB/kill_switch.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -32,6 +33,7 @@ check_required_file "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/logging.sh"
 . "$NETSHIFT_LIB/rulesets.sh"
 . "$NETSHIFT_LIB/updater.sh"
+. "$NETSHIFT_LIB/kill_switch.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -1202,11 +1204,27 @@ start_main() {
 
     # base
     route_table_rule_mark
+    # block_leaks: the guard of the previous run stays armed, untouched, until
+    # it is rebuilt below; what the config generation adds to the fresh sets in
+    # between is not worth mirroring into a table that is about to be replaced.
+    KILL_SWITCH_MIRROR_SUSPENDED=1
     create_nft_rules
     sing_box_configure_service
 
     # sing-box
     sing_box_init_config
+
+    # block_leaks: rebuild the fail-closed guard only NOW. create_nft_rules
+    # leaves the union subnet set EMPTY and config generation (just above) is
+    # what fills it, so an earlier rebuild would swap a working guard for one
+    # without a single subnet. The marking table is complete at this point and
+    # sing-box is not running yet, so marked traffic already fails closed while
+    # the guard is being swapped (see lib/kill_switch.sh).
+    KILL_SWITCH_MIRROR_SUSPENDED=0
+    if ! kill_switch_apply; then
+        log "block_leaks: the guard table was not rebuilt, leak protection may be incomplete until the next successful start" "error"
+    fi
+
     # The config was just built from the current cache, so nothing is left over
     # for subscription_update to re-apply. Only a build that succeeded gets
     # here: a config sing-box rejects makes sing_box_init_config exit the
@@ -1249,6 +1267,12 @@ stop_main() {
     if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
         nft delete table inet "$NFT_TABLE_NAME"
     fi
+
+    # block_leaks: keep the guard armed across a restart so the window between
+    # this stop and the next start stays fail-closed. Drop it only when the
+    # option is off, so turning the option off cleans up even if no start
+    # follows (the previous guard table, if any, survives otherwise).
+    kill_switch_enabled || kill_switch_delete
 
     log "Flush ip rule"
     ip -4 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2>/dev/null
@@ -1891,6 +1915,10 @@ populate_netshift_subnets_from_file() {
         nft list set inet "$NFT_TABLE_NAME" "$set_v6" > /dev/null 2>&1; then
         nft_add_set_elements_from_file_chunked_v6 "$filepath" "$NFT_TABLE_NAME" "$set_v6"
     fi
+
+    # block_leaks: this is the ONLY place the union / bypass sets grow, so the
+    # guard follows them from here and never depends on when it was rebuilt.
+    kill_switch_mirror_file "$filepath" "$set_v4"
 }
 
 # Where the subnets of a section go. Normally the union set of destinations that are
@@ -2068,31 +2096,12 @@ create_nft_rules() {
 
     log "Create localv4 set"
     nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_LOCALV4_SET_NAME"
-    nft add element inet "$NFT_TABLE_NAME" localv4 '{
-        0.0.0.0/8,
-        10.0.0.0/8,
-        127.0.0.0/8,
-        169.254.0.0/16,
-        172.16.0.0/12,
-        192.0.0.0/24,
-        192.0.2.0/24,
-        192.88.99.0/24,
-        192.168.0.0/16,
-        198.51.100.0/24,
-        203.0.113.0/24,
-        224.0.0.0/4,
-        240.0.0.0-255.255.255.255
-    }'
+    nft add element inet "$NFT_TABLE_NAME" "$NFT_LOCALV4_SET_NAME" "{ $NFT_LOCALV4_ELEMENTS }"
 
     if netshift_ipv6_enabled; then
         log "Create localv6 set"
         nft_create_ipv6_set "$NFT_TABLE_NAME" "$NFT_LOCALV6_SET_NAME"
-        nft add element inet "$NFT_TABLE_NAME" localv6 '{
-            ::1,
-            fc00::/7,
-            fe80::/10,
-            ff00::/8
-        }'
+        nft add element inet "$NFT_TABLE_NAME" "$NFT_LOCALV6_SET_NAME" "{ $NFT_LOCALV6_ELEMENTS }"
     fi
 
     log "Create proxied-subnets union set"
@@ -2257,6 +2266,13 @@ dnsmasq_is_configured_for_netshift() {
 dnsmasq_should_be_restored() {
     local dont_touch_dhcp
 
+    # block_leaks keeps DNS fail-closed while sing-box is down: handing the
+    # direct resolvers back here would let proxied DOMAINS resolve to real IPs
+    # and leak even though the nft guard still blocks proxied subnets. DNS comes
+    # back automatically when sing-box does (dnsmasq stays pointed at the DNS
+    # inbound).
+    kill_switch_enabled && return 1
+
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     [ "$dont_touch_dhcp" -eq 0 ] || dnsmasq_is_configured_for_netshift
 }
@@ -2306,7 +2322,11 @@ dnsmasq_restore() {
     log "Restoring the dnsmasq configuration"
     local shutdown_correctly
     config_get shutdown_correctly "settings" "shutdown_correctly"
-    if [ "$shutdown_correctly" -eq 1 ]; then
+    # A stop with block_leaks on is a correct shutdown that deliberately LEFT
+    # dnsmasq pointed at sing-box. When the kill switch is released afterwards
+    # (package removal, the option switched off) the restore is still owed, so
+    # the ownership sentinel decides, not the shutdown flag alone.
+    if [ "$shutdown_correctly" -eq 1 ] && ! dnsmasq_is_configured_for_netshift; then
         log "Previous shutdown of netshift was correct, reconfiguration of dnsmasq is not required"
         return 0
     fi

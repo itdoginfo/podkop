@@ -653,6 +653,22 @@ function createSettingsContent(section) {
   o = section.taboption(
     "advanced",
     form.Flag,
+    "block_leaks",
+    _("Block Leaks When Tunnel Is Down"),
+    _(
+      "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered.",
+    ) +
+      " " +
+      _(
+        "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up.",
+      ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "advanced",
+    form.Flag,
     "enable_ipv6",
     _("Enable IPv6 Support"),
     _("Enable IPv6 TProxy routing, IPv6 DNS inbound, and IPv6 FakeIP support.") +

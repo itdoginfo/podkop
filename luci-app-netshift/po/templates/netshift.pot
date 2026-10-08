@@ -125,6 +125,10 @@ msgstr ""
 msgid "Block DoH Servers"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:657
+msgid "Block Leaks When Tunnel Is Down"
+msgstr ""
+
 #: src/netshift/tabs/diagnostic/checks/runDnsCheck.ts:65
 msgid "Bootsrap DNS"
 msgstr ""
@@ -157,11 +161,11 @@ msgstr ""
 msgid "Bypass sing-box for excluded IPs"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:683
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:699
 msgid "Cache File Path"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:697
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:713
 msgid "Cache file path cannot be empty"
 msgstr ""
 
@@ -247,7 +251,7 @@ msgstr ""
 msgid "Compressed build: uses more RAM at startup"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:669
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:685
 msgid "Config File Path"
 msgstr ""
 
@@ -541,11 +545,11 @@ msgstr ""
 msgid "Enable DNS resolve to get real IP when routing"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:657
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:673
 msgid "Enable IPv6 Support"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:658
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:674
 msgid "Enable IPv6 TProxy routing, IPv6 DNS inbound, and IPv6 FakeIP support."
 msgstr ""
 
@@ -651,6 +655,10 @@ msgstr ""
 
 #: src/netshift/tabs/manager/cards.ts:295
 msgid "Extended core with all features (~105 MB)"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:658
+msgid "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered."
 msgstr ""
 
 #: src/netshift/methods/shell/index.ts:330
@@ -1063,7 +1071,7 @@ msgstr ""
 msgid "Local Subnet Lists"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:720
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:736
 msgid "Log Level"
 msgstr ""
 
@@ -1213,15 +1221,15 @@ msgstr ""
 msgid "Path cannot be empty"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:701
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:717
 msgid "Path must be absolute (start with /)"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:710
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:726
 msgid "Path must contain at least one directory (like /tmp/cache.db)"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:705
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:721
 msgid "Path must end with cache.db"
 msgstr ""
 
@@ -1399,11 +1407,11 @@ msgstr ""
 msgid "Select or enter DNS server address"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:684
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:700
 msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:670
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:686
 msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
 msgstr ""
 
@@ -1411,7 +1419,7 @@ msgstr ""
 msgid "Select the DNS protocol type for the domain resolver"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:721
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:737
 msgid "Select the log level for sing-box"
 msgstr ""
 
@@ -1838,7 +1846,7 @@ msgstr ""
 msgid "Use the first server of the list that works and go back to a higher one as soon as it recovers (checked every 30 seconds). Unlike URLTest this ignores speed. Grouped subscriptions are not supported."
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:660
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:676
 msgid "Use this only when the router has working IPv6 connectivity."
 msgstr ""
 
@@ -1934,6 +1942,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:232
 msgid "Which subscription format (client) to fetch first. Auto uses the default order. Choose Xray JSON (Happ) when your panel only exposes some nodes (e.g. xhttp) under a Happ-like client, or Sing-box to prefer the sing-box format."
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:662
+msgid "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up."
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:237
