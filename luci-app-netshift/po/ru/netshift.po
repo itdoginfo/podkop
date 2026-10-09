@@ -35,6 +35,9 @@ msgstr "✘ Остановлен"
 msgid "77.88.8.8 (Yandex)"
 msgstr "77.88.8.8 (Yandex)"
 
+msgid "A newer version is available"
+msgstr "Доступна новая версия"
+
 msgid "A path is only allowed for doh and doh3"
 msgstr "Путь допустим только для doh и doh3"
 
@@ -839,6 +842,9 @@ msgstr "Не отвечает"
 msgid "Not running"
 msgstr "Не запущено"
 
+msgid "Notify about new versions"
+msgstr "Уведомлять о новых версиях"
+
 msgid "Number of leading characters of each proxy name to group by."
 msgstr "Количество начальных символов имени каждого прокси для группировки."
 
@@ -1052,6 +1058,9 @@ msgstr "Информация о сервисах"
 msgid "Settings"
 msgstr "Настройки"
 
+msgid "Show a notice on the dashboard when a newer NetShift or sing-box-extended version is out. When the dashboard is opened and the last check is more than a day old, the router asks GitHub once in the background; nothing is installed."
+msgstr "Показывать на дашборде уведомление о новой версии NetShift или sing-box-extended. Если при открытии дашборда последняя проверка старше суток, роутер один раз в фоне обращается к GitHub; ничего не устанавливается."
+
 msgid "Show sing-box config"
 msgstr "Показать sing-box конфигурацию"
 
@@ -1255,6 +1264,9 @@ msgstr "Обновить"
 
 msgid "Update is available"
 msgstr "Доступно обновление"
+
+msgid "Update it in the Component Manager tab."
+msgstr "Обновите её на вкладке «Менеджер компонентов»."
 
 msgid "Update NetShift"
 msgstr "Обновить NetShift"

@@ -118,6 +118,7 @@ test_syntax() {
         "$lib/rulesets.sh" \
         "$lib/sing_box_config_manager.sh" \
         "$lib/sing_box_config_facade.sh" \
+        "$lib/update_notice.sh" \
         "$lib/updater.sh"; do
 
         if [ ! -r "$f" ]; then
@@ -14713,6 +14714,120 @@ test_environment_check() {
     _ev "IPv6 on is reported" "ipv6-enabled=true"
 }
 
+test_update_notice() {
+    header "Update notice: cached answer, refresh, stale check (update_notice.sh)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$lib/update_notice.sh" ] || [ ! -r "$lib/constants.sh" ]; then
+        fail "update_notice.sh / constants.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-notice-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/update_notice.sh"
+        UPDATE_NOTICE_FILE="$work/notice.json"
+
+        NOTICE_ENABLED=1
+        config_get_bool() { eval "$1=\"$NOTICE_ENABLED\""; }
+        NS_JSON='{"success":true,"current_version":"0.9.10","latest_version":"0.9.12","status":"outdated"}'
+        SB_JSON='{"success":true,"current_version":"1.12.0-extended-1","latest_version":"1.12.0-extended-2","status":"outdated"}'
+        VARIANT=extended_lite
+        updates_check_netshift() { printf '%s\n' "$NS_JSON"; }
+        updates_check_sing_box_extended() { echo "EXT-CALLED" >> "$work/calls"; printf '%s\n' "$SB_JSON"; }
+        updates_check_sing_box_lite() { echo "LITE-CALLED" >> "$work/calls"; printf '%s\n' "$SB_JSON"; }
+        get_sing_box_variant() { echo "$VARIANT"; }
+
+        echo "no-file=$(get_update_notice | jq -c '[.enabled, .stale, .checked, .netshift, .sing_box]')"
+
+        update_notice_refresh
+        echo "stored=$(jq -c '[.netshift.latest_version, .sing_box.latest_version, (.checked > 1700000000)]' "$UPDATE_NOTICE_FILE")"
+        echo "lite-asked=$(cat "$work/calls")"
+        echo "fresh=$(get_update_notice | jq -c '[.enabled, .stale, .netshift.status, .sing_box.status]')"
+
+        # an old answer is stale
+        jq -c '.checked = 1000' "$UPDATE_NOTICE_FILE" > "$work/old" && mv "$work/old" "$UPDATE_NOTICE_FILE"
+        echo "stale=$(get_update_notice | jq -c '.stale')"
+
+        NOTICE_ENABLED=0
+        echo "disabled=$(get_update_notice | jq -c '.enabled')"
+        NOTICE_ENABLED=1
+
+        # stock core: no GitHub check for it
+        rm -f "$work/calls"; VARIANT=stock
+        update_notice_refresh
+        echo "stock=$(jq -c '[.netshift.latest_version, .sing_box]' "$UPDATE_NOTICE_FILE")"
+        echo "stock-calls=$(cat "$work/calls" 2> /dev/null | wc -l | tr -d ' ')"
+        VARIANT=extended
+        update_notice_refresh
+        echo "extended-asked=$(cat "$work/calls")"
+
+        # GitHub unreachable: the previous answer stays, only the time moves
+        updates_check_netshift() { echo '{"success":false,"message":"unreachable"}'; return 1; }
+        updates_check_sing_box_extended() { echo '{"success":false}'; return 1; }
+        jq -c '.checked = 1000' "$UPDATE_NOTICE_FILE" > "$work/old" && mv "$work/old" "$UPDATE_NOTICE_FILE"
+        update_notice_refresh
+        echo "offline-kept=$(jq -c '[.netshift.latest_version, (.checked > 1700000000)]' "$UPDATE_NOTICE_FILE")"
+        echo "offline-not-stale=$(get_update_notice | jq -c '.stale')"
+
+        # nothing known and unreachable: an answer with nulls, not a broken file
+        rm -f "$UPDATE_NOTICE_FILE"
+        update_notice_refresh
+        echo "empty=$(jq -c '[.netshift, .sing_box]' "$UPDATE_NOTICE_FILE")"
+
+        # garbage in the file is read as "nothing known"
+        echo 'not json' > "$UPDATE_NOTICE_FILE"
+        echo "garbage=$(get_update_notice | jq -c '[.stale, .netshift]')"
+
+        # the background refresh: starts once, a second call while it runs does nothing
+        rm -f "$UPDATE_NOTICE_FILE" "$UPDATE_NOTICE_FILE.lock"
+        updates_check_netshift() { sleep 2; printf '%s\n' "$NS_JSON"; }
+        echo "async-first=$(update_notice_refresh_async)"
+        echo "async-second=$(update_notice_refresh_async)"
+        sleep 4
+        echo "async-done=$(jq -c '.netshift.latest_version' "$UPDATE_NOTICE_FILE")"
+        echo "async-lock-removed=$([ -e "$UPDATE_NOTICE_FILE.lock" ] && echo no || echo yes)"
+    )"
+
+    _un() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _un "no answer yet: enabled, stale, nothing known" "no-file=[true,true,null,null,null]"
+    _un "a refresh stores both answers and the time" 'stored=["0.9.12","1.12.0-extended-2",true]'
+    _un "the lite core is asked for lite" "lite-asked=LITE-CALLED"
+    _un "a fresh answer is not stale" 'fresh=[true,false,"outdated","outdated"]'
+    _un "an old answer is stale" "stale=true"
+    _un "the switch is reported" "disabled=false"
+    _un "the stock core is not asked" 'stock=["0.9.12",null]'
+    _un "...no GitHub call for it" "stock-calls=0"
+    _un "the extended core is asked for extended" "extended-asked=EXT-CALLED"
+    _un "an unreachable GitHub keeps the previous answer" 'offline-kept=["0.9.12",true]'
+    _un "...and does not ask again at once" "offline-not-stale=false"
+    _un "nothing known and unreachable gives empty parts" "empty=[null,null]"
+    _un "a broken file reads as nothing known" "garbage=[true,null]"
+    _un "the background refresh starts" 'async-first={"started":true}'
+    _un "...once at a time" 'async-second={"started":false}'
+    _un "...and stores its answer" 'async-done="0.9.12"'
+    _un "...and removes its lock" "async-lock-removed=yes"
+
+    rm -rf "$work"
+}
+
 # ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
@@ -16284,6 +16399,7 @@ main() {
             test_cache_persist
             test_update_package_check
             test_environment_check
+            test_update_notice
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -16355,12 +16471,13 @@ main() {
         dnssection)  test_dns_section ;;
         updatepkg)   test_update_package_check ;;
         environment) test_environment_check ;;
+        updatenotice) test_update_notice ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment updatenotice"
             exit 1
             ;;
     esac

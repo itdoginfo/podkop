@@ -415,6 +415,18 @@ function createSettingsContent(section) {
   // --- Lists & Updates tab ---
   o = section.taboption(
     "lists",
+    form.Flag,
+    "update_notice",
+    _("Notify about new versions"),
+    _(
+      "Show a notice on the dashboard when a newer NetShift or sing-box-extended version is out. When the dashboard is opened and the last check is more than a day old, the router asks GitHub once in the background; nothing is installed.",
+    ),
+  );
+  o.default = "1";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "lists",
     form.ListValue,
     "update_interval",
     _("List Update Frequency"),

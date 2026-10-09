@@ -12,6 +12,9 @@ config settings 'settings'
         # the client. Empty/unset disables it (this is the default, and configs
         # upgraded from an older package have no such option at all).
         option dns_client_subnet ''
+        # Dashboard notice about a newer NetShift / sing-box-extended (one background
+        # GitHub check a day, only while the dashboard is opened).
+        option update_notice '1'
         list source_network_interfaces 'br-lan'
         option enable_output_network_interface '0'
         #option output_network_interface 'wan'

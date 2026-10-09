@@ -21,6 +21,7 @@ check_required_file "$NETSHIFT_LIB/sing_box_config_facade.sh"
 check_required_file "$NETSHIFT_LIB/logging.sh"
 check_required_file "$NETSHIFT_LIB/rulesets.sh"
 check_required_file "$NETSHIFT_LIB/updater.sh"
+check_required_file "$NETSHIFT_LIB/update_notice.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -32,6 +33,7 @@ check_required_file "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/logging.sh"
 . "$NETSHIFT_LIB/rulesets.sh"
 . "$NETSHIFT_LIB/updater.sh"
+. "$NETSHIFT_LIB/update_notice.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -7661,6 +7663,8 @@ Available commands:
     check_sing_box_logs     Show sing-box logs
     check_fakeip            Test FakeIP on router
     check_environment       Flow offloading, clock and IPv6 facts that affect the redirect
+    get_update_notice       Print the cached "newer version available" notice as JSON
+    refresh_update_notice   Refresh that notice in the background
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -7734,6 +7738,12 @@ check_fakeip)
     ;;
 check_environment)
     check_environment
+    ;;
+get_update_notice)
+    get_update_notice
+    ;;
+refresh_update_notice)
+    update_notice_refresh_async
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"

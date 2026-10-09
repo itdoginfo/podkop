@@ -23,6 +23,10 @@ export const NetShiftShellMethods = {
     callBaseMethod<NetShift.EnvironmentCheckResult>(
       NetShift.AvailableMethods.CHECK_ENVIRONMENT,
     ),
+  getUpdateNotice: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.GET_UPDATE_NOTICE),
+  refreshUpdateNotice: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.REFRESH_UPDATE_NOTICE),
   checkNftRules: async () =>
     callBaseMethod<NetShift.NftRulesCheckResult>(
       NetShift.AvailableMethods.CHECK_NFT_RULES,

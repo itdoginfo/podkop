@@ -901,6 +901,8 @@ var NetShift;
     AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
     AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
     AvailableMethods2["CHECK_ENVIRONMENT"] = "check_environment";
+    AvailableMethods2["GET_UPDATE_NOTICE"] = "get_update_notice";
+    AvailableMethods2["REFRESH_UPDATE_NOTICE"] = "refresh_update_notice";
     AvailableMethods2["CHECK_NFT_RULES"] = "check_nft_rules";
     AvailableMethods2["GET_STATUS"] = "get_status";
     AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
@@ -1013,6 +1015,8 @@ var NetShiftShellMethods = {
   checkEnvironment: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_ENVIRONMENT
   ),
+  getUpdateNotice: async () => callBaseMethod(NetShift.AvailableMethods.GET_UPDATE_NOTICE),
+  refreshUpdateNotice: async () => callBaseMethod(NetShift.AvailableMethods.REFRESH_UPDATE_NOTICE),
   checkNftRules: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_NFT_RULES
   ),
@@ -3506,6 +3510,8 @@ function render() {
       class: "pdk_dashboard-page"
     },
     [
+      // A newer version is available (filled by the controller)
+      E("div", { id: "dashboard-update-notice" }),
       // Widgets section
       E("div", { class: "pdk_dashboard-page__widgets-section" }, [
         E(
@@ -3572,6 +3578,67 @@ function prettyBytes(n) {
   return n + " " + unit;
 }
 
+// src/helpers/updateNotice.ts
+var EMPTY_UPDATE_NOTICE = {
+  enabled: false,
+  stale: false,
+  checked: null,
+  netshift: null,
+  sing_box: null
+};
+function parseCheck(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const raw = value;
+  if (typeof raw.latest_version !== "string" || typeof raw.current_version !== "string") {
+    return null;
+  }
+  return {
+    current_version: raw.current_version,
+    latest_version: raw.latest_version,
+    status: typeof raw.status === "string" ? raw.status : ""
+  };
+}
+function parseUpdateNotice(input) {
+  let data = input;
+  if (typeof input === "string") {
+    try {
+      data = JSON.parse(input);
+    } catch {
+      return EMPTY_UPDATE_NOTICE;
+    }
+  }
+  if (!data || typeof data !== "object") {
+    return EMPTY_UPDATE_NOTICE;
+  }
+  const raw = data;
+  return {
+    enabled: raw.enabled === true,
+    stale: raw.stale === true,
+    checked: typeof raw.checked === "number" ? raw.checked : null,
+    netshift: parseCheck(raw.netshift),
+    sing_box: parseCheck(raw.sing_box)
+  };
+}
+function getOutdatedComponents(notice) {
+  const items = [];
+  for (const component of ["netshift", "sing_box"]) {
+    const check = notice[component];
+    if (check && check.status === "outdated") {
+      items.push({
+        component,
+        current: check.current_version,
+        latest: check.latest_version
+      });
+    }
+  }
+  return items;
+}
+function shouldRefreshUpdateNotice(notice) {
+  return notice.enabled && notice.stale;
+}
+
 // src/netshift/fetchers/fetchServicesInfo.ts
 async function fetchServicesInfo() {
   const [netshift, singbox] = await Promise.all([
@@ -3623,6 +3690,62 @@ async function fetchDashboardSections() {
       data
     }
   });
+}
+var UPDATE_NOTICE_REFRESH_WAIT = 25e3;
+function renderUpdateNotice(notice) {
+  const container = document.getElementById("dashboard-update-notice");
+  if (!container) {
+    return;
+  }
+  const items = notice.enabled ? getOutdatedComponents(notice) : [];
+  if (items.length === 0) {
+    container.replaceChildren();
+    return;
+  }
+  const names = {
+    netshift: _("NetShift"),
+    sing_box: _("Sing-box")
+  };
+  container.replaceChildren(
+    E("div", { class: "card pdk_dashboard-page__update-notice" }, [
+      E("b", {}, _("A newer version is available")),
+      ...items.map(
+        (item) => E(
+          "div",
+          {},
+          `${names[item.component]}: ${item.current} \u2192 ${item.latest}`
+        )
+      ),
+      E(
+        "div",
+        { class: "pdk_dashboard-page__update-notice__hint" },
+        _("Update it in the Component Manager tab.")
+      )
+    ])
+  );
+}
+async function loadUpdateNotice() {
+  try {
+    const first = await NetShiftShellMethods.getUpdateNotice();
+    const notice = first.success ? parseUpdateNotice(first.data) : null;
+    if (!notice) {
+      return;
+    }
+    renderUpdateNotice(notice);
+    if (!shouldRefreshUpdateNotice(notice)) {
+      return;
+    }
+    await NetShiftShellMethods.refreshUpdateNotice();
+    await new Promise(
+      (resolve) => setTimeout(resolve, UPDATE_NOTICE_REFRESH_WAIT)
+    );
+    const second = await NetShiftShellMethods.getUpdateNotice();
+    if (second.success) {
+      renderUpdateNotice(parseUpdateNotice(second.data));
+    }
+  } catch (e) {
+    logger.error("[DASHBOARD]", "loadUpdateNotice: failed", e);
+  }
 }
 async function connectToClashSockets() {
   const clashApiSecret = await getClashApiSecret();
@@ -3952,6 +4075,7 @@ async function onStoreUpdate(next, prev, diff) {
 }
 async function onPageMount() {
   onPageUnmount();
+  void loadUpdateNotice();
   store.subscribe(onStoreUpdate);
   store.set({
     sectionsWidget: {
@@ -4265,6 +4389,18 @@ var styles3 = `
     .pdk_dashboard-page__outbound-row__badge-space {
         display: none;
     }
+}
+
+.pdk_dashboard-page__update-notice {
+    margin-top: 10px;
+    display: grid;
+    grid-row-gap: 4px;
+    border: 2px var(--warn-color-medium, orange) solid;
+}
+
+.pdk_dashboard-page__update-notice__hint {
+    opacity: 0.75;
+    font-size: 0.9em;
 }
 `;
 
@@ -6983,6 +7119,7 @@ return baseclass.extend({
   DOMAIN_LIST_OPTIONS,
   DashboardTab,
   DiagnosticTab,
+  EMPTY_UPDATE_NOTICE,
   ERROR_POLL_INTERVAL,
   FAKEIP_CHECK_DOMAIN,
   FETCH_TIMEOUT,
@@ -7005,6 +7142,7 @@ return baseclass.extend({
   getClashUIUrl,
   getClashWsUrl,
   getDeviceRoute,
+  getOutdatedComponents,
   getProxyUrlName,
   injectGlobalStyles,
   insertIf,
@@ -7015,10 +7153,12 @@ return baseclass.extend({
   maskIP,
   onMount,
   parseQueryString,
+  parseUpdateNotice,
   parseValueList,
   preserveScrollForPage,
   saveDashboardViewPrefs,
   setDeviceRoute,
+  shouldRefreshUpdateNotice,
   socket,
   splitProxyString,
   store,

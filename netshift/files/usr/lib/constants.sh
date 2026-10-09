@@ -328,3 +328,8 @@ COMMUNITY_SERVICES="russia_inside russia_outside ukraine_inside geoblock block p
 # with the router clock.
 ENVIRONMENT_MIN_PLAUSIBLE_EPOCH=1735689600
 ENVIRONMENT_CLOCK_PROBE_URL="https://www.cloudflare.com/"
+
+# "A newer version is available" notice (update_notice.sh): the answer lives in
+# tmpfs and is asked again once it is older than this many seconds.
+UPDATE_NOTICE_FILE="/tmp/netshift-update-notice.json"
+UPDATE_NOTICE_TTL=86400
