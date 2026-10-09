@@ -234,17 +234,91 @@ function createSettingsContent(section) {
     return true;
   };
 
+  // The WAN interfaces and the ECS subnet each one gives (netshift
+  // get_wan_addresses). Asking can take a few seconds: a private WAN address makes
+  // the router look its external address up once.
+  let wanAddresses = null;
+  const loadWanAddresses = () => {
+    wanAddresses ??= main
+      .executeShellCommand({
+        command: "/usr/bin/netshift",
+        args: ["get_wan_addresses"],
+        timeout: 30000,
+      })
+      .then((reply) => {
+        try {
+          const data = JSON.parse(reply.stdout || "{}");
+
+          return Array.isArray(data.interfaces) ? data.interfaces : [];
+        } catch (e) {
+          return [];
+        }
+      })
+      .catch(() => []);
+
+    return wanAddresses;
+  };
+
+  o = section.taboption(
+    "dns",
+    form.Flag,
+    "dns_client_subnet_auto",
+    _("Detect the EDNS Client Subnet from the WAN"),
+    _(
+      "Take the subnet from a WAN interface: its public address, or, when the interface has a private (NAT) address, the address the internet sees (looked up once and remembered). The value below is used when no address can be determined. IPv4 only, the /24 of the address.",
+    ),
+  );
+  o.default = o.disabled;
+  o.rmempty = true;
+
+  o = section.taboption(
+    "dns",
+    form.ListValue,
+    "dns_client_subnet_interface",
+    _("WAN interface for the EDNS Client Subnet"),
+    _("With several WAN interfaces choose the one whose address represents you. Automatic uses the first working one."),
+  );
+  o.depends("dns_client_subnet_auto", "1");
+  o.value("", _("Automatic (first working)"));
+  o.rmempty = true;
+  o.load = function (section_id) {
+    return loadWanAddresses().then((interfaces) => {
+      interfaces.forEach((item) => {
+        const label = item.subnet
+          ? `${item.interface} (${item.subnet})`
+          : `${item.interface} (${_("no address")})`;
+
+        if (!this.keylist?.includes(item.interface)) {
+          this.value(item.interface, label);
+        }
+      });
+
+      return form.ListValue.prototype.load.call(this, section_id);
+    });
+  };
+
   o = section.taboption(
     "dns",
     form.Value,
     "dns_client_subnet",
     _("EDNS Client Subnet"),
     _(
-      "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable.",
+      "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable. The detected WAN subnets are offered in the list.",
     ),
   );
   o.placeholder = "203.0.113.0/24";
   o.rmempty = true;
+  o.load = function (section_id) {
+    return loadWanAddresses().then((interfaces) => {
+      interfaces.forEach((item) => {
+        if (item.subnet && !this.keylist?.includes(item.subnet)) {
+          this.value(item.subnet, `${item.subnet} (${item.interface})`);
+        }
+      });
+
+      return form.Value.prototype.load.call(this, section_id);
+    });
+  };
   o.validate = function (section_id, value) {
     if (!value) {
       return true;

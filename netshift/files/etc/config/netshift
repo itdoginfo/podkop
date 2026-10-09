@@ -12,6 +12,8 @@ config settings 'settings'
         # the client. Empty/unset disables it (this is the default, and configs
         # upgraded from an older package have no such option at all).
         option dns_client_subnet ''
+        option dns_client_subnet_auto '0'
+        option dns_client_subnet_interface ''
         list source_network_interfaces 'br-lan'
         option enable_output_network_interface '0'
         #option output_network_interface 'wan'

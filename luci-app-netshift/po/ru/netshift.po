@@ -86,6 +86,9 @@ msgstr "Необходимо указать хотя бы одну действ�
 msgid "Auto"
 msgstr "Авто"
 
+msgid "Automatic (first working)"
+msgstr "Автоматически (первый рабочий)"
+
 msgid "Available actions"
 msgstr "Доступные действия"
 
@@ -238,6 +241,9 @@ msgstr "Значение задержки не может быть пустым"
 
 msgid "Detect country by IP (GeoIP)"
 msgstr "Определять страну по IP (GeoIP)"
+
+msgid "Detect the EDNS Client Subnet from the WAN"
+msgstr "Определять EDNS Client Subnet по WAN"
 
 msgid "Dev"
 msgstr "Dev"
@@ -815,6 +821,9 @@ msgstr "Сеть"
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
 
+msgid "no address"
+msgstr "нет адреса"
+
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
 
@@ -1040,8 +1049,8 @@ msgstr "Не удалось обновить"
 msgid "Send DNS queries through section"
 msgstr "Отправлять DNS-запросы через секцию"
 
-msgid "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable."
-msgstr "Отправлять этот IP-адрес или префикс с каждым DNS-запросом (EDNS Client Subnet, RFC 7871), чтобы геораспределённые сервисы определяли ближайший к вам узел. Оставьте пустым, чтобы отключить."
+msgid "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable. The detected WAN subnets are offered in the list."
+msgstr "Отправлять этот IP-адрес или префикс с каждым DNS-запросом (EDNS Client Subnet, RFC 7871), чтобы геораспределённые сервисы отдавали ближайший к вам узел. Пусто - отключено. Найденные WAN-подсети предлагаются в списке."
 
 msgid "Send upstream DNS queries through a proxy/VPN outbound instead of directly. Bootstrap DNS always stays direct."
 msgstr "Отправлять запросы к основному DNS через outbound прокси/VPN вместо прямого подключения. Bootstrap DNS всегда остаётся прямым."
@@ -1153,6 +1162,9 @@ msgstr "Системная информация"
 
 msgid "Table exist"
 msgstr "Таблица существует"
+
+msgid "Take the subnet from a WAN interface: its public address, or, when the interface has a private (NAT) address, the address the internet sees (looked up once and remembered). The value below is used when no address can be determined. IPv4 only, the /24 of the address."
+msgstr "Брать подсеть из WAN-интерфейса: его публичный адрес или, если у интерфейса серый (NAT) адрес, адрес, который видит интернет (определяется один раз и запоминается). Значение ниже используется, если адрес определить не удалось. Только IPv4, /24 адреса."
 
 msgid "TCP"
 msgstr "TCP"
@@ -1355,6 +1367,9 @@ msgstr "ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hyst
 msgid "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links — one per line"
 msgstr "Ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// — по одной в строке"
 
+msgid "WAN interface for the EDNS Client Subnet"
+msgstr "WAN-интерфейс для EDNS Client Subnet"
+
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
 
@@ -1369,6 +1384,9 @@ msgstr "Какая секция прокси/VPN обслуживает DNS. О�
 
 msgid "Which subscription format (client) to fetch first. Auto uses the default order. Choose Xray JSON (Happ) when your panel only exposes some nodes (e.g. xhttp) under a Happ-like client, or Sing-box to prefer the sing-box format."
 msgstr "Какой формат подписки (клиент) запрашивать первым. «Авто» использует порядок по умолчанию. Выберите «Xray JSON (Happ)», если ваша панель отдаёт некоторые узлы (например, xhttp) только под клиентом вроде Happ, или «Sing-box», чтобы предпочесть формат sing-box."
+
+msgid "With several WAN interfaces choose the one whose address represents you. Automatic uses the first working one."
+msgstr "Если WAN-интерфейсов несколько, выберите тот, чей адрес вас представляет. Автоматически берётся первый рабочий."
 
 msgid "Xray JSON (Happ)"
 msgstr "Xray JSON (Happ)"

@@ -21,6 +21,7 @@ check_required_file "$NETSHIFT_LIB/sing_box_config_facade.sh"
 check_required_file "$NETSHIFT_LIB/logging.sh"
 check_required_file "$NETSHIFT_LIB/rulesets.sh"
 check_required_file "$NETSHIFT_LIB/updater.sh"
+check_required_file "$NETSHIFT_LIB/ecs.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -31,6 +32,7 @@ check_required_file "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/sing_box_config_facade.sh"
 . "$NETSHIFT_LIB/logging.sh"
 . "$NETSHIFT_LIB/rulesets.sh"
+. "$NETSHIFT_LIB/ecs.sh"
 . "$NETSHIFT_LIB/updater.sh"
 
 config_load "$NETSHIFT_CONFIG"
@@ -4376,8 +4378,22 @@ sing_box_configure_dns() {
     # An unusable value is only warned about and skipped: passing it on would
     # make sing_box_config_check reject the WHOLE config and exit 1, i.e. a
     # typo in an optional field would stop the service from starting.
-    local dns_client_subnet
+    local dns_client_subnet dns_client_subnet_auto dns_client_subnet_interface auto_subnet
     config_get dns_client_subnet "settings" "dns_client_subnet" ""
+    config_get_bool dns_client_subnet_auto "settings" "dns_client_subnet_auto" 0
+    if [ "$dns_client_subnet_auto" -eq 1 ]; then
+        # Taken from a WAN interface (its public address, or the address the
+        # internet sees when the interface has a private one). The typed value stays
+        # as the fallback for when no interface gives an address yet.
+        config_get dns_client_subnet_interface "settings" "dns_client_subnet_interface" ""
+        auto_subnet="$(ecs_resolve_auto "$dns_client_subnet_interface")"
+        if [ -n "$auto_subnet" ]; then
+            log "EDNS Client Subnet detected from the WAN: $auto_subnet" "info"
+            dns_client_subnet="$auto_subnet"
+        else
+            log "EDNS Client Subnet: no WAN address could be determined${dns_client_subnet:+, using the configured $dns_client_subnet}" "warn"
+        fi
+    fi
     if [ -n "$dns_client_subnet" ]; then
         if is_ip_or_ip_prefix "$dns_client_subnet"; then
             config=$(sing_box_cm_set_dns_client_subnet "$config" "$dns_client_subnet")
@@ -7661,6 +7677,7 @@ Available commands:
     check_sing_box_logs     Show sing-box logs
     check_fakeip            Test FakeIP on router
     check_environment       Flow offloading, clock and IPv6 facts that affect the redirect
+    get_wan_addresses       Print the WAN addresses and the EDNS Client Subnet each one gives as JSON
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -7734,6 +7751,9 @@ check_fakeip)
     ;;
 check_environment)
     check_environment
+    ;;
+get_wan_addresses)
+    get_wan_addresses
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"
