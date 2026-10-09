@@ -10,6 +10,7 @@ export function render() {
     E('div', { class: 'pdk_diagnostic-page__right-bar' }, [
       E('div', { id: 'pdk_diagnostic-page-wiki' }),
       E('div', { id: 'pdk_diagnostic-page-actions' }),
+      E('div', { id: 'pdk_diagnostic-page-snapshots' }),
       E('div', { id: 'pdk_diagnostic-page-system-info' }),
     ]),
   ]);

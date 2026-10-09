@@ -170,4 +170,27 @@ export const styles = `
     width: 16px;
     height: 16px;
 }
+
+.pdk_diagnostic-page__snapshots {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-row-gap: 8px;
+}
+
+.pdk_diagnostic-page__snapshots__hint {
+    opacity: 0.75;
+    font-size: 0.9em;
+}
+
+.pdk_diagnostic-page__snapshots__list {
+    display: grid;
+    grid-row-gap: 6px;
+}
+
+.pdk_diagnostic-page__snapshots__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
 `;

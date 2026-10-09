@@ -21,6 +21,7 @@ check_required_file "$NETSHIFT_LIB/sing_box_config_facade.sh"
 check_required_file "$NETSHIFT_LIB/logging.sh"
 check_required_file "$NETSHIFT_LIB/rulesets.sh"
 check_required_file "$NETSHIFT_LIB/updater.sh"
+check_required_file "$NETSHIFT_LIB/snapshots.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -32,6 +33,7 @@ check_required_file "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/logging.sh"
 . "$NETSHIFT_LIB/rulesets.sh"
 . "$NETSHIFT_LIB/updater.sh"
+. "$NETSHIFT_LIB/snapshots.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -1212,6 +1214,9 @@ start_main() {
     # here: a config sing-box rejects makes sing_box_init_config exit the
     # process first, and the marker then stays for the next subscription_update.
     rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+    # The settings that just produced a configuration sing-box accepted: the point
+    # to come back to when a later change breaks the service.
+    snapshot_save auto > /dev/null 2>&1
     foreach_active_section add_cron_job "section"
     sync_subscription_cron_jobs
     drop_stale_fakeip_cache
@@ -7661,6 +7666,8 @@ Available commands:
     check_sing_box_logs     Show sing-box logs
     check_fakeip            Test FakeIP on router
     check_environment       Flow offloading, clock and IPv6 facts that affect the redirect
+    config_snapshot <save|list|restore> [id]
+                            Snapshots of /etc/config/netshift: keep, list or bring back
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -7734,6 +7741,17 @@ check_fakeip)
     ;;
 check_environment)
     check_environment
+    ;;
+config_snapshot)
+    case "${2:-}" in
+    save) snapshot_save "${3:-manual}" ;;
+    list) snapshot_list ;;
+    restore) snapshot_restore "${3:-}" ;;
+    *)
+        echo '{"error":"use save, list or restore"}'
+        exit 1
+        ;;
+    esac
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"

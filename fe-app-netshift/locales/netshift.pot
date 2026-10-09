@@ -129,6 +129,10 @@ msgstr ""
 msgid "Bootstrap DNS server"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:71
+msgid "Bring back the settings of"
+msgstr ""
+
 #: src/netshift/tabs/diagnostic/checks/runFakeIPCheck.ts:58
 msgid "Browser is not using FakeIP"
 msgstr ""
@@ -214,7 +218,7 @@ msgstr ""
 msgid "Clear subscription cache"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:337
+#: src/netshift/tabs/diagnostic/initController.ts:338
 msgid "Clearing subscription cache and re-downloading… this may take a minute"
 msgstr ""
 
@@ -254,6 +258,10 @@ msgstr ""
 msgid "Configuration for NetShift service"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:105
+msgid "Configuration snapshots"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:132
 msgid "Configuration Type"
 msgstr ""
@@ -282,7 +290,7 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:170
+#: src/netshift/methods/shell/index.ts:184
 #: src/netshift/methods/shell/pollSingBoxComponentAction.ts:83
 msgid "Core switch failed"
 msgstr ""
@@ -656,9 +664,9 @@ msgstr ""
 msgid "Extended core with all features (~105 MB)"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:266
-#: src/netshift/tabs/diagnostic/initController.ts:352
-#: src/netshift/tabs/diagnostic/initController.ts:356
+#: src/netshift/methods/shell/index.ts:280
+#: src/netshift/tabs/diagnostic/initController.ts:353
+#: src/netshift/tabs/diagnostic/initController.ts:357
 msgid "Failed to clear subscription cache"
 msgstr ""
 
@@ -666,12 +674,12 @@ msgstr ""
 msgid "Failed to copy!"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:237
-#: src/netshift/tabs/diagnostic/initController.ts:241
-#: src/netshift/tabs/diagnostic/initController.ts:271
-#: src/netshift/tabs/diagnostic/initController.ts:275
-#: src/netshift/tabs/diagnostic/initController.ts:312
-#: src/netshift/tabs/diagnostic/initController.ts:316
+#: src/netshift/tabs/diagnostic/initController.ts:238
+#: src/netshift/tabs/diagnostic/initController.ts:242
+#: src/netshift/tabs/diagnostic/initController.ts:272
+#: src/netshift/tabs/diagnostic/initController.ts:276
+#: src/netshift/tabs/diagnostic/initController.ts:313
+#: src/netshift/tabs/diagnostic/initController.ts:317
 #: src/netshift/tabs/manager/initController.ts:135
 #: src/netshift/tabs/manager/initController.ts:145
 #: src/netshift/tabs/manager/initController.ts:163
@@ -711,7 +719,7 @@ msgstr ""
 msgid "Get global check"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:232
+#: src/netshift/tabs/diagnostic/initController.ts:233
 msgid "Global check"
 msgstr ""
 
@@ -1020,6 +1028,10 @@ msgstr ""
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:20
+msgid "Kept before a restore"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:611
 msgid "Latency test URL"
 msgstr ""
@@ -1139,6 +1151,10 @@ msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runNftCheck.ts:98
 msgid "No other marking rules found"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:41
+msgid "No snapshots yet"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:31
@@ -1309,6 +1325,18 @@ msgstr ""
 msgid "Restart NetShift"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:57
+msgid "Restore"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:85
+msgid "Restored, restarting the service..."
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:88
+msgid "Restored. Reload the page to see the settings."
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:683
 msgid "Route all unmatched traffic through this section's outbound."
 msgstr ""
@@ -1364,6 +1392,22 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:890
 msgid "Russia inside restrictions"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:50
+msgid "same as now"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:116
+msgid "Save a snapshot now"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:16
+msgid "Saved at a successful start"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:18
+msgid "Saved by hand"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:553
@@ -1447,7 +1491,7 @@ msgstr ""
 msgid "Selector Proxy Links (one per line)"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:315
+#: src/netshift/methods/shell/index.ts:329
 msgid "Self-update failed"
 msgstr ""
 
@@ -1471,7 +1515,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:300
+#: src/netshift/tabs/diagnostic/initController.ts:301
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:118
 msgid "Show sing-box config"
 msgstr ""
@@ -1507,6 +1551,10 @@ msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts:67
 msgid "Sing-box version is compatible (newer than 1.12.4)"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:96
+msgid "Snapshot saved"
 msgstr ""
 
 #: src/netshift/tabs/dashboard/partials/renderSections.ts:191
@@ -1555,7 +1603,7 @@ msgstr ""
 msgid "Subscription"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:345
+#: src/netshift/tabs/diagnostic/initController.ts:346
 msgid "Subscription cache cleared and re-downloaded"
 msgstr ""
 
@@ -1660,6 +1708,22 @@ msgstr ""
 msgid "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:71
+msgid "The service will restart."
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:109
+msgid "The settings are kept every time the service starts successfully (the last ten). A snapshot brings them back after a change that broke the service."
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:80
+msgid "The snapshot could not be restored"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:97
+msgid "The snapshot could not be saved"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:647
 msgid "The subnets of this exclusion section never enter sing-box: the router sends them out directly, which saves CPU, especially with Global Proxy. Only subnets and IP lists are bypassed; domains still pass through sing-box."
 msgstr ""
@@ -1731,12 +1795,12 @@ msgid "UDP over TCP"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7
-#: src/netshift/tabs/diagnostic/initController.ts:44
 #: src/netshift/tabs/diagnostic/initController.ts:45
 #: src/netshift/tabs/diagnostic/initController.ts:46
 #: src/netshift/tabs/diagnostic/initController.ts:47
 #: src/netshift/tabs/diagnostic/initController.ts:48
 #: src/netshift/tabs/diagnostic/initController.ts:49
+#: src/netshift/tabs/diagnostic/initController.ts:50
 #: src/netshift/tabs/manager/initController.ts:43
 #: src/netshift/tabs/manager/initController.ts:44
 #: src/netshift/tabs/manager/initController.ts:45
@@ -1904,7 +1968,7 @@ msgstr ""
 msgid "Version"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:266
+#: src/netshift/tabs/diagnostic/initController.ts:267
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:109
 msgid "View logs"
 msgstr ""

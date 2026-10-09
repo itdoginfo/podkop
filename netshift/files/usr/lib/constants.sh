@@ -328,3 +328,8 @@ COMMUNITY_SERVICES="russia_inside russia_outside ukraine_inside geoblock block p
 # with the router clock.
 ENVIRONMENT_MIN_PLAUSIBLE_EPOCH=1735689600
 ENVIRONMENT_CLOCK_PROBE_URL="https://www.cloudflare.com/"
+
+# Configuration snapshots (snapshots.sh).
+NETSHIFT_CONFIG_FILE="/etc/config/netshift"
+SNAPSHOT_DIR="$NETSHIFT_STATE_DIR/snapshots"
+SNAPSHOT_KEEP=10

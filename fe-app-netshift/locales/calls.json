@@ -197,6 +197,13 @@
     ]
   },
   {
+    "call": "Bring back the settings of",
+    "key": "Bring back the settings of",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:71"
+    ]
+  },
+  {
     "call": "Browser is not using FakeIP",
     "key": "Browser is not using FakeIP",
     "places": [
@@ -339,7 +346,7 @@
     "call": "Clearing subscription cache and re-downloading… this may take a minute",
     "key": "Clearing subscription cache and re-downloading… this may take a minute",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:337"
+      "src/netshift/tabs/diagnostic/initController.ts:338"
     ]
   },
   {
@@ -406,6 +413,13 @@
     ]
   },
   {
+    "call": "Configuration snapshots",
+    "key": "Configuration snapshots",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:105"
+    ]
+  },
+  {
     "call": "Configuration Type",
     "key": "Configuration Type",
     "places": [
@@ -458,7 +472,7 @@
     "call": "Core switch failed",
     "key": "Core switch failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:170",
+      "src/netshift/methods/shell/index.ts:184",
       "src/netshift/methods/shell/pollSingBoxComponentAction.ts:83"
     ]
   },
@@ -1102,9 +1116,9 @@
     "call": "Failed to clear subscription cache",
     "key": "Failed to clear subscription cache",
     "places": [
-      "src/netshift/methods/shell/index.ts:266",
-      "src/netshift/tabs/diagnostic/initController.ts:352",
-      "src/netshift/tabs/diagnostic/initController.ts:356"
+      "src/netshift/methods/shell/index.ts:280",
+      "src/netshift/tabs/diagnostic/initController.ts:353",
+      "src/netshift/tabs/diagnostic/initController.ts:357"
     ]
   },
   {
@@ -1118,12 +1132,12 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:237",
-      "src/netshift/tabs/diagnostic/initController.ts:241",
-      "src/netshift/tabs/diagnostic/initController.ts:271",
-      "src/netshift/tabs/diagnostic/initController.ts:275",
-      "src/netshift/tabs/diagnostic/initController.ts:312",
-      "src/netshift/tabs/diagnostic/initController.ts:316",
+      "src/netshift/tabs/diagnostic/initController.ts:238",
+      "src/netshift/tabs/diagnostic/initController.ts:242",
+      "src/netshift/tabs/diagnostic/initController.ts:272",
+      "src/netshift/tabs/diagnostic/initController.ts:276",
+      "src/netshift/tabs/diagnostic/initController.ts:313",
+      "src/netshift/tabs/diagnostic/initController.ts:317",
       "src/netshift/tabs/manager/initController.ts:135",
       "src/netshift/tabs/manager/initController.ts:145",
       "src/netshift/tabs/manager/initController.ts:163",
@@ -1184,7 +1198,7 @@
     "call": "Global check",
     "key": "Global check",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:232"
+      "src/netshift/tabs/diagnostic/initController.ts:233"
     ]
   },
   {
@@ -1715,6 +1729,13 @@
     ]
   },
   {
+    "call": "Kept before a restore",
+    "key": "Kept before a restore",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:20"
+    ]
+  },
+  {
     "call": "Latency test URL",
     "key": "Latency test URL",
     "places": [
@@ -1923,6 +1944,13 @@
     "key": "No other marking rules found",
     "places": [
       "src/netshift/tabs/diagnostic/checks/runNftCheck.ts:98"
+    ]
+  },
+  {
+    "call": "No snapshots yet",
+    "key": "No snapshots yet",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:41"
     ]
   },
   {
@@ -2208,6 +2236,27 @@
     ]
   },
   {
+    "call": "Restore",
+    "key": "Restore",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:57"
+    ]
+  },
+  {
+    "call": "Restored, restarting the service...",
+    "key": "Restored, restarting the service...",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:85"
+    ]
+  },
+  {
+    "call": "Restored. Reload the page to see the settings.",
+    "key": "Restored. Reload the page to see the settings.",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:88"
+    ]
+  },
+  {
     "call": "Route all unmatched traffic through this section's outbound.",
     "key": "Route all unmatched traffic through this section's outbound.",
     "places": [
@@ -2304,6 +2353,34 @@
     "key": "Russia inside restrictions",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:890"
+    ]
+  },
+  {
+    "call": "same as now",
+    "key": "same as now",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:50"
+    ]
+  },
+  {
+    "call": "Save a snapshot now",
+    "key": "Save a snapshot now",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:116"
+    ]
+  },
+  {
+    "call": "Saved at a successful start",
+    "key": "Saved at a successful start",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:16"
+    ]
+  },
+  {
+    "call": "Saved by hand",
+    "key": "Saved by hand",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:18"
     ]
   },
   {
@@ -2451,7 +2528,7 @@
     "call": "Self-update failed",
     "key": "Self-update failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:315"
+      "src/netshift/methods/shell/index.ts:329"
     ]
   },
   {
@@ -2493,7 +2570,7 @@
     "call": "Show sing-box config",
     "key": "Show sing-box config",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:300",
+      "src/netshift/tabs/diagnostic/initController.ts:301",
       "src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:118"
     ]
   },
@@ -2552,6 +2629,13 @@
     "key": "Sing-box version is compatible (newer than 1.12.4)",
     "places": [
       "src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts:67"
+    ]
+  },
+  {
+    "call": "Snapshot saved",
+    "key": "Snapshot saved",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:96"
     ]
   },
   {
@@ -2637,7 +2721,7 @@
     "call": "Subscription cache cleared and re-downloaded",
     "key": "Subscription cache cleared and re-downloaded",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:345"
+      "src/netshift/tabs/diagnostic/initController.ts:346"
     ]
   },
   {
@@ -2817,6 +2901,34 @@
     ]
   },
   {
+    "call": "The service will restart.",
+    "key": "The service will restart.",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:71"
+    ]
+  },
+  {
+    "call": "The settings are kept every time the service starts successfully (the last ten). A snapshot brings them back after a change that broke the service.",
+    "key": "The settings are kept every time the service starts successfully (the last ten). A snapshot brings them back after a change that broke the service.",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:109"
+    ]
+  },
+  {
+    "call": "The snapshot could not be restored",
+    "key": "The snapshot could not be restored",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:80"
+    ]
+  },
+  {
+    "call": "The snapshot could not be saved",
+    "key": "The snapshot could not be saved",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:97"
+    ]
+  },
+  {
     "call": "The subnets of this exclusion section never enter sing-box: the router sends them out directly, which saves CPU, especially with Global Proxy. Only subnets and IP lists are bypassed; domains still pass through sing-box.",
     "key": "The subnets of this exclusion section never enter sing-box: the router sends them out directly, which saves CPU, especially with Global Proxy. Only subnets and IP lists are bypassed; domains still pass through sing-box.",
     "places": [
@@ -2942,12 +3054,12 @@
     "key": "unknown",
     "places": [
       "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7",
-      "src/netshift/tabs/diagnostic/initController.ts:44",
       "src/netshift/tabs/diagnostic/initController.ts:45",
       "src/netshift/tabs/diagnostic/initController.ts:46",
       "src/netshift/tabs/diagnostic/initController.ts:47",
       "src/netshift/tabs/diagnostic/initController.ts:48",
       "src/netshift/tabs/diagnostic/initController.ts:49",
+      "src/netshift/tabs/diagnostic/initController.ts:50",
       "src/netshift/tabs/manager/initController.ts:43",
       "src/netshift/tabs/manager/initController.ts:44",
       "src/netshift/tabs/manager/initController.ts:45",
@@ -3217,7 +3329,7 @@
     "call": "View logs",
     "key": "View logs",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:266",
+      "src/netshift/tabs/diagnostic/initController.ts:267",
       "src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:109"
     ]
   },
