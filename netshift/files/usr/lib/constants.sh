@@ -381,3 +381,5 @@ ENVIRONMENT_CLOCK_PROBE_URL="https://www.cloudflare.com/"
 # regex: entries of a domain list: how many broken patterns are searched for before the rest
 # of the list is ignored (rulesets.sh, validate_domain_regex_file).
 DOMAIN_REGEX_MAX_DROPPED=20
+# The Connections page lists at most this many connections (newest first).
+CONNECTIONS_LIST_CAP=300

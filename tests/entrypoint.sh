@@ -18515,6 +18515,91 @@ test_dns_servers_check() {
     rm -rf "$work"
 }
 
+
+test_connections_api() {
+    header "Connections: list, close one, close all (clash_api)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "$lib/constants.sh" ]; then
+        fail "bin / constants.sh not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        eval "$(awk '/^clash_api\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        log() { :; }
+        get_service_listen_address() { echo "192.168.1.1"; }
+        config_get() { eval "$1=\"\${4:-}\""; }
+        config_get_bool() { eval "$1=0"; }
+        snapshot_sing_box_cache() { :; }
+
+        CALLS_FILE="/tmp/netshift-conn-calls-$$"
+        : > "$CALLS_FILE"
+        CONN='{"downloadTotal":5000,"uploadTotal":700,"memory":1,"connections":[
+          {"id":"aaaa-1","start":"2026-10-06T10:00:00Z","upload":10,"download":20,"chains":["main-out"],"rule":"RuleSet","rulePayload":"main-ruleset",
+           "metadata":{"network":"tcp","type":"tproxy","sourceIP":"192.168.1.10","sourcePort":"50000","destinationIP":"203.0.113.9","destinationPort":"443","host":"example.com"}},
+          {"id":"bbbb-2","start":"2026-10-06T10:05:00Z","upload":1,"download":2,"chains":["direct-out"],"rule":"final",
+           "metadata":{"network":"udp","type":"tproxy","sourceIP":"192.168.1.11","sourcePort":"123","destinationIP":"198.51.100.4","destinationPort":"53","host":""}}]}'
+        HTTP_CODE=204
+        curl() {
+            local args="$*" code=0
+            case "$args" in
+            *"-X DELETE"*) printf '|DELETE %s' "${args##* }" >> "$CALLS_FILE"; printf '%s' "$HTTP_CODE" ;;
+            *) printf '|GET %s' "${args##* }" >> "$CALLS_FILE"; printf '%s' "$CONN" ;;
+            esac
+        }
+
+        echo "list=$(clash_api get_connections | jq -c '[.total, .downloadTotal, (.connections | map(.id))]')"
+        echo "newest-first=$(clash_api get_connections | jq -c '.connections[0] | [.host, .source, .destination, .port, .chains, .rule, .rule_payload]')"
+        echo "ip-when-no-host=$(clash_api get_connections | jq -c '.connections[0].host')"
+        : > "$CALLS_FILE"
+        echo "close-one=$(clash_api close_connection aaaa-1)"
+        echo "close-calls=$(cat "$CALLS_FILE")"
+        HTTP_CODE=404
+        echo "close-gone=$(clash_api close_connection aaaa-1)"
+        HTTP_CODE=500
+        echo "close-fails=$(clash_api close_connection aaaa-1)"
+        echo "close-bad-id=$(clash_api close_connection 'x;rm -rf')"
+        echo "close-no-id=$(clash_api close_connection '')"
+        HTTP_CODE=204
+        : > "$CALLS_FILE"
+        echo "close-all=$(clash_api close_connections)"
+        echo "close-all-calls=$(cat "$CALLS_FILE")"
+        rm -f "$CALLS_FILE"
+        CONNECTIONS_LIST_CAP=1
+        echo "capped=$(clash_api get_connections | jq -c '[.total, (.connections | length), .connections[0].id]')"
+    )"
+
+    _cn() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _cn "the list is reduced and counted" 'list=[2,5000,["bbbb-2","aaaa-1"]]'
+    _cn "newest first, with the host and the route" 'newest-first=["198.51.100.4","192.168.1.11:123","198.51.100.4","53",["direct-out"],"final",""]'
+    _cn "the address stands in when there is no host" 'ip-when-no-host="198.51.100.4"'
+    _cn "one connection can be closed" 'close-one={"success":true}'
+    _cn "...by a DELETE of that connection" 'close-calls=|DELETE 192.168.1.1:9090/connections/aaaa-1'
+    _cn "a connection that is already gone counts as closed" 'close-gone={"success":true}'
+    _cn "a failure is reported" 'close-fails={"success":false,"http_code":"500"}'
+    _cn "a strange id is refused before any request" 'close-bad-id={"success":false,"error":"invalid connection id"}'
+    _cn "an empty id is refused" 'close-no-id={"success":false,"error":"invalid connection id"}'
+    _cn "all connections can be closed" 'close-all={"success":true}'
+    _cn "...by a DELETE of the whole table" 'close-all-calls=|DELETE 192.168.1.1:9090/connections'
+    _cn "the list is capped" 'capped=[2,1,"bbbb-2"]'
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -18586,6 +18671,7 @@ main() {
             test_subscription_param_filters
             test_ecs_auto
             test_dns_servers_check
+            test_connections_api
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -18665,6 +18751,7 @@ main() {
         paramfilters) test_subscription_param_filters ;;
         ecsauto)     test_ecs_auto ;;
         dnsservers)  test_dns_servers_check ;;
+        connections) test_connections_api ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
@@ -18678,6 +18765,7 @@ echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isola
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsforward"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment ecsauto"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsservers"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment connections"
             exit 1
             ;;
     esac
