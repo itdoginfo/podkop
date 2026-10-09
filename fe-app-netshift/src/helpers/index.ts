@@ -22,3 +22,4 @@ export * from './updateNotice';
 export * from './configSnapshots';
 export * from './pinGuardEvents';
 export * from './dnsBenchmark';
+export * from './summarizeLogErrors';

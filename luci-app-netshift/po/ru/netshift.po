@@ -80,6 +80,9 @@ msgstr "Разрешить небезопасный TLS при загрузке 
 msgid "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."
 msgstr "Обеспечивает доступ к YACD из WAN. Убедитесь, что в брандмауэре открыт соответствующий порт."
 
+msgid "And more errors"
+msgstr "И ещё ошибок"
+
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
 
@@ -1288,6 +1291,9 @@ msgstr "Секретный ключ для аутентификации удал
 
 msgid "Sections"
 msgstr "Секции"
+
+msgid "See the log"
+msgstr "Смотрите логи"
 
 msgid "Select a predefined list for routing"
 msgstr "Выберите предопределенный список для маршрутизации"

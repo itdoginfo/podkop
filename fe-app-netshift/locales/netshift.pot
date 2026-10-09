@@ -101,6 +101,10 @@ msgstr ""
 msgid "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."
 msgstr ""
 
+#: src/netshift/services/core.service.ts:44
+msgid "And more errors"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:717
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr ""
@@ -1791,6 +1795,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:60
 msgid "Sections"
+msgstr ""
+
+#: src/netshift/services/core.service.ts:44
+msgid "See the log"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:919

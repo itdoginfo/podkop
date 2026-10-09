@@ -3,6 +3,10 @@ import { store } from './store.service';
 import { logger } from './logger.service';
 import { NetShiftLogWatcher } from './netshiftLogWatcher.service';
 import { NetShiftShellMethods } from '../methods';
+import {
+  createLogErrorBatcher,
+  type LogErrorBatch,
+} from '../../helpers/summarizeLogErrors';
 
 export function coreService() {
   TabServiceInstance.onChange((activeId, tabs) => {
@@ -16,6 +20,34 @@ export function coreService() {
   });
 
   const watcher = NetShiftLogWatcher.getInstance();
+
+  // The error lines of one poll of the log become one group of notifications.
+  const showErrors = (batch: LogErrorBatch) => {
+    batch.shown.forEach((item) => {
+      ui.addNotification(
+        'NetShift Error',
+        E(
+          'div',
+          {},
+          item.count > 1 ? `${item.message} (×${item.count})` : item.message,
+        ),
+        'error',
+      );
+    });
+
+    if (batch.hiddenLines > 0) {
+      ui.addNotification(
+        'NetShift Error',
+        E(
+          'div',
+          {},
+          `${_('And more errors')}: ${batch.hiddenLines}. ${_('See the log')}`,
+        ),
+        'error',
+      );
+    }
+  };
+  const errorBatcher = createLogErrorBatcher(showErrors);
 
   watcher.init(
     async () => {
@@ -34,7 +66,7 @@ export function coreService() {
           line.toLowerCase().includes('[error]') ||
           line.toLowerCase().includes('[fatal]')
         ) {
-          ui.addNotification('NetShift Error', E('div', {}, line), 'error');
+          errorBatcher.push(line);
         }
       },
     },

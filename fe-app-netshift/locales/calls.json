@@ -148,6 +148,13 @@
     ]
   },
   {
+    "call": "And more errors",
+    "key": "And more errors",
+    "places": [
+      "src/netshift/services/core.service.ts:44"
+    ]
+  },
+  {
     "call": "Applicable for SOCKS and Shadowsocks proxy",
     "key": "Applicable for SOCKS and Shadowsocks proxy",
     "places": [
@@ -3046,6 +3053,13 @@
     "key": "Sections",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:60"
+    ]
+  },
+  {
+    "call": "See the log",
+    "key": "See the log",
+    "places": [
+      "src/netshift/services/core.service.ts:44"
     ]
   },
   {
