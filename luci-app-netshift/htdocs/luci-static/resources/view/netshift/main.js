@@ -1541,6 +1541,13 @@ function buildSubscriptionOutboundGroup(sectionName, proxies) {
 }
 
 // src/netshift/methods/custom/getDashboardSections.ts
+function splitTextLinks(text2) {
+  return (text2 ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
+}
+function linkIndexOfTag(section, tag) {
+  const match = tag?.slice(section.length + 1).match(/^(\d+)-out$/);
+  return match ? Number(match[1]) - 1 : -1;
+}
 async function getDashboardSections() {
   const configSections = await getConfigSections();
   const clashProxies = await NetShiftShellMethods.getClashApiProxies();
@@ -1605,17 +1612,18 @@ async function getDashboardSections() {
           ]
         };
       }
-      if (section.proxy_config_type === "selector") {
+      if (section.proxy_config_type === "selector" || section.proxy_config_type === "selector_text") {
         const selector = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-out`
         );
-        const links = section.selector_proxy_links ?? [];
+        const isText = section.proxy_config_type === "selector_text";
+        const links = isText ? splitTextLinks(section.selector_proxy_links_text) : section.selector_proxy_links ?? [];
         const outbounds = links.map((link, index) => ({
           link,
           outbound: proxies.find(
             (item) => item.code === `${section[".name"]}-${index + 1}-out`
           )
-        })).map((item) => ({
+        })).filter((item) => !isText || item.outbound).map((item) => ({
           code: item?.outbound?.code || "",
           displayName: getProxyUrlName(item.link) || item?.outbound?.value?.name || "",
           latency: item?.outbound?.value?.history?.[0]?.delay || 0,
@@ -1629,16 +1637,19 @@ async function getDashboardSections() {
           outbounds
         };
       }
-      if (section.proxy_config_type === "urltest") {
+      if (section.proxy_config_type === "urltest" || section.proxy_config_type === "urltest_text") {
+        const urltestLinks = section.proxy_config_type === "urltest_text" ? splitTextLinks(section.urltest_proxy_links_text) : section.urltest_proxy_links ?? [];
         const selector = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-out`
         );
         const outbound = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-urltest-out`
         );
-        const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
+        const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item) => ({
           code: item?.code || "",
-          displayName: getProxyUrlName(section.urltest_proxy_links?.[index]) || item?.value?.name || "",
+          displayName: getProxyUrlName(
+            urltestLinks[linkIndexOfTag(section[".name"], item?.code)] ?? ""
+          ) || item?.value?.name || "",
           latency: item?.value?.history?.[0]?.delay || 0,
           type: item?.value?.type || "",
           selected: selector?.value?.now === item?.code
