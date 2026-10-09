@@ -3,6 +3,7 @@ import { runDnsCheck } from './checks/runDnsCheck';
 import { runSingBoxCheck } from './checks/runSingBoxCheck';
 import { runNftCheck } from './checks/runNftCheck';
 import { runFakeIPCheck } from './checks/runFakeIPCheck';
+import { runEnvironmentCheck } from './checks/runEnvironmentCheck';
 import { loadingDiagnosticsChecksStore } from './diagnostic.store';
 import { logger, store, StoreType } from '../../services';
 import {
@@ -542,6 +543,8 @@ async function runChecks() {
     await runSectionsCheck();
 
     await runFakeIPCheck();
+
+    await runEnvironmentCheck();
   } catch (e) {
     logger.error('[DIAGNOSTIC]', 'runChecks - e', e);
   } finally {

@@ -1266,6 +1266,49 @@ function createSectionContent(section) {
   o = section.taboption(
     "advanced",
     form.Flag,
+    "mixed_proxy_auth",
+    _("Require a login for the Mixed Proxy"),
+    _(
+      "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends("mixed_proxy_enabled", "1");
+
+  o = section.taboption(
+    "advanced",
+    form.Value,
+    "mixed_proxy_username",
+    _("Mixed Proxy user name"),
+  );
+  o.rmempty = true;
+  o.depends("mixed_proxy_auth", "1");
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return _("Enter a user name");
+    }
+
+    return /^[^\s:]+$/.test(value) || _("No spaces or colons in the user name");
+  };
+
+  o = section.taboption(
+    "advanced",
+    form.Value,
+    "mixed_proxy_password",
+    _("Mixed Proxy password"),
+    _("Kept in the configuration file as it is typed."),
+  );
+  o.password = true;
+  o.rmempty = true;
+  o.depends("mixed_proxy_auth", "1");
+  o.validate = function (section_id, value) {
+    return value ? true : _("Enter a password");
+  };
+
+  o = section.taboption(
+    "advanced",
+    form.Flag,
     "resolve_real_ip_for_routing",
     _("Resolve real IP for routing"),
     _("Enable DNS resolve to get real IP when routing"),

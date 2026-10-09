@@ -87,6 +87,10 @@ export const NetShiftShellMethods = {
     callBaseMethod<NetShift.FakeIPCheckResult>(
       NetShift.AvailableMethods.CHECK_FAKEIP,
     ),
+  checkEnvironment: async () =>
+    callBaseMethod<NetShift.EnvironmentCheckResult>(
+      NetShift.AvailableMethods.CHECK_ENVIRONMENT,
+    ),
   checkNftRules: async () =>
     callBaseMethod<NetShift.NftRulesCheckResult>(
       NetShift.AvailableMethods.CHECK_NFT_RULES,

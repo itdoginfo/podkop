@@ -141,6 +141,13 @@
     ]
   },
   {
+    "call": "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all.",
+    "key": "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1271"
+    ]
+  },
+  {
     "call": "At least one proxy link must be specified.",
     "key": "At least one proxy link must be specified.",
     "places": [
@@ -298,6 +305,7 @@
     "key": "Checking, please wait",
     "places": [
       "src/netshift/tabs/diagnostic/checks/runDnsCheck.ts:15",
+      "src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:13",
       "src/netshift/tabs/diagnostic/checks/runFakeIPCheck.ts:15",
       "src/netshift/tabs/diagnostic/checks/runNftCheck.ts:13",
       "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:28",
@@ -315,6 +323,7 @@
     "call": "Checks failed",
     "key": "Checks failed",
     "places": [
+      "src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:48",
       "src/netshift/tabs/diagnostic/helpers/getMeta.ts:26"
     ]
   },
@@ -322,6 +331,7 @@
     "call": "Checks passed",
     "key": "Checks passed",
     "places": [
+      "src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:51",
       "src/netshift/tabs/diagnostic/helpers/getMeta.ts:13"
     ]
   },
@@ -350,7 +360,7 @@
     "call": "Clearing subscription cache and re-downloading… this may take a minute",
     "key": "Clearing subscription cache and re-downloading… this may take a minute",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:336"
+      "src/netshift/tabs/diagnostic/initController.ts:337"
     ]
   },
   {
@@ -469,7 +479,7 @@
     "call": "Core switch failed",
     "key": "Core switch failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:234",
+      "src/netshift/methods/shell/index.ts:238",
       "src/netshift/methods/shell/pollSingBoxComponentAction.ts:93"
     ]
   },
@@ -903,7 +913,7 @@
     "call": "Enable DNS resolve to get real IP when routing",
     "key": "Enable DNS resolve to get real IP when routing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1271"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1314"
     ]
   },
   {
@@ -956,6 +966,20 @@
     ]
   },
   {
+    "call": "Enter a password",
+    "key": "Enter a password",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1306"
+    ]
+  },
+  {
+    "call": "Enter a user name",
+    "key": "Enter a user name",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1289"
+    ]
+  },
+  {
     "call": "Enter complete outbound configuration in JSON format",
     "key": "Enter complete outbound configuration in JSON format",
     "places": [
@@ -981,6 +1005,13 @@
     "key": "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1036"
+    ]
+  },
+  {
+    "call": "Established connections can skip the marks NetShift sets: turn it off in Network - Firewall",
+    "key": "Established connections can skip the marks NetShift sets: turn it off in Network - Firewall",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:19"
     ]
   },
   {
@@ -1113,9 +1144,9 @@
     "call": "Failed to clear subscription cache",
     "key": "Failed to clear subscription cache",
     "places": [
-      "src/netshift/methods/shell/index.ts:330",
-      "src/netshift/tabs/diagnostic/initController.ts:351",
-      "src/netshift/tabs/diagnostic/initController.ts:355"
+      "src/netshift/methods/shell/index.ts:334",
+      "src/netshift/tabs/diagnostic/initController.ts:352",
+      "src/netshift/tabs/diagnostic/initController.ts:356"
     ]
   },
   {
@@ -1129,12 +1160,12 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:236",
-      "src/netshift/tabs/diagnostic/initController.ts:240",
-      "src/netshift/tabs/diagnostic/initController.ts:270",
-      "src/netshift/tabs/diagnostic/initController.ts:274",
-      "src/netshift/tabs/diagnostic/initController.ts:311",
-      "src/netshift/tabs/diagnostic/initController.ts:315",
+      "src/netshift/tabs/diagnostic/initController.ts:237",
+      "src/netshift/tabs/diagnostic/initController.ts:241",
+      "src/netshift/tabs/diagnostic/initController.ts:271",
+      "src/netshift/tabs/diagnostic/initController.ts:275",
+      "src/netshift/tabs/diagnostic/initController.ts:312",
+      "src/netshift/tabs/diagnostic/initController.ts:316",
       "src/netshift/tabs/manager/initController.ts:135",
       "src/netshift/tabs/manager/initController.ts:145",
       "src/netshift/tabs/manager/initController.ts:163",
@@ -1187,6 +1218,20 @@
     ]
   },
   {
+    "call": "Flow offloading is enabled",
+    "key": "Flow offloading is enabled",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:18"
+    ]
+  },
+  {
+    "call": "Flow offloading is off",
+    "key": "Flow offloading is off",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:26"
+    ]
+  },
+  {
     "call": "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router.",
     "key": "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router.",
     "places": [
@@ -1211,7 +1256,7 @@
     "call": "Global check",
     "key": "Global check",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:231"
+      "src/netshift/tabs/diagnostic/initController.ts:232"
     ]
   },
   {
@@ -1706,9 +1751,24 @@
     ]
   },
   {
+    "call": "IPv6 handling matches the network",
+    "key": "IPv6 handling matches the network",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:65"
+    ]
+  },
+  {
+    "call": "IPv6 traffic goes around the tunnel: enable IPv6 in the settings",
+    "key": "IPv6 traffic goes around the tunnel: enable IPv6 in the settings",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:58"
+    ]
+  },
+  {
     "call": "Issues detected",
     "key": "Issues detected",
     "places": [
+      "src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:50",
       "src/netshift/tabs/diagnostic/helpers/getMeta.ts:20"
     ]
   },
@@ -1724,6 +1784,13 @@
     "key": "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all.",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:361"
+    ]
+  },
+  {
+    "call": "Kept in the configuration file as it is typed.",
+    "key": "Kept in the configuration file as it is typed.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1300"
     ]
   },
   {
@@ -1847,6 +1914,13 @@
     ]
   },
   {
+    "call": "min",
+    "key": "min",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:44"
+    ]
+  },
+  {
     "call": "Mixed proxy and DNS resolution tuning",
     "key": "Mixed proxy and DNS resolution tuning",
     "places": [
@@ -1854,10 +1928,24 @@
     ]
   },
   {
+    "call": "Mixed Proxy password",
+    "key": "Mixed Proxy password",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1299"
+    ]
+  },
+  {
     "call": "Mixed Proxy Port",
     "key": "Mixed Proxy Port",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1254"
+    ]
+  },
+  {
+    "call": "Mixed Proxy user name",
+    "key": "Mixed Proxy user name",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1283"
     ]
   },
   {
@@ -1931,6 +2019,20 @@
     ]
   },
   {
+    "call": "No spaces or colons in the user name",
+    "key": "No spaces or colons in the user name",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1292"
+    ]
+  },
+  {
+    "call": "Not available",
+    "key": "Not available",
+    "places": [
+      "src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:31"
+    ]
+  },
+  {
     "call": "Not available for your architecture",
     "key": "Not available for your architecture",
     "places": [
@@ -1978,7 +2080,8 @@
       "src/netshift/tabs/diagnostic/diagnostic.store.ts:70",
       "src/netshift/tabs/diagnostic/diagnostic.store.ts:78",
       "src/netshift/tabs/diagnostic/diagnostic.store.ts:86",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:94"
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:94",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:102"
     ]
   },
   {
@@ -2084,11 +2187,12 @@
     "call": "Pending",
     "key": "Pending",
     "places": [
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:110",
       "src/netshift/tabs/diagnostic/diagnostic.store.ts:118",
       "src/netshift/tabs/diagnostic/diagnostic.store.ts:126",
       "src/netshift/tabs/diagnostic/diagnostic.store.ts:134",
-      "src/netshift/tabs/diagnostic/diagnostic.store.ts:142"
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:142",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:150",
+      "src/netshift/tabs/diagnostic/diagnostic.store.ts:158"
     ]
   },
   {
@@ -2197,6 +2301,13 @@
     ]
   },
   {
+    "call": "Require a login for the Mixed Proxy",
+    "key": "Require a login for the Mixed Proxy",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1270"
+    ]
+  },
+  {
     "call": "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores",
     "key": "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores",
     "places": [
@@ -2207,7 +2318,7 @@
     "call": "Resolve real IP for routing",
     "key": "Resolve real IP for routing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1270"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1313"
     ]
   },
   {
@@ -2461,7 +2572,7 @@
     "call": "Self-update failed",
     "key": "Self-update failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:405"
+      "src/netshift/methods/shell/index.ts:409"
     ]
   },
   {
@@ -2503,7 +2614,7 @@
     "call": "Show sing-box config",
     "key": "Show sing-box config",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:299",
+      "src/netshift/tabs/diagnostic/initController.ts:300",
       "src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:118"
     ]
   },
@@ -2647,7 +2758,7 @@
     "call": "Subscription cache cleared and re-downloaded",
     "key": "Subscription cache cleared and re-downloaded",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:344"
+      "src/netshift/tabs/diagnostic/initController.ts:345"
     ]
   },
   {
@@ -2813,6 +2924,34 @@
     ]
   },
   {
+    "call": "The router clock is not set",
+    "key": "The router clock is not set",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:34"
+    ]
+  },
+  {
+    "call": "The router clock is off",
+    "key": "The router clock is off",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:43"
+    ]
+  },
+  {
+    "call": "The router clock is right",
+    "key": "The router clock is right",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:49"
+    ]
+  },
+  {
+    "call": "The router has a global IPv6 address, IPv6 handling is off",
+    "key": "The router has a global IPv6 address, IPv6 handling is off",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:57"
+    ]
+  },
+  {
     "call": "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again",
     "key": "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again",
     "places": [
@@ -2873,6 +3012,13 @@
     "key": "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:278"
+    ]
+  },
+  {
+    "call": "TLS and Reality fail with a wrong time: check NTP",
+    "key": "TLS and Reality fail with a wrong time: check NTP",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:35"
     ]
   },
   {
@@ -2938,12 +3084,12 @@
     "key": "unknown",
     "places": [
       "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7",
-      "src/netshift/tabs/diagnostic/initController.ts:43",
       "src/netshift/tabs/diagnostic/initController.ts:44",
       "src/netshift/tabs/diagnostic/initController.ts:45",
       "src/netshift/tabs/diagnostic/initController.ts:46",
       "src/netshift/tabs/diagnostic/initController.ts:47",
       "src/netshift/tabs/diagnostic/initController.ts:48",
+      "src/netshift/tabs/diagnostic/initController.ts:49",
       "src/netshift/tabs/manager/initController.ts:43",
       "src/netshift/tabs/manager/initController.ts:44",
       "src/netshift/tabs/manager/initController.ts:45",
@@ -3220,7 +3366,7 @@
     "call": "View logs",
     "key": "View logs",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:265",
+      "src/netshift/tabs/diagnostic/initController.ts:266",
       "src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:109"
     ]
   },

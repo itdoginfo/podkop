@@ -607,6 +607,7 @@ sing_box_cm_add_direct_inbound() {
 #   tag: string, identifier for the inbound
 #   listen_address: string, IP address to listen on
 #   listen_port: integer, port to listen on
+#   username, password: strings, optional; with both set the inbound requires them
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -617,17 +618,21 @@ sing_box_cm_add_mixed_inbound() {
     local tag="$2"
     local listen_address="$3"
     local listen_port="$4"
+    local username="${5:-}"
+    local password="${6:-}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
         --arg listen_address "$listen_address" \
         --argjson listen_port "$listen_port" \
+        --arg username "$username" \
+        --arg password "$password" \
         '.inbounds += [{
 			type: "mixed",
 			tag: $tag,
 			listen: $listen_address,
 			listen_port: $listen_port,
-		}]'
+		} + (if $username != "" and $password != "" then {users: [{username: $username, password: $password}]} else {} end)]'
 }
 
 #######################################

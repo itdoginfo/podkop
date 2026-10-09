@@ -97,6 +97,10 @@ msgstr ""
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1271
+msgid "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all."
+msgstr ""
+
 #: src/validators/validateProxyUrlList.ts:39
 msgid "At least one proxy link must be specified."
 msgstr ""
@@ -188,6 +192,7 @@ msgid "Check update"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runDnsCheck.ts:15
+#: src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:13
 #: src/netshift/tabs/diagnostic/checks/runFakeIPCheck.ts:15
 #: src/netshift/tabs/diagnostic/checks/runNftCheck.ts:13
 #: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:28
@@ -199,10 +204,12 @@ msgstr ""
 msgid "checks"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:48
 #: src/netshift/tabs/diagnostic/helpers/getMeta.ts:26
 msgid "Checks failed"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:51
 #: src/netshift/tabs/diagnostic/helpers/getMeta.ts:13
 msgid "Checks passed"
 msgstr ""
@@ -219,7 +226,7 @@ msgstr ""
 msgid "Clear subscription cache"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:336
+#: src/netshift/tabs/diagnostic/initController.ts:337
 msgid "Clearing subscription cache and re-downloading… this may take a minute"
 msgstr ""
 
@@ -287,7 +294,7 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:234
+#: src/netshift/methods/shell/index.ts:238
 #: src/netshift/methods/shell/pollSingBoxComponentAction.ts:93
 msgid "Core switch failed"
 msgstr ""
@@ -541,7 +548,7 @@ msgstr ""
 msgid "Enable built-in DNS resolver for domains handled by this section"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1271
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1314
 msgid "Enable DNS resolve to get real IP when routing"
 msgstr ""
 
@@ -573,6 +580,14 @@ msgstr ""
 msgid "Enable YACD WAN Access"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1306
+msgid "Enter a password"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1289
+msgid "Enter a user name"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:182
 msgid "Enter complete outbound configuration in JSON format"
 msgstr ""
@@ -587,6 +602,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1036
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:19
+msgid "Established connections can skip the marks NetShift sets: turn it off in Network - Firewall"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:536
@@ -661,9 +680,9 @@ msgstr ""
 msgid "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered."
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:330
-#: src/netshift/tabs/diagnostic/initController.ts:351
-#: src/netshift/tabs/diagnostic/initController.ts:355
+#: src/netshift/methods/shell/index.ts:334
+#: src/netshift/tabs/diagnostic/initController.ts:352
+#: src/netshift/tabs/diagnostic/initController.ts:356
 msgid "Failed to clear subscription cache"
 msgstr ""
 
@@ -671,12 +690,12 @@ msgstr ""
 msgid "Failed to copy!"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:236
-#: src/netshift/tabs/diagnostic/initController.ts:240
-#: src/netshift/tabs/diagnostic/initController.ts:270
-#: src/netshift/tabs/diagnostic/initController.ts:274
-#: src/netshift/tabs/diagnostic/initController.ts:311
-#: src/netshift/tabs/diagnostic/initController.ts:315
+#: src/netshift/tabs/diagnostic/initController.ts:237
+#: src/netshift/tabs/diagnostic/initController.ts:241
+#: src/netshift/tabs/diagnostic/initController.ts:271
+#: src/netshift/tabs/diagnostic/initController.ts:275
+#: src/netshift/tabs/diagnostic/initController.ts:312
+#: src/netshift/tabs/diagnostic/initController.ts:316
 #: src/netshift/tabs/manager/initController.ts:135
 #: src/netshift/tabs/manager/initController.ts:145
 #: src/netshift/tabs/manager/initController.ts:163
@@ -714,6 +733,14 @@ msgstr ""
 msgid "Fastest"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:18
+msgid "Flow offloading is enabled"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:26
+msgid "Flow offloading is off"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:623
 msgid "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router."
 msgstr ""
@@ -726,7 +753,7 @@ msgstr ""
 msgid "Get global check"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:231
+#: src/netshift/tabs/diagnostic/initController.ts:232
 msgid "Global check"
 msgstr ""
 
@@ -1014,6 +1041,15 @@ msgstr ""
 msgid "IPv6 CIDR must be between 0 and 128"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:65
+msgid "IPv6 handling matches the network"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:58
+msgid "IPv6 traffic goes around the tunnel: enable IPv6 in the settings"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:50
 #: src/netshift/tabs/diagnostic/helpers/getMeta.ts:20
 msgid "Issues detected"
 msgstr ""
@@ -1024,6 +1060,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:361
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1300
+msgid "Kept in the configuration file as it is typed."
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:611
@@ -1095,12 +1135,24 @@ msgstr ""
 msgid "Memory Usage"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:44
+msgid "min"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:32
 msgid "Mixed proxy and DNS resolution tuning"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1299
+msgid "Mixed Proxy password"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1254
 msgid "Mixed Proxy Port"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1283
+msgid "Mixed Proxy user name"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:378
@@ -1143,6 +1195,14 @@ msgstr ""
 msgid "No other marking rules found"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1292
+msgid "No spaces or colons in the user name"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:31
+msgid "Not available"
+msgstr ""
+
 #: src/netshift/tabs/manager/cards.ts:359
 msgid "Not available for your architecture"
 msgstr ""
@@ -1173,6 +1233,7 @@ msgstr ""
 #: src/netshift/tabs/diagnostic/diagnostic.store.ts:78
 #: src/netshift/tabs/diagnostic/diagnostic.store.ts:86
 #: src/netshift/tabs/diagnostic/diagnostic.store.ts:94
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:102
 msgid "Not running"
 msgstr ""
 
@@ -1233,11 +1294,12 @@ msgstr ""
 msgid "Path must end with cache.db"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/diagnostic.store.ts:110
 #: src/netshift/tabs/diagnostic/diagnostic.store.ts:118
 #: src/netshift/tabs/diagnostic/diagnostic.store.ts:126
 #: src/netshift/tabs/diagnostic/diagnostic.store.ts:134
 #: src/netshift/tabs/diagnostic/diagnostic.store.ts:142
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:150
+#: src/netshift/tabs/diagnostic/diagnostic.store.ts:158
 msgid "Pending"
 msgstr ""
 
@@ -1301,11 +1363,15 @@ msgstr ""
 msgid "Remote Subnet Lists"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1270
+msgid "Require a login for the Mixed Proxy"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:660
 msgid "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1270
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1313
 msgid "Resolve real IP for routing"
 msgstr ""
 
@@ -1451,7 +1517,7 @@ msgstr ""
 msgid "Selector Proxy Links (one per line)"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:405
+#: src/netshift/methods/shell/index.ts:409
 msgid "Self-update failed"
 msgstr ""
 
@@ -1475,7 +1541,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:299
+#: src/netshift/tabs/diagnostic/initController.ts:300
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:118
 msgid "Show sing-box config"
 msgstr ""
@@ -1559,7 +1625,7 @@ msgstr ""
 msgid "Subscription"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:344
+#: src/netshift/tabs/diagnostic/initController.ts:345
 msgid "Subscription cache cleared and re-downloaded"
 msgstr ""
 
@@ -1656,6 +1722,22 @@ msgstr ""
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:34
+msgid "The router clock is not set"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:43
+msgid "The router clock is off"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:49
+msgid "The router clock is right"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:57
+msgid "The router has a global IPv6 address, IPv6 handling is off"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1229
 msgid "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again"
 msgstr ""
@@ -1690,6 +1772,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:278
 msgid "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:35
+msgid "TLS and Reality fail with a wrong time: check NTP"
 msgstr ""
 
 #: src/netshift/tabs/dashboard/initController.ts:414
@@ -1727,12 +1813,12 @@ msgid "UDP over TCP"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7
-#: src/netshift/tabs/diagnostic/initController.ts:43
 #: src/netshift/tabs/diagnostic/initController.ts:44
 #: src/netshift/tabs/diagnostic/initController.ts:45
 #: src/netshift/tabs/diagnostic/initController.ts:46
 #: src/netshift/tabs/diagnostic/initController.ts:47
 #: src/netshift/tabs/diagnostic/initController.ts:48
+#: src/netshift/tabs/diagnostic/initController.ts:49
 #: src/netshift/tabs/manager/initController.ts:43
 #: src/netshift/tabs/manager/initController.ts:44
 #: src/netshift/tabs/manager/initController.ts:45
@@ -1904,7 +1990,7 @@ msgstr ""
 msgid "Version"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:265
+#: src/netshift/tabs/diagnostic/initController.ts:266
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:109
 msgid "View logs"
 msgstr ""
