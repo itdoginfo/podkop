@@ -14,3 +14,4 @@ export * from './validateProxyUrl';
 export * from './validateProxyUrlList';
 export * from './validateSocksUrl';
 export * from './validateDnsPool';
+export * from './validateDnsForward';

@@ -339,6 +339,21 @@ function createSectionContent(section) {
   o = section.taboption(
     "subscription",
     form.Flag,
+    "pin_guard",
+    _("Leave a dead server chosen by hand"),
+    _(
+      "When a server picked by hand stops answering (three checks in a row, every 30 seconds), go back to the automatic choice (the fastest server) and say so on the dashboard. Needs the automatic group, so it works with URLTest lists and subscriptions; it does nothing together with the list-order mode.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends({ connection_type: "proxy", proxy_config_type: "urltest" });
+  o.depends({ connection_type: "proxy", proxy_config_type: "urltest_text" });
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Flag,
     "priority_mode",
     _("Prefer servers in list order"),
     _(
@@ -414,6 +429,65 @@ function createSectionContent(section) {
 
     return _("Use a two-letter country code, for example NL");
   };
+
+  // Filters by how a server connects: protocol, transport, security.
+  const paramFilters = [
+    {
+      kind: "protocols",
+      include: _("Include servers by protocol"),
+      exclude: _("Exclude servers by protocol"),
+      choices: {
+        vless: "VLESS",
+        vmess: "VMess",
+        trojan: "Trojan",
+        shadowsocks: "Shadowsocks",
+        hysteria2: "Hysteria2",
+        tuic: "TUIC",
+        socks: "SOCKS",
+      },
+    },
+    {
+      kind: "transports",
+      include: _("Include servers by transport"),
+      exclude: _("Exclude servers by transport"),
+      choices: {
+        tcp: "TCP",
+        ws: "WebSocket",
+        grpc: "gRPC",
+        http: "HTTP/2",
+        httpupgrade: "HTTPUpgrade",
+        xhttp: "XHTTP",
+      },
+    },
+    {
+      kind: "security",
+      include: _("Include servers by security"),
+      exclude: _("Exclude servers by security"),
+      choices: {
+        reality: "Reality",
+        tls: "TLS",
+        none: _("No encryption layer"),
+      },
+    },
+  ];
+
+  paramFilters.forEach(({ kind, include, exclude, choices }) => {
+    [
+      ["include", include, _("Keep only servers that connect this way.")],
+      ["exclude", exclude, _("Drop servers that connect this way.")],
+    ].forEach(([direction, title, description]) => {
+      o = section.taboption(
+        "subscription",
+        form.DynamicList,
+        `subscription_filter_${direction}_${kind}`,
+        title,
+        `${description} ${_("Combined with the other filters: a server has to pass all of them.")}`,
+      );
+      Object.entries(choices).forEach(([value, label]) => o.value(value, label));
+      o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+      o.rmempty = true;
+    });
+  });
 
   o = section.taboption(
     "connection",
@@ -530,12 +604,19 @@ function createSectionContent(section) {
     form.ListValue,
     "urltest_check_interval",
     _("URLTest Check Interval"),
-    _("The interval between connectivity tests"),
+    _("The interval between connectivity tests. A longer interval means less traffic through every server of the group; \"Only at start\" tests once when the service starts."),
   );
   o.value("30s", _("Every 30 seconds"));
   o.value("1m", _("Every 1 minute"));
   o.value("3m", _("Every 3 minutes"));
   o.value("5m", _("Every 5 minutes"));
+  o.value("10m", _("Every 10 minutes"));
+  o.value("20m", _("Every 20 minutes"));
+  o.value("30m", _("Every 30 minutes"));
+  o.value("1h", _("Every hour"));
+  o.value("6h", _("Every 6 hours"));
+  o.value("24h", _("Every 24 hours"));
+  o.value("off", _("Only at start, never again"));
   o.default = "3m";
   o.depends({ connection_type: "proxy", proxy_config_type: "urltest" });
   o.depends({ connection_type: "proxy", proxy_config_type: "urltest_text" });
@@ -944,7 +1025,7 @@ function createSectionContent(section) {
     "user_domains",
     _("User Domains"),
     _(
-      "Enter domain names without protocols, e.g. example.com or sub.example.com",
+      "Enter domain names without protocols, e.g. example.com or sub.example.com. Prefixes: full: (exact host), keyword: (part of the name), regex: (regular expression)",
     ),
   );
   o.placeholder = "Domains list";
@@ -973,11 +1054,11 @@ function createSectionContent(section) {
     "user_domains_text",
     _("User Domains List"),
     _(
-      "Enter domain names separated by commas, spaces, or newlines. You can add comments using //",
+      "Enter domain names separated by commas, spaces, or newlines. You can add comments using //. Prefixes: full: (exact host), keyword: (part of the name), regex: (regular expression, no spaces or commas)",
     ),
   );
   o.placeholder =
-    "example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains";
+    "example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains\nfull:exact.example.org keyword:tracker regex:^ads[0-9]+\\.example\\.com$";
   o.depends("user_domain_list_type", "text");
   o.rows = 8;
   o.rmempty = false;

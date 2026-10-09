@@ -91,6 +91,57 @@ export const NetShiftShellMethods = {
     callBaseMethod<NetShift.EnvironmentCheckResult>(
       NetShift.AvailableMethods.CHECK_ENVIRONMENT,
     ),
+  checkRoute: async (target: string, source = '') =>
+    callBaseMethod<NetShift.RouteCheckResult>(
+      NetShift.AvailableMethods.CHECK_ROUTE,
+      source ? [target, source] : [target],
+      undefined,
+      // Replaying the rules runs the core a few times: do not hold other calls.
+      { nobatch: true },
+    ),
+  getConnections: async () =>
+    callBaseMethod<unknown>(
+      NetShift.AvailableMethods.CLASH_API,
+      [NetShift.AvailableClashAPIMethods.GET_CONNECTIONS],
+      undefined,
+      { nobatch: true },
+    ),
+  closeConnection: async (id: string) =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.CLASH_API, [
+      NetShift.AvailableClashAPIMethods.CLOSE_CONNECTION,
+      id,
+    ]),
+  closeAllConnections: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.CLASH_API, [
+      NetShift.AvailableClashAPIMethods.CLOSE_CONNECTIONS,
+    ]),
+  getUpdateNotice: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.GET_UPDATE_NOTICE),
+  refreshUpdateNotice: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.REFRESH_UPDATE_NOTICE),
+  listSnapshots: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.CONFIG_SNAPSHOT, [
+      'list',
+    ]),
+  saveSnapshot: async () =>
+    callBaseMethod<{ ok?: boolean; error?: string }>(
+      NetShift.AvailableMethods.CONFIG_SNAPSHOT,
+      ['save', 'manual'],
+    ),
+  restoreSnapshot: async (id: string) =>
+    callBaseMethod<{ ok?: boolean; error?: string }>(
+      NetShift.AvailableMethods.CONFIG_SNAPSHOT,
+      ['restore', id],
+    ),
+  getPinGuardEvents: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.GET_PIN_GUARD_EVENTS),
+  dnsBenchmark: async () =>
+    callBaseMethod<unknown>(
+      NetShift.AvailableMethods.DNS_BENCHMARK,
+      [],
+      undefined,
+      { nobatch: true },
+    ),
   checkNftRules: async () =>
     callBaseMethod<NetShift.NftRulesCheckResult>(
       NetShift.AvailableMethods.CHECK_NFT_RULES,

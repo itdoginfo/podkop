@@ -102,3 +102,35 @@ describe('validateDomainRule', () => {
     expect(validateDomainRule('.net', false).valid).toBe(false);
   });
 });
+
+describe('validateDomainRule prefixes', () => {
+  it.each([
+    ['full:example.com'],
+    ['FULL:Sub.Example.com'],
+    ['keyword:tracker'],
+    ['keyword:my-ads_1.v2'],
+    ['regex:^ads[0-9]+\\.example\\.com$'],
+    ['regexp:\\d+\\.cdn\\.net'],
+  ])('accepts %s', (entry) => {
+    expect(validateDomainRule(entry, true).valid).toBe(true);
+  });
+
+  it.each([
+    ['full:'],
+    ['full:not_a_host'],
+    ['full:example.com/path'],
+    ['keyword:'],
+    ['keyword:a b'],
+    ['keyword:bad!kw'],
+    ['regex:'],
+    ['regex:(unclosed'],
+    ['regex:a,b'],
+    ['regex:' + 'a'.repeat(257)],
+  ])('rejects %s', (entry) => {
+    expect(validateDomainRule(entry, true).valid).toBe(false);
+  });
+
+  it('still rejects an unprefixed entry with a colon', () => {
+    expect(validateDomainRule('foo:bar.com', true).valid).toBe(false);
+  });
+});

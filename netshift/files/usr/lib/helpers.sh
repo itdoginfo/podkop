@@ -97,6 +97,55 @@ normalize_domain_case() {
     printf '%s' "$1" | tr 'A-Z' 'a-z'
 }
 
+# Normalizes one domain-rule entry of a list. A bare "example.com" matches the
+# domain and all its subdomains. The v2ray-style prefixes narrow or widen that:
+#   full:host      the host only (no subdomains)
+#   keyword:text   any host containing the text
+#   regex:pattern  hosts matching the regular expression (regexp: is accepted too)
+# Prints the entry in its canonical form (prefix lowercased, host and keyword
+# lowercased, the pattern left as typed: case changes the meaning of \d and \D)
+# and returns 1 for anything that is not a valid entry. The pattern itself is
+# checked later against the core (validate_domain_regex_file): there is no regex
+# engine in jq on OpenWrt.
+domain_rule_normalize() {
+    local entry="$1"
+    local lowered prefix value
+
+    lowered="$(normalize_domain_case "$entry")"
+    case "$lowered" in
+    full:*) prefix="full" ;;
+    keyword:*) prefix="keyword" ;;
+    regex:* | regexp:*) prefix="regex" ;;
+    *)
+        is_domain_suffix "$lowered" || return 1
+        printf '%s\n' "$lowered"
+        return 0
+        ;;
+    esac
+
+    value="${entry#*:}"
+    case "$prefix" in
+    full)
+        value="$(normalize_domain_case "$value")"
+        is_domain "$value" || return 1
+        ;;
+    keyword)
+        value="$(normalize_domain_case "$value")"
+        case "$value" in
+        "" | *[!a-z0-9._-]*) return 1 ;;
+        esac
+        ;;
+    regex)
+        case "$value" in
+        "" | *[[:space:],]*) return 1 ;;
+        esac
+        [ "${#value}" -le 256 ] || return 1
+        ;;
+    esac
+
+    printf '%s:%s\n' "$prefix" "$value"
+}
+
 # Checks if the given string is a valid base64-encoded sequence
 is_base64() {
     local str="$1"
@@ -832,19 +881,19 @@ parse_domain_or_subnet_file_to_comma_string() {
     local filepath="$1"
     local type="$2"
 
-    local result
+    local result normalized
     while IFS= read -r line; do
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        line=$(printf '%s\n' "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
         [ -z "$line" ] && continue
 
         case "$type" in
         domains)
-            line="$(normalize_domain_case "$line")"
-            if ! is_domain_suffix "$line"; then
+            if ! normalized="$(domain_rule_normalize "$line")"; then
                 log "'$line' is not a valid domain" "debug"
                 continue
             fi
+            line="$normalized"
             ;;
         subnets)
             if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then

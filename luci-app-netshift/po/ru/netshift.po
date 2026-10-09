@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-04 12:40+0300\n"
-"PO-Revision-Date: 2026-10-04 12:40+0300\n"
+"POT-Creation-Date: 2026-10-09 13:06+0300\n"
+"PO-Revision-Date: 2026-10-09 13:06+0300\n"
 "Last-Translator: agent\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -35,6 +35,12 @@ msgstr "✘ Остановлен"
 msgid "77.88.8.8 (Yandex)"
 msgstr "77.88.8.8 (Yandex)"
 
+msgid "A dead server was left"
+msgstr "Мёртвый сервер оставлен"
+
+msgid "A newer version is available"
+msgstr "Доступна новая версия"
+
 msgid "A path is only allowed for doh and doh3"
 msgstr "Путь допустим только для doh и doh3"
 
@@ -56,14 +62,14 @@ msgstr "Добавьте свои домены: выберите Динамич�
 msgid "Add your own subnets or IPs: choose Dynamic List (one per row) or Text List (free-form), or Disabled to skip"
 msgstr "Добавьте свои подсети или IP: выберите Динамический список (по одному в строке) или Текстовый список (свободный ввод), либо Отключено, чтобы пропустить"
 
-msgid "Additional DNS servers"
-msgstr "Дополнительные DNS-серверы"
-
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
 
 msgid "Advanced"
 msgstr "Дополнительно"
+
+msgid "Age"
+msgstr "Возраст"
 
 msgid "All subscriptions updated"
 msgstr "Все подписки обновлены"
@@ -92,6 +98,9 @@ msgstr "Необходимо указать хотя бы одну действ�
 msgid "Auto"
 msgstr "Авто"
 
+msgid "Automatic (first working)"
+msgstr "Автоматически (первый рабочий)"
+
 msgid "Available actions"
 msgstr "Доступные действия"
 
@@ -104,17 +113,26 @@ msgstr "Блокировать DoH-серверы"
 msgid "Block Leaks When Tunnel Is Down"
 msgstr "Блокировать утечки, пока туннель не поднялся"
 
+msgid "Blocked by a rule"
+msgstr "Заблокировано правилом"
+
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
 
 msgid "Bootstrap DNS server"
 msgstr "Bootstrap DNS-сервер"
 
+msgid "Bring back the settings of"
+msgstr "Вернуть настройки от"
+
 msgid "Browser is not using FakeIP"
 msgstr "Браузер не использует FakeIP"
 
 msgid "Browser is using FakeIP correctly"
 msgstr "Браузер использует FakeIP"
+
+msgid "By address"
+msgstr "По адресу"
 
 msgid "By country flag"
 msgstr "По флагу страны"
@@ -134,17 +152,29 @@ msgstr "Путь к файлу кэша"
 msgid "Cache file path cannot be empty"
 msgstr "Путь к файлу кэша не может быть пустым"
 
+msgid "Cancel"
+msgstr "Отмена"
+
 msgid "Cannot receive checks result"
 msgstr "Не удалось получить результаты проверки"
 
 msgid "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly."
 msgstr "Соединить цепочкой (двойной хоп): серверы этой секции достигаются через выход выбранной секции. Если цепочку построить нельзя, трафик этой секции отклоняется, а не отправляется напрямую."
 
+msgid "Change the static lease"
+msgstr "Изменить статическую аренду"
+
+msgid "Check"
+msgstr "Проверить"
+
 msgid "Check update"
 msgstr "Проверить обновление"
 
 msgid "Checking, please wait"
 msgstr "Проверяем, пожалуйста подождите"
+
+msgid "Checking..."
+msgstr "Проверяю..."
 
 msgid "checks"
 msgstr "проверки"
@@ -170,8 +200,17 @@ msgstr "Очистка кеша подписок и повторная загр�
 msgid "Close"
 msgstr "Закрыть"
 
+msgid "Close all"
+msgstr "Закрыть все"
+
+msgid "Close all connections? Active downloads and calls will be interrupted."
+msgstr "Закрыть все соединения? Идущие загрузки и звонки прервутся."
+
 msgid "cloudflare-dns.com/dns-query (Cloudflare DoH)"
 msgstr "cloudflare-dns.com/dns-query (Cloudflare DoH)"
+
+msgid "Combined with the other filters: a server has to pass all of them."
+msgstr "Сочетается с остальными фильтрами: сервер должен пройти все."
 
 msgid "common.dns.yandex.net/dns-query (Yandex DoH)"
 msgstr "common.dns.yandex.net/dns-query (Yandex DoH)"
@@ -194,6 +233,9 @@ msgstr "Путь к файлу конфигурации"
 msgid "Configuration for NetShift service"
 msgstr "Конфигурация службы NetShift"
 
+msgid "Configuration snapshots"
+msgstr "Снимки настроек"
+
 msgid "Configuration Type"
 msgstr "Тип конфигурации"
 
@@ -211,6 +253,9 @@ msgstr "Тип подключения, транспорт и DNS-резолве�
 
 msgid "Connection URL"
 msgstr "URL подключения"
+
+msgid "Connections"
+msgstr "Соединения"
 
 msgid "Copy"
 msgstr "Копировать"
@@ -230,6 +275,9 @@ msgstr "Свои домены"
 msgid "Custom subnets"
 msgstr "Свои подсети"
 
+msgid "d"
+msgstr "д"
+
 msgid "Dashboard"
 msgstr "Дашборд"
 
@@ -245,8 +293,14 @@ msgstr "Задержка в миллисекундах перед перезаг
 msgid "Delay value cannot be empty"
 msgstr "Значение задержки не может быть пустым"
 
+msgid "Destination"
+msgstr "Назначение"
+
 msgid "Detect country by IP (GeoIP)"
 msgstr "Определять страну по IP (GeoIP)"
+
+msgid "Detect the EDNS Client Subnet from the WAN"
+msgstr "Определять EDNS Client Subnet по WAN"
 
 msgid "Dev"
 msgstr "Dev"
@@ -259,6 +313,9 @@ msgstr "Устройства"
 
 msgid "DHCP has DNS server"
 msgstr "DHCP содержит DNS сервер"
+
+msgid "DHCP lease"
+msgstr "Аренда DHCP"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
@@ -296,6 +353,9 @@ msgstr "DNS"
 msgid "DNS (own DNS server for the domains)"
 msgstr "DNS (свой DNS-сервер для доменов)"
 
+msgid "DNS forwarding by zone"
+msgstr "Перенаправление DNS по зонам"
+
 msgid "DNS on router"
 msgstr "DNS на роутере"
 
@@ -320,6 +380,9 @@ msgstr "Тип протокола DNS"
 msgid "DNS Rewrite TTL"
 msgstr "Перезапись TTL для DNS"
 
+msgid "DNS server"
+msgstr "DNS-сервер"
+
 msgid "DNS Server"
 msgstr "DNS-сервер"
 
@@ -334,6 +397,15 @@ msgstr "DNS-сервер не должен содержать пробелы"
 
 msgid "DNS server timeout"
 msgstr "Таймаут DNS-сервера"
+
+msgid "DNS servers"
+msgstr "DNS-серверы"
+
+msgid "DNS speed test"
+msgstr "Тест скорости DNS"
+
+msgid "DNS: answered with a FakeIP address, the traffic enters the tunnel path"
+msgstr "DNS: выдаётся адрес FakeIP, трафик идёт по пути туннеля"
 
 msgid "dns.adguard-dns.com/dns-query (AdGuard DoH)"
 msgstr "dns.adguard-dns.com/dns-query (AdGuard DoH)"
@@ -377,14 +449,23 @@ msgstr "Скачивать sing-box, пакеты NetShift и сведения �
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr "Загрузка всех списков через указанный прокси/VPN"
 
+msgid "Drop servers that connect this way."
+msgstr "Убрать серверы, подключающиеся так."
+
 msgid "Drop servers whose name carries the flag of one of these countries. Two-letter codes, for example RU or US."
 msgstr "Отбросить серверы, в названии которых есть флаг одной из этих стран. Двухбуквенные коды, например RU или US."
 
 msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive)."
 msgstr "Исключать серверы подписки, имя которых содержит любое из этих ключевых слов (без учёта регистра)."
 
+msgid "Dynamic"
+msgstr "Динамический"
+
 msgid "Dynamic List"
 msgstr "Динамический список"
+
+msgid "Edit"
+msgstr "Изменить"
 
 msgid "EDNS Client Subnet"
 msgstr "EDNS Client Subnet (ECS)"
@@ -419,6 +500,9 @@ msgstr "Включить YACD"
 msgid "Enable YACD WAN Access"
 msgstr "Включить доступ YACD WAN"
 
+msgid "Enter a domain or an IP address to see which section, DNS server or block handles it."
+msgstr "Введите домен или IP-адрес, чтобы увидеть, какая секция, DNS-сервер или блокировка его обработает."
+
 msgid "Enter a password"
 msgstr "Введите пароль"
 
@@ -428,11 +512,11 @@ msgstr "Введите имя пользователя"
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
 
-msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //"
-msgstr "Введите доменные имена, разделяя их запятыми, пробелами или переносами строк. Вы можете добавлять комментарии, используя //"
+msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //. Prefixes: full: (exact host), keyword: (part of the name), regex: (regular expression, no spaces or commas)"
+msgstr "Введите доменные имена через запятую, пробел или с новой строки. Комментарии добавляются через //. Префиксы: full: (точное имя), keyword: (часть имени), regex: (регулярное выражение, без пробелов и запятых)"
 
-msgid "Enter domain names without protocols, e.g. example.com or sub.example.com"
-msgstr "Введите доменные имена без протоколов, например example.com или sub.example.com"
+msgid "Enter domain names without protocols, e.g. example.com or sub.example.com. Prefixes: full: (exact host), keyword: (part of the name), regex: (regular expression)"
+msgstr "Введите доменные имена без протоколов, например example.com или sub.example.com. Префиксы: full: (точное имя), keyword: (часть имени), regex: (регулярное выражение)"
 
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
 msgstr "Введите подсети в нотации CIDR (например, 103.21.244.0/22) или отдельные IP-адреса"
@@ -443,8 +527,17 @@ msgstr "Установленные соединения могут обходи�
 msgid "Every 1 minute"
 msgstr "Каждую минуту"
 
+msgid "Every 10 minutes"
+msgstr "Каждые 10 минут"
+
 msgid "Every 12 hours"
 msgstr "Каждые 12 часов"
+
+msgid "Every 20 minutes"
+msgstr "Каждые 20 минут"
+
+msgid "Every 24 hours"
+msgstr "Каждые 24 часа"
 
 msgid "Every 3 hours"
 msgstr "Каждые 3 часа"
@@ -488,6 +581,15 @@ msgstr "Исключить серверы по стране"
 msgid "Exclude servers by keyword"
 msgstr "Исключать серверы по ключевому слову"
 
+msgid "Exclude servers by protocol"
+msgstr "Исключить серверы по протоколу"
+
+msgid "Exclude servers by security"
+msgstr "Исключить серверы по защите"
+
+msgid "Exclude servers by transport"
+msgstr "Исключить серверы по транспорту"
+
 msgid "Extended core with all features (~105 MB)"
 msgstr "Расширенное ядро со всеми возможностями (~105 МБ)"
 
@@ -518,6 +620,9 @@ msgstr "Не удалось обновить подписки"
 msgid "Fastest"
 msgstr "Самый быстрый"
 
+msgid "First server only"
+msgstr "Только первый сервер"
+
 msgid "Flow offloading is enabled"
 msgstr "Включён Flow Offloading"
 
@@ -526,6 +631,9 @@ msgstr "Flow Offloading выключен"
 
 msgid "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router."
 msgstr "Для серверов, в имени которых нет флага, страна один раз определяется по адресу сервера и показывается флагом: впереди имени в подписке (чтобы для неё работали группировка и фильтры по странам), на дашборде — для ваших собственных ссылок. Адреса серверов отправляются на api.country.is по HTTPS; результаты кешируются на роутере."
+
+msgid "From the device (optional)"
+msgstr "С устройства (необязательно)"
 
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
@@ -539,8 +647,20 @@ msgstr "Глобальная проверка"
 msgid "Global Proxy"
 msgstr "Глобальный прокси"
 
+msgid "Goes directly, not through any section"
+msgstr "Идёт напрямую, мимо секций"
+
+msgid "Goes through the section"
+msgstr "Идёт через секцию"
+
 msgid "Group subscription proxies into URLTest groups. 'By country flag' uses the flag emoji at the start of each name; 'By name prefix' groups by the first N characters."
 msgstr "Группировать прокси из подписки в группы URLTest. «По флагу страны» использует эмодзи флага в начале каждого имени; «По префиксу имени» группирует по первым N символам."
+
+msgid "h"
+msgstr "ч"
+
+msgid "Host name"
+msgstr "Имя хоста"
 
 msgid "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s"
 msgstr "Сколько времени может занимать один DNS-сервер, прежде чем будет опрошен следующий (приоритет) или его ответ отброшен (параллельно). Примеры: 500ms, 2s"
@@ -548,8 +668,8 @@ msgstr "Сколько времени может занимать один DNS-�
 msgid "How often to automatically update the subscription"
 msgstr "Как часто автоматически обновлять подписку"
 
-msgid "How the additional DNS servers are used together with the main one. Needs sing-box 1.14 or newer; on an older core only the main server is used."
-msgstr "Как дополнительные DNS-серверы используются вместе с основным. Требуется sing-box 1.14 или новее; на более старом ядре используется только основной сервер."
+msgid "How the servers of the list are used together when there are several. Needs sing-box 1.14 or newer; on an older core only the first server is used."
+msgstr "Как серверы списка используются вместе, если их несколько. Нужен sing-box 1.14 или новее; на старом ядре используется только первый сервер."
 
 msgid "HTTP error"
 msgstr "Ошибка HTTP"
@@ -559,6 +679,15 @@ msgstr "Оставить серверы по стране"
 
 msgid "Include servers by keyword"
 msgstr "Включать серверы по ключевому слову"
+
+msgid "Include servers by protocol"
+msgstr "Оставить серверы по протоколу"
+
+msgid "Include servers by security"
+msgstr "Оставить серверы по защите"
+
+msgid "Include servers by transport"
+msgstr "Оставить серверы по транспорту"
 
 msgid "Install %s"
 msgstr "Установить %s"
@@ -575,6 +704,9 @@ msgstr "Задержка при мониторинге интерфейсов"
 msgid "Interface monitoring for Bad WAN"
 msgstr "Мониторинг интерфейса для Bad WAN"
 
+msgid "Invalid DNS server"
+msgstr "Некорректный DNS-сервер"
+
 msgid "Invalid DNS server format. Examples: 8.8.8.8, [::1], dns.example.com, or dns.example.com/dns-query for DoH"
 msgstr "Неверный формат DNS-сервера. Примеры: 8.8.8.8, [::1], dns.example.com или dns.example.com/dns-query для DoH"
 
@@ -583,6 +715,9 @@ msgstr "Неверный домен"
 
 msgid "Invalid format. Use X.X.X.X/Y or IPv6/Y"
 msgstr "Неверный формат. Используйте X.X.X.X/Y или IPv6/Y"
+
+msgid "Invalid host name: letters, digits and dashes only"
+msgstr "Некорректное имя: только буквы, цифры и дефисы"
 
 msgid "Invalid HY2 URL: insecure must be 0 or 1"
 msgstr "Неверный URL Hysteria2: параметр insecure должен быть 0 или 1"
@@ -626,17 +761,29 @@ msgstr "Неверный URL Hysteria2: неподдерживаемый тип 
 msgid "Invalid IP address"
 msgstr "Неверный IP-адрес"
 
+msgid "Invalid IPv4 address"
+msgstr "Некорректный IPv4-адрес"
+
 msgid "Invalid IPv6 address"
 msgstr "Неверный IPv6-адрес"
 
 msgid "Invalid JSON format"
 msgstr "Неверный формат JSON"
 
+msgid "Invalid MAC address"
+msgstr "Некорректный MAC-адрес"
+
 msgid "Invalid path format. Path must start with \"/\" and contain valid characters"
 msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать допустимые символы"
 
+msgid "Invalid port number. Must be 1-65535"
+msgstr "Некорректный номер порта. Допустимо 1-65535"
+
 msgid "Invalid port number. Must be between 1 and 65535"
 msgstr "Неверный номер порта. Допустимо от 1 до 65535"
+
+msgid "Invalid regular expression"
+msgstr "Некорректное регулярное выражение"
 
 msgid "Invalid Shadowsocks URL: decoded credentials must contain method:password"
 msgstr "Неверный URL Shadowsocks: декодированные данные должны содержать method:password"
@@ -734,6 +881,9 @@ msgstr "Неверный URL VMess: не должен содержать про�
 msgid "Invalid VMess URL: must start with vmess://"
 msgstr "Неверный URL VMess: должен начинаться с vmess://"
 
+msgid "Invalid zone"
+msgstr "Некорректная зона"
+
 msgid "IP address"
 msgstr "IP-адрес"
 
@@ -752,14 +902,23 @@ msgstr "IPv6-трафик идёт мимо туннеля: включите IPv
 msgid "Issues detected"
 msgstr "Обнаружены проблемы"
 
+msgid "Keep only servers that connect this way."
+msgstr "Оставить только серверы, подключающиеся так."
+
 msgid "Keep only servers whose name carries the flag of one of these countries. Two-letter codes, for example NL or DE. Combined with the keywords above (any match keeps a server)."
 msgstr "Оставить только серверы, в названии которых есть флаг одной из этих стран. Двухбуквенные коды, например NL или DE. Объединяется с ключевыми словами выше (подходит любое совпадение)."
 
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
 msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все."
 
+msgid "Kept before a restore"
+msgstr "Сохранён перед восстановлением"
+
 msgid "Kept in the configuration file as it is typed."
 msgstr "Хранится в файле конфигурации в том виде, как введён."
+
+msgid "Keyword may contain only letters, digits, dots, dashes and underscores"
+msgstr "Ключевое слово может содержать только буквы, цифры, точки, дефисы и подчёркивания"
 
 msgid "Latency test URL"
 msgstr "URL для проверки задержки"
@@ -769,6 +928,9 @@ msgstr "Последняя"
 
 msgid "Latest version is installed"
 msgstr "Установлена последняя версия"
+
+msgid "Leave a dead server chosen by hand"
+msgstr "Уходить с мёртвого сервера, выбранного вручную"
 
 msgid "Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)"
 msgstr "Лёгкая сборка расширенного ядра для устройств с малой Flash (~10 МБ вместо ~105 МБ)"
@@ -806,8 +968,17 @@ msgstr "Основной DNS"
 msgid "Main DNS via outbound"
 msgstr "Основной DNS через outbound"
 
-msgid "Main server only"
-msgstr "Только основной сервер"
+msgid "Matched list"
+msgstr "Сработавший список"
+
+msgid "Matches no list, goes through the global proxy section"
+msgstr "Не входит ни в один список, идёт через секцию глобального прокси"
+
+msgid "Measured from the router"
+msgstr "Замер с самого роутера"
+
+msgid "Measured through the tunnel, the way real queries go"
+msgstr "Замер через туннель, так же, как идут настоящие запросы"
 
 msgid "Memory Usage"
 msgstr "Использование памяти"
@@ -830,8 +1001,11 @@ msgstr "Имя пользователя Mixed Proxy"
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
 
-msgid "Multiple DNS servers"
-msgstr "Несколько DNS-серверов"
+msgid "Most traffic first"
+msgstr "Сначала с большим трафиком"
+
+msgid "ms"
+msgstr "мс"
 
 msgid "Must be a number in the range of 50 - 1000"
 msgstr "Должно быть числом от 50 до 1000"
@@ -854,8 +1028,23 @@ msgstr "Сеть"
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
 
+msgid "Newest first"
+msgstr "Сначала новые"
+
+msgid "no address"
+msgstr "нет адреса"
+
+msgid "no answer"
+msgstr "нет ответа"
+
+msgid "No encryption layer"
+msgstr "Без слоя шифрования"
+
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
+
+msgid "No snapshots yet"
+msgstr "Снимков пока нет"
 
 msgid "No spaces or colons in the user name"
 msgstr "В имени пользователя не должно быть пробелов и двоеточий"
@@ -881,17 +1070,29 @@ msgstr "Не отвечает"
 msgid "Not running"
 msgstr "Не запущено"
 
+msgid "Notify about new versions"
+msgstr "Уведомлять о новых версиях"
+
 msgid "Number of leading characters of each proxy name to group by."
 msgstr "Количество начальных символов имени каждого прокси для группировки."
 
 msgid "Off"
 msgstr "Выключено"
 
+msgid "One entry per line: \"zone server\", for example \"ru 77.88.8.8\" sends the zone .ru and all its subdomains to that DNS server directly, the way a \"server=/ru/77.88.8.8\" line does in the dnsmasq config. The server is an IP address, optionally with #port. The names of these zones get their real addresses, not FakeIP, so they are not routed by domain; the entries are applied to dnsmasq unless \"Dont Touch My DHCP\" is on."
+msgstr "Одна запись в строке: «зона сервер». Например, «ru 77.88.8.8» отправляет зону .ru и все её поддомены прямо на этот DNS-сервер, как строка «server=/ru/77.88.8.8» в конфиге dnsmasq. Сервер - IP-адрес, при необходимости с #портом. Имена этих зон получают настоящие адреса, а не FakeIP, поэтому по домену не маршрутизируются; записи применяются к dnsmasq, если не включена «Dont Touch My DHCP»."
+
+msgid "Only at start, never again"
+msgstr "Только при запуске, потом не проверять"
+
 msgid "Only one section can be global at a time."
 msgstr "Только одна секция может быть глобальной одновременно."
 
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
+
+msgid "Optional"
+msgstr "Необязательно"
 
 msgid "Optional: query this DNS server through the outbound of another section. If that outbound is not usable the queries go out directly."
 msgstr "Необязательно: опрашивать этот DNS-сервер через outbound другой секции. Если этот outbound недоступен, запросы уходят напрямую."
@@ -926,8 +1127,14 @@ msgstr "Путь должен заканчиваться на cache.db"
 msgid "Pending"
 msgstr "Ожидает запуска"
 
-msgid "Pick a ready-made server or type your own: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. In priority mode the order is the priority after the main server."
-msgstr "Выберите готовый сервер или введите свой: scheme://host[:port][/path], где scheme — udp, tcp, dot, doh, doh3 или doq. В режиме приоритета порядок задаёт приоритет после основного сервера."
+msgid "Pin address"
+msgstr "Закрепить адрес"
+
+msgid "Pin the address"
+msgstr "Закрепить адрес"
+
+msgid "Plain DNS (port 53) of the devices in the source interfaces is redirected to the router even when a device asks another server, such as a hard-coded 8.8.8.8. Without it such devices never get the FakeIP answers that routing by domain depends on. DNS over TLS/HTTPS is not touched."
+msgstr "Обычный DNS (порт 53) устройств с интерфейсов-источников перенаправляется на роутер, даже если устройство спрашивает другой сервер, например прописанный вручную 8.8.8.8. Без этого такие устройства не получают FakeIP-ответов, от которых зависит маршрутизация по доменам. DNS поверх TLS/HTTPS не затрагивается."
 
 msgid "Prefer servers in list order"
 msgstr "Предпочитать серверы в порядке списка"
@@ -937,6 +1144,9 @@ msgstr "Длина префикса"
 
 msgid "Priority: next server if the previous one fails"
 msgstr "Приоритет: следующий сервер, если предыдущий не отвечает"
+
+msgid "Protocol"
+msgstr "Протокол"
 
 msgid "Protocol of this section's own DNS server"
 msgstr "Протокол собственного DNS-сервера этой секции"
@@ -965,6 +1175,15 @@ msgstr "Обновить подписку"
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
 
+msgid "Regular expression must not contain spaces or commas"
+msgstr "Регулярное выражение не должно содержать пробелов и запятых"
+
+msgid "Release"
+msgstr "Освободить"
+
+msgid "Release the static lease of this device? It will get an address from the pool."
+msgstr "Освободить статическую аренду устройства? Оно получит адрес из общего пула."
+
 msgid "Remote Domain Lists"
 msgstr "Внешние списки доменов"
 
@@ -982,6 +1201,18 @@ msgstr "Разрешение реальных IP-адресов"
 
 msgid "Restart NetShift"
 msgstr "Перезапустить NetShift"
+
+msgid "Restore"
+msgstr "Восстановить"
+
+msgid "Restored, restarting the service..."
+msgstr "Восстановлено, перезапускаю службу..."
+
+msgid "Restored. Reload the page to see the settings."
+msgstr "Восстановлено. Перезагрузите страницу, чтобы увидеть настройки."
+
+msgid "Route"
+msgstr "Маршрут"
 
 msgid "Route all unmatched traffic through this section's outbound."
 msgstr "Направлять весь несовпавший трафик через outbound этой секции."
@@ -1025,6 +1256,33 @@ msgstr "Запустить диагностику"
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
 
+msgid "s"
+msgstr "с"
+
+msgid "same as now"
+msgstr "совпадает с текущими"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Save a snapshot now"
+msgstr "Сохранить снимок сейчас"
+
+msgid "Saved at a successful start"
+msgstr "Сохранён при удачном запуске"
+
+msgid "Saved by hand"
+msgstr "Сохранён вручную"
+
+msgid "scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. The first one is the main server. Pick a ready-made server or type your own."
+msgstr "scheme://host[:port][/path], где scheme - udp, tcp, dot, doh, doh3 или doq. Первый сервер - основной. Выберите готовый сервер или введите свой."
+
+msgid "Search by address, section or list"
+msgstr "Поиск по адресу, секции или списку"
+
+msgid "Search by name, address or MAC"
+msgstr "Поиск по имени, адресу или MAC"
+
 msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
 msgstr "Секретный ключ для аутентификации удаленного доступа к YACD при включенном доступе через WAN."
 
@@ -1036,9 +1294,6 @@ msgstr "Выберите предопределенный список для м
 
 msgid "Select between VPN and Proxy connection methods for traffic routing"
 msgstr "Выберите между VPN и Proxy методами для маршрутизации трафика"
-
-msgid "Select DNS protocol to use"
-msgstr "Выберите протокол DNS"
 
 msgid "Select how often the domain or subnet lists are updated automatically"
 msgstr "Выберите частоту автоматического обновления списков доменов или подсетей."
@@ -1091,8 +1346,11 @@ msgstr "Не удалось обновить"
 msgid "Send DNS queries through section"
 msgstr "Отправлять DNS-запросы через секцию"
 
-msgid "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable."
-msgstr "Отправлять этот IP-адрес или префикс с каждым DNS-запросом (EDNS Client Subnet, RFC 7871), чтобы геораспределённые сервисы определяли ближайший к вам узел. Оставьте пустым, чтобы отключить."
+msgid "Send LAN DNS queries to the router"
+msgstr "Отправлять DNS-запросы LAN на роутер"
+
+msgid "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable. The detected WAN subnets are offered in the list."
+msgstr "Отправлять этот IP-адрес или префикс с каждым DNS-запросом (EDNS Client Subnet, RFC 7871), чтобы геораспределённые сервисы отдавали ближайший к вам узел. Пусто - отключено. Найденные WAN-подсети предлагаются в списке."
 
 msgid "Send upstream DNS queries through a proxy/VPN outbound instead of directly. Bootstrap DNS always stays direct."
 msgstr "Отправлять запросы к основному DNS через outbound прокси/VPN вместо прямого подключения. Bootstrap DNS всегда остаётся прямым."
@@ -1102,6 +1360,12 @@ msgstr "Информация о сервисах"
 
 msgid "Settings"
 msgstr "Настройки"
+
+msgid "Several DNS servers"
+msgstr "Несколько DNS-серверов"
+
+msgid "Show a notice on the dashboard when a newer NetShift or sing-box-extended version is out. When the dashboard is opened and the last check is more than a day old, the router asks GitHub once in the background; nothing is installed."
+msgstr "Показывать на дашборде уведомление о новой версии NetShift или sing-box-extended. Если при открытии дашборда последняя проверка старше суток, роутер один раз в фоне обращается к GitHub; ничего не устанавливается."
 
 msgid "Show sing-box config"
 msgstr "Показать sing-box конфигурацию"
@@ -1130,8 +1394,17 @@ msgstr "Сервис sing-box существует"
 msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr "Версия Sing-box совместима (новее 1.12.4)"
 
+msgid "Snapshot saved"
+msgstr "Снимок сохранён"
+
+msgid "Some rules depend on the client address, traffic type or lists that are not available here and were skipped. Enter the address of the device for a precise answer."
+msgstr "Часть правил зависит от адреса клиента, типа трафика или списков, недоступных здесь, и была пропущена. Для точного ответа укажите адрес устройства."
+
 msgid "Sort by ping"
 msgstr "Сортировать по пингу"
+
+msgid "Source"
+msgstr "Источник"
 
 msgid "Source and output interfaces, and Bad WAN interface monitoring"
 msgstr "Входящий и исходящий интерфейсы, а также мониторинг интерфейсов Bad WAN"
@@ -1157,8 +1430,14 @@ msgstr "Укажите путь к файлу списка, расположен
 msgid "Start NetShift"
 msgstr "Запустить NetShift"
 
+msgid "Static"
+msgstr "Статический"
+
 msgid "Stop NetShift"
 msgstr "Остановить NetShift"
+
+msgid "stopped answering, the automatic choice is on again"
+msgstr "перестал отвечать, снова включён автоматический выбор"
 
 msgid "Subscription"
 msgstr "Подписка"
@@ -1214,14 +1493,44 @@ msgstr "Системная информация"
 msgid "Table exist"
 msgstr "Таблица существует"
 
+msgid "Take the subnet from a WAN interface: its public address, or, when the interface has a private (NAT) address, the address the internet sees (looked up once and remembered). The value below is used when no address can be determined. IPv4 only, the /24 of the address."
+msgstr "Брать подсеть из WAN-интерфейса: его публичный адрес или, если у интерфейса серый (NAT) адрес, адрес, который видит интернет (определяется один раз и запоминается). Значение ниже используется, если адрес определить не удалось. Только IPv4, /24 адреса."
+
 msgid "TCP"
 msgstr "TCP"
 
 msgid "Test latency"
 msgstr "Тестирование задержки"
 
+msgid "Test the servers"
+msgstr "Проверить серверы"
+
+msgid "Testing..."
+msgstr "Проверяю..."
+
 msgid "Text List"
 msgstr "Текстовый список"
+
+msgid "The address is already given to another device"
+msgstr "Адрес уже выдан другому устройству"
+
+msgid "The address is outside the local networks"
+msgstr "Адрес вне локальных сетей"
+
+msgid "The check could not be completed"
+msgstr "Проверку выполнить не удалось"
+
+msgid "The connection list is not available: is the service running?"
+msgstr "Список соединений недоступен: запущена ли служба?"
+
+msgid "The connections the router is carrying right now. A closed connection is opened again by the application if it still needs it."
+msgstr "Соединения, которые роутер обслуживает сейчас. Закрытое соединение приложение откроет заново, если оно ещё нужно."
+
+msgid "The device always gets this address from the router (a static DHCP lease, the same as in Network - DHCP and DNS). The change applies at once."
+msgstr "Устройство всегда получает этот адрес от роутера (статическая аренда DHCP, та же, что в Сеть - DHCP и DNS). Изменение применяется сразу."
+
+msgid "The DNS query is blocked"
+msgstr "DNS-запрос блокируется"
 
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
@@ -1229,11 +1538,14 @@ msgstr "DNS-сервер, используемый для поиска IP-адр
 msgid "The domains of this section's lists are resolved by this server instead of the main one and are not sent through any tunnel (split DNS). Address, address:port or host/path for DoH"
 msgstr "Домены из списков этой секции резолвит этот сервер вместо основного, и через туннель они не идут (split DNS). Адрес, адрес:порт или хост/путь для DoH"
 
-msgid "The interval between connectivity tests"
-msgstr "Интервал между тестами подключения"
+msgid "The interval between connectivity tests. A longer interval means less traffic through every server of the group; \"Only at start\" tests once when the service starts."
+msgstr "Интервал между проверками связи. Чем он длиннее, тем меньше трафика на каждый сервер группы; «Только при запуске» проверяет один раз при старте службы."
 
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
+
+msgid "The name is already used by another device"
+msgstr "Имя уже занято другим устройством"
 
 msgid "The router clock is not set"
 msgstr "Часы роутера не установлены"
@@ -1244,14 +1556,35 @@ msgstr "Часы роутера спешат или отстают"
 msgid "The router clock is right"
 msgstr "Часы роутера идут верно"
 
+msgid "The router did not answer"
+msgstr "Роутер не ответил"
+
 msgid "The router has a global IPv6 address, IPv6 handling is off"
 msgstr "У роутера есть глобальный адрес IPv6, а обработка IPv6 выключена"
 
 msgid "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again"
 msgstr "Секция полностью игнорируется (маршрутизация, списки, подписки), но её настройки сохраняются. Снимите галочку, чтобы включить её снова"
 
+msgid "The server must be an IP address, optionally with #port"
+msgstr "Сервер должен быть IP-адресом, при необходимости с #портом"
+
+msgid "The service will restart."
+msgstr "Служба перезапустится."
+
+msgid "The settings are kept every time the service starts successfully (the last ten). A snapshot brings them back after a change that broke the service."
+msgstr "Настройки сохраняются при каждом удачном запуске службы (последние десять). Снимок возвращает их после изменения, которое сломало службу."
+
+msgid "The snapshot could not be restored"
+msgstr "Не удалось восстановить снимок"
+
+msgid "The snapshot could not be saved"
+msgstr "Не удалось сохранить снимок"
+
 msgid "The subnets of this exclusion section never enter sing-box: the router sends them out directly, which saves CPU, especially with Global Proxy. Only subnets and IP lists are bypassed; domains still pass through sing-box."
 msgstr "Подсети этой секции-исключения вообще не попадают в sing-box: роутер отправляет их напрямую, что экономит CPU, особенно с глобальным прокси. Обходятся только подсети и IP-списки; домены по-прежнему проходят через sing-box."
+
+msgid "The test could not be run"
+msgstr "Не удалось выполнить проверку"
 
 msgid "The URL the dashboard uses to measure server latency. Change it if the default is slow or blocked in your region."
 msgstr "URL, который дашборд использует для измерения задержки серверов. Измените его, если значение по умолчанию медленное или заблокировано в вашем регионе."
@@ -1273,6 +1606,9 @@ msgstr "Время в секундах для кэширования DNS зап�
 
 msgid "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists"
 msgstr "Время ежедневного обновления, ЧЧ:ММ (00:00–23:59) по местному времени роутера. Избегайте минут, совпадающих с другими интервалами обновления, например :00 и :30, если есть секция с интервалом 30 минут."
+
+msgid "Times every configured DNS server (UDP, TCP, DoT and DoH; DoH3 and DoQ cannot be timed). With \"Route main DNS through proxy/VPN\" the servers are reached through the tunnel, so a resolver inside it can be timed too. Nothing is changed: use it to decide the order of the servers."
+msgstr "Замеряет каждый настроенный DNS-сервер (UDP, TCP, DoT и DoH; DoH3 и DoQ замерить нельзя). При включённом «Route main DNS through proxy/VPN» серверы опрашиваются через туннель, поэтому можно замерить и резолвер внутри него. Ничего не меняется: результат помогает выбрать порядок серверов."
 
 msgid "TLS and Reality fail with a wrong time: check NTP"
 msgstr "С неверным временем не работают TLS и Reality: проверьте NTP"
@@ -1315,6 +1651,9 @@ msgstr "Обновить"
 
 msgid "Update is available"
 msgstr "Доступно обновление"
+
+msgid "Update it in the Component Manager tab."
+msgstr "Обновите её на вкладке «Менеджер компонентов»."
 
 msgid "Update NetShift"
 msgstr "Обновить NetShift"
@@ -1367,6 +1706,9 @@ msgstr "URLTest ссылка для проверки"
 msgid "URLTest Tolerance"
 msgstr "URLTest допустимое отклонение"
 
+msgid "Use \"zone server\", for example: ru 77.88.8.8"
+msgstr "Формат «зона сервер», например: ru 77.88.8.8"
+
 msgid "Use a two-letter country code, for example NL"
 msgstr "Укажите двухбуквенный код страны, например NL"
 
@@ -1418,14 +1760,23 @@ msgstr "ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hyst
 msgid "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links — one per line"
 msgstr "Ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// — по одной в строке"
 
+msgid "WAN interface for the EDNS Client Subnet"
+msgstr "WAN-интерфейс для EDNS Client Subnet"
+
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
 
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
 
+msgid "When a server picked by hand stops answering (three checks in a row, every 30 seconds), go back to the automatic choice (the fastest server) and say so on the dashboard. Needs the automatic group, so it works with URLTest lists and subscriptions; it does nothing together with the list-order mode."
+msgstr "Когда сервер, выбранный вручную, перестаёт отвечать (три проверки подряд, раз в 30 секунд), вернуться к автоматическому выбору (самый быстрый сервер) и сообщить об этом на дашборде. Нужна автоматическая группа, поэтому работает со списками URLTest и подписками; вместе с режимом «по порядку списка» не действует."
+
 msgid "When enabled, traffic not matching any other section's lists will go through this proxy."
 msgstr "Когда включено, трафик, не совпадающий со списками других секций, будет идти через этот прокси."
+
+msgid "Where will a request go"
+msgstr "Куда пойдёт запрос"
 
 msgid "Which proxy/VPN section carries the DNS. Leave unset to use the first configured outbound."
 msgstr "Какая секция прокси/VPN обслуживает DNS. Оставьте пустым, чтобы использовать первый настроенный outbound."
@@ -1435,6 +1786,9 @@ msgstr "Какой формат подписки (клиент) запрашив
 
 msgid "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up."
 msgstr "Пока sing-box не работает, DNS (а значит, и разрешение имён) недоступен до его восстановления. Прямой непроксируемый трафик не затрагивается, пока sing-box запущен."
+
+msgid "With several WAN interfaces choose the one whose address represents you. Automatic uses the first working one."
+msgstr "Если WAN-интерфейсов несколько, выберите тот, чей адрес вас представляет. Автоматически берётся первый рабочий."
 
 msgid "Xray JSON (Happ)"
 msgstr "Xray JSON (Happ)"

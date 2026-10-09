@@ -6,12 +6,18 @@ config settings 'settings'
         #list dns_pool_server 'doh://dns.google/dns-query'
         #list dns_pool_server 'dot://dns.quad9.net'
         #option dns_pool_timeout '2s'
+        #list dns_forward 'ru 77.88.8.8'
         option dns_rewrite_ttl '60'
         # EDNS Client Subnet (RFC 7871): IP address or prefix sent with every
         # DNS query so geo-distributed services resolve to the node closest to
         # the client. Empty/unset disables it (this is the default, and configs
         # upgraded from an older package have no such option at all).
         option dns_client_subnet ''
+        option dns_client_subnet_auto '0'
+        option dns_client_subnet_interface ''
+        # Dashboard notice about a newer NetShift / sing-box-extended (one background
+        # GitHub check a day, only while the dashboard is opened).
+        option update_notice '1'
         list source_network_interfaces 'br-lan'
         option enable_output_network_interface '0'
         #option output_network_interface 'wan'
@@ -37,6 +43,7 @@ config settings 'settings'
         #option dns_via_outbound '0'
         #option dns_outbound_section 'main'
         option dont_touch_dhcp '0'
+        #option dns_hijack '0'
         option config_path '/etc/sing-box/config.json'
         option cache_path '/tmp/sing-box/cache.db'
         option log_level 'warn'

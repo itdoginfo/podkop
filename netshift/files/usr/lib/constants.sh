@@ -377,3 +377,24 @@ COMMUNITY_SERVICES="russia_inside russia_outside ukraine_inside geoblock block p
 # with the router clock.
 ENVIRONMENT_MIN_PLAUSIBLE_EPOCH=1735689600
 ENVIRONMENT_CLOCK_PROBE_URL="https://www.cloudflare.com/"
+
+# regex: entries of a domain list: how many broken patterns are searched for before the rest
+# of the list is ignored (rulesets.sh, validate_domain_regex_file).
+DOMAIN_REGEX_MAX_DROPPED=20
+# The Connections page lists at most this many connections (newest first).
+CONNECTIONS_LIST_CAP=300
+# "A newer version is available" notice (update_notice.sh): the answer lives in
+# tmpfs and is asked again once it is older than this many seconds.
+UPDATE_NOTICE_FILE="/tmp/netshift-update-notice.json"
+UPDATE_NOTICE_TTL=86400
+# Configuration snapshots (snapshots.sh).
+NETSHIFT_CONFIG_FILE="/etc/config/netshift"
+SNAPSHOT_DIR="$NETSHIFT_STATE_DIR/snapshots"
+SNAPSHOT_KEEP=10
+# Pin guard (pinguard.sh): failed probes in a row before a pinned server is given up,
+# and how many switches are kept for the dashboard.
+PIN_GUARD_FAILURES=3
+PIN_GUARD_EVENTS_FILE="/tmp/netshift-pin-guard.json"
+PIN_GUARD_EVENTS_KEEP=10
+# URLTest interval standing for "only at start" (urltest_check_interval 'off')
+URLTEST_INTERVAL_OFF="8760h"

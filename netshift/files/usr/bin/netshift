@@ -22,6 +22,14 @@ check_required_file "$NETSHIFT_LIB/logging.sh"
 check_required_file "$NETSHIFT_LIB/rulesets.sh"
 check_required_file "$NETSHIFT_LIB/updater.sh"
 check_required_file "$NETSHIFT_LIB/kill_switch.sh"
+check_required_file "$NETSHIFT_LIB/routecheck.sh"
+check_required_file "$NETSHIFT_LIB/dnsforward.sh"
+check_required_file "$NETSHIFT_LIB/ecs.sh"
+check_required_file "$NETSHIFT_LIB/lan.sh"
+check_required_file "$NETSHIFT_LIB/update_notice.sh"
+check_required_file "$NETSHIFT_LIB/snapshots.sh"
+check_required_file "$NETSHIFT_LIB/pinguard.sh"
+check_required_file "$NETSHIFT_LIB/dnsbench.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -32,8 +40,16 @@ check_required_file "$NETSHIFT_LIB/kill_switch.sh"
 . "$NETSHIFT_LIB/sing_box_config_facade.sh"
 . "$NETSHIFT_LIB/logging.sh"
 . "$NETSHIFT_LIB/rulesets.sh"
+. "$NETSHIFT_LIB/routecheck.sh"
+. "$NETSHIFT_LIB/ecs.sh"
+. "$NETSHIFT_LIB/lan.sh"
 . "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/kill_switch.sh"
+. "$NETSHIFT_LIB/dnsforward.sh"
+. "$NETSHIFT_LIB/update_notice.sh"
+. "$NETSHIFT_LIB/snapshots.sh"
+. "$NETSHIFT_LIB/pinguard.sh"
+. "$NETSHIFT_LIB/dnsbench.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -434,7 +450,8 @@ mark_subscription_outbound_unavailable() {
     esac
 
     if [ "$keyword_filter_active" -eq 1 ]; then
-        # The empty result came from the user's keyword filter, not from a bad
+        # (The flag is set by the keyword filter and by the parameter filter.)
+        # The empty result came from the user's filter, not from a bad
         # feed: the bodies themselves may be perfectly valid. Recording their
         # hashes here would poison the per-URL caches and wedge future downloads
         # (return 14 loop), and would survive the user loosening the filter. So
@@ -446,7 +463,7 @@ mark_subscription_outbound_unavailable() {
             urlhash="$(get_subscription_url_hash "$url")"
             rm -f "$(get_subscription_rejected_cache_path "$section" "$urlhash")"
         done
-        log "Subscription keyword filter for section '$section' removed all nodes; matching traffic for this section will be rejected until the filter is loosened or a matching node appears (the feeds themselves are not rejected)" "warn"
+        log "Subscription filter for section '$section' (keywords and/or parameters) removed all nodes; matching traffic for this section will be rejected until the filter is loosened or a matching node appears (the feeds themselves are not rejected)" "warn"
         subscription_startup_blocked=1
         return 0
     fi
@@ -1230,6 +1247,9 @@ start_main() {
     # here: a config sing-box rejects makes sing_box_init_config exit the
     # process first, and the marker then stays for the next subscription_update.
     rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+    # The settings that just produced a configuration sing-box accepted: the point
+    # to come back to when a later change breaks the service.
+    snapshot_save auto > /dev/null 2>&1
     foreach_active_section add_cron_job "section"
     sync_subscription_cron_jobs
     drop_stale_fakeip_cache
@@ -1302,6 +1322,8 @@ start() {
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_configure force
+    elif [ -n "$(dns_forward_entries)" ]; then
+        log "DNS forwards by zone are not applied: Dont Touch My DHCP is on" "warn"
     fi
 
     uci_set "netshift" "settings" "shutdown_correctly" 0
@@ -1667,6 +1689,7 @@ monitor_sing_box() {
             if [ $((now - priority_last)) -ge "$(priority_check_interval)" ]; then
                 priority_last="$now"
                 priority_check_sections
+                pin_guard_check_sections
             fi
             continue
         fi
@@ -2079,6 +2102,29 @@ _nft_mark_fully_routed_ip_handler() {
     esac
 }
 
+# Clients of the LAN that ask a DNS server of their own (a hard-coded 8.8.8.8, a device
+# with its resolver set by hand) go round the router's DNS, so they never get the
+# FakeIP answers the routing by domain depends on. With dns_hijack every plain DNS
+# query (UDP and TCP port 53) that comes in from the LAN interfaces for an address that
+# is not the router's is sent to the router's own DNS. DNS over TLS/HTTPS is not touched.
+nft_add_dns_hijack() {
+    local hijack dont_touch_dhcp
+
+    config_get_bool hijack "settings" "dns_hijack" 0
+    [ "$hijack" -eq 1 ] || return 0
+
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    if [ "$dont_touch_dhcp" -eq 1 ]; then
+        log "dns_hijack is on, but Dont Touch My DHCP is on too: the router's DNS does not hand out FakeIP answers, so the hijack changes only who answers" "warn"
+    fi
+
+    log "DNS hijack: plain DNS queries of the LAN go to the router" "info"
+    nft add chain inet "$NFT_TABLE_NAME" dns_hijack '{ type nat hook prerouting priority dstnat; policy accept; }'
+    nft add rule inet "$NFT_TABLE_NAME" dns_hijack iifname "@$NFT_INTERFACE_SET_NAME" fib daddr type local return
+    nft add rule inet "$NFT_TABLE_NAME" dns_hijack iifname "@$NFT_INTERFACE_SET_NAME" tcp dport 53 counter redirect to :53
+    nft add rule inet "$NFT_TABLE_NAME" dns_hijack iifname "@$NFT_INTERFACE_SET_NAME" udp dport 53 counter redirect to :53
+}
+
 create_nft_rules() {
     # Rebuild the table deterministically. `nft add chain`/`nft add rule` only
     # ever APPEND, so if a NetShiftTable was left behind by a previous start
@@ -2178,6 +2224,8 @@ create_nft_rules() {
     fi
 
     nft_add_selective_marking_rules mangle "$nft_mark_all" "$nft_block_doh" iifname "@$NFT_INTERFACE_SET_NAME"
+
+    nft_add_dns_hijack
 
     nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto tcp tproxy ip to "$SB_TPROXY_INBOUND_ADDRESS:$SB_TPROXY_INBOUND_PORT" counter
     nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto udp tproxy ip to "$SB_TPROXY_INBOUND_ADDRESS:$SB_TPROXY_INBOUND_PORT" counter
@@ -2307,6 +2355,7 @@ dnsmasq_configure() {
 
     log "Configure dnsmasq for sing-box"
     uci_add_list "dhcp" "@dnsmasq[0]" "server" "$SB_DNS_INBOUND_ADDRESS"
+    dns_forward_apply
     uci_set "dhcp" "@dnsmasq[0]" "noresolv" 1
     uci_set "dhcp" "@dnsmasq[0]" "cachesize" 0
     # Authoritative ownership sentinel (see dnsmasq_is_configured_for_netshift):
@@ -4373,10 +4422,18 @@ configure_outbound_handler() {
             # display name. Both are optional UCI lists of opaque match strings.
             subscription_filter_include_keywords_json="$(build_subscription_filter_json "$section" "subscription_filter_include_keywords" "subscription_filter_include_countries")"
             subscription_filter_exclude_keywords_json="$(build_subscription_filter_json "$section" "subscription_filter_exclude_keywords" "subscription_filter_exclude_countries")"
+            # 1 when the keyword filter or the parameter filter is set (the name predates the latter)
             subscription_keyword_filter_active=0
             if [ "$subscription_filter_include_keywords_json" != "[]" ] || [ "$subscription_filter_exclude_keywords_json" != "[]" ]; then
                 subscription_keyword_filter_active=1
                 log "Subscription keyword filter enabled for section '$section': include=$subscription_filter_include_keywords_json, exclude=$subscription_filter_exclude_keywords_json" "debug"
+            fi
+
+            # Filters by protocol / transport / security (see the facade batch).
+            SUBSCRIPTION_PARAM_FILTER="$(build_subscription_param_filter_json "$section")"
+            if [ "$SUBSCRIPTION_PARAM_FILTER" != "{}" ]; then
+                subscription_keyword_filter_active=1
+                log "Subscription parameter filter enabled for section '$section': $SUBSCRIPTION_PARAM_FILTER" "debug"
             fi
 
             mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
@@ -4488,8 +4545,8 @@ configure_outbound_handler() {
             rm -f "$merged_json_path"
 
             if [ "$subscription_ready" -eq 0 ]; then
-                # When the keyword filter empties the set, the precise cause is
-                # already logged facade-side (only on the cache-usable branch
+                # When the keyword or the parameter filter empties the set, the precise
+                # cause is already logged facade-side (only on the cache-usable branch
                 # where add_subscription_outbounds actually ran the filter), so we
                 # do not re-warn here to avoid misattribution / double-warning.
                 log "Subscription cache for section '$section' is unavailable or empty; using a temporary blocked outbound" "warn"
@@ -4746,8 +4803,8 @@ sing_box_configure_dns() {
 
     local block_doh
     config_get_bool block_doh "settings" "block_doh" 0
-    if [ "$block_doh" -eq 1 ] && [ "$dns_type" = "doh" ]; then
-        log "DoH blocking is enabled but upstream DNS type is 'doh'. Your own DNS queries will be blocked." "warn"
+    if [ "$block_doh" -eq 1 ] && { [ "$dns_type" = "doh" ] || [ "$dns_type" = "doh3" ]; }; then
+        log "DoH blocking is enabled but upstream DNS type is '$dns_type'. Your own DNS queries will be blocked." "warn"
         log "Switch dns_type to 'udp' or 'dot' in NetShift settings to avoid self-blocking." "warn"
     fi
 
@@ -4773,8 +4830,22 @@ sing_box_configure_dns() {
     # An unusable value is only warned about and skipped: passing it on would
     # make sing_box_config_check reject the WHOLE config and exit 1, i.e. a
     # typo in an optional field would stop the service from starting.
-    local dns_client_subnet
+    local dns_client_subnet dns_client_subnet_auto dns_client_subnet_interface auto_subnet
     config_get dns_client_subnet "settings" "dns_client_subnet" ""
+    config_get_bool dns_client_subnet_auto "settings" "dns_client_subnet_auto" 0
+    if [ "$dns_client_subnet_auto" -eq 1 ]; then
+        # Taken from a WAN interface (its public address, or the address the
+        # internet sees when the interface has a private one). The typed value stays
+        # as the fallback for when no interface gives an address yet.
+        config_get dns_client_subnet_interface "settings" "dns_client_subnet_interface" ""
+        auto_subnet="$(ecs_resolve_auto "$dns_client_subnet_interface")"
+        if [ -n "$auto_subnet" ]; then
+            log "EDNS Client Subnet detected from the WAN: $auto_subnet" "info"
+            dns_client_subnet="$auto_subnet"
+        else
+            log "EDNS Client Subnet: no WAN address could be determined${dns_client_subnet:+, using the configured $dns_client_subnet}" "warn"
+        fi
+    fi
     if [ -n "$dns_client_subnet" ]; then
         if is_ip_or_ip_prefix "$dns_client_subnet"; then
             config=$(sing_box_cm_set_dns_client_subnet "$config" "$dns_client_subnet")
@@ -5355,6 +5426,91 @@ build_subscription_filter_keywords_json() {
     SUBSCRIPTION_FILTER_KEYWORDS_JSON="[]"
     config_list_foreach "$section" "$list_name" append_subscription_filter_keyword_handler
     printf '%s' "$SUBSCRIPTION_FILTER_KEYWORDS_JSON"
+}
+
+# --- Subscription filters by protocol, transport and security ---------------------
+# Besides the name (keywords, countries) a section can keep or drop servers by how
+# they connect: the protocol (vless, vmess, trojan, shadowsocks, hysteria2, tuic,
+# socks...), the transport (tcp, ws, grpc, http, httpupgrade, xhttp, quic) and the
+# security (none, tls, reality). Four UCI lists per kind: include_ and exclude_
+# subscription_filter_{protocols,transports,security}. A server must pass every
+# list that is set (include: it is one of them; exclude: it is none of them).
+
+# Normalizes one value of a parameter filter list. Prints the canonical value or
+# nothing for a value that means nothing.
+subscription_param_filter_value() {
+    local kind="$1"
+    local value
+
+    # busybox tr has no [:space:] class: the blanks are spelled out as octal escapes
+    value="$(printf '%s' "$2" | tr 'A-Z' 'a-z' | tr -d ' \011\012\013\014\015')"
+    case "$kind" in
+    protocols)
+        case "$value" in
+        ss) value="shadowsocks" ;;
+        hy2) value="hysteria2" ;;
+        hy) value="hysteria" ;;
+        vl) value="vless" ;;
+        esac
+        case "$value" in
+        '' | *[!a-z0-9]*) return 1 ;;
+        esac
+        ;;
+    transports)
+        case "$value" in
+        raw) value="tcp" ;;
+        websocket) value="ws" ;;
+        h2) value="http" ;;
+        esac
+        case "$value" in
+        tcp | ws | grpc | http | httpupgrade | xhttp | quic) ;;
+        *) return 1 ;;
+        esac
+        ;;
+    security)
+        case "$value" in
+        none | tls | reality) ;;
+        *) return 1 ;;
+        esac
+        ;;
+    *) return 1 ;;
+    esac
+
+    printf '%s' "$value"
+}
+
+append_subscription_param_filter_handler() {
+    local value normalized
+
+    value="$1"
+    if ! normalized="$(subscription_param_filter_value "$SUBSCRIPTION_PARAM_FILTER_KIND" "$value")"; then
+        log "Ignoring subscription $SUBSCRIPTION_PARAM_FILTER_KIND filter '$value': not a known value" "warn"
+        return 0
+    fi
+
+    SUBSCRIPTION_PARAM_FILTER_VALUES_JSON="$(printf '%s' "$SUBSCRIPTION_PARAM_FILTER_VALUES_JSON" |
+        jq -c --arg value "$normalized" '. + [$value] | unique')"
+}
+
+# JSON of a section's parameter filters:
+# {"include":{"protocols":[],"transports":[],"security":[]},"exclude":{...}}
+# "{}" when nothing is set (the filter then does not touch the set).
+build_subscription_param_filter_json() {
+    local section="$1"
+    local result="{}" direction kind values
+
+    for direction in include exclude; do
+        for kind in protocols transports security; do
+            SUBSCRIPTION_PARAM_FILTER_KIND="$kind"
+            SUBSCRIPTION_PARAM_FILTER_VALUES_JSON="[]"
+            config_list_foreach "$section" "subscription_filter_${direction}_${kind}" append_subscription_param_filter_handler
+            values="$SUBSCRIPTION_PARAM_FILTER_VALUES_JSON"
+            [ "$values" = "[]" ] && continue
+            result="$(printf '%s' "$result" | jq -c --arg d "$direction" --arg k "$kind" --argjson v "$values" '.[$d][$k] = $v')"
+        done
+    done
+
+    printf '%s' "$result"
 }
 
 # Prints the flag emoji of a two-letter country code (NL -> the Netherlands flag)
@@ -6034,8 +6190,14 @@ configure_user_domain_list() {
     esac
 
     items="$(parse_domain_or_subnet_string_to_commas_string "$items" "domains")"
-    json_array="$(comma_string_to_json_array "$items")"
-    patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
+    # The entries may carry full:/keyword:/regex: prefixes: the importer sorts them
+    # into the matching rule kinds.
+    (
+        items_file="$(mktemp)" || exit 1
+        trap 'rm -f "$items_file"' EXIT INT TERM
+        printf '%s\n' "$items" | tr ',' '\n' > "$items_file"
+        import_plain_domain_list_to_local_source_ruleset_chunked "$items_file" "$ruleset_filepath"
+    )
 }
 
 configure_user_subnet_list() {
@@ -7338,6 +7500,17 @@ check_dns_available() {
         if dig @"$dns_server" "$domain" +timeout=2 +tries=1 > /dev/null 2>&1; then
             dns_status=1
         fi
+    elif [ "$dns_type" = "tcp" ]; then
+        if dig @"$dns_server" "$domain" +tcp +timeout=2 +tries=1 > /dev/null 2>&1; then
+            dns_status=1
+        fi
+    else
+        # doh3 / doq: dig cannot speak them. The router's own resolver (the sing-box
+        # DNS inbound) is the one that talks to the upstream, so an answer from it
+        # shows the upstream works.
+        if dig @"$SB_DNS_INBOUND_ADDRESS" "$domain" +timeout=3 +tries=1 > /dev/null 2>&1; then
+            dns_status=1
+        fi
     fi
 
     # Check if local DNS resolver is working
@@ -7739,8 +7912,67 @@ clash_api() {
         esac
         ;;
 
+    get_connections)
+        # The live connection table, reduced to what the Connections page shows
+        # (the raw answer carries a lot per connection) and capped: newest first.
+        curl -s -m 5 --header "$auth_header" "$CLASH_URL/connections" |
+            jq -c --argjson cap "$CONNECTIONS_LIST_CAP" '{
+                downloadTotal: (.downloadTotal // 0),
+                uploadTotal: (.uploadTotal // 0),
+                total: ((.connections // []) | length),
+                connections: ((.connections // []) | sort_by(.start) | reverse | .[0:$cap] | map({
+                    id,
+                    network: (.metadata.network // ""),
+                    type: (.metadata.type // ""),
+                    source: ((.metadata.sourceIP // "") + (if (.metadata.sourcePort // "") != "" then ":" + .metadata.sourcePort else "" end)),
+                    host: (if (.metadata.host // "") != "" then .metadata.host else (.metadata.destinationIP // "") end),
+                    destination: (.metadata.destinationIP // ""),
+                    port: (.metadata.destinationPort // ""),
+                    chains: (.chains // []),
+                    rule: (.rule // ""),
+                    rule_payload: (.rulePayload // ""),
+                    upload: (.upload // 0),
+                    download: (.download // 0),
+                    start: (.start // "")
+                }))
+            }'
+        ;;
+
+    close_connection)
+        local connection_id="$2"
+        local http_code
+
+        case "$connection_id" in
+        "" | *[!0-9a-fA-F-]*)
+            echo '{"success":false,"error":"invalid connection id"}'
+            return 1
+            ;;
+        esac
+        http_code="$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X DELETE --header "$auth_header" "$CLASH_URL/connections/$connection_id")"
+        # 404: the connection is already gone, which is what was asked for
+        case "$http_code" in
+        204 | 200 | 404) echo '{"success":true}' ;;
+        *)
+            jq -n -c --arg code "$http_code" '{success: false, http_code: $code}'
+            return 1
+            ;;
+        esac
+        ;;
+
+    close_connections)
+        local http_code
+        http_code="$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X DELETE --header "$auth_header" "$CLASH_URL/connections")"
+        case "$http_code" in
+        204 | 200) echo '{"success":true}' ;;
+        *)
+            jq -n -c --arg code "$http_code" '{success: false, http_code: $code}'
+            return 1
+            ;;
+        esac
+        ;;
+
     *)
-        echo '{"error":"unknown action","available":["get_proxies","get_proxy_latency","get_group_latency","set_group_proxy"]}' | jq .
+        echo '{"error":"unknown action","available":["get_proxies","get_proxy_latency","get_group_latency","set_group_proxy","get_connections","close_connection","close_connections"]}' | jq .
         return 1
         ;;
     esac
@@ -8100,6 +8332,20 @@ Available commands:
     check_sing_box_logs     Show sing-box logs
     check_fakeip            Test FakeIP on router
     check_environment       Flow offloading, clock and IPv6 facts that affect the redirect
+    check_route <host|ip> [source-ip]
+                            Show which section, DNS server or block handles a domain or IP
+    get_wan_addresses       Print the WAN addresses and the EDNS Client Subnet each one gives as JSON
+    get_lan_info            Print the LAN subnets and static DHCP leases as JSON
+    dhcp_host_set <mac> <ip> [name]
+                            Pin an address to a device (static DHCP lease)
+    dhcp_host_remove <mac>  Release the static lease of a device
+    get_update_notice       Print the cached "newer version available" notice as JSON
+    refresh_update_notice   Refresh that notice in the background
+    config_snapshot <save|list|restore> [id]
+                            Snapshots of /etc/config/netshift: keep, list or bring back
+    get_pin_guard_events    Print the switches the pin guard made as JSON
+    dns_benchmark [server...]
+                            Time each DNS server (the configured ones by default) from this router
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -8177,6 +8423,45 @@ check_fakeip)
     ;;
 check_environment)
     check_environment
+    ;;
+check_route)
+    check_route "${2:-}" "${3:-}"
+    ;;
+get_wan_addresses)
+    get_wan_addresses
+    ;;
+get_lan_info)
+    get_lan_info
+    ;;
+dhcp_host_set)
+    dhcp_host_set "${2:-}" "${3:-}" "${4:-}"
+    ;;
+dhcp_host_remove)
+    dhcp_host_remove "${2:-}"
+    ;;
+get_update_notice)
+    get_update_notice
+    ;;
+refresh_update_notice)
+    update_notice_refresh_async
+    ;;
+config_snapshot)
+    case "${2:-}" in
+    save) snapshot_save "${3:-manual}" ;;
+    list) snapshot_list ;;
+    restore) snapshot_restore "${3:-}" ;;
+    *)
+        echo '{"error":"use save, list or restore"}'
+        exit 1
+        ;;
+    esac
+    ;;
+get_pin_guard_events)
+    get_pin_guard_events
+    ;;
+dns_benchmark)
+    shift
+    dns_benchmark "$@"
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"

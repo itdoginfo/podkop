@@ -38,39 +38,156 @@ function createSettingsContent(section) {
   );
 
   // --- DNS tab ---
+  // One ordered list of DNS servers: the first is the main one, the others are
+  // the pool used by the mode below. It is stored in the options the backend has
+  // always read (dns_type + dns_server for the main server, dns_pool_server for
+  // the rest), so an older config opens as it is and nothing is migrated.
   let o = section.taboption(
     "dns",
-    form.ListValue,
-    "dns_type",
-    _("DNS Protocol Type"),
-    _("Select DNS protocol to use"),
+    form.DynamicList,
+    "dns_servers",
+    _("DNS servers"),
+    _(
+      "scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. The first one is the main server. Pick a ready-made server or type your own.",
+    ),
   );
-  o.value("doh", _("DNS over HTTPS (DoH)"));
-  o.value("dot", _("DNS over TLS (DoT)"));
-  o.value("udp", _("UDP (Unprotected DNS)"));
-  o.default = "udp";
-  o.rmempty = false;
-
-  o = section.taboption(
-    "dns",
-    form.Value,
-    "dns_server",
-    _("DNS Server"),
-    _("Select or enter DNS server address"),
-  );
-  Object.entries(main.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
-    o.value(key, _(label));
+  Object.entries(main.DNS_POOL_PRESETS).forEach(([key, label]) => {
+    o.value(key, label);
   });
-  o.default = "8.8.8.8";
   o.rmempty = false;
+  let knownCount = null;
+  o.cfgvalue = function (section_id) {
+    const list = main.dnsServersFromOptions({
+      dns_type: uci.get("netshift", section_id, "dns_type"),
+      dns_server: uci.get("netshift", section_id, "dns_server"),
+      dns_pool_server: main.toIpList(
+        uci.get("netshift", section_id, "dns_pool_server"),
+      ),
+    });
+
+    knownCount = list.length;
+
+    return list;
+  };
+  o.write = function (section_id, value) {
+    const options = main.dnsServersToOptions(
+      Array.isArray(value) ? value : [value],
+    );
+
+    if (!options) {
+      return;
+    }
+
+    uci.set("netshift", section_id, "dns_type", options.dns_type);
+    uci.set("netshift", section_id, "dns_server", options.dns_server);
+    uci.set(
+      "netshift",
+      section_id,
+      "dns_pool_server",
+      options.dns_pool_server.length ? options.dns_pool_server : null,
+    );
+  };
+  o.remove = function () {};
+  // A second server is useless in "main server only" mode: when the list grows
+  // beyond one, switch to priority (the user can still pick another mode).
+  o.onchange = function (ev, section_id, value) {
+    const count = Array.isArray(value) ? value.length : 0;
+    const grew = knownCount !== null && count > knownCount;
+
+    knownCount = count;
+
+    if (!grew || count < 2) {
+      return;
+    }
+
+    const mode = this.section.getUIElement(section_id, "dns_pool_mode");
+
+    if (mode && mode.getValue() === "single") {
+      mode.setValue("fallback");
+    }
+  };
   o.validate = function (section_id, value) {
-    const validation = main.validateDNS(value);
+    // Called for each entry of the list (and for the empty input row). An empty
+    // list is refused by rmempty = false.
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateDnsPoolServer(value);
 
     if (validation.valid) {
       return true;
     }
 
     return validation.message;
+  };
+
+  // Speed test of the configured DNS servers, from this router.
+  o = section.taboption(
+    "dns",
+    form.DummyValue,
+    "_dns_speed",
+    _("DNS speed test"),
+    _(
+      "Times every configured DNS server (UDP, TCP, DoT and DoH; DoH3 and DoQ cannot be timed). With \"Route main DNS through proxy/VPN\" the servers are reached through the tunnel, so a resolver inside it can be timed too. Nothing is changed: use it to decide the order of the servers.",
+    ),
+  );
+  o.rawhtml = true;
+  o.cfgvalue = function () {
+    const result = E("div", { class: "cbi-value-description" });
+    const button = E(
+      "button",
+      {
+        class: "btn cbi-button",
+        click: (ev) => {
+          ev.preventDefault();
+          button.disabled = true;
+          result.textContent = _("Testing...");
+
+          main.NetShiftShellMethods.dnsBenchmark()
+            .then((reply) => {
+              const rows = main.sortBySpeed(
+                reply.success ? main.parseDnsBenchmark(reply.data) : [],
+              );
+
+              const via = reply.success
+                ? main.parseDnsBenchmarkVia(reply.data)
+                : "direct";
+
+              result.replaceChildren(
+                ...(rows.length
+                  ? [
+                      E(
+                        "div",
+                        {},
+                        via === "tunnel"
+                          ? _("Measured through the tunnel, the way real queries go")
+                          : _("Measured from the router"),
+                      ),
+                    ]
+                  : []),
+                ...(rows.length
+                  ? rows.map((row) =>
+                      E("div", {}, [
+                        `${row.server}: `,
+                        row.ms === null ? _("no answer") : `${row.ms} ${_("ms")}`,
+                      ]),
+                    )
+                  : [_("The test could not be run")]),
+              );
+            })
+            .catch(() => {
+              result.textContent = _("The test could not be run");
+            })
+            .finally(() => {
+              button.disabled = false;
+            });
+        },
+      },
+      _("Test the servers"),
+    );
+
+    return E("div", {}, [button, result]);
   };
 
   o = section.taboption(
@@ -101,45 +218,16 @@ function createSettingsContent(section) {
     "dns",
     form.ListValue,
     "dns_pool_mode",
-    _("Multiple DNS servers"),
+    _("Several DNS servers"),
     _(
-      "How the additional DNS servers are used together with the main one. Needs sing-box 1.14 or newer; on an older core only the main server is used.",
+      "How the servers of the list are used together when there are several. Needs sing-box 1.14 or newer; on an older core only the first server is used.",
     ),
   );
-  o.value("single", _("Main server only"));
+  o.value("single", _("First server only"));
   o.value("fallback", _("Priority: next server if the previous one fails"));
   o.value("race", _("Parallel: the first usable answer wins"));
   o.default = "single";
   o.rmempty = false;
-
-  o = section.taboption(
-    "dns",
-    form.DynamicList,
-    "dns_pool_server",
-    _("Additional DNS servers"),
-    _(
-      "Pick a ready-made server or type your own: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. In priority mode the order is the priority after the main server.",
-    ),
-  );
-  Object.entries(main.DNS_POOL_PRESETS).forEach(([key, label]) => {
-    o.value(key, label);
-  });
-  o.depends("dns_pool_mode", "fallback");
-  o.depends("dns_pool_mode", "race");
-  o.rmempty = true;
-  o.validate = function (section_id, value) {
-    if (!value) {
-      return true;
-    }
-
-    const validation = main.validateDnsPoolServer(value);
-
-    if (validation.valid) {
-      return true;
-    }
-
-    return validation.message;
-  };
 
   o = section.taboption(
     "dns",
@@ -156,6 +244,31 @@ function createSettingsContent(section) {
   o.rmempty = false;
   o.validate = function (section_id, value) {
     const validation = main.validateDnsPoolTimeout(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.taboption(
+    "dns",
+    form.DynamicList,
+    "dns_forward",
+    _("DNS forwarding by zone"),
+    _(
+      'One entry per line: "zone server", for example "ru 77.88.8.8" sends the zone .ru and all its subdomains to that DNS server directly, the way a "server=/ru/77.88.8.8" line does in the dnsmasq config. The server is an IP address, optionally with #port. The names of these zones get their real addresses, not FakeIP, so they are not routed by domain; the entries are applied to dnsmasq unless "Dont Touch My DHCP" is on.',
+    ),
+  );
+  o.placeholder = "ru 77.88.8.8";
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateDnsForward(value);
 
     if (validation.valid) {
       return true;
@@ -234,17 +347,91 @@ function createSettingsContent(section) {
     return true;
   };
 
+  // The WAN interfaces and the ECS subnet each one gives (netshift
+  // get_wan_addresses). Asking can take a few seconds: a private WAN address makes
+  // the router look its external address up once.
+  let wanAddresses = null;
+  const loadWanAddresses = () => {
+    wanAddresses ??= main
+      .executeShellCommand({
+        command: "/usr/bin/netshift",
+        args: ["get_wan_addresses"],
+        timeout: 30000,
+      })
+      .then((reply) => {
+        try {
+          const data = JSON.parse(reply.stdout || "{}");
+
+          return Array.isArray(data.interfaces) ? data.interfaces : [];
+        } catch (e) {
+          return [];
+        }
+      })
+      .catch(() => []);
+
+    return wanAddresses;
+  };
+
+  o = section.taboption(
+    "dns",
+    form.Flag,
+    "dns_client_subnet_auto",
+    _("Detect the EDNS Client Subnet from the WAN"),
+    _(
+      "Take the subnet from a WAN interface: its public address, or, when the interface has a private (NAT) address, the address the internet sees (looked up once and remembered). The value below is used when no address can be determined. IPv4 only, the /24 of the address.",
+    ),
+  );
+  o.default = o.disabled;
+  o.rmempty = true;
+
+  o = section.taboption(
+    "dns",
+    form.ListValue,
+    "dns_client_subnet_interface",
+    _("WAN interface for the EDNS Client Subnet"),
+    _("With several WAN interfaces choose the one whose address represents you. Automatic uses the first working one."),
+  );
+  o.depends("dns_client_subnet_auto", "1");
+  o.value("", _("Automatic (first working)"));
+  o.rmempty = true;
+  o.load = function (section_id) {
+    return loadWanAddresses().then((interfaces) => {
+      interfaces.forEach((item) => {
+        const label = item.subnet
+          ? `${item.interface} (${item.subnet})`
+          : `${item.interface} (${_("no address")})`;
+
+        if (!this.keylist?.includes(item.interface)) {
+          this.value(item.interface, label);
+        }
+      });
+
+      return form.ListValue.prototype.load.call(this, section_id);
+    });
+  };
+
   o = section.taboption(
     "dns",
     form.Value,
     "dns_client_subnet",
     _("EDNS Client Subnet"),
     _(
-      "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable.",
+      "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable. The detected WAN subnets are offered in the list.",
     ),
   );
   o.placeholder = "203.0.113.0/24";
   o.rmempty = true;
+  o.load = function (section_id) {
+    return loadWanAddresses().then((interfaces) => {
+      interfaces.forEach((item) => {
+        if (item.subnet && !this.keylist?.includes(item.subnet)) {
+          this.value(item.subnet, `${item.subnet} (${item.interface})`);
+        }
+      });
+
+      return form.Value.prototype.load.call(this, section_id);
+    });
+  };
   o.validate = function (section_id, value) {
     if (!value) {
       return true;
@@ -297,6 +484,18 @@ function createSettingsContent(section) {
     // Allow only non-wireless devices
     return !isWireless;
   };
+
+  o = section.taboption(
+    "network",
+    form.Flag,
+    "dns_hijack",
+    _("Send LAN DNS queries to the router"),
+    _(
+      "Plain DNS (port 53) of the devices in the source interfaces is redirected to the router even when a device asks another server, such as a hard-coded 8.8.8.8. Without it such devices never get the FakeIP answers that routing by domain depends on. DNS over TLS/HTTPS is not touched.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
 
   o = section.taboption(
     "network",
@@ -413,6 +612,18 @@ function createSettingsContent(section) {
   };
 
   // --- Lists & Updates tab ---
+  o = section.taboption(
+    "lists",
+    form.Flag,
+    "update_notice",
+    _("Notify about new versions"),
+    _(
+      "Show a notice on the dashboard when a newer NetShift or sing-box-extended version is out. When the dashboard is opened and the last check is more than a day old, the router asks GitHub once in the background; nothing is installed.",
+    ),
+  );
+  o.default = "1";
+  o.rmempty = false;
+
   o = section.taboption(
     "lists",
     form.ListValue,

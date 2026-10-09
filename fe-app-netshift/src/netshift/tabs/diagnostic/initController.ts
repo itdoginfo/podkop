@@ -9,7 +9,9 @@ import { logger, store, StoreType } from '../../services';
 import {
   renderAvailableActions,
   renderCheckSection,
+  renderRouteCheck,
   renderRunAction,
+  renderSnapshots,
   renderSystemInfo,
 } from './partials';
 import { NetShiftShellMethods } from '../../methods';
@@ -573,6 +575,15 @@ function onPageMount() {
 
   // Initial Wiki disclaimer render
   renderWikiDisclaimerWidget();
+
+  // Route check widget (keeps its own state)
+  document
+    .getElementById('pdk_diagnostic-page-route-check')
+    ?.replaceChildren(renderRouteCheck());
+  // Configuration snapshots (keeps its own state)
+  document
+    .getElementById('pdk_diagnostic-page-snapshots')
+    ?.replaceChildren(renderSnapshots());
 
   // Initial services info fetch
   fetchServicesInfo();

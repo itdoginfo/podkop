@@ -14,8 +14,14 @@
 #             jobstate, selfheal, dnsdetour, ecssubnet, suburlopt, subcron, globalproxy, realitymlkem, sectiondisabled, cachebust,
 #             bittorrent, dnssection, utfilters, stablecheck, extcheck, sbextarch, sbextlite, netshiftcheck, latesttag,
 #             ghredirect, selfupdate, backupguard, hotreload, cachepersist,
-#             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade, environment, mixedauth,
+#             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade, environment, mixedauth, domrules, routecheck, paramfilters, ecsauto, dnsservers, connections, lan, updatenotice, snapshots, pinguard, dnsbench,
 #             scalaropt, emptylink,
+#             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade, environment,
+#             scalaropt, emptylink, dnsforward,
+#             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade, environment,
+#             scalaropt, emptylink, urlint,
+#             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade,
+#             scalaropt, emptylink, dnshijack,
 # ──────────────────────────────────────────────────────────────────
 
 services:
