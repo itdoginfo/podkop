@@ -530,12 +530,19 @@ function createSectionContent(section) {
     form.ListValue,
     "urltest_check_interval",
     _("URLTest Check Interval"),
-    _("The interval between connectivity tests"),
+    _("The interval between connectivity tests. A longer interval means less traffic through every server of the group; \"Only at start\" tests once when the service starts."),
   );
   o.value("30s", _("Every 30 seconds"));
   o.value("1m", _("Every 1 minute"));
   o.value("3m", _("Every 3 minutes"));
   o.value("5m", _("Every 5 minutes"));
+  o.value("10m", _("Every 10 minutes"));
+  o.value("20m", _("Every 20 minutes"));
+  o.value("30m", _("Every 30 minutes"));
+  o.value("1h", _("Every hour"));
+  o.value("6h", _("Every 6 hours"));
+  o.value("24h", _("Every 24 hours"));
+  o.value("off", _("Only at start, never again"));
   o.default = "3m";
   o.depends({ connection_type: "proxy", proxy_config_type: "urltest" });
   o.depends({ connection_type: "proxy", proxy_config_type: "urltest_text" });

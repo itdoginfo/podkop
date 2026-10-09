@@ -16218,6 +16218,73 @@ test_bypass() {
     _bp_check "an enabled bypass section requests the bypass" "requested-enabled-section:yes"
 }
 
+
+# ─────────────────────────────────────────────────────────────────
+# Test: URLTest check interval (urltest_check_interval, including "off")
+# ─────────────────────────────────────────────────────────────────
+test_urltest_interval() {
+    header "URLTest check interval"
+
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local constants_lib="${NETSHIFT_LIB_DIR}/constants.sh"
+    local ui="${NETSHIFT_SRC}/../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js"
+    [ -r "$ui" ] || ui="/luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js"
+    if [ ! -r "$cm_lib" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "config manager / jq not available"
+        return
+    fi
+
+    local out
+    out="$(
+        . "$constants_lib"
+        . "$cm_lib"
+        base='{"outbounds":[]}'
+        for v in 30s 3m 10m 30m 1h 24h off ""; do
+            printf 'interval[%s]=%s\n' "$v" "$(sing_box_cm_add_urltest_outbound "$base" t '["a","b"]' "" "$v" 50 | jq -r '.outbounds[0].interval // "none"')"
+        done
+        # without the constants the value still means "almost never"
+        unset URLTEST_INTERVAL_OFF
+        printf 'off-no-constants=%s\n' "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" off 50 | jq -r '.outbounds[0].interval')"
+    )"
+
+    _ti() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _ti "a normal interval is kept" "interval[30s]=30s"
+    _ti "the default interval is kept" "interval[3m]=3m"
+    _ti "a 10 minute interval is kept" "interval[10m]=10m"
+    _ti "a 30 minute interval is kept" "interval[30m]=30m"
+    _ti "a day is kept" "interval[24h]=24h"
+    _ti "'off' becomes a year: one test at start" "interval[off]=8760h"
+    _ti "an empty interval adds no field" "interval[]=none"
+    _ti "'off' works without the constants file" "off-no-constants=8760h"
+
+    if sing-box version > /dev/null 2>&1; then
+        local cfg="/tmp/netshift-urltest-int-$$.json"
+        (
+            . "$constants_lib"
+            . "$cm_lib"
+            c='{"log":{"level":"error"},"outbounds":[{"type":"direct","tag":"a"},{"type":"direct","tag":"b"}]}'
+            sing_box_cm_add_urltest_outbound "$c" t '["a","b"]' "https://www.gstatic.com/generate_204" off 50
+        ) > "$cfg"
+        if sing-box check -c "$cfg" > /dev/null 2>&1; then
+            pass "the core accepts the 'off' interval"
+        else
+            fail "the core rejects the 'off' interval"
+        fi
+        rm -f "$cfg"
+    fi
+
+    if grep -q 'o.value("off"' "$ui" 2> /dev/null && grep -q 'o.value("30m"' "$ui"; then
+        pass "the UI offers 10m, 20m, 30m and 'off'"
+    else
+        skip "section.js not found for the UI check"
+    fi
+}
 # ─────────────────────────────────────────────────────────────────
 
 main() {
@@ -16294,6 +16361,7 @@ main() {
             test_bypass
             test_urltest_filters
             test_subscription_geoip
+            test_urltest_interval
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -16358,9 +16426,10 @@ main() {
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
+        urlint)      test_urltest_interval ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment urlint"
             exit 1
             ;;
     esac

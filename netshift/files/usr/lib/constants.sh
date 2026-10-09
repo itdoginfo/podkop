@@ -328,3 +328,6 @@ COMMUNITY_SERVICES="russia_inside russia_outside ukraine_inside geoblock block p
 # with the router clock.
 ENVIRONMENT_MIN_PLAUSIBLE_EPOCH=1735689600
 ENVIRONMENT_CLOCK_PROBE_URL="https://www.cloudflare.com/"
+
+# URLTest interval standing for "only at start" (urltest_check_interval 'off')
+URLTEST_INTERVAL_OFF="8760h"

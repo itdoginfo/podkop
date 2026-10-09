@@ -428,8 +428,17 @@ msgstr "Установленные соединения могут обходи�
 msgid "Every 1 minute"
 msgstr "Каждую минуту"
 
+msgid "Every 10 minutes"
+msgstr "Каждые 10 минут"
+
 msgid "Every 12 hours"
 msgstr "Каждые 12 часов"
+
+msgid "Every 20 minutes"
+msgstr "Каждые 20 минут"
+
+msgid "Every 24 hours"
+msgstr "Каждые 24 часа"
 
 msgid "Every 3 hours"
 msgstr "Каждые 3 часа"
@@ -845,6 +854,9 @@ msgstr "Количество начальных символов имени ка
 msgid "Off"
 msgstr "Выключено"
 
+msgid "Only at start, never again"
+msgstr "Только при запуске, потом не проверять"
+
 msgid "Only one section can be global at a time."
 msgstr "Только одна секция может быть глобальной одновременно."
 
@@ -1169,8 +1181,8 @@ msgstr "DNS-сервер, используемый для поиска IP-адр
 msgid "The domains of this section's lists are resolved by this server instead of the main one and are not sent through any tunnel (split DNS). Address, address:port or host/path for DoH"
 msgstr "Домены из списков этой секции резолвит этот сервер вместо основного, и через туннель они не идут (split DNS). Адрес, адрес:порт или хост/путь для DoH"
 
-msgid "The interval between connectivity tests"
-msgstr "Интервал между тестами подключения"
+msgid "The interval between connectivity tests. A longer interval means less traffic through every server of the group; \"Only at start\" tests once when the service starts."
+msgstr "Интервал между проверками связи. Чем он длиннее, тем меньше трафика на каждый сервер группы; «Только при запуске» проверяет один раз при старте службы."
 
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
