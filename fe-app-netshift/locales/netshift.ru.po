@@ -125,11 +125,17 @@ msgstr "Путь к файлу кэша"
 msgid "Cache file path cannot be empty"
 msgstr "Путь к файлу кэша не может быть пустым"
 
+msgid "Cancel"
+msgstr "Отмена"
+
 msgid "Cannot receive checks result"
 msgstr "Не удалось получить результаты проверки"
 
 msgid "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly."
 msgstr "Соединить цепочкой (двойной хоп): серверы этой секции достигаются через выход выбранной секции. Если цепочку построить нельзя, трафик этой секции отклоняется, а не отправляется напрямую."
+
+msgid "Change the static lease"
+msgstr "Изменить статическую аренду"
 
 msgid "Check update"
 msgstr "Проверить обновление"
@@ -250,6 +256,9 @@ msgstr "Устройства"
 
 msgid "DHCP has DNS server"
 msgstr "DHCP содержит DNS сервер"
+
+msgid "DHCP lease"
+msgstr "Аренда DHCP"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
@@ -374,8 +383,14 @@ msgstr "Отбросить серверы, в названии которых е
 msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive)."
 msgstr "Исключать серверы подписки, имя которых содержит любое из этих ключевых слов (без учёта регистра)."
 
+msgid "Dynamic"
+msgstr "Динамический"
+
 msgid "Dynamic List"
 msgstr "Динамический список"
+
+msgid "Edit"
+msgstr "Изменить"
 
 msgid "EDNS Client Subnet"
 msgstr "EDNS Client Subnet (ECS)"
@@ -512,6 +527,9 @@ msgstr "Глобальный прокси"
 msgid "Group subscription proxies into URLTest groups. 'By country flag' uses the flag emoji at the start of each name; 'By name prefix' groups by the first N characters."
 msgstr "Группировать прокси из подписки в группы URLTest. «По флагу страны» использует эмодзи флага в начале каждого имени; «По префиксу имени» группирует по первым N символам."
 
+msgid "Host name"
+msgstr "Имя хоста"
+
 msgid "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s"
 msgstr "Сколько времени может занимать один DNS-сервер, прежде чем будет опрошен следующий (приоритет) или его ответ отброшен (параллельно). Примеры: 500ms, 2s"
 
@@ -553,6 +571,9 @@ msgstr "Неверный домен"
 
 msgid "Invalid format. Use X.X.X.X/Y or IPv6/Y"
 msgstr "Неверный формат. Используйте X.X.X.X/Y или IPv6/Y"
+
+msgid "Invalid host name: letters, digits and dashes only"
+msgstr "Некорректное имя: только буквы, цифры и дефисы"
 
 msgid "Invalid HY2 URL: insecure must be 0 or 1"
 msgstr "Неверный URL Hysteria2: параметр insecure должен быть 0 или 1"
@@ -596,11 +617,17 @@ msgstr "Неверный URL Hysteria2: неподдерживаемый тип 
 msgid "Invalid IP address"
 msgstr "Неверный IP-адрес"
 
+msgid "Invalid IPv4 address"
+msgstr "Некорректный IPv4-адрес"
+
 msgid "Invalid IPv6 address"
 msgstr "Неверный IPv6-адрес"
 
 msgid "Invalid JSON format"
 msgstr "Неверный формат JSON"
+
+msgid "Invalid MAC address"
+msgstr "Некорректный MAC-адрес"
 
 msgid "Invalid path format. Path must start with \"/\" and contain valid characters"
 msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать допустимые символы"
@@ -851,6 +878,9 @@ msgstr "Только одна секция может быть глобальн�
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
 
+msgid "Optional"
+msgstr "Необязательно"
+
 msgid "Optional: query this DNS server through the outbound of another section. If that outbound is not usable the queries go out directly."
 msgstr "Необязательно: опрашивать этот DNS-сервер через outbound другой секции. Если этот outbound недоступен, запросы уходят напрямую."
 
@@ -887,6 +917,12 @@ msgstr "Ожидает запуска"
 msgid "Pick a ready-made server or type your own: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. In priority mode the order is the priority after the main server."
 msgstr "Выберите готовый сервер или введите свой: scheme://host[:port][/path], где scheme — udp, tcp, dot, doh, doh3 или doq. В режиме приоритета порядок задаёт приоритет после основного сервера."
 
+msgid "Pin address"
+msgstr "Закрепить адрес"
+
+msgid "Pin the address"
+msgstr "Закрепить адрес"
+
 msgid "Prefer servers in list order"
 msgstr "Предпочитать серверы в порядке списка"
 
@@ -916,6 +952,12 @@ msgstr "Reality: пост-квантовый обмен ключами (X25519ML
 
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
+
+msgid "Release"
+msgstr "Освободить"
+
+msgid "Release the static lease of this device? It will get an address from the pool."
+msgstr "Освободить статическую аренду устройства? Оно получит адрес из общего пула."
 
 msgid "Remote Domain Lists"
 msgstr "Внешние списки доменов"
@@ -973,6 +1015,12 @@ msgstr "Запустить диагностику"
 
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Search by name, address or MAC"
+msgstr "Поиск по имени, адресу или MAC"
 
 msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
 msgstr "Секретный ключ для аутентификации удаленного доступа к YACD при включенном доступе через WAN."
@@ -1106,6 +1154,9 @@ msgstr "Укажите путь к файлу списка, расположен
 msgid "Start NetShift"
 msgstr "Запустить NetShift"
 
+msgid "Static"
+msgstr "Статический"
+
 msgid "Stop NetShift"
 msgstr "Остановить NetShift"
 
@@ -1163,6 +1214,15 @@ msgstr "Тестирование задержки"
 msgid "Text List"
 msgstr "Текстовый список"
 
+msgid "The address is already given to another device"
+msgstr "Адрес уже выдан другому устройству"
+
+msgid "The address is outside the local networks"
+msgstr "Адрес вне локальных сетей"
+
+msgid "The device always gets this address from the router (a static DHCP lease, the same as in Network - DHCP and DNS). The change applies at once."
+msgstr "Устройство всегда получает этот адрес от роутера (статическая аренда DHCP, та же, что в Сеть - DHCP и DNS). Изменение применяется сразу."
+
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
 
@@ -1175,6 +1235,9 @@ msgstr "Интервал между тестами подключения"
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
 
+msgid "The name is already used by another device"
+msgstr "Имя уже занято другим устройством"
+
 msgid "The router clock is not set"
 msgstr "Часы роутера не установлены"
 
@@ -1183,6 +1246,9 @@ msgstr "Часы роутера спешат или отстают"
 
 msgid "The router clock is right"
 msgstr "Часы роутера идут верно"
+
+msgid "The router did not answer"
+msgstr "Роутер не ответил"
 
 msgid "The router has a global IPv6 address, IPv6 handling is off"
 msgstr "У роутера есть глобальный адрес IPv6, а обработка IPv6 выключена"

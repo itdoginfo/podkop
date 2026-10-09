@@ -3,7 +3,7 @@
     "call": "(disabled)",
     "key": "(disabled)",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:199"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:339"
     ]
   },
   {
@@ -253,6 +253,13 @@
     ]
   },
   {
+    "call": "Cancel",
+    "key": "Cancel",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:254"
+    ]
+  },
+  {
     "call": "Cannot receive checks result",
     "key": "Cannot receive checks result",
     "places": [
@@ -267,6 +274,13 @@
     "key": "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly.",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:701"
+    ]
+  },
+  {
+    "call": "Change the static lease",
+    "key": "Change the static lease",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:243"
     ]
   },
   {
@@ -318,7 +332,7 @@
     "call": "Choose how traffic of a device in your network is handled. A device can be sent completely through one section (all its traffic) or directly, ignoring the lists. The change is stored with the page's Save & Apply, like the other settings.",
     "key": "Choose how traffic of a device in your network is handled. A device can be sent completely through one section (all its traffic) or directly, ignoring the lists. The change is stored with the page's Save & Apply, like the other settings.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:231"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:372"
     ]
   },
   {
@@ -509,7 +523,7 @@
     "call": "Default (by the lists)",
     "key": "Default (by the lists)",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:145"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:158"
     ]
   },
   {
@@ -544,7 +558,7 @@
     "call": "Device",
     "key": "Device",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:239"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:392"
     ]
   },
   {
@@ -562,6 +576,13 @@
     ]
   },
   {
+    "call": "DHCP lease",
+    "key": "DHCP lease",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:395"
+    ]
+  },
+  {
     "call": "Diagnostics",
     "key": "Diagnostics",
     "places": [
@@ -572,7 +593,7 @@
     "call": "Direct (excluded from routing)",
     "key": "Direct (excluded from routing)",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:149"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:162"
     ]
   },
   {
@@ -860,11 +881,25 @@
     ]
   },
   {
+    "call": "Dynamic",
+    "key": "Dynamic",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:284"
+    ]
+  },
+  {
     "call": "Dynamic List",
     "key": "Dynamic List",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:936",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1026"
+    ]
+  },
+  {
+    "call": "Edit",
+    "key": "Edit",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:291"
     ]
   },
   {
@@ -1053,7 +1088,7 @@
     "call": "Everything through: %s",
     "key": "Everything through: %s",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:152"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:165"
     ]
   },
   {
@@ -1202,6 +1237,13 @@
     ]
   },
   {
+    "call": "Host name",
+    "key": "Host name",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:251"
+    ]
+  },
+  {
     "call": "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s",
     "key": "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s",
     "places": [
@@ -1305,6 +1347,13 @@
     ]
   },
   {
+    "call": "Invalid host name: letters, digits and dashes only",
+    "key": "Invalid host name: letters, digits and dashes only",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:191"
+    ]
+  },
+  {
     "call": "Invalid HY2 URL: insecure must be 0 or 1",
     "key": "Invalid HY2 URL: insecure must be 0 or 1",
     "places": [
@@ -1403,6 +1452,13 @@
     ]
   },
   {
+    "call": "Invalid IPv4 address",
+    "key": "Invalid IPv4 address",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:190"
+    ]
+  },
+  {
     "call": "Invalid IPv6 address",
     "key": "Invalid IPv6 address",
     "places": [
@@ -1414,6 +1470,13 @@
     "key": "Invalid JSON format",
     "places": [
       "src/validators/validateOutboundJson.ts:9"
+    ]
+  },
+  {
+    "call": "Invalid MAC address",
+    "key": "Invalid MAC address",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:189"
     ]
   },
   {
@@ -1661,7 +1724,8 @@
     "call": "IP address",
     "key": "IP address",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:240"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:250",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:393"
     ]
   },
   {
@@ -1803,7 +1867,8 @@
     "call": "MAC address",
     "key": "MAC address",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:241"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:249",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:394"
     ]
   },
   {
@@ -1961,7 +2026,7 @@
     "call": "Not on the network",
     "key": "Not on the network",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:207"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:347"
     ]
   },
   {
@@ -2010,6 +2075,13 @@
     "key": "Operation timed out",
     "places": [
       "src/helpers/withTimeout.ts:7"
+    ]
+  },
+  {
+    "call": "Optional",
+    "key": "Optional",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:223"
     ]
   },
   {
@@ -2103,6 +2175,20 @@
     ]
   },
   {
+    "call": "Pin address",
+    "key": "Pin address",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:285"
+    ]
+  },
+  {
+    "call": "Pin the address",
+    "key": "Pin the address",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:243"
+    ]
+  },
+  {
     "call": "Prefer servers in list order",
     "key": "Prefer servers in list order",
     "places": [
@@ -2170,6 +2256,20 @@
     "key": "Regional options cannot be used together",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:871"
+    ]
+  },
+  {
+    "call": "Release",
+    "key": "Release",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:293"
+    ]
+  },
+  {
+    "call": "Release the static lease of this device? It will get an address from the pool.",
+    "key": "Release the static lease of this device? It will get an address from the pool.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:262"
     ]
   },
   {
@@ -2246,7 +2346,7 @@
     "call": "Routing",
     "key": "Routing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:242",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:396",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:26"
     ]
   },
@@ -2304,6 +2404,20 @@
     "key": "Russia inside restrictions",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:890"
+    ]
+  },
+  {
+    "call": "Save",
+    "key": "Save",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:256"
+    ]
+  },
+  {
+    "call": "Search by name, address or MAC",
+    "key": "Search by name, address or MAC",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:381"
     ]
   },
   {
@@ -2619,6 +2733,13 @@
     ]
   },
   {
+    "call": "Static",
+    "key": "Static",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:290"
+    ]
+  },
+  {
     "call": "Stop NetShift",
     "key": "Stop NetShift",
     "places": [
@@ -2754,6 +2875,27 @@
     ]
   },
   {
+    "call": "The address is already given to another device",
+    "key": "The address is already given to another device",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:193"
+    ]
+  },
+  {
+    "call": "The address is outside the local networks",
+    "key": "The address is outside the local networks",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:192"
+    ]
+  },
+  {
+    "call": "The device always gets this address from the router (a static DHCP lease, the same as in Network - DHCP and DNS). The change applies at once.",
+    "key": "The device always gets this address from the router (a static DHCP lease, the same as in Network - DHCP and DNS). The change applies at once.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:245"
+    ]
+  },
+  {
     "call": "The DNS server used to look up the IP address of an upstream DNS server",
     "key": "The DNS server used to look up the IP address of an upstream DNS server",
     "places": [
@@ -2782,6 +2924,13 @@
     ]
   },
   {
+    "call": "The name is already used by another device",
+    "key": "The name is already used by another device",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:194"
+    ]
+  },
+  {
     "call": "The router clock is not set",
     "key": "The router clock is not set",
     "places": [
@@ -2800,6 +2949,14 @@
     "key": "The router clock is right",
     "places": [
       "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:49"
+    ]
+  },
+  {
+    "call": "The router did not answer",
+    "key": "The router did not answer",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:182",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:197"
     ]
   },
   {

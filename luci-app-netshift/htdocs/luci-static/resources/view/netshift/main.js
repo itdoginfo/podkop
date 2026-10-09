@@ -6962,6 +6962,78 @@ function listedDeviceIps(state) {
   return [...seen];
 }
 
+// src/helpers/lanDevices.ts
+var EMPTY_LAN_INFO = { subnets: [], staticHosts: [] };
+function ipv4ToNumber(ip) {
+  const parts = ip.split(".");
+  if (parts.length !== 4) {
+    return null;
+  }
+  let value = 0;
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part) || Number(part) > 255) {
+      return null;
+    }
+    value = value * 256 + Number(part);
+  }
+  return value;
+}
+function isIpv4InSubnet(ip, subnet) {
+  const [network, prefixText] = subnet.split("/");
+  const prefix = Number(prefixText);
+  const address = ipv4ToNumber(ip);
+  const base = ipv4ToNumber(network);
+  if (address === null || base === null || prefixText === void 0 || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    return false;
+  }
+  const size = 2 ** (32 - prefix);
+  return Math.floor(address / size) === Math.floor(base / size);
+}
+function isLanIpv4(ip, subnets) {
+  if (!ip) {
+    return false;
+  }
+  if (subnets.length === 0) {
+    return true;
+  }
+  return subnets.some((subnet) => isIpv4InSubnet(ip, subnet));
+}
+function parseLanInfo(stdout) {
+  try {
+    const data = JSON.parse(stdout);
+    const subnets = Array.isArray(data?.subnets) ? data.subnets.filter((item) => typeof item === "string") : [];
+    const staticHosts = Array.isArray(data?.static_hosts) ? data.static_hosts.filter((item) => typeof item?.ip === "string").map(
+      (item) => ({
+        section: String(item.section ?? ""),
+        macs: (Array.isArray(item.macs) ? item.macs : []).map(
+          (mac) => String(mac).toUpperCase()
+        ),
+        ip: item.ip,
+        name: String(item.name ?? "")
+      })
+    ) : [];
+    return { subnets, staticHosts };
+  } catch {
+    return EMPTY_LAN_INFO;
+  }
+}
+function findStaticLease(info, mac) {
+  const wanted = mac.toUpperCase();
+  return info.staticHosts.find((lease) => lease.macs.includes(wanted));
+}
+function deviceMatchesQuery(device, query) {
+  const needle = query.trim().toLowerCase();
+  if (!needle) {
+    return true;
+  }
+  return [device.name, device.ip, device.mac].some(
+    (field) => field.toLowerCase().includes(needle)
+  );
+}
+function isValidMac(value) {
+  return /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(value);
+}
+
 // src/main.ts
 if (typeof structuredClone !== "function")
   globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -6983,6 +7055,7 @@ return baseclass.extend({
   DOMAIN_LIST_OPTIONS,
   DashboardTab,
   DiagnosticTab,
+  EMPTY_LAN_INFO,
   ERROR_POLL_INTERVAL,
   FAKEIP_CHECK_DOMAIN,
   FETCH_TIMEOUT,
@@ -7001,7 +7074,9 @@ return baseclass.extend({
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
   coreService,
+  deviceMatchesQuery,
   executeShellCommand,
+  findStaticLease,
   getClashUIUrl,
   getClashWsUrl,
   getDeviceRoute,
@@ -7009,11 +7084,15 @@ return baseclass.extend({
   injectGlobalStyles,
   insertIf,
   insertIfObj,
+  isIpv4InSubnet,
+  isLanIpv4,
+  isValidMac,
   listedDeviceIps,
   loadDashboardViewPrefs,
   logger,
   maskIP,
   onMount,
+  parseLanInfo,
   parseQueryString,
   parseValueList,
   preserveScrollForPage,

@@ -21,6 +21,7 @@ check_required_file "$NETSHIFT_LIB/sing_box_config_facade.sh"
 check_required_file "$NETSHIFT_LIB/logging.sh"
 check_required_file "$NETSHIFT_LIB/rulesets.sh"
 check_required_file "$NETSHIFT_LIB/updater.sh"
+check_required_file "$NETSHIFT_LIB/lan.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -31,6 +32,7 @@ check_required_file "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/sing_box_config_facade.sh"
 . "$NETSHIFT_LIB/logging.sh"
 . "$NETSHIFT_LIB/rulesets.sh"
+. "$NETSHIFT_LIB/lan.sh"
 . "$NETSHIFT_LIB/updater.sh"
 
 config_load "$NETSHIFT_CONFIG"
@@ -7661,6 +7663,10 @@ Available commands:
     check_sing_box_logs     Show sing-box logs
     check_fakeip            Test FakeIP on router
     check_environment       Flow offloading, clock and IPv6 facts that affect the redirect
+    get_lan_info            Print the LAN subnets and static DHCP leases as JSON
+    dhcp_host_set <mac> <ip> [name]
+                            Pin an address to a device (static DHCP lease)
+    dhcp_host_remove <mac>  Release the static lease of a device
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -7734,6 +7740,15 @@ check_fakeip)
     ;;
 check_environment)
     check_environment
+    ;;
+get_lan_info)
+    get_lan_info
+    ;;
+dhcp_host_set)
+    dhcp_host_set "${2:-}" "${3:-}" "${4:-}"
+    ;;
+dhcp_host_remove)
+    dhcp_host_remove "${2:-}"
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"
