@@ -18951,6 +18951,153 @@ test_config_snapshots() {
     rm -rf "$work"
 }
 
+
+test_pin_guard() {
+    header "Pin guard: a dead chosen server falls back to the automatic group (pinguard.sh)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$lib/pinguard.sh" ] || [ ! -r "$lib/constants.sh" ]; then
+        fail "pinguard.sh / constants.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-pinguard-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/pinguard.sh"
+        PIN_GUARD_EVENTS_FILE="$work/events.json"
+        LOGF="$work/log"; : > "$LOGF"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOGF"; }
+        WARNED=""
+        _priority_warn_once() {
+            case " $WARNED " in *" $1:$2 "*) return 0 ;; esac
+            WARNED="$WARNED $1:$2"
+            printf '[warn-once] %s\n' "$3" >> "$LOGF"
+        }
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        section_is_disabled() { [ "$1" = "off" ]; }
+        priority_clash_setup() { :; }
+        priority_fetch_proxies() { printf '%s' "$PROXIES"; }
+        priority_probe_delay() { echo "$DELAY"; }
+        SWITCHES="$work/switches"; : > "$SWITCHES"
+        clash_api() { echo "$1 $2 $3" >> "$SWITCHES"; [ "$CLASH_OK" != 0 ]; }
+        CLASH_OK=1
+        config_get_bool() { eval "$1=\"\${UCI_$2_$3:-$4}\""; }
+        config_get() { eval "$1=\"\${UCI_$2_$3:-}\""; }
+        config_foreach() { local cb="$1" id; for id in $SECTIONS; do "$cb" "$id"; done; }
+
+        # main: a pinned server "node-a"; "main-urltest-out" is the automatic group
+        PROXIES='{"proxies":{
+          "main-out":{"type":"Selector","now":"node-a","all":["node-a","node-b","main-urltest-out"]},
+          "main-urltest-out":{"type":"URLTest","now":"node-b"},
+          "node-a":{"type":"VLESS"},"node-b":{"type":"VLESS"},
+          "auto-out":{"type":"Selector","now":"auto-urltest-out","all":["n1","auto-urltest-out"]},
+          "auto-urltest-out":{"type":"URLTest","now":"n1"},"n1":{"type":"VLESS"},
+          "bare-out":{"type":"Selector","now":"b1","all":["b1","b2"]},"b1":{"type":"VLESS"},"b2":{"type":"VLESS"}}}'
+        SECTIONS="main"
+        UCI_main_pin_guard=1
+        UCI_main_connection_type=proxy
+
+        DELAY=120
+        pin_guard_check_sections
+        echo "alive-switches=$(wc -l < "$SWITCHES" | tr -d ' ')"
+
+        DELAY=0
+        pin_guard_check_sections
+        pin_guard_check_sections
+        echo "below-limit-switches=$(wc -l < "$SWITCHES" | tr -d ' ') fails=$(pin_guard_fails_of main)"
+        pin_guard_check_sections
+        echo "switched=$(cat "$SWITCHES")"
+        echo "fails-reset=$(pin_guard_fails_of main)"
+        echo "event=$(get_pin_guard_events | jq -c '[.[] | [.section, .from, .to]]')"
+
+        # an answer in between resets the count
+        : > "$SWITCHES"; DELAY=0
+        pin_guard_check_sections; pin_guard_check_sections
+        DELAY=50; pin_guard_check_sections
+        DELAY=0; pin_guard_check_sections; pin_guard_check_sections
+        echo "reset-by-answer=$(wc -l < "$SWITCHES" | tr -d ' ')"
+
+        # the automatic group itself is never touched
+        PROXIES='{"proxies":{"main-out":{"type":"Selector","now":"main-urltest-out","all":["node-a","main-urltest-out"]},"main-urltest-out":{"type":"URLTest"},"node-a":{"type":"VLESS"}}}'
+        : > "$SWITCHES"; DELAY=0
+        pin_guard_check_sections; pin_guard_check_sections; pin_guard_check_sections; pin_guard_check_sections
+        echo "auto-selected=$(wc -l < "$SWITCHES" | tr -d ' ')"
+
+        # no automatic group to fall back to
+        SECTIONS="bare"; UCI_bare_pin_guard=1; UCI_bare_connection_type=proxy
+        PROXIES='{"proxies":{"bare-out":{"type":"Selector","now":"b1","all":["b1","b2"]},"b1":{"type":"VLESS"},"b2":{"type":"VLESS"}}}'
+        : > "$SWITCHES"
+        pin_guard_check_sections; pin_guard_check_sections; pin_guard_check_sections
+        echo "no-auto-group=$(wc -l < "$SWITCHES" | tr -d ' ') warned=$(grep -c 'no automatic (urltest) group' "$LOGF")"
+
+        # sections the guard skips
+        PROXIES='{"proxies":{"x-out":{"type":"Selector","now":"n","all":["n","x-urltest-out"]},"x-urltest-out":{"type":"URLTest"},"n":{"type":"VLESS"}}}'
+        : > "$SWITCHES"; DELAY=0
+        SECTIONS="x"; UCI_x_pin_guard=0; UCI_x_connection_type=proxy
+        pin_guard_check_sections; pin_guard_check_sections; pin_guard_check_sections
+        echo "option-off=$(wc -l < "$SWITCHES" | tr -d ' ')"
+        UCI_x_pin_guard=1; UCI_x_connection_type=vpn
+        pin_guard_check_sections; pin_guard_check_sections; pin_guard_check_sections
+        echo "not-proxy=$(wc -l < "$SWITCHES" | tr -d ' ')"
+        UCI_x_connection_type=proxy; UCI_x_priority_mode=1
+        pin_guard_check_sections; pin_guard_check_sections; pin_guard_check_sections
+        echo "priority-mode=$(wc -l < "$SWITCHES" | tr -d ' ')"
+        UCI_x_priority_mode=0; SECTIONS="off"; UCI_off_pin_guard=1; UCI_off_connection_type=proxy
+        pin_guard_check_sections; pin_guard_check_sections; pin_guard_check_sections
+        echo "disabled=$(wc -l < "$SWITCHES" | tr -d ' ')"
+
+        # a refused switch is reported and not recorded
+        SECTIONS="x"; CLASH_OK=0; rm -f "$PIN_GUARD_EVENTS_FILE"
+        pin_guard_check_sections; pin_guard_check_sections; pin_guard_check_sections
+        echo "refused=$(get_pin_guard_events) warned=$(grep -c 'could not switch' "$LOGF")"
+        CLASH_OK=1
+
+        # the event list is capped
+        rm -f "$PIN_GUARD_EVENTS_FILE"
+        i=0; while [ "$i" -lt 14 ]; do pin_guard_record_event "s$i" a b; i=$((i + 1)); done
+        echo "capped=$(get_pin_guard_events | jq -c '[length, .[0].section, .[-1].section]')"
+        echo "no-file=$(rm -f "$PIN_GUARD_EVENTS_FILE"; get_pin_guard_events)"
+        echo "bad-section-fails=$(pin_guard_fails_of 'a;b')"
+    )"
+
+    _pg() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _pg "a chosen server that answers is left alone" "alive-switches=0"
+    _pg "it is not given up before the limit" "below-limit-switches=0 fails=2"
+    _pg "the third silent probe switches to the automatic group" "switched=set_group_proxy main-out main-urltest-out"
+    _pg "...and the count starts again" "fails-reset=0"
+    _pg "...and the switch is kept for the dashboard" 'event=[["main","node-a","main-urltest-out"]]'
+    _pg "an answer in between resets the count" "reset-by-answer=0"
+    _pg "the automatic group is never touched" "auto-selected=0"
+    _pg "no automatic group: nothing to switch to, said once" "no-auto-group=0 warned=1"
+    _pg "an option that is off does nothing" "option-off=0"
+    _pg "a section that is not a proxy one is skipped" "not-proxy=0"
+    _pg "priority mode keeps its own way" "priority-mode=0"
+    _pg "a disabled section is skipped" "disabled=0"
+    _pg "a refused switch is reported and not recorded" "refused=[] warned=1"
+    _pg "the event list keeps the newest ten" 'capped=[10,"s4","s13"]'
+    _pg "no events, no file" "no-file=[]"
+    _pg "a strange section name has no count" "bad-section-fails=0"
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -19026,6 +19173,7 @@ main() {
             test_lan_devices
             test_update_notice
             test_config_snapshots
+            test_pin_guard
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -19109,6 +19257,7 @@ main() {
         lan)         test_lan_devices ;;
         updatenotice) test_update_notice ;;
         snapshots)   test_config_snapshots ;;
+        pinguard)    test_pin_guard ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
@@ -19126,6 +19275,7 @@ echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isola
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment lan"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment updatenotice"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment snapshots"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment pinguard"
             exit 1
             ;;
     esac

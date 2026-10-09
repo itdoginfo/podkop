@@ -28,6 +28,7 @@ check_required_file "$NETSHIFT_LIB/ecs.sh"
 check_required_file "$NETSHIFT_LIB/lan.sh"
 check_required_file "$NETSHIFT_LIB/update_notice.sh"
 check_required_file "$NETSHIFT_LIB/snapshots.sh"
+check_required_file "$NETSHIFT_LIB/pinguard.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -46,6 +47,7 @@ check_required_file "$NETSHIFT_LIB/snapshots.sh"
 . "$NETSHIFT_LIB/dnsforward.sh"
 . "$NETSHIFT_LIB/update_notice.sh"
 . "$NETSHIFT_LIB/snapshots.sh"
+. "$NETSHIFT_LIB/pinguard.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -1685,6 +1687,7 @@ monitor_sing_box() {
             if [ $((now - priority_last)) -ge "$(priority_check_interval)" ]; then
                 priority_last="$now"
                 priority_check_sections
+                pin_guard_check_sections
             fi
             continue
         fi
@@ -8313,6 +8316,7 @@ Available commands:
     refresh_update_notice   Refresh that notice in the background
     config_snapshot <save|list|restore> [id]
                             Snapshots of /etc/config/netshift: keep, list or bring back
+    get_pin_guard_events    Print the switches the pin guard made as JSON
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -8422,6 +8426,9 @@ config_snapshot)
         exit 1
         ;;
     esac
+    ;;
+get_pin_guard_events)
+    get_pin_guard_events
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"

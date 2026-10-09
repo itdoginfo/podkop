@@ -339,6 +339,21 @@ function createSectionContent(section) {
   o = section.taboption(
     "subscription",
     form.Flag,
+    "pin_guard",
+    _("Leave a dead server chosen by hand"),
+    _(
+      "When a server picked by hand stops answering (three checks in a row, every 30 seconds), go back to the automatic choice (the fastest server) and say so on the dashboard. Needs the automatic group, so it works with URLTest lists and subscriptions; it does nothing together with the list-order mode.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends({ connection_type: "proxy", proxy_config_type: "urltest" });
+  o.depends({ connection_type: "proxy", proxy_config_type: "urltest_text" });
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Flag,
     "priority_mode",
     _("Prefer servers in list order"),
     _(

@@ -391,3 +391,8 @@ UPDATE_NOTICE_TTL=86400
 NETSHIFT_CONFIG_FILE="/etc/config/netshift"
 SNAPSHOT_DIR="$NETSHIFT_STATE_DIR/snapshots"
 SNAPSHOT_KEEP=10
+# Pin guard (pinguard.sh): failed probes in a row before a pinned server is given up,
+# and how many switches are kept for the dashboard.
+PIN_GUARD_FAILURES=3
+PIN_GUARD_EVENTS_FILE="/tmp/netshift-pin-guard.json"
+PIN_GUARD_EVENTS_KEEP=10
