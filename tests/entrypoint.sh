@@ -3075,6 +3075,8 @@ is_ipv4_cidr() { return 0; }
 # now calls (issue #52) is stubbed with its real one-liner body: the chunk test
 # cares about chunk sizes, not about case.
 normalize_domain_case() { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
+# Same for the entry normalizer (prefixes are not what this test is about).
+domain_rule_normalize() { printf '%s\n' "$1" | tr 'A-Z' 'a-z'; }
 
 . "RULESETS_LIB"
 
@@ -17559,6 +17561,171 @@ test_bypass() {
 
 # ─────────────────────────────────────────────────────────────────
 
+
+test_domain_rule_prefixes() {
+    header "Domain rule prefixes: full: / keyword: / regex:"
+
+    if ! command -v sing-box > /dev/null 2>&1 || ! command -v jq > /dev/null 2>&1; then
+        skip "sing-box / jq not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$lib/helpers.sh" ] || [ ! -r "$lib/rulesets.sh" ] || [ ! -r "$bin" ]; then
+        fail "helpers.sh / rulesets.sh / bin not found"
+        return
+    fi
+
+    local work="/tmp/netshift-domrules-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        . "$lib/rulesets.sh"
+        LOGF="$work/log"
+        : > "$LOGF"
+        log() { printf '%s|%s\n' "${2:-info}" "$1" >> "$LOGF"; }
+        eval "$(awk '/^configure_user_domain_list\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        prepare_source_ruleset() {
+            ruleset_filepath="$work/$1-$2-$3.json"
+            rm -f "$ruleset_filepath"
+            create_source_rule_set "$ruleset_filepath"
+        }
+        config_get() {
+            local _k _v
+            _k="$(printf 'CFG_%s_%s' "$2" "$3" | tr -c 'a-zA-Z0-9_' '_')"
+            eval "_v=\"\${$_k:-}\""
+            [ -n "$_v" ] || _v="$4"
+            eval "$1=\"\$_v\""
+        }
+
+        # canonical forms
+        for e in example.com .example.com Example.COM full:Host.Example.com FULL:a.b.org keyword:Tracker \
+            'regex:^ads[0-9]+\.example\.com$' 'REGEXP:\d+\.cdn\.net' full:not_a_host keyword: 'keyword:a b' regex: bad!domain; do
+            printf 'norm[%s]=[%s]\n' "$e" "$(domain_rule_normalize "$e" 2> /dev/null || echo INVALID)"
+        done
+
+        # the user list: every kind lands in its own key, nothing is lowercased inside a pattern
+        CFG_u1_user_domain_list_type="dynamic"
+        CFG_u1_user_domains='example.com full:Exact.Example.org keyword:Tracker regex:^ads[0-9]+\.example\.com$ regex:(unclosed regex:\D+\.net keyword:bad!kw'
+        configure_user_domain_list "u1" "rule-u1"
+        rs="$work/u1-user-domains.json"
+        echo "suffix=$(jq -c '[.rules[]?.domain_suffix[]?]' "$rs")"
+        echo "full=$(jq -c '[.rules[]?.domain[]?]' "$rs")"
+        echo "keyword=$(jq -c '[.rules[]?.domain_keyword[]?]' "$rs")"
+        echo "regex=$(jq -c '[.rules[]?.domain_regex[]?]' "$rs")"
+        echo "bad-regex-warned=$(grep -c "unclosed': it is not a valid regular expression" "$LOGF")"
+
+        # what the core does with the set
+        for d in example.com sub.example.com exact.example.org sub.exact.example.org my-tracker.io ads12.example.com ads.example.io x.net other.org; do
+            if sing-box rule-set match "$rs" "$d" 2>&1 | grep -q '^match'; then echo "hit[$d]=yes"; else echo "hit[$d]=no"; fi
+        done
+        jq -n --arg p "$rs" '{log:{level:"error"},dns:{servers:[{tag:"d",type:"udp",server:"1.1.1.1"}],final:"d"},
+            inbounds:[{type:"tproxy",tag:"t",listen:"127.0.0.1",listen_port:1602}],outbounds:[{type:"direct",tag:"direct-out"}],
+            route:{rule_set:[{tag:"s",type:"local",format:"source",path:$p}],rules:[{rule_set:["s"],outbound:"direct-out"}],final:"direct-out"}}' > "$work/c.json"
+        sing-box -c "$work/c.json" check > /dev/null 2>&1 && echo "singbox-check=ok" || echo "singbox-check=FAIL"
+
+        # a local/remote plain list file takes the same prefixes
+        printf 'Plain.Example.net\nfull:Only.Here.org\nkeyword:ads\nregexp:^cdn[0-9]\\.x\\.io$\n\n' > "$work/list.txt"
+        create_source_rule_set "$work/l.json"
+        import_plain_domain_list_to_local_source_ruleset_chunked "$work/list.txt" "$work/l.json"
+        echo "list=$(jq -c '[.rules[] | to_entries[] | .key] | unique' "$work/l.json")"
+        echo "list-regex=$(jq -c '[.rules[]?.domain_regex[]?]' "$work/l.json")"
+
+        # a few broken patterns among many good ones are found by halving, not one by one
+        real_sb="$(command -v sing-box)"
+        mkdir -p "$work/bin" "$work/empty"
+        printf '#!/bin/sh\necho x >> "%s/probes"\nexec "%s" "$@"\n' "$work" "$real_sb" > "$work/bin/sing-box"
+        chmod +x "$work/bin/sing-box"
+        i=0
+        : > "$work/many.txt"
+        while [ "$i" -lt 300 ]; do
+            case "$i" in
+            40 | 150 | 260) echo "(bad$i" >> "$work/many.txt" ;;
+            *) echo "^ok$i\\.example\\.com\$" >> "$work/many.txt" ;;
+            esac
+            i=$((i + 1))
+        done
+        : > "$work/probes"
+        : > "$LOGF"
+        PATH="$work/bin:$PATH" validate_domain_regex_file "$work/many.txt" > "$work/many.out"
+        echo "bisect-kept=$(wc -l < "$work/many.out" | tr -d ' ')"
+        echo "bisect-warned=$(grep -c "is not a valid regular expression" "$LOGF")"
+        probes="$(wc -l < "$work/probes" | tr -d ' ')"
+        if [ "$probes" -lt 80 ]; then echo "bisect-few-probes=yes"; else echo "bisect-few-probes=no($probes)"; fi
+
+        # a list that is mostly broken: only the first DOMAIN_REGEX_MAX_DROPPED are reported, the rest is skipped
+        i=0
+        : > "$work/bad.txt"
+        while [ "$i" -lt 100 ]; do
+            if [ $((i % 5)) -ne 4 ]; then echo "(b$i" >> "$work/bad.txt"; else echo "^g$i\\.x\$" >> "$work/bad.txt"; fi
+            i=$((i + 1))
+        done
+        : > "$LOGF"
+        PATH="$work/bin:$PATH" validate_domain_regex_file "$work/bad.txt" > "$work/bad.out"
+        echo "cap-reported=$(grep -c "is not a valid regular expression" "$LOGF")"
+        echo "cap-stop-warned=$(grep -c "the rest of it is ignored" "$LOGF")"
+
+        # without the core nothing can be checked: one warning, no patterns
+        : > "$LOGF"
+        PATH="$work/empty" validate_domain_regex_file "$work/many.txt" > "$work/nosb.out"
+        echo "nosb-kept=$(wc -l < "$work/nosb.out" | tr -d ' ')"
+        echo "nosb-warned=$(grep -c "sing-box is not available" "$LOGF")"
+    )"
+
+    _dr() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _dr "bare domain is kept" "norm[example.com]=[example.com]"
+    _dr "leading dot is kept" "norm[.example.com]=[.example.com]"
+    _dr "bare domain is lowercased" "norm[Example.COM]=[example.com]"
+    _dr "full: host is lowercased" "norm[full:Host.Example.com]=[full:host.example.com]"
+    _dr "prefix case does not matter" "norm[FULL:a.b.org]=[full:a.b.org]"
+    _dr "keyword: is lowercased" "norm[keyword:Tracker]=[keyword:tracker]"
+    _dr "regex: keeps the pattern as typed" 'norm[regex:^ads[0-9]+\.example\.com$]=[regex:^ads[0-9]+\.example\.com$]'
+    _dr "regexp: is an alias of regex:" 'norm[REGEXP:\d+\.cdn\.net]=[regex:\d+\.cdn\.net]'
+    _dr "full: with an invalid host is refused" "norm[full:not_a_host]=[INVALID]"
+    _dr "empty keyword is refused" "norm[keyword:]=[INVALID]"
+    _dr "keyword with a space is refused" "norm[keyword:a b]=[INVALID]"
+    _dr "empty regex is refused" "norm[regex:]=[INVALID]"
+    _dr "garbage is refused" "norm[bad!domain]=[INVALID]"
+    _dr "suffix rules" 'suffix=["example.com"]'
+    _dr "full: becomes a domain rule (lowercased)" 'full=["exact.example.org"]'
+    _dr "keyword: becomes a domain_keyword rule" 'keyword=["tracker"]'
+    _dr "regex: becomes domain_regex, case kept, broken pattern dropped" 'regex=["^ads[0-9]+\\.example\\.com$","\\D+\\.net"]'
+    _dr "a broken pattern is reported" "bad-regex-warned=1"
+    _dr "suffix entry matches the domain" "hit[example.com]=yes"
+    _dr "suffix entry matches subdomains" "hit[sub.example.com]=yes"
+    _dr "full: matches the exact host" "hit[exact.example.org]=yes"
+    _dr "full: does not match subdomains" "hit[sub.exact.example.org]=no"
+    _dr "keyword: matches inside a host" "hit[my-tracker.io]=yes"
+    _dr "regex: matches" "hit[ads12.example.com]=yes"
+    _dr "regex: does not match what it does not describe" "hit[ads.example.io]=no"
+    _dr "regex: keeps the escape (\\D)" "hit[x.net]=yes"
+    _dr "unrelated host does not match" "hit[other.org]=no"
+    _dr "the resulting rule set passes sing-box check" "singbox-check=ok"
+    _dr "plain list file: every kind present" 'list=["domain","domain_keyword","domain_regex","domain_suffix"]'
+    _dr "plain list file: regexp: with an escape survives" 'list-regex=["^cdn[0-9]\\.x\\.io$"]'
+    _dr "broken patterns among many good ones: all the good ones stay" "bisect-kept=297"
+    _dr "...each broken one is reported once" "bisect-warned=3"
+    _dr "...found with few probes of the core, not one per line" "bisect-few-probes=yes"
+    _dr "a mostly broken list: only the first ones are reported" "cap-reported=20"
+    _dr "...and the rest of it is skipped with one warning" "cap-stop-warned=1"
+    _dr "without sing-box no pattern is kept" "nosb-kept=0"
+    _dr "...and that is said once, not for every line" "nosb-warned=1"
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -17625,6 +17792,7 @@ main() {
             test_update_package_check
             test_environment_check
             test_mixed_proxy_auth
+            test_domain_rule_prefixes
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -17698,12 +17866,14 @@ main() {
         updatepkg)   test_update_package_check ;;
         environment) test_environment_check ;;
         mixedauth)   test_mixed_proxy_auth ;;
+        domrules)    test_domain_rule_prefixes ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark blockleaks isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment mixedauth"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment domrules"
             exit 1
             ;;
     esac

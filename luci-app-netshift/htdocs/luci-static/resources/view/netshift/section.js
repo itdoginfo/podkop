@@ -944,7 +944,7 @@ function createSectionContent(section) {
     "user_domains",
     _("User Domains"),
     _(
-      "Enter domain names without protocols, e.g. example.com or sub.example.com",
+      "Enter domain names without protocols, e.g. example.com or sub.example.com. Prefixes: full: (exact host), keyword: (part of the name), regex: (regular expression)",
     ),
   );
   o.placeholder = "Domains list";
@@ -973,11 +973,11 @@ function createSectionContent(section) {
     "user_domains_text",
     _("User Domains List"),
     _(
-      "Enter domain names separated by commas, spaces, or newlines. You can add comments using //",
+      "Enter domain names separated by commas, spaces, or newlines. You can add comments using //. Prefixes: full: (exact host), keyword: (part of the name), regex: (regular expression, no spaces or commas)",
     ),
   );
   o.placeholder =
-    "example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains";
+    "example.com, sub.example.com\n// Social networks\ndomain.com test.com // personal domains\nfull:exact.example.org keyword:tracker regex:^ads[0-9]+\\.example\\.com$";
   o.depends("user_domain_list_type", "text");
   o.rows = 8;
   o.rmempty = false;

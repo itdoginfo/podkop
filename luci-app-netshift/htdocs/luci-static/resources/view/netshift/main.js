@@ -100,10 +100,42 @@ function validateDomain(domain, allowDotTLD = false) {
   return { valid: true, message: _("Valid") };
 }
 function validateDomainRule(domain, allowDotTLD = false) {
+  const prefixed = /^(full|keyword|regex|regexp):(.*)$/i.exec(domain);
+  if (prefixed) {
+    return validatePrefixedDomainRule(prefixed[1].toLowerCase(), prefixed[2]);
+  }
   if (domain.includes("/")) {
     return { valid: false, message: _("Invalid domain address") };
   }
   return validateDomain(domain, allowDotTLD);
+}
+function validatePrefixedDomainRule(prefix, value) {
+  if (prefix === "full") {
+    return validateDomainRule(value, false);
+  }
+  if (prefix === "keyword") {
+    if (!/^[a-zA-Z0-9._-]+$/.test(value)) {
+      return {
+        valid: false,
+        message: _(
+          "Keyword may contain only letters, digits, dots, dashes and underscores"
+        )
+      };
+    }
+    return { valid: true, message: _("Valid") };
+  }
+  if (!value || /[\s,]/.test(value) || value.length > 256) {
+    return {
+      valid: false,
+      message: _("Regular expression must not contain spaces or commas")
+    };
+  }
+  try {
+    new RegExp(value);
+  } catch {
+    return { valid: false, message: _("Invalid regular expression") };
+  }
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/validateDns.ts
