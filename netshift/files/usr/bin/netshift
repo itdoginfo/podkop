@@ -432,7 +432,8 @@ mark_subscription_outbound_unavailable() {
     esac
 
     if [ "$keyword_filter_active" -eq 1 ]; then
-        # The empty result came from the user's keyword filter, not from a bad
+        # (The flag is set by the keyword filter and by the parameter filter.)
+        # The empty result came from the user's filter, not from a bad
         # feed: the bodies themselves may be perfectly valid. Recording their
         # hashes here would poison the per-URL caches and wedge future downloads
         # (return 14 loop), and would survive the user loosening the filter. So
@@ -444,7 +445,7 @@ mark_subscription_outbound_unavailable() {
             urlhash="$(get_subscription_url_hash "$url")"
             rm -f "$(get_subscription_rejected_cache_path "$section" "$urlhash")"
         done
-        log "Subscription keyword filter for section '$section' removed all nodes; matching traffic for this section will be rejected until the filter is loosened or a matching node appears (the feeds themselves are not rejected)" "warn"
+        log "Subscription filter for section '$section' (keywords and/or parameters) removed all nodes; matching traffic for this section will be rejected until the filter is loosened or a matching node appears (the feeds themselves are not rejected)" "warn"
         subscription_startup_blocked=1
         return 0
     fi
@@ -3984,10 +3985,18 @@ configure_outbound_handler() {
             # display name. Both are optional UCI lists of opaque match strings.
             subscription_filter_include_keywords_json="$(build_subscription_filter_json "$section" "subscription_filter_include_keywords" "subscription_filter_include_countries")"
             subscription_filter_exclude_keywords_json="$(build_subscription_filter_json "$section" "subscription_filter_exclude_keywords" "subscription_filter_exclude_countries")"
+            # 1 when the keyword filter or the parameter filter is set (the name predates the latter)
             subscription_keyword_filter_active=0
             if [ "$subscription_filter_include_keywords_json" != "[]" ] || [ "$subscription_filter_exclude_keywords_json" != "[]" ]; then
                 subscription_keyword_filter_active=1
                 log "Subscription keyword filter enabled for section '$section': include=$subscription_filter_include_keywords_json, exclude=$subscription_filter_exclude_keywords_json" "debug"
+            fi
+
+            # Filters by protocol / transport / security (see the facade batch).
+            SUBSCRIPTION_PARAM_FILTER="$(build_subscription_param_filter_json "$section")"
+            if [ "$SUBSCRIPTION_PARAM_FILTER" != "{}" ]; then
+                subscription_keyword_filter_active=1
+                log "Subscription parameter filter enabled for section '$section': $SUBSCRIPTION_PARAM_FILTER" "debug"
             fi
 
             mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
@@ -4098,8 +4107,8 @@ configure_outbound_handler() {
             rm -f "$merged_json_path"
 
             if [ "$subscription_ready" -eq 0 ]; then
-                # When the keyword filter empties the set, the precise cause is
-                # already logged facade-side (only on the cache-usable branch
+                # When the keyword or the parameter filter empties the set, the precise
+                # cause is already logged facade-side (only on the cache-usable branch
                 # where add_subscription_outbounds actually ran the filter), so we
                 # do not re-warn here to avoid misattribution / double-warning.
                 log "Subscription cache for section '$section' is unavailable or empty; using a temporary blocked outbound" "warn"
@@ -4958,6 +4967,91 @@ build_subscription_filter_keywords_json() {
     SUBSCRIPTION_FILTER_KEYWORDS_JSON="[]"
     config_list_foreach "$section" "$list_name" append_subscription_filter_keyword_handler
     printf '%s' "$SUBSCRIPTION_FILTER_KEYWORDS_JSON"
+}
+
+# --- Subscription filters by protocol, transport and security ---------------------
+# Besides the name (keywords, countries) a section can keep or drop servers by how
+# they connect: the protocol (vless, vmess, trojan, shadowsocks, hysteria2, tuic,
+# socks...), the transport (tcp, ws, grpc, http, httpupgrade, xhttp, quic) and the
+# security (none, tls, reality). Four UCI lists per kind: include_ and exclude_
+# subscription_filter_{protocols,transports,security}. A server must pass every
+# list that is set (include: it is one of them; exclude: it is none of them).
+
+# Normalizes one value of a parameter filter list. Prints the canonical value or
+# nothing for a value that means nothing.
+subscription_param_filter_value() {
+    local kind="$1"
+    local value
+
+    # busybox tr has no [:space:] class: the blanks are spelled out as octal escapes
+    value="$(printf '%s' "$2" | tr 'A-Z' 'a-z' | tr -d ' \011\012\013\014\015')"
+    case "$kind" in
+    protocols)
+        case "$value" in
+        ss) value="shadowsocks" ;;
+        hy2) value="hysteria2" ;;
+        hy) value="hysteria" ;;
+        vl) value="vless" ;;
+        esac
+        case "$value" in
+        '' | *[!a-z0-9]*) return 1 ;;
+        esac
+        ;;
+    transports)
+        case "$value" in
+        raw) value="tcp" ;;
+        websocket) value="ws" ;;
+        h2) value="http" ;;
+        esac
+        case "$value" in
+        tcp | ws | grpc | http | httpupgrade | xhttp | quic) ;;
+        *) return 1 ;;
+        esac
+        ;;
+    security)
+        case "$value" in
+        none | tls | reality) ;;
+        *) return 1 ;;
+        esac
+        ;;
+    *) return 1 ;;
+    esac
+
+    printf '%s' "$value"
+}
+
+append_subscription_param_filter_handler() {
+    local value normalized
+
+    value="$1"
+    if ! normalized="$(subscription_param_filter_value "$SUBSCRIPTION_PARAM_FILTER_KIND" "$value")"; then
+        log "Ignoring subscription $SUBSCRIPTION_PARAM_FILTER_KIND filter '$value': not a known value" "warn"
+        return 0
+    fi
+
+    SUBSCRIPTION_PARAM_FILTER_VALUES_JSON="$(printf '%s' "$SUBSCRIPTION_PARAM_FILTER_VALUES_JSON" |
+        jq -c --arg value "$normalized" '. + [$value] | unique')"
+}
+
+# JSON of a section's parameter filters:
+# {"include":{"protocols":[],"transports":[],"security":[]},"exclude":{...}}
+# "{}" when nothing is set (the filter then does not touch the set).
+build_subscription_param_filter_json() {
+    local section="$1"
+    local result="{}" direction kind values
+
+    for direction in include exclude; do
+        for kind in protocols transports security; do
+            SUBSCRIPTION_PARAM_FILTER_KIND="$kind"
+            SUBSCRIPTION_PARAM_FILTER_VALUES_JSON="[]"
+            config_list_foreach "$section" "subscription_filter_${direction}_${kind}" append_subscription_param_filter_handler
+            values="$SUBSCRIPTION_PARAM_FILTER_VALUES_JSON"
+            [ "$values" = "[]" ] && continue
+            result="$(printf '%s' "$result" | jq -c --arg d "$direction" --arg k "$kind" --argjson v "$values" '.[$d][$k] = $v')"
+        done
+    done
+
+    printf '%s' "$result"
 }
 
 # Prints the flag emoji of a two-letter country code (NL -> the Netherlands flag)

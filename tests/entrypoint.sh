@@ -14713,6 +14713,145 @@ test_environment_check() {
     _ev "IPv6 on is reported" "ipv6-enabled=true"
 }
 
+test_subscription_param_filters() {
+    header "Subscription filters by protocol, transport and security"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$bin" ] || [ ! -r "$lib/constants.sh" ] || [ ! -r "$lib/sing_box_config_facade.sh" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / libs / jq not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local work="/tmp/netshift-paramf-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        LOGF="$work/log"
+        : > "$LOGF"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOGF"; }
+        for fn in subscription_param_filter_value append_subscription_param_filter_handler build_subscription_param_filter_json; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        config_list_foreach() {
+            local _v _i
+            eval "_v=\"\${PF_$2:-}\""
+            for _i in $_v; do "$3" "$_i"; done
+        }
+
+        for spec in "protocols:SS" "protocols:Hy2" "protocols:VLESS" "protocols:bad!" "transports:WebSocket" "transports:raw" "transports:h2" "transports:smoke" "security:Reality" "security:NONE" "security:ssl"; do
+            kind="${spec%%:*}"
+            v="${spec#*:}"
+            echo "norm[$spec]=[$(subscription_param_filter_value "$kind" "$v" || echo -)]"
+        done
+
+        PF_subscription_filter_include_protocols="VLESS ss bogus!" PF_subscription_filter_exclude_security="none"
+        echo "built=$(build_subscription_param_filter_json s)"
+        echo "warned=$(grep -c "protocols filter 'bogus!'" "$LOGF")"
+        unset PF_subscription_filter_include_protocols PF_subscription_filter_exclude_security
+        echo "empty=$(build_subscription_param_filter_json s)"
+
+        # the facade over a synthetic subscription
+        cat > "$work/sub.json" << 'SUB'
+{"outbounds":[
+ {"type":"vless","tag":"v-reality","server":"a.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","tls":{"enabled":true,"server_name":"x.com","reality":{"enabled":true,"public_key":"k","short_id":"s"}}},
+ {"type":"vless","tag":"v-ws-tls","server":"b.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","tls":{"enabled":true,"server_name":"b.example.com"},"transport":{"type":"ws","path":"/"}},
+ {"type":"vless","tag":"v-grpc-none","server":"c.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","transport":{"type":"grpc","service_name":"g"}},
+ {"type":"trojan","tag":"t-tls","server":"d.example.com","server_port":443,"password":"p","tls":{"enabled":true,"server_name":"d.example.com"}},
+ {"type":"hysteria2","tag":"hy2","server":"e.example.com","server_port":443,"password":"p","tls":{"enabled":true,"server_name":"e.example.com"}},
+ {"type":"vmess","tag":"vm-plain","server":"f.example.com","server_port":80,"uuid":"11111111-2222-3333-4444-555555555555","security":"auto"}
+]}
+SUB
+        names() { SUBSCRIPTION_PARAM_FILTER="$1" sing_box_cf_prepare_subscription_batch '{"outbounds":[]}' "$work/sub.json" '[]' '[]' | jq -c '[.names[]] | sort'; }
+        echo "all=$(names '{}')"
+        echo "unset=$(unset SUBSCRIPTION_PARAM_FILTER; sing_box_cf_prepare_subscription_batch '{"outbounds":[]}' "$work/sub.json" '[]' '[]' | jq -c '.count')"
+        echo "inc-protocol=$(names '{"include":{"protocols":["trojan","hysteria2"]}}')"
+        echo "exc-protocol=$(names '{"exclude":{"protocols":["vless"]}}')"
+        echo "inc-transport-ws=$(names '{"include":{"transports":["ws"]}}')"
+        echo "inc-transport-tcp=$(names '{"include":{"transports":["tcp"]}}')"
+        echo "exc-transport=$(names '{"exclude":{"transports":["grpc","ws"]}}')"
+        echo "inc-reality=$(names '{"include":{"security":["reality"]}}')"
+        echo "exc-none=$(names '{"exclude":{"security":["none"]}}')"
+        echo "combined=$(names '{"include":{"protocols":["vless"],"security":["tls","reality"]}}')"
+        echo "combined-empty=$(names '{"include":{"protocols":["trojan"]},"exclude":{"security":["tls"]}}')"
+        cat > "$work/scalar.json" << 'SUB2'
+{"outbounds":[
+ {"type":"vless","tag":"s-tls","server":"a.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","tls":"yes"},
+ {"type":"vless","tag":"s-reality","server":"b.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","tls":{"enabled":true,"reality":"on"}}
+]}
+SUB2
+        echo "scalar=$(SUBSCRIPTION_PARAM_FILTER='{"include":{"security":["none","tls"]}}' sing_box_cf_prepare_subscription_batch '{"outbounds":[]}' "$work/scalar.json" '[]' '[]' | jq -c '[.names[]] | sort')"
+        echo "with-keyword=$(SUBSCRIPTION_PARAM_FILTER='{"include":{"protocols":["vless"]}}' sing_box_cf_prepare_subscription_batch '{"outbounds":[]}' "$work/sub.json" '["ws"]' '[]' | jq -c '[.names[]] | sort')"
+
+        # a parameter filter that leaves nothing is reported as the filter, not as a bad feed
+        : > "$LOGF"
+        SUBSCRIPTION_PARAM_FILTER='{"include":{"protocols":["trojan"]},"exclude":{"security":["tls"]}}' \
+            sing_box_cf_add_subscription_outbounds '{"outbounds":[]}' s "$work/sub.json" '[]' '[]' > /dev/null
+        echo "emptied-info=$(grep -c "parameter filter for section 's': kept=0" "$LOGF")"
+        echo "emptied-warn=$(grep -c "parameter filter for section 's' removed all nodes" "$LOGF")"
+        : > "$LOGF"
+        SUBSCRIPTION_PARAM_FILTER='{"include":{"protocols":["vless"]}}' \
+            sing_box_cf_add_subscription_outbounds '{"outbounds":[]}' s "$work/sub.json" '["nothing-has-this-name"]' '[]' > /dev/null
+        echo "both-kinds=$(grep -c "keyword and parameter filter for section 's' removed all nodes" "$LOGF")"
+        : > "$LOGF"
+        sing_box_cf_add_subscription_outbounds '{"outbounds":[]}' s "$work/sub.json" '["nothing-has-this-name"]' '[]' > /dev/null
+        echo "keyword-only=$(grep -c "keyword filter for section 's' removed all nodes" "$LOGF")"
+    )"
+
+    _pf() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _pf "ss is shadowsocks" "norm[protocols:SS]=[shadowsocks]"
+    _pf "hy2 is hysteria2, case does not matter" "norm[protocols:Hy2]=[hysteria2]"
+    _pf "a protocol name is kept" "norm[protocols:VLESS]=[vless]"
+    _pf "a protocol with odd characters is refused" "norm[protocols:bad!]=[-]"
+    _pf "websocket is ws" "norm[transports:WebSocket]=[ws]"
+    _pf "raw is tcp" "norm[transports:raw]=[tcp]"
+    _pf "h2 is http" "norm[transports:h2]=[http]"
+    _pf "an unknown transport is refused" "norm[transports:smoke]=[-]"
+    _pf "reality is a security" "norm[security:Reality]=[reality]"
+    _pf "none is a security" "norm[security:NONE]=[none]"
+    _pf "an unknown security is refused" "norm[security:ssl]=[-]"
+    _pf "the lists become one JSON" 'built={"include":{"protocols":["shadowsocks","vless"]},"exclude":{"security":["none"]}}'
+    _pf "a bad value is warned about" "warned=1"
+    _pf "nothing set gives an empty filter" "empty={}"
+    _pf "no filter keeps every server" 'all=["hy2","t-tls","v-grpc-none","v-reality","v-ws-tls","vm-plain"]'
+    _pf "...also when the variable is not set at all" "unset=6"
+    _pf "include by protocol" 'inc-protocol=["hy2","t-tls"]'
+    _pf "exclude by protocol" 'exc-protocol=["hy2","t-tls","vm-plain"]'
+    _pf "include by transport" 'inc-transport-ws=["v-ws-tls"]'
+    _pf "no transport means tcp" 'inc-transport-tcp=["hy2","t-tls","v-reality","vm-plain"]'
+    _pf "exclude by transport" 'exc-transport=["hy2","t-tls","v-reality","vm-plain"]'
+    _pf "include by reality" 'inc-reality=["v-reality"]'
+    _pf "exclude plain servers" 'exc-none=["hy2","t-tls","v-reality","v-ws-tls"]'
+    _pf "lists of different kinds all have to pass" 'combined=["v-reality","v-ws-tls"]'
+    _pf "...and may leave nothing" "combined-empty=[]"
+    _pf "a node with a scalar tls or reality does not abort the batch" 'scalar=["s-reality","s-tls"]'
+    _pf "the name filter and the parameter filter combine" 'with-keyword=["v-ws-tls"]'
+    _pf "a parameter filter that leaves nothing is logged as the filter" "emptied-info=1"
+    _pf "...with the warning that names the filter, not the feed" "emptied-warn=1"
+    _pf "both kinds of filter are named together" "both-kinds=1"
+    _pf "the keyword filter alone is reported as before" "keyword-only=1"
+
+    rm -rf "$work"
+}
+
 # ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
@@ -16284,6 +16423,7 @@ main() {
             test_cache_persist
             test_update_package_check
             test_environment_check
+            test_subscription_param_filters
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -16355,12 +16495,13 @@ main() {
         dnssection)  test_dns_section ;;
         updatepkg)   test_update_package_check ;;
         environment) test_environment_check ;;
+        paramfilters) test_subscription_param_filters ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment paramfilters"
             exit 1
             ;;
     esac
