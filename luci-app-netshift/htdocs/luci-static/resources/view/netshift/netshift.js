@@ -17,6 +17,9 @@
 // Local devices content
 "require view.netshift.devices as devices";
 
+// Connections content
+"require view.netshift.connections as connections";
+
 // Diagnostic content
 "require view.netshift.diagnostic as diagnostic";
 
@@ -96,6 +99,20 @@ const EntryPoint = {
       sectionsSection,
       settingsSection,
     );
+
+    // Connections tab: the live connection table
+    const connectionsSection = netshiftMap.section(
+      form.TypedSection,
+      "connections",
+      _("Connections"),
+    );
+    connectionsSection.anonymous = true;
+    connectionsSection.addremove = false;
+    connectionsSection.cfgsections = function () {
+      return ["connections"];
+    };
+
+    connections.createConnectionsContent(connectionsSection);
 
     // Component Manager tab
     const managerSection = netshiftMap.section(

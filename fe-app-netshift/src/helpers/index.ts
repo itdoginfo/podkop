@@ -14,3 +14,5 @@ export * from './insertIf';
 export * from './withCountryFlag';
 export * from './deviceRouting';
 export * from './dashboardView';
+export * from './connections';
+export * from './prettyBytes';

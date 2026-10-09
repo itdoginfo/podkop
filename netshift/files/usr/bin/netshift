@@ -7300,8 +7300,67 @@ clash_api() {
         esac
         ;;
 
+    get_connections)
+        # The live connection table, reduced to what the Connections page shows
+        # (the raw answer carries a lot per connection) and capped: newest first.
+        curl -s -m 5 --header "$auth_header" "$CLASH_URL/connections" |
+            jq -c --argjson cap "$CONNECTIONS_LIST_CAP" '{
+                downloadTotal: (.downloadTotal // 0),
+                uploadTotal: (.uploadTotal // 0),
+                total: ((.connections // []) | length),
+                connections: ((.connections // []) | sort_by(.start) | reverse | .[0:$cap] | map({
+                    id,
+                    network: (.metadata.network // ""),
+                    type: (.metadata.type // ""),
+                    source: ((.metadata.sourceIP // "") + (if (.metadata.sourcePort // "") != "" then ":" + .metadata.sourcePort else "" end)),
+                    host: (if (.metadata.host // "") != "" then .metadata.host else (.metadata.destinationIP // "") end),
+                    destination: (.metadata.destinationIP // ""),
+                    port: (.metadata.destinationPort // ""),
+                    chains: (.chains // []),
+                    rule: (.rule // ""),
+                    rule_payload: (.rulePayload // ""),
+                    upload: (.upload // 0),
+                    download: (.download // 0),
+                    start: (.start // "")
+                }))
+            }'
+        ;;
+
+    close_connection)
+        local connection_id="$2"
+        local http_code
+
+        case "$connection_id" in
+        "" | *[!0-9a-fA-F-]*)
+            echo '{"success":false,"error":"invalid connection id"}'
+            return 1
+            ;;
+        esac
+        http_code="$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X DELETE --header "$auth_header" "$CLASH_URL/connections/$connection_id")"
+        # 404: the connection is already gone, which is what was asked for
+        case "$http_code" in
+        204 | 200 | 404) echo '{"success":true}' ;;
+        *)
+            jq -n -c --arg code "$http_code" '{success: false, http_code: $code}'
+            return 1
+            ;;
+        esac
+        ;;
+
+    close_connections)
+        local http_code
+        http_code="$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X DELETE --header "$auth_header" "$CLASH_URL/connections")"
+        case "$http_code" in
+        204 | 200) echo '{"success":true}' ;;
+        *)
+            jq -n -c --arg code "$http_code" '{success: false, http_code: $code}'
+            return 1
+            ;;
+        esac
+        ;;
+
     *)
-        echo '{"error":"unknown action","available":["get_proxies","get_proxy_latency","get_group_latency","set_group_proxy"]}' | jq .
+        echo '{"error":"unknown action","available":["get_proxies","get_proxy_latency","get_group_latency","set_group_proxy","get_connections","close_connection","close_connections"]}' | jq .
         return 1
         ;;
     esac

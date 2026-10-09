@@ -924,6 +924,9 @@ var NetShift;
     AvailableClashAPIMethods2["GET_PROXY_LATENCY"] = "get_proxy_latency";
     AvailableClashAPIMethods2["GET_GROUP_LATENCY"] = "get_group_latency";
     AvailableClashAPIMethods2["SET_GROUP_PROXY"] = "set_group_proxy";
+    AvailableClashAPIMethods2["GET_CONNECTIONS"] = "get_connections";
+    AvailableClashAPIMethods2["CLOSE_CONNECTION"] = "close_connection";
+    AvailableClashAPIMethods2["CLOSE_CONNECTIONS"] = "close_connections";
   })(AvailableClashAPIMethods = NetShift2.AvailableClashAPIMethods || (NetShift2.AvailableClashAPIMethods = {}));
 })(NetShift || (NetShift = {}));
 
@@ -1013,6 +1016,19 @@ var NetShiftShellMethods = {
   checkEnvironment: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_ENVIRONMENT
   ),
+  getConnections: async () => callBaseMethod(
+    NetShift.AvailableMethods.CLASH_API,
+    [NetShift.AvailableClashAPIMethods.GET_CONNECTIONS],
+    void 0,
+    { nobatch: true }
+  ),
+  closeConnection: async (id) => callBaseMethod(NetShift.AvailableMethods.CLASH_API, [
+    NetShift.AvailableClashAPIMethods.CLOSE_CONNECTION,
+    id
+  ]),
+  closeAllConnections: async () => callBaseMethod(NetShift.AvailableMethods.CLASH_API, [
+    NetShift.AvailableClashAPIMethods.CLOSE_CONNECTIONS
+  ]),
   checkNftRules: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_NFT_RULES
   ),
@@ -2171,8 +2187,8 @@ var initialStore = {
 var store = new StoreService(initialStore);
 
 // src/helpers/downloadAsTxt.ts
-function downloadAsTxt(text, filename) {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+function downloadAsTxt(text2, filename) {
+  const blob = new Blob([text2], { type: "text/plain;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   const safeName = filename.endsWith(".txt") ? filename : `${filename}.txt`;
@@ -3078,7 +3094,7 @@ function renderButton({
   disabled,
   loading,
   onClick,
-  text,
+  text: text2,
   icon
 }) {
   const hasIcon = !!loading || !!icon;
@@ -3115,7 +3131,7 @@ function renderButton({
   return E(
     "button",
     { class: getClass(), disabled: getDisabled(), click: onClick },
-    [...insertIf(hasIcon, [getWrappedIcon()]), E("span", {}, text)]
+    [...insertIf(hasIcon, [getWrappedIcon()]), E("span", {}, text2)]
   );
 }
 
@@ -3139,9 +3155,9 @@ function showToast(message, type, duration = 3e3) {
 }
 
 // src/helpers/copyToClipboard.ts
-function copyToClipboard(text) {
+function copyToClipboard(text2) {
   const textarea = document.createElement("textarea");
-  textarea.value = text;
+  textarea.value = text2;
   document.body.appendChild(textarea);
   textarea.select();
   try {
@@ -3155,23 +3171,23 @@ function copyToClipboard(text) {
 }
 
 // src/partials/modal/renderModal.ts
-function renderModal(text, name) {
+function renderModal(text2, name) {
   return E(
     "div",
     { class: "pdk-partial-modal__body" },
     E("div", {}, [
-      E("pre", { class: "pdk-partial-modal__content" }, E("code", {}, text)),
+      E("pre", { class: "pdk-partial-modal__content" }, E("code", {}, text2)),
       E("div", { class: "pdk-partial-modal__footer" }, [
         renderButton({
           classNames: ["cbi-button-apply"],
           text: _("Download"),
-          onClick: () => downloadAsTxt(text, name)
+          onClick: () => downloadAsTxt(text2, name)
         }),
         renderButton({
           classNames: ["cbi-button-apply"],
           text: _("Copy"),
           onClick: () => copyToClipboard(` \`\`\`${name} 
- ${text}  
+ ${text2}  
  \`\`\``)
         }),
         renderButton({
@@ -6962,6 +6978,106 @@ function listedDeviceIps(state) {
   return [...seen];
 }
 
+// src/helpers/connections.ts
+var EMPTY_CONNECTIONS = {
+  downloadTotal: 0,
+  uploadTotal: 0,
+  total: 0,
+  connections: []
+};
+var text = (value) => typeof value === "string" ? value : value == null ? "" : String(value);
+var count = (value) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+function parseConnections(input) {
+  let data = input;
+  if (typeof input === "string") {
+    try {
+      data = JSON.parse(input);
+    } catch {
+      return EMPTY_CONNECTIONS;
+    }
+  }
+  if (!data || typeof data !== "object") {
+    return EMPTY_CONNECTIONS;
+  }
+  const raw = data;
+  const list = Array.isArray(raw.connections) ? raw.connections : [];
+  const connections = list.filter((item) => item && typeof item === "object" && item.id).map(
+    (item) => ({
+      id: text(item.id),
+      network: text(item.network),
+      type: text(item.type),
+      source: text(item.source),
+      host: text(item.host),
+      destination: text(item.destination),
+      port: text(item.port),
+      chains: Array.isArray(item.chains) ? item.chains.map(text) : [],
+      rule: text(item.rule),
+      rule_payload: text(item.rule_payload),
+      upload: count(item.upload),
+      download: count(item.download),
+      start: text(item.start)
+    })
+  );
+  return {
+    downloadTotal: count(raw.downloadTotal),
+    uploadTotal: count(raw.uploadTotal),
+    total: count(raw.total) || connections.length,
+    connections
+  };
+}
+function connectionRoute(connection) {
+  return [...connection.chains].reverse().join(" \u2192 ");
+}
+function connectionTarget(connection) {
+  const host = connection.host || connection.destination;
+  return connection.port ? `${host}:${connection.port}` : host;
+}
+function filterConnections(connections, query) {
+  const needle = query.trim().toLowerCase();
+  if (!needle) {
+    return connections;
+  }
+  return connections.filter(
+    (connection) => [
+      connectionTarget(connection),
+      connection.destination,
+      connection.source,
+      connectionRoute(connection),
+      connection.rule_payload,
+      connection.network
+    ].some((field) => field.toLowerCase().includes(needle))
+  );
+}
+function sortConnections(connections, key) {
+  const copy = [...connections];
+  if (key === "traffic") {
+    return copy.sort((a, b) => b.upload + b.download - (a.upload + a.download));
+  }
+  if (key === "host") {
+    return copy.sort(
+      (a, b) => connectionTarget(a).localeCompare(connectionTarget(b))
+    );
+  }
+  return copy;
+}
+function connectionAge(start, now) {
+  const started = Date.parse(start);
+  if (Number.isNaN(started)) {
+    return null;
+  }
+  const seconds = Math.max(0, Math.floor((now - started) / 1e3));
+  if (seconds < 60) {
+    return { value: seconds, unit: "s" };
+  }
+  if (seconds < 3600) {
+    return { value: Math.floor(seconds / 60), unit: "min" };
+  }
+  if (seconds < 86400) {
+    return { value: Math.floor(seconds / 3600), unit: "h" };
+  }
+  return { value: Math.floor(seconds / 86400), unit: "d" };
+}
+
 // src/main.ts
 if (typeof structuredClone !== "function")
   globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -6983,6 +7099,7 @@ return baseclass.extend({
   DOMAIN_LIST_OPTIONS,
   DashboardTab,
   DiagnosticTab,
+  EMPTY_CONNECTIONS,
   ERROR_POLL_INTERVAL,
   FAKEIP_CHECK_DOMAIN,
   FETCH_TIMEOUT,
@@ -7000,8 +7117,12 @@ return baseclass.extend({
   TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
+  connectionAge,
+  connectionRoute,
+  connectionTarget,
   coreService,
   executeShellCommand,
+  filterConnections,
   getClashUIUrl,
   getClashWsUrl,
   getDeviceRoute,
@@ -7014,12 +7135,15 @@ return baseclass.extend({
   logger,
   maskIP,
   onMount,
+  parseConnections,
   parseQueryString,
   parseValueList,
   preserveScrollForPage,
+  prettyBytes,
   saveDashboardViewPrefs,
   setDeviceRoute,
   socket,
+  sortConnections,
   splitProxyString,
   store,
   svgEl,

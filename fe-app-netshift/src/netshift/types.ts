@@ -77,6 +77,9 @@ export namespace NetShift {
     GET_PROXY_LATENCY = 'get_proxy_latency',
     GET_GROUP_LATENCY = 'get_group_latency',
     SET_GROUP_PROXY = 'set_group_proxy',
+    GET_CONNECTIONS = 'get_connections',
+    CLOSE_CONNECTION = 'close_connection',
+    CLOSE_CONNECTIONS = 'close_connections',
   }
 
   export interface Outbound {

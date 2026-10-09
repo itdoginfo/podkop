@@ -65,6 +65,9 @@ msgstr "Найдены дополнительные правила маркир�
 msgid "Advanced"
 msgstr "Дополнительно"
 
+msgid "Age"
+msgstr "Возраст"
+
 msgid "Allow insecure TLS for subscription fetch"
 msgstr "Разрешить небезопасный TLS при загрузке подписки"
 
@@ -106,6 +109,9 @@ msgstr "Браузер не использует FakeIP"
 
 msgid "Browser is using FakeIP correctly"
 msgstr "Браузер использует FakeIP"
+
+msgid "By address"
+msgstr "По адресу"
 
 msgid "By country flag"
 msgstr "По флагу страны"
@@ -161,6 +167,12 @@ msgstr "Очистка кеша подписок и повторная загр�
 msgid "Close"
 msgstr "Закрыть"
 
+msgid "Close all"
+msgstr "Закрыть все"
+
+msgid "Close all connections? Active downloads and calls will be interrupted."
+msgstr "Закрыть все соединения? Идущие загрузки и звонки прервутся."
+
 msgid "cloudflare-dns.com/dns-query (Cloudflare DoH)"
 msgstr "cloudflare-dns.com/dns-query (Cloudflare DoH)"
 
@@ -203,6 +215,9 @@ msgstr "Тип подключения, транспорт и DNS-резолве�
 msgid "Connection URL"
 msgstr "URL подключения"
 
+msgid "Connections"
+msgstr "Соединения"
+
 msgid "Copy"
 msgstr "Копировать"
 
@@ -221,6 +236,9 @@ msgstr "Свои домены"
 msgid "Custom subnets"
 msgstr "Свои подсети"
 
+msgid "d"
+msgstr "д"
+
 msgid "Dashboard"
 msgstr "Дашборд"
 
@@ -235,6 +253,9 @@ msgstr "Задержка в миллисекундах перед перезаг
 
 msgid "Delay value cannot be empty"
 msgstr "Значение задержки не может быть пустым"
+
+msgid "Destination"
+msgstr "Назначение"
 
 msgid "Detect country by IP (GeoIP)"
 msgstr "Определять страну по IP (GeoIP)"
@@ -511,6 +532,9 @@ msgstr "Глобальный прокси"
 
 msgid "Group subscription proxies into URLTest groups. 'By country flag' uses the flag emoji at the start of each name; 'By name prefix' groups by the first N characters."
 msgstr "Группировать прокси из подписки в группы URLTest. «По флагу страны» использует эмодзи флага в начале каждого имени; «По префиксу имени» группирует по первым N символам."
+
+msgid "h"
+msgstr "ч"
 
 msgid "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s"
 msgstr "Сколько времени может занимать один DNS-сервер, прежде чем будет опрошен следующий (приоритет) или его ответ отброшен (параллельно). Примеры: 500ms, 2s"
@@ -791,6 +815,9 @@ msgstr "Порт смешанного прокси"
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
 
+msgid "Most traffic first"
+msgstr "Сначала с большим трафиком"
+
 msgid "Multiple DNS servers"
 msgstr "Несколько DNS-серверов"
 
@@ -814,6 +841,9 @@ msgstr "Сеть"
 
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
+
+msgid "Newest first"
+msgstr "Сначала новые"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
@@ -896,6 +926,9 @@ msgstr "Длина префикса"
 msgid "Priority: next server if the previous one fails"
 msgstr "Приоритет: следующий сервер, если предыдущий не отвечает"
 
+msgid "Protocol"
+msgstr "Протокол"
+
 msgid "Protocol of this section's own DNS server"
 msgstr "Протокол собственного DNS-сервера этой секции"
 
@@ -931,6 +964,9 @@ msgstr "Разрешение реальных IP-адресов"
 
 msgid "Restart NetShift"
 msgstr "Перезапустить NetShift"
+
+msgid "Route"
+msgstr "Маршрут"
 
 msgid "Route all unmatched traffic through this section's outbound."
 msgstr "Направлять весь несовпавший трафик через outbound этой секции."
@@ -973,6 +1009,12 @@ msgstr "Запустить диагностику"
 
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
+
+msgid "s"
+msgstr "с"
+
+msgid "Search by address, section or list"
+msgstr "Поиск по адресу, секции или списку"
 
 msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
 msgstr "Секретный ключ для аутентификации удаленного доступа к YACD при включенном доступе через WAN."
@@ -1082,6 +1124,9 @@ msgstr "Версия Sing-box совместима (новее 1.12.4)"
 msgid "Sort by ping"
 msgstr "Сортировать по пингу"
 
+msgid "Source"
+msgstr "Источник"
+
 msgid "Source and output interfaces, and Bad WAN interface monitoring"
 msgstr "Входящий и исходящий интерфейсы, а также мониторинг интерфейсов Bad WAN"
 
@@ -1162,6 +1207,12 @@ msgstr "Тестирование задержки"
 
 msgid "Text List"
 msgstr "Текстовый список"
+
+msgid "The connection list is not available: is the service running?"
+msgstr "Список соединений недоступен: запущена ли служба?"
+
+msgid "The connections the router is carrying right now. A closed connection is opened again by the application if it still needs it."
+msgstr "Соединения, которые роутер обслуживает сейчас. Закрытое соединение приложение откроет заново, если оно ещё нужно."
 
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
