@@ -413,11 +413,11 @@ msgstr "Включить доступ YACD WAN"
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
 
-msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //"
-msgstr "Введите доменные имена, разделяя их запятыми, пробелами или переносами строк. Вы можете добавлять комментарии, используя //"
+msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //. Prefixes: full: (exact host), keyword: (part of the name), regex: (regular expression, no spaces or commas)"
+msgstr "Введите доменные имена через запятую, пробел или с новой строки. Комментарии добавляются через //. Префиксы: full: (точное имя), keyword: (часть имени), regex: (регулярное выражение, без пробелов и запятых)"
 
-msgid "Enter domain names without protocols, e.g. example.com or sub.example.com"
-msgstr "Введите доменные имена без протоколов, например example.com или sub.example.com"
+msgid "Enter domain names without protocols, e.g. example.com or sub.example.com. Prefixes: full: (exact host), keyword: (part of the name), regex: (regular expression)"
+msgstr "Введите доменные имена без протоколов, например example.com или sub.example.com. Префиксы: full: (точное имя), keyword: (часть имени), regex: (регулярное выражение)"
 
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
 msgstr "Введите подсети в нотации CIDR (например, 103.21.244.0/22) или отдельные IP-адреса"
@@ -608,6 +608,9 @@ msgstr "Неверный формат пути. Путь должен начин
 msgid "Invalid port number. Must be between 1 and 65535"
 msgstr "Неверный номер порта. Допустимо от 1 до 65535"
 
+msgid "Invalid regular expression"
+msgstr "Некорректное регулярное выражение"
+
 msgid "Invalid Shadowsocks URL: decoded credentials must contain method:password"
 msgstr "Неверный URL Shadowsocks: декодированные данные должны содержать method:password"
 
@@ -727,6 +730,9 @@ msgstr "Оставить только серверы, в названии кот
 
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
 msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все."
+
+msgid "Keyword may contain only letters, digits, dots, dashes and underscores"
+msgstr "Ключевое слово может содержать только буквы, цифры, точки, дефисы и подчёркивания"
 
 msgid "Latency test URL"
 msgstr "URL для проверки задержки"
@@ -916,6 +922,9 @@ msgstr "Reality: пост-квантовый обмен ключами (X25519ML
 
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
+
+msgid "Regular expression must not contain spaces or commas"
+msgstr "Регулярное выражение не должно содержать пробелов и запятых"
 
 msgid "Remote Domain Lists"
 msgstr "Внешние списки доменов"

@@ -5637,8 +5637,14 @@ configure_user_domain_list() {
     esac
 
     items="$(parse_domain_or_subnet_string_to_commas_string "$items" "domains")"
-    json_array="$(comma_string_to_json_array "$items")"
-    patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
+    # The entries may carry full:/keyword:/regex: prefixes: the importer sorts them
+    # into the matching rule kinds.
+    (
+        items_file="$(mktemp)" || exit 1
+        trap 'rm -f "$items_file"' EXIT INT TERM
+        printf '%s\n' "$items" | tr ',' '\n' > "$items_file"
+        import_plain_domain_list_to_local_source_ruleset_chunked "$items_file" "$ruleset_filepath"
+    )
 }
 
 configure_user_subnet_list() {

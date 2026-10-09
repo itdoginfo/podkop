@@ -328,3 +328,7 @@ COMMUNITY_SERVICES="russia_inside russia_outside ukraine_inside geoblock block p
 # with the router clock.
 ENVIRONMENT_MIN_PLAUSIBLE_EPOCH=1735689600
 ENVIRONMENT_CLOCK_PROBE_URL="https://www.cloudflare.com/"
+
+# regex: entries of a domain list: how many broken patterns are searched for before the rest
+# of the list is ignored (rulesets.sh, validate_domain_regex_file).
+DOMAIN_REGEX_MAX_DROPPED=20
