@@ -467,7 +467,7 @@ uci commit netshift
 
 ## История изменений
 
-Полный список изменений по версиям - на странице [Releases](https://github.com/yandexru45/netshift/releases). Анонсы обновлений публикуются в [Telegram-канале](https://t.me/netshift_news).
+Полный список изменений по версиям - на странице [Releases](https://github.com/yandexru45/netshift/releases). Анонсы обновлений публикуются в [Telegram-канале](https://t.me/netshift_news). Участники, чьи изменения вошли в релиз, перечисляются в заметках к релизу - см. [Участники](#участники).
 
 Коротко о крупных вехах:
 
@@ -543,6 +543,25 @@ docker build -f Dockerfile-apk --build-arg NETSHIFT_VERSION=0.9.1 -t netshift:ap
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=yandexru45/netshift&type=Date" />
  </picture>
 </a>
+
+## Участники
+
+NetShift развивается сообществом: спасибо всем, кто присылает код, тесты, переводы и идеи.
+
+| Участник | Вклад |
+|---|---|
+| [@yandexru45](https://github.com/yandexru45) | автор и мейнтейнер |
+| [@cergo666](https://github.com/cergo666) | DNS (зоны, ECS, перехват DNS клиентов, тест скорости серверов), вкладка «Соединения», устройства и статические аренды DHCP, снимки настроек, `pin_guard`, уведомления о новых версиях, фильтры подписок и др. |
+| [@kjljxybr](https://github.com/kjljxybr) | `block_leaks` (fail-closed kill switch), обновление подписок из дашборда |
+| [@xDarkOne](https://github.com/xDarkOne) | VLESS Encryption, гейты vmess/XHTTP на стоковом ядре |
+| [@overdeadsss](https://github.com/overdeadsss) | разбор Xray JSON-подписок, ускорение нормализации ссылок |
+| [@spgsroot](https://github.com/spgsroot) | автоопределение WAN-устройства, синхронизация с апстримом |
+| [@zet694](https://github.com/zet694) | транспорт httpupgrade в параметрах подписки |
+| [@mansar1337](https://github.com/mansar1337) | управление подписками, декодирование base64, конвертер прокси |
+| [@egorletov10964-afk](https://github.com/egorletov10964-afk) | пропуск списков для глобального прокси |
+| [@ArmAGEDDon1109](https://github.com/ArmAGEDDon1109) | маршрутизация LAN/private DNS |
+
+NetShift - форк [podkop](https://github.com/itdoginfo/podkop); в истории репозитория лежат наработки его авторов и участников: [@itdoginfo](https://github.com/itdoginfo), [@ampetelin](https://github.com/ampetelin), [@divocat](https://github.com/divocat), [@VizzleTF](https://github.com/VizzleTF), [@vernette](https://github.com/vernette), [@Slava-Shchipunov](https://github.com/Slava-Shchipunov), [@SaltyMonkey](https://github.com/SaltyMonkey), [@Akiyamov](https://github.com/Akiyamov), [@romanvht](https://github.com/romanvht), [@procudin](https://github.com/procudin), [@kokoc26](https://github.com/kokoc26).
 
 ## Credits
 

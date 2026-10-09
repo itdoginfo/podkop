@@ -98,6 +98,9 @@ The release itself, in order:
 3. **CI does not set the release body** (`softprops/action-gh-release` is called
    without `body`/`body_path`). After the release appears, set the notes with
    `gh release edit <version> --repo yandexru45/netshift --notes-file <file>`.
+   The notes must credit the release's contributors by their GitHub handles
+   (from `git log <prev-tag>..<tag> --format='%an'` / the merged PRs) - keep the
+   list in the README section «Участники» in sync.
 4. Verify the assets: `gh release view <version> --json assets` — six files, and
    the `NETSHIFT_VERSION` inside the built `constants.sh` must equal the tag.
 
