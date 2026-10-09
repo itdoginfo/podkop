@@ -166,6 +166,31 @@ function createSettingsContent(section) {
 
   o = section.taboption(
     "dns",
+    form.DynamicList,
+    "dns_forward",
+    _("DNS forwarding by zone"),
+    _(
+      'One entry per line: "zone server", for example "ru 77.88.8.8" sends the zone .ru and all its subdomains to that DNS server directly, the way a "server=/ru/77.88.8.8" line does in the dnsmasq config. The server is an IP address, optionally with #port. The names of these zones get their real addresses, not FakeIP, so they are not routed by domain; the entries are applied to dnsmasq unless "Dont Touch My DHCP" is on.',
+    ),
+  );
+  o.placeholder = "ru 77.88.8.8";
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateDnsForward(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.taboption(
+    "dns",
     form.Flag,
     "dns_via_outbound",
     _("Route main DNS through proxy/VPN"),

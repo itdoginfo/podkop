@@ -856,6 +856,53 @@ function validateDnsPoolTimeout(value) {
   };
 }
 
+// src/validators/validateDnsForward.ts
+var ZONE_LABEL = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/i;
+function splitDnsForward(entry) {
+  const value = entry.trim();
+  if (value.startsWith("/")) {
+    const match2 = value.match(/^\/([^/]*)\/(.*)$/);
+    return match2 ? { zone: match2[1], server: match2[2].trim() } : null;
+  }
+  const match = value.match(/^(\S+)\s+(\S.*)$/);
+  return match ? { zone: match[1], server: match[2].trim() } : null;
+}
+function validateDnsForward(entry) {
+  const parts = splitDnsForward(entry);
+  if (!parts) {
+    return {
+      valid: false,
+      message: _('Use "zone server", for example: ru 77.88.8.8')
+    };
+  }
+  const zone = parts.zone.replace(/^\./, "");
+  if (!zone || zone.length > 253 || !zone.split(".").every((label) => ZONE_LABEL.test(label))) {
+    return { valid: false, message: _("Invalid zone") };
+  }
+  const [address, port, ...rest] = parts.server.split("#");
+  if (rest.length) {
+    return { valid: false, message: _("Invalid DNS server") };
+  }
+  if (port !== void 0) {
+    const number = Number(port);
+    if (!/^\d+$/.test(port) || number < 1 || number > 65535) {
+      return {
+        valid: false,
+        message: _("Invalid port number. Must be 1-65535")
+      };
+    }
+  }
+  const isIPv6 = address.includes(":");
+  const addressValid = isIPv6 ? validateIPV6(address).valid && !address.startsWith("[") : validateIPV4(address).valid;
+  if (!addressValid) {
+    return {
+      valid: false,
+      message: _("The server must be an IP address, optionally with #port")
+    };
+  }
+  return { valid: true, message: _("Valid") };
+}
+
 // src/helpers/parseValueList.ts
 function parseValueList(value) {
   return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
@@ -7020,11 +7067,13 @@ return baseclass.extend({
   saveDashboardViewPrefs,
   setDeviceRoute,
   socket,
+  splitDnsForward,
   splitProxyString,
   store,
   svgEl,
   toIpList,
   validateDNS,
+  validateDnsForward,
   validateDnsPoolServer,
   validateDnsPoolTimeout,
   validateDomain,
