@@ -14713,6 +14713,118 @@ test_environment_check() {
     _ev "IPv6 on is reported" "ipv6-enabled=true"
 }
 
+test_mixed_proxy_auth() {
+    header "Section mixed proxy: login, port conflicts, nothing for sections without one"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "$lib/sing_box_config_manager.sh" ] || [ ! -r "$lib/sing_box_config_facade.sh" ]; then
+        fail "bin / libs not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        LOGF="/tmp/netshift-mixed-log-$$"; : > "$LOGF"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOGF"; }
+        for fn in configure_section_mixed_proxy mixed_proxy_port_is_reserved; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        get_service_listen_address() { echo "192.168.1.1"; }
+        get_inbound_tag_by_section() { echo "$1-in"; }
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        subscription_outbound_is_unavailable() { [ "$1" = "dead" ]; }
+        gen_id() { echo "rule-$$"; }
+        config_get() { eval "$1=\"\${U_$2_$3:-$4}\""; }
+        config_get_bool() { eval "$1=\"\${U_$2_$3:-$4}\""; }
+
+        run() {
+            config='{"inbounds":[],"outbounds":[],"route":{"rules":[]}}'
+            MIXED_PROXY_PORTS_USED=""
+            for s in "$@"; do configure_section_mixed_proxy "$s"; done
+        }
+        inb() { printf '%s' "$config" | jq -c '[.inbounds[] | [.tag, .listen_port, (.users // "open")]]'; }
+        rules() { printf '%s' "$config" | jq -c '[.route.rules[] | [(.inbound // ""), (.outbound // .action)]]'; }
+
+        U_a_mixed_proxy_enabled=1 U_a_mixed_proxy_port=2081
+        run a; echo "plain=$(inb)"; echo "plain-rule=$(rules)"
+
+        U_a_mixed_proxy_auth=1 U_a_mixed_proxy_username=me U_a_mixed_proxy_password=secret
+        run a; echo "auth=$(inb)"
+
+        U_a_mixed_proxy_password=""
+        run a; echo "auth-incomplete=$(inb) warned=$(grep -c 'needs a user name and a password' "$LOGF")"
+        U_a_mixed_proxy_auth=0
+
+        U_b_mixed_proxy_enabled=1 U_b_mixed_proxy_port=2081
+        run a b; echo "same-port=$(inb) warned=$(grep -c 'already taken by another section' "$LOGF")"
+        U_b_mixed_proxy_port=2082
+        run a b; echo "two-ports=$(inb)"
+
+        U_c_mixed_proxy_enabled=1 U_c_mixed_proxy_port=9090
+        run c; echo "reserved-clash=$(inb) warned=$(grep -c 'used by NetShift itself' "$LOGF")"
+        U_c_mixed_proxy_port=4534
+        run c; echo "reserved-service=$(inb)"
+        U_c_mixed_proxy_port=abc
+        run c; echo "bad-port-fallback=$(inb)"
+
+        U_d_mixed_proxy_enabled=0
+        run d; echo "disabled=$(inb)"
+        run missing; echo "no-option=$(inb)"
+
+        U_dead_mixed_proxy_enabled=1 U_dead_mixed_proxy_port=2090
+        run dead; echo "unavailable-inbound=$(inb) rule=$(rules)"
+
+        # sing-box agrees with the result
+        if command -v sing-box > /dev/null 2>&1; then
+            U_a_mixed_proxy_auth=1 U_a_mixed_proxy_password=secret
+            run a b
+            config="$(printf '%s' "$config" | jq '.outbounds += [{"type":"direct","tag":"a-out"},{"type":"direct","tag":"b-out"}] | .route.rules |= map(del(.__service_tag))')"
+            sing_box_cm_save_config_to_file "$config" /tmp/mixed-check.json
+            sing-box -c /tmp/mixed-check.json check > /dev/null 2>&1 && echo "singbox-check=ok" || echo "singbox-check=FAIL"
+        else
+            echo "singbox-check=ok"
+        fi
+        rm -f "$LOGF" /tmp/mixed-check.json
+    )"
+
+    _mp() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _mp "a proxy is open without a login (as before)" 'plain=[["a-mixed-in",2081,"open"]]'
+    _mp "...and routed to its section" 'plain-rule=[["a-mixed-in","a-out"]]'
+    _mp "with a login the inbound needs it" 'auth=[["a-mixed-in",2081,[{"username":"me","password":"secret"}]]]'
+    _mp "a login asked for but incomplete means no proxy" 'auth-incomplete=[] warned=1'
+    _mp "a second section on the same port is left out, not fatal" 'same-port=[["a-mixed-in",2081,"open"]] warned=1'
+    _mp "two sections on two ports both work" 'two-ports=[["a-mixed-in",2081,"open"],["b-mixed-in",2082,"open"]]'
+    _mp "the Clash API port is not available to a section" 'reserved-clash=[] warned=1'
+    _mp "the service proxy port is not available to a section" 'reserved-service=[]'
+    _mp "an invalid port falls back to 2080" 'bad-port-fallback=[["c-mixed-in",2080,"open"]]'
+    _mp "a section with the proxy off gets nothing" 'disabled=[]'
+    _mp "a section without the option gets nothing" 'no-option=[]'
+    _mp "an unavailable subscription keeps its inbound but rejects" 'unavailable-inbound=[["dead-mixed-in",2090,"open"]] rule=[["dead-mixed-in","reject"]]'
+    _mp "sing-box accepts the result" "singbox-check=ok"
+}
+
 # ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
@@ -16284,6 +16396,7 @@ main() {
             test_cache_persist
             test_update_package_check
             test_environment_check
+            test_mixed_proxy_auth
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -16355,12 +16468,13 @@ main() {
         dnssection)  test_dns_section ;;
         updatepkg)   test_update_package_check ;;
         environment) test_environment_check ;;
+        mixedauth)   test_mixed_proxy_auth ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment mixedauth"
             exit 1
             ;;
     esac

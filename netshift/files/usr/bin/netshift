@@ -5810,14 +5810,26 @@ sing_box_additional_inbounds() {
         fi
     fi
 
+    MIXED_PROXY_PORTS_USED=""
     foreach_active_section configure_section_mixed_proxy "section"
+}
+
+# The ports the section proxies may not use: the ones NetShift itself listens on.
+mixed_proxy_port_is_reserved() {
+    case "$1" in
+    "$SB_SERVICE_MIXED_INBOUND_PORT" | "$SB_TPROXY_INBOUND_PORT" | "$SB_TPROXY_INBOUND_PORT_V6" | "$SB_CLASH_API_CONTROLLER_PORT" | "$SB_DNS_INBOUND_PORT" | "$SB_DNS_INBOUND_PORT_V6") return 0 ;;
+    esac
+    return 1
 }
 
 configure_section_mixed_proxy() {
     local section="$1"
 
     local mixed_inbound_enabled mixed_proxy_port mixed_inbound_tag mixed_outbound_tag mixed_proxy_address
+    local mixed_proxy_auth mixed_proxy_username mixed_proxy_password
     config_get_bool mixed_inbound_enabled "$section" "mixed_proxy_enabled" 0
+    # Nothing to do (and nothing to log) for a section without the proxy.
+    [ "$mixed_inbound_enabled" -eq 1 ] || return 0
     mixed_proxy_address="$(get_service_listen_address)"
     if [ -z "$mixed_proxy_address" ]; then
         log "Could not determine the listening IP address for the Mixed Proxy. The proxy will not be created." "warn"
@@ -5836,22 +5848,51 @@ configure_section_mixed_proxy() {
         log "mixed_proxy_port '$mixed_proxy_port' for section '$section' is out of range (1-65535). Falling back to 2080." "warn"
         mixed_proxy_port="2080"
     fi
-    if [ "$mixed_inbound_enabled" -eq 1 ]; then
-        mixed_inbound_tag="$(get_inbound_tag_by_section "$section-mixed")"
-        if subscription_outbound_is_unavailable "$section"; then
-            config="$(sing_box_cm_add_mixed_inbound "$config" "$mixed_inbound_tag" "$mixed_proxy_address" "$mixed_proxy_port")"
-            config="$(sing_box_cm_add_reject_route_rule "$config" "$(gen_id)" "$mixed_inbound_tag")"
-        else
-            mixed_outbound_tag="$(get_outbound_tag_by_section "$section")"
-            config=$(
-                sing_box_cf_add_mixed_inbound_and_route_rule \
-                    "$config" \
-                    "$mixed_inbound_tag" \
-                    "$mixed_proxy_address" \
-                    "$mixed_proxy_port" \
-                    "$mixed_outbound_tag"
-            )
+
+    # Two inbounds on one port, or one on a port NetShift uses itself, would make
+    # sing-box refuse the whole configuration: the later proxy is left out instead.
+    if mixed_proxy_port_is_reserved "$mixed_proxy_port"; then
+        log "mixed_proxy_port $mixed_proxy_port of section '$section' is used by NetShift itself; the proxy of this section will not be created" "warn"
+        return 0
+    fi
+    case " $MIXED_PROXY_PORTS_USED " in
+    *" $mixed_proxy_port "*)
+        log "mixed_proxy_port $mixed_proxy_port of section '$section' is already taken by another section; the proxy of this section will not be created" "warn"
+        return 0
+        ;;
+    esac
+
+    # Optional login. Asked for but incomplete means no proxy at all: an open proxy
+    # where a closed one was meant is the wrong way to fail.
+    config_get_bool mixed_proxy_auth "$section" "mixed_proxy_auth" 0
+    mixed_proxy_username=""
+    mixed_proxy_password=""
+    if [ "$mixed_proxy_auth" -eq 1 ]; then
+        config_get mixed_proxy_username "$section" "mixed_proxy_username" ""
+        config_get mixed_proxy_password "$section" "mixed_proxy_password" ""
+        if [ -z "$mixed_proxy_username" ] || [ -z "$mixed_proxy_password" ]; then
+            log "The proxy of section '$section' needs a user name and a password (mixed_proxy_auth is on); the proxy will not be created" "warn"
+            return 0
         fi
+    fi
+    MIXED_PROXY_PORTS_USED="$MIXED_PROXY_PORTS_USED $mixed_proxy_port"
+
+    mixed_inbound_tag="$(get_inbound_tag_by_section "$section-mixed")"
+    if subscription_outbound_is_unavailable "$section"; then
+        config="$(sing_box_cm_add_mixed_inbound "$config" "$mixed_inbound_tag" "$mixed_proxy_address" "$mixed_proxy_port" "$mixed_proxy_username" "$mixed_proxy_password")"
+        config="$(sing_box_cm_add_reject_route_rule "$config" "$(gen_id)" "$mixed_inbound_tag")"
+    else
+        mixed_outbound_tag="$(get_outbound_tag_by_section "$section")"
+        config=$(
+            sing_box_cf_add_mixed_inbound_and_route_rule \
+                "$config" \
+                "$mixed_inbound_tag" \
+                "$mixed_proxy_address" \
+                "$mixed_proxy_port" \
+                "$mixed_outbound_tag" \
+                "$mixed_proxy_username" \
+                "$mixed_proxy_password"
+        )
     fi
 }
 

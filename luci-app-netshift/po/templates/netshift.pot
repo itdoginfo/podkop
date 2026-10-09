@@ -93,6 +93,10 @@ msgstr ""
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1271
+msgid "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all."
+msgstr ""
+
 #: src/validators/validateProxyUrlList.ts:39
 msgid "At least one proxy link must be specified."
 msgstr ""
@@ -536,7 +540,7 @@ msgstr ""
 msgid "Enable built-in DNS resolver for domains handled by this section"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1271
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1314
 msgid "Enable DNS resolve to get real IP when routing"
 msgstr ""
 
@@ -566,6 +570,14 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:539
 msgid "Enable YACD WAN Access"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1306
+msgid "Enter a password"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1289
+msgid "Enter a user name"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:182
@@ -1020,6 +1032,10 @@ msgstr ""
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1300
+msgid "Kept in the configuration file as it is typed."
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:611
 msgid "Latency test URL"
 msgstr ""
@@ -1097,8 +1113,16 @@ msgstr ""
 msgid "Mixed proxy and DNS resolution tuning"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1299
+msgid "Mixed Proxy password"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1254
 msgid "Mixed Proxy Port"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1283
+msgid "Mixed Proxy user name"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:378
@@ -1139,6 +1163,10 @@ msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runNftCheck.ts:98
 msgid "No other marking rules found"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1292
+msgid "No spaces or colons in the user name"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runEnvironmentCheck.ts:31
@@ -1297,11 +1325,15 @@ msgstr ""
 msgid "Remote Subnet Lists"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1270
+msgid "Require a login for the Mixed Proxy"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:660
 msgid "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1270
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1313
 msgid "Resolve real IP for routing"
 msgstr ""
 
