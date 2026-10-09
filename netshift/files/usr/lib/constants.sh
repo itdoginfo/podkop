@@ -47,6 +47,26 @@ SING_BOX_RELOAD_SETTLE_DELAY="3"
 # Exit code of `netshift subscription_update` when the feeds were downloaded but
 # applying them failed (the pending-apply marker stays for the next run).
 SUBSCRIPTION_UPDATE_APPLY_FAILED=3
+# Serializes subscription updates. Two of them side by side race on the feed
+# cache, on the pending-apply marker and on the sing-box rebuild + reload, and
+# the dashboard buttons, the cron jobs, the deferred startup refresh and
+# "clear cache" can all start one. A directory, not flock: mkdir is atomic on
+# every busybox build, and the update restarts the service, whose detached
+# children would inherit a flock descriptor and keep the lock. Holds the pid of
+# the owner in "pid"; tmpfs, so a reboot always clears it.
+SUBSCRIPTION_UPDATE_LOCK_DIR="/var/run/netshift-subscription-update.lock"
+# Seconds a scheduled/CLI run waits for a running update before it gives up
+# (the dashboard does not wait: it reports "already running" at once).
+SUBSCRIPTION_UPDATE_LOCK_WAIT=300
+# How many times taking the lock may retry a step that should succeed at once
+# (creating the lock directory, taking over a stale lock) before it gives up.
+SUBSCRIPTION_UPDATE_LOCK_RETRIES=3
+# Exit code of `netshift subscription_update` when another update holds the lock.
+SUBSCRIPTION_UPDATE_BUSY=4
+# Exit code of `netshift subscription_update` when the lock could not be taken
+# for a reason other than a running update: its directory cannot be created
+# (tmpfs full, /var/run not writable) or a stale lock would not go away.
+SUBSCRIPTION_UPDATE_LOCK_FAILED=5
 # Interval a subscription section runs on when its own
 # `subscription_update_interval` says nothing usable: the option is absent (an
 # old conffile), or it holds a value the cron table does not know (a hand-edited
@@ -315,6 +335,12 @@ SB_SUBSCRIPTION_FASTEST_GROUP_TAG="⚡ Fastest"
 # contributes nodes gets its own urltest tagged "<prefix><feed name>" next to
 # the section-wide one, so the dashboard can show a Fastest per subscription.
 SB_SUBSCRIPTION_FEED_GROUP_TAG_PREFIX="⚡ "
+# Which feed every per-feed urltest of the running config stands for: one JSON
+# object per line, {"tag","section","hash"} (hash = get_subscription_url_hash of
+# the feed URL). Written with the config, because the tag alone does not say:
+# it is the feed's display name, deduplicated across sections with a "-N" that
+# a feed may also carry in its own name. The per-feed refresh reads it.
+SUBSCRIPTION_FEED_TAGS_FILE="$TMP_SING_BOX_FOLDER/subscription-feed-tags.jsonl"
 # Key stamped on every merged subscription node with its feed index (position
 # in the section's subscription_url list). The facade strips it before the
 # node reaches the config and reports it as SUBSCRIPTION_OUTBOUND_FEEDS_JSON.

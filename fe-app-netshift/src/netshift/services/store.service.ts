@@ -177,6 +177,12 @@ export interface StoreType {
     // waiting for their result.
     latencyTestingSections: string[];
     latencyPendingOutbounds: string[];
+    // The subscription refresh in flight, if any: 'all' for the "refresh all
+    // subscriptions" action, otherwise the key of the button that started it
+    // (section.code for a whole section, subgroup.code for one feed block).
+    // One at a time: every refresh button is disabled while it is set, since
+    // two backend subscription updates must not run side by side.
+    subscriptionRefreshKey: string | null;
     // How the server lists are shown (kept in the browser).
     viewMode: DashboardViewMode;
     sortByPing: boolean;
@@ -258,6 +264,7 @@ const initialStore: StoreType = {
     failed: false,
     latencyTestingSections: [],
     latencyPendingOutbounds: [],
+    subscriptionRefreshKey: null,
     ...loadDashboardViewPrefs(),
     data: [],
   },

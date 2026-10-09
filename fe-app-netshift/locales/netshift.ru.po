@@ -65,6 +65,9 @@ msgstr "Найдены дополнительные правила маркир�
 msgid "Advanced"
 msgstr "Дополнительно"
 
+msgid "All subscriptions updated"
+msgstr "Все подписки обновлены"
+
 msgid "Allow insecure TLS for subscription fetch"
 msgstr "Разрешить небезопасный TLS при загрузке подписки"
 
@@ -499,6 +502,18 @@ msgstr "Не удалось скопировать!"
 
 msgid "Failed to execute!"
 msgstr "Не удалось выполнить!"
+
+msgid "Failed to read the subscription update status"
+msgstr "Не удалось получить состояние обновления подписки"
+
+msgid "Failed to start the task"
+msgstr "Не удалось запустить задачу"
+
+msgid "Failed to update subscription"
+msgstr "Не удалось обновить подписку"
+
+msgid "Failed to update subscriptions"
+msgstr "Не удалось обновить подписки"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
@@ -941,6 +956,12 @@ msgstr "Прокси-трафик направляется через FakeIP"
 msgid "Reality: post-quantum key share (X25519MLKEM768)"
 msgstr "Reality: пост-квантовый обмен ключами (X25519MLKEM768)"
 
+msgid "Refresh all subscriptions"
+msgstr "Обновить все подписки"
+
+msgid "Refresh subscription"
+msgstr "Обновить подписку"
+
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
 
@@ -1157,8 +1178,17 @@ msgstr "Группировка подписки"
 msgid "Subscription Update Interval"
 msgstr "Интервал обновления подписки"
 
+msgid "Subscription update timed out"
+msgstr "Превышено время ожидания обновления подписки"
+
+msgid "Subscription updated"
+msgstr "Подписка обновлена"
+
 msgid "Subscription URLs"
 msgstr "URL подписок"
+
+msgid "Subscriptions"
+msgstr "Подписки"
 
 msgid "Successfully copied!"
 msgstr "Успешно скопировано!"
@@ -1291,6 +1321,9 @@ msgstr "Обновить NetShift"
 
 msgid "Update time"
 msgstr "Время обновления"
+
+msgid "Updating all subscriptions… this may take a minute"
+msgstr "Обновление всех подписок… это может занять минуту"
 
 msgid "Updating NetShift, this may take a few minutes; the page will reload…"
 msgstr "Обновление NetShift, это может занять несколько минут; страница перезагрузится…"

@@ -21,6 +21,15 @@ function getLatencyClassName(latency: number) {
   return 'pdk_dashboard-page__outbound-grid__item__latency--red';
 }
 
+// What a refresh button updates: one feed block (`feed` is the block's
+// sing-box group tag, which the backend resolves to the feed URL) or, without
+// `feed`, every feed of the section. `key` is the section/subgroup code that
+// marks the button as the one in progress.
+export interface IRefreshFeedTarget {
+  feed?: string;
+  key: string;
+}
+
 interface IRenderSectionsProps {
   loading: boolean;
   failed: boolean;
@@ -34,6 +43,16 @@ interface IRenderSectionsProps {
   sortByPing: boolean;
   onToggleViewMode: () => void;
   onToggleSortByPing: () => void;
+  // Subscription sections only: refresh one feed (subgroup header) or the whole
+  // section (header of a section without feed blocks). Absent outside the
+  // dashboard.
+  onRefreshFeed?: (
+    section: NetShift.OutboundGroup,
+    feed: IRefreshFeedTarget,
+  ) => void;
+  // The refresh in flight ('all', or the key of the button that started it):
+  // that button spins, every other refresh button is disabled.
+  subscriptionRefreshKey?: string | null;
 }
 
 function renderFailedState() {
@@ -77,7 +96,24 @@ export function renderDefaultState({
   sortByPing,
   onToggleViewMode,
   onToggleSortByPing,
+  onRefreshFeed,
+  subscriptionRefreshKey,
 }: IRenderSectionsProps) {
+  // Subscription refresh is only offered when the dashboard wired the handler
+  // (the loading/failed placeholders render without one).
+  const canRefresh = Boolean(section.isSubscription && onRefreshFeed);
+  const hasSubgroups = (section.subgroups?.length ?? 0) > 0;
+
+  function renderRefreshButton(feed: IRefreshFeedTarget) {
+    return renderButton({
+      text: _('Refresh subscription'),
+      loading: subscriptionRefreshKey === feed.key,
+      disabled: Boolean(subscriptionRefreshKey),
+      onClick: () => onRefreshFeed?.(section, feed),
+      classNames: ['dashboard-sections-grid-item-refresh-subscription'],
+    });
+  }
+
   function renderOutbound(outbound: NetShift.Outbound) {
     const getLatencyClass = () => getLatencyClassName(outbound.latency);
 
@@ -183,6 +219,13 @@ export function renderDefaultState({
         section.displayName,
       ),
       E('div', { class: 'pdk_dashboard-page__outbound-section__controls' }, [
+        // A section split into feed blocks offers one refresh per block below.
+        // Any other subscription section (one feed, country/prefix groups, or
+        // several feeds of which only one gave nodes) gets a single button
+        // here that refreshes every feed of the section.
+        ...(canRefresh && !hasSubgroups
+          ? [renderRefreshButton({ key: section.code })]
+          : []),
         renderButton({
           text: viewMode === 'list' ? _('Tiles') : _('List'),
           onClick: () => onToggleViewMode(),
@@ -204,11 +247,21 @@ export function renderDefaultState({
     renderOutbounds(section.outbounds, section.code),
     ...(section.subgroups ?? []).map((subgroup) =>
       E('div', { class: 'pdk_dashboard-page__outbound-subgroup' }, [
-        E(
-          'div',
-          { class: 'pdk_dashboard-page__outbound-subgroup__title' },
-          subgroup.displayName,
-        ),
+        E('div', { class: 'pdk_dashboard-page__outbound-subgroup__header' }, [
+          E(
+            'div',
+            { class: 'pdk_dashboard-page__outbound-subgroup__title' },
+            subgroup.displayName,
+          ),
+          ...(canRefresh
+            ? [
+                renderRefreshButton({
+                  feed: subgroup.code,
+                  key: subgroup.code,
+                }),
+              ]
+            : []),
+        ]),
         renderOutbounds(subgroup.outbounds, `${section.code}:${subgroup.code}`),
       ]),
     ),

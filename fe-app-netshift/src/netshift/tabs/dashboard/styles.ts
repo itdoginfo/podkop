@@ -45,6 +45,19 @@ export const styles = `
 
 .pdk_dashboard-page__widgets-section__item__row__value {}
 
+.pdk_dashboard-page__sections-toolbar {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.pdk_dashboard-page__sections-toolbar__title {
+    color: var(--text-color-high);
+    font-weight: 700;
+}
+
 .pdk_dashboard-page__outbound-section {
     margin-top: 10px;
 }
@@ -166,6 +179,13 @@ export const styles = `
     margin-top: 15px;
     padding-top: 10px;
     border-top: var(--ns-card-border-width) solid var(--ns-card-border);
+}
+
+.pdk_dashboard-page__outbound-subgroup__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
 }
 
 .pdk_dashboard-page__outbound-subgroup__title {

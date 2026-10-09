@@ -174,7 +174,13 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
         }
 
         if (section.proxy_config_type === 'subscription') {
-          return buildSubscriptionOutboundGroup(section['.name'], proxies);
+          // The dashboard refresh buttons address the backend by the UCI
+          // section name.
+          return {
+            ...buildSubscriptionOutboundGroup(section['.name'], proxies),
+            isSubscription: true,
+            sectionName: section['.name'],
+          };
         }
       }
 
