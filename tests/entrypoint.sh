@@ -116,6 +116,7 @@ test_syntax() {
         "$lib/logging.sh" \
         "$lib/nft.sh" \
         "$lib/rulesets.sh" \
+        "$lib/routecheck.sh" \
         "$lib/sing_box_config_manager.sh" \
         "$lib/sing_box_config_facade.sh" \
         "$lib/updater.sh"; do
@@ -17726,6 +17727,167 @@ test_domain_rule_prefixes() {
     rm -rf "$work"
 }
 
+
+test_route_check() {
+    header "Route check: where will a request go (check_route)"
+
+    if ! command -v sing-box > /dev/null 2>&1 || ! command -v jq > /dev/null 2>&1; then
+        skip "sing-box / jq not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$lib/routecheck.sh" ] || [ ! -r "$lib/helpers.sh" ] || [ ! -r "$lib/constants.sh" ]; then
+        fail "routecheck.sh / helpers.sh / constants.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-routecheck-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        . "$lib/routecheck.sh"
+        SERVICE_TAG="__service_tag"
+        ROUTE_CHECK_CACHE_FOLDER="$work/cache"
+        log() { :; }
+
+        printf '%s' '{"version":3,"rules":[{"domain_suffix":["example.com"],"domain":["exact.example.org"],"domain_keyword":["tracker"],"domain_regex":["^ads[0-9]+\\.cdn\\.net$"]}]}' > "$work/main-domains.json"
+        printf '%s' '{"version":3,"rules":[{"ip_cidr":["203.0.113.0/24"]}]}' > "$work/vpn-subnets.json"
+        jq -n --arg d "$work/main-domains.json" --arg s "$work/vpn-subnets.json" '{
+            dns: { servers: [], rules: [
+                { query_type: "HTTPS", action: "reject", __service_tag: "doh-https" },
+                { action: "route", server: "fakeip-server", rule_set: ["main-domains"], __service_tag: "fakeip-rule" },
+                { action: "route", server: "dns-section-corp", domain_suffix: ["corp.test"], __service_tag: "dns-section-rule-corp" }
+            ], final: "dns-server" },
+            inbounds: [ { type: "tproxy", tag: "tproxy-in" } ],
+            outbounds: [ { type: "direct", tag: "direct-out" } ],
+            route: {
+                rule_set: [
+                    { tag: "main-domains", type: "local", format: "source", path: $d },
+                    { tag: "vpn-subnets", type: "local", format: "source", path: $s },
+                    { tag: "remote-list", type: "remote", format: "binary", url: "https://lists.invalid/x.srs" }
+                ],
+                rules: [
+                    { action: "sniff", inbound: ["tproxy-in"] },
+                    { action: "route", inbound: ["tproxy-in"], outbound: "direct-out", source_ip_cidr: ["192.168.1.50/32"], __service_tag: "device-bypass" },
+                    { action: "reject", inbound: ["tproxy-in"], domain_suffix: ["blocked.test"], __service_tag: "reject-rule" },
+                    { action: "route", inbound: ["tproxy-in"], outbound: "main-out", rule_set: ["main-domains"], __service_tag: "main-rule" },
+                    { action: "route", inbound: ["tproxy-in"], outbound: "vpn-urltest-out", rule_set: ["vpn-subnets"], __service_tag: "vpn-rule" },
+                    { action: "route", inbound: ["tproxy-in"], outbound: "direct-out", rule_set: ["remote-list"], __service_tag: "remote-rule" },
+                    { action: "route", inbound: ["service-mixed-in"], outbound: "vpn-out", domain_suffix: ["only-service.test"], __service_tag: "svc-rule" },
+                    { action: "route", inbound: ["tproxy-in"], outbound: "direct-out", protocol: "bittorrent", __service_tag: "bt-rule" }
+                ],
+                final: "direct-out"
+            }
+        }' > "$work/config.json"
+
+        config_get() {
+            case "$3" in
+            config_path) eval "$1=\"$work/config.json\"" ;;
+            *) eval "$1=\"\${4:-}\"" ;;
+            esac
+        }
+        config_foreach() { local cb="$1" id; for id in main vpn; do "$cb" "$id"; done; }
+        get_service_proxy_address() { echo ""; }
+        download_to_file() { return 1; }
+
+        show() { # label target [source]
+            check_route "$2" "${3:-}" | jq -c --arg l "$1" '[$l, .verdict, .section, .rule, .rule_set, (.dns.server // null), (.dns.verdict // null), .incomplete, .by_default] | map(if . == null then "-" else tostring end) | join("|")' | tr -d '"'
+        }
+
+        show suffix example.com
+        show subdomain a.b.example.com
+        show full exact.example.org
+        show full-sub x.exact.example.org
+        show keyword my-tracker.net
+        show regex ads7.cdn.net
+        show regex-miss ads.cdn.net
+        show blocked x.blocked.test
+        show ip 203.0.113.9
+        show ip-miss 198.51.100.7
+        show direct-default unknown.example.net
+        show dns-section host.corp.test
+        show service-only only-service.test
+        show device-source example.com 192.168.1.50
+        show device-other-source example.com 192.168.1.51
+        check_route "not a host" | jq -c '.error != null'
+        check_route "" | jq -c '.error != null'
+
+        # a remote binary rule set: downloaded into a temporary file, moved into the cache whole
+        printf '%s' '{"version":3,"rules":[{"domain_suffix":["remote.test"]}]}' > "$work/remote-src.json"
+        : > "$work/dl-calls"
+        download_to_file() {
+            echo "$2" >> "$work/dl-calls"
+            sing-box rule-set compile -o "$2" "$work/remote-src.json" > /dev/null 2>&1
+        }
+        show remote-binary x.remote.test
+        show remote-binary-miss other.example.net
+        echo "download-calls=$(wc -l < "$work/dl-calls" | tr -d ' ')"
+        echo "download-into-temp=$(grep -c '\.dl\.' "$work/dl-calls")"
+        echo "cache-files=$(ls "$work/cache" | grep -c '\.binary$')"
+        echo "cache-leftovers=$(ls "$work/cache" | grep -c '\.dl\.')"
+
+        # a download that fails after writing part of the file leaves no cache and no leftover,
+        # and does not remove a good file stored meanwhile
+        rm -rf "$work/cache"
+        download_to_file() { echo "half" > "$2"; return 1; }
+        show remote-failed x.remote.test
+        echo "failed-cache-files=$(ls "$work/cache" 2> /dev/null | wc -l | tr -d ' ')"
+
+        # ...while another check stores the good file at the same moment and this one then fails
+        rm -rf "$work/cache"
+        sing-box rule-set compile -o "$work/good.srs" "$work/remote-src.json" > /dev/null 2>&1
+        download_to_file() {
+            mkdir -p "$ROUTE_CHECK_CACHE_FOLDER"
+            cp "$work/good.srs" "${2%%.dl.*}"
+            echo "half" > "$2"
+            return 1
+        }
+        show remote-race x.remote.test > /dev/null
+        echo "race-good-file-kept=$(ls "$work/cache" | grep -c '\.binary$')"
+    )"
+
+    _rc() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    # label|verdict|section|rule|rule_set|dns server|dns verdict|incomplete|by default
+    _rc "domain suffix goes to its section" "suffix|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
+    _rc "subdomains follow the suffix" "subdomain|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
+    _rc "full: matches the host" "full|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
+    _rc "full: does not match subdomains" "full-sub|direct|-|-|-|dns-server|final|true|false"
+    _rc "keyword: matches" "keyword|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
+    _rc "regex: matches" "regex|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
+    _rc "regex: miss falls through" "regex-miss|direct|-|-|-|dns-server|final|true|false"
+    _rc "a reject rule blocks" "blocked|blocked|-|reject-rule|-|dns-server|final|true|false"
+    _rc "an IP in a section subnet goes to that section" "ip|section|vpn|vpn-rule|vpn-subnets|-|-|true|false"
+    _rc "an IP in no list goes direct" "ip-miss|direct|-|-|-|-|-|true|false"
+    _rc "an unlisted domain goes direct (final)" "direct-default|direct|-|-|-|dns-server|final|true|false"
+    _rc "a DNS section answers its names" "dns-section|direct|-|-|-|dns-section-corp|rule|true|false"
+    _rc "rules of another inbound are not replayed for LAN traffic" "service-only|direct|-|-|-|dns-server|final|true|false"
+    _rc "a rule with a source address applies to that client" "device-source|direct|-|device-bypass|-|fakeip-server|rule|false|false"
+    _rc "a different source skips the device rule" "device-other-source|section|main|main-rule|main-domains|fakeip-server|rule|false|false"
+    _rc "invalid target is an error" "true"
+    _rc "a remote binary rule set is replayed" "remote-binary|direct|-|remote-rule|remote-list|dns-server|final|true|false"
+    _rc "...and a name it does not hold is not matched" "remote-binary-miss|direct|-|-|-|dns-server|final|true|false"
+    _rc "the rule set is downloaded once and cached" "download-calls=1"
+    _rc "...into a temporary file next to the cache" "download-into-temp=1"
+    _rc "...which is moved into place whole" "cache-files=1"
+    _rc "...leaving no temporary file" "cache-leftovers=0"
+    _rc "a failed download leaves nothing behind" "failed-cache-files=0"
+    _rc "a failing check does not remove the file another check has just stored" "race-good-file-kept=1"
+    _rc "...and the answer is flagged incomplete" "remote-failed|direct|-|-|-|dns-server|final|true|false"
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -17793,6 +17955,7 @@ main() {
             test_environment_check
             test_mixed_proxy_auth
             test_domain_rule_prefixes
+            test_route_check
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -17867,6 +18030,7 @@ main() {
         environment) test_environment_check ;;
         mixedauth)   test_mixed_proxy_auth ;;
         domrules)    test_domain_rule_prefixes ;;
+        routecheck)  test_route_check ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
@@ -17874,6 +18038,7 @@ main() {
             echo "Unknown test: $target"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark blockleaks isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment mixedauth"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment domrules"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment routecheck"
             exit 1
             ;;
     esac
