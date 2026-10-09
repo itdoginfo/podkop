@@ -2537,6 +2537,53 @@ var NetShiftLogWatcher = class _NetShiftLogWatcher {
   }
 };
 
+// src/helpers/summarizeLogErrors.ts
+var isFatal = (message) => message.toLowerCase().includes("[fatal]");
+function logLineMessage(line) {
+  const marker = line.indexOf("netshift: ");
+  return (marker >= 0 ? line.slice(marker + "netshift: ".length) : line).trim();
+}
+function summarizeLogErrors(lines, maxShown = 3) {
+  const groups = /* @__PURE__ */ new Map();
+  lines.forEach((line) => {
+    const message = logLineMessage(line);
+    const group = groups.get(message);
+    if (group) {
+      group.count += 1;
+    } else {
+      groups.set(message, { message, count: 1 });
+    }
+  });
+  const all = Array.from(groups.values());
+  const fatal = all.filter((item) => isFatal(item.message));
+  const others = all.filter((item) => !isFatal(item.message));
+  const room = Math.max(0, maxShown - fatal.length);
+  const shown = [...fatal, ...others.slice(0, room)];
+  const hidden = others.slice(room);
+  return {
+    shown,
+    hiddenLines: hidden.reduce((sum, item) => sum + item.count, 0)
+  };
+}
+function createLogErrorBatcher(onFlush, schedule = (callback) => setTimeout(callback, 0)) {
+  let pending = [];
+  let scheduled = false;
+  return {
+    push(line) {
+      pending.push(line);
+      if (!scheduled) {
+        scheduled = true;
+        schedule(() => {
+          scheduled = false;
+          const lines = pending;
+          pending = [];
+          onFlush(summarizeLogErrors(lines));
+        });
+      }
+    }
+  };
+}
+
 // src/netshift/services/core.service.ts
 function coreService() {
   TabServiceInstance.onChange((activeId, tabs) => {
@@ -2549,6 +2596,31 @@ function coreService() {
     });
   });
   const watcher = NetShiftLogWatcher.getInstance();
+  const showErrors = (batch) => {
+    batch.shown.forEach((item) => {
+      ui.addNotification(
+        "NetShift Error",
+        E(
+          "div",
+          {},
+          item.count > 1 ? `${item.message} (\xD7${item.count})` : item.message
+        ),
+        "error"
+      );
+    });
+    if (batch.hiddenLines > 0) {
+      ui.addNotification(
+        "NetShift Error",
+        E(
+          "div",
+          {},
+          `${_("And more errors")}: ${batch.hiddenLines}. ${_("See the log")}`
+        ),
+        "error"
+      );
+    }
+  };
+  const errorBatcher = createLogErrorBatcher(showErrors);
   watcher.init(
     async () => {
       const logs = await NetShiftShellMethods.checkLogs();
@@ -2561,7 +2633,7 @@ function coreService() {
       intervalMs: 3e3,
       onNewLog: (line) => {
         if (line.toLowerCase().includes("[error]") || line.toLowerCase().includes("[fatal]")) {
-          ui.addNotification("NetShift Error", E("div", {}, line), "error");
+          errorBatcher.push(line);
         }
       }
     }
@@ -8069,6 +8141,7 @@ return baseclass.extend({
   connectionRoute,
   connectionTarget,
   coreService,
+  createLogErrorBatcher,
   deviceMatchesQuery,
   dnsServersFromOptions,
   dnsServersToOptions,
@@ -8089,6 +8162,7 @@ return baseclass.extend({
   isValidMac,
   listedDeviceIps,
   loadDashboardViewPrefs,
+  logLineMessage,
   logger,
   maskIP,
   onMount,
@@ -8113,6 +8187,7 @@ return baseclass.extend({
   splitDnsForward,
   splitProxyString,
   store,
+  summarizeLogErrors,
   svgEl,
   toIpList,
   validateDNS,
