@@ -387,3 +387,7 @@ CONNECTIONS_LIST_CAP=300
 # tmpfs and is asked again once it is older than this many seconds.
 UPDATE_NOTICE_FILE="/tmp/netshift-update-notice.json"
 UPDATE_NOTICE_TTL=86400
+# Configuration snapshots (snapshots.sh).
+NETSHIFT_CONFIG_FILE="/etc/config/netshift"
+SNAPSHOT_DIR="$NETSHIFT_STATE_DIR/snapshots"
+SNAPSHOT_KEEP=10

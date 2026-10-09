@@ -18838,6 +18838,119 @@ test_update_notice() {
     rm -rf "$work"
 }
 
+
+test_config_snapshots() {
+    header "Configuration snapshots: save, list, restore (snapshots.sh)"
+
+    if ! command -v jq > /dev/null 2>&1 || ! command -v uci > /dev/null 2>&1; then
+        skip "jq / uci not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$lib/snapshots.sh" ] || [ ! -r "$lib/constants.sh" ]; then
+        fail "snapshots.sh / constants.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-snap-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/snapshots.sh"
+        SNAPSHOT_DIR="$work/snapshots"
+        NETSHIFT_CONFIG_FILE="$work/netshift"
+        SNAPSHOT_KEEP=3
+
+        cfg() { printf "config settings 'settings'\n\toption dns_type '%s'\n\nconfig section 'main'\n\toption connection_type 'proxy'\n" "$1" > "$NETSHIFT_CONFIG_FILE"; }
+        # a clock that moves one second per call, so the order is the order of the calls
+        echo 1790000000 > "$work/tick"
+        date() { local n; n="$(cat "$work/tick")"; n=$((n + 1)); echo "$n" > "$work/tick"; echo "$n"; }
+
+        echo "no-config=$(snapshot_save auto | jq -c '.error')"
+        cfg udp
+        echo "first=$(snapshot_save auto | jq -c '[.ok, .id]')"
+        echo "unchanged=$(snapshot_save auto | jq -c '[.ok, .id, (.unchanged != null)]')"
+        cfg doh
+        echo "changed=$(snapshot_save manual | jq -c '[.ok, .id]')"
+        echo "forced=$(snapshot_save manual force | jq -c '.id != ""')"
+        echo "bad-label=$(snapshot_save nonsense | jq -c '.error')"
+        echo "mode=$(ls -l "$SNAPSHOT_DIR"/*.conf | head -1 | cut -c1-10)"
+
+        echo "list=$(snapshot_list | jq -c '[.snapshots[] | [.label, .current]]')"
+
+        # keep only the newest SNAPSHOT_KEEP
+        cfg tcp; snapshot_save auto > /dev/null
+        cfg dot; snapshot_save auto > /dev/null
+        echo "pruned=$(snapshot_list | jq -c '.snapshots | length')"
+        echo "oldest-gone=$(ls "$SNAPSHOT_DIR" | grep -c '1790000001')"
+
+        # restore: the current configuration is kept first
+        newest="$(snapshot_list | jq -r '.snapshots[1].id')"
+        cfg doq
+        echo "restore=$(snapshot_restore "$newest" | jq -c '.ok')"
+        echo "restored=$(sed -n "s/.*dns_type '\\(.*\\)'.*/\\1/p" "$NETSHIFT_CONFIG_FILE")"
+        echo "before-restore=$(snapshot_list | jq -c '[.snapshots[] | select(.label == "before-restore")] | length')"
+        echo "before-restore-holds-doq=$(for f in "$SNAPSHOT_DIR"/*before-restore.conf; do sed -n "s/.*dns_type '\\(.*\\)'.*/\\1/p" "$f"; done | head -1)"
+
+        echo "config-mode=$(ls -l "$NETSHIFT_CONFIG_FILE" | cut -c1-10)"
+        echo "dir-mode=$(ls -ld "$SNAPSHOT_DIR" | cut -c1-10)"
+
+        # a clock that is behind (no time sync yet at boot) does not put a new snapshot before the newest
+        before="$(snapshot_ids | sed -n '1p')"
+        echo 1000 > "$work/tick"
+        cfg quic
+        late="$(snapshot_save auto | jq -r '.id')"
+        echo "late-after-newest=$([ "${late%%-*}" -gt "${before%%-*}" ] && echo yes || echo no)"
+        echo "late-is-newest=$([ "$(snapshot_ids | sed -n '1p')" = "$late" ] && echo yes || echo no)"
+        cfg tcp
+
+        echo "bad-id=$(snapshot_restore '../../etc/passwd' | jq -c '.error')"
+        echo "bad-id-2=$(snapshot_restore '123-evil' | jq -c '.error')"
+        echo "missing=$(snapshot_restore '1-auto' | jq -c '.error')"
+        printf 'not a uci file {{{' > "$SNAPSHOT_DIR/1790009999-manual.conf"
+        echo "unusable=$(snapshot_restore '1790009999-manual' | jq -c '.error')"
+        echo "config-untouched=$(sed -n "s/.*dns_type '\\(.*\\)'.*/\\1/p" "$NETSHIFT_CONFIG_FILE")"
+    )"
+
+    _sn() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _sn "nothing to save without a configuration" 'no-config="there is no configuration to save"'
+    _sn "a first snapshot is taken" 'first=[true,"1790000001-auto"]'
+    _sn "an unchanged configuration makes no new one" 'unchanged=[true,"",true]'
+    _sn "a changed configuration does" 'changed=[true,"1790000002-manual"]'
+    _sn "force takes one anyway" "forced=true"
+    _sn "an unknown label is refused" 'bad-label="unknown label"'
+    _sn "snapshots are readable by root only" "mode=-rw-------"
+    _sn "the list is newest first and marks the current one" 'list=[["manual",true],["manual",true],["auto",false]]'
+    _sn "only the newest are kept" "pruned=3"
+    _sn "...the oldest is the one removed" "oldest-gone=0"
+    _sn "a snapshot is restored" "restore=true"
+    _sn "...the configuration is the snapshot's" "restored=tcp"
+    _sn "the replaced configuration is kept first" "before-restore=1"
+    _sn "...with its content" "before-restore-holds-doq=doq"
+    _sn "a restored configuration is private again" "config-mode=-rw-------"
+    _sn "the snapshot directory is private" "dir-mode=drwx------"
+    _sn "a clock that is behind still gives the newest id" "late-after-newest=yes"
+    _sn "...and it is listed first" "late-is-newest=yes"
+    _sn "a path in the id is refused" 'bad-id="invalid snapshot id"'
+    _sn "an unknown label in the id is refused" 'bad-id-2="invalid snapshot id"'
+    _sn "a snapshot that does not exist is refused" 'missing="no such snapshot"'
+    _sn "a file that is not a configuration is refused" 'unusable="the snapshot is not a usable configuration"'
+    _sn "...and leaves the configuration alone" "config-untouched=tcp"
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -18912,6 +19025,7 @@ main() {
             test_connections_api
             test_lan_devices
             test_update_notice
+            test_config_snapshots
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -18994,6 +19108,7 @@ main() {
         connections) test_connections_api ;;
         lan)         test_lan_devices ;;
         updatenotice) test_update_notice ;;
+        snapshots)   test_config_snapshots ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
@@ -19010,6 +19125,7 @@ echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isola
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment connections"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment lan"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment updatenotice"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment snapshots"
             exit 1
             ;;
     esac

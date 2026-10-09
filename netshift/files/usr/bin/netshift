@@ -27,6 +27,7 @@ check_required_file "$NETSHIFT_LIB/dnsforward.sh"
 check_required_file "$NETSHIFT_LIB/ecs.sh"
 check_required_file "$NETSHIFT_LIB/lan.sh"
 check_required_file "$NETSHIFT_LIB/update_notice.sh"
+check_required_file "$NETSHIFT_LIB/snapshots.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -44,6 +45,7 @@ check_required_file "$NETSHIFT_LIB/update_notice.sh"
 . "$NETSHIFT_LIB/kill_switch.sh"
 . "$NETSHIFT_LIB/dnsforward.sh"
 . "$NETSHIFT_LIB/update_notice.sh"
+. "$NETSHIFT_LIB/snapshots.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -1241,6 +1243,9 @@ start_main() {
     # here: a config sing-box rejects makes sing_box_init_config exit the
     # process first, and the marker then stays for the next subscription_update.
     rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+    # The settings that just produced a configuration sing-box accepted: the point
+    # to come back to when a later change breaks the service.
+    snapshot_save auto > /dev/null 2>&1
     foreach_active_section add_cron_job "section"
     sync_subscription_cron_jobs
     drop_stale_fakeip_cache
@@ -8306,6 +8311,8 @@ Available commands:
     dhcp_host_remove <mac>  Release the static lease of a device
     get_update_notice       Print the cached "newer version available" notice as JSON
     refresh_update_notice   Refresh that notice in the background
+    config_snapshot <save|list|restore> [id]
+                            Snapshots of /etc/config/netshift: keep, list or bring back
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -8404,6 +8411,17 @@ get_update_notice)
     ;;
 refresh_update_notice)
     update_notice_refresh_async
+    ;;
+config_snapshot)
+    case "${2:-}" in
+    save) snapshot_save "${3:-manual}" ;;
+    list) snapshot_list ;;
+    restore) snapshot_restore "${3:-}" ;;
+    *)
+        echo '{"error":"use save, list or restore"}'
+        exit 1
+        ;;
+    esac
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"
