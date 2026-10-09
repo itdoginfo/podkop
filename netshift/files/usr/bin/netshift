@@ -25,6 +25,7 @@ check_required_file "$NETSHIFT_LIB/kill_switch.sh"
 check_required_file "$NETSHIFT_LIB/routecheck.sh"
 check_required_file "$NETSHIFT_LIB/dnsforward.sh"
 check_required_file "$NETSHIFT_LIB/ecs.sh"
+check_required_file "$NETSHIFT_LIB/lan.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -37,6 +38,7 @@ check_required_file "$NETSHIFT_LIB/ecs.sh"
 . "$NETSHIFT_LIB/rulesets.sh"
 . "$NETSHIFT_LIB/routecheck.sh"
 . "$NETSHIFT_LIB/ecs.sh"
+. "$NETSHIFT_LIB/lan.sh"
 . "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/kill_switch.sh"
 . "$NETSHIFT_LIB/dnsforward.sh"
@@ -8296,6 +8298,10 @@ Available commands:
     check_route <host|ip> [source-ip]
                             Show which section, DNS server or block handles a domain or IP
     get_wan_addresses       Print the WAN addresses and the EDNS Client Subnet each one gives as JSON
+    get_lan_info            Print the LAN subnets and static DHCP leases as JSON
+    dhcp_host_set <mac> <ip> [name]
+                            Pin an address to a device (static DHCP lease)
+    dhcp_host_remove <mac>  Release the static lease of a device
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -8379,6 +8385,15 @@ check_route)
     ;;
 get_wan_addresses)
     get_wan_addresses
+    ;;
+get_lan_info)
+    get_lan_info
+    ;;
+dhcp_host_set)
+    dhcp_host_set "${2:-}" "${3:-}" "${4:-}"
+    ;;
+dhcp_host_remove)
+    dhcp_host_remove "${2:-}"
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"

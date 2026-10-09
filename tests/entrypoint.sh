@@ -18600,6 +18600,129 @@ test_connections_api() {
     _cn "the list is capped" 'capped=[2,1,"bbbb-2"]'
 }
 
+
+test_lan_devices() {
+    header "LAN info and static DHCP leases (get_lan_info, dhcp_host_set/remove)"
+
+    if ! command -v jq > /dev/null 2>&1 || ! command -v uci > /dev/null 2>&1; then
+        skip "jq / uci not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$lib/lan.sh" ] || [ ! -r "$lib/helpers.sh" ]; then
+        fail "lan.sh / helpers.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-lan-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/helpers.sh"
+        . "$lib/lan.sh"
+        log() { :; }
+
+        # a private copy of the UCI config
+        uci() { command uci -c "$work" "$@"; }
+        : > "$work/firewall"
+        : > "$work/dhcp"
+        uci add firewall zone > /dev/null; uci set firewall.@zone[-1].name=lan; uci add_list firewall.@zone[-1].network=lan
+        uci add firewall zone > /dev/null; uci set firewall.@zone[-1].name=wan; uci add_list firewall.@zone[-1].network=wan
+        uci commit firewall
+        uci set dhcp.existing=host; uci set dhcp.existing.mac="aa:bb:cc:00:00:01"; uci set dhcp.existing.ip=192.168.1.20; uci set dhcp.existing.name=printer
+        uci set dhcp.multi=host; uci add_list dhcp.multi.mac="AA:BB:CC:00:00:02"; uci add_list dhcp.multi.mac="AA:BB:CC:00:00:03"; uci set dhcp.multi.ip=192.168.1.30
+        uci commit dhcp
+
+        : > "$work/reloads"
+        dhcp_reload_dnsmasq() { echo r >> "$work/reloads"; }
+        lan_network_subnets() {
+            case "$1" in
+            lan) printf '192.168.1.1/24\n10.8.0.5/16\n' ;;
+            wan) printf '5.23.104.7/24\n' ;;
+            esac
+        }
+
+        echo "names=$(lan_network_names)"
+        echo "subnets=$(lan_subnets | tr '\n' ' ')"
+        for spec in "192.168.1.77:192.168.1.0/24" "192.168.2.1:192.168.1.0/24" "10.8.200.9:10.8.0.0/16" "0.0.0.0:0.0.0.0/0" "5.23.104.2:192.168.1.0/24"; do
+            ip="${spec%%:*}"; sn="${spec#*:}"
+            ipv4_in_subnet "$ip" "$sn" && echo "in[$ip,$sn]=yes" || echo "in[$ip,$sn]=no"
+        done
+        ip_in_lan 192.168.1.50 && echo "lan[192.168.1.50]=yes" || echo "lan[192.168.1.50]=no"
+        ip_in_lan 5.23.104.2 && echo "lan[5.23.104.2]=yes" || echo "lan[5.23.104.2]=no"
+        echo "mac[aa-bb-cc-dd-ee-ff]=$(normalize_mac 'aa-bb-cc-dd-ee-ff' || echo bad)"
+        echo "mac[xyz]=$(normalize_mac 'xyz' || echo bad)"
+        echo "info=$(get_lan_info | jq -c '[.subnets, [.static_hosts[] | [.section, .macs, .ip, .name]]]')"
+
+        echo "set-new=$(dhcp_host_set 'aa:bb:cc:00:00:10' 192.168.1.50 laptop | jq -c .)"
+        echo "stored=$(uci get dhcp.netshift_aabbcc000010.ip),$(uci get dhcp.netshift_aabbcc000010.name),$(uci get dhcp.netshift_aabbcc000010.mac)"
+        echo "set-update=$(dhcp_host_set 'AA:BB:CC:00:00:10' 192.168.1.51 | jq -c .)"
+        echo "updated=$(uci get dhcp.netshift_aabbcc000010.ip),$(uci get dhcp.netshift_aabbcc000010.name)"
+        echo "set-existing-entry=$(dhcp_host_set 'aa:bb:cc:00:00:01' 192.168.1.21 | jq -c .)"
+        echo "existing-kept-section=$(uci get dhcp.existing.ip),$(uci get dhcp.existing.name)"
+        echo "conflict-ip=$(dhcp_host_set 'aa:bb:cc:00:00:11' 192.168.1.21 | jq -c .error)"
+        echo "conflict-name=$(dhcp_host_set 'aa:bb:cc:00:00:11' 192.168.1.60 printer | jq -c .error)"
+        echo "conflict-name-case=$(dhcp_host_set 'aa:bb:cc:00:00:11' 192.168.1.60 PRINTER | jq -c .error)"
+        echo "outside=$(dhcp_host_set 'aa:bb:cc:00:00:11' 5.23.104.2 | jq -c .error)"
+        echo "bad-ip=$(dhcp_host_set 'aa:bb:cc:00:00:11' 999.1.1.1 | jq -c .error)"
+        echo "bad-mac=$(dhcp_host_set 'zz' 192.168.1.61 | jq -c .error)"
+        echo "bad-name=$(dhcp_host_set 'aa:bb:cc:00:00:11' 192.168.1.62 'bad name!' | jq -c .error)"
+        echo "reloads=$(wc -l < "$work/reloads" | tr -d ' ')"
+
+        echo "remove=$(dhcp_host_remove 'aa:bb:cc:00:00:10' | jq -c .)"
+        uci -q get dhcp.netshift_aabbcc000010 > /dev/null && echo "after-remove=present" || echo "after-remove=gone"
+        echo "remove-missing=$(dhcp_host_remove 'aa:bb:cc:00:00:99' | jq -c .)"
+        dhcp_host_remove 'aa:bb:cc:00:00:02' > /dev/null
+        echo "multi-left=$(uci get dhcp.multi.mac)"
+        echo "reloads-after=$(wc -l < "$work/reloads" | tr -d ' ')"
+    )"
+
+    _lv() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _lv "the lan zone gives the network" "names= lan"
+    _lv "subnets are reported as network addresses" "subnets=10.8.0.0/16 192.168.1.0/24 "
+    _lv "address inside a /24" "in[192.168.1.77,192.168.1.0/24]=yes"
+    _lv "address outside a /24" "in[192.168.2.1,192.168.1.0/24]=no"
+    _lv "address inside a /16" "in[10.8.200.9,10.8.0.0/16]=yes"
+    _lv "a /0 holds everything" "in[0.0.0.0,0.0.0.0/0]=yes"
+    _lv "a provider neighbour is not in the LAN subnet" "in[5.23.104.2,192.168.1.0/24]=no"
+    _lv "a LAN host is in the LAN" "lan[192.168.1.50]=yes"
+    _lv "a WAN neighbour is not in the LAN" "lan[5.23.104.2]=no"
+    _lv "MAC with dashes is normalized" "mac[aa-bb-cc-dd-ee-ff]=AA:BB:CC:DD:EE:FF"
+    _lv "garbage MAC is refused" "mac[xyz]=bad"
+    _lv "get_lan_info lists the static leases" 'info=[["10.8.0.0/16","192.168.1.0/24"],[["existing",["AA:BB:CC:00:00:01"],"192.168.1.20","printer"],["multi",["AA:BB:CC:00:00:02","AA:BB:CC:00:00:03"],"192.168.1.30",""]]]'
+    _lv "a new lease is created" 'set-new={"ok":true,"section":"netshift_aabbcc000010"}'
+    _lv "the lease is stored" "stored=192.168.1.50,laptop,AA:BB:CC:00:00:10"
+    _lv "the same MAC updates the lease" 'set-update={"ok":true,"section":"netshift_aabbcc000010"}'
+    _lv "update keeps the name" "updated=192.168.1.51,laptop"
+    _lv "an entry made elsewhere is edited in place" 'set-existing-entry={"ok":true,"section":"existing"}'
+    _lv "...and keeps its name" "existing-kept-section=192.168.1.21,printer"
+    _lv "an address taken by another device is refused" 'conflict-ip="the address is already given to another device"'
+    _lv "a name taken by another device is refused" 'conflict-name="the name is already used by another device"'
+    _lv "a name differing only in case counts as taken" 'conflict-name-case="the name is already used by another device"'
+    _lv "an address outside the LAN is refused" 'outside="the address is outside the local networks"'
+    _lv "a bad IP is refused" 'bad-ip="invalid IPv4 address"'
+    _lv "a bad MAC is refused" 'bad-mac="invalid MAC address"'
+    _lv "a bad name is refused" 'bad-name="invalid host name"'
+    _lv "dnsmasq is reloaded once per change" "reloads=3"
+    _lv "a lease is released" 'remove={"ok":true,"removed":true}'
+    _lv "...and gone" "after-remove=gone"
+    _lv "releasing a missing lease is harmless" 'remove-missing={"ok":true,"removed":false}'
+    _lv "a lease shared by several MACs only loses one" "multi-left=AA:BB:CC:00:00:03"
+    _lv "dnsmasq is reloaded after each release, not for a missing one" "reloads-after=5"
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -18672,6 +18795,7 @@ main() {
             test_ecs_auto
             test_dns_servers_check
             test_connections_api
+            test_lan_devices
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -18752,6 +18876,7 @@ main() {
         ecsauto)     test_ecs_auto ;;
         dnsservers)  test_dns_servers_check ;;
         connections) test_connections_api ;;
+        lan)         test_lan_devices ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
@@ -18766,6 +18891,7 @@ echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isola
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment ecsauto"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsservers"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment connections"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment lan"
             exit 1
             ;;
     esac

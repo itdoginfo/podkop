@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:199
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:339
 msgid "(disabled)"
 msgstr ""
 
@@ -173,6 +173,10 @@ msgstr ""
 msgid "Cache file path cannot be empty"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:254
+msgid "Cancel"
+msgstr ""
+
 #: src/netshift/tabs/diagnostic/checks/runDnsCheck.ts:27
 #: src/netshift/tabs/diagnostic/checks/runNftCheck.ts:28
 #: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:40
@@ -182,6 +186,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:701
 msgid "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly."
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:243
+msgid "Change the static lease"
 msgstr ""
 
 #: src/netshift/tabs/manager/cards.ts:196
@@ -214,7 +222,7 @@ msgstr ""
 msgid "Checks passed"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:231
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:372
 msgid "Choose how traffic of a device in your network is handled. A device can be sent completely through one section (all its traffic) or directly, ignoring the lists. The change is stored with the page's Save & Apply, like the other settings."
 msgstr ""
 
@@ -324,7 +332,7 @@ msgstr ""
 msgid "Dashboard currently unavailable"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:145
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:158
 msgid "Default (by the lists)"
 msgstr ""
 
@@ -344,7 +352,7 @@ msgstr ""
 msgid "Dev"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:239
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:392
 msgid "Device"
 msgstr ""
 
@@ -356,11 +364,15 @@ msgstr ""
 msgid "DHCP has DNS server"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:395
+msgid "DHCP lease"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/netshift.js:119
 msgid "Diagnostics"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:149
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:162
 msgid "Direct (excluded from routing)"
 msgstr ""
 
@@ -531,9 +543,17 @@ msgstr ""
 msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive)."
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:284
+msgid "Dynamic"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:936
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1026
 msgid "Dynamic List"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:291
+msgid "Edit"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:241
@@ -648,7 +668,7 @@ msgstr ""
 msgid "Every hour"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:152
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:165
 msgid "Everything through: %s"
 msgstr ""
 
@@ -765,6 +785,10 @@ msgstr ""
 msgid "Group subscription proxies into URLTest groups. 'By country flag' uses the flag emoji at the start of each name; 'By name prefix' groups by the first N characters."
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:251
+msgid "Host name"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:149
 msgid "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s"
 msgstr ""
@@ -826,6 +850,10 @@ msgstr ""
 msgid "Invalid format. Use X.X.X.X/Y or IPv6/Y"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:191
+msgid "Invalid host name: letters, digits and dashes only"
+msgstr ""
+
 #: src/validators/validateHysteriaUrl.ts:90
 msgid "Invalid HY2 URL: insecure must be 0 or 1"
 msgstr ""
@@ -882,12 +910,20 @@ msgstr ""
 msgid "Invalid IP address"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:190
+msgid "Invalid IPv4 address"
+msgstr ""
+
 #: src/validators/validateIp.ts:66
 msgid "Invalid IPv6 address"
 msgstr ""
 
 #: src/validators/validateOutboundJson.ts:9
 msgid "Invalid JSON format"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:189
+msgid "Invalid MAC address"
 msgstr ""
 
 #: src/validators/validatePath.ts:22
@@ -1029,7 +1065,8 @@ msgstr ""
 msgid "Invalid VMess URL: must start with vmess://"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:240
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:250
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:393
 msgid "IP address"
 msgstr ""
 
@@ -1115,7 +1152,8 @@ msgstr ""
 msgid "Log Level"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:241
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:249
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:394
 msgid "MAC address"
 msgstr ""
 
@@ -1219,7 +1257,7 @@ msgstr ""
 msgid "Not installed"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:207
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:347
 msgid "Not on the network"
 msgstr ""
 
@@ -1251,6 +1289,10 @@ msgstr ""
 
 #: src/helpers/withTimeout.ts:7
 msgid "Operation timed out"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:223
+msgid "Optional"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:101
@@ -1307,6 +1349,14 @@ msgstr ""
 msgid "Pick a ready-made server or type your own: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. In priority mode the order is the priority after the main server."
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:285
+msgid "Pin address"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:243
+msgid "Pin the address"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:343
 msgid "Prefer servers in list order"
 msgstr ""
@@ -1355,6 +1405,14 @@ msgstr ""
 msgid "Regional options cannot be used together"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:293
+msgid "Release"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:262
+msgid "Release the static lease of this device? It will get an address from the pool."
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1152
 msgid "Remote Domain Lists"
 msgstr ""
@@ -1399,7 +1457,7 @@ msgstr ""
 msgid "Router DNS is routed through sing-box"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:242
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:396
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:26
 msgid "Routing"
 msgstr ""
@@ -1434,6 +1492,14 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:890
 msgid "Russia inside restrictions"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:256
+msgid "Save"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:381
+msgid "Search by name, address or MAC"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:553
@@ -1616,6 +1682,10 @@ msgstr ""
 msgid "Start NetShift"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:290
+msgid "Static"
+msgstr ""
+
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:61
 msgid "Stop NetShift"
 msgstr ""
@@ -1706,6 +1776,18 @@ msgstr ""
 msgid "Text List"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:193
+msgid "The address is already given to another device"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:192
+msgid "The address is outside the local networks"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:245
+msgid "The device always gets this address from the router (a static DHCP lease, the same as in Network - DHCP and DNS). The change applies at once."
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:81
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr ""
@@ -1722,6 +1804,10 @@ msgstr ""
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:194
+msgid "The name is already used by another device"
+msgstr ""
+
 #: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:34
 msgid "The router clock is not set"
 msgstr ""
@@ -1732,6 +1818,11 @@ msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:49
 msgid "The router clock is right"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:182
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:197
+msgid "The router did not answer"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:57
