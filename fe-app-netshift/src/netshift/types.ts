@@ -123,6 +123,18 @@ export namespace NetShift {
     urltest_proxy_links: string[];
   }
 
+  export interface ConfigProxyUrlTestTextSection {
+    connection_type: 'proxy';
+    proxy_config_type: 'urltest_text';
+    urltest_proxy_links_text: string;
+  }
+
+  export interface ConfigProxySelectorTextSection {
+    connection_type: 'proxy';
+    proxy_config_type: 'selector_text';
+    selector_proxy_links_text: string;
+  }
+
   export interface ConfigProxySelectorSection {
     connection_type: 'proxy';
     proxy_config_type: 'selector';
@@ -178,6 +190,8 @@ export namespace NetShift {
 
   export type ConfigBaseSection =
     | ConfigProxyUrlTestSection
+    | ConfigProxyUrlTestTextSection
+    | ConfigProxySelectorTextSection
     | ConfigProxySelectorSection
     | ConfigProxyUrlSection
     | ConfigProxyOutboundSection

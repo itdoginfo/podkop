@@ -1452,7 +1452,7 @@
       "src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts:72",
       "src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts:101",
       "src/netshift/methods/custom/buildSubscriptionOutboundGroup.ts:109",
-      "src/netshift/methods/custom/getDashboardSections.ts:166",
+      "src/netshift/methods/custom/getDashboardSections.ts:203",
       "src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:56"
     ]
   },

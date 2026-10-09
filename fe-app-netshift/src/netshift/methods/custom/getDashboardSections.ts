@@ -13,6 +13,21 @@ interface IGetDashboardSectionsResponse {
   data: NetShift.OutboundGroup[];
 }
 
+// The backend numbers the non-empty lines of a pasted list (comments and links
+// it skips included), and names each member outbound after that number.
+function splitTextLinks(text?: string): string[] {
+  return (text ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function linkIndexOfTag(section: string, tag?: string): number {
+  const match = tag?.slice(section.length + 1).match(/^(\d+)-out$/);
+
+  return match ? Number(match[1]) - 1 : -1;
+}
+
 export async function getDashboardSections(): Promise<IGetDashboardSectionsResponse> {
   const configSections = await getConfigSections();
   const clashProxies = await NetShiftShellMethods.getClashApiProxies();
@@ -104,12 +119,18 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
           };
         }
 
-        if (section.proxy_config_type === 'selector') {
+        if (
+          section.proxy_config_type === 'selector' ||
+          section.proxy_config_type === 'selector_text'
+        ) {
           const selector = proxies.find(
             (proxy) => proxy.code === `${section['.name']}-out`,
           );
 
-          const links = section.selector_proxy_links ?? [];
+          const isText = section.proxy_config_type === 'selector_text';
+          const links = isText
+            ? splitTextLinks(section.selector_proxy_links_text)
+            : (section.selector_proxy_links ?? []);
 
           const outbounds = links
             .map((link, index) => ({
@@ -118,6 +139,9 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
                 (item) => item.code === `${section['.name']}-${index + 1}-out`,
               ),
             }))
+            // A pasted line the backend skipped (unsupported link) has no
+            // outbound: it must not show up as an empty server.
+            .filter((item) => !isText || item.outbound)
             .map((item) => ({
               code: item?.outbound?.code || '',
               displayName:
@@ -135,7 +159,15 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
           };
         }
 
-        if (section.proxy_config_type === 'urltest') {
+        if (
+          section.proxy_config_type === 'urltest' ||
+          section.proxy_config_type === 'urltest_text'
+        ) {
+          const urltestLinks =
+            section.proxy_config_type === 'urltest_text'
+              ? splitTextLinks(section.urltest_proxy_links_text)
+              : (section.urltest_proxy_links ?? []);
+
           const selector = proxies.find(
             (proxy) => proxy.code === `${section['.name']}-out`,
           );
@@ -143,12 +175,17 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
             (proxy) => proxy.code === `${section['.name']}-urltest-out`,
           );
 
+          // Links are matched to members by tag (<section>-<n>-out), so a
+          // skipped link does not shift the names of the ones after it.
           const outbounds = (outbound?.value?.all ?? [])
             .map((code) => proxies.find((item) => item.code === code))
-            .map((item, index) => ({
+            .map((item) => ({
               code: item?.code || '',
               displayName:
-                getProxyUrlName(section.urltest_proxy_links?.[index]) ||
+                getProxyUrlName(
+                  urltestLinks[linkIndexOfTag(section['.name'], item?.code)] ??
+                    '',
+                ) ||
                 item?.value?.name ||
                 '',
               latency: item?.value?.history?.[0]?.delay || 0,
