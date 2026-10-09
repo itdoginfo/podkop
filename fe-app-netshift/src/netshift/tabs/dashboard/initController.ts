@@ -651,7 +651,6 @@ function registerLifecycleListeners() {
 
 const UPDATE_NOTICE_REFRESH_WAIT = 25000;
 
-
 function renderUpdateNotice(notice: UpdateNotice) {
   const container = document.getElementById('dashboard-update-notice');
 

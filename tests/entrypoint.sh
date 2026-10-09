@@ -20225,7 +20225,6 @@ echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isola
 # of the config still generated and accepted by sing-box.
 # Drives the REAL configure_outbound_handler; synthetic values only.
 
-main "$@"
 
 
 main() {
