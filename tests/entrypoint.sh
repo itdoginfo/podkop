@@ -20113,6 +20113,19 @@ main() {
             test_subscription_geoip
             test_urltest_interval
             test_dns_hijack
+            test_block_leaks
+            test_mixed_proxy_auth
+            test_domain_rule_prefixes
+            test_route_check
+            test_subscription_param_filters
+            test_ecs_auto
+            test_dns_servers_check
+            test_connections_api
+            test_lan_devices
+            test_update_notice
+            test_config_snapshots
+            test_pin_guard
+            test_dns_forward
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -20179,6 +20192,20 @@ main() {
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
         urlint)      test_urltest_interval ;;
+        blockleaks)  test_block_leaks ;;
+        mixedauth)   test_mixed_proxy_auth ;;
+        domrules)    test_domain_rule_prefixes ;;
+        routecheck)  test_route_check ;;
+        paramfilters) test_subscription_param_filters ;;
+        ecsauto)     test_ecs_auto ;;
+        dnsservers)  test_dns_servers_check ;;
+        connections) test_connections_api ;;
+        lan)         test_lan_devices ;;
+        updatenotice) test_update_notice ;;
+        snapshots)   test_config_snapshots ;;
+        pinguard)    test_pin_guard ;;
+        dnsforward)  test_dns_forward ;;
+        dnshijack)   test_dns_hijack ;;
         *)
             echo "Unknown test: $target"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint"
@@ -20226,67 +20253,6 @@ echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isola
 # Drives the REAL configure_outbound_handler; synthetic values only.
 
 
-
-main() {
-    printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
-    printf "Source: %s\n" "$NETSHIFT_SRC"
-    printf "OpenWrt: %s\n" "$(grep OPENWRT_RELEASE /etc/os-release 2>/dev/null | cut -d'"' -f2 || echo 'unknown')"
-    printf "Kernel: %s\n" "$(uname -r 2>/dev/null || echo 'unknown')"
-    printf "\n"
-
-    local target="${1:-all}"
-
-    case "$target" in
-        all)
-            test_block_leaks
-            test_mixed_proxy_auth
-            test_domain_rule_prefixes
-            test_route_check
-            test_subscription_param_filters
-            test_ecs_auto
-            test_dns_servers_check
-            test_connections_api
-            test_lan_devices
-            test_update_notice
-            test_config_snapshots
-            test_pin_guard
-            test_dns_forward
-            ;;
-        blockleaks)  test_block_leaks ;;
-        mixedauth)   test_mixed_proxy_auth ;;
-        domrules)    test_domain_rule_prefixes ;;
-        routecheck)  test_route_check ;;
-        paramfilters) test_subscription_param_filters ;;
-        ecsauto)     test_ecs_auto ;;
-        dnsservers)  test_dns_servers_check ;;
-        connections) test_connections_api ;;
-        lan)         test_lan_devices ;;
-        updatenotice) test_update_notice ;;
-        snapshots)   test_config_snapshots ;;
-        pinguard)    test_pin_guard ;;
-        dnsforward)  test_dns_forward ;;
-        dnshijack)   test_dns_hijack ;;
-        *)
-            echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark blockleaks isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment mixedauth connections dnsbench dnsforward dnshijack dnsservers domrules ecsauto lan paramfilters pinguard routecheck snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment domrules blockleaks connections dnsbench dnsforward dnshijack dnsservers ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment routecheck blockleaks connections dnsbench dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment paramfilters blockleaks connections dnsbench dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth pinguard routecheck snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsforward blockleaks connections dnsbench dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment ecsauto blockleaks connections dnsbench dnsforward dnshijack dnsservers domrules lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsservers blockleaks connections dnsbench dnsforward dnshijack domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment connections blockleaks dnsbench dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment lan blockleaks connections dnsbench dnsforward dnshijack dnsservers domrules ecsauto mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment updatenotice blockleaks connections dnsbench dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment snapshots blockleaks connections dnsbench dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment pinguard blockleaks connections dnsbench dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters routecheck snapshots updatenotice urlint"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint"
-            exit 1
-            ;;
-    esac
-
-    summary
-}
 
 
 # ─────────────────────────────────────────────────────────────────
