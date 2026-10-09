@@ -38,6 +38,7 @@ export namespace NetShift {
   // check_sing_box_logs     Show sing-box logs
   // check_fakeip            Test FakeIP on router
   // check_environment       Flow offloading, clock and IPv6 facts
+  // check_route             Which section / DNS server handles a domain or IP
   // clash_api               Clash API interface for managing proxies and groups
   // show_config             Display current netshift configuration
   // show_version            Show netshift version
@@ -54,6 +55,11 @@ export namespace NetShift {
     CHECK_DNS_AVAILABLE = 'check_dns_available',
     CHECK_FAKEIP = 'check_fakeip',
     CHECK_ENVIRONMENT = 'check_environment',
+    CHECK_ROUTE = 'check_route',
+    GET_UPDATE_NOTICE = 'get_update_notice',
+    REFRESH_UPDATE_NOTICE = 'refresh_update_notice',
+    CONFIG_SNAPSHOT = 'config_snapshot',
+    GET_PIN_GUARD_EVENTS = 'get_pin_guard_events',
     DNS_BENCHMARK = 'dns_benchmark',
     CHECK_NFT_RULES = 'check_nft_rules',
     GET_STATUS = 'get_status',
@@ -78,6 +84,9 @@ export namespace NetShift {
     GET_PROXY_LATENCY = 'get_proxy_latency',
     GET_GROUP_LATENCY = 'get_group_latency',
     SET_GROUP_PROXY = 'set_group_proxy',
+    GET_CONNECTIONS = 'get_connections',
+    CLOSE_CONNECTION = 'close_connection',
+    CLOSE_CONNECTIONS = 'close_connections',
   }
 
   export interface Outbound {
@@ -102,6 +111,10 @@ export namespace NetShift {
     // Per-subscription blocks of a subscription section with several feeds;
     // their outbounds are chosen through the same selector (`code`).
     subgroups?: OutboundSubgroup[];
+    // Subscription sections only: the UCI section name, so the dashboard can
+    // refresh the section (or one of its feeds) after a click.
+    isSubscription?: boolean;
+    sectionName?: string;
   }
 
   export interface ConfigProxyUrlTestSection {
@@ -239,6 +252,25 @@ export namespace NetShift {
       timezone: string;
     };
     ipv6: { router_has_global: boolean; netshift_enabled: boolean };
+  }
+
+  export interface RouteCheckResult {
+    error?: string;
+    target?: string;
+    kind?: 'domain' | 'ip';
+    source?: string | null;
+    verdict?: 'section' | 'direct' | 'blocked' | 'unmatched';
+    outbound?: string | null;
+    section?: string | null;
+    rule?: string | null;
+    rule_set?: string | null;
+    by_default?: boolean;
+    dns?: {
+      server: string | null;
+      verdict: 'rule' | 'final' | 'blocked';
+    } | null;
+    incomplete?: boolean;
+    skipped_rules?: string[];
   }
 
   export interface GetStatus {

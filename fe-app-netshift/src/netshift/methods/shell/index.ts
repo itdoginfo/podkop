@@ -2,6 +2,7 @@ import { callBaseMethod } from './callBaseMethod';
 import { ClashAPI, NetShift } from '../../types';
 import { executeShellCommand } from '../../../helpers';
 import {
+  ComponentActionPollMessages,
   ComponentActionStartResponse,
   ComponentActionStatus,
   SingBoxComponentActionResult,
@@ -9,6 +10,73 @@ import {
   pollSingBoxComponentAction,
 } from './pollSingBoxComponentAction';
 import { parseComponentCheckUpdate } from './parseComponentCheckUpdate';
+
+// Starts a component action with the async backend contract and polls it to
+// completion. A component action can outlast the rpcd ~30s wall (a subscription
+// refresh re-downloads feeds and restarts sing-box), so it MUST go through the
+// start+poll mechanism instead of a single long exec. Used by the dashboard
+// subscription refresh buttons; the sing-box/netshift/cache paths below keep
+// their own tailored error handling. `messages` words the failures the poll
+// itself reports (unreadable status, backstop reached) for this action.
+async function startAndPollComponentAction(
+  component: string,
+  action: string,
+  extraArgs: string[],
+  messages: ComponentActionPollMessages,
+): Promise<SingBoxComponentActionResult> {
+  const startResponse = await executeShellCommand({
+    command: '/usr/bin/netshift',
+    args: ['component_action_async', component, action, ...extraArgs],
+  });
+
+  let start: ComponentActionStartResponse | null = null;
+
+  if (startResponse.stdout) {
+    try {
+      start = JSON.parse(startResponse.stdout) as ComponentActionStartResponse;
+    } catch (_e) {
+      start = null;
+    }
+  }
+
+  if (!start || start.success !== true || !start.job_id) {
+    return {
+      success: false,
+      message:
+        start?.message || startResponse.stderr || _('Failed to start the task'),
+    };
+  }
+
+  const jobId = start.job_id;
+
+  return pollSingBoxComponentAction(
+    async () => {
+      const statusResponse = await executeShellCommand({
+        command: '/usr/bin/netshift',
+        args: ['component_action_status', jobId],
+      });
+
+      if (!statusResponse.stdout) {
+        return null;
+      }
+
+      return parseComponentActionStatus(statusResponse.stdout);
+    },
+    undefined,
+    undefined,
+    undefined,
+    messages,
+  );
+}
+
+// The poll could not tell how a subscription refresh ended. The job may still
+// finish on the router, so the wording does not claim it failed there.
+function getSubscriptionPollMessages(): ComponentActionPollMessages {
+  return {
+    failed: _('Failed to read the subscription update status'),
+    timedOut: _('Subscription update timed out'),
+  };
+}
 
 export const NetShiftShellMethods = {
   checkDNSAvailable: async () =>
@@ -23,6 +91,50 @@ export const NetShiftShellMethods = {
     callBaseMethod<NetShift.EnvironmentCheckResult>(
       NetShift.AvailableMethods.CHECK_ENVIRONMENT,
     ),
+  checkRoute: async (target: string, source = '') =>
+    callBaseMethod<NetShift.RouteCheckResult>(
+      NetShift.AvailableMethods.CHECK_ROUTE,
+      source ? [target, source] : [target],
+      undefined,
+      // Replaying the rules runs the core a few times: do not hold other calls.
+      { nobatch: true },
+    ),
+  getConnections: async () =>
+    callBaseMethod<unknown>(
+      NetShift.AvailableMethods.CLASH_API,
+      [NetShift.AvailableClashAPIMethods.GET_CONNECTIONS],
+      undefined,
+      { nobatch: true },
+    ),
+  closeConnection: async (id: string) =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.CLASH_API, [
+      NetShift.AvailableClashAPIMethods.CLOSE_CONNECTION,
+      id,
+    ]),
+  closeAllConnections: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.CLASH_API, [
+      NetShift.AvailableClashAPIMethods.CLOSE_CONNECTIONS,
+    ]),
+  getUpdateNotice: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.GET_UPDATE_NOTICE),
+  refreshUpdateNotice: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.REFRESH_UPDATE_NOTICE),
+  listSnapshots: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.CONFIG_SNAPSHOT, [
+      'list',
+    ]),
+  saveSnapshot: async () =>
+    callBaseMethod<{ ok?: boolean; error?: string }>(
+      NetShift.AvailableMethods.CONFIG_SNAPSHOT,
+      ['save', 'manual'],
+    ),
+  restoreSnapshot: async (id: string) =>
+    callBaseMethod<{ ok?: boolean; error?: string }>(
+      NetShift.AvailableMethods.CONFIG_SNAPSHOT,
+      ['restore', id],
+    ),
+  getPinGuardEvents: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.GET_PIN_GUARD_EVENTS),
   dnsBenchmark: async () =>
     callBaseMethod<unknown>(
       NetShift.AvailableMethods.DNS_BENCHMARK,
@@ -289,6 +401,32 @@ export const NetShiftShellMethods = {
       return parseComponentActionStatus(statusResponse.stdout);
     });
   },
+  // Refresh every subscription feed (async): `component_action_async
+  // subscription update` → start+poll. Does NOT wipe the cache, so it is the
+  // lightweight sibling of clearSubscriptionCache. Drives the dashboard
+  // "refresh all subscriptions" button.
+  refreshAllSubscriptions: async (): Promise<SingBoxComponentActionResult> =>
+    startAndPollComponentAction(
+      'subscription',
+      'update',
+      [],
+      getSubscriptionPollMessages(),
+    ),
+  // Refresh ONE subscription section (async): `component_action_async
+  // subscription update_feed <section> [feed]`. `feed` is the sing-box tag of a
+  // dashboard feed block ("⚡ <name>"), which the backend resolves to the feed
+  // URL; without it every feed of the section is refreshed. Drives the
+  // per-section and per-feed refresh buttons.
+  refreshSubscriptionFeed: async (
+    section: string,
+    feed?: string,
+  ): Promise<SingBoxComponentActionResult> =>
+    startAndPollComponentAction(
+      'subscription',
+      'update_feed',
+      feed ? [section, feed] : [section],
+      getSubscriptionPollMessages(),
+    ),
   // NetShift self-update (async) — STABLE task-017 contract:
   // component_action_async netshift self_update + component_action_status <job>.
   // Reuses the component-agnostic poll. Because the package install swaps

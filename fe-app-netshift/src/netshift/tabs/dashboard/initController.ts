@@ -4,17 +4,29 @@ import {
   preserveScrollForPage,
 } from '../../../helpers';
 import { prettyBytes } from '../../../helpers/prettyBytes';
-import {
-  parsePinGuardEvents,
-  recentPinGuardEvents,
-} from '../../../helpers/pinGuardEvents';
+import { showToast } from '../../../helpers/showToast';
 import {
   loadDashboardViewPrefs,
   saveDashboardViewPrefs,
 } from '../../../helpers/dashboardView';
 import { CustomNetShiftMethods, NetShiftShellMethods } from '../../methods';
+import {
+  getOutdatedComponents,
+  parseUpdateNotice,
+  shouldRefreshUpdateNotice,
+  type UpdateNotice,
+} from '../../../helpers/updateNotice';
+import {
+  parsePinGuardEvents,
+  recentPinGuardEvents,
+} from '../../../helpers/pinGuardEvents';
 import { logger, socket, store, StoreType } from '../../services';
-import { renderSections, renderWidget } from './partials';
+import {
+  IRefreshFeedTarget,
+  renderSections,
+  renderSectionsToolbar,
+  renderWidget,
+} from './partials';
 import { fetchServicesInfo } from '../../fetchers';
 import { getClashApiSecret } from '../../methods/custom/getClashApiSecret';
 import { NetShift } from '../../types';
@@ -55,45 +67,6 @@ async function fetchDashboardSections() {
       data,
     },
   });
-}
-
-// Servers chosen by hand that stopped answering and were given up by the pin
-// guard in the last day. Optional: no events, no notice.
-async function loadPinGuardEvents() {
-  const container = document.getElementById('dashboard-pin-guard');
-
-  if (!container) {
-    return;
-  }
-
-  try {
-    const response = await NetShiftShellMethods.getPinGuardEvents();
-    const events = response.success
-      ? recentPinGuardEvents(
-          parsePinGuardEvents(response.data),
-          Math.floor(Date.now() / 1000),
-        )
-      : [];
-
-    container.replaceChildren(
-      ...(events.length === 0
-        ? []
-        : [
-            E('div', { class: 'card pdk_dashboard-page__pin-guard' }, [
-              E('b', {}, _('A dead server was left')),
-              ...events.map((event) =>
-                E(
-                  'div',
-                  {},
-                  `${event.section}: ${event.from} ${_('stopped answering, the automatic choice is on again')}`,
-                ),
-              ),
-            ]),
-          ]),
-    );
-  } catch (e) {
-    logger.error('[DASHBOARD]', 'loadPinGuardEvents: failed', e);
-  }
 }
 
 async function connectToClashSockets() {
@@ -256,14 +229,104 @@ async function handleTestSectionLatency(section: NetShift.OutboundGroup) {
   }
 }
 
+// The key of the "refresh all subscriptions" run in subscriptionRefreshKey.
+const REFRESH_ALL_KEY = 'all';
+
+// Runs one subscription refresh at a time. Two backend updates side by side
+// race on the feed cache and on the sing-box reload, so while one is in flight
+// every refresh button is disabled and a second call is dropped here.
+// The marker is cleared whatever happens: a failed sections refetch must not
+// leave the buttons spinning until the tab is reopened.
+async function runSubscriptionRefresh(
+  key: string,
+  run: () => Promise<void>,
+): Promise<void> {
+  if (store.get().sectionsWidget.subscriptionRefreshKey) {
+    return;
+  }
+
+  updateSectionsWidget(() => ({ subscriptionRefreshKey: key }));
+
+  try {
+    await run();
+    await fetchDashboardSections();
+  } catch (e) {
+    logger.error('[DASHBOARD]', 'runSubscriptionRefresh - e', e);
+  } finally {
+    updateSectionsWidget(() => ({ subscriptionRefreshKey: null }));
+  }
+}
+
+// Refreshes one subscription feed block, or every feed of a section when the
+// button sits on the section header. The backend re-downloads the feed(s) and
+// applies the change; the button spins until the async job reports back.
+async function handleRefreshFeed(
+  section: NetShift.OutboundGroup,
+  feed: IRefreshFeedTarget,
+) {
+  await runSubscriptionRefresh(feed.key, async () => {
+    try {
+      const result = await NetShiftShellMethods.refreshSubscriptionFeed(
+        section.sectionName ?? section.code,
+        feed.feed,
+      );
+
+      if (result.success) {
+        showToast(_('Subscription updated'), 'success');
+      } else {
+        logger.error('[DASHBOARD]', 'handleRefreshFeed - result', result);
+        showToast(
+          result.message || _('Failed to update subscription'),
+          'error',
+        );
+      }
+    } catch (e) {
+      logger.error('[DASHBOARD]', 'handleRefreshFeed - e', e);
+      showToast(_('Failed to update subscription'), 'error');
+    }
+  });
+}
+
+async function handleRefreshAllSubscriptions() {
+  await runSubscriptionRefresh(REFRESH_ALL_KEY, async () => {
+    showToast(_('Updating all subscriptions… this may take a minute'), 'info');
+
+    try {
+      const result = await NetShiftShellMethods.refreshAllSubscriptions();
+
+      if (result.success) {
+        showToast(_('All subscriptions updated'), 'success');
+      } else {
+        logger.error(
+          '[DASHBOARD]',
+          'handleRefreshAllSubscriptions - result',
+          result,
+        );
+        showToast(
+          result.message || _('Failed to update subscriptions'),
+          'error',
+        );
+      }
+    } catch (e) {
+      logger.error('[DASHBOARD]', 'handleRefreshAllSubscriptions - e', e);
+      showToast(_('Failed to update subscriptions'), 'error');
+    }
+  });
+}
+
 // Renderer
 
 async function renderSectionsWidget() {
   logger.debug('[DASHBOARD]', 'renderSectionsWidget');
   const sectionsWidget = store.get().sectionsWidget;
   const container = document.getElementById('dashboard-sections-grid');
+  const toolbarContainer = document.getElementById(
+    'dashboard-sections-toolbar',
+  );
 
   if (sectionsWidget.loading || sectionsWidget.failed) {
+    toolbarContainer?.replaceChildren();
+
     const renderedWidget = renderSections({
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
@@ -288,6 +351,15 @@ async function renderSectionsWidget() {
     });
   }
 
+  toolbarContainer?.replaceChildren(
+    renderSectionsToolbar({
+      visible: sectionsWidget.data.some((section) => section.isSubscription),
+      refreshing: sectionsWidget.subscriptionRefreshKey === REFRESH_ALL_KEY,
+      disabled: Boolean(sectionsWidget.subscriptionRefreshKey),
+      onRefreshAll: handleRefreshAllSubscriptions,
+    }),
+  );
+
   const renderedWidgets = sectionsWidget.data.map((section) =>
     renderSections({
       loading: sectionsWidget.loading,
@@ -305,6 +377,8 @@ async function renderSectionsWidget() {
       sortByPing: sectionsWidget.sortByPing,
       onToggleViewMode: handleToggleViewMode,
       onToggleSortByPing: handleToggleSortByPing,
+      onRefreshFeed: handleRefreshFeed,
+      subscriptionRefreshKey: sectionsWidget.subscriptionRefreshKey,
     }),
   );
 
@@ -509,8 +583,6 @@ async function onPageMount() {
   // Cleanup before mount
   onPageUnmount();
 
-  void loadPinGuardEvents();
-
   // Add new listener
   store.subscribe(onStoreUpdate);
 
@@ -577,10 +649,121 @@ function registerLifecycleListeners() {
   });
 }
 
+const UPDATE_NOTICE_REFRESH_WAIT = 25000;
+
+
+function renderUpdateNotice(notice: UpdateNotice) {
+  const container = document.getElementById('dashboard-update-notice');
+
+  if (!container) {
+    return;
+  }
+
+  const items = notice.enabled ? getOutdatedComponents(notice) : [];
+
+  if (items.length === 0) {
+    container.replaceChildren();
+
+    return;
+  }
+
+  const names = {
+    netshift: _('NetShift'),
+    sing_box: _('Sing-box'),
+  };
+
+  container.replaceChildren(
+    E('div', { class: 'card pdk_dashboard-page__update-notice' }, [
+      E('b', {}, _('A newer version is available')),
+      ...items.map((item) =>
+        E(
+          'div',
+          {},
+          `${names[item.component]}: ${item.current} → ${item.latest}`,
+        ),
+      ),
+      E(
+        'div',
+        { class: 'pdk_dashboard-page__update-notice__hint' },
+        _('Update it in the Component Manager tab.'),
+      ),
+    ]),
+  );
+}
+
+async function loadUpdateNotice() {
+  try {
+    const first = await NetShiftShellMethods.getUpdateNotice();
+    const notice = first.success ? parseUpdateNotice(first.data) : null;
+
+    if (!notice) {
+      return;
+    }
+
+    renderUpdateNotice(notice);
+
+    if (!shouldRefreshUpdateNotice(notice)) {
+      return;
+    }
+
+    await NetShiftShellMethods.refreshUpdateNotice();
+    await new Promise((resolve) =>
+      setTimeout(resolve, UPDATE_NOTICE_REFRESH_WAIT),
+    );
+
+    const second = await NetShiftShellMethods.getUpdateNotice();
+
+    if (second.success) {
+      renderUpdateNotice(parseUpdateNotice(second.data));
+    }
+  } catch (e) {
+    logger.error('[DASHBOARD]', 'loadUpdateNotice: failed', e);
+  }
+}
+
+async function loadPinGuardEvents() {
+  const container = document.getElementById('dashboard-pin-guard');
+
+  if (!container) {
+    return;
+  }
+
+  try {
+    const response = await NetShiftShellMethods.getPinGuardEvents();
+    const events = response.success
+      ? recentPinGuardEvents(
+          parsePinGuardEvents(response.data),
+          Math.floor(Date.now() / 1000),
+        )
+      : [];
+
+    container.replaceChildren(
+      ...(events.length === 0
+        ? []
+        : [
+            E('div', { class: 'card pdk_dashboard-page__pin-guard' }, [
+              E('b', {}, _('A dead server was left')),
+              ...events.map((event) =>
+                E(
+                  'div',
+                  {},
+                  `${event.section}: ${event.from} ${_('stopped answering, the automatic choice is on again')}`,
+                ),
+              ),
+            ]),
+          ]),
+    );
+  } catch (e) {
+    logger.error('[DASHBOARD]', 'loadPinGuardEvents: failed', e);
+  }
+}
+
 export async function initController(): Promise<void> {
   onMount('dashboard-status').then(() => {
     logger.debug('[DASHBOARD]', 'initController', 'onMount');
     onPageMount();
+    void loadUpdateNotice();
+    void loadPinGuardEvents();
     registerLifecycleListeners();
   });
 }

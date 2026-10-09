@@ -8,6 +8,8 @@ export function render() {
       class: 'pdk_dashboard-page',
     },
     [
+      // A newer version is available (filled by the controller)
+      E('div', { id: 'dashboard-update-notice' }),
       // The servers the pin guard gave up (filled by the controller)
       E('div', { id: 'dashboard-pin-guard' }),
       // Widgets section
@@ -33,6 +35,8 @@ export function render() {
           renderWidget({ loading: true, failed: false, title: '', items: [] }),
         ),
       ]),
+      // Subscription refresh toolbar (hidden without subscription sections)
+      E('div', { id: 'dashboard-sections-toolbar' }),
       // All outbounds
       E(
         'div',

@@ -9,6 +9,7 @@ import { logger, store, StoreType } from '../../services';
 import {
   renderAvailableActions,
   renderCheckSection,
+  renderRouteCheck,
   renderRunAction,
   renderSnapshots,
   renderSystemInfo,
@@ -575,6 +576,10 @@ function onPageMount() {
   // Initial Wiki disclaimer render
   renderWikiDisclaimerWidget();
 
+  // Route check widget (keeps its own state)
+  document
+    .getElementById('pdk_diagnostic-page-route-check')
+    ?.replaceChildren(renderRouteCheck());
   // Configuration snapshots (keeps its own state)
   document
     .getElementById('pdk_diagnostic-page-snapshots')
