@@ -74,6 +74,9 @@ msgstr "Обеспечивает доступ к YACD из WAN. Убедитес
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
 
+msgid "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all."
+msgstr "Запрашивать имя пользователя и пароль. Без логина этим прокси может пользоваться любой в вашей сети. Если логин задан не полностью, прокси не создаётся вовсе."
+
 msgid "At least one proxy link must be specified."
 msgstr "Необходимо указать хотя бы одну прокси-ссылку."
 
@@ -413,6 +416,12 @@ msgstr "Включить YACD"
 msgid "Enable YACD WAN Access"
 msgstr "Включить доступ YACD WAN"
 
+msgid "Enter a password"
+msgstr "Введите пароль"
+
+msgid "Enter a user name"
+msgstr "Введите имя пользователя"
+
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
 
@@ -424,6 +433,9 @@ msgstr "Введите доменные имена без протоколов, 
 
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
 msgstr "Введите подсети в нотации CIDR (например, 103.21.244.0/22) или отдельные IP-адреса"
+
+msgid "Established connections can skip the marks NetShift sets: turn it off in Network - Firewall"
+msgstr "Установленные соединения могут обходить метки NetShift: выключите его в Сеть - Брандмауэр"
 
 msgid "Every 1 minute"
 msgstr "Каждую минуту"
@@ -490,6 +502,12 @@ msgstr "Не удалось выполнить!"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
+
+msgid "Flow offloading is enabled"
+msgstr "Включён Flow Offloading"
+
+msgid "Flow offloading is off"
+msgstr "Flow Offloading выключен"
 
 msgid "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router."
 msgstr "Для серверов, в имени которых нет флага, страна один раз определяется по адресу сервера и показывается флагом: впереди имени в подписке (чтобы для неё работали группировка и фильтры по странам), на дашборде — для ваших собственных ссылок. Адреса серверов отправляются на api.country.is по HTTPS; результаты кешируются на роутере."
@@ -710,6 +728,12 @@ msgstr "IP-адрес 0.0.0.0 не допускается"
 msgid "IPv6 CIDR must be between 0 and 128"
 msgstr "IPv6 CIDR должен быть от 0 до 128"
 
+msgid "IPv6 handling matches the network"
+msgstr "Обработка IPv6 соответствует сети"
+
+msgid "IPv6 traffic goes around the tunnel: enable IPv6 in the settings"
+msgstr "IPv6-трафик идёт мимо туннеля: включите IPv6 в настройках"
+
 msgid "Issues detected"
 msgstr "Обнаружены проблемы"
 
@@ -718,6 +742,9 @@ msgstr "Оставить только серверы, в названии кот
 
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
 msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все."
+
+msgid "Kept in the configuration file as it is typed."
+msgstr "Хранится в файле конфигурации в том виде, как введён."
 
 msgid "Latency test URL"
 msgstr "URL для проверки задержки"
@@ -770,11 +797,20 @@ msgstr "Только основной сервер"
 msgid "Memory Usage"
 msgstr "Использование памяти"
 
+msgid "min"
+msgstr "мин"
+
 msgid "Mixed proxy and DNS resolution tuning"
 msgstr "Настройка смешанного прокси и разрешения DNS"
 
+msgid "Mixed Proxy password"
+msgstr "Пароль Mixed Proxy"
+
 msgid "Mixed Proxy Port"
 msgstr "Порт смешанного прокси"
+
+msgid "Mixed Proxy user name"
+msgstr "Имя пользователя Mixed Proxy"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
@@ -805,6 +841,12 @@ msgstr "Сетевой интерфейс"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
+
+msgid "No spaces or colons in the user name"
+msgstr "В имени пользователя не должно быть пробелов и двоеточий"
+
+msgid "Not available"
+msgstr "Недоступно"
 
 msgid "Not available for your architecture"
 msgstr "Недоступно для вашей архитектуры"
@@ -907,6 +949,9 @@ msgstr "Внешние списки доменов"
 
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
+
+msgid "Require a login for the Mixed Proxy"
+msgstr "Требовать логин для Mixed Proxy"
 
 msgid "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores"
 msgstr "Требуется серверами REALITY на Xray-core 26.9.8 и новее, которые отклоняют клиентов без него. На более старых серверах рукопожатие может не пройти, поэтому для них опцию лучше не включать. Требуется sing-box-extended 2.7.2 или новее и отпечаток chrome; на других ядрах игнорируется."
@@ -1160,6 +1205,18 @@ msgstr "Интервал между тестами подключения"
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
 
+msgid "The router clock is not set"
+msgstr "Часы роутера не установлены"
+
+msgid "The router clock is off"
+msgstr "Часы роутера спешат или отстают"
+
+msgid "The router clock is right"
+msgstr "Часы роутера идут верно"
+
+msgid "The router has a global IPv6 address, IPv6 handling is off"
+msgstr "У роутера есть глобальный адрес IPv6, а обработка IPv6 выключена"
+
 msgid "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again"
 msgstr "Секция полностью игнорируется (маршрутизация, списки, подписки), но её настройки сохраняются. Снимите галочку, чтобы включить её снова"
 
@@ -1186,6 +1243,9 @@ msgstr "Время в секундах для кэширования DNS зап�
 
 msgid "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists"
 msgstr "Время ежедневного обновления, ЧЧ:ММ (00:00–23:59) по местному времени роутера. Избегайте минут, совпадающих с другими интервалами обновления, например :00 и :30, если есть секция с интервалом 30 минут."
+
+msgid "TLS and Reality fail with a wrong time: check NTP"
+msgstr "С неверным временем не работают TLS и Reality: проверьте NTP"
 
 msgid "Traffic"
 msgstr "Трафик"
