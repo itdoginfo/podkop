@@ -35,6 +35,9 @@ msgstr "✘ Остановлен"
 msgid "77.88.8.8 (Yandex)"
 msgstr "77.88.8.8 (Yandex)"
 
+msgid "A dead server was left"
+msgstr "Мёртвый сервер оставлен"
+
 msgid "A path is only allowed for doh and doh3"
 msgstr "Путь допустим только для doh и doh3"
 
@@ -737,6 +740,9 @@ msgstr "Последняя"
 msgid "Latest version is installed"
 msgstr "Установлена последняя версия"
 
+msgid "Leave a dead server chosen by hand"
+msgstr "Уходить с мёртвого сервера, выбранного вручную"
+
 msgid "Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)"
 msgstr "Лёгкая сборка расширенного ядра для устройств с малой Flash (~10 МБ вместо ~105 МБ)"
 
@@ -1109,6 +1115,9 @@ msgstr "Запустить NetShift"
 msgid "Stop NetShift"
 msgstr "Остановить NetShift"
 
+msgid "stopped answering, the automatic choice is on again"
+msgstr "перестал отвечать, снова включён автоматический выбор"
+
 msgid "Subscription"
 msgstr "Подписка"
 
@@ -1360,6 +1369,9 @@ msgstr "Предупреждение: %s нельзя использовать �
 
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
+
+msgid "When a server picked by hand stops answering (three checks in a row, every 30 seconds), go back to the automatic choice (the fastest server) and say so on the dashboard. Needs the automatic group, so it works with URLTest lists and subscriptions; it does nothing together with the list-order mode."
+msgstr "Когда сервер, выбранный вручную, перестаёт отвечать (три проверки подряд, раз в 30 секунд), вернуться к автоматическому выбору (самый быстрый сервер) и сообщить об этом на дашборде. Нужна автоматическая группа, поэтому работает со списками URLTest и подписками; вместе с режимом «по порядку списка» не действует."
 
 msgid "When enabled, traffic not matching any other section's lists will go through this proxy."
 msgstr "Когда включено, трафик, не совпадающий со списками других секций, будет идти через этот прокси."

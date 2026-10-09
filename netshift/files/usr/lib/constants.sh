@@ -328,3 +328,9 @@ COMMUNITY_SERVICES="russia_inside russia_outside ukraine_inside geoblock block p
 # with the router clock.
 ENVIRONMENT_MIN_PLAUSIBLE_EPOCH=1735689600
 ENVIRONMENT_CLOCK_PROBE_URL="https://www.cloudflare.com/"
+
+# Pin guard (pinguard.sh): failed probes in a row before a pinned server is given up,
+# and how many switches are kept for the dashboard.
+PIN_GUARD_FAILURES=3
+PIN_GUARD_EVENTS_FILE="/tmp/netshift-pin-guard.json"
+PIN_GUARD_EVENTS_KEEP=10

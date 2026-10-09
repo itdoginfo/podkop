@@ -21,6 +21,7 @@ check_required_file "$NETSHIFT_LIB/sing_box_config_facade.sh"
 check_required_file "$NETSHIFT_LIB/logging.sh"
 check_required_file "$NETSHIFT_LIB/rulesets.sh"
 check_required_file "$NETSHIFT_LIB/updater.sh"
+check_required_file "$NETSHIFT_LIB/pinguard.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -32,6 +33,7 @@ check_required_file "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/logging.sh"
 . "$NETSHIFT_LIB/rulesets.sh"
 . "$NETSHIFT_LIB/updater.sh"
+. "$NETSHIFT_LIB/pinguard.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -1643,6 +1645,7 @@ monitor_sing_box() {
             if [ $((now - priority_last)) -ge "$(priority_check_interval)" ]; then
                 priority_last="$now"
                 priority_check_sections
+                pin_guard_check_sections
             fi
             continue
         fi
@@ -7661,6 +7664,7 @@ Available commands:
     check_sing_box_logs     Show sing-box logs
     check_fakeip            Test FakeIP on router
     check_environment       Flow offloading, clock and IPv6 facts that affect the redirect
+    get_pin_guard_events    Print the switches the pin guard made as JSON
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -7734,6 +7738,9 @@ check_fakeip)
     ;;
 check_environment)
     check_environment
+    ;;
+get_pin_guard_events)
+    get_pin_guard_events
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"

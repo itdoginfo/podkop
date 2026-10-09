@@ -901,6 +901,7 @@ var NetShift;
     AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
     AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
     AvailableMethods2["CHECK_ENVIRONMENT"] = "check_environment";
+    AvailableMethods2["GET_PIN_GUARD_EVENTS"] = "get_pin_guard_events";
     AvailableMethods2["CHECK_NFT_RULES"] = "check_nft_rules";
     AvailableMethods2["GET_STATUS"] = "get_status";
     AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
@@ -1013,6 +1014,7 @@ var NetShiftShellMethods = {
   checkEnvironment: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_ENVIRONMENT
   ),
+  getPinGuardEvents: async () => callBaseMethod(NetShift.AvailableMethods.GET_PIN_GUARD_EVENTS),
   checkNftRules: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_NFT_RULES
   ),
@@ -3506,6 +3508,8 @@ function render() {
       class: "pdk_dashboard-page"
     },
     [
+      // The servers the pin guard gave up (filled by the controller)
+      E("div", { id: "dashboard-pin-guard" }),
       // Widgets section
       E("div", { class: "pdk_dashboard-page__widgets-section" }, [
         E(
@@ -3572,6 +3576,33 @@ function prettyBytes(n) {
   return n + " " + unit;
 }
 
+// src/helpers/pinGuardEvents.ts
+var PIN_GUARD_SHOW_SECONDS = 86400;
+function parsePinGuardEvents(input) {
+  let data = input;
+  if (typeof input === "string") {
+    try {
+      data = JSON.parse(input);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(data)) {
+    return [];
+  }
+  return data.filter(
+    (item) => item && typeof item.time === "number" && typeof item.section === "string" && typeof item.from === "string" && typeof item.to === "string"
+  ).map((item) => ({
+    time: item.time,
+    section: item.section,
+    from: item.from,
+    to: item.to
+  }));
+}
+function recentPinGuardEvents(events, now) {
+  return events.filter((event) => now - event.time <= PIN_GUARD_SHOW_SECONDS).sort((a, b) => b.time - a.time);
+}
+
 // src/netshift/fetchers/fetchServicesInfo.ts
 async function fetchServicesInfo() {
   const [netshift, singbox] = await Promise.all([
@@ -3623,6 +3654,35 @@ async function fetchDashboardSections() {
       data
     }
   });
+}
+async function loadPinGuardEvents() {
+  const container = document.getElementById("dashboard-pin-guard");
+  if (!container) {
+    return;
+  }
+  try {
+    const response = await NetShiftShellMethods.getPinGuardEvents();
+    const events = response.success ? recentPinGuardEvents(
+      parsePinGuardEvents(response.data),
+      Math.floor(Date.now() / 1e3)
+    ) : [];
+    container.replaceChildren(
+      ...events.length === 0 ? [] : [
+        E("div", { class: "card pdk_dashboard-page__pin-guard" }, [
+          E("b", {}, _("A dead server was left")),
+          ...events.map(
+            (event) => E(
+              "div",
+              {},
+              `${event.section}: ${event.from} ${_("stopped answering, the automatic choice is on again")}`
+            )
+          )
+        ])
+      ]
+    );
+  } catch (e) {
+    logger.error("[DASHBOARD]", "loadPinGuardEvents: failed", e);
+  }
 }
 async function connectToClashSockets() {
   const clashApiSecret = await getClashApiSecret();
@@ -3952,6 +4012,7 @@ async function onStoreUpdate(next, prev, diff) {
 }
 async function onPageMount() {
   onPageUnmount();
+  void loadPinGuardEvents();
   store.subscribe(onStoreUpdate);
   store.set({
     sectionsWidget: {
@@ -4265,6 +4326,13 @@ var styles3 = `
     .pdk_dashboard-page__outbound-row__badge-space {
         display: none;
     }
+}
+
+.pdk_dashboard-page__pin-guard {
+    margin-top: 10px;
+    display: grid;
+    grid-row-gap: 4px;
+    border: 2px var(--warn-color-medium, orange) solid;
 }
 `;
 
@@ -6991,6 +7059,7 @@ return baseclass.extend({
   ManagerTab,
   NETSHIFT_LUCI_APP_VERSION,
   NetShiftShellMethods,
+  PIN_GUARD_SHOW_SECONDS,
   REGIONAL_OPTIONS,
   RemoteFakeIPMethods,
   SKELETON_SHIMMER_DURATION,
@@ -7014,9 +7083,11 @@ return baseclass.extend({
   logger,
   maskIP,
   onMount,
+  parsePinGuardEvents,
   parseQueryString,
   parseValueList,
   preserveScrollForPage,
+  recentPinGuardEvents,
   saveDashboardViewPrefs,
   setDeviceRoute,
   socket,

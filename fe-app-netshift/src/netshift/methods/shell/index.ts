@@ -23,6 +23,8 @@ export const NetShiftShellMethods = {
     callBaseMethod<NetShift.EnvironmentCheckResult>(
       NetShift.AvailableMethods.CHECK_ENVIRONMENT,
     ),
+  getPinGuardEvents: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.GET_PIN_GUARD_EVENTS),
   checkNftRules: async () =>
     callBaseMethod<NetShift.NftRulesCheckResult>(
       NetShift.AvailableMethods.CHECK_NFT_RULES,

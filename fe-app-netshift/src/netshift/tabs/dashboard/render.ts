@@ -8,6 +8,8 @@ export function render() {
       class: 'pdk_dashboard-page',
     },
     [
+      // The servers the pin guard gave up (filled by the controller)
+      E('div', { id: 'dashboard-pin-guard' }),
       // Widgets section
       E('div', { class: 'pdk_dashboard-page__widgets-section' }, [
         E(
