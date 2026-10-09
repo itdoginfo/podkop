@@ -404,6 +404,13 @@ uci commit netshift
 ```sh
 netshift check_route youtube.com
 netshift check_route 203.0.113.9 192.168.1.50
+**Фильтры серверов подписки по протоколу, транспорту и защите.** К фильтрам по названию и стране добавлены фильтры по тому, как сервер подключается: `subscription_filter_{include,exclude}_{protocols,transports,security}`. Протокол - тип узла (`vless`, `vmess`, `trojan`, `shadowsocks` (`ss`), `hysteria2` (`hy2`), `tuic`, `socks` и др.), транспорт - `tcp` (у узла нет транспорта), `ws`, `grpc`, `http`, `httpupgrade`, `xhttp` (узлы с транспортом `quic` из JSON-подписки фильтр понимает, но в списке интерфейса такого варианта нет), защита - `reality`, `tls` или `none`. Правила: сервер должен пройти **каждый** заданный список (оставить - он входит в список; исключить - не входит), и фильтр по названию тоже; регистр не важен, неизвестное значение пропускается с предупреждением. Фильтр работает до выдачи тегов и до проверки ядром, поэтому убранные серверы не попадают ни в селектор, ни в urltest, ни на дашборд. Без заданных списков набор не меняется.
+
+```sh
+uci add_list netshift.<секция>.subscription_filter_include_protocols='vless'
+uci add_list netshift.<секция>.subscription_filter_exclude_transports='grpc'
+uci add_list netshift.<секция>.subscription_filter_include_security='reality'
+uci commit netshift
 ```
 
 > По умолчанию NetShift гонит в sing-box **только** проксируемые подсети/домены, остальное - напрямую (выборочная маркировка). Режим «весь трафик в туннель» включается **только** опцией `global_proxy`.

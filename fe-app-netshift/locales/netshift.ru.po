@@ -173,6 +173,9 @@ msgstr "Закрыть"
 msgid "cloudflare-dns.com/dns-query (Cloudflare DoH)"
 msgstr "cloudflare-dns.com/dns-query (Cloudflare DoH)"
 
+msgid "Combined with the other filters: a server has to pass all of them."
+msgstr "Сочетается с остальными фильтрами: сервер должен пройти все."
+
 msgid "common.dns.yandex.net/dns-query (Yandex DoH)"
 msgstr "common.dns.yandex.net/dns-query (Yandex DoH)"
 
@@ -377,6 +380,9 @@ msgstr "Скачивать sing-box, пакеты NetShift и сведения �
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr "Загрузка всех списков через указанный прокси/VPN"
 
+msgid "Drop servers that connect this way."
+msgstr "Убрать серверы, подключающиеся так."
+
 msgid "Drop servers whose name carries the flag of one of these countries. Two-letter codes, for example RU or US."
 msgstr "Отбросить серверы, в названии которых есть флаг одной из этих стран. Двухбуквенные коды, например RU или US."
 
@@ -488,6 +494,15 @@ msgstr "Исключить серверы по стране"
 msgid "Exclude servers by keyword"
 msgstr "Исключать серверы по ключевому слову"
 
+msgid "Exclude servers by protocol"
+msgstr "Исключить серверы по протоколу"
+
+msgid "Exclude servers by security"
+msgstr "Исключить серверы по защите"
+
+msgid "Exclude servers by transport"
+msgstr "Исключить серверы по транспорту"
+
 msgid "Extended core with all features (~105 MB)"
 msgstr "Расширенное ядро со всеми возможностями (~105 МБ)"
 
@@ -559,6 +574,15 @@ msgstr "Оставить серверы по стране"
 
 msgid "Include servers by keyword"
 msgstr "Включать серверы по ключевому слову"
+
+msgid "Include servers by protocol"
+msgstr "Оставить серверы по протоколу"
+
+msgid "Include servers by security"
+msgstr "Оставить серверы по защите"
+
+msgid "Include servers by transport"
+msgstr "Оставить серверы по транспорту"
 
 msgid "Install %s"
 msgstr "Установить %s"
@@ -752,6 +776,9 @@ msgstr "IPv6-трафик идёт мимо туннеля: включите IPv
 msgid "Issues detected"
 msgstr "Обнаружены проблемы"
 
+msgid "Keep only servers that connect this way."
+msgstr "Оставить только серверы, подключающиеся так."
+
 msgid "Keep only servers whose name carries the flag of one of these countries. Two-letter codes, for example NL or DE. Combined with the keywords above (any match keeps a server)."
 msgstr "Оставить только серверы, в названии которых есть флаг одной из этих стран. Двухбуквенные коды, например NL или DE. Объединяется с ключевыми словами выше (подходит любое совпадение)."
 
@@ -853,6 +880,9 @@ msgstr "Сеть"
 
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
+
+msgid "No encryption layer"
+msgstr "Без слоя шифрования"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"

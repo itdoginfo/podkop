@@ -415,6 +415,65 @@ function createSectionContent(section) {
     return _("Use a two-letter country code, for example NL");
   };
 
+  // Filters by how a server connects: protocol, transport, security.
+  const paramFilters = [
+    {
+      kind: "protocols",
+      include: _("Include servers by protocol"),
+      exclude: _("Exclude servers by protocol"),
+      choices: {
+        vless: "VLESS",
+        vmess: "VMess",
+        trojan: "Trojan",
+        shadowsocks: "Shadowsocks",
+        hysteria2: "Hysteria2",
+        tuic: "TUIC",
+        socks: "SOCKS",
+      },
+    },
+    {
+      kind: "transports",
+      include: _("Include servers by transport"),
+      exclude: _("Exclude servers by transport"),
+      choices: {
+        tcp: "TCP",
+        ws: "WebSocket",
+        grpc: "gRPC",
+        http: "HTTP/2",
+        httpupgrade: "HTTPUpgrade",
+        xhttp: "XHTTP",
+      },
+    },
+    {
+      kind: "security",
+      include: _("Include servers by security"),
+      exclude: _("Exclude servers by security"),
+      choices: {
+        reality: "Reality",
+        tls: "TLS",
+        none: _("No encryption layer"),
+      },
+    },
+  ];
+
+  paramFilters.forEach(({ kind, include, exclude, choices }) => {
+    [
+      ["include", include, _("Keep only servers that connect this way.")],
+      ["exclude", exclude, _("Drop servers that connect this way.")],
+    ].forEach(([direction, title, description]) => {
+      o = section.taboption(
+        "subscription",
+        form.DynamicList,
+        `subscription_filter_${direction}_${kind}`,
+        title,
+        `${description} ${_("Combined with the other filters: a server has to pass all of them.")}`,
+      );
+      Object.entries(choices).forEach(([value, label]) => o.value(value, label));
+      o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+      o.rmempty = true;
+    });
+  });
+
   o = section.taboption(
     "connection",
     form.DynamicList,

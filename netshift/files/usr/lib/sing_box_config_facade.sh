@@ -686,6 +686,10 @@ sing_box_cf_add_single_key_reject_rule() {
 #       contains at least one of these (OR). Empty array ([]) = keep all.
 #   exclude_keywords_json: string (JSON array), drop any node whose display name
 #       contains at least one of these (OR). Empty array ([]) = no exclusion.
+# Global input (not an argument):
+#   SUBSCRIPTION_PARAM_FILTER: string (JSON) {"include":{protocols,transports,security},
+#       "exclude":{...}} built by build_subscription_param_filter_json; every list that is set
+#       has to pass. Unset, empty or "{}" = no parameter filtering.
 # Outputs:
 #   Writes a JSON object to stdout:
 #     { outbounds: [ {type,...,tag} ... ], tags: [..], names: [..],
@@ -699,9 +703,11 @@ sing_box_cf_prepare_subscription_batch() {
     local exclude_keywords_json="${4:-[]}"
     local sing_box_extended="false"
     local reality_mlkem="false"
+    local param_filter="${SUBSCRIPTION_PARAM_FILTER:-}"
 
     [ -n "$include_keywords_json" ] || include_keywords_json="[]"
     [ -n "$exclude_keywords_json" ] || exclude_keywords_json="[]"
+    [ -n "$param_filter" ] || param_filter="{}"
 
     if is_sing_box_extended; then
         sing_box_extended="true"
@@ -719,7 +725,8 @@ sing_box_cf_prepare_subscription_batch() {
         --argjson extended "$sing_box_extended" \
         --argjson reality_mlkem "$reality_mlkem" \
         --argjson include_keywords "$include_keywords_json" \
-        --argjson exclude_keywords "$exclude_keywords_json" '
+        --argjson exclude_keywords "$exclude_keywords_json" \
+        --argjson param_filter "$param_filter" '
         # Codepoint-based case fold. OpenWrt jq has no Oniguruma and ascii_downcase
         # only maps ASCII A-Z (leaving Cyrillic mixed-case), so define an inline
         # fold (this jq program does NOT import helpers.jq). It lowercases ASCII
@@ -746,6 +753,27 @@ sing_box_cf_prepare_subscription_batch() {
         | def name_passes_keywords($lc):
             (($inc | length) == 0 or any($inc[]; . as $kw | ($lc | index($kw)) != null))
             and (($exc | length) == 0 or all($exc[]; . as $kw | ($lc | index($kw)) == null));
+        # Filters by how a server connects: protocol (its type), transport (none
+        # means plain TCP) and security (reality, tls, none). Every list that is set
+        # must pass: an include list keeps only its members, an exclude list drops
+        # its members.
+        def node_protocol: (.type // "" | tostring | ascii_downcase);
+        # tls may be a scalar in a malformed node: only an object is looked into
+        def node_security:
+            if ((.tls | type) != "object") then "none"
+            elif (((.tls.reality | type) == "object") and ((.tls.reality.enabled // false) == true)) then "reality"
+            elif ((.tls.enabled // false) == true) then "tls"
+            else "none" end;
+        def node_transport: (if ((.transport | type) == "object") then (.transport.type // "tcp") else "tcp" end | tostring | ascii_downcase);
+        def param_ok($kind; $value):
+            (($param_filter.include[$kind] // []) as $inc
+              | ($inc | length) == 0 or any($inc[]; . == $value))
+            and (($param_filter.exclude[$kind] // []) as $exc
+              | all($exc[]; . != $value));
+        def passes_params:
+            param_ok("protocols"; node_protocol)
+            and param_ok("transports"; node_transport)
+            and param_ok("security"; node_security);
         # Reserved tags already used by the working config (stdin is the config).
         ([.outbounds[]?.tag // empty]) as $existing
         # Candidate proxy outbounds from the subscription (preserve order).
@@ -764,6 +792,7 @@ sing_box_cf_prepare_subscription_batch() {
             | . as $ob
             | (($ob.remark // $ob.tag // "") | tostring) as $name
             | select(name_passes_keywords($name | ucfold))
+            | select($ob | passes_params)
           ] as $candidates
         | ($candidates | length) as $total
         # Statically reject outbounds the current sing-box build cannot load.
@@ -973,11 +1002,17 @@ sing_box_cf_add_subscription_outbounds() {
         return 1
     fi
 
-    # Whether keyword filtering is active (for distinct empty-result logging).
-    local keyword_filter_active=0
+    # Whether a filter is active (for distinct empty-result logging): the keyword lists and/or
+    # the parameter filter (SUBSCRIPTION_PARAM_FILTER). An empty result then comes from the
+    # filter, not from the feed.
+    local keyword_filter_active=0 filter_kind=""
     if [ "$include_keywords_json" != "[]" ] || [ "$exclude_keywords_json" != "[]" ]; then
-        keyword_filter_active=1
+        filter_kind="keyword"
     fi
+    if [ -n "${SUBSCRIPTION_PARAM_FILTER:-}" ] && [ "$SUBSCRIPTION_PARAM_FILTER" != "{}" ]; then
+        filter_kind="${filter_kind:+$filter_kind and }parameter"
+    fi
+    [ -z "$filter_kind" ] || keyword_filter_active=1
 
     # Build the entire batch (keyword filter + static filter + dedup tags) in one
     # jq pass.
@@ -1005,12 +1040,12 @@ sing_box_cf_add_subscription_outbounds() {
         [ -n "$raw_candidate_total" ] || raw_candidate_total=0
         filtered_out=$((raw_candidate_total - candidate_total))
         [ "$filtered_out" -ge 0 ] || filtered_out=0
-        log "Subscription keyword filter for section '$section': kept=$candidate_total, filtered_out=$filtered_out" "info"
+        log "Subscription $filter_kind filter for section '$section': kept=$candidate_total, filtered_out=$filtered_out" "info"
     fi
 
     if [ -z "$candidate_total" ] || [ "$candidate_total" -eq 0 ]; then
         if [ "$keyword_filter_active" -eq 1 ]; then
-            log "Subscription keyword filter for section '$section' removed all nodes; using a temporary blocked outbound" "warn"
+            log "Subscription $filter_kind filter for section '$section' removed all nodes; using a temporary blocked outbound" "warn"
         fi
         log "No proxy outbounds found in subscription JSON" "error"
         echo "$config"
