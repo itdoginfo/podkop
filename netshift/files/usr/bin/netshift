@@ -4349,8 +4349,8 @@ sing_box_configure_dns() {
 
     local block_doh
     config_get_bool block_doh "settings" "block_doh" 0
-    if [ "$block_doh" -eq 1 ] && [ "$dns_type" = "doh" ]; then
-        log "DoH blocking is enabled but upstream DNS type is 'doh'. Your own DNS queries will be blocked." "warn"
+    if [ "$block_doh" -eq 1 ] && { [ "$dns_type" = "doh" ] || [ "$dns_type" = "doh3" ]; }; then
+        log "DoH blocking is enabled but upstream DNS type is '$dns_type'. Your own DNS queries will be blocked." "warn"
         log "Switch dns_type to 'udp' or 'dot' in NetShift settings to avoid self-blocking." "warn"
     fi
 
@@ -6897,6 +6897,17 @@ check_dns_available() {
         fi
     elif [ "$dns_type" = "udp" ]; then
         if dig @"$dns_server" "$domain" +timeout=2 +tries=1 > /dev/null 2>&1; then
+            dns_status=1
+        fi
+    elif [ "$dns_type" = "tcp" ]; then
+        if dig @"$dns_server" "$domain" +tcp +timeout=2 +tries=1 > /dev/null 2>&1; then
+            dns_status=1
+        fi
+    else
+        # doh3 / doq: dig cannot speak them. The router's own resolver (the sing-box
+        # DNS inbound) is the one that talks to the upstream, so an answer from it
+        # shows the upstream works.
+        if dig @"$SB_DNS_INBOUND_ADDRESS" "$domain" +timeout=3 +tries=1 > /dev/null 2>&1; then
             dns_status=1
         fi
     fi

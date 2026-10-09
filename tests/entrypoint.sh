@@ -14713,6 +14713,76 @@ test_environment_check() {
     _ev "IPv6 on is reported" "ipv6-enabled=true"
 }
 
+test_dns_servers_check() {
+    header "DNS check for every transport the unified server list offers"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || [ ! -r "$lib/constants.sh" ]; then
+        fail "bin / constants.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-dnscheck-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        eval "$(awk '/^check_dns_available\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+
+        config_get() { eval "$1=\"\${DNSC_$3:-}\""; }
+        config_load() { :; }
+        config_foreach() { :; }
+        _get_dns_detour_tag() { echo ""; }
+        dhcp_config_status=1
+        # dig: record the arguments, succeed unless DIG_FAIL is set
+        dig() { echo "$*" >> "$work/dig.log"; [ -z "$DIG_FAIL" ]; }
+
+        run() { # type server
+            DNSC_dns_type="$1" DNSC_dns_server="$2" DNSC_bootstrap_dns_server="77.88.8.8"
+            : > "$work/dig.log"
+            check_dns_available | jq -c '[.dns_type, .dns_status]'
+            head -n1 "$work/dig.log"
+        }
+
+        echo "udp=$(run udp 8.8.8.8 | tr '\n' '|')"
+        echo "tcp=$(run tcp 8.8.8.8 | tr '\n' '|')"
+        echo "dot=$(run dot dns.google | tr '\n' '|')"
+        echo "doh=$(run doh dns.google/dns-query | tr '\n' '|')"
+        echo "doh3=$(run doh3 dns.google/dns-query | tr '\n' '|')"
+        echo "doq=$(run doq dns.adguard-dns.com | tr '\n' '|')"
+        DIG_FAIL=1
+        echo "doq-fails=$(run doq dns.adguard-dns.com | head -n1)"
+        echo "tcp-fails=$(run tcp 8.8.8.8 | head -n1)"
+    )"
+
+    _dc() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _dc "udp is asked directly" 'udp=["udp",1]|@8.8.8.8 google.com +timeout=2 +tries=1|'
+    _dc "tcp is asked over TCP" 'tcp=["tcp",1]|@8.8.8.8 google.com +tcp +timeout=2 +tries=1|'
+    _dc "dot is asked over TLS" 'dot=["dot",1]|@dns.google google.com +tls +timeout=2 +tries=1|'
+    _dc "doh is asked over HTTPS with its path" 'doh=["doh",1]|@dns.google google.com +https=/dns-query +timeout=2 +tries=1|'
+    _dc "doh3 is judged by the router resolver" 'doh3=["doh3",1]|@127.0.0.42 google.com +timeout=3 +tries=1|'
+    _dc "doq is judged by the router resolver" 'doq=["doq",1]|@127.0.0.42 google.com +timeout=3 +tries=1|'
+    _dc "a failing resolver is reported for doq" 'doq-fails=["doq",0]'
+    _dc "a failing resolver is reported for tcp" 'tcp-fails=["tcp",0]'
+
+    rm -rf "$work"
+}
+
 # ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
@@ -16284,6 +16354,7 @@ main() {
             test_cache_persist
             test_update_package_check
             test_environment_check
+            test_dns_servers_check
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -16355,12 +16426,13 @@ main() {
         dnssection)  test_dns_section ;;
         updatepkg)   test_update_package_check ;;
         environment) test_environment_check ;;
+        dnsservers)  test_dns_servers_check ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsservers"
             exit 1
             ;;
     esac

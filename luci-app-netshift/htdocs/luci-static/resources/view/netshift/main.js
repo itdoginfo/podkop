@@ -6962,6 +6962,34 @@ function listedDeviceIps(state) {
   return [...seen];
 }
 
+// src/helpers/dnsServers.ts
+var SCHEMES = ["udp", "tcp", "dot", "doh", "doh3", "doq"];
+var DEFAULT_DNS_TYPE = "udp";
+var DEFAULT_DNS_SERVER = "8.8.8.8";
+function dnsServersFromOptions(options) {
+  const type = options.dns_type || DEFAULT_DNS_TYPE;
+  const server = options.dns_server || DEFAULT_DNS_SERVER;
+  const pool = (options.dns_pool_server ?? []).map((entry) => entry.trim()).filter(Boolean);
+  return [`${type}://${server}`, ...pool];
+}
+function dnsServersToOptions(list) {
+  const entries = list.map((entry) => entry.trim()).filter(Boolean);
+  if (entries.length === 0) {
+    return null;
+  }
+  const [first, ...rest] = entries;
+  const separator = first.indexOf("://");
+  if (separator < 0) {
+    return null;
+  }
+  const scheme = first.slice(0, separator);
+  const server = first.slice(separator + 3);
+  if (!SCHEMES.includes(scheme) || !server) {
+    return null;
+  }
+  return { dns_type: scheme, dns_server: server, dns_pool_server: rest };
+}
+
 // src/main.ts
 if (typeof structuredClone !== "function")
   globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -6974,6 +7002,8 @@ return baseclass.extend({
   COMMAND_TIMEOUT,
   CustomNetShiftMethods,
   DEFAULT_DASHBOARD_VIEW,
+  DEFAULT_DNS_SERVER,
+  DEFAULT_DNS_TYPE,
   DEVICE_ROUTE_DEFAULT,
   DEVICE_ROUTE_EXCLUDED,
   DIAGNOSTICS_INITIAL_DELAY,
@@ -7001,6 +7031,8 @@ return baseclass.extend({
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
   coreService,
+  dnsServersFromOptions,
+  dnsServersToOptions,
   executeShellCommand,
   getClashUIUrl,
   getClashWsUrl,
