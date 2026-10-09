@@ -418,6 +418,11 @@ netshift check_route 203.0.113.9 192.168.1.50
 uci add_list netshift.<секция>.subscription_filter_include_protocols='vless'
 uci add_list netshift.<секция>.subscription_filter_exclude_transports='grpc'
 uci add_list netshift.<секция>.subscription_filter_include_security='reality'
+**EDNS Client Subnet по WAN.** К ручному вводу `dns_client_subnet` добавлено автоопределение: флаг `dns_client_subnet_auto='1'` (в интерфейсе - «Определять EDNS Client Subnet по WAN» на вкладке «Настройки - DNS») берёт подсеть из WAN-интерфейса. Публичный адрес интерфейса используется как есть; если адрес серый (RFC 1918, CGNAT 100.64.0.0/10), внешний адрес один раз узнаётся через этот интерфейс (`api.country.is`, запасной - `api.ipify.org`), запоминается в `/etc/netshift/ecs-external.json` вместе с локальным адресом и спрашивается заново только при его смене. В ECS уходит /24 найденного IPv4-адреса. При нескольких WAN (зона `wan`, интерфейс с маршрутом по умолчанию первым) можно закрепить интерфейс опцией `dns_client_subnet_interface`; пусто - первый работающий. Если адрес определить не удалось, используется введённое вручную значение (или ничего). Подсеть вычисляется при запуске и перезагрузке службы. `netshift get_wan_addresses` показывает интерфейсы и подсеть каждого (JSON), найденные подсети предлагаются в выпадающем списке поля ECS. Без флага поведение прежнее.
+
+```sh
+uci set netshift.settings.dns_client_subnet_auto='1'
+uci set netshift.settings.dns_client_subnet_interface='wan'   # необязательно
 uci commit netshift
 ```
 

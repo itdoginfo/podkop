@@ -18234,6 +18234,216 @@ SUB2
     rm -rf "$work"
 }
 
+
+test_ecs_auto() {
+    header "EDNS Client Subnet from the WAN (ecs.sh)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$lib/ecs.sh" ] || [ ! -r "$lib/helpers.sh" ] || [ ! -r "$lib/constants.sh" ] || [ ! -r "$bin" ]; then
+        fail "ecs.sh / helpers.sh / constants.sh / bin not found"
+        return
+    fi
+
+    local work="/tmp/netshift-ecsauto-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        . "$lib/ecs.sh"
+        NETSHIFT_STATE_DIR="$work"
+        ECS_CACHE_FILE="$work/ecs-external.json"
+        LOG=""
+        log() { LOG="${LOG}[$2] $1;"; }
+        eval "$(awk '/^geoip_is_private_ip\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        eval "$(awk '/^sing_box_configure_dns\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        eval "$(awk '/^netshift_ipv6_enabled\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        eval "$(awk '/^_get_dns_detour_tag\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+
+        # private firewall config: zones wan (wan, wan2) and lan
+        uci() { command uci -c "$work" "$@"; }
+        : > "$work/firewall"
+        uci add firewall zone > /dev/null; uci set firewall.@zone[-1].name=lan; uci add_list firewall.@zone[-1].network=lan
+        uci add firewall zone > /dev/null; uci set firewall.@zone[-1].name=wan; uci add_list firewall.@zone[-1].network=wan; uci add_list firewall.@zone[-1].network=wan2
+        uci commit firewall
+
+        # interface table: name|device|address ("" = down)
+        ECS_IFACES="wan|eth1|198.51.100.7
+wan2|eth2|10.5.0.2"
+        network_find_wan() { eval "$1=wan"; }
+        network_get_ipaddr() {
+            local row addr
+            row="$(printf '%s\n' "$ECS_IFACES" | grep "^$2|")"
+            addr="${row##*|}"
+            [ -n "$addr" ] || return 1
+            eval "$1=\"$addr\""
+        }
+        network_get_device() {
+            local row dev
+            row="$(printf '%s\n' "$ECS_IFACES" | grep "^$2|")"
+            dev="${row#*|}"
+            eval "$1=\"${dev%%|*}\""
+        }
+
+        # curl: records "<device> <url>", answers from ECS_API
+        : > "$work/curl.log"
+        ECS_API='{"ip":"203.0.113.9"}'
+        curl() {
+            local dev="" url=""
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                --interface) dev="$2"; shift ;;
+                -m) shift ;;
+                -s) ;;
+                *) url="$1" ;;
+                esac
+                shift
+            done
+            echo "$dev $url" >> "$work/curl.log"
+            [ -n "$ECS_API" ] && printf '%s' "$ECS_API"
+            return 0
+        }
+        calls() { wc -l < "$work/curl.log" | tr -d ' '; }
+
+        echo "wans=$(ecs_wan_interfaces | tr '\n' ' ')"
+        echo "subnet-of=$(ecs_subnet_of 203.0.113.57)"
+        echo "public-first=$(ecs_resolve_auto '')"
+        echo "public-calls=$(calls)"
+
+        # the first interface goes down: the second (private) is used through the lookup
+        ECS_IFACES="wan|eth1|
+wan2|eth2|10.5.0.2"
+        echo "private=$(ecs_resolve_auto '')"
+        echo "private-calls=$(calls)"
+        echo "private-device=$(tail -n1 "$work/curl.log" | cut -d' ' -f1)"
+        echo "cache=$(jq -c . "$ECS_CACHE_FILE")"
+        echo "cache-mode=$(ls -l "$ECS_CACHE_FILE" | cut -c1-10)"
+        ecs_resolve_auto '' > /dev/null
+        echo "cached-calls=$(calls)"
+
+        # the local address changes: asked again, the old entry is replaced
+        ECS_IFACES="wan|eth1|
+wan2|eth2|10.5.0.77"
+        ECS_API='{"ip":"203.0.113.88"}'
+        echo "changed=$(ecs_resolve_auto '')"
+        echo "cache-after=$(jq -c . "$ECS_CACHE_FILE")"
+
+        # carrier-grade NAT counts as private
+        ECS_IFACES="wan|eth1|100.64.3.2
+wan2|eth2|"
+        ECS_API='{"ip":"192.0.2.44"}'
+        echo "cgnat=$(ecs_resolve_auto 'wan')"
+
+        # an explicit interface is the only one asked
+        ECS_IFACES="wan|eth1|198.51.100.7
+wan2|eth2|10.5.0.2"
+        : > "$work/curl.log"
+        echo "chosen=$(ecs_resolve_auto 'wan2')"
+        echo "chosen-first-calls=$(calls)"
+        echo "unknown-interface=[$(ecs_resolve_auto 'nope')]"
+
+        # no answer from the internet: nothing, and nothing remembered
+        rm -f "$ECS_CACHE_FILE"
+        ECS_IFACES="wan|eth1|
+wan2|eth2|10.5.0.2"
+        ECS_API=''
+        echo "offline=[$(ecs_resolve_auto '')]"
+        [ -e "$ECS_CACHE_FILE" ] && echo "offline-cache=present" || echo "offline-cache=none"
+        ECS_API='{"ip":"10.1.2.3"}'
+        echo "private-answer=[$(ecs_resolve_auto '')]"
+        ECS_API='not json'
+        echo "garbage-answer=[$(ecs_resolve_auto '')]"
+
+        ECS_IFACES="wan|eth1|198.51.100.7
+wan2|eth2|10.5.0.2"
+        ECS_API='{"ip":"203.0.113.9"}'
+        rm -f "$ECS_CACHE_FILE"
+        echo "json=$(get_wan_addresses | jq -c '[.interfaces[] | [.interface, .address, .public, .external, .subnet]]')"
+
+        # the DNS section with the option
+        UCI_settings_dns_type="udp" UCI_settings_dns_server="1.1.1.1" UCI_settings_bootstrap_dns_server="77.88.8.8"
+        config_get() {
+            local _var="$1" _sec="$2" _opt="$3" _def="${4-}" _val
+            eval "_val=\"\${UCI_${_sec}_${_opt}:-}\""
+            [ -n "$_val" ] || _val="$_def"
+            eval "$_var=\"\$_val\""
+        }
+        config_get_bool() { config_get "$@"; }
+        build() {
+            config='{"log":{},"dns":{},"ntp":{},"certificate":{},"endpoints":[],"inbounds":[],"outbounds":[],"route":{},"services":[],"experimental":{}}'
+            LOG=""
+            sing_box_configure_dns
+            printf '%s' "$config" | jq -r '.dns.client_subnet // "none"'
+        }
+        UCI_settings_dns_client_subnet="" UCI_settings_dns_client_subnet_auto="" UCI_settings_dns_client_subnet_interface=""
+        echo "dns-off=$(build)"
+        UCI_settings_dns_client_subnet="192.0.2.0/24"
+        echo "dns-manual=$(build)"
+        UCI_settings_dns_client_subnet_auto="1"
+        echo "dns-auto=$(build)"
+        UCI_settings_dns_client_subnet_interface="wan2"
+        echo "dns-auto-interface=$(build)"
+        ECS_IFACES="wan|eth1|
+wan2|eth2|"
+        echo "dns-auto-none-falls-back=$(build)"
+        UCI_settings_dns_client_subnet=""
+        echo "dns-auto-none-nothing=$(build)"
+    )"
+
+    _ea() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _ea "the WAN interfaces come from the wan zone, default route first" "wans=wan wan2 "
+    _ea "the subnet is the /24 of the address" "subnet-of=203.0.113.0/24"
+    _ea "a public address is used as it is" "public-first=198.51.100.0/24"
+    _ea "...without asking the internet" "public-calls=0"
+    _ea "an interface that is down is skipped, a private address is looked up" "private=203.0.113.0/24"
+    _ea "...once" "private-calls=1"
+    _ea "...through that interface" "private-device=eth2"
+    _ea "the answer is remembered" 'cache={"wan2|10.5.0.2":"203.0.113.9"}'
+    _ea "the remembered address of the router is private to root" "cache-mode=-rw-------"
+    _ea "a remembered answer is not asked again" "cached-calls=1"
+    _ea "a changed local address is asked again" "changed=203.0.113.0/24"
+    _ea "...and replaces the old entry" 'cache-after={"wan2|10.5.0.77":"203.0.113.88"}'
+    _ea "carrier-grade NAT counts as private" "cgnat=192.0.2.0/24"
+    _ea "an explicit interface is used" "chosen=192.0.2.0/24"
+    _ea "...and the first one is not asked" "chosen-first-calls=1"
+    _ea "an unknown interface gives nothing" "unknown-interface=[]"
+    _ea "no answer from the internet gives nothing" "offline=[]"
+    _ea "...and nothing is remembered" "offline-cache=none"
+    _ea "a private address in the answer is refused" "private-answer=[]"
+    _ea "garbage in the answer is refused" "garbage-answer=[]"
+    _ea "the JSON lists every interface with its subnet" 'json=[["wan","198.51.100.7",true,"198.51.100.7","198.51.100.0/24"],["wan2","10.5.0.2",false,"203.0.113.9","203.0.113.0/24"]]'
+    _ea "no ECS by default" "dns-off=none"
+    _ea "the typed value is used when auto is off" "dns-manual=192.0.2.0/24"
+    _ea "auto takes the first usable WAN" "dns-auto=198.51.100.0/24"
+    _ea "auto takes the chosen interface" "dns-auto-interface=203.0.113.0/24"
+    _ea "auto with no address falls back to the typed value" "dns-auto-none-falls-back=192.0.2.0/24"
+    _ea "auto with no address and no typed value sends nothing" "dns-auto-none-nothing=none"
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -18303,6 +18513,7 @@ main() {
             test_domain_rule_prefixes
             test_route_check
             test_subscription_param_filters
+            test_ecs_auto
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -18380,6 +18591,7 @@ main() {
         domrules)    test_domain_rule_prefixes ;;
         routecheck)  test_route_check ;;
         paramfilters) test_subscription_param_filters ;;
+        ecsauto)     test_ecs_auto ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
@@ -18391,6 +18603,7 @@ echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isola
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment routecheck"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment paramfilters"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsforward"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment ecsauto"
             exit 1
             ;;
     esac
