@@ -23,6 +23,7 @@ check_required_file "$NETSHIFT_LIB/rulesets.sh"
 check_required_file "$NETSHIFT_LIB/updater.sh"
 check_required_file "$NETSHIFT_LIB/kill_switch.sh"
 check_required_file "$NETSHIFT_LIB/routecheck.sh"
+check_required_file "$NETSHIFT_LIB/dnsforward.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -36,6 +37,7 @@ check_required_file "$NETSHIFT_LIB/routecheck.sh"
 . "$NETSHIFT_LIB/routecheck.sh"
 . "$NETSHIFT_LIB/updater.sh"
 . "$NETSHIFT_LIB/kill_switch.sh"
+. "$NETSHIFT_LIB/dnsforward.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -1305,6 +1307,8 @@ start() {
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
         dnsmasq_configure force
+    elif [ -n "$(dns_forward_entries)" ]; then
+        log "DNS forwards by zone are not applied: Dont Touch My DHCP is on" "warn"
     fi
 
     uci_set "netshift" "settings" "shutdown_correctly" 0
@@ -2310,6 +2314,7 @@ dnsmasq_configure() {
 
     log "Configure dnsmasq for sing-box"
     uci_add_list "dhcp" "@dnsmasq[0]" "server" "$SB_DNS_INBOUND_ADDRESS"
+    dns_forward_apply
     uci_set "dhcp" "@dnsmasq[0]" "noresolv" 1
     uci_set "dhcp" "@dnsmasq[0]" "cachesize" 0
     # Authoritative ownership sentinel (see dnsmasq_is_configured_for_netshift):

@@ -119,7 +119,8 @@ test_syntax() {
         "$lib/routecheck.sh" \
         "$lib/sing_box_config_manager.sh" \
         "$lib/sing_box_config_facade.sh" \
-        "$lib/updater.sh"; do
+        "$lib/updater.sh" \
+        "$lib/dnsforward.sh"; do
 
         if [ ! -r "$f" ]; then
             fail "File not found: $f"
@@ -17560,6 +17561,211 @@ test_bypass() {
     _bp_check "an enabled bypass section requests the bypass" "requested-enabled-section:yes"
 }
 
+
+# ─────────────────────────────────────────────────────────────────
+# Test: DNS forwarding by zone (settings.dns_forward -> dnsmasq server list)
+# ─────────────────────────────────────────────────────────────────
+test_dns_forward() {
+    header "DNS forwarding by zone"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$lib/dnsforward.sh" ] || [ ! -r "$bin" ]; then
+        fail "dnsforward.sh / netshift bin not found"
+        return
+    fi
+
+    local drv="/tmp/netshift-dnsforward-$$.sh"
+    cat > "$drv" << 'DFEOF'
+LIB="NETSHIFT_LIB"
+. "$LIB/constants.sh"
+. "$LIB/helpers.sh"
+DF_LOG="/tmp/netshift-dnsforward-log-$$"; : > "$DF_LOG"
+log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$DF_LOG"; }
+# stubs: the list of the settings section and the user_domains of one section
+DF_FORWARD=""
+DF_DOMAINS=""
+netshift_config_list_foreach() {
+    local _handler="$3" _item _list
+    case "$2" in
+    dns_forward) _list="$DF_FORWARD" ;;
+    user_domains) _list="$DF_DOMAINS" ;;
+    esac
+    printf '%s\n' "$_list" | while IFS= read -r _item; do
+        [ -n "$_item" ] && "$_handler" "$_item"
+    done
+}
+config_foreach() { "$1" "sec1"; }
+DF_ADDED=""
+uci_add_list() { DF_ADDED="$DF_ADDED$3=$4;"; }
+. "$LIB/dnsforward.sh"
+
+norm() { dns_forward_normalize "$1" || printf 'REJECT'; }
+echo "n1:$(norm 'ru 77.88.8.8')"
+echo "n2:$(norm '.RU 77.88.8.8')"
+echo "n3:$(norm '/ru/77.88.8.8')"
+echo "n4:$(norm '/.ru/77.88.8.8')"
+echo "n5:$(norm 'example.com 1.1.1.1#5353')"
+echo "n6:$(norm 'lan 2001:db8::1')"
+echo "n7:$(norm 'ru')"
+echo "n8:$(norm 'ru dns.yandex.ru')"
+echo "n9:$(norm 'ru 77.88.8.8#0')"
+echo "n10:$(norm 'ru 77.88.8.8#70000')"
+echo "n11:$(norm 'ru 999.1.1.1')"
+echo "n12:$(norm 'bad_zone! 1.1.1.1')"
+echo "n13:$(norm "ru $SB_DNS_INBOUND_ADDRESS")"
+echo "n14:$(norm '  ru    77.88.8.8  ')"
+
+DF_FORWARD="ru 77.88.8.8
+bad
+.ru 77.88.8.8
+corp.example 10.0.0.53#5353"
+echo "list:$(dns_forward_entries | tr '\n' ' ')"
+echo "warned-bad:$(grep -c "DNS forward 'bad' is invalid" "$DF_LOG")"
+
+dns_forward_apply
+echo "apply:$DF_ADDED"
+
+: > "$DF_LOG"
+DF_DOMAINS="yandex.ru
+example.org
+corp.example
+rural.com"
+dns_forward_warn_overlaps
+echo "overlap-yandex:$(grep -c "'yandex.ru'" "$DF_LOG")"
+echo "overlap-corp:$(grep -c "'corp.example'" "$DF_LOG")"
+echo "overlap-other:$(grep -c "example.org\|rural.com" "$DF_LOG")"
+
+DF_FORWARD=""
+DF_ADDED=""
+dns_forward_apply
+echo "empty-apply:[$DF_ADDED]"
+rm -f "$DF_LOG"
+DFEOF
+    sed -i "s|NETSHIFT_LIB|$lib|" "$drv"
+    local out
+    out="$(ash "$drv" 2>&1)"
+    rm -f "$drv"
+
+    _df_check() {
+        local name="$1" key="$2" want="$3" got
+        got="$(printf '%s\n' "$out" | sed -n "s/^$key://p" | sed -n '1p')"
+        if [ "$got" = "$want" ]; then
+            pass "$name"
+        else
+            fail "$name (got '$got', want '$want')"
+        fi
+    }
+
+    _df_check "plain form: zone and server" n1 "/ru/77.88.8.8"
+    _df_check "zone is lowercased, the leading dot dropped" n2 "/ru/77.88.8.8"
+    _df_check "dnsmasq form is accepted" n3 "/ru/77.88.8.8"
+    _df_check "dnsmasq form with a leading dot" n4 "/ru/77.88.8.8"
+    _df_check "server with a port" n5 "/example.com/1.1.1.1#5353"
+    _df_check "IPv6 server and a single-label zone" n6 "/lan/2001:db8::1"
+    _df_check "a zone without a server is refused" n7 "REJECT"
+    _df_check "a host name instead of an address is refused" n8 "REJECT"
+    _df_check "port 0 is refused" n9 "REJECT"
+    _df_check "port above 65535 is refused" n10 "REJECT"
+    _df_check "an invalid IPv4 is refused" n11 "REJECT"
+    _df_check "an invalid zone is refused" n12 "REJECT"
+    _df_check "the sing-box DNS inbound cannot be a forward" n13 "REJECT"
+    _df_check "surrounding spaces are ignored" n14 "/ru/77.88.8.8"
+    _df_check "entries are normalized, invalid skipped, duplicates dropped" list "/ru/77.88.8.8 /corp.example/10.0.0.53#5353 "
+    _df_check "an invalid entry is reported" warned-bad 1
+    _df_check "forwards are added to the dnsmasq server list" apply "server=/ru/77.88.8.8;server=/corp.example/10.0.0.53#5353;"
+    _df_check "a section domain inside a zone is reported" overlap-yandex 1
+    _df_check "a section domain equal to a zone is reported" overlap-corp 1
+    _df_check "unrelated domains (even with the same ending) are not reported" overlap-other 0
+    _df_check "no forwards: dnsmasq is not touched" empty-apply "[]"
+
+    # Wiring in the service script
+    if grep -q 'dnsforward.sh' "$bin" && grep -q '^    dns_forward_apply$' "$bin"; then
+        pass "the library is loaded and applied when dnsmasq is configured"
+    else
+        fail "dns_forward_apply is not wired into dnsmasq_configure"
+    fi
+    if awk '/^dnsmasq_configure\(\)/{f=1} f&&/dns_forward_apply/{a=NR} f&&/netshift_configured" 1/{b=NR} f&&/^}/{exit} END{exit !(a&&b&&a<b)}' "$bin"; then
+        pass "forwards are added before the ownership sentinel and the commit"
+    else
+        fail "dns_forward_apply is misplaced in dnsmasq_configure"
+    fi
+    if awk '/^dnsmasq_restore\(\)/{f=1} f&&/delete.*server|uci_remove_quiet "dhcp" "@dnsmasq\[0\]" "server"/{ok=1} f&&/^}/{exit} END{exit !ok}' "$bin"; then
+        pass "restore drops the whole server list, so the forwards go with it"
+    else
+        fail "dnsmasq_restore no longer clears the server list"
+    fi
+
+    # End to end on a real uci: the real dnsmasq_configure / dnsmasq_restore
+    local e2e="/tmp/netshift-dnsforward-e2e-$$.sh" e2e_out
+    {
+        cat << 'E2EOF'
+. /lib/functions.sh
+. /lib/config/uci.sh
+LIB="NETSHIFT_LIB"
+. "$LIB/constants.sh"
+. "$LIB/helpers.sh"
+log() { :; }
+. "$LIB/dnsforward.sh"
+file_exists() { [ -f "$1" ]; }
+E2EOF
+        for fn in backup_dnsmasq_config_option uci_remove_quiet dnsmasq_is_configured_for_netshift dnsmasq_configure dnsmasq_restore; do
+            awk -v fn="$fn" '$0 ~ "^"fn"\\(\\) \\{"{f=1} f{print} f&&/^}/{exit}' "$bin"
+        done | sed 's|/etc/init.d/dnsmasq restart|:|'
+        cat << 'E2EOF'
+cp /etc/config/dhcp /tmp/dhcp.e2e.bak
+: > /etc/config/netshift
+uci -q set netshift.settings=settings
+uci -q set netshift.settings.shutdown_correctly=0
+uci -q add_list netshift.settings.dns_forward='ru 77.88.8.8'
+uci -q add_list netshift.settings.dns_forward='corp.example 10.0.0.53#5353'
+uci -q add_list netshift.settings.dns_forward='broken entry'
+uci -q commit netshift
+config_load netshift
+
+uci -q delete dhcp.@dnsmasq[0].server
+uci -q add_list dhcp.@dnsmasq[0].server='/office.lan/10.1.1.1'
+uci -q add_list dhcp.@dnsmasq[0].server='9.9.9.9'
+uci -q commit dhcp
+
+dnsmasq_configure force
+echo "running:$(uci -q get dhcp.@dnsmasq[0].server | tr ' ' ',')"
+echo "noresolv:$(uci -q get dhcp.@dnsmasq[0].noresolv)"
+echo "sentinel:$(uci -q get dhcp.@dnsmasq[0].netshift_configured)"
+echo "backup:$(uci -q get dhcp.@dnsmasq[0].netshift_server | tr ' ' ',')"
+
+dnsmasq_restore
+echo "restored:$(uci -q get dhcp.@dnsmasq[0].server | tr ' ' ',')"
+echo "noresolv-after:$(uci -q get dhcp.@dnsmasq[0].noresolv)"
+echo "sentinel-after:[$(uci -q get dhcp.@dnsmasq[0].netshift_configured)]"
+echo "backup-after:[$(uci -q get dhcp.@dnsmasq[0].netshift_server)]"
+
+# no forwards: the list is only the sing-box inbound
+uci -q delete netshift.settings.dns_forward
+uci -q commit netshift
+config_load netshift
+dnsmasq_configure force
+echo "running-empty:$(uci -q get dhcp.@dnsmasq[0].server | tr ' ' ',')"
+dnsmasq_restore
+cp /tmp/dhcp.e2e.bak /etc/config/dhcp
+rm -f /tmp/dhcp.e2e.bak /etc/config/netshift
+E2EOF
+    } > "$e2e"
+    sed -i "s|NETSHIFT_LIB|$lib|" "$e2e"
+    e2e_out="$(ash "$e2e" 2>&1)"
+    rm -f "$e2e"
+    out="$e2e_out"
+
+    _df_check "e2e: sing-box inbound first, then the forwards, the user's own entries aside" running "127.0.0.42,/ru/77.88.8.8,/corp.example/10.0.0.53#5353"
+    _df_check "e2e: noresolv is on while NetShift runs" noresolv 1
+    _df_check "e2e: the ownership sentinel is set" sentinel 1
+    _df_check "e2e: the admin's own server list is backed up" backup "/office.lan/10.1.1.1,9.9.9.9"
+    _df_check "e2e: restore returns exactly the admin's server list" restored "/office.lan/10.1.1.1,9.9.9.9"
+    _df_check "e2e: noresolv is restored" noresolv-after 0
+    _df_check "e2e: the sentinel is cleared" sentinel-after "[]"
+    _df_check "e2e: the backup is cleared" backup-after "[]"
+    _df_check "e2e: without forwards only the sing-box inbound is left" running-empty "127.0.0.42"
+}
 # ─────────────────────────────────────────────────────────────────
 
 
@@ -18107,6 +18313,7 @@ main() {
             test_bypass
             test_urltest_filters
             test_subscription_geoip
+            test_dns_forward
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -18176,12 +18383,14 @@ main() {
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
+        dnsforward)  test_dns_forward ;;
         *)
             echo "Unknown test: $target"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark blockleaks isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment mixedauth"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment domrules"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment routecheck"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment paramfilters"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsforward"
             exit 1
             ;;
     esac
