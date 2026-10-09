@@ -64,8 +64,10 @@ sing_box_cf_add_mixed_inbound_and_route_rule() {
     local listen_address="$3"
     local listen_port="$4"
     local outbound="$5"
+    local username="${6:-}"
+    local password="${7:-}"
 
-    config=$(sing_box_cm_add_mixed_inbound "$config" "$tag" "$listen_address" "$listen_port")
+    config=$(sing_box_cm_add_mixed_inbound "$config" "$tag" "$listen_address" "$listen_port" "$username" "$password")
     config=$(sing_box_cm_add_route_rule "$config" "" "$tag" "$outbound")
 
     echo "$config"

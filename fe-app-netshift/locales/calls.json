@@ -134,6 +134,13 @@
     ]
   },
   {
+    "call": "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all.",
+    "key": "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1271"
+    ]
+  },
+  {
     "call": "At least one proxy link must be specified.",
     "key": "At least one proxy link must be specified.",
     "places": [
@@ -892,7 +899,7 @@
     "call": "Enable DNS resolve to get real IP when routing",
     "key": "Enable DNS resolve to get real IP when routing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1271"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1314"
     ]
   },
   {
@@ -942,6 +949,20 @@
     "key": "Enable YACD WAN Access",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:539"
+    ]
+  },
+  {
+    "call": "Enter a password",
+    "key": "Enter a password",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1306"
+    ]
+  },
+  {
+    "call": "Enter a user name",
+    "key": "Enter a user name",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1289"
     ]
   },
   {
@@ -1715,6 +1736,13 @@
     ]
   },
   {
+    "call": "Kept in the configuration file as it is typed.",
+    "key": "Kept in the configuration file as it is typed.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1300"
+    ]
+  },
+  {
     "call": "Latency test URL",
     "key": "Latency test URL",
     "places": [
@@ -1849,10 +1877,24 @@
     ]
   },
   {
+    "call": "Mixed Proxy password",
+    "key": "Mixed Proxy password",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1299"
+    ]
+  },
+  {
     "call": "Mixed Proxy Port",
     "key": "Mixed Proxy Port",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1254"
+    ]
+  },
+  {
+    "call": "Mixed Proxy user name",
+    "key": "Mixed Proxy user name",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1283"
     ]
   },
   {
@@ -1923,6 +1965,13 @@
     "key": "No other marking rules found",
     "places": [
       "src/netshift/tabs/diagnostic/checks/runNftCheck.ts:98"
+    ]
+  },
+  {
+    "call": "No spaces or colons in the user name",
+    "key": "No spaces or colons in the user name",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1292"
     ]
   },
   {
@@ -2187,6 +2236,13 @@
     ]
   },
   {
+    "call": "Require a login for the Mixed Proxy",
+    "key": "Require a login for the Mixed Proxy",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1270"
+    ]
+  },
+  {
     "call": "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores",
     "key": "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores",
     "places": [
@@ -2197,7 +2253,7 @@
     "call": "Resolve real IP for routing",
     "key": "Resolve real IP for routing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1270"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1313"
     ]
   },
   {

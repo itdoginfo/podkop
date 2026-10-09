@@ -74,6 +74,9 @@ msgstr "Обеспечивает доступ к YACD из WAN. Убедитес
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
 
+msgid "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all."
+msgstr "Запрашивать имя пользователя и пароль. Без логина этим прокси может пользоваться любой в вашей сети. Если логин задан не полностью, прокси не создаётся вовсе."
+
 msgid "At least one proxy link must be specified."
 msgstr "Необходимо указать хотя бы одну прокси-ссылку."
 
@@ -410,6 +413,12 @@ msgstr "Включить YACD"
 msgid "Enable YACD WAN Access"
 msgstr "Включить доступ YACD WAN"
 
+msgid "Enter a password"
+msgstr "Введите пароль"
+
+msgid "Enter a user name"
+msgstr "Введите имя пользователя"
+
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
 
@@ -728,6 +737,9 @@ msgstr "Оставить только серверы, в названии кот
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
 msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все."
 
+msgid "Kept in the configuration file as it is typed."
+msgstr "Хранится в файле конфигурации в том виде, как введён."
+
 msgid "Latency test URL"
 msgstr "URL для проверки задержки"
 
@@ -785,8 +797,14 @@ msgstr "мин"
 msgid "Mixed proxy and DNS resolution tuning"
 msgstr "Настройка смешанного прокси и разрешения DNS"
 
+msgid "Mixed Proxy password"
+msgstr "Пароль Mixed Proxy"
+
 msgid "Mixed Proxy Port"
 msgstr "Порт смешанного прокси"
+
+msgid "Mixed Proxy user name"
+msgstr "Имя пользователя Mixed Proxy"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
@@ -817,6 +835,9 @@ msgstr "Сетевой интерфейс"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
+
+msgid "No spaces or colons in the user name"
+msgstr "В имени пользователя не должно быть пробелов и двоеточий"
 
 msgid "Not available"
 msgstr "Недоступно"
@@ -922,6 +943,9 @@ msgstr "Внешние списки доменов"
 
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
+
+msgid "Require a login for the Mixed Proxy"
+msgstr "Требовать логин для Mixed Proxy"
 
 msgid "Required by REALITY servers on Xray-core 26.9.8 or newer, which reject clients without it. Older servers may fail the handshake, so keep it off for them. Needs sing-box-extended 2.7.2 or newer and the chrome fingerprint; ignored on other cores"
 msgstr "Требуется серверами REALITY на Xray-core 26.9.8 и новее, которые отклоняют клиентов без него. На более старых серверах рукопожатие может не пройти, поэтому для них опцию лучше не включать. Требуется sing-box-extended 2.7.2 или новее и отпечаток chrome; на других ядрах игнорируется."
