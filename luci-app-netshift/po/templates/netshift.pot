@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 09:37+0300\n"
-"PO-Revision-Date: 2026-10-09 09:37+0300\n"
+"POT-Creation-Date: 2026-10-09 10:06+0300\n"
+"PO-Revision-Date: 2026-10-09 10:06+0300\n"
 "Last-Translator: agent <agent@local>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -40,11 +40,11 @@ msgstr ""
 msgid "77.88.8.8 (Yandex)"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:745
+#: src/netshift/tabs/dashboard/initController.ts:744
 msgid "A dead server was left"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:677
+#: src/netshift/tabs/dashboard/initController.ts:676
 msgid "A newer version is available"
 msgstr ""
 
@@ -1404,7 +1404,7 @@ msgid "Must be a number in the range of 50 - 1000"
 msgstr ""
 
 #: src/netshift/tabs/dashboard/initController.ts:529
-#: src/netshift/tabs/dashboard/initController.ts:671
+#: src/netshift/tabs/dashboard/initController.ts:670
 msgid "NetShift"
 msgstr ""
 
@@ -1903,7 +1903,7 @@ msgid "Show sing-box config"
 msgstr ""
 
 #: src/netshift/tabs/dashboard/initController.ts:540
-#: src/netshift/tabs/dashboard/initController.ts:672
+#: src/netshift/tabs/dashboard/initController.ts:671
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:238
 msgid "Sing-box"
 msgstr ""
@@ -1993,7 +1993,7 @@ msgstr ""
 msgid "Stop NetShift"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:750
+#: src/netshift/tabs/dashboard/initController.ts:749
 msgid "stopped answering, the automatic choice is on again"
 msgstr ""
 
@@ -2303,7 +2303,7 @@ msgstr ""
 msgid "Update is available"
 msgstr ""
 
-#: src/netshift/tabs/dashboard/initController.ts:688
+#: src/netshift/tabs/dashboard/initController.ts:687
 msgid "Update it in the Component Manager tab."
 msgstr ""
 

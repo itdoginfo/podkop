@@ -45,14 +45,14 @@
     "call": "A dead server was left",
     "key": "A dead server was left",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:745"
+      "src/netshift/tabs/dashboard/initController.ts:744"
     ]
   },
   {
     "call": "A newer version is available",
     "key": "A newer version is available",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:677"
+      "src/netshift/tabs/dashboard/initController.ts:676"
     ]
   },
   {
@@ -2384,7 +2384,7 @@
     "key": "NetShift",
     "places": [
       "src/netshift/tabs/dashboard/initController.ts:529",
-      "src/netshift/tabs/dashboard/initController.ts:671"
+      "src/netshift/tabs/dashboard/initController.ts:670"
     ]
   },
   {
@@ -3243,7 +3243,7 @@
     "key": "Sing-box",
     "places": [
       "src/netshift/tabs/dashboard/initController.ts:540",
-      "src/netshift/tabs/dashboard/initController.ts:672",
+      "src/netshift/tabs/dashboard/initController.ts:671",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:238"
     ]
   },
@@ -3399,7 +3399,7 @@
     "call": "stopped answering, the automatic choice is on again",
     "key": "stopped answering, the automatic choice is on again",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:750"
+      "src/netshift/tabs/dashboard/initController.ts:749"
     ]
   },
   {
@@ -3925,7 +3925,7 @@
     "call": "Update it in the Component Manager tab.",
     "key": "Update it in the Component Manager tab.",
     "places": [
-      "src/netshift/tabs/dashboard/initController.ts:688"
+      "src/netshift/tabs/dashboard/initController.ts:687"
     ]
   },
   {
