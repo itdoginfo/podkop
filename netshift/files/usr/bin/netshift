@@ -29,6 +29,7 @@ check_required_file "$NETSHIFT_LIB/lan.sh"
 check_required_file "$NETSHIFT_LIB/update_notice.sh"
 check_required_file "$NETSHIFT_LIB/snapshots.sh"
 check_required_file "$NETSHIFT_LIB/pinguard.sh"
+check_required_file "$NETSHIFT_LIB/dnsbench.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -48,6 +49,7 @@ check_required_file "$NETSHIFT_LIB/pinguard.sh"
 . "$NETSHIFT_LIB/update_notice.sh"
 . "$NETSHIFT_LIB/snapshots.sh"
 . "$NETSHIFT_LIB/pinguard.sh"
+. "$NETSHIFT_LIB/dnsbench.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -8317,6 +8319,8 @@ Available commands:
     config_snapshot <save|list|restore> [id]
                             Snapshots of /etc/config/netshift: keep, list or bring back
     get_pin_guard_events    Print the switches the pin guard made as JSON
+    dns_benchmark [server...]
+                            Time each DNS server (the configured ones by default) from this router
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration
     show_version            Show NetShift version
@@ -8429,6 +8433,10 @@ config_snapshot)
     ;;
 get_pin_guard_events)
     get_pin_guard_events
+    ;;
+dns_benchmark)
+    shift
+    dns_benchmark "$@"
     ;;
 clash_api)
     clash_api "$2" "$3" "$4"
