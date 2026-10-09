@@ -901,6 +901,7 @@ var NetShift;
     AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
     AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
     AvailableMethods2["CHECK_ENVIRONMENT"] = "check_environment";
+    AvailableMethods2["CHECK_ROUTE"] = "check_route";
     AvailableMethods2["CHECK_NFT_RULES"] = "check_nft_rules";
     AvailableMethods2["GET_STATUS"] = "get_status";
     AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
@@ -1012,6 +1013,13 @@ var NetShiftShellMethods = {
   ),
   checkEnvironment: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_ENVIRONMENT
+  ),
+  checkRoute: async (target, source = "") => callBaseMethod(
+    NetShift.AvailableMethods.CHECK_ROUTE,
+    source ? [target, source] : [target],
+    void 0,
+    // Replaying the rules runs the core a few times: do not hold other calls.
+    { nobatch: true }
   ),
   checkNftRules: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_NFT_RULES
@@ -4288,6 +4296,7 @@ function render2() {
     E("div", { class: "pdk_diagnostic-page__right-bar" }, [
       E("div", { id: "pdk_diagnostic-page-wiki" }),
       E("div", { id: "pdk_diagnostic-page-actions" }),
+      E("div", { id: "pdk_diagnostic-page-route-check" }),
       E("div", { id: "pdk_diagnostic-page-system-info" })
     ])
   ]);
@@ -5006,6 +5015,116 @@ function renderSystemInfo({ items }) {
   );
 }
 
+// src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts
+function describeRouteCheck(result) {
+  if (result.error) {
+    return [result.error];
+  }
+  const lines = [];
+  if (result.verdict === "section") {
+    lines.push(
+      `${result.by_default ? _("Matches no list, goes through the global proxy section") : _("Goes through the section")}: ${result.section ?? result.outbound ?? "?"}`
+    );
+  } else if (result.verdict === "blocked") {
+    lines.push(_("Blocked by a rule"));
+  } else {
+    lines.push(_("Goes directly, not through any section"));
+  }
+  if (result.rule_set) {
+    lines.push(`${_("Matched list")}: ${result.rule_set}`);
+  }
+  if (result.dns) {
+    if (result.dns.verdict === "blocked") {
+      lines.push(_("The DNS query is blocked"));
+    } else if (result.dns.server === "fakeip-server") {
+      lines.push(
+        _(
+          "DNS: answered with a FakeIP address, the traffic enters the tunnel path"
+        )
+      );
+    } else if (result.dns.server) {
+      lines.push(`${_("DNS server")}: ${result.dns.server}`);
+    }
+  }
+  if (result.incomplete) {
+    lines.push(
+      _(
+        "Some rules depend on the client address, traffic type or lists that are not available here and were skipped. Enter the address of the device for a precise answer."
+      )
+    );
+  }
+  return lines;
+}
+
+// src/netshift/tabs/diagnostic/partials/renderRouteCheck.ts
+function renderRouteCheck() {
+  const targetInput = E("input", {
+    type: "text",
+    class: "cbi-input-text pdk_diagnostic-page__route-check__input",
+    placeholder: "example.com / 203.0.113.5"
+  });
+  const sourceInput = E("input", {
+    type: "text",
+    class: "cbi-input-text pdk_diagnostic-page__route-check__input",
+    placeholder: "192.168.1.10"
+  });
+  const output = E("div", {
+    class: "pdk_diagnostic-page__route-check__result"
+  });
+  let loading = false;
+  async function run() {
+    const target = targetInput.value.trim();
+    if (!target || loading) {
+      return;
+    }
+    loading = true;
+    output.replaceChildren(E("span", {}, _("Checking...")));
+    try {
+      const response = await NetShiftShellMethods.checkRoute(
+        target,
+        sourceInput.value.trim()
+      );
+      const data = response.success ? response.data : { error: _("The check could not be completed") };
+      const result = typeof data === "object" && data !== null ? data : { error: _("The check could not be completed") };
+      output.replaceChildren(
+        ...describeRouteCheck(result).map((line) => E("div", {}, line))
+      );
+    } catch (e) {
+      logger.error("[DIAGNOSTIC]", "route check failed", e);
+      output.replaceChildren(
+        E("span", {}, _("The check could not be completed"))
+      );
+    } finally {
+      loading = false;
+    }
+  }
+  targetInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      void run();
+    }
+  });
+  const button = renderButton({ text: _("Check"), onClick: () => void run() });
+  return E("div", { class: "card pdk_diagnostic-page__route-check" }, [
+    E("b", {}, _("Where will a request go")),
+    E(
+      "div",
+      { class: "pdk_diagnostic-page__route-check__hint" },
+      _(
+        "Enter a domain or an IP address to see which section, DNS server or block handles it."
+      )
+    ),
+    targetInput,
+    E(
+      "div",
+      { class: "pdk_diagnostic-page__route-check__hint" },
+      _("From the device (optional)")
+    ),
+    sourceInput,
+    button,
+    output
+  ]);
+}
+
 // src/helpers/normalizeCompiledVersion.ts
 function normalizeCompiledVersion(version) {
   if (version.includes("COMPILED")) {
@@ -5651,6 +5770,7 @@ function onPageMount2() {
   renderDiagnosticAvailableActionsWidget();
   renderDiagnosticSystemInfoWidget();
   renderWikiDisclaimerWidget();
+  document.getElementById("pdk_diagnostic-page-route-check")?.replaceChildren(renderRouteCheck());
   fetchServicesInfo();
   fetchSystemInfo();
 }
@@ -5870,6 +5990,28 @@ var styles4 = `
 .pdk_diagnostic_alert__summary__item__icon {
     width: 16px;
     height: 16px;
+}
+
+.pdk_diagnostic-page__route-check {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-row-gap: 8px;
+}
+
+.pdk_diagnostic-page__route-check__input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pdk_diagnostic-page__route-check__hint {
+    opacity: 0.75;
+    font-size: 0.9em;
+}
+
+.pdk_diagnostic-page__route-check__result {
+    display: grid;
+    grid-row-gap: 4px;
+    overflow-wrap: anywhere;
 }
 `;
 

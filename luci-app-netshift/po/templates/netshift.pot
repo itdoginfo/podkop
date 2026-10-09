@@ -121,6 +121,10 @@ msgstr ""
 msgid "Block DoH Servers"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts:22
+msgid "Blocked by a rule"
+msgstr ""
+
 #: src/netshift/tabs/diagnostic/checks/runDnsCheck.ts:65
 msgid "Bootsrap DNS"
 msgstr ""
@@ -172,6 +176,10 @@ msgstr ""
 msgid "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly."
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderRouteCheck.ts:68
+msgid "Check"
+msgstr ""
+
 #: src/netshift/tabs/manager/cards.ts:196
 #: src/netshift/tabs/manager/cards.ts:233
 #: src/netshift/tabs/manager/cards.ts:279
@@ -186,6 +194,10 @@ msgstr ""
 #: src/netshift/tabs/diagnostic/checks/runSectionsCheck.ts:28
 #: src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts:13
 msgid "Checking, please wait"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderRouteCheck.ts:34
+msgid "Checking..."
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getCheckTitle.ts:2
@@ -214,7 +226,7 @@ msgstr ""
 msgid "Clear subscription cache"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:337
+#: src/netshift/tabs/diagnostic/initController.ts:338
 msgid "Clearing subscription cache and re-downloading… this may take a minute"
 msgstr ""
 
@@ -282,7 +294,7 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:170
+#: src/netshift/methods/shell/index.ts:178
 #: src/netshift/methods/shell/pollSingBoxComponentAction.ts:83
 msgid "Core switch failed"
 msgstr ""
@@ -431,6 +443,10 @@ msgstr ""
 msgid "DNS Rewrite TTL"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts:41
+msgid "DNS server"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:69
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:814
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:58
@@ -451,6 +467,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:148
 msgid "DNS server timeout"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts:36
+msgid "DNS: answered with a FakeIP address, the traffic enters the tunnel path"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:83
@@ -568,6 +588,10 @@ msgstr ""
 msgid "Enable YACD WAN Access"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderRouteCheck.ts:75
+msgid "Enter a domain or an IP address to see which section, DNS server or block handles it."
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:182
 msgid "Enter complete outbound configuration in JSON format"
 msgstr ""
@@ -656,9 +680,9 @@ msgstr ""
 msgid "Extended core with all features (~105 MB)"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:266
-#: src/netshift/tabs/diagnostic/initController.ts:352
-#: src/netshift/tabs/diagnostic/initController.ts:356
+#: src/netshift/methods/shell/index.ts:274
+#: src/netshift/tabs/diagnostic/initController.ts:353
+#: src/netshift/tabs/diagnostic/initController.ts:357
 msgid "Failed to clear subscription cache"
 msgstr ""
 
@@ -666,12 +690,12 @@ msgstr ""
 msgid "Failed to copy!"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:237
-#: src/netshift/tabs/diagnostic/initController.ts:241
-#: src/netshift/tabs/diagnostic/initController.ts:271
-#: src/netshift/tabs/diagnostic/initController.ts:275
-#: src/netshift/tabs/diagnostic/initController.ts:312
-#: src/netshift/tabs/diagnostic/initController.ts:316
+#: src/netshift/tabs/diagnostic/initController.ts:238
+#: src/netshift/tabs/diagnostic/initController.ts:242
+#: src/netshift/tabs/diagnostic/initController.ts:272
+#: src/netshift/tabs/diagnostic/initController.ts:276
+#: src/netshift/tabs/diagnostic/initController.ts:313
+#: src/netshift/tabs/diagnostic/initController.ts:317
 #: src/netshift/tabs/manager/initController.ts:135
 #: src/netshift/tabs/manager/initController.ts:145
 #: src/netshift/tabs/manager/initController.ts:163
@@ -703,6 +727,10 @@ msgstr ""
 msgid "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router."
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderRouteCheck.ts:83
+msgid "From the device (optional)"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1200
 msgid "Fully Routed IPs"
 msgstr ""
@@ -711,12 +739,20 @@ msgstr ""
 msgid "Get global check"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:232
+#: src/netshift/tabs/diagnostic/initController.ts:233
 msgid "Global check"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:682
 msgid "Global Proxy"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts:24
+msgid "Goes directly, not through any section"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts:18
+msgid "Goes through the section"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:312
@@ -1085,6 +1121,14 @@ msgstr ""
 msgid "Main server only"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts:28
+msgid "Matched list"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts:17
+msgid "Matches no list, goes through the global proxy section"
+msgstr ""
+
 #: src/netshift/tabs/dashboard/initController.ts:380
 msgid "Memory Usage"
 msgstr ""
@@ -1447,7 +1491,7 @@ msgstr ""
 msgid "Selector Proxy Links (one per line)"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:315
+#: src/netshift/methods/shell/index.ts:323
 msgid "Self-update failed"
 msgstr ""
 
@@ -1471,7 +1515,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:300
+#: src/netshift/tabs/diagnostic/initController.ts:301
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:118
 msgid "Show sing-box config"
 msgstr ""
@@ -1507,6 +1551,10 @@ msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runSingBoxCheck.ts:67
 msgid "Sing-box version is compatible (newer than 1.12.4)"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts:47
+msgid "Some rules depend on the client address, traffic type or lists that are not available here and were skipped. Enter the address of the device for a precise answer."
 msgstr ""
 
 #: src/netshift/tabs/dashboard/partials/renderSections.ts:191
@@ -1555,7 +1603,7 @@ msgstr ""
 msgid "Subscription"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:345
+#: src/netshift/tabs/diagnostic/initController.ts:346
 msgid "Subscription cache cleared and re-downloaded"
 msgstr ""
 
@@ -1622,6 +1670,16 @@ msgstr ""
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:937
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1027
 msgid "Text List"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderRouteCheck.ts:43
+#: src/netshift/tabs/diagnostic/partials/renderRouteCheck.ts:47
+#: src/netshift/tabs/diagnostic/partials/renderRouteCheck.ts:55
+msgid "The check could not be completed"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/describeRouteCheck.ts:33
+msgid "The DNS query is blocked"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:81
@@ -1731,12 +1789,12 @@ msgid "UDP over TCP"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7
-#: src/netshift/tabs/diagnostic/initController.ts:44
 #: src/netshift/tabs/diagnostic/initController.ts:45
 #: src/netshift/tabs/diagnostic/initController.ts:46
 #: src/netshift/tabs/diagnostic/initController.ts:47
 #: src/netshift/tabs/diagnostic/initController.ts:48
 #: src/netshift/tabs/diagnostic/initController.ts:49
+#: src/netshift/tabs/diagnostic/initController.ts:50
 #: src/netshift/tabs/manager/initController.ts:43
 #: src/netshift/tabs/manager/initController.ts:44
 #: src/netshift/tabs/manager/initController.ts:45
@@ -1904,7 +1962,7 @@ msgstr ""
 msgid "Version"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:266
+#: src/netshift/tabs/diagnostic/initController.ts:267
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:109
 msgid "View logs"
 msgstr ""
@@ -1934,6 +1992,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:685
 msgid "When enabled, traffic not matching any other section's lists will go through this proxy."
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderRouteCheck.ts:71
+msgid "Where will a request go"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:184

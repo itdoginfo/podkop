@@ -95,6 +95,9 @@ msgstr "Блокировать прямые подключения к извес
 msgid "Block DoH Servers"
 msgstr "Блокировать DoH-серверы"
 
+msgid "Blocked by a rule"
+msgstr "Заблокировано правилом"
+
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
 
@@ -131,11 +134,17 @@ msgstr "Не удалось получить результаты проверк
 msgid "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly."
 msgstr "Соединить цепочкой (двойной хоп): серверы этой секции достигаются через выход выбранной секции. Если цепочку построить нельзя, трафик этой секции отклоняется, а не отправляется напрямую."
 
+msgid "Check"
+msgstr "Проверить"
+
 msgid "Check update"
 msgstr "Проверить обновление"
 
 msgid "Checking, please wait"
 msgstr "Проверяем, пожалуйста подождите"
+
+msgid "Checking..."
+msgstr "Проверяю..."
 
 msgid "checks"
 msgstr "проверки"
@@ -311,6 +320,9 @@ msgstr "Тип протокола DNS"
 msgid "DNS Rewrite TTL"
 msgstr "Перезапись TTL для DNS"
 
+msgid "DNS server"
+msgstr "DNS-сервер"
+
 msgid "DNS Server"
 msgstr "DNS-сервер"
 
@@ -325,6 +337,9 @@ msgstr "DNS-сервер не должен содержать пробелы"
 
 msgid "DNS server timeout"
 msgstr "Таймаут DNS-сервера"
+
+msgid "DNS: answered with a FakeIP address, the traffic enters the tunnel path"
+msgstr "DNS: выдаётся адрес FakeIP, трафик идёт по пути туннеля"
 
 msgid "dns.adguard-dns.com/dns-query (AdGuard DoH)"
 msgstr "dns.adguard-dns.com/dns-query (AdGuard DoH)"
@@ -409,6 +424,9 @@ msgstr "Включить YACD"
 
 msgid "Enable YACD WAN Access"
 msgstr "Включить доступ YACD WAN"
+
+msgid "Enter a domain or an IP address to see which section, DNS server or block handles it."
+msgstr "Введите домен или IP-адрес, чтобы увидеть, какая секция, DNS-сервер или блокировка его обработает."
 
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
@@ -497,6 +515,9 @@ msgstr "Flow Offloading выключен"
 msgid "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router."
 msgstr "Для серверов, в имени которых нет флага, страна один раз определяется по адресу сервера и показывается флагом: впереди имени в подписке (чтобы для неё работали группировка и фильтры по странам), на дашборде — для ваших собственных ссылок. Адреса серверов отправляются на api.country.is по HTTPS; результаты кешируются на роутере."
 
+msgid "From the device (optional)"
+msgstr "С устройства (необязательно)"
+
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
 
@@ -508,6 +529,12 @@ msgstr "Глобальная проверка"
 
 msgid "Global Proxy"
 msgstr "Глобальный прокси"
+
+msgid "Goes directly, not through any section"
+msgstr "Идёт напрямую, мимо секций"
+
+msgid "Goes through the section"
+msgstr "Идёт через секцию"
 
 msgid "Group subscription proxies into URLTest groups. 'By country flag' uses the flag emoji at the start of each name; 'By name prefix' groups by the first N characters."
 msgstr "Группировать прокси из подписки в группы URLTest. «По флагу страны» использует эмодзи флага в начале каждого имени; «По префиксу имени» группирует по первым N символам."
@@ -775,6 +802,12 @@ msgstr "Основной DNS через outbound"
 
 msgid "Main server only"
 msgstr "Только основной сервер"
+
+msgid "Matched list"
+msgstr "Сработавший список"
+
+msgid "Matches no list, goes through the global proxy section"
+msgstr "Не входит ни в один список, идёт через секцию глобального прокси"
 
 msgid "Memory Usage"
 msgstr "Использование памяти"
@@ -1079,6 +1112,9 @@ msgstr "Сервис sing-box существует"
 msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr "Версия Sing-box совместима (новее 1.12.4)"
 
+msgid "Some rules depend on the client address, traffic type or lists that are not available here and were skipped. Enter the address of the device for a precise answer."
+msgstr "Часть правил зависит от адреса клиента, типа трафика или списков, недоступных здесь, и была пропущена. Для точного ответа укажите адрес устройства."
+
 msgid "Sort by ping"
 msgstr "Сортировать по пингу"
 
@@ -1162,6 +1198,12 @@ msgstr "Тестирование задержки"
 
 msgid "Text List"
 msgstr "Текстовый список"
+
+msgid "The check could not be completed"
+msgstr "Проверку выполнить не удалось"
+
+msgid "The DNS query is blocked"
+msgstr "DNS-запрос блокируется"
 
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
@@ -1363,6 +1405,9 @@ msgstr "Предупреждение: Russia inside может быть испо
 
 msgid "When enabled, traffic not matching any other section's lists will go through this proxy."
 msgstr "Когда включено, трафик, не совпадающий со списками других секций, будет идти через этот прокси."
+
+msgid "Where will a request go"
+msgstr "Куда пойдёт запрос"
 
 msgid "Which proxy/VPN section carries the DNS. Leave unset to use the first configured outbound."
 msgstr "Какая секция прокси/VPN обслуживает DNS. Оставьте пустым, чтобы использовать первый настроенный outbound."

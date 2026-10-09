@@ -170,4 +170,26 @@ export const styles = `
     width: 16px;
     height: 16px;
 }
+
+.pdk_diagnostic-page__route-check {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-row-gap: 8px;
+}
+
+.pdk_diagnostic-page__route-check__input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pdk_diagnostic-page__route-check__hint {
+    opacity: 0.75;
+    font-size: 0.9em;
+}
+
+.pdk_diagnostic-page__route-check__result {
+    display: grid;
+    grid-row-gap: 4px;
+    overflow-wrap: anywhere;
+}
 `;
