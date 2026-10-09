@@ -54,6 +54,7 @@ export namespace NetShift {
     CHECK_DNS_AVAILABLE = 'check_dns_available',
     CHECK_FAKEIP = 'check_fakeip',
     CHECK_ENVIRONMENT = 'check_environment',
+    DNS_BENCHMARK = 'dns_benchmark',
     CHECK_NFT_RULES = 'check_nft_rules',
     GET_STATUS = 'get_status',
     CHECK_SING_BOX = 'check_sing_box',

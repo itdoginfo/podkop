@@ -73,6 +73,74 @@ function createSettingsContent(section) {
     return validation.message;
   };
 
+  // Speed test of the configured DNS servers, from this router.
+  o = section.taboption(
+    "dns",
+    form.DummyValue,
+    "_dns_speed",
+    _("DNS speed test"),
+    _(
+      "Times every configured DNS server (UDP, TCP, DoT and DoH; DoH3 and DoQ cannot be timed). With \"Route main DNS through proxy/VPN\" the servers are reached through the tunnel, so a resolver inside it can be timed too. Nothing is changed: use it to decide the order of the servers.",
+    ),
+  );
+  o.rawhtml = true;
+  o.cfgvalue = function () {
+    const result = E("div", { class: "cbi-value-description" });
+    const button = E(
+      "button",
+      {
+        class: "btn cbi-button",
+        click: (ev) => {
+          ev.preventDefault();
+          button.disabled = true;
+          result.textContent = _("Testing...");
+
+          main.NetShiftShellMethods.dnsBenchmark()
+            .then((reply) => {
+              const rows = main.sortBySpeed(
+                reply.success ? main.parseDnsBenchmark(reply.data) : [],
+              );
+
+              const via = reply.success
+                ? main.parseDnsBenchmarkVia(reply.data)
+                : "direct";
+
+              result.replaceChildren(
+                ...(rows.length
+                  ? [
+                      E(
+                        "div",
+                        {},
+                        via === "tunnel"
+                          ? _("Measured through the tunnel, the way real queries go")
+                          : _("Measured from the router"),
+                      ),
+                    ]
+                  : []),
+                ...(rows.length
+                  ? rows.map((row) =>
+                      E("div", {}, [
+                        `${row.server}: `,
+                        row.ms === null ? _("no answer") : `${row.ms} ${_("ms")}`,
+                      ]),
+                    )
+                  : [_("The test could not be run")]),
+              );
+            })
+            .catch(() => {
+              result.textContent = _("The test could not be run");
+            })
+            .finally(() => {
+              button.disabled = false;
+            });
+        },
+      },
+      _("Test the servers"),
+    );
+
+    return E("div", {}, [button, result]);
+  };
+
   o = section.taboption(
     "dns",
     form.Value,

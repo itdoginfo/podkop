@@ -118,6 +118,7 @@ test_syntax() {
         "$lib/rulesets.sh" \
         "$lib/sing_box_config_manager.sh" \
         "$lib/sing_box_config_facade.sh" \
+        "$lib/dnsbench.sh" \
         "$lib/updater.sh"; do
 
         if [ ! -r "$f" ]; then
@@ -14713,6 +14714,200 @@ test_environment_check() {
     _ev "IPv6 on is reported" "ipv6-enabled=true"
 }
 
+test_dns_benchmark() {
+    header "DNS benchmark: time every upstream from the router (dnsbench.sh)"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not installed"
+        return
+    fi
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$lib/dnsbench.sh" ] || [ ! -r "$lib/helpers.sh" ] || [ ! -r "$lib/constants.sh" ]; then
+        fail "dnsbench.sh / helpers.sh / constants.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-bench-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        . "$lib/dnsbench.sh"
+        log() { :; }
+        config_get() { eval "$1=\"\${UCI_$3:-$4}\""; }
+        config_list_foreach() { local i; for i in $UCI_POOL; do "$3" "$i"; done; }
+
+        # dig: records its arguments; answers by address
+        : > "$work/dig.log"
+        dig() {
+            local args="$*"
+            echo "$args" >> "$work/dig.log"
+            case "$args" in
+            *"+short"*)
+                # bootstrap lookups
+                case "$args" in
+                *dns.google*) echo "8.8.4.4" ;;
+                *cloudflare-dns.com*) echo "104.16.249.249" ;;
+                *dead.example*) ;;
+                esac
+                return 0
+                ;;
+            *@10.9.9.9*) return 9 ;;                                   # does not answer
+            *@192.0.2.1*) printf ';; ->>HEADER<<- status: SERVFAIL\n;; Query time: 5 msec\n' ;;
+            *@1.1.1.1*) printf ';; ->>HEADER<<- status: NOERROR\n;; Query time: 17 msec\n' ;;
+            *@8.8.4.4*) printf ';; ->>HEADER<<- status: NOERROR\n;; Query time: 41 msec\n' ;;
+            *) printf ';; ->>HEADER<<- status: NOERROR\n;; Query time: 99 msec\n' ;;
+            esac
+        }
+
+        args() { dns_bench_dig_args "$1" 77.88.8.8 || echo REFUSED; }
+        echo "udp=$(args udp://1.1.1.1)"
+        echo "tcp=$(args tcp://1.1.1.1)"
+        echo "dot-ip=$(args dot://1.1.1.1)"
+        echo "dot-name=$(args dot://dns.google)"
+        echo "doh-name=$(args doh://cloudflare-dns.com/dns-query)"
+        echo "doh-default-path=$(args doh://dns.google)"
+        echo "doh3=$(args doh3://dns.google/dns-query)"
+        echo "doq=$(args doq://dns.google)"
+        echo "unresolvable=$(args udp://dead.example)"
+        echo "bootstrap-used=$(grep -c '^@77.88.8.8 dns.google +short' "$work/dig.log")"
+
+        echo "one=$(dns_bench_one udp://1.1.1.1 77.88.8.8)"
+        echo "one-servfail=$(dns_bench_one udp://192.0.2.1 77.88.8.8 || echo none)"
+        echo "one-timeout=$(dns_bench_one udp://10.9.9.9 77.88.8.8 || echo none)"
+
+        echo "given=$(dns_benchmark udp://1.1.1.1 dot://dns.google udp://10.9.9.9 doh3://dns.google/dns-query 'evil;rm' | jq -c '[.results[] | [.server, .ms]]')"
+
+        UCI_dns_type=dot UCI_dns_server=dns.google UCI_bootstrap_dns_server=77.88.8.8 UCI_POOL="udp://1.1.1.1 doh://cloudflare-dns.com/dns-query"
+        echo "configured=$(dns_benchmark | jq -c '[.results[] | [.server, .ms]]')"
+
+        UCI_POOL="udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1 udp://1.1.1.1"
+        echo "capped=$(dns_benchmark | jq -c '.results | length')"
+
+        # ── through the tunnel ─────────────────────────────────────────────
+        for e in udp://172.31.200.60 tcp://10.0.0.1:5353 dot://dns.google doh://dns.google/dns-query doh://h:8443/p doh3://dns.google; do
+            echo "target[$e]=$(dns_bench_entry_target "$e" || echo REFUSED)"
+        done
+        PROXIES='{"proxies":{"main-out":{"type":"Selector","now":"main-urltest-out"},"main-urltest-out":{"type":"URLTest","now":"node-b"},"node-b":{"type":"VLESS"},"plain-out":{"type":"VLESS"},"loop":{"type":"Selector","now":"loop"}}}'
+        echo "leaf-selector-urltest=$(dns_bench_leaf_outbound main-out "$PROXIES")"
+        echo "leaf-plain=$(dns_bench_leaf_outbound plain-out "$PROXIES")"
+        echo "leaf-unknown=$(dns_bench_leaf_outbound nope "$PROXIES" || echo none)"
+        echo "leaf-loop=$(dns_bench_leaf_outbound loop "$PROXIES" || echo none)"
+        echo "leaf-no-clash=$(dns_bench_leaf_outbound main-out '' || echo none)"
+
+        cat > "$work/service.json" << 'CFG'
+{"outbounds":[{"type":"direct","tag":"direct-out"},
+ {"type":"vless","tag":"node-b","server":"b.example.com","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555","detour":"hop"},
+ {"type":"socks","tag":"hop","server":"10.0.0.9","server_port":1080}],
+ "route":{"default_mark":2097152,"auto_detect_interface":true,"final":"direct-out","default_domain_resolver":"dns-server"}}
+CFG
+        TARGETS='[{"index":1,"port":19201,"host":"172.31.200.60","target_port":53},{"index":2,"port":19202,"host":"dns.google","target_port":853}]'
+        dns_bench_tunnel_config "$work/service.json" node-b 77.88.8.8 "$TARGETS" > "$work/tmp.json" 2> /dev/null && echo "config-built=yes" || echo "config-built=no"
+        echo "config-inbounds=$(jq -c '[.inbounds[] | [.tag, .listen, .listen_port, .override_address, .override_port]]' "$work/tmp.json")"
+        echo "config-outbounds=$(jq -c '[.outbounds[].tag]' "$work/tmp.json")"
+        echo "config-route=$(jq -c '[.route.final, .route.default_mark, .route.default_domain_resolver, .route.rules[0].inbound]' "$work/tmp.json")"
+        dns_bench_tunnel_config "$work/service.json" missing 77.88.8.8 "$TARGETS" > /dev/null 2>&1 && echo "config-missing-outbound=built" || echo "config-missing-outbound=refused"
+        if command -v sing-box > /dev/null 2>&1; then
+            sing-box -c "$work/tmp.json" check > /dev/null 2>&1 && echo "config-singbox-check=ok" || echo "config-singbox-check=FAIL"
+        else
+            echo "config-singbox-check=ok"
+        fi
+        echo "args-udp=$(dns_bench_tunnel_args udp 172.31.200.60 19201 '')"
+        echo "args-tcp=$(dns_bench_tunnel_args tcp 172.31.200.60 19201 '')"
+        echo "args-dot=$(dns_bench_tunnel_args dot dns.google 19202 '')"
+        echo "args-doh=$(dns_bench_tunnel_args doh dns.google 19203 /dns-query)"
+
+        # the whole run: dig answers by local port, sing-box is a stand-in that stays up
+        UCI_config_path="$work/service.json"
+        _get_dns_detour_tag() { echo "main-out"; }
+        priority_clash_setup() { :; }
+        priority_fetch_proxies() { printf '%s' "$PROXIES"; }
+        DNS_BENCH_TUNNEL_START_WAIT=0
+        : > "$work/sb.started"
+        mkdir -p "$work/bin"
+        printf '#!/bin/sh\necho "$*" >> "%s/sb.started"\nsleep 30\n' "$work" > "$work/bin/sing-box"
+        chmod +x "$work/bin/sing-box"
+        PATH="$work/bin:$PATH"
+        dig() {
+            case "$*" in
+            *"-p 19201"*) printf ';; ->>HEADER<<- status: NOERROR\n;; Query time: 4 msec\n' ;;
+            *"-p 19202"*) printf ';; ->>HEADER<<- status: NOERROR\n;; Query time: 73 msec\n' ;;
+            *"-p 19203"*) return 9 ;;
+            *) echo "$*" >> "$work/dig.log"; printf ';; ->>HEADER<<- status: NOERROR\n;; Query time: 1 msec\n' ;;
+            esac
+        }
+        UCI_dns_type=udp UCI_dns_server=172.31.200.60 UCI_POOL="dot://dns.google doh://nowhere.example/dns-query doh3://dns.google"
+        echo "tunnel=$(dns_benchmark | jq -c '[.via, [.results[] | [.server, .ms]]]')"
+        echo "tunnel-started=$(grep -c '^run -c ' "$work/sb.started")"
+        sleep 1
+        echo "tunnel-sing-box-stopped=$(pgrep -f "$work/bin/sing-box" > /dev/null && echo no || echo yes)"
+
+        # no Clash answer or no way to start it: the servers are asked from the router
+        priority_fetch_proxies() { printf ''; }
+        echo "fallback-direct=$(dns_benchmark udp://1.1.1.1 | jq -c '[.via, .results[0].ms]')"
+        priority_fetch_proxies() { printf '%s' "$PROXIES"; }
+        _get_dns_detour_tag() { echo ""; }
+        echo "no-detour=$(dns_benchmark udp://1.1.1.1 | jq -c '.via')"
+    )"
+
+    _db() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _db "udp is asked directly" "udp=@1.1.1.1"
+    _db "tcp is asked over TCP" "tcp=@1.1.1.1 +tcp"
+    _db "dot is asked over TLS, named by its host" "dot-ip=@1.1.1.1 +tls +tls-hostname=1.1.1.1"
+    _db "a name is looked up through the bootstrap resolver" "dot-name=@8.8.4.4 +tls +tls-hostname=dns.google"
+    _db "doh keeps its path" "doh-name=@104.16.249.249 +https=/dns-query +tls-hostname=cloudflare-dns.com"
+    _db "doh without a path uses /dns-query" "doh-default-path=@8.8.4.4 +https=/dns-query +tls-hostname=dns.google"
+    _db "doh3 cannot be asked with dig" "doh3=REFUSED"
+    _db "doq cannot be asked with dig" "doq=REFUSED"
+    _db "a name that does not resolve is refused" "unresolvable=REFUSED"
+    _db "the bootstrap resolver is the one asked" "bootstrap-used=2"
+    _db "the time dig reports is the result" "one=17"
+    _db "an error answer is no result" "one-servfail=none"
+    _db "no answer is no result" "one-timeout=none"
+    _db "servers given are timed, in order, the odd ones skipped" 'given=[["udp://1.1.1.1",17],["dot://dns.google",41],["udp://10.9.9.9",null],["doh3://dns.google/dns-query",null]]'
+    _db "with no arguments the configured servers are timed" 'configured=[["dot://dns.google",41],["udp://1.1.1.1",17],["doh://cloudflare-dns.com/dns-query",99]]'
+    _db "the number of servers is capped" "capped=12"
+    _db "a server in the tunnel is a server with its own port" "target[udp://172.31.200.60]=udp 172.31.200.60 53 "
+    _db "tcp keeps a given port" "target[tcp://10.0.0.1:5353]=tcp 10.0.0.1 5353 "
+    _db "dot defaults to 853" "target[dot://dns.google]=dot dns.google 853 "
+    _db "doh keeps its path and defaults to 443" "target[doh://dns.google/dns-query]=doh dns.google 443 /dns-query"
+    _db "doh keeps a given port" "target[doh://h:8443/p]=doh h 8443 /p"
+    _db "doh3 cannot be asked" "target[doh3://dns.google]=REFUSED"
+    _db "a group is followed to the server it has selected" "leaf-selector-urltest=node-b"
+    _db "a plain outbound is itself" "leaf-plain=plain-out"
+    _db "an unknown outbound gives nothing" "leaf-unknown=none"
+    _db "a group that points at itself gives nothing" "leaf-loop=none"
+    _db "no Clash answer gives nothing" "leaf-no-clash=none"
+    _db "the temporary configuration is built" "config-built=yes"
+    _db "one local inbound per server, forwarding to it" 'config-inbounds=[["bench-1","127.0.0.1",19201,"172.31.200.60",53],["bench-2","127.0.0.1",19202,"dns.google",853]]'
+    _db "the outbound and its detour chain are carried over" 'config-outbounds=["node-b","hop"]'
+    _db "everything leaves through the outbound, with the service marks" 'config-route=["node-b",2097152,"bootstrap-dns-server",["bench-1","bench-2"]]'
+    _db "an outbound that is not in the configuration is refused" "config-missing-outbound=refused"
+    _db "sing-box accepts the temporary configuration" "config-singbox-check=ok"
+    _db "udp is asked on the local port" "args-udp=@127.0.0.1 -p 19201"
+    _db "tcp is asked over TCP" "args-tcp=@127.0.0.1 -p 19201 +tcp"
+    _db "dot is asked over TLS named by its host" "args-dot=@127.0.0.1 -p 19202 +tls +tls-hostname=dns.google"
+    _db "doh keeps its path" "args-doh=@127.0.0.1 -p 19203 +https=/dns-query +tls-hostname=dns.google"
+    _db "through the tunnel the times are those of the local ports" 'tunnel=["tunnel",[["udp://172.31.200.60",4],["dot://dns.google",73],["doh://nowhere.example/dns-query",null],["doh3://dns.google",null]]]'
+    _db "the temporary sing-box is started once" "tunnel-started=1"
+    _db "...and stopped afterwards" "tunnel-sing-box-stopped=yes"
+    _db "without a Clash answer the servers are asked from the router" 'fallback-direct=["direct",1]'
+    _db "without a detour nothing goes through the tunnel" 'no-detour="direct"'
+
+    rm -rf "$work"
+}
+
 # ─────────────────────────────────────────────────────────────────
 # Test: subscription country filters
 # ─────────────────────────────────────────────────────────────────
@@ -16284,6 +16479,7 @@ main() {
             test_cache_persist
             test_update_package_check
             test_environment_check
+            test_dns_benchmark
             test_dns_section
             test_section_disabled
             test_ipv6_routing
@@ -16355,12 +16551,13 @@ main() {
         dnssection)  test_dns_section ;;
         updatepkg)   test_update_package_check ;;
         environment) test_environment_check ;;
+        dnsbench)    test_dns_benchmark ;;
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench"
             exit 1
             ;;
     esac

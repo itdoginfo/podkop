@@ -326,6 +326,9 @@ msgstr "DNS-сервер не должен содержать пробелы"
 msgid "DNS server timeout"
 msgstr "Таймаут DNS-сервера"
 
+msgid "DNS speed test"
+msgstr "Тест скорости DNS"
+
 msgid "dns.adguard-dns.com/dns-query (AdGuard DoH)"
 msgstr "dns.adguard-dns.com/dns-query (AdGuard DoH)"
 
@@ -776,6 +779,12 @@ msgstr "Основной DNS через outbound"
 msgid "Main server only"
 msgstr "Только основной сервер"
 
+msgid "Measured from the router"
+msgstr "Замер с самого роутера"
+
+msgid "Measured through the tunnel, the way real queries go"
+msgstr "Замер через туннель, так же, как идут настоящие запросы"
+
 msgid "Memory Usage"
 msgstr "Использование памяти"
 
@@ -790,6 +799,9 @@ msgstr "Порт смешанного прокси"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
+
+msgid "ms"
+msgstr "мс"
 
 msgid "Multiple DNS servers"
 msgstr "Несколько DNS-серверов"
@@ -814,6 +826,9 @@ msgstr "Сеть"
 
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
+
+msgid "no answer"
+msgstr "нет ответа"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
@@ -1160,6 +1175,12 @@ msgstr "TCP"
 msgid "Test latency"
 msgstr "Тестирование задержки"
 
+msgid "Test the servers"
+msgstr "Проверить серверы"
+
+msgid "Testing..."
+msgstr "Проверяю..."
+
 msgid "Text List"
 msgstr "Текстовый список"
 
@@ -1193,6 +1214,9 @@ msgstr "Секция полностью игнорируется (маршрут
 msgid "The subnets of this exclusion section never enter sing-box: the router sends them out directly, which saves CPU, especially with Global Proxy. Only subnets and IP lists are bypassed; domains still pass through sing-box."
 msgstr "Подсети этой секции-исключения вообще не попадают в sing-box: роутер отправляет их напрямую, что экономит CPU, особенно с глобальным прокси. Обходятся только подсети и IP-списки; домены по-прежнему проходят через sing-box."
 
+msgid "The test could not be run"
+msgstr "Не удалось выполнить проверку"
+
 msgid "The URL the dashboard uses to measure server latency. Change it if the default is slow or blocked in your region."
 msgstr "URL, который дашборд использует для измерения задержки серверов. Измените его, если значение по умолчанию медленное или заблокировано в вашем регионе."
 
@@ -1213,6 +1237,9 @@ msgstr "Время в секундах для кэширования DNS зап�
 
 msgid "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists"
 msgstr "Время ежедневного обновления, ЧЧ:ММ (00:00–23:59) по местному времени роутера. Избегайте минут, совпадающих с другими интервалами обновления, например :00 и :30, если есть секция с интервалом 30 минут."
+
+msgid "Times every configured DNS server (UDP, TCP, DoT and DoH; DoH3 and DoQ cannot be timed). With \"Route main DNS through proxy/VPN\" the servers are reached through the tunnel, so a resolver inside it can be timed too. Nothing is changed: use it to decide the order of the servers."
+msgstr "Замеряет каждый настроенный DNS-сервер (UDP, TCP, DoT и DoH; DoH3 и DoQ замерить нельзя). При включённом «Route main DNS through proxy/VPN» серверы опрашиваются через туннель, поэтому можно замерить и резолвер внутри него. Ничего не меняется: результат помогает выбрать порядок серверов."
 
 msgid "TLS and Reality fail with a wrong time: check NTP"
 msgstr "С неверным временем не работают TLS и Reality: проверьте NTP"
