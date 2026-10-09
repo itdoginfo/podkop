@@ -383,3 +383,7 @@ ENVIRONMENT_CLOCK_PROBE_URL="https://www.cloudflare.com/"
 DOMAIN_REGEX_MAX_DROPPED=20
 # The Connections page lists at most this many connections (newest first).
 CONNECTIONS_LIST_CAP=300
+# "A newer version is available" notice (update_notice.sh): the answer lives in
+# tmpfs and is asked again once it is older than this many seconds.
+UPDATE_NOTICE_FILE="/tmp/netshift-update-notice.json"
+UPDATE_NOTICE_TTL=86400

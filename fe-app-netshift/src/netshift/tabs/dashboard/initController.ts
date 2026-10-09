@@ -6,6 +6,12 @@ import {
 import { prettyBytes } from '../../../helpers/prettyBytes';
 import { showToast } from '../../../helpers/showToast';
 import {
+  getOutdatedComponents,
+  parseUpdateNotice,
+  shouldRefreshUpdateNotice,
+  type UpdateNotice,
+} from '../../../helpers/updateNotice';
+import {
   loadDashboardViewPrefs,
   saveDashboardViewPrefs,
 } from '../../../helpers/dashboardView';
@@ -57,6 +63,80 @@ async function fetchDashboardSections() {
       data,
     },
   });
+}
+
+// "A newer version is available". Reads the answer the router already has (no
+// network access); when it is old, starts one background refresh and reads the
+// answer again once it is done. Optional: any failure just leaves no banner.
+const UPDATE_NOTICE_REFRESH_WAIT = 25000;
+
+function renderUpdateNotice(notice: UpdateNotice) {
+  const container = document.getElementById('dashboard-update-notice');
+
+  if (!container) {
+    return;
+  }
+
+  const items = notice.enabled ? getOutdatedComponents(notice) : [];
+
+  if (items.length === 0) {
+    container.replaceChildren();
+
+    return;
+  }
+
+  const names = {
+    netshift: _('NetShift'),
+    sing_box: _('Sing-box'),
+  };
+
+  container.replaceChildren(
+    E('div', { class: 'card pdk_dashboard-page__update-notice' }, [
+      E('b', {}, _('A newer version is available')),
+      ...items.map((item) =>
+        E(
+          'div',
+          {},
+          `${names[item.component]}: ${item.current} → ${item.latest}`,
+        ),
+      ),
+      E(
+        'div',
+        { class: 'pdk_dashboard-page__update-notice__hint' },
+        _('Update it in the Component Manager tab.'),
+      ),
+    ]),
+  );
+}
+
+async function loadUpdateNotice() {
+  try {
+    const first = await NetShiftShellMethods.getUpdateNotice();
+    const notice = first.success ? parseUpdateNotice(first.data) : null;
+
+    if (!notice) {
+      return;
+    }
+
+    renderUpdateNotice(notice);
+
+    if (!shouldRefreshUpdateNotice(notice)) {
+      return;
+    }
+
+    await NetShiftShellMethods.refreshUpdateNotice();
+    await new Promise((resolve) =>
+      setTimeout(resolve, UPDATE_NOTICE_REFRESH_WAIT),
+    );
+
+    const second = await NetShiftShellMethods.getUpdateNotice();
+
+    if (second.success) {
+      renderUpdateNotice(parseUpdateNotice(second.data));
+    }
+  } catch (e) {
+    logger.error('[DASHBOARD]', 'loadUpdateNotice: failed', e);
+  }
 }
 
 async function connectToClashSockets() {
@@ -572,6 +652,8 @@ async function onStoreUpdate(
 async function onPageMount() {
   // Cleanup before mount
   onPageUnmount();
+
+  void loadUpdateNotice();
 
   // Add new listener
   store.subscribe(onStoreUpdate);

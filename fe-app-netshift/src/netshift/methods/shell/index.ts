@@ -23,22 +23,10 @@ export const NetShiftShellMethods = {
     callBaseMethod<NetShift.EnvironmentCheckResult>(
       NetShift.AvailableMethods.CHECK_ENVIRONMENT,
     ),
-  getConnections: async () =>
-    callBaseMethod<unknown>(
-      NetShift.AvailableMethods.CLASH_API,
-      [NetShift.AvailableClashAPIMethods.GET_CONNECTIONS],
-      undefined,
-      { nobatch: true },
-    ),
-  closeConnection: async (id: string) =>
-    callBaseMethod<unknown>(NetShift.AvailableMethods.CLASH_API, [
-      NetShift.AvailableClashAPIMethods.CLOSE_CONNECTION,
-      id,
-    ]),
-  closeAllConnections: async () =>
-    callBaseMethod<unknown>(NetShift.AvailableMethods.CLASH_API, [
-      NetShift.AvailableClashAPIMethods.CLOSE_CONNECTIONS,
-    ]),
+  getUpdateNotice: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.GET_UPDATE_NOTICE),
+  refreshUpdateNotice: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.REFRESH_UPDATE_NOTICE),
   checkNftRules: async () =>
     callBaseMethod<NetShift.NftRulesCheckResult>(
       NetShift.AvailableMethods.CHECK_NFT_RULES,
