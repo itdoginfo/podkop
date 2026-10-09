@@ -56,9 +56,6 @@ msgstr "Добавьте свои домены: выберите Динамич�
 msgid "Add your own subnets or IPs: choose Dynamic List (one per row) or Text List (free-form), or Disabled to skip"
 msgstr "Добавьте свои подсети или IP: выберите Динамический список (по одному в строке) или Текстовый список (свободный ввод), либо Отключено, чтобы пропустить"
 
-msgid "Additional DNS servers"
-msgstr "Дополнительные DNS-серверы"
-
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
 
@@ -341,6 +338,9 @@ msgstr "DNS-сервер не должен содержать пробелы"
 msgid "DNS server timeout"
 msgstr "Таймаут DNS-сервера"
 
+msgid "DNS servers"
+msgstr "DNS-серверы"
+
 msgid "dns.adguard-dns.com/dns-query (AdGuard DoH)"
 msgstr "dns.adguard-dns.com/dns-query (AdGuard DoH)"
 
@@ -536,6 +536,9 @@ msgstr "Не удалось обновить подписки"
 msgid "Fastest"
 msgstr "Самый быстрый"
 
+msgid "First server only"
+msgstr "Только первый сервер"
+
 msgid "Flow offloading is enabled"
 msgstr "Включён Flow Offloading"
 
@@ -566,8 +569,8 @@ msgstr "Сколько времени может занимать один DNS-�
 msgid "How often to automatically update the subscription"
 msgstr "Как часто автоматически обновлять подписку"
 
-msgid "How the additional DNS servers are used together with the main one. Needs sing-box 1.14 or newer; on an older core only the main server is used."
-msgstr "Как дополнительные DNS-серверы используются вместе с основным. Требуется sing-box 1.14 или новее; на более старом ядре используется только основной сервер."
+msgid "How the servers of the list are used together when there are several. Needs sing-box 1.14 or newer; on an older core only the first server is used."
+msgstr "Как серверы списка используются вместе, если их несколько. Нужен sing-box 1.14 или новее; на старом ядре используется только первый сервер."
 
 msgid "HTTP error"
 msgstr "Ошибка HTTP"
@@ -845,9 +848,6 @@ msgstr "Основной DNS"
 msgid "Main DNS via outbound"
 msgstr "Основной DNS через outbound"
 
-msgid "Main server only"
-msgstr "Только основной сервер"
-
 msgid "Memory Usage"
 msgstr "Использование памяти"
 
@@ -868,9 +868,6 @@ msgstr "Имя пользователя Mixed Proxy"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
-
-msgid "Multiple DNS servers"
-msgstr "Несколько DNS-серверов"
 
 msgid "Must be a number in the range of 50 - 1000"
 msgstr "Должно быть числом от 50 до 1000"
@@ -971,9 +968,6 @@ msgstr "Путь должен заканчиваться на cache.db"
 msgid "Pending"
 msgstr "Ожидает запуска"
 
-msgid "Pick a ready-made server or type your own: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. In priority mode the order is the priority after the main server."
-msgstr "Выберите готовый сервер или введите свой: scheme://host[:port][/path], где scheme — udp, tcp, dot, doh, doh3 или doq. В режиме приоритета порядок задаёт приоритет после основного сервера."
-
 msgid "Prefer servers in list order"
 msgstr "Предпочитать серверы в порядке списка"
 
@@ -1070,6 +1064,9 @@ msgstr "Запустить диагностику"
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
 
+msgid "scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. The first one is the main server. Pick a ready-made server or type your own."
+msgstr "scheme://host[:port][/path], где scheme - udp, tcp, dot, doh, doh3 или doq. Первый сервер - основной. Выберите готовый сервер или введите свой."
+
 msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
 msgstr "Секретный ключ для аутентификации удаленного доступа к YACD при включенном доступе через WAN."
 
@@ -1081,9 +1078,6 @@ msgstr "Выберите предопределенный список для м
 
 msgid "Select between VPN and Proxy connection methods for traffic routing"
 msgstr "Выберите между VPN и Proxy методами для маршрутизации трафика"
-
-msgid "Select DNS protocol to use"
-msgstr "Выберите протокол DNS"
 
 msgid "Select how often the domain or subnet lists are updated automatically"
 msgstr "Выберите частоту автоматического обновления списков доменов или подсетей."
@@ -1147,6 +1141,9 @@ msgstr "Информация о сервисах"
 
 msgid "Settings"
 msgstr "Настройки"
+
+msgid "Several DNS servers"
+msgstr "Несколько DNS-серверов"
 
 msgid "Show sing-box config"
 msgstr "Показать sing-box конфигурацию"

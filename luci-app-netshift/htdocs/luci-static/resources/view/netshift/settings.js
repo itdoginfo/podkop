@@ -38,33 +38,82 @@ function createSettingsContent(section) {
   );
 
   // --- DNS tab ---
+  // One ordered list of DNS servers: the first is the main one, the others are
+  // the pool used by the mode below. It is stored in the options the backend has
+  // always read (dns_type + dns_server for the main server, dns_pool_server for
+  // the rest), so an older config opens as it is and nothing is migrated.
   let o = section.taboption(
     "dns",
-    form.ListValue,
-    "dns_type",
-    _("DNS Protocol Type"),
-    _("Select DNS protocol to use"),
+    form.DynamicList,
+    "dns_servers",
+    _("DNS servers"),
+    _(
+      "scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. The first one is the main server. Pick a ready-made server or type your own.",
+    ),
   );
-  o.value("doh", _("DNS over HTTPS (DoH)"));
-  o.value("dot", _("DNS over TLS (DoT)"));
-  o.value("udp", _("UDP (Unprotected DNS)"));
-  o.default = "udp";
-  o.rmempty = false;
-
-  o = section.taboption(
-    "dns",
-    form.Value,
-    "dns_server",
-    _("DNS Server"),
-    _("Select or enter DNS server address"),
-  );
-  Object.entries(main.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
-    o.value(key, _(label));
+  Object.entries(main.DNS_POOL_PRESETS).forEach(([key, label]) => {
+    o.value(key, label);
   });
-  o.default = "8.8.8.8";
   o.rmempty = false;
+  let knownCount = null;
+  o.cfgvalue = function (section_id) {
+    const list = main.dnsServersFromOptions({
+      dns_type: uci.get("netshift", section_id, "dns_type"),
+      dns_server: uci.get("netshift", section_id, "dns_server"),
+      dns_pool_server: main.toIpList(
+        uci.get("netshift", section_id, "dns_pool_server"),
+      ),
+    });
+
+    knownCount = list.length;
+
+    return list;
+  };
+  o.write = function (section_id, value) {
+    const options = main.dnsServersToOptions(
+      Array.isArray(value) ? value : [value],
+    );
+
+    if (!options) {
+      return;
+    }
+
+    uci.set("netshift", section_id, "dns_type", options.dns_type);
+    uci.set("netshift", section_id, "dns_server", options.dns_server);
+    uci.set(
+      "netshift",
+      section_id,
+      "dns_pool_server",
+      options.dns_pool_server.length ? options.dns_pool_server : null,
+    );
+  };
+  o.remove = function () {};
+  // A second server is useless in "main server only" mode: when the list grows
+  // beyond one, switch to priority (the user can still pick another mode).
+  o.onchange = function (ev, section_id, value) {
+    const count = Array.isArray(value) ? value.length : 0;
+    const grew = knownCount !== null && count > knownCount;
+
+    knownCount = count;
+
+    if (!grew || count < 2) {
+      return;
+    }
+
+    const mode = this.section.getUIElement(section_id, "dns_pool_mode");
+
+    if (mode && mode.getValue() === "single") {
+      mode.setValue("fallback");
+    }
+  };
   o.validate = function (section_id, value) {
-    const validation = main.validateDNS(value);
+    // Called for each entry of the list (and for the empty input row). An empty
+    // list is refused by rmempty = false.
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateDnsPoolServer(value);
 
     if (validation.valid) {
       return true;
@@ -101,45 +150,16 @@ function createSettingsContent(section) {
     "dns",
     form.ListValue,
     "dns_pool_mode",
-    _("Multiple DNS servers"),
+    _("Several DNS servers"),
     _(
-      "How the additional DNS servers are used together with the main one. Needs sing-box 1.14 or newer; on an older core only the main server is used.",
+      "How the servers of the list are used together when there are several. Needs sing-box 1.14 or newer; on an older core only the first server is used.",
     ),
   );
-  o.value("single", _("Main server only"));
+  o.value("single", _("First server only"));
   o.value("fallback", _("Priority: next server if the previous one fails"));
   o.value("race", _("Parallel: the first usable answer wins"));
   o.default = "single";
   o.rmempty = false;
-
-  o = section.taboption(
-    "dns",
-    form.DynamicList,
-    "dns_pool_server",
-    _("Additional DNS servers"),
-    _(
-      "Pick a ready-made server or type your own: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. In priority mode the order is the priority after the main server.",
-    ),
-  );
-  Object.entries(main.DNS_POOL_PRESETS).forEach(([key, label]) => {
-    o.value(key, label);
-  });
-  o.depends("dns_pool_mode", "fallback");
-  o.depends("dns_pool_mode", "race");
-  o.rmempty = true;
-  o.validate = function (section_id, value) {
-    if (!value) {
-      return true;
-    }
-
-    const validation = main.validateDnsPoolServer(value);
-
-    if (validation.valid) {
-      return true;
-    }
-
-    return validation.message;
-  };
 
   o = section.taboption(
     "dns",
