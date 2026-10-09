@@ -20798,7 +20798,620 @@ test_bypass() {
     _bp_check "an enabled bypass section requests the bypass" "requested-enabled-section:yes"
 }
 
+
 # ─────────────────────────────────────────────────────────────────
+# Test: URLTest check interval (urltest_check_interval, including "off")
+# ─────────────────────────────────────────────────────────────────
+test_urltest_interval() {
+    header "URLTest check interval"
+
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local constants_lib="${NETSHIFT_LIB_DIR}/constants.sh"
+    local ui="${NETSHIFT_SRC}/../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js"
+    [ -r "$ui" ] || ui="/luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js"
+    if [ ! -r "$cm_lib" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "config manager / jq not available"
+        return
+    fi
+
+    local out
+    out="$(
+        . "$constants_lib"
+        . "$cm_lib"
+        base='{"outbounds":[]}'
+        for v in 30s 3m 10m 30m 1h 24h off ""; do
+            printf 'interval[%s]=%s\n' "$v" "$(sing_box_cm_add_urltest_outbound "$base" t '["a","b"]' "" "$v" 50 | jq -r '.outbounds[0].interval // "none"')"
+        done
+        # without the constants the value still means "almost never"
+        unset URLTEST_INTERVAL_OFF
+        printf 'off-no-constants=%s\n' "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" off 50 | jq -r '.outbounds[0].interval')"
+    )"
+
+    _ti() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _ti "a normal interval is kept" "interval[30s]=30s"
+    _ti "the default interval is kept" "interval[3m]=3m"
+    _ti "a 10 minute interval is kept" "interval[10m]=10m"
+    _ti "a 30 minute interval is kept" "interval[30m]=30m"
+    _ti "a day is kept" "interval[24h]=24h"
+    _ti "'off' becomes a year: one test at start" "interval[off]=8760h"
+    _ti "an empty interval adds no field" "interval[]=none"
+    _ti "'off' works without the constants file" "off-no-constants=8760h"
+
+    if sing-box version > /dev/null 2>&1; then
+        local cfg="/tmp/netshift-urltest-int-$$.json"
+        (
+            . "$constants_lib"
+            . "$cm_lib"
+            c='{"log":{"level":"error"},"outbounds":[{"type":"direct","tag":"a"},{"type":"direct","tag":"b"}]}'
+            sing_box_cm_add_urltest_outbound "$c" t '["a","b"]' "https://www.gstatic.com/generate_204" off 50
+        ) > "$cfg"
+        if sing-box check -c "$cfg" > /dev/null 2>&1; then
+            pass "the core accepts the 'off' interval"
+        else
+            fail "the core rejects the 'off' interval"
+        fi
+        rm -f "$cfg"
+    fi
+
+    if grep -q 'o.value("off"' "$ui" 2> /dev/null && grep -q 'o.value("30m"' "$ui"; then
+        pass "the UI offers 10m, 20m, 30m and 'off'"
+    else
+        skip "section.js not found for the UI check"
+    fi
+}
+# ─────────────────────────────────────────────────────────────────
+
+
+test_components_via_proxy() {
+    header "Components via the service proxy"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local updater="${NETSHIFT_LIB_DIR}/updater.sh"
+    if [ ! -r "$bin" ] || [ ! -r "$updater" ] || [ ! -r "${NETSHIFT_LIB_DIR}/constants.sh" ]; then
+        skip "netshift bin / updater.sh / constants.sh not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        for fn in service_proxy_needed get_service_proxy_address; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        for fn in updates_components_proxy_address updates_http_get updates_download_to_file updates_github_resolve_redirect \
+            updates_host_reachable_via_proxy updates_preflight_proxy_for_direction updates_preflight_host_for_direction \
+            updates_preflight_connectivity updates_selfheal_connectivity updates_ensure_connectivity; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$updater")"
+        done
+        updates_log() { :; }
+
+        CP_LISTS=0; CP_COMP=0
+        config_get_bool() {
+            case "$3" in
+            download_lists_via_proxy) eval "$1=\"$CP_LISTS\"" ;;
+            download_components_via_proxy) eval "$1=\"$CP_COMP\"" ;;
+            *) eval "$1=\"$4\"" ;;
+            esac
+        }
+        # curl stub: records whether -x was used; CP_PROXY_OK=0 makes proxied calls fail
+        CPLOGF="/tmp/netshift-compproxy-log-$$"
+        : > "$CPLOGF"
+        curl() {
+            local proxied=direct a out=""
+            for a in "$@"; do
+                [ "$a" = "-x" ] && proxied=proxy
+            done
+            while [ $# -gt 0 ]; do
+                [ "$1" = "-o" ] && out="$2"
+                shift
+            done
+            printf "%s " "$proxied" >> "$CPLOGF"
+            if [ "$proxied" = proxy ] && [ "${CP_PROXY_OK:-1}" = 0 ]; then
+                return 22
+            fi
+            [ -n "$out" ] && echo data > "$out"
+            echo "body-$proxied"
+            return 0
+        }
+        wget() { return 1; }
+        updates_http_get_once() {
+            if [ -n "$2" ]; then printf "get-proxy " >> "$CPLOGF"; else printf "get-direct " >> "$CPLOGF"; fi
+            if [ -n "$2" ] && [ "${CP_PROXY_OK:-1}" = 0 ]; then return 22; fi
+            echo "body"
+        }
+        D="/tmp/netshift-compproxy-$$"
+        LOGRESET() { : > "$CPLOGF"; }
+
+        for flags in "0 0:no" "1 0:yes" "0 1:yes" "1 1:yes"; do
+            CP_LISTS="${flags%% *}"; CP_COMP="${flags#* }"; CP_COMP="${CP_COMP%%:*}"
+            if service_proxy_needed; then got=yes; else got=no; fi
+            echo "needed-$CP_LISTS$CP_COMP:$got"
+        done
+
+        # flag off: direct only, and no proxy address for components
+        CP_LISTS=0; CP_COMP=0
+        echo "off-address:[$(updates_components_proxy_address)]"
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "off-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_http_get https://x/api > /dev/null; echo "off-get:$(cat "$CPLOGF" | sed "s/ *$//")"
+        # lists-only proxy does not carry components
+        CP_LISTS=1; CP_COMP=0
+        echo "lists-only-address:[$(updates_components_proxy_address)]"
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "lists-only-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+
+        # components-only: the list downloads get no service proxy address
+        CP_LISTS=0; CP_COMP=1
+        echo "components-only-lists-address:[$(get_service_proxy_address)]"
+        CP_LISTS=1; CP_COMP=0
+        echo "lists-only-lists-address:$(get_service_proxy_address)"
+        CP_LISTS=1; CP_COMP=1
+        echo "both-lists-address:$(get_service_proxy_address)"
+        CP_LISTS=0; CP_COMP=0
+        echo "off-lists-address:[$(get_service_proxy_address)]"
+
+        # flag on: proxy first
+        CP_LISTS=0; CP_COMP=1; CP_PROXY_OK=1
+        [ "$(updates_components_proxy_address)" = "$SB_SERVICE_MIXED_INBOUND_ADDRESS:$SB_SERVICE_MIXED_INBOUND_PORT" ] && echo "on-address:service-proxy" || echo "on-address:wrong"
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "on-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_http_get https://x/api > /dev/null; echo "on-get:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_github_resolve_redirect https://x/latest > /dev/null; echo "on-redirect:$(cat "$CPLOGF" | sed "s/ *$//")"
+        # flag on, proxy down: falls back to direct
+        CP_PROXY_OK=0
+        LOGRESET; updates_download_to_file https://x/y "$D" > /dev/null; echo "down-download:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_http_get https://x/api > /dev/null; echo "down-get:$(cat "$CPLOGF" | sed "s/ *$//")"
+        LOGRESET; updates_github_resolve_redirect https://x/latest > /dev/null; echo "down-redirect:$(cat "$CPLOGF" | sed "s/ *$//")"
+
+        # Install pre-flight (GitHub blocked for the router itself: no DNS, no direct HTTPS).
+        # With the flag on, reachability through the proxy decides; the redirect that carries
+        # the proxy is never torn down.
+        UPDATES_GITHUB_PROBE_HOST=github.test
+        UPDATES_FEED_PROBE_HOST=feeds.test
+        updates_dns_resolves() { return 1; }
+        updates_host_reachable() { printf "direct-probe " >> "$CPLOGF"; return 1; }
+        updates_write_temp_resolver() { return 1; }
+        updates_teardown_redirect() { printf "teardown " >> "$CPLOGF"; return 0; }
+        CP_LISTS=0; CP_COMP=1; CP_PROXY_OK=1
+        LOGRESET; updates_ensure_connectivity extended; echo "preflight-on-proxy-ok:$?:$(sed "s/ *$//" "$CPLOGF")"
+        CP_PROXY_OK=0
+        LOGRESET; updates_ensure_connectivity extended; echo "preflight-on-proxy-down:$?:$(sed "s/ *$//" "$CPLOGF")"
+        # flag off: the old behaviour (tear the redirect down to find a direct way) is unchanged
+        CP_COMP=0
+        LOGRESET; updates_ensure_connectivity extended; echo "preflight-off-blocked:$?:$(sed "s/ *$//" "$CPLOGF")"
+        # the package feeds are not fetched through the proxy: stable keeps the direct probe
+        CP_COMP=1; CP_PROXY_OK=1
+        LOGRESET; updates_ensure_connectivity stable; echo "preflight-stable-direct:$?:$(sed "s/ *$//" "$CPLOGF")"
+        rm -f "$D" "$CPLOGF"
+    )"
+
+    _cp_check() {
+        if echo "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(echo "$out" | tr '\n' '|')"
+        fi
+    }
+
+    _cp_check "neither flag: no service proxy" "needed-00:no"
+    _cp_check "lists flag creates the service proxy" "needed-10:yes"
+    _cp_check "components flag creates the service proxy" "needed-01:yes"
+    _cp_check "both flags create it" "needed-11:yes"
+    _cp_check "flag off: components have no proxy address" "off-address:[]"
+    _cp_check "flag off: downloads are direct" "off-download:direct"
+    _cp_check "flag off: release lookups are direct" "off-get:get-direct"
+    _cp_check "lists-only proxy does not carry components" "lists-only-address:[]"
+    _cp_check "lists-only: component download stays direct" "lists-only-download:direct"
+    _cp_check "components-only: the list downloads get no service proxy address" "components-only-lists-address:[]"
+    _cp_check "lists-only: the list downloads use the service proxy address" "lists-only-lists-address:127.0.0.1:4534"
+    _cp_check "both flags: the list downloads use the service proxy address" "both-lists-address:127.0.0.1:4534"
+    _cp_check "no flag: no list proxy address" "off-lists-address:[]"
+    _cp_check "flag on: the service proxy address is used" "on-address:service-proxy"
+    _cp_check "flag on: download goes through the proxy" "on-download:proxy"
+    _cp_check "flag on: release lookup goes through the proxy first" "on-get:get-proxy"
+    _cp_check "flag on: redirect lookup goes through the proxy" "on-redirect:proxy"
+    _cp_check "proxy down: download falls back to direct" "down-download:proxy direct"
+    _cp_check "proxy down: release lookup falls back to direct" "down-get:get-proxy get-direct"
+    _cp_check "proxy down: redirect lookup falls back to direct" "down-redirect:proxy direct"
+    _cp_check "install pre-flight: GitHub is probed through the proxy, no heal needed" "preflight-on-proxy-ok:0:proxy"
+    _cp_check "install pre-flight: proxy down, the redirect that carries the proxy is not torn down" "preflight-on-proxy-down:1:proxy"
+    _cp_check "install pre-flight: flag off tears the redirect down as before" "preflight-off-blocked:1:teardown"
+    _cp_check "install pre-flight: stable direction does not use the proxy" "preflight-stable-direct:1:teardown"
+}
+
+test_empty_link_sections() {
+    header "Empty required link option in a section"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local facade_lib="$lib/sing_box_config_facade.sh"
+    if [ ! -r "$facade_lib" ] || [ ! -r "$bin" ]; then
+        fail "facade lib / bin not found"
+        return
+    fi
+
+    # The facade sources helpers + manager from /usr/lib/netshift.
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local drv="/tmp/test-emptylink-$$.sh"
+    local out="/tmp/test-emptylink-out-$$.txt"
+    cat > "$drv" << 'ELEOF'
+. "CONST_LIB"
+. "FACADE_LIB"
+
+WARN_LOG="/tmp/el-warn-$$.log"
+: > "$WARN_LOG"
+log()     { printf '%s|%s\n' "${2:-info}" "$1" >> "$WARN_LOG"; }
+echolog() { printf '%s|%s\n' "${2:-info}" "$1" >> "$WARN_LOG"; }
+nolog()   { :; }
+
+set_section_reality_mlkem() { NETSHIFT_REALITY_MLKEM=0; }
+tproxy_route_inbounds() { printf 'tproxy-in'; }
+
+eval "$(awk '/^mark_section_outbound_unavailable\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^mark_section_without_links\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^is_truthy_option\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+eval "$(awk '/^configure_outbound_handler\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+
+# The subscription branch reads the subscription caches and the keyword filter
+# before it looks at the URLs. Those have their own tests (suburlopt, utfilters),
+# so they are stubbed here; the URL reader answers "no URL configured", which is
+# the shape a section saved with an empty subscription_url has.
+build_subscription_filter_json() { echo '[]'; }
+ensure_subscription_cache_dir() { :; }
+migrate_subscription_cache_from_tmp() { :; }
+reap_legacy_subscription_cache_files() { :; }
+get_subscription_urls_for_section() { :; }
+
+_el_key() { printf 'EL_%s_%s' "$(printf '%s' "$1" | tr '.-' '__')" "$2"; }
+config_get() {
+    local _k _v
+    _k="$(_el_key "$2" "$3")"
+    eval "_v=\"\${$_k:-}\""
+    [ -n "$_v" ] || _v="$4"
+    eval "$1=\"$_v\""
+    return 0
+}
+config_get_bool() { config_get "$@"; case "$(eval echo \$$1)" in 1) eval "$1=1" ;; *) eval "$1=0" ;; esac; }
+
+# One section with its required option absent, driven through the real handler.
+el_case() {
+    local sec="$1" ctype="$2" ptype="$3" marker="$4"
+    local rc n
+
+    : > "$WARN_LOG"
+    config='{"outbounds":[]}'
+    SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+    eval "EL_${sec}_connection_type='$ctype'"
+    [ -n "$ptype" ] && eval "EL_${sec}_proxy_config_type='$ptype'"
+
+    configure_outbound_handler "$sec"
+    rc=$?
+    [ "$rc" = "0" ] && echo "el-${sec}-no-abort:OK" || echo "el-${sec}-no-abort:FAIL rc=$rc"
+
+    case " $SUBSCRIPTION_UNAVAILABLE_SECTIONS " in
+    *" $sec "*) echo "el-${sec}-marked-unavailable:OK" ;;
+    *) echo "el-${sec}-marked-unavailable:FAIL" ;;
+    esac
+
+    # No outbound may be created for the section: a route rule pointing at a tag
+    # that does not exist would fail `sing-box check` for the WHOLE config.
+    n="$(printf '%s' "$config" | jq --arg p "$sec-" '[.outbounds[] | select((.tag // "") | startswith($p))] | length' 2>/dev/null)"
+    [ "$n" = "0" ] && echo "el-${sec}-no-dangling-outbound:OK" || echo "el-${sec}-no-dangling-outbound:FAIL n=$n"
+
+    grep -qF "$marker" "$WARN_LOG" && echo "el-${sec}-error-logged:OK" || echo "el-${sec}-error-logged:FAIL"
+}
+
+el_case urlempty proxy url "no proxy link (proxy_string)"
+el_case selempty proxy selector "no proxy links (selector_proxy_links)"
+el_case urltempty proxy urltest "no proxy links (urltest_proxy_links)"
+el_case seltxtempty proxy selector_text "no proxy links (selector_proxy_links_text)"
+el_case urltxtempty proxy urltest_text "no proxy links (urltest_proxy_links_text)"
+el_case vpnempty vpn "" "VPN interface (interface)"
+el_case subempty proxy subscription "subscription URL (subscription_url)"
+
+# ── A usable section in the same build is untouched ──────────────────────────
+: > "$WARN_LOG"
+config='{"outbounds":[]}'
+SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+EL_goodsec_connection_type="proxy"
+EL_goodsec_proxy_config_type="url"
+EL_goodsec_proxy_string="vless://11111111-2222-3333-4444-555555555555@g.example.com:443?security=tls&sni=g.example.com"
+configure_outbound_handler "goodsec"
+printf '%s' "$config" | jq -e '[.outbounds[] | select(.tag=="goodsec-out")] | length==1' >/dev/null 2>&1 \
+    && echo 'el-good-section-built:OK' || echo 'el-good-section-built:FAIL'
+[ -z "$SUBSCRIPTION_UNAVAILABLE_SECTIONS" ] \
+    && echo 'el-good-section-not-unavailable:OK' || echo 'el-good-section-not-unavailable:FAIL'
+
+# ── The degraded build is a config sing-box accepts ──────────────────────────
+# This is the point of the change: direct + a reject rule for the unavailable
+# section still passes `sing-box check`, so the service keeps running.
+: > "$WARN_LOG"
+config='{"outbounds":[]}'
+SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
+EL_rejsec_connection_type="proxy"
+EL_rejsec_proxy_config_type="url"
+configure_outbound_handler "rejsec"
+FULL_JSON="/tmp/el-full-$$.json"
+sing_box_cm_add_reject_route_rule "$config" "rej-rule" "$(tproxy_route_inbounds)" \
+    | jq '{
+        log: { level: "error" },
+        dns: { servers: [ { tag: "dns-server", type: "udp", server: "1.1.1.1" } ], final: "dns-server" },
+        inbounds: [ { type: "tproxy", tag: "tproxy-in", listen: "127.0.0.1", listen_port: 1602 } ],
+        outbounds: (.outbounds + [ { type: "direct", tag: "direct-out" } ]),
+        route: { rules: (.route.rules // []), final: "direct-out" }
+    }' > "$FULL_JSON" 2>/dev/null
+if command -v sing-box > /dev/null 2>&1; then
+    sing-box -c "$FULL_JSON" check > /dev/null 2>&1 \
+        && echo 'el-degraded-config-valid:OK' || echo 'el-degraded-config-valid:FAIL'
+else
+    echo 'el-degraded-config-valid:SKIP'
+fi
+rm -f "$FULL_JSON"
+
+rm -f "$WARN_LOG"
+echo 'DONE'
+ELEOF
+    sed -i "s|CONST_LIB|$lib/constants.sh|g; s|FACADE_LIB|$facade_lib|g; s|BIN_PATH|$bin|g" "$drv"
+
+    sh "$drv" > "$out" 2>/dev/null || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK)    pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            *:SKIP*) skip "$line" ;;
+            DONE)    saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "el-driver-completed:OK"
+    else
+        fail "el-driver-completed:FAIL (driver aborted early)" "$(head -5 "$out")"
+    fi
+    rm -f "$drv" "$out"
+}
+
+test_scalar_option_fallback() {
+    header "Scalar (non-list) value of a list option"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$bin" ] || [ ! -r "$lib/constants.sh" ] || [ ! -r "$lib/helpers.sh" ]; then
+        skip "scalar-option (bin / constants.sh / helpers.sh not found)"
+        return
+    fi
+
+    # Both call sites of the option must go through the wrapper: a revert of one
+    # of them would silently break only one of the two paths (nft marks vs the
+    # sing-box direct route rule).
+    local wrapped unwrapped
+    wrapped="$(grep -c 'netshift_config_list_foreach "settings" "routing_excluded_ips"' "$bin" || true)"
+    unwrapped="$(grep -cE '(^|[^_])config_list_foreach "settings" "routing_excluded_ips"' "$bin" || true)"
+    if [ "$wrapped" = "2" ] && [ "$unwrapped" = "0" ]; then
+        pass "scalar:both-call-sites-wrapped — routing_excluded_ips is read through the wrapper twice"
+    else
+        fail "scalar:both-call-sites-wrapped — expected 2 wrapped / 0 bare call sites, got $wrapped / $unwrapped"
+    fi
+
+    local drv="/tmp/test-scalaropt-$$.sh"
+    local out="/tmp/test-scalaropt-out-$$.txt"
+    cat > "$drv" << 'SCEOF'
+set -e
+BIN="BIN_PATH_PLACEHOLDER"
+LIB="LIB_DIR_PLACEHOLDER"
+
+# The platform iterator (REAL one, not a stub) + the runtime contract.
+. /lib/functions.sh
+# shellcheck disable=SC1090
+. "$LIB/constants.sh"
+# shellcheck disable=SC1090
+. "$LIB/nft.sh"
+# shellcheck disable=SC1090
+. "$LIB/helpers.sh"
+
+# The shipped handlers under test (the wrapper comes from helpers.sh).
+for fn in nft_bypass_source_ips _nft_bypass_source_ip_handler \
+    exclude_source_ip_from_routing_handler; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
+done
+
+NFT_TABLE_NAME="scalaropt_$$"
+netshift_ipv6_enabled() { return 1; }
+log() { printf 'LOG:%s\n' "$1"; }
+nolog() { :; }
+echolog() { printf 'ECHO:%s\n' "$1"; }
+
+# Capture instead of touching the kernel / the running config.
+nft() { printf 'NFT:%s\n' "$*"; }
+# exclude_source_ip_from_routing_handler assigns the result to the global
+# `config` (command substitution -> subshell), so counting calls has to go
+# through a file that survives the subshell.
+PATCH_LOG="/tmp/scalaropt-patch-$$.log"
+: > "$PATCH_LOG"
+sing_box_cm_patch_route_rule() {
+    local line
+    line="$(printf 'PATCH:tag=%s field=%s value=%s' "$2" "$3" "$4")"
+    printf '%s\n' "$line" >> "$PATCH_LOG"
+    printf '%s' "$line"
+}
+
+write_cfg() {
+    {
+        echo "config settings 'settings'"
+        printf '%s\n' "$1"
+    } > /etc/config/scalaropt
+    config_load scalaropt
+}
+
+CB_N=0
+cb_count() { CB_N=$((CB_N + 1)); }
+
+# ── (1) scalar option: the premise and the fix ────────────────────────────────
+write_cfg "	option bypass_excluded_ips '1'
+	option routing_excluded_ips '10.0.0.5'"
+
+CB_N=0
+config_list_foreach settings routing_excluded_ips cb_count
+[ "$CB_N" -eq 0 ] \
+    && echo 'scalar-premise-platform-ignores-it:OK' \
+    || echo 'scalar-premise-platform-ignores-it:FAIL'
+
+out_nft="$(nft_bypass_source_ips)"
+n_nft="$(printf '%s\n' "$out_nft" | grep -c '^NFT:' || true)"
+[ "$n_nft" -eq 2 ] \
+    && echo 'scalar-nft-rule-count:OK' \
+    || echo "scalar-nft-rule-count:FAIL got=$n_nft"
+printf '%s' "$out_nft" | grep -q '10.0.0.5' \
+    && echo 'scalar-nft-uses-the-address:OK' \
+    || echo 'scalar-nft-uses-the-address:FAIL'
+printf '%s' "$out_nft" | grep -qF "$SB_FAKEIP_INET4_RANGE" \
+    && echo 'scalar-nft-fakeip-mark-first:OK' \
+    || echo 'scalar-nft-fakeip-mark-first:FAIL'
+printf '%s' "$out_nft" | grep -q 'counter return' \
+    && echo 'scalar-nft-return:OK' \
+    || echo 'scalar-nft-return:FAIL'
+
+config=""
+netshift_config_list_foreach settings routing_excluded_ips \
+    exclude_source_ip_from_routing_handler RULE1
+grep -q 'PATCH:tag=RULE1 field=source_ip_cidr value=10.0.0.5' "$PATCH_LOG" \
+    && echo 'scalar-routing-direct-rule:OK' \
+    || echo "scalar-routing-direct-rule:FAIL got=$(cat "$PATCH_LOG")"
+[ "$config" = "PATCH:tag=RULE1 field=source_ip_cidr value=10.0.0.5" ] \
+    && echo 'scalar-routing-rule-tag:OK' \
+    || echo "scalar-routing-rule-tag:FAIL got=$config"
+
+# ── (2) real UCI list: both items, extra argument kept ────────────────────────
+write_cfg "	option bypass_excluded_ips '1'
+	list routing_excluded_ips '10.0.0.11'
+	list routing_excluded_ips '10.0.0.12'"
+
+out_nft="$(nft_bypass_source_ips)"
+n_nft="$(printf '%s\n' "$out_nft" | grep -c '^NFT:' || true)"
+[ "$n_nft" -eq 4 ] \
+    && echo 'list-nft-rule-count:OK' \
+    || echo "list-nft-rule-count:FAIL got=$n_nft"
+for ip in 10.0.0.11 10.0.0.12; do
+    printf '%s' "$out_nft" | grep -q "$ip" \
+        && echo "list-nft-item-$ip:OK" \
+        || echo "list-nft-item-$ip:FAIL"
+done
+
+: > "$PATCH_LOG"
+netshift_config_list_foreach settings routing_excluded_ips \
+    exclude_source_ip_from_routing_handler RULE2
+n_patch="$(grep -c 'PATCH:tag=RULE2 field=source_ip_cidr' "$PATCH_LOG" || true)"
+[ "$n_patch" -eq 2 ] \
+    && echo 'list-routing-two-rules:OK' \
+    || echo "list-routing-two-rules:FAIL got=$n_patch"
+grep -q 'value=10.0.0.12' "$PATCH_LOG" \
+    && echo 'list-routing-second-item:OK' \
+    || echo 'list-routing-second-item:FAIL'
+
+# ── (3) nothing configured: no rule, and the reason is logged ────────────────
+write_cfg "	option bypass_excluded_ips '1'"
+
+out_nft="$(nft_bypass_source_ips)"
+printf '%s' "$out_nft" | grep -q '^NFT:' \
+    && echo 'empty-nft-no-rule:FAIL' \
+    || echo 'empty-nft-no-rule:OK'
+printf '%s' "$out_nft" | grep -q 'routing_excluded_ips is empty' \
+    && echo 'empty-warns:OK' \
+    || echo 'empty-warns:FAIL'
+
+rm -f /etc/config/scalaropt "$PATCH_LOG"
+echo 'DONE'
+SCEOF
+    sed -i "s|BIN_PATH_PLACEHOLDER|$bin|g; s|LIB_DIR_PLACEHOLDER|$lib|g" "$drv"
+
+    sh "$drv" > "$out" 2>/dev/null || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:OK)    pass "$line" ;;
+            *:FAIL*) fail "$line" ;;
+            DONE)    saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$out"
+    if [ "$saw_done" = "1" ]; then
+        pass "scalar-driver-completed:OK"
+    else
+        fail "scalar-driver-completed:FAIL (driver aborted early)" "$(head -5 "$out")"
+    fi
+    rm -f "$drv" "$out"
+}
+
+test_urltest_interval() {
+    header "URLTest check interval"
+
+    local cm_lib="${NETSHIFT_LIB_DIR}/sing_box_config_manager.sh"
+    local constants_lib="${NETSHIFT_LIB_DIR}/constants.sh"
+    local ui="${NETSHIFT_SRC}/../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js"
+    [ -r "$ui" ] || ui="/luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js"
+    if [ ! -r "$cm_lib" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "config manager / jq not available"
+        return
+    fi
+
+    local out
+    out="$(
+        . "$constants_lib"
+        . "$cm_lib"
+        base='{"outbounds":[]}'
+        for v in 30s 3m 10m 30m 1h 24h off ""; do
+            printf 'interval[%s]=%s\n' "$v" "$(sing_box_cm_add_urltest_outbound "$base" t '["a","b"]' "" "$v" 50 | jq -r '.outbounds[0].interval // "none"')"
+        done
+        # without the constants the value still means "almost never"
+        unset URLTEST_INTERVAL_OFF
+        printf 'off-no-constants=%s\n' "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" off 50 | jq -r '.outbounds[0].interval')"
+    )"
+
+    _ti() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _ti "a normal interval is kept" "interval[30s]=30s"
+    _ti "the default interval is kept" "interval[3m]=3m"
+    _ti "a 10 minute interval is kept" "interval[10m]=10m"
+    _ti "a 30 minute interval is kept" "interval[30m]=30m"
+    _ti "a day is kept" "interval[24h]=24h"
+    _ti "'off' becomes a year: one test at start" "interval[off]=8760h"
+    _ti "an empty interval adds no field" "interval[]=none"
+    _ti "'off' works without the constants file" "off-no-constants=8760h"
+
+    if sing-box version > /dev/null 2>&1; then
+        local cfg="/tmp/netshift-urltest-int-$$.json"
+        (
+            . "$constants_lib"
+            . "$cm_lib"
+            c='{"log":{"level":"error"},"outbounds":[{"type":"direct","tag":"a"},{"type":"direct","tag":"b"}]}'
+            sing_box_cm_add_urltest_outbound "$c" t '["a","b"]' "https://www.gstatic.com/generate_204" off 50
+        ) > "$cfg"
+        if sing-box check -c "$cfg" > /dev/null 2>&1; then
+            pass "the core accepts the 'off' interval"
+        else
+            fail "the core rejects the 'off' interval"
+        fi
+        rm -f "$cfg"
+    fi
+
+    if grep -q 'o.value("off"' "$ui" 2> /dev/null && grep -q 'o.value("30m"' "$ui"; then
+        pass "the UI offers 10m, 20m, 30m and 'off'"
+    else
+        skip "section.js not found for the UI check"
+    fi
+}
 
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
@@ -20875,6 +21488,7 @@ main() {
             test_bypass
             test_urltest_filters
             test_subscription_geoip
+            test_urltest_interval
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -20940,6 +21554,7 @@ main() {
         utfilters)   test_urltest_filters ;;
         ipv6routing) test_ipv6_routing ;;
         compproxy)   test_components_via_proxy ;;
+        urlint)      test_urltest_interval ;;
         *)
             echo "Unknown test: $target"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench"

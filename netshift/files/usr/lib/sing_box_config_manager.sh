@@ -1374,7 +1374,7 @@ sing_box_cm_add_raw_outbound() {
 #   tag: string, identifier for the URLTest outbound
 #   outbounds: string, JSON array of outbound tags to test
 #   url: string, URL to probe (optional)
-#   interval: string, test interval (e.g., "10s") (optional)
+#   interval: string, test interval (e.g., "10s", or "off" for a single test at start) (optional)
 #   tolerance: string or integer, max latency difference tolerated (optional)
 #   idle_timeout: string or integer, idle timeout duration (optional)
 #   interrupt_exist_connections: boolean, flag to interrupt existing connections ("true"/"false") (optional)
@@ -1392,6 +1392,10 @@ sing_box_cm_add_urltest_outbound() {
     local tolerance="$6"
     local idle_timeout="$7"
     local interrupt_exist_connections="$8"
+
+    # "off": test once at start and not again (the core has no switch for it, a
+    # year is as good as never).
+    [ "$interval" != "off" ] || interval="${URLTEST_INTERVAL_OFF:-8760h}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
