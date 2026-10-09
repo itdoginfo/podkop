@@ -548,6 +548,14 @@ docker build -f Dockerfile-apk --build-arg NETSHIFT_VERSION=0.9.1 -t netshift:ap
 
 NetShift развивается сообществом: спасибо всем, кто присылает код, тесты, переводы и идеи.
 
+<a href="https://github.com/yandexru45/netshift/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=yandexru45/netshift" alt="Участники NetShift" />
+</a>
+
+> Сетка аватаров обновляется автоматически. Полный список с числом коммитов - на странице [Contributors](https://github.com/yandexru45/netshift/graphs/contributors).
+>
+> Важно: сайдбар «Contributors» на главной странице репозитория пуст не по нашей вине - GitHub не заполняет его для **форков** (проект форкнут от `itdoginfo/podkop`), статистика уходит в корень сети. Поэтому участники перечислены здесь и в заметках к каждому релизу.
+
 | Участник | Вклад |
 |---|---|
 | [@yandexru45](https://github.com/yandexru45) | автор и мейнтейнер |

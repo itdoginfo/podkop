@@ -116,6 +116,14 @@ requests **and** on pushes to `main`/`rc/**`; the backend gates (shellcheck,
 smoke tests) are push-only, so a pull-request head from a fork gets no CI run at
 all — run the smoke suite locally for those.
 
+Contributors: the repository is a GitHub fork, so GitHub does **not** populate
+the sidebar «Contributors» widget on the repo page (it stays «No contributors»)
+and `stats/contributors` is not what drives it. Do not try to «fix» it by
+rewriting history. Keep the visible credit in three places instead: the README
+section «Участники» (with the auto-updating contrib.rocks avatar grid), the
+release notes of every tag (see the release steps above), and the contributors
+page `graphs/contributors` linked from the README.
+
 ## Local AI tooling (untracked by design)
 
 Agent rules, memory files and tool configs are local-only and gitignored:
