@@ -101,6 +101,11 @@ MONITOR_PIDFILE="/var/run/netshift_monitor.pid"
 NFT_TABLE_NAME="NetShiftTable"
 NFT_LOCALV4_SET_NAME="localv4"
 NFT_LOCALV6_SET_NAME="localv6"
+# Local / reserved destinations that are never marked (returned before any mark
+# in the mangle chains). One definition for the two users — the localv4/localv6
+# sets of NetShiftTable and the block_leaks guard — so they cannot drift apart.
+NFT_LOCALV4_ELEMENTS="0.0.0.0/8, 10.0.0.0/8, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.88.99.0/24, 192.168.0.0/16, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0-255.255.255.255"
+NFT_LOCALV6_ELEMENTS="::1, fc00::/7, fe80::/10, ff00::/8"
 # Destination set holding the UNION of every proxy section's proxied IPv4
 # subnets (user/local/remote/community subnet lists). Used by the prerouting
 # `mangle` chain to mark ONLY proxied destinations into the tproxy path, so
@@ -118,6 +123,24 @@ NFT_DISCORD_SET_NAME="netshift_discord_subnets"
 NFT_INTERFACE_SET_NAME="interfaces"
 NFT_FAKEIP_MARK="0x00100000"
 NFT_OUTBOUND_MARK="0x00200000"
+# ── block_leaks: fail-closed guard table (see lib/kill_switch.sh) ───────────
+# A SECOND, independent table mirroring the proxied destinations. It drops
+# traffic to them whenever NetShiftTable is missing or still empty (stop_main
+# before a restart, the create_nft_rules rebuild, crash recovery), so proxied
+# traffic waits instead of leaking to the WAN. Only used when
+# settings.block_leaks=1; irrelevant (and removed) otherwise.
+NFT_GUARD_TABLE_NAME="NetShiftGuard"
+NFT_GUARD_INTERFACE_SET_NAME="guard_interfaces"
+NFT_GUARD_SUBNET_SET_NAME="guard_subnets"
+NFT_GUARD_SUBNET_SET_NAME_V6="guard_subnets_v6"
+NFT_GUARD_SOURCE_SET_NAME="guard_sources"
+NFT_GUARD_SOURCE_SET_NAME_V6="guard_sources_v6"
+# Mirrors of what the marking model lets through UNMARKED on purpose (bypass
+# destinations and bypassed devices): the guard must let the same traffic pass.
+NFT_GUARD_BYPASS_SET_NAME="guard_bypass"
+NFT_GUARD_BYPASS_SET_NAME_V6="guard_bypass_v6"
+NFT_GUARD_BYPASS_SOURCE_SET_NAME="guard_bypass_sources"
+NFT_GUARD_BYPASS_SOURCE_SET_NAME_V6="guard_bypass_sources_v6"
 
 ## LuCI
 # Where the LuCI app keeps its views. The package installs them in a

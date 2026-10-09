@@ -190,6 +190,13 @@
     ]
   },
   {
+    "call": "Block Leaks When Tunnel Is Down",
+    "key": "Block Leaks When Tunnel Is Down",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:657"
+    ]
+  },
+  {
     "call": "Bootsrap DNS",
     "key": "Bootsrap DNS",
     "places": [
@@ -249,14 +256,14 @@
     "call": "Cache File Path",
     "key": "Cache File Path",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:683"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:699"
     ]
   },
   {
     "call": "Cache file path cannot be empty",
     "key": "Cache file path cannot be empty",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:697"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:713"
     ]
   },
   {
@@ -402,7 +409,7 @@
     "call": "Config File Path",
     "key": "Config File Path",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:669"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:685"
     ]
   },
   {
@@ -906,14 +913,14 @@
     "call": "Enable IPv6 Support",
     "key": "Enable IPv6 Support",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:657"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:673"
     ]
   },
   {
     "call": "Enable IPv6 TProxy routing, IPv6 DNS inbound, and IPv6 FakeIP support.",
     "key": "Enable IPv6 TProxy routing, IPv6 DNS inbound, and IPv6 FakeIP support.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:658"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:674"
     ]
   },
   {
@@ -1117,6 +1124,13 @@
     "key": "Extended core with all features (~105 MB)",
     "places": [
       "src/netshift/tabs/manager/cards.ts:295"
+    ]
+  },
+  {
+    "call": "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered.",
+    "key": "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:658"
     ]
   },
   {
@@ -1824,7 +1838,7 @@
     "call": "Log Level",
     "key": "Log Level",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:720"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:736"
     ]
   },
   {
@@ -2115,21 +2129,21 @@
     "call": "Path must be absolute (start with /)",
     "key": "Path must be absolute (start with /)",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:701"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:717"
     ]
   },
   {
     "call": "Path must contain at least one directory (like /tmp/cache.db)",
     "key": "Path must contain at least one directory (like /tmp/cache.db)",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:710"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:726"
     ]
   },
   {
     "call": "Path must end with cache.db",
     "key": "Path must end with cache.db",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:705"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:721"
     ]
   },
   {
@@ -2430,14 +2444,14 @@
     "call": "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing",
     "key": "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:684"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:700"
     ]
   },
   {
     "call": "Select path for sing-box config file. Change this ONLY if you know what you are doing",
     "key": "Select path for sing-box config file. Change this ONLY if you know what you are doing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:670"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:686"
     ]
   },
   {
@@ -2451,7 +2465,7 @@
     "call": "Select the log level for sing-box",
     "key": "Select the log level for sing-box",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:721"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:737"
     ]
   },
   {
@@ -3188,7 +3202,7 @@
     "call": "Use this only when the router has working IPv6 connectivity.",
     "key": "Use this only when the router has working IPv6 connectivity.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:660"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:676"
     ]
   },
   {
@@ -3334,6 +3348,13 @@
     "key": "Which subscription format (client) to fetch first. Auto uses the default order. Choose Xray JSON (Happ) when your panel only exposes some nodes (e.g. xhttp) under a Happ-like client, or Sing-box to prefer the sing-box format.",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:232"
+    ]
+  },
+  {
+    "call": "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up.",
+    "key": "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:662"
     ]
   },
   {

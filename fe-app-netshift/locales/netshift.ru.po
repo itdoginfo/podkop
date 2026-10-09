@@ -98,6 +98,9 @@ msgstr "Блокировать прямые подключения к извес
 msgid "Block DoH Servers"
 msgstr "Блокировать DoH-серверы"
 
+msgid "Block Leaks When Tunnel Is Down"
+msgstr "Блокировать утечки, пока туннель не поднялся"
+
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
 
@@ -484,6 +487,9 @@ msgstr "Исключать серверы по ключевому слову"
 
 msgid "Extended core with all features (~105 MB)"
 msgstr "Расширенное ядро со всеми возможностями (~105 МБ)"
+
+msgid "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered."
+msgstr "Kill switch с отказом в закрытом состоянии: пока NetShift не перехватывает трафик — перезапуск сервиса или падение и восстановление sing-box — трафик к проксируемым назначениям блокируется вместо утечки напрямую в интернет, а DNS не возвращается на прямые резолверы, поэтому проксируемые домены тоже ждут. Загрузка роутера до первого старта NetShift не закрывается."
 
 msgid "Failed to clear subscription cache"
 msgstr "Не удалось очистить кеш подписок"
@@ -1393,6 +1399,9 @@ msgstr "Какая секция прокси/VPN обслуживает DNS. О�
 
 msgid "Which subscription format (client) to fetch first. Auto uses the default order. Choose Xray JSON (Happ) when your panel only exposes some nodes (e.g. xhttp) under a Happ-like client, or Sing-box to prefer the sing-box format."
 msgstr "Какой формат подписки (клиент) запрашивать первым. «Авто» использует порядок по умолчанию. Выберите «Xray JSON (Happ)», если ваша панель отдаёт некоторые узлы (например, xhttp) только под клиентом вроде Happ, или «Sing-box», чтобы предпочесть формат sing-box."
+
+msgid "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up."
+msgstr "Пока sing-box не работает, DNS (а значит, и разрешение имён) недоступен до его восстановления. Прямой непроксируемый трафик не затрагивается, пока sing-box запущен."
 
 msgid "Xray JSON (Happ)"
 msgstr "Xray JSON (Happ)"
