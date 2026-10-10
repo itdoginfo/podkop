@@ -1463,6 +1463,28 @@ sing_box_cm_configure_cache_file() {
 }
 
 #######################################
+# Configure the experimental utls_fallback section of a sing-box JSON configuration.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   fingerprints: string, JSON array of uTLS fingerprints to try, in this order
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_configure_utls_fallback "$CONFIG" '["safari","randomized"]')
+#######################################
+sing_box_cm_configure_utls_fallback() {
+    local config="$1"
+    local fingerprints="$2"
+
+    echo "$config" | jq \
+        --argjson fingerprints "$fingerprints" \
+        '.experimental.utls_fallback = {
+            enabled: true,
+            fingerprints: $fingerprints
+        }'
+}
+
+#######################################
 # Configure the experimental clash_api section of a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify

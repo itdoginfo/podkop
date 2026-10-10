@@ -1222,6 +1222,19 @@ sing_box_configure_experimental() {
             sing_box_cm_configure_clash_api "$config" "$clash_api_controller_address:$SB_CLASH_API_CONTROLLER_PORT"
         )
     fi
+
+    local enable_utls_fallback
+    config_get_bool enable_utls_fallback "settings" "enable_utls_fallback" 0
+    if [ "$enable_utls_fallback" -eq 1 ]; then
+        if sing_box_has_feature "tls.utls-fallback"; then
+            log "Configuring uTLS fallback"
+            config=$(
+                sing_box_cm_configure_utls_fallback "$config" "$(comma_string_to_json_array "$SB_UTLS_FALLBACK_FINGERPRINTS")"
+            )
+        else
+            log "uTLS fallback is skipped: the installed sing-box does not support it" "warn"
+        fi
+    fi
 }
 
 sing_box_additional_inbounds() {

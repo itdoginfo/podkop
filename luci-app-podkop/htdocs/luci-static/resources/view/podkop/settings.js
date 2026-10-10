@@ -5,7 +5,7 @@
 "require tools.widgets as widgets";
 "require view.podkop.main as main";
 
-function createSettingsContent(section) {
+function createSettingsContent(section, singBoxFeatures = []) {
   let o = section.option(
     form.ListValue,
     "dns_type",
@@ -258,6 +258,17 @@ function createSettingsContent(section) {
   );
   o.depends("enable_yacd_wan_access", "1");
   o.rmempty = false;
+
+  if (singBoxFeatures.includes("tls.utls-fallback")) {
+    o = section.option(
+      form.Flag,
+      "enable_utls_fallback",
+      _("Enable uTLS-fallback"),
+      _("When a server does not answer the TLS ClientHello sent with the uTLS fingerprint of a link, the connection is tried with other fingerprints"),
+    );
+    o.default = "0";
+    o.rmempty = false;
+  }
 
   o = section.option(
     form.Flag,

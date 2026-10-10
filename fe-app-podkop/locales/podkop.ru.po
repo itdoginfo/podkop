@@ -224,6 +224,9 @@ msgstr "Включить выходной сетевой интерфейс"
 msgid "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies"
 msgstr "Включить смешанный прокси-сервер, разрешив этому разделу маршрутизировать трафик как через HTTP, так и через SOCKS-прокси."
 
+msgid "Enable uTLS-fallback"
+msgstr "Включить uTLS-fallback"
+
 msgid "Enable YACD"
 msgstr "Включить YACD"
 
@@ -811,6 +814,9 @@ msgstr "Предупреждение: %s нельзя использовать �
 
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
+
+msgid "When a server does not answer the TLS ClientHello sent with the uTLS fingerprint of a link, the connection is tried with other fingerprints"
+msgstr "Если сервер не отвечает на TLS ClientHello с отпечатком uTLS из ссылки, соединение пробуется с другими отпечатками"
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
