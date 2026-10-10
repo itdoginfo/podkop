@@ -59,7 +59,7 @@ const EntryPoint = {
     };
 
     // Render settings content
-    settings.createSettingsContent(settingsSection);
+    settings.createSettingsContent(settingsSection, singBoxFeatures);
 
     // Diagnostic tab
     const diagnosticSection = podkopMap.section(
