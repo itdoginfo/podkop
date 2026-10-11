@@ -1515,6 +1515,7 @@ sing_box_cm_configure_clash_api() {
 
 #######################################
 # Save a sing-box JSON configuration to a file, removing service-specific tags.
+# A DNS route rule left without a condition is not saved: it would match every query.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
 #   file_path: string, path to save the configuration file
@@ -1529,7 +1530,8 @@ sing_box_cm_save_config_to_file() {
 
     echo "$config" | jq \
         --arg tag "$SERVICE_TAG" \
-        'walk(if type == "object" then del(.[$tag]) else . end)' \
+        'del(.dns.rules[]? | select(.action == "route" and del(.action, .server, .rewrite_ttl, .[$tag]) == {})) |
+        walk(if type == "object" then del(.[$tag]) else . end)' \
         > "$filepath"
 }
 

@@ -31,6 +31,7 @@ SB_FAKEIP_DNS_SERVER_TAG="fakeip-server"
 SB_FAKEIP_INET4_RANGE="198.18.0.0/15"
 SB_BOOTSTRAP_SERVER_TAG="bootstrap-dns-server"
 SB_FAKEIP_DNS_RULE_TAG="fakeip-dns-rule-tag"
+SB_FAKEIP_SERVICE_DNS_RULE_TAG="fakeip-service-dns-rule-tag"
 SB_INVERT_FAKEIP_DNS_RULE_TAG="invert-fakeip-dns-rule-tag"
 # Inbounds
 SB_TPROXY_INBOUND_TAG="tproxy-in"
