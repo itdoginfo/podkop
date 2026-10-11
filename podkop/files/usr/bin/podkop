@@ -1052,7 +1052,13 @@ prepare_source_ruleset() {
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
     create_source_rule_set "$ruleset_filepath"
     case $? in
-    0)
+    0 | 3)
+        # A file left by another generation still needs to be registered in
+        # this config. Repeated text lists within one config must not add it twice.
+        if echo "$config" | jq -e --arg tag "$ruleset_tag" 'any(.route.rule_set[]?; .tag == $tag)' > /dev/null; then
+            log "Source rule set $ruleset_tag already registered, skipping." "debug"
+            return 0
+        fi
         config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
@@ -1066,7 +1072,6 @@ prepare_source_ruleset() {
             ;;
         esac
         ;;
-    3) log "Source rule set $ruleset_filepath already exists, skipping." "debug" ;;
     esac
 }
 
