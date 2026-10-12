@@ -3,22 +3,63 @@
 "require form";
 "require baseclass";
 "require network";
-"require view.podkop.main as main";
+"require uci";
 
-// Settings content
-"require view.podkop.settings as settings";
+const COMPILED_ASSET_VERSION = "__COMPILED_ASSET_VERSION_VARIABLE__";
+const UNCOMPILED_ASSET_VERSION = [
+  "__COMPILED",
+  "ASSET_VERSION_VARIABLE__",
+].join("_");
 
-// Sections content
-"require view.podkop.section as section";
+function sanitizeAssetVersion(version) {
+  return String(version || "").replace(/[^A-Za-z0-9_.~-]/g, "_");
+}
 
-// Dashboard content
-"require view.podkop.dashboard as dashboard";
+async function getAssetVersion() {
+  try {
+    await uci.load("podkop");
+    return (
+      uci.get("podkop", "settings", "ui_asset_version") ||
+      COMPILED_ASSET_VERSION
+    );
+  } catch (e) {
+    return COMPILED_ASSET_VERSION;
+  }
+}
 
-// Diagnostic content
-"require view.podkop.diagnostic as diagnostic";
+async function loadPodkopModules() {
+  const defaultResourceVersion = L.env.resource_version;
+  const assetVersion = sanitizeAssetVersion(await getAssetVersion());
+
+  if (
+    assetVersion &&
+    assetVersion !== UNCOMPILED_ASSET_VERSION
+  ) {
+    // Let LuCI append the Podkop package asset version to dynamically loaded
+    // view modules, so browsers fetch fresh UI code after package upgrades.
+    L.env.resource_version = `podkop-${assetVersion}`;
+  }
+
+  try {
+    const [main, settings, section, dashboard, diagnostic] = await Promise.all([
+      L.require("view.podkop.main"),
+      L.require("view.podkop.settings"),
+      L.require("view.podkop.section"),
+      L.require("view.podkop.dashboard"),
+      L.require("view.podkop.diagnostic"),
+    ]);
+
+    return { main, settings, section, dashboard, diagnostic };
+  } finally {
+    L.env.resource_version = defaultResourceVersion;
+  }
+}
 
 const EntryPoint = {
   async render() {
+    const { main, settings, section, dashboard, diagnostic } =
+      await loadPodkopModules();
+
     main.injectGlobalStyles();
 
     // Options of features the installed sing-box does not have are not created
