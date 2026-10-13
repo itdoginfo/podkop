@@ -6,6 +6,10 @@ import {
 import { prettyBytes } from '../../../helpers/prettyBytes';
 import { showToast } from '../../../helpers/showToast';
 import {
+  parseSubscriptionInfo,
+  subscriptionInfoOf,
+} from '../../../helpers/subscriptionInfo';
+import {
   loadDashboardViewPrefs,
   saveDashboardViewPrefs,
 } from '../../../helpers/dashboardView';
@@ -67,6 +71,28 @@ async function fetchDashboardSections() {
       data,
     },
   });
+
+  void fetchSubscriptionInfo();
+}
+
+// Traffic and expiry the subscription panels report. Optional: an old backend
+// or a panel without the header just leaves the line out.
+async function fetchSubscriptionInfo() {
+  try {
+    const response = await NetShiftShellMethods.getSubscriptionInfo();
+    const subscriptionInfo = response.success
+      ? parseSubscriptionInfo(response.data)
+      : {};
+
+    store.set({
+      sectionsWidget: {
+        ...store.get().sectionsWidget,
+        subscriptionInfo,
+      },
+    });
+  } catch (e) {
+    logger.error('[DASHBOARD]', 'fetchSubscriptionInfo: failed', e);
+  }
 }
 
 async function connectToClashSockets() {
@@ -344,6 +370,7 @@ async function renderSectionsWidget() {
       sortByPing: sectionsWidget.sortByPing,
       onToggleViewMode: () => {},
       onToggleSortByPing: () => {},
+      subscriptionInfo: [],
     });
 
     return preserveScrollForPage(() => {
@@ -379,6 +406,10 @@ async function renderSectionsWidget() {
       onToggleSortByPing: handleToggleSortByPing,
       onRefreshFeed: handleRefreshFeed,
       subscriptionRefreshKey: sectionsWidget.subscriptionRefreshKey,
+      subscriptionInfo: subscriptionInfoOf(
+        sectionsWidget.subscriptionInfo,
+        section,
+      ),
     }),
   );
 

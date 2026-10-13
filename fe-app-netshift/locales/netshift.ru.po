@@ -287,6 +287,9 @@ msgstr "Дашборд"
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
 
+msgid "days left"
+msgstr "дн. осталось"
+
 msgid "Default (by the lists)"
 msgstr "По умолчанию (по спискам)"
 
@@ -592,6 +595,12 @@ msgstr "Исключить серверы по защите"
 
 msgid "Exclude servers by transport"
 msgstr "Исключить серверы по транспорту"
+
+msgid "Expired"
+msgstr "Истекла"
+
+msgid "Expires"
+msgstr "Действует до"
 
 msgid "Extended core with all features (~105 MB)"
 msgstr "Расширенное ядро со всеми возможностями (~105 МБ)"

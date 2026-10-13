@@ -39,6 +39,7 @@ export namespace NetShift {
   // check_fakeip            Test FakeIP on router
   // check_environment       Flow offloading, clock and IPv6 facts
   // check_route             Which section / DNS server handles a domain or IP
+  // get_subscription_info   Traffic and expiry the subscription panels report
   // clash_api               Clash API interface for managing proxies and groups
   // show_config             Display current netshift configuration
   // show_version            Show netshift version
@@ -61,6 +62,7 @@ export namespace NetShift {
     CONFIG_SNAPSHOT = 'config_snapshot',
     GET_PIN_GUARD_EVENTS = 'get_pin_guard_events',
     DNS_BENCHMARK = 'dns_benchmark',
+    GET_SUBSCRIPTION_INFO = 'get_subscription_info',
     CHECK_NFT_RULES = 'check_nft_rules',
     GET_STATUS = 'get_status',
     CHECK_SING_BOX = 'check_sing_box',

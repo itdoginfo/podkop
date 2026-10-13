@@ -142,6 +142,8 @@ export const NetShiftShellMethods = {
       undefined,
       { nobatch: true },
     ),
+  getSubscriptionInfo: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.GET_SUBSCRIPTION_INFO),
   checkNftRules: async () =>
     callBaseMethod<NetShift.NftRulesCheckResult>(
       NetShift.AvailableMethods.CHECK_NFT_RULES,

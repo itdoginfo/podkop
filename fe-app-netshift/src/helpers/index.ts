@@ -23,3 +23,4 @@ export * from './configSnapshots';
 export * from './pinGuardEvents';
 export * from './dnsBenchmark';
 export * from './summarizeLogErrors';
+export * from './subscriptionInfo';

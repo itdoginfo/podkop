@@ -58,6 +58,7 @@ export function render() {
           sortByPing: false,
           onToggleViewMode: () => {},
           onToggleSortByPing: () => {},
+          subscriptionInfo: [],
         }),
       ),
     ],

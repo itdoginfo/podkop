@@ -21,7 +21,7 @@
 #             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade, environment,
 #             scalaropt, emptylink, urlint,
 #             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade,
-#             scalaropt, emptylink, dnshijack,
+#             scalaropt, emptylink, dnshijack, subinfo,
 # ──────────────────────────────────────────────────────────────────
 
 services:

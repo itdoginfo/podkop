@@ -287,4 +287,42 @@ export const styles = `
     opacity: 0.75;
     font-size: 0.9em;
 }
+
+.pdk_dashboard-page__subscription-info {
+    margin-top: 6px;
+    display: grid;
+    grid-row-gap: 4px;
+    font-size: 0.9em;
+}
+
+.pdk_dashboard-page__subscription-info__row {
+    display: grid;
+    grid-row-gap: 3px;
+}
+
+.pdk_dashboard-page__subscription-info__text {
+    opacity: 0.85;
+    overflow-wrap: anywhere;
+}
+
+.pdk_dashboard-page__subscription-info__text--exhausted {
+    color: var(--error-color-medium, red);
+    opacity: 1;
+}
+
+.pdk_dashboard-page__subscription-info__bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--ns-card-border, rgba(128, 128, 128, 0.3));
+    overflow: hidden;
+}
+
+.pdk_dashboard-page__subscription-info__bar__fill {
+    height: 100%;
+    background: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__subscription-info__bar__fill--high {
+    background: var(--warn-color-medium, orange);
+}
 `;
