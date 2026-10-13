@@ -3,6 +3,26 @@ NETSHIFT_LIB="/usr/lib/netshift"
 . "$NETSHIFT_LIB/helpers.sh"
 . "$NETSHIFT_LIB/sing_box_config_manager.sh"
 
+# The link's own `support-x25519mlkem768` hint: "true", "false" or "" (absent or
+# unparsable). Accepts true/1 and false/0, like mihomo's share-link parser.
+_reality_mlkem_link_hint() {
+    case "$(url_get_query_param "$1" "support-x25519mlkem768")" in
+    true | 1) echo "true" ;;
+    false | 0) echo "false" ;;
+    *) echo "" ;;
+    esac
+}
+
+# Whether `support_x25519mlkem768` may be written at all: only sing-box-extended
+# SB_EXTENDED_REALITY_MLKEM_MIN+ knows the field (any other core fails
+# `sing-box check` on it). The subscription normalizer sets
+# NETSHIFT_REALITY_MLKEM_HINT_UNGATED: its output is a cache that must not depend
+# on the installed core, and sing_box_cf_prepare_subscription_batch gates it.
+_reality_mlkem_core_ok() {
+    [ "${NETSHIFT_REALITY_MLKEM_HINT_UNGATED:-0}" = "1" ] && return 0
+    is_sing_box_extended_at_least "$SB_EXTENDED_REALITY_MLKEM_MIN"
+}
+
 sing_box_cf_add_dns_server() {
     local config="$1"
     local type="$2"
@@ -380,8 +400,29 @@ _add_outbound_security() {
 
         # NETSHIFT_REALITY_MLKEM is set per section by set_section_reality_mlkem
         # (bin/netshift), already gated on a core that knows the option.
-        local reality_mlkem=""
-        if [ "$security" = "reality" ] && [ "${NETSHIFT_REALITY_MLKEM:-0}" = "1" ]; then
+        # The link itself may carry `support-x25519mlkem768` (3x-ui share links,
+        # mihomo reality-opts): true/1 asks for the key share on its own, false/0
+        # refuses it even when the section option is on.
+        local reality_mlkem="" mlkem_hint want_mlkem=0
+        mlkem_hint=$(_reality_mlkem_link_hint "$url")
+        if [ "$security" = "reality" ]; then
+            if [ "$mlkem_hint" = "false" ]; then
+                # Written out explicitly so a subscription batch keeps the refusal
+                # when the section option is on. Only on a core that knows the field.
+                if _reality_mlkem_core_ok; then
+                    reality_mlkem="false"
+                fi
+            elif [ "${NETSHIFT_REALITY_MLKEM:-0}" = "1" ]; then
+                want_mlkem=1
+            elif [ "$mlkem_hint" = "true" ]; then
+                if _reality_mlkem_core_ok; then
+                    want_mlkem=1
+                else
+                    log "The link for '$outbound_tag' asks for the X25519MLKEM768 key share (support-x25519mlkem768=true; REALITY servers on Xray-core >= 26.9.8 reject clients without it), but that needs sing-box-extended $SB_EXTENDED_REALITY_MLKEM_MIN or newer; the current core cannot send it, so this server will most likely not connect" "warn"
+                fi
+            fi
+        fi
+        if [ "$want_mlkem" = 1 ]; then
             if [ "$fingerprint" = "chrome" ]; then
                 reality_mlkem="true"
             else
@@ -703,6 +744,7 @@ sing_box_cf_prepare_subscription_batch() {
     local exclude_keywords_json="${4:-[]}"
     local sing_box_extended="false"
     local reality_mlkem="false"
+    local reality_mlkem_core="false"
     local param_filter="${SUBSCRIPTION_PARAM_FILTER:-}"
 
     [ -n "$include_keywords_json" ] || include_keywords_json="[]"
@@ -716,6 +758,12 @@ sing_box_cf_prepare_subscription_batch() {
     if [ "${NETSHIFT_REALITY_MLKEM:-0}" = "1" ]; then
         reality_mlkem="true"
     fi
+    # Whether the core knows the field at all: a node that already carries it
+    # (link hint kept by the normalized cache, or a provider's sing-box config)
+    # keeps it only then. The section option is already gated on the core.
+    if [ "$reality_mlkem" = "true" ] || _reality_mlkem_core_ok; then
+        reality_mlkem_core="true"
+    fi
 
     # The working config is fed on stdin (POSIX-safe, no process substitution);
     # the subscription JSON is slurped from its file path.
@@ -724,6 +772,7 @@ sing_box_cf_prepare_subscription_batch() {
         --arg feed_key "$SUBSCRIPTION_FEED_MARKER_KEY" \
         --argjson extended "$sing_box_extended" \
         --argjson reality_mlkem "$reality_mlkem" \
+        --argjson reality_mlkem_core "$reality_mlkem_core" \
         --argjson include_keywords "$include_keywords_json" \
         --argjson exclude_keywords "$exclude_keywords_json" \
         --argjson param_filter "$param_filter" '
@@ -835,18 +884,24 @@ sing_box_cf_prepare_subscription_batch() {
                 feed: ($ob[$feed_key] // null),
                 outbound: (
                     $ob | del(.tag) | del(.remark) | del(.[$feed_key]) | . + {tag: $tag}
-                    # Reality nodes follow the section option in BOTH directions:
-                    # the X25519MLKEM768 key share is set when asked for
-                    # (Xray-core >= 26.9.8 servers) on a node that uses the chrome
-                    # fingerprint, and removed from every Reality node otherwise,
-                    # so a body cached while the option was on (or a provider-supplied
-                    # sing-box config) cannot keep sending it after it is switched
-                    # off or the core is downgraded.
+                    # Reality nodes and the X25519MLKEM768 key share (Xray-core >= 26.9.8
+                    # servers), on a chrome-fingerprint node only:
+                    #   - an explicit `false` (link hint support-x25519mlkem768=false, or
+                    #     the provider config) is kept: the server refuses the share;
+                    #   - the section option sets `true`;
+                    #   - a `true` already on the node (link hint kept by the normalized
+                    #     cache, or the provider config) is kept;
+                    #   - any other node loses the field. A core that does not know the
+                    #     field ($reality_mlkem_core false) loses it everywhere, so a
+                    #     downgraded core never fails `sing-box check` on a cached body.
                     | if ((.tls | type) == "object") and ((.tls.reality | type) == "object")
-                      then (if $reality_mlkem
+                      then (if $reality_mlkem_core
                                 and ((.tls.reality.enabled // false) == true)
                                 and (((.tls.utls | type) == "object") and ((.tls.utls.fingerprint // "") == "chrome"))
-                            then .tls.reality.support_x25519mlkem768 = true
+                            then (if (.tls.reality.support_x25519mlkem768 == false) then .
+                                  elif ($reality_mlkem or (.tls.reality.support_x25519mlkem768 == true))
+                                  then .tls.reality.support_x25519mlkem768 = true
+                                  else del(.tls.reality.support_x25519mlkem768) end)
                             else del(.tls.reality.support_x25519mlkem768) end)
                       else . end
                 )

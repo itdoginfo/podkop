@@ -1965,10 +1965,14 @@ normalize_subscription_to_singbox() {
 
     # The normalized body is cached per URL and reused until the next download,
     # so it must not depend on the per-section reality_mlkem option (set by
-    # set_section_reality_mlkem): the key share is added when the outbounds are
-    # prepared for the config (sing_box_cf_prepare_subscription_batch), where
-    # switching the option off or changing the core takes effect immediately.
+    # set_section_reality_mlkem) nor on the installed core: the key share is
+    # added when the outbounds are prepared for the config
+    # (sing_box_cf_prepare_subscription_batch), where switching the option off
+    # or changing the core takes effect immediately. A link's own
+    # `support-x25519mlkem768` hint IS a property of the body, so it is written
+    # into the cache ungated (no core check, no warning); the batch gates it.
     local NETSHIFT_REALITY_MLKEM=0
+    local NETSHIFT_REALITY_MLKEM_HINT_UNGATED=1
 
     [ -s "$src_file" ] || return 1
     # Strip a leading UTF-8 BOM (EF BB BF) if present; it would otherwise break

@@ -1251,7 +1251,7 @@ sing_box_cm_set_xhttp_transport_for_outbound() {
 #   utls_fingerprint: string, uTLS fingerprint (optional)
 #   reality_public_key: string, Reality public key (optional)
 #   reality_short_id: string, Reality short ID (optional)
-#   reality_mlkem: string, "true" adds `support_x25519mlkem768` to the Reality
+#   reality_mlkem: string, "true"/"false" writes `support_x25519mlkem768` into the Reality
 #       block (sing-box-extended only; the caller gates it on the core) (optional)
 # Outputs:
 #   Writes updated JSON configuration to stdout
@@ -1301,7 +1301,9 @@ sing_box_cm_set_tls_for_outbound() {
                                 public_key: $reality_public_key,
                                 short_id: $reality_short_id
                             }
-                            + (if $reality_mlkem == "true" then {support_x25519mlkem768: true} else {} end)
+                            + (if $reality_mlkem == "true" then {support_x25519mlkem768: true}
+                               elif $reality_mlkem == "false" then {support_x25519mlkem768: false}
+                               else {} end)
                         } else {} end)
                     )
                 }

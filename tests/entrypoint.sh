@@ -11170,17 +11170,25 @@ SUBEOF
         echo "batch-on-plain-untouched:$(batch_field plain-node)"
         echo "batch-on-count:$(printf '%s' "$BATCH" | jq -r '.count')"
 
-        # The flag is authoritative in both directions: a body cached while the
-        # option was on (field already present) loses it once the option is off
-        # or the core cannot take it, and keeps it while the option is on.
+        # A field already on a node (a provider's sing-box config, or a link hint
+        # kept by the normalized cache) stays on a core that knows it, option on
+        # or off, and goes away on a core that does not (stock sing-box would fail
+        # `sing-box check` on it).
         SUBJ2="/tmp/netshift-realitymlkem-sub2-$$.json"
         jq '.outbounds[0].tls.reality.support_x25519mlkem768 = true' "$SUBJ" > "$SUBJ2"
+        NETSHIFT_SING_BOX_VERSION="1.14.1-extended-2.7.2-lite"
+        export NETSHIFT_SING_BOX_VERSION
         NETSHIFT_REALITY_MLKEM=0
         BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ2" '[]' '[]')"
-        echo "batch-off-strips-cached-field:$(batch_field reality-node)"
+        echo "batch-off-keeps-cached-field:$(batch_field reality-node)"
         NETSHIFT_REALITY_MLKEM=1
         BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ2" '[]' '[]')"
         echo "batch-on-keeps-cached-field:$(batch_field reality-node)"
+        NETSHIFT_SING_BOX_VERSION="1.13.14"
+        NETSHIFT_REALITY_MLKEM=0
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$SUBJ2" '[]' '[]')"
+        echo "batch-stock-strips-cached-field:$(batch_field reality-node)"
+        NETSHIFT_SING_BOX_VERSION="1.14.1-extended-2.7.2-lite"
         rm -f "$SUBJ2"
 
         # The normalized subscription cache never depends on the option: a URI
@@ -11308,6 +11316,71 @@ SUBEOF
         RM_ptype=subscription
         echo "gate-subscription:$(gate 1.14.1-extended-2.7.2-lite 1)"
         RM_conn=""; RM_ptype=""
+
+        # ── The link's own hint: support-x25519mlkem768 (3x-ui share links) ──
+        # true/1 asks for the key share without the section option, false/0
+        # refuses it even with the option on; the core gate and the fp=chrome
+        # rule still apply, and a core that cannot send it says so in the log.
+        LINK_H="$LINK_R&support-x25519mlkem768=true"
+        LINK_H1="$LINK_R&support-x25519mlkem768=1"
+        LINK_HF="$LINK_R&support-x25519mlkem768=false"
+        LINK_HX="$LINK_R&support-x25519mlkem768=maybe"
+        LINK_HFP="$LINK_F&support-x25519mlkem768=true"
+        hint() { # $1=core version, $2=option ("" = absent), $3=link
+            NETSHIFT_SING_BOX_VERSION="$1"
+            export NETSHIFT_SING_BOX_VERSION
+            RM_s_reality_mlkem="$2"
+            : > "$RM_LOG"
+            set_section_reality_mlkem s
+            mlk "$(sing_box_cf_add_proxy_outbound "$base" r "$3" 0)"
+        }
+        hint_warned() { grep -q "asks for the X25519MLKEM768 key share" "$RM_LOG" && echo yes || echo no; }
+        echo "hint-true:$(hint 1.14.1-extended-2.7.2 '' "$LINK_H")"
+        echo "hint-true-silent:$([ -s "$RM_LOG" ] && echo no || echo yes)"
+        echo "hint-1:$(hint 1.14.1-extended-2.7.2 '' "$LINK_H1")"
+        echo "hint-true-lite:$(hint 1.14.1-extended-2.7.2-lite '' "$LINK_H")"
+        echo "hint-true-stock:$(hint 1.13.14 '' "$LINK_H")"
+        echo "hint-true-stock-warned:$(hint_warned)"
+        echo "hint-true-old-extended:$(hint 1.14.0-extended-2.7.1 '' "$LINK_H")"
+        echo "hint-true-old-extended-warned:$(hint_warned)"
+        echo "hint-false-option-on:$(hint 1.14.1-extended-2.7.2 1 "$LINK_HF")"
+        echo "hint-false-option-off:$(hint 1.14.1-extended-2.7.2 '' "$LINK_HF")"
+        echo "hint-false-stock:$(hint 1.13.14 '' "$LINK_HF")"
+        echo "hint-false-stock-silent:$([ -s "$RM_LOG" ] && echo no || echo yes)"
+        echo "hint-invalid:$(hint 1.14.1-extended-2.7.2 '' "$LINK_HX")"
+        echo "hint-true-fp-other:$(hint 1.14.1-extended-2.7.2 '' "$LINK_HFP")"
+        grep -q "key share is only sent with fp=chrome" "$RM_LOG" && echo "hint-true-fp-other-warned:yes" || echo "hint-true-fp-other-warned:no"
+        echo "hint-absent-option-off:$(hint 1.14.1-extended-2.7.2 '' "$LINK_R")"
+        echo "hint-absent-option-on:$(hint 1.14.1-extended-2.7.2 1 "$LINK_R")"
+        # A hint on a plain TLS link is meaningless and changes nothing.
+        echo "hint-tls-untouched:$(hint 1.14.1-extended-2.7.2 '' "$LINK_T&support-x25519mlkem768=true")"
+
+        # The normalized subscription cache carries the hint as written, whatever
+        # the installed core (it is a property of the body), and without a
+        # warning; the batch then gates it on the core and the section option.
+        HSRC="/tmp/netshift-realitymlkem-hint-$$.txt"
+        HOUT="/tmp/netshift-realitymlkem-hint-$$.json"
+        printf '%s\n%s\n%s\n' "$LINK_H" "$LINK_HF" "$LINK_R" > "$HSRC"
+        NETSHIFT_SING_BOX_VERSION="1.13.14"
+        NETSHIFT_REALITY_MLKEM=0
+        : > "$RM_LOG"
+        fields() { jq -r '[.outbounds[] | select(.type == "vless") | .tls.reality // {} | if has("support_x25519mlkem768") then (.support_x25519mlkem768 | tostring) else "absent" end] | join(",")' "$1"; }
+        if normalize_subscription_to_singbox "$HSRC" "$HOUT" s; then
+            echo "normalize-hint:$(fields "$HOUT")"
+        else
+            echo "normalize-hint:normalize-failed"
+        fi
+        echo "normalize-hint-silent:$([ "$(hint_warned)" = no ] && echo yes || echo no)"
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$HOUT" '[]' '[]')"
+        echo "batch-hint-stock:$(printf '%s' "$BATCH" | fields /dev/stdin)"
+        NETSHIFT_SING_BOX_VERSION="1.14.1-extended-2.7.2"
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$HOUT" '[]' '[]')"
+        echo "batch-hint-extended-off:$(printf '%s' "$BATCH" | fields /dev/stdin)"
+        NETSHIFT_REALITY_MLKEM=1
+        BATCH="$(sing_box_cf_prepare_subscription_batch "$base" "$HOUT" '[]' '[]')"
+        echo "batch-hint-extended-on:$(printf '%s' "$BATCH" | fields /dev/stdin)"
+        rm -f "$HSRC" "$HOUT"
+
         rm -f "$SUBJ" "$RM_LOG"
     )"
 
@@ -11340,8 +11413,9 @@ SUBEOF
     _rm_check "subscription: TLS nodes are untouched" "batch-on-tls-untouched:no-reality"
     _rm_check "subscription: non-TLS nodes are untouched" "batch-on-plain-untouched:no-reality"
     _rm_check "subscription: every node is kept" "batch-on-count:3"
-    _rm_check "subscription: a cached field is removed when the option is off" "batch-off-strips-cached-field:absent"
+    _rm_check "subscription: a cached field stays on a capable core with the option off" "batch-off-keeps-cached-field:true"
     _rm_check "subscription: a cached field stays when the option is on" "batch-on-keeps-cached-field:true"
+    _rm_check "subscription: a cached field is removed on a core that does not know it" "batch-stock-strips-cached-field:absent"
     _rm_check "subscription cache: normalizing ignores the option" "normalize-ignores-flag:absent"
     _rm_check "subscription cache: normalizing restores the flag" "normalize-restores-flag:1"
     _rm_check "outbound_json: raw outbound is never touched" "raw-outbound-json-untouched:yes"
@@ -11366,6 +11440,29 @@ SUBEOF
     _rm_check "option on an outbound_json section: off, with a warning" "gate-outbound-json:0"
     _rm_check "...warned" "gate-outbound-json-warned:yes"
     _rm_check "option on a subscription section: on" "gate-subscription:1"
+    _rm_check "link hint =true: the field without the section option" "hint-true:true"
+    _rm_check "link hint =true: no warning on a capable core" "hint-true-silent:yes"
+    _rm_check "link hint =1 counts as true" "hint-1:true"
+    _rm_check "link hint =true on extended-lite 2.7.2" "hint-true-lite:true"
+    _rm_check "link hint =true on stock sing-box: no field" "hint-true-stock:absent"
+    _rm_check "...and the log says the server needs a capable core" "hint-true-stock-warned:yes"
+    _rm_check "link hint =true on extended 2.7.1: no field" "hint-true-old-extended:absent"
+    _rm_check "...and the log says so" "hint-true-old-extended-warned:yes"
+    _rm_check "link hint =false wins over the section option" "hint-false-option-on:false"
+    _rm_check "link hint =false with the option off: explicit false" "hint-false-option-off:false"
+    _rm_check "link hint =false on stock sing-box: no field" "hint-false-stock:absent"
+    _rm_check "...and no warning" "hint-false-stock-silent:yes"
+    _rm_check "link hint with an unknown value: ignored" "hint-invalid:absent"
+    _rm_check "link hint =true with another fingerprint: no field" "hint-true-fp-other:absent"
+    _rm_check "...and the fp warning" "hint-true-fp-other-warned:yes"
+    _rm_check "no hint, option off: unchanged (no field)" "hint-absent-option-off:absent"
+    _rm_check "no hint, option on: unchanged (field)" "hint-absent-option-on:true"
+    _rm_check "link hint on a plain TLS link: untouched" "hint-tls-untouched:absent"
+    _rm_check "subscription cache: the hint is written as-is, whatever the core" "normalize-hint:true,false,absent"
+    _rm_check "subscription cache: no warning while normalizing" "normalize-hint-silent:yes"
+    _rm_check "subscription batch, stock core: every hint is dropped" "batch-hint-stock:absent,absent,absent"
+    _rm_check "subscription batch, capable core, option off: hints kept" "batch-hint-extended-off:true,false,absent"
+    _rm_check "subscription batch, capable core, option on: false still wins" "batch-hint-extended-on:true,false,true"
 }
 
 # ─────────────────────────────────────────────────────────────────

@@ -4176,6 +4176,11 @@ set_section_reality_mlkem() {
     local enabled connection_type proxy_config_type
 
     NETSHIFT_REALITY_MLKEM=0
+    # Resolve the core version once per run (see get_sing_box_version) instead of
+    # spawning `sing-box version` for every section or link that asks for the
+    # key share: the facade checks the core for a link's own
+    # `support-x25519mlkem768` hint even when the section option is off.
+    [ -n "${NETSHIFT_SING_BOX_VERSION:-}" ] || NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
     config_get_bool enabled "$section" "reality_mlkem" 0
     [ "$enabled" -eq 1 ] || return 0
 
@@ -4188,10 +4193,6 @@ set_section_reality_mlkem() {
         log "Section '$section': reality_mlkem does not apply to this connection type; ignoring it" "warn"
         return 0
     fi
-
-    # Resolve the core version once per run (see get_sing_box_version) instead of
-    # spawning `sing-box version` for every section that asks for the option.
-    [ -n "${NETSHIFT_SING_BOX_VERSION:-}" ] || NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
 
     if is_sing_box_extended_at_least "$SB_EXTENDED_REALITY_MLKEM_MIN"; then
         NETSHIFT_REALITY_MLKEM=1
