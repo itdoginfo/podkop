@@ -221,6 +221,62 @@ get_domain_resolver_tag() {
     echo "$section-$postfix"
 }
 
+# Reads a list of ports and port ranges ("80,443, 1000-2000 5000:5100") and sets
+#   PORT_LIST_PORTS   single ports, comma separated ("80,443")
+#   PORT_LIST_RANGES  ranges as sing-box writes them ("1000:2000,5000:5100")
+#   PORT_LIST_NFT     the same as an nft set body ("80, 443, 1000-2000, 5000-5100")
+# An entry that is not a port (1-65535) or a range with its ends in order is
+# skipped and named in PORT_LIST_BAD. Returns 0 when at least one entry is good.
+parse_port_list() {
+    local input="$1"
+    local item first last
+
+    PORT_LIST_PORTS=""
+    PORT_LIST_RANGES=""
+    PORT_LIST_NFT=""
+    PORT_LIST_BAD=""
+
+    for item in $(printf '%s' "$input" | tr ',' ' '); do
+        case "$item" in
+        *[!0-9:-]* | '' | -* | :* | *- | *:)
+            PORT_LIST_BAD="$PORT_LIST_BAD $item"
+            continue
+            ;;
+        esac
+
+        case "$item" in
+        *[-:]*)
+            first="${item%%[-:]*}"
+            last="${item#*[-:]}"
+            case "$last" in
+            *[!0-9]* | '')
+                PORT_LIST_BAD="$PORT_LIST_BAD $item"
+                continue
+                ;;
+            esac
+            if [ "$first" -lt 1 ] || [ "$last" -gt 65535 ] || [ "$first" -gt "$last" ]; then
+                PORT_LIST_BAD="$PORT_LIST_BAD $item"
+                continue
+            fi
+            PORT_LIST_RANGES="${PORT_LIST_RANGES:+$PORT_LIST_RANGES,}$first:$last"
+            PORT_LIST_NFT="${PORT_LIST_NFT:+$PORT_LIST_NFT, }$first-$last"
+            ;;
+        *)
+            if [ "$item" -lt 1 ] || [ "$item" -gt 65535 ]; then
+                PORT_LIST_BAD="$PORT_LIST_BAD $item"
+                continue
+            fi
+            PORT_LIST_PORTS="${PORT_LIST_PORTS:+$PORT_LIST_PORTS,}$item"
+            PORT_LIST_NFT="${PORT_LIST_NFT:+$PORT_LIST_NFT, }$item"
+            ;;
+        esac
+    done
+
+    PORT_LIST_BAD="${PORT_LIST_BAD# }"
+    [ -n "$PORT_LIST_NFT" ]
+}
+
+
 # Converts a comma-separated string into a JSON array string
 comma_string_to_json_array() {
     local input="$1"

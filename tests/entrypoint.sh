@@ -584,7 +584,7 @@ for fn in nft_init_interfaces_set populate_netshift_subnets_from_file \
           populate_netshift_subnets_from_string nft_mark_fully_routed_source_ips \
           _nft_mark_fully_routed_ips_for_section _nft_mark_fully_routed_ip_handler \
           foreach_active_section _active_section_dispatch \
-          nft_add_dns_hijack \
+          nft_add_dns_hijack nft_add_port_rules \
           create_nft_rules; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
@@ -20253,6 +20253,201 @@ test_subscription_info() {
 
     rm -rf "$work"
 }
+
+
+
+
+# ─────────────────────────────────────────────────────────────────
+# Test: ports that go direct / the only ports that take the tunnel
+# ─────────────────────────────────────────────────────────────────
+test_port_rules() {
+    header "Port rules (direct ports, proxy-only ports)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$bin" ] || [ ! -r "$lib/sing_box_config_manager.sh" ]; then
+        fail "netshift bin / config manager not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+
+    local work="/tmp/netshift-ports-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        PR_LOG="$work/log"; : > "$PR_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$PR_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        for fn in sing_box_configure_port_rules nft_add_port_rules tproxy_route_inbounds _nft_mark_fully_routed_ip_handler; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        gen_id() { PR_N=$((${PR_N:-0} + 1)); echo "rule$PR_N"; }
+        V6=0
+        netshift_ipv6_enabled() { [ "$V6" = 1 ]; }
+        config_get() { eval "$1=\"\${PR_${3}:-}\""; }
+        NFT_TABLE_NAME=T
+        NFT_LOG="$work/nft"; : > "$NFT_LOG"
+        nft() { echo "$*" >> "$NFT_LOG"; }
+
+        # the list parser
+        p() { parse_port_list "$1"; echo "ports=$PORT_LIST_PORTS ranges=$PORT_LIST_RANGES nft=$PORT_LIST_NFT bad=$PORT_LIST_BAD"; }
+        echo "parse-mixed=$(p '80,443, 1000-2000 5000:5100')"
+        echo "parse-bad=$(p '80,0,70000,abc,3000-2000,-5,10-,443')"
+        parse_port_list "x" && echo "parse-none=yes" || echo "parse-none=no"
+        parse_port_list "" && echo "parse-empty=yes" || echo "parse-empty=no"
+
+        # route rules
+        V6=0
+        config='{"route":{"rules":[]}}'
+        PR_direct_tcp_ports="80,443,1000-2000"
+        PR_proxy_only_udp_ports="443"
+        sing_box_configure_port_rules
+        echo "rules=$(printf '%s' "$config" | jq -c '.route.rules | length')"
+        echo "direct-tcp=$(printf '%s' "$config" | jq -c '.route.rules[0] | [.type, .mode, .rules[0], .rules[1].mode, .rules[1].rules, (.rules[1].invert // false), .outbound]')"
+        echo "only-udp=$(printf '%s' "$config" | jq -c '.route.rules[1] | [.rules[0].network, .rules[1].rules, .rules[1].invert]')"
+        echo "ports-only-one-matcher=$(printf '%s' "$config" | jq -c '.route.rules[1].rules[1].rules | length')"
+        echo "tag-kept=$(printf '%s' "$config" | jq -c --arg k "$SERVICE_TAG" '.route.rules[0][$k]')"
+        # the config is valid for the core
+        printf '%s' "$config" | jq '. + {"log":{"level":"error"},"outbounds":[{"type":"direct","tag":"direct-out"}],"inbounds":[{"type":"tproxy","tag":"tproxy-in","listen":"127.0.0.1","listen_port":1602}]} | walk(if type == "object" then del(.[$k]) else . end)' --arg k "$SERVICE_TAG" > "$work/c.json" 2> /dev/null
+        if command -v sing-box > /dev/null 2>&1; then
+            sing-box check -c "$work/c.json" > "$work/check.out" 2>&1 && echo "core-check=ok" || echo "core-check=failed: $(head -c 200 "$work/check.out")"
+        fi
+
+        # nothing set: nothing added; a list with no valid port: warned
+        config='{"route":{"rules":[]}}'
+        PR_direct_tcp_ports=""; PR_proxy_only_udp_ports=""
+        sing_box_configure_port_rules
+        echo "none=$(printf '%s' "$config" | jq -c '.route.rules | length')"
+        PR_direct_udp_ports="abc"
+        sing_box_configure_port_rules
+        echo "invalid-list=$(printf '%s' "$config" | jq -c '.route.rules | length') warned=$(grep -c "has no valid port" "$PR_LOG")"
+        PR_direct_udp_ports=""
+
+        # nft
+        : > "$NFT_LOG"
+        nft_add_port_rules
+        echo "nft-none=$(grep -c '' "$NFT_LOG")"
+        PR_direct_tcp_ports="80,1000-2000"; PR_proxy_only_udp_ports="443"
+        : > "$NFT_LOG"
+        nft_add_port_rules
+        echo "nft-v4-direct=$(sed -n '1p' "$NFT_LOG")"
+        echo "nft-v4-direct-output=$(sed -n '2p' "$NFT_LOG")"
+        echo "nft-v4-only=$(sed -n '3p' "$NFT_LOG")"
+        echo "nft-count-v4=$(grep -c '' "$NFT_LOG")"
+        V6=1; : > "$NFT_LOG"
+        nft_add_port_rules
+        echo "nft-v6=$(sed -n '2p' "$NFT_LOG")"
+        echo "nft-count-v6=$(grep -c '' "$NFT_LOG")"
+
+        # block_doh: the DoH resolver addresses are not kept out of sing-box by a port list
+        V6=0; PR_block_doh=1
+        doh4_expected="$(echo $DOH_BLOCK_IPV4_CIDRS | tr ' ' ',' | sed 's/,/, /g')"
+        : > "$NFT_LOG"
+        nft_add_port_rules
+        echo "nft-doh=$(sed -n '1p' "$NFT_LOG" | grep -c "ip daddr != { $doh4_expected } counter return")"
+        echo "nft-doh-output=$(sed -n '2p' "$NFT_LOG" | grep -c "ip daddr != { $doh4_expected } counter return")"
+        V6=1; : > "$NFT_LOG"
+        nft_add_port_rules
+        doh6_expected="$(echo $DOH_BLOCK_IPV6_CIDRS | tr ' ' ',' | sed 's/,/, /g')"
+        echo "nft-doh-v6=$(sed -n '2p' "$NFT_LOG" | grep -c "ip6 daddr != { $doh6_expected } counter return")"
+        PR_block_doh=0; V6=0
+        : > "$NFT_LOG"
+        nft_add_port_rules
+        echo "nft-no-doh-exception=$(sed -n '1p' "$NFT_LOG" | grep -c 'ip daddr != { 1')"
+
+        # devices routed through a section as a whole (fully_routed_ips): prerouting only
+        NFT_FULLY_ROUTED_V4=""; NFT_FULLY_ROUTED_V6=""
+        NFT_INTERFACE_SET_NAME=ifaces
+        : > "$NFT_LOG"
+        _nft_mark_fully_routed_ip_handler 192.168.1.5
+        _nft_mark_fully_routed_ip_handler 10.1.0.0/24
+        V6=1
+        _nft_mark_fully_routed_ip_handler fd00::5
+        echo "routed-v4=$NFT_FULLY_ROUTED_V4"
+        echo "routed-v6=$NFT_FULLY_ROUTED_V6"
+        V6=0; : > "$NFT_LOG"
+        nft_add_port_rules
+        echo "nft-routed=$(sed -n '1p' "$NFT_LOG")"
+        echo "nft-routed-output=$(sed -n '2p' "$NFT_LOG" | grep -c saddr)"
+        V6=1; : > "$NFT_LOG"
+        nft_add_port_rules
+        echo "nft-routed-v6=$(sed -n '2p' "$NFT_LOG")"
+        NFT_FULLY_ROUTED_V4=""; NFT_FULLY_ROUTED_V6=""
+    )"
+
+    _pr() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _pr "ports, ranges and both separators are read" "parse-mixed=ports=80,443 ranges=1000:2000,5000:5100 nft=80, 443, 1000-2000, 5000-5100 bad="
+    _pr "what is not a port is named and left out" "parse-bad=ports=80,443 ranges= nft=80, 443 bad=0 70000 abc 3000-2000 -5 10-"
+    _pr "a list with no port is refused" "parse-none=no"
+    _pr "an empty list is refused" "parse-empty=no"
+    _pr "one rule per list that is set" "rules=2"
+    _pr "direct ports: a logical AND of the inbound/network and an OR of the port matchers, routed direct" 'direct-tcp=["logical","and",{"inbound":"tproxy-in","network":"tcp"},"or",[{"port":[80,443]},{"port_range":["1000:2000"]}],false,"direct-out"]'
+    _pr "proxy-only ports: the port matcher is inverted" 'only-udp=["udp",[{"port":[443]}],true]'
+    _pr "a list with ports only has one matcher" "ports-only-one-matcher=1"
+    _pr "the service tag stays on the rule" 'tag-kept="rule1"'
+    if command -v sing-box > /dev/null 2>&1; then
+        _pr "the core accepts the rules" "core-check=ok"
+    else
+        skip "sing-box not installed: the core check of the port rules"
+    fi
+    _pr "nothing set adds nothing" "none=0"
+    _pr "a list with no valid port is ignored with a warning" "invalid-list=0 warned=1"
+    _pr "no nft rule when nothing is set" "nft-none=0"
+    _pr "direct ports: traffic that is not FakeIP is not marked (prerouting)" "nft-v4-direct=insert rule inet T mangle tcp dport { 80, 1000-2000 } ip daddr != 198.18.0.0/15 counter return"
+    _pr "and the same for the router's own traffic" "nft-v4-direct-output=insert rule inet T mangle_output tcp dport { 80, 1000-2000 } ip daddr != 198.18.0.0/15 counter return"
+    _pr "proxy-only ports: every other port is not marked" "nft-v4-only=insert rule inet T mangle udp dport != { 443 } ip daddr != 198.18.0.0/15 counter return"
+    _pr "IPv4 only: four rules" "nft-count-v4=4"
+    _pr "IPv6 has its own FakeIP range" "nft-v6=insert rule inet T mangle tcp dport { 80, 1000-2000 } ip6 daddr != 2001:2::/48 counter return"
+    _pr "with IPv6 the rules are doubled" "nft-count-v6=8"
+    _pr "block_doh: the DoH resolver addresses are left out of the port rules (prerouting)" "nft-doh=1"
+    _pr "...and for the router's own traffic" "nft-doh-output=1"
+    _pr "...and over IPv6" "nft-doh-v6=1"
+    _pr "without block_doh there is no such exception" "nft-no-doh-exception=0"
+    _pr "the devices routed through a section as a whole are remembered (IPv4)" "routed-v4=192.168.1.5, 10.1.0.0/24"
+    _pr "...and IPv6" "routed-v6=fd00::5"
+    _pr "they are left out of the port rules of the prerouting chain" "nft-routed=insert rule inet T mangle tcp dport { 80, 1000-2000 } ip daddr != 198.18.0.0/15 ip saddr != { 192.168.1.5, 10.1.0.0/24 } counter return"
+    _pr "...but not of the router's own traffic" "nft-routed-output=0"
+    _pr "...over IPv6 too" "nft-routed-v6=insert rule inet T mangle tcp dport { 80, 1000-2000 } ip6 daddr != 2001:2::/48 ip6 saddr != { fd00::5 } counter return"
+
+    # sing-box takes the first matching route rule: the port rules must be added
+    # AFTER every reject rule (QUIC, DoH block, block sections), or a port in the
+    # direct list lets a blocked connection through.
+    local _line_of _call_line _reject_line _reject
+    _line_of() { grep -n "$1" "$bin" | sed -n "${2:-1}p" | cut -d: -f1; }
+    _call_line="$(grep -n '^    sing_box_configure_port_rules$' "$bin" | cut -d: -f1 | sed -n '1p')"
+    if [ -z "$_call_line" ]; then
+        fail "the port rules are added to the route (call not found)"
+    else
+        for _reject_line in 'sing_box_cf_add_single_key_reject_rule "\$config" "\$(tproxy_route_inbounds)" "protocol" "quic"' \
+            'sing_box_cm_add_doh_block_route_rule "\$config"' '^    configure_common_reject_route_rule$'; do
+            _reject="$(_line_of "$_reject_line")"
+            if [ -n "$_reject" ] && [ "$_reject" -lt "$_call_line" ]; then
+                pass "the port rules come after: $_reject_line"
+            else
+                fail "the port rules come after: $_reject_line" "reject at ${_reject:-none}, port rules at $_call_line"
+            fi
+        done
+    fi
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -20344,6 +20539,7 @@ main() {
             test_pin_guard
             test_dns_forward
             test_subscription_info
+            test_port_rules
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -20425,9 +20621,10 @@ main() {
         dnsforward)  test_dns_forward ;;
         dnshijack)   test_dns_hijack ;;
         subinfo)     test_subscription_info ;;
+        portrules)   test_port_rules ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules"
             exit 1
             ;;
     esac

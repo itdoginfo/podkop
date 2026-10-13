@@ -268,7 +268,10 @@ check_route() {
         rc=$?
         if [ "$rc" -eq 2 ]; then
             incomplete=true
-            skipped="$skipped $(printf '%s' "$rule" | jq -r --arg key "$SERVICE_TAG" '.[$key] // "rule"')"
+            # A logical rule is the port rule (direct / proxy-only ports): the check
+            # has no port, so it is named for what it is, not by its random tag.
+            skipped="$skipped $(printf '%s' "$rule" | jq -r --arg key "$SERVICE_TAG" \
+                'if .type == "logical" then "port-rules" else (.[$key] // "rule") end')"
             continue
         fi
         [ "$rc" -eq 0 ] || continue
@@ -335,6 +338,7 @@ check_route() {
                 verdict: $dns_verdict
             } else null end),
             incomplete: $incomplete,
-            skipped_rules: ($skipped | split(" ") | map(select(length > 0)))
+            skipped_rules: ($skipped | split(" ") | map(select(length > 0))
+                | reduce .[] as $name ([]; if index($name) then . else . + [$name] end))
         }'
 }

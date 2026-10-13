@@ -2064,6 +2064,9 @@ populate_netshift_subnets_from_string() {
 # Only used in the destination-selective default mode; under global_proxy ALL
 # traffic is already marked. Fail-open: a missing/empty list adds no rule.
 nft_mark_fully_routed_source_ips() {
+    # The addresses are also remembered: the port rules (nft_add_port_rules) leave them alone.
+    NFT_FULLY_ROUTED_V4=""
+    NFT_FULLY_ROUTED_V6=""
     foreach_active_section _nft_mark_fully_routed_ips_for_section "section"
 }
 
@@ -2100,10 +2103,12 @@ _nft_mark_fully_routed_ip_handler() {
     *:*)
         if netshift_ipv6_enabled; then
             nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip6 saddr "$ip" meta mark set "$NFT_FAKEIP_MARK" counter
+            NFT_FULLY_ROUTED_V6="${NFT_FULLY_ROUTED_V6:+$NFT_FULLY_ROUTED_V6, }$ip"
         fi
         ;;
     *)
         nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" meta mark set "$NFT_FAKEIP_MARK" counter
+        NFT_FULLY_ROUTED_V4="${NFT_FULLY_ROUTED_V4:+$NFT_FULLY_ROUTED_V4, }$ip"
         ;;
     esac
 }
@@ -2129,6 +2134,86 @@ nft_add_dns_hijack() {
     nft add rule inet "$NFT_TABLE_NAME" dns_hijack iifname "@$NFT_INTERFACE_SET_NAME" fib daddr type local return
     nft add rule inet "$NFT_TABLE_NAME" dns_hijack iifname "@$NFT_INTERFACE_SET_NAME" tcp dport 53 counter redirect to :53
     nft add rule inet "$NFT_TABLE_NAME" dns_hijack iifname "@$NFT_INTERFACE_SET_NAME" udp dport 53 counter redirect to :53
+}
+
+# Ports whose traffic never takes the tunnel, and ports that are the only ones that do
+# (settings.direct_tcp_ports / direct_udp_ports / proxy_only_tcp_ports /
+# proxy_only_udp_ports; "80,443, 1000-2000"). The routing is decided inside sing-box
+# (a route rule that sends the traffic out directly), because a connection to a
+# FakeIP address has no other way out; nft_add_port_rules keeps the traffic that is
+# not FakeIP away from sing-box altogether.
+sing_box_configure_port_rules() {
+    local network list_kind option value tag invert
+
+    for network in tcp udp; do
+        for list_kind in direct proxy_only; do
+            option="${list_kind}_${network}_ports"
+            config_get value "settings" "$option"
+            [ -n "$value" ] || continue
+
+            if ! parse_port_list "$value"; then
+                log "$option '$value' has no valid port, ignoring it" "warn"
+                continue
+            fi
+            [ -z "$PORT_LIST_BAD" ] || log "$option: skipping '$PORT_LIST_BAD' (not a port or a range)" "warn"
+
+            invert=false
+            [ "$list_kind" = "proxy_only" ] && invert=true
+            tag="$(gen_id)"
+            log "Port rule: $option = $PORT_LIST_NFT" "info"
+            config=$(sing_box_cm_add_port_route_rule "$config" "$tag" "$(tproxy_route_inbounds)" "$network" \
+                "$PORT_LIST_PORTS" "$PORT_LIST_RANGES" "$invert" "$SB_DIRECT_OUTBOUND_TAG")
+        done
+    done
+}
+
+# The same ports on the nft side: traffic to them (or, for proxy_only, to every other
+# port) that is not headed for a FakeIP address is never marked, so it does not enter
+# sing-box. FakeIP destinations are left to the route rules: an unmarked packet to
+# an address that does not exist would just be lost.
+nft_add_port_rules() {
+    local network list_kind option value chain compare block_doh doh4="" doh6="" routed
+
+    # Two things are stronger than a port list and are never kept out of sing-box by it:
+    # the DoH resolver addresses while block_doh is on (they are marked so that the route
+    # rule can drop them) and the devices whose whole traffic is routed through a section
+    # (fully_routed_ips, see nft_mark_fully_routed_source_ips).
+    config_get block_doh "settings" "block_doh"
+    if [ "$block_doh" = "1" ]; then
+        # shellcheck disable=SC2086
+        doh4="$(echo $DOH_BLOCK_IPV4_CIDRS | tr ' ' ',' | sed 's/,/, /g')"
+        # shellcheck disable=SC2086
+        doh6="$(echo $DOH_BLOCK_IPV6_CIDRS | tr ' ' ',' | sed 's/,/, /g')"
+    fi
+
+    for network in tcp udp; do
+        for list_kind in direct proxy_only; do
+            option="${list_kind}_${network}_ports"
+            config_get value "settings" "$option"
+            [ -n "$value" ] || continue
+            parse_port_list "$value" || continue
+
+            compare=""
+            [ "$list_kind" = "proxy_only" ] && compare="!="
+
+            for chain in mangle mangle_output; do
+                routed=""
+                [ "$chain" = "mangle" ] && routed="$NFT_FULLY_ROUTED_V4"
+                set -- "$network" dport $compare "{ $PORT_LIST_NFT }" ip daddr != "$SB_FAKEIP_INET4_RANGE"
+                [ -z "$doh4" ] || set -- "$@" ip daddr != "{ $doh4 }"
+                [ -z "$routed" ] || set -- "$@" ip saddr != "{ $routed }"
+                nft insert rule inet "$NFT_TABLE_NAME" "$chain" "$@" counter return
+                if netshift_ipv6_enabled; then
+                    routed=""
+                    [ "$chain" = "mangle" ] && routed="$NFT_FULLY_ROUTED_V6"
+                    set -- "$network" dport $compare "{ $PORT_LIST_NFT }" ip6 daddr != "$SB_FAKEIP_INET6_RANGE"
+                    [ -z "$doh6" ] || set -- "$@" ip6 daddr != "{ $doh6 }"
+                    [ -z "$routed" ] || set -- "$@" ip6 saddr != "{ $routed }"
+                    nft insert rule inet "$NFT_TABLE_NAME" "$chain" "$@" counter return
+                fi
+            done
+        done
+    done
 }
 
 create_nft_rules() {
@@ -2264,6 +2349,8 @@ create_nft_rules() {
     # Same generator as the prerouting chain, minus the iifname selector (this
     # traffic did not arrive on a LAN interface).
     nft_add_selective_marking_rules mangle_output "$nft_mark_all" "$nft_block_doh"
+
+    nft_add_port_rules
 
     local exclude_ntp
     config_get_bool exclude_ntp "settings" "exclude_ntp" "0"
@@ -5278,6 +5365,12 @@ sing_box_configure_route() {
     config=$(sing_box_cf_override_domain_port "$config" "$FAKEIP_TEST_DOMAIN" 8443)
 
     configure_common_reject_route_rule
+
+    # sing-box takes the FIRST matching rule, so the port rules come after every
+    # reject rule (QUIC, DoH block, block sections): a port in the direct list
+    # must not let a blocked connection through.
+    sing_box_configure_port_rules
+
     configure_common_direct_route_rule
 
     local routing_excluded_ips

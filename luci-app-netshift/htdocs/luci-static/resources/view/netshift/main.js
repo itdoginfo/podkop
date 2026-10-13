@@ -935,6 +935,26 @@ function validateDnsForward(entry) {
   return { valid: true, message: _("Valid") };
 }
 
+// src/validators/validatePortList.ts
+function validatePortList(value) {
+  const items = value.split(/[,\s]+/).map((item) => item.trim()).filter(Boolean);
+  if (items.length === 0) {
+    return { valid: true, message: _("Valid") };
+  }
+  for (const item of items) {
+    const match = item.match(/^(\d+)(?:[-:](\d+))?$/);
+    if (!match) {
+      return { valid: false, message: _("Invalid port or port range") };
+    }
+    const first = Number(match[1]);
+    const last = match[2] === void 0 ? first : Number(match[2]);
+    if (first < 1 || last > 65535 || first > last) {
+      return { valid: false, message: _("Invalid port or port range") };
+    }
+  }
+  return { valid: true, message: _("Valid") };
+}
+
 // src/helpers/parseValueList.ts
 function parseValueList(value) {
   return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
@@ -8367,6 +8387,7 @@ return baseclass.extend({
   validateIPV6,
   validateOutboundJson,
   validatePath,
+  validatePortList,
   validateProxyUrl,
   validateProxyUrlList,
   validateShadowsocksUrl,

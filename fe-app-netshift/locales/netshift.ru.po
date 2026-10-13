@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 13:06+0300\n"
-"PO-Revision-Date: 2026-10-09 13:06+0300\n"
+"POT-Creation-Date: 2026-10-13 15:37+0300\n"
+"PO-Revision-Date: 2026-10-13 15:37+0300\n"
 "Last-Translator: agent\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -794,6 +794,9 @@ msgstr "Некорректный номер порта. Допустимо 1-655
 msgid "Invalid port number. Must be between 1 and 65535"
 msgstr "Неверный номер порта. Допустимо от 1 до 65535"
 
+msgid "Invalid port or port range"
+msgstr "Некорректный порт или диапазон портов"
+
 msgid "Invalid regular expression"
 msgstr "Некорректное регулярное выражение"
 
@@ -1099,6 +1102,12 @@ msgstr "Только при запуске, потом не проверять"
 
 msgid "Only one section can be global at a time."
 msgstr "Только одна секция может быть глобальной одновременно."
+
+msgid "Only these TCP ports take the tunnel"
+msgstr "Только эти TCP-порты идут в туннель"
+
+msgid "Only these UDP ports take the tunnel"
+msgstr "Только эти UDP-порты идут в туннель"
 
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
@@ -1514,6 +1523,9 @@ msgstr "Брать подсеть из WAN-интерфейса: его публ
 msgid "TCP"
 msgstr "TCP"
 
+msgid "TCP ports that always go directly"
+msgstr "TCP-порты, которые всегда идут напрямую"
+
 msgid "Test latency"
 msgstr "Тестирование задержки"
 
@@ -1634,6 +1646,12 @@ msgstr "Трафик"
 msgid "Traffic of the IP addresses listed above never enters sing-box: the router sends it out directly, which saves CPU (a streaming TV, a game console). They also skip Fully Routed IPs and Global Proxy."
 msgstr "Трафик перечисленных выше IP-адресов вообще не попадает в sing-box: роутер отправляет его напрямую, что экономит CPU (телевизор со стримингом, игровая консоль). Они также пропускают «Полностью маршрутизированные IP-адреса» и «Глобальный прокси»."
 
+msgid "Traffic to these TCP ports never takes the tunnel, even for a domain or a subnet that is routed through it. Ports and ranges, separated by commas, for example: 22, 25, 6881-6889."
+msgstr "Трафик на эти TCP-порты никогда не идёт в туннель, даже для домена или подсети, направленных в него. Порты и диапазоны через запятую, например: 22, 25, 6881-6889."
+
+msgid "Traffic to these UDP ports never takes the tunnel (voice calls, games, NTP). Ports and ranges, separated by commas."
+msgstr "Трафик на эти UDP-порты никогда не идёт в туннель (звонки, игры, NTP). Порты и диапазоны через запятую."
+
 msgid "Traffic Total"
 msgstr "Всего трафика"
 
@@ -1651,6 +1669,9 @@ msgstr "UDP (Незащищённый DNS)"
 
 msgid "UDP over TCP"
 msgstr "UDP через TCP"
+
+msgid "UDP ports that always go directly"
+msgstr "UDP-порты, которые всегда идут напрямую"
 
 msgid "unknown"
 msgstr "неизвестно"
@@ -1789,6 +1810,12 @@ msgstr "Когда сервер, выбранный вручную, перест
 
 msgid "When enabled, traffic not matching any other section's lists will go through this proxy."
 msgstr "Когда включено, трафик, не совпадающий со списками других секций, будет идти через этот прокси."
+
+msgid "When set, TCP traffic to every other port goes directly. For example 80, 443 keeps mail and torrents out of the tunnel. A port in the list above still goes directly."
+msgstr "Если задано, TCP-трафик на все остальные порты идёт напрямую. Например, 80, 443 убирает из туннеля почту и торренты. Порт из списка выше всё равно идёт напрямую."
+
+msgid "When set, UDP traffic to every other port goes directly. For example 443 leaves only QUIC to the tunnel. A port in the list above still goes directly."
+msgstr "Если задано, UDP-трафик на все остальные порты идёт напрямую. Например, 443 оставляет в туннеле только QUIC. Порт из списка выше всё равно идёт напрямую."
 
 msgid "Where will a request go"
 msgstr "Куда пойдёт запрос"

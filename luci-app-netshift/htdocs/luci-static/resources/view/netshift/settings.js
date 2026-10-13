@@ -487,6 +487,90 @@ function createSettingsContent(section) {
 
   o = section.taboption(
     "network",
+    form.Value,
+    "direct_tcp_ports",
+    _("TCP ports that always go directly"),
+    _(
+      "Traffic to these TCP ports never takes the tunnel, even for a domain or a subnet that is routed through it. Ports and ranges, separated by commas, for example: 22, 25, 6881-6889.",
+    ),
+  );
+  o.placeholder = "80, 443, 1000-2000";
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validatePortList(value);
+
+    return validation.valid ? true : validation.message;
+  };
+
+  o = section.taboption(
+    "network",
+    form.Value,
+    "direct_udp_ports",
+    _("UDP ports that always go directly"),
+    _(
+      "Traffic to these UDP ports never takes the tunnel (voice calls, games, NTP). Ports and ranges, separated by commas.",
+    ),
+  );
+  o.placeholder = "80, 443, 1000-2000";
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validatePortList(value);
+
+    return validation.valid ? true : validation.message;
+  };
+
+  o = section.taboption(
+    "network",
+    form.Value,
+    "proxy_only_tcp_ports",
+    _("Only these TCP ports take the tunnel"),
+    _(
+      "When set, TCP traffic to every other port goes directly. For example 80, 443 keeps mail and torrents out of the tunnel. A port in the list above still goes directly.",
+    ),
+  );
+  o.placeholder = "80, 443, 1000-2000";
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validatePortList(value);
+
+    return validation.valid ? true : validation.message;
+  };
+
+  o = section.taboption(
+    "network",
+    form.Value,
+    "proxy_only_udp_ports",
+    _("Only these UDP ports take the tunnel"),
+    _(
+      "When set, UDP traffic to every other port goes directly. For example 443 leaves only QUIC to the tunnel. A port in the list above still goes directly.",
+    ),
+  );
+  o.placeholder = "80, 443, 1000-2000";
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validatePortList(value);
+
+    return validation.valid ? true : validation.message;
+  };
+
+  o = section.taboption(
+    "network",
     form.Flag,
     "dns_hijack",
     _("Send LAN DNS queries to the router"),

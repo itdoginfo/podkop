@@ -1531,6 +1531,60 @@ sing_box_cm_add_route_rule() {
 }
 
 #######################################
+# Add a route rule that sends the traffic of some ports out directly (or, inverted,
+# the traffic of every port but those). A single port field and a port_range field in
+# one rule would both have to match, so the ports and the ranges are put in a
+# logical OR rule of their own.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   tag: string, identifier for the route rule
+#   inbound: string, inbound tag to match (or a JSON array of tags)
+#   network: "tcp" or "udp"
+#   ports: comma separated single ports ("80,443"), may be empty
+#   ranges: comma separated ranges ("1000:2000"), may be empty
+#   invert: "true" to route the traffic of the ports NOT listed
+#   outbound: string, outbound tag
+# Outputs:
+#   Updated JSON config to stdout
+#######################################
+sing_box_cm_add_port_route_rule() {
+    local config="$1"
+    local tag="$2"
+    local inbound="$3"
+    local network="$4"
+    local ports="$5"
+    local ranges="$6"
+    local invert="$7"
+    local outbound="$8"
+
+    echo "$config" | jq \
+        --arg service_tag "$SERVICE_TAG" \
+        --arg tag "$tag" \
+        --argjson inbound "$(_normalize_arg "$inbound")" \
+        --arg network "$network" \
+        --arg ports "$ports" \
+        --arg ranges "$ranges" \
+        --arg invert "$invert" \
+        --arg outbound "$outbound" \
+        '.route.rules += [(
+            ([(if $ports != "" then {port: ($ports | split(",") | map(tonumber))} else empty end),
+              (if $ranges != "" then {port_range: ($ranges | split(","))} else empty end)]) as $matchers
+            | {
+                type: "logical",
+                mode: "and",
+                rules: [
+                    {inbound: $inbound, network: $network},
+                    ({type: "logical", mode: "or", rules: $matchers}
+                     + (if $invert == "true" then {invert: true} else {} end))
+                ],
+                action: "route",
+                outbound: $outbound,
+                $service_tag: $tag
+            }
+        )]'
+}
+
+#######################################
 # Add a route rule that sends BitTorrent traffic out directly instead of through
 # the tunnel. BitTorrent is matched on the SNIFFED protocol, so the caller MUST
 # insert this rule AFTER the sniff rule in route.rules: placed earlier, the

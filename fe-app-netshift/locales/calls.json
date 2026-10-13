@@ -144,7 +144,7 @@
     "call": "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall.",
     "key": "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:751"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:835"
     ]
   },
   {
@@ -214,21 +214,21 @@
     "call": "Block direct connections to known public DoH servers (Cloudflare, Google, Quad9, OpenDNS, AdGuard, Yandex) so apps cannot bypass router DNS filtering.",
     "key": "Block direct connections to known public DoH servers (Cloudflare, Google, Quad9, OpenDNS, AdGuard, Yandex) so apps cannot bypass router DNS filtering.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:857"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:941"
     ]
   },
   {
     "call": "Block DoH Servers",
     "key": "Block DoH Servers",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:856"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:940"
     ]
   },
   {
     "call": "Block Leaks When Tunnel Is Down",
     "key": "Block Leaks When Tunnel Is Down",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:868"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:952"
     ]
   },
   {
@@ -305,21 +305,21 @@
     "call": "Bypass sing-box for excluded IPs",
     "key": "Bypass sing-box for excluded IPs",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:727"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:811"
     ]
   },
   {
     "call": "Cache File Path",
     "key": "Cache File Path",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:910"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:994"
     ]
   },
   {
     "call": "Cache file path cannot be empty",
     "key": "Cache file path cannot be empty",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:924"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1008"
     ]
   },
   {
@@ -515,7 +515,7 @@
     "call": "Config File Path",
     "key": "Config File Path",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:896"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:980"
     ]
   },
   {
@@ -665,14 +665,14 @@
     "call": "Delay in milliseconds before reloading NetShift after interface UP",
     "key": "Delay in milliseconds before reloading NetShift after interface UP",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:602"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:686"
     ]
   },
   {
     "call": "Delay value cannot be empty",
     "key": "Delay value cannot be empty",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:609"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:693"
     ]
   },
   {
@@ -770,7 +770,7 @@
     "call": "Disable QUIC",
     "key": "Disable QUIC",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:776"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:860"
     ]
   },
   {
@@ -784,7 +784,7 @@
     "call": "Disable the QUIC protocol to improve compatibility or fix issues with video streaming",
     "key": "Disable the QUIC protocol to improve compatibility or fix issues with video streaming",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:777"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:861"
     ]
   },
   {
@@ -992,7 +992,7 @@
     "call": "Dont Touch My DHCP!",
     "key": "Dont Touch My DHCP!",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:788"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:872"
     ]
   },
   {
@@ -1014,36 +1014,36 @@
     "call": "Download components via Proxy/VPN",
     "key": "Download components via Proxy/VPN",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:654"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:738"
     ]
   },
   {
     "call": "Download Lists via Proxy/VPN",
     "key": "Download Lists via Proxy/VPN",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:644"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:728"
     ]
   },
   {
     "call": "Download Lists via specific proxy section",
     "key": "Download Lists via specific proxy section",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:666"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:750"
     ]
   },
   {
     "call": "Download sing-box, NetShift packages and release information through the proxy section selected below. Useful when GitHub is blocked; a failed download falls back to a direct connection.",
     "key": "Download sing-box, NetShift packages and release information through the proxy section selected below. Useful when GitHub is blocked; a failed download falls back to a direct connection.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:655"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:739"
     ]
   },
   {
     "call": "Downloading all lists via specific Proxy/VPN",
     "key": "Downloading all lists via specific Proxy/VPN",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:645",
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:667"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:729",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:751"
     ]
   },
   {
@@ -1121,14 +1121,14 @@
     "call": "Enable IPv6 Support",
     "key": "Enable IPv6 Support",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:884"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:968"
     ]
   },
   {
     "call": "Enable IPv6 TProxy routing, IPv6 DNS inbound, and IPv6 FakeIP support.",
     "key": "Enable IPv6 TProxy routing, IPv6 DNS inbound, and IPv6 FakeIP support.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:885"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:969"
     ]
   },
   {
@@ -1142,7 +1142,7 @@
     "call": "Enable Output Network Interface",
     "key": "Enable Output Network Interface",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:504"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:588"
     ]
   },
   {
@@ -1156,14 +1156,14 @@
     "call": "Enable YACD",
     "key": "Enable YACD",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:740"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:824"
     ]
   },
   {
     "call": "Enable YACD WAN Access",
     "key": "Enable YACD WAN Access",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:750"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:834"
     ]
   },
   {
@@ -1327,21 +1327,21 @@
     "call": "Exclude BitTorrent",
     "key": "Exclude BitTorrent",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:810"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:894"
     ]
   },
   {
     "call": "Exclude NTP",
     "key": "Exclude NTP",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:798"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:882"
     ]
   },
   {
     "call": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "key": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:799"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:883"
     ]
   },
   {
@@ -1404,7 +1404,7 @@
     "call": "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered.",
     "key": "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:869"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:953"
     ]
   },
   {
@@ -1666,21 +1666,21 @@
     "call": "Interface Monitoring",
     "key": "Interface Monitoring",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:567"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:651"
     ]
   },
   {
     "call": "Interface Monitoring Delay",
     "key": "Interface Monitoring Delay",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:601"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:685"
     ]
   },
   {
     "call": "Interface monitoring for Bad WAN",
     "key": "Interface monitoring for Bad WAN",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:568"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:652"
     ]
   },
   {
@@ -1865,6 +1865,14 @@
     "key": "Invalid port number. Must be between 1 and 65535",
     "places": [
       "src/validators/validateShadowsocksUrl.ts:85"
+    ]
+  },
+  {
+    "call": "Invalid port or port range",
+    "key": "Invalid port or port range",
+    "places": [
+      "src/validators/validatePortList.ts:19",
+      "src/validators/validatePortList.ts:26"
     ]
   },
   {
@@ -2198,7 +2206,7 @@
     "call": "Latency test URL",
     "key": "Latency test URL",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:822"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:906"
     ]
   },
   {
@@ -2248,7 +2256,7 @@
     "call": "List Update Frequency",
     "key": "List Update Frequency",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:631"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:715"
     ]
   },
   {
@@ -2283,7 +2291,7 @@
     "call": "Log Level",
     "key": "Log Level",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:947"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1031"
     ]
   },
   {
@@ -2383,7 +2391,7 @@
     "call": "Monitored Interfaces",
     "key": "Monitored Interfaces",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:577"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:661"
     ]
   },
   {
@@ -2433,7 +2441,7 @@
     "call": "NetShift will not modify your DHCP configuration",
     "key": "NetShift will not modify your DHCP configuration",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:789"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:873"
     ]
   },
   {
@@ -2562,7 +2570,7 @@
     "call": "Notify about new versions",
     "key": "Notify about new versions",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:619"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:703"
     ]
   },
   {
@@ -2598,6 +2606,20 @@
     "key": "Only one section can be global at a time.",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:772"
+    ]
+  },
+  {
+    "call": "Only these TCP ports take the tunnel",
+    "key": "Only these TCP ports take the tunnel",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:534"
+    ]
+  },
+  {
+    "call": "Only these UDP ports take the tunnel",
+    "key": "Only these UDP ports take the tunnel",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:555"
     ]
   },
   {
@@ -2647,7 +2669,7 @@
     "call": "Output Network Interface",
     "key": "Output Network Interface",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:514"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:598"
     ]
   },
   {
@@ -2668,21 +2690,21 @@
     "call": "Path must be absolute (start with /)",
     "key": "Path must be absolute (start with /)",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:928"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1012"
     ]
   },
   {
     "call": "Path must contain at least one directory (like /tmp/cache.db)",
     "key": "Path must contain at least one directory (like /tmp/cache.db)",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:937"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1021"
     ]
   },
   {
     "call": "Path must end with cache.db",
     "key": "Path must end with cache.db",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:932"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1016"
     ]
   },
   {
@@ -2715,7 +2737,7 @@
     "call": "Plain DNS (port 53) of the devices in the source interfaces is redirected to the router even when a device asks another server, such as a hard-coded 8.8.8.8. Without it such devices never get the FakeIP answers that routing by domain depends on. DNS over TLS/HTTPS is not touched.",
     "key": "Plain DNS (port 53) of the devices in the source interfaces is redirected to the router even when a device asks another server, such as a hard-coded 8.8.8.8. Without it such devices never get the FakeIP answers that routing by domain depends on. DNS over TLS/HTTPS is not touched.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:493"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:577"
     ]
   },
   {
@@ -2911,7 +2933,7 @@
     "call": "Route BitTorrent traffic directly, bypassing the proxy or VPN. Some providers block subscriptions when they detect torrent traffic.",
     "key": "Route BitTorrent traffic directly, bypassing the proxy or VPN. Some providers block subscriptions when they detect torrent traffic.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:811"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:895"
     ]
   },
   {
@@ -2947,7 +2969,7 @@
     "call": "Routing Excluded IPs",
     "key": "Routing Excluded IPs",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:703"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:787"
     ]
   },
   {
@@ -3066,7 +3088,7 @@
     "call": "Secret key for authenticating remote access to YACD when WAN access is enabled.",
     "key": "Secret key for authenticating remote access to YACD when WAN access is enabled.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:764"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:848"
     ]
   },
   {
@@ -3101,7 +3123,7 @@
     "call": "Select how often the domain or subnet lists are updated automatically",
     "key": "Select how often the domain or subnet lists are updated automatically",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:632"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:716"
     ]
   },
   {
@@ -3129,14 +3151,14 @@
     "call": "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing",
     "key": "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:911"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:995"
     ]
   },
   {
     "call": "Select path for sing-box config file. Change this ONLY if you know what you are doing",
     "key": "Select path for sing-box config file. Change this ONLY if you know what you are doing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:897"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:981"
     ]
   },
   {
@@ -3150,7 +3172,7 @@
     "call": "Select the log level for sing-box",
     "key": "Select the log level for sing-box",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:948"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1032"
     ]
   },
   {
@@ -3164,14 +3186,14 @@
     "call": "Select the network interface to which the traffic will originate",
     "key": "Select the network interface to which the traffic will originate",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:515"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:599"
     ]
   },
   {
     "call": "Select the WAN interfaces to be monitored",
     "key": "Select the WAN interfaces to be monitored",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:578"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:662"
     ]
   },
   {
@@ -3220,7 +3242,7 @@
     "call": "Send LAN DNS queries to the router",
     "key": "Send LAN DNS queries to the router",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:492"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:576"
     ]
   },
   {
@@ -3262,7 +3284,7 @@
     "call": "Show a notice on the dashboard when a newer NetShift or sing-box-extended version is out. When the dashboard is opened and the last check is more than a day old, the router asks GitHub once in the background; nothing is installed.",
     "key": "Show a notice on the dashboard when a newer NetShift or sing-box-extended version is out. When the dashboard is opened and the last check is more than a day old, the router asks GitHub once in the background; nothing is installed.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:620"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:704"
     ]
   },
   {
@@ -3377,7 +3399,7 @@
     "call": "Specify a local IP address to be excluded from routing",
     "key": "Specify a local IP address to be excluded from routing",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:704"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:788"
     ]
   },
   {
@@ -3576,6 +3598,13 @@
     "key": "TCP",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:56"
+    ]
+  },
+  {
+    "call": "TCP ports that always go directly",
+    "key": "TCP ports that always go directly",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:492"
     ]
   },
   {
@@ -3790,7 +3819,7 @@
     "call": "The URL the dashboard uses to measure server latency. Change it if the default is slow or blocked in your region.",
     "key": "The URL the dashboard uses to measure server latency. Change it if the default is slow or blocked in your region.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:823"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:907"
     ]
   },
   {
@@ -3863,7 +3892,21 @@
     "call": "Traffic of the IP addresses listed above never enters sing-box: the router sends it out directly, which saves CPU (a streaming TV, a game console). They also skip Fully Routed IPs and Global Proxy.",
     "key": "Traffic of the IP addresses listed above never enters sing-box: the router sends it out directly, which saves CPU (a streaming TV, a game console). They also skip Fully Routed IPs and Global Proxy.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:728"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:812"
+    ]
+  },
+  {
+    "call": "Traffic to these TCP ports never takes the tunnel, even for a domain or a subnet that is routed through it. Ports and ranges, separated by commas, for example: 22, 25, 6881-6889.",
+    "key": "Traffic to these TCP ports never takes the tunnel, even for a domain or a subnet that is routed through it. Ports and ranges, separated by commas, for example: 22, 25, 6881-6889.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:493"
+    ]
+  },
+  {
+    "call": "Traffic to these UDP ports never takes the tunnel (voice calls, games, NTP). Ports and ranges, separated by commas.",
+    "key": "Traffic to these UDP ports never takes the tunnel (voice calls, games, NTP). Ports and ranges, separated by commas.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:514"
     ]
   },
   {
@@ -3907,6 +3950,13 @@
     "key": "UDP over TCP",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:716"
+    ]
+  },
+  {
+    "call": "UDP ports that always go directly",
+    "key": "UDP ports that always go directly",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:513"
     ]
   },
   {
@@ -4125,7 +4175,7 @@
     "call": "Use this only when the router has working IPv6 connectivity.",
     "key": "Use this only when the router has working IPv6 connectivity.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:887"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:971"
     ]
   },
   {
@@ -4183,6 +4233,8 @@
       "src/validators/validateIp.ts:97",
       "src/validators/validateOutboundJson.ts:7",
       "src/validators/validatePath.ts:16",
+      "src/validators/validatePortList.ts:12",
+      "src/validators/validatePortList.ts:30",
       "src/validators/validateShadowsocksUrl.ts:95",
       "src/validators/validateSocksUrl.ts:80",
       "src/validators/validateSubnet.ts:30",
@@ -4277,6 +4329,20 @@
     ]
   },
   {
+    "call": "When set, TCP traffic to every other port goes directly. For example 80, 443 keeps mail and torrents out of the tunnel. A port in the list above still goes directly.",
+    "key": "When set, TCP traffic to every other port goes directly. For example 80, 443 keeps mail and torrents out of the tunnel. A port in the list above still goes directly.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:535"
+    ]
+  },
+  {
+    "call": "When set, UDP traffic to every other port goes directly. For example 443 leaves only QUIC to the tunnel. A port in the list above still goes directly.",
+    "key": "When set, UDP traffic to every other port goes directly. For example 443 leaves only QUIC to the tunnel. A port in the list above still goes directly.",
+    "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:556"
+    ]
+  },
+  {
     "call": "Where will a request go",
     "key": "Where will a request go",
     "places": [
@@ -4301,7 +4367,7 @@
     "call": "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up.",
     "key": "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up.",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:873"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:957"
     ]
   },
   {
@@ -4322,7 +4388,7 @@
     "call": "YACD Secret Key",
     "key": "YACD Secret Key",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:763"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:847"
     ]
   },
   {
@@ -4336,7 +4402,7 @@
     "call": "You can select Output Network Interface, by default autodetect",
     "key": "You can select Output Network Interface, by default autodetect",
     "places": [
-      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:505"
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:589"
     ]
   }
 ]
