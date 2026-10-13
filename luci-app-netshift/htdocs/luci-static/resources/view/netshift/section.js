@@ -148,7 +148,7 @@ function createSectionContent(section) {
     "proxy_string",
     _("Proxy Configuration URL"),
     _(
-      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links",
+      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// links",
     ),
   );
   o.depends({ connection_type: "proxy", proxy_config_type: "url" });
@@ -495,7 +495,7 @@ function createSectionContent(section) {
     "selector_proxy_links",
     _("Selector Proxy Links"),
     _(
-      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links",
+      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// links",
     ),
   );
   o.depends({ connection_type: "proxy", proxy_config_type: "selector" });
@@ -521,7 +521,7 @@ function createSectionContent(section) {
     "selector_proxy_links_text",
     _("Selector Proxy Links (one per line)"),
     _(
-      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links — one per line",
+      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// links — one per line",
     ),
   );
   o.depends({ connection_type: "proxy", proxy_config_type: "selector_text" });
@@ -550,7 +550,7 @@ function createSectionContent(section) {
     "urltest_proxy_links",
     _("URLTest Proxy Links"),
     _(
-      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links",
+      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// links",
     ),
   );
   o.depends({ connection_type: "proxy", proxy_config_type: "urltest" });
@@ -576,7 +576,7 @@ function createSectionContent(section) {
     "urltest_proxy_links_text",
     _("URLTest Proxy Links (one per line)"),
     _(
-      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links — one per line",
+      "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// links — one per line",
     ),
   );
   o.depends({ connection_type: "proxy", proxy_config_type: "urltest_text" });

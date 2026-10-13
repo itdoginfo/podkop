@@ -143,6 +143,26 @@ NFT_DISCORD_SET_NAME="netshift_discord_subnets"
 NFT_INTERFACE_SET_NAME="interfaces"
 NFT_FAKEIP_MARK="0x00100000"
 NFT_OUTBOUND_MARK="0x00200000"
+# The NaiveProxy sidecar clients (lib/naive.sh) run as this user. Their own egress
+# does not carry NFT_OUTBOUND_MARK (only sing-box stamps it), so mangle_output returns
+# their traffic by uid before any marking rule: otherwise a client that dials its
+# server through a proxied destination would be captured into tproxy, sent back to
+# the same client, and dial again - a loop.
+NAIVE_CLIENT_USER="naive"
+NAIVE_CLIENT_UID="6501"
+# The NaiveProxy clients: the first local SOCKS5 port (one more per link), the list the
+# configuration builder writes for the init script, the copy of the list the running clients
+# were started from, and the init script itself.
+NAIVE_PORT_BASE=19300
+NAIVE_LIST_FILE="/tmp/netshift-naive.list"
+NAIVE_RUNNING_FILE="/tmp/netshift-naive.running"
+NAIVE_INIT="/etc/init.d/netshift-naive"
+# One sing-box configuration build at a time: the NaiveProxy list above is numbered and
+# rewritten while the outbounds are built, so two builds at once (a start and a reload
+# from a subscription update) would hand out the same ports. A directory (mkdir is atomic)
+# holding the pid of the build; a build that ended or died leaves a lock that is taken over.
+CONFIG_BUILD_LOCK_DIR="/var/run/netshift-config-build.lock"
+CONFIG_BUILD_LOCK_WAIT=120
 # ── block_leaks: fail-closed guard table (see lib/kill_switch.sh) ───────────
 # A SECOND, independent table mirroring the proxied destinations. It drops
 # traffic to them whenever NetShiftTable is missing or still empty (stop_main

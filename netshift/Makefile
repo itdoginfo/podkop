@@ -57,6 +57,7 @@ endef
 define Package/netshift/install
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/etc/init.d/netshift $(1)/etc/init.d/netshift
+	$(INSTALL_BIN) ./files/etc/init.d/netshift-naive $(1)/etc/init.d/netshift-naive
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/etc/config/netshift $(1)/etc/config/netshift

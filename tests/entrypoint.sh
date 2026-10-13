@@ -121,7 +121,8 @@ test_syntax() {
         "$lib/sing_box_config_facade.sh" \
         "$lib/updater.sh" \
         "$lib/dnsforward.sh" \
-        "$lib/subinfo.sh"; do
+        "$lib/subinfo.sh" \
+        "$lib/naive.sh"; do
 
         if [ ! -r "$f" ]; then
             fail "File not found: $f"
@@ -20448,6 +20449,298 @@ test_port_rules() {
     rm -rf "$work"
 }
 
+
+# ─────────────────────────────────────────────────────────────────
+# Test: NaiveProxy links (native outbound or the naive client beside sing-box)
+# ─────────────────────────────────────────────────────────────────
+test_naive() {
+    header "NaiveProxy links"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/naive.sh" ] || [ ! -r "$lib/sing_box_config_facade.sh" ] || [ ! -r "$lib/sing_box_config_manager.sh" ] || [ ! -r "${NETSHIFT_SRC}/etc/init.d/netshift-naive" ]; then
+        fail "naive.sh / facade / manager / the init script not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local work="/tmp/netshift-naive-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        NAIVE_LOG="$work/log"; : > "$NAIVE_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$NAIVE_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        . "$lib/naive.sh"
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        NAIVE_LIST_FILE="$work/naive.list"
+        NAIVE_RUNNING_FILE="$work/naive.running"
+        NAIVE_INIT="$work/init"
+        base='{"outbounds":[]}'
+
+        add() { sing_box_cf_add_proxy_outbound "$base" "$1" "$2" ""; }
+
+        # the core with the naive outbound
+        naive_core_supported() { return 0; }
+        naive_binary() { return 1; }
+        out="$(add s1 'https://alex:qwerty123@hommie.mooo.com:443')"
+        echo "native=$(printf '%s' "$out" | jq -c '.outbounds[0] | [.type, .tag, .server, .server_port, .username, .password, .tls.server_name, (.quic // false)]')"
+        out="$(add s1 'naive+https://alex:qwerty123@hommie.mooo.com#name')"
+        echo "native-default-port=$(printf '%s' "$out" | jq -c '.outbounds[0].server_port')"
+        out="$(add s1 'naive+quic://alex:qwerty123@hommie.mooo.com:8443')"
+        echo "native-quic=$(printf '%s' "$out" | jq -c '.outbounds[0] | [.quic, .server_port]')"
+        out="$(add s1 'naive+https://u:p@203.0.113.9:443')"
+        echo "native-ip=$(printf '%s' "$out" | jq -c '.outbounds[0] | [.server, (.tls | has("server_name"))]')"
+        out="$(add s1 'naive+https://al%40ex:p%3Ass%25@h.example.com:443')"
+        echo "native-decoded=$(printf '%s' "$out" | jq -c '.outbounds[0] | [.username, .password]')"
+
+        # a link with a login but no password is not usable either
+        out="$(add s1 'naive+https://alex@hommie.mooo.com:443')"; rc=$?
+        echo "no-password-rc=$rc unchanged=$([ "$out" = "$base" ] && echo yes || echo no)"
+        out="$(add s1 'naive+https://alex:@hommie.mooo.com:443')"; rc=$?
+        echo "empty-password-rc=$rc unchanged=$([ "$out" = "$base" ] && echo yes || echo no)"
+
+        # a plain https link without a login is not a NaiveProxy link
+        out="$(add s1 'https://hommie.mooo.com:443')"; rc=$?
+        echo "no-login-rc=$rc unchanged=$([ "$out" = "$base" ] && echo yes || echo no)"
+
+        # the naive client beside sing-box
+        naive_core_supported() { return 1; }
+        naive_binary() { echo /usr/bin/naive; }
+        naive_sidecars_reset
+        out="$(add s1 'https://alex:qwerty123@hommie.mooo.com:443')"
+        echo "sidecar=$(printf '%s' "$out" | jq -c '.outbounds[0] | [.type, .server, .server_port, .version]')"
+        add s2 'naive+quic://u2:p2@other.example.com:8443' > /dev/null
+        add s3 'https://alex:qwerty123@hommie.mooo.com:443' > /dev/null
+        add s4 'naive+https://al%40ex:p%3Ass@h.example.com:443' > /dev/null
+        echo "list=$(tr '\n' ' ' < "$NAIVE_LIST_FILE")"
+        out="$(add s3 'https://alex:qwerty123@hommie.mooo.com:443')"
+        echo "same-link-same-port=$(printf '%s' "$out" | jq -c '.outbounds[0].server_port')"
+        echo "list-mode=$(ls -l "$NAIVE_LIST_FILE" | cut -c1-10)"
+        naive_sidecars_reset
+        echo "reset=$(grep -c '' "$NAIVE_LIST_FILE")"
+
+        # neither
+        naive_binary() { return 1; }
+        out="$(add s1 'https://alex:qwerty123@hommie.mooo.com:443')"; rc=$?
+        echo "neither-rc=$rc unchanged=$([ "$out" = "$base" ] && echo yes || echo no)"
+        add s1 'https://alex:qwerty123@hommie.mooo.com:443' > /dev/null
+        echo "neither-logged=$(grep -c 'naive client' "$NAIVE_LOG")"
+
+        # the core is told by its build tags (the real functions again)
+        . "$lib/naive.sh"
+        NAIVE_LIST_FILE="$work/naive.list"
+        NAIVE_RUNNING_FILE="$work/naive.running"
+        NAIVE_INIT="$work/init"
+        printf '#!/bin/sh\nprintf "sing-box version 1.14.2\\n\\nEnvironment: go1.25\\nTags: with_clash_api,with_naive_outbound,with_quic\\n"\n' > "$work/bin/sing-box"
+        chmod +x "$work/bin/sing-box"
+        PATH="$work/bin:$PATH"
+        naive_core_supported && echo "core-with-tag=yes" || echo "core-with-tag=no"
+        printf '#!/bin/sh\nprintf "sing-box version 1.12.22\\nTags: with_clash_api,with_quic\\n"\n' > "$work/bin/sing-box"
+        naive_core_supported && echo "core-without-tag=yes" || echo "core-without-tag=no"
+        printf '#!/bin/sh\nprintf "sing-box version 1.14.2\\nTags: with_naive_outbound_x\\n"\n' > "$work/bin/sing-box"
+        naive_core_supported && echo "core-similar-tag=yes" || echo "core-similar-tag=no"
+
+        # the client binary
+        printf '#!/bin/sh\n' > "$work/bin/naive"; chmod +x "$work/bin/naive"
+        echo "binary=$(naive_binary)"
+
+        # the clients follow the list: started when it changes, left alone when it does not
+        printf '#!/bin/sh\necho "$1" >> "%s/init.calls"\n' "$work" > "$NAIVE_INIT"; chmod +x "$NAIVE_INIT"
+        pgrep() { return 0; }
+        sleep() { :; }
+        naive_sidecars_reset
+        naive_sidecars_apply
+        echo "apply-empty=$(tr '\n' ',' < "$work/init.calls")"
+        : > "$work/init.calls"
+        printf '19300|https://u:p@h.example.com:443\n' > "$NAIVE_LIST_FILE"
+        naive_sidecars_apply
+        echo "apply-new=$(tr '\n' ',' < "$work/init.calls")"
+        : > "$work/init.calls"
+        naive_sidecars_apply
+        echo "apply-same=[$(tr '\n' ',' < "$work/init.calls")]"
+        printf '19300|https://u:p@h.example.com:443\n19301|https://u2:p2@h2.example.com:443\n' > "$NAIVE_LIST_FILE"
+        naive_sidecars_apply
+        echo "apply-changed=$(tr '\n' ',' < "$work/init.calls")"
+
+        # a client that died at once is reported (the start itself said nothing)
+        : > "$NAIVE_LOG"
+        printf '19300|https://u:p@h.example.com:443\n' > "$NAIVE_LIST_FILE"
+        pgrep() { return 1; }
+        naive_sidecars_apply
+        echo "apply-dead-client-reported=$(grep -c 'client is not running after the start' "$NAIVE_LOG")"
+        : > "$NAIVE_LOG"
+        printf '19300|https://u:p@h.example.com:443\n19301|https://u3:p3@h3.example.com:443\n' > "$NAIVE_LIST_FILE"
+        pgrep() { return 0; }
+        naive_sidecars_apply
+        echo "apply-live-client-quiet=$(grep -c 'client is not running' "$NAIVE_LOG")"
+
+        # a client installed as naiveproxy: found by the path it was started from, not
+        # by a fixed process name (the check must not restart it on every build)
+        naive_binary() { echo /usr/bin/naiveproxy; }
+        pgrep() { case "$*" in *"/usr/bin/naiveproxy --listen=socks://"*) return 0 ;; esac; return 1; }
+        printf '19300|https://u:p@h.example.com:443\n' > "$NAIVE_LIST_FILE"
+        cp "$NAIVE_LIST_FILE" "$NAIVE_RUNNING_FILE"
+        : > "$work/init.calls"; : > "$NAIVE_LOG"
+        naive_sidecars_apply
+        echo "apply-naiveproxy-same=[$(tr '\n' ',' < "$work/init.calls")] quiet=$(grep -c 'client is not running' "$NAIVE_LOG")"
+        pgrep() { return 1; }
+        naive_sidecars_apply
+        echo "apply-naiveproxy-dead=$(tr '\n' ',' < "$work/init.calls") reported=$(grep -c 'client is not running' "$NAIVE_LOG")"
+    )"
+
+    _nv() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _nv "an https link with a login is a native naive outbound" 'native=["naive","s1-out","hommie.mooo.com",443,"alex","qwerty123","hommie.mooo.com",false]'
+    _nv "the port defaults to 443" "native-default-port=443"
+    _nv "a login without a password is skipped, like the form does" "no-password-rc=1 unchanged=yes"
+    _nv "...and so is an empty password" "empty-password-rc=1 unchanged=yes"
+    _nv "naive+quic turns on QUIC" "native-quic=[true,8443]"
+    _nv "an address host gets no server name" 'native-ip=["203.0.113.9",false]'
+    _nv "the login is decoded for the native outbound" 'native-decoded=["al@ex","p:ss%"]'
+    _nv "an https link without a login is skipped, the config is left alone" "no-login-rc=1 unchanged=yes"
+    _nv "without the naive outbound the traffic goes to a local SOCKS5 server" 'sidecar=["socks","127.0.0.1",19300,"5"]'
+    _nv "every link gets its own client; the link is passed as it was written" "list=19300|https://alex:qwerty123@hommie.mooo.com:443 19301|quic://u2:p2@other.example.com:8443 19302|https://al%40ex:p%3Ass@h.example.com:443 "
+    _nv "the same link keeps its port" "same-link-same-port=19300"
+    _nv "the list is readable by root only" "list-mode=-rw-------"
+    _nv "a new build starts with an empty list" "reset=0"
+    _nv "without a core or a client the link is skipped" "neither-rc=1 unchanged=yes"
+    _nv "and the reason is logged" "neither-logged=2"
+    _nv "a core with the naive tag is recognized" "core-with-tag=yes"
+    _nv "a core without it is not" "core-without-tag=no"
+    _nv "a similar tag is not the tag" "core-similar-tag=no"
+    _nv "the client binary is found" "binary=$work/bin/naive"
+    _nv "an empty list stops the clients" "apply-empty=stop,"
+    _nv "a new list starts them" "apply-new=restart,"
+    _nv "the same list is left alone" "apply-same=[]"
+    _nv "a changed list restarts them" "apply-changed=restart,"
+    _nv "a client that is not running after the start is reported" "apply-dead-client-reported=1"
+    _nv "...and a running one is not" "apply-live-client-quiet=0"
+
+    if sh -n "${NETSHIFT_SRC}/etc/init.d/netshift-naive" 2> /dev/null; then
+        pass "the init script has no syntax errors"
+    else
+        fail "the init script has a syntax error"
+    fi
+    if [ -r "${NETSHIFT_SRC}/../Makefile" ]; then
+        if grep -q 'files/etc/init.d/netshift-naive' "${NETSHIFT_SRC}/../Makefile"; then
+            pass "the package installs the init script of the clients"
+        else
+            fail "the package installs the init script of the clients"
+        fi
+    else
+        skip "package Makefile not found: the install check of the init script"
+    fi
+    _nv "a client started as naiveproxy is recognized, not restarted every build" "apply-naiveproxy-same=[] quiet=0"
+    _nv "and a dead one is still reported" "apply-naiveproxy-dead=restart, reported=1"
+
+    # The clients dial their server themselves and carry no mark: they run as their
+    # own user and mangle_output returns that uid before any marking rule, or a client
+    # dialing through a proxied destination is captured back into tproxy (a loop).
+    local _uid_line _mark_line
+    _uid_line="$(grep -n 'mangle_output meta skuid "\$NAIVE_CLIENT_UID" counter return' "$bin" | cut -d: -f1 | sed -n '1p')"
+    _mark_line="$(grep -n 'nft_add_selective_marking_rules mangle_output' "$bin" | cut -d: -f1 | sed -n '1p')"
+    if [ -n "$_uid_line" ] && [ -n "$_mark_line" ] && [ "$_uid_line" -lt "$_mark_line" ]; then
+        pass "mangle_output returns the naive client uid before the marking rules"
+    else
+        fail "mangle_output returns the naive client uid before the marking rules" "uid at ${_uid_line:-none}, marking at ${_mark_line:-none}"
+    fi
+    if grep -q 'procd_set_param user "\$NAIVE_CLIENT_USER"' "${NETSHIFT_SRC}/etc/init.d/netshift-naive" &&
+        grep -q '^NAIVE_CLIENT_UID=' "$lib/constants.sh"; then
+        pass "the init script runs the clients as the dedicated user"
+    else
+        fail "the init script runs the clients as the dedicated user"
+    fi
+
+    # One configuration build at a time: the clients' list is numbered and rewritten while the
+    # outbounds are built, so a second build must wait for the first (or take over from a dead one).
+    local lockout
+    lockout="$(
+        . "$lib/constants.sh"
+        . "$lib/naive.sh"
+        CONFIG_BUILD_LOCK_DIR="$work/build.lock"
+        CONFIG_BUILD_LOCK_WAIT=6
+        ORDER="$work/order"; : > "$ORDER"
+
+        config_build_pid; mypid="$CONFIG_BUILD_PID"
+        config_build_lock_acquire; echo "acquire-rc=$? owner-is-me=$([ "$(cat "$CONFIG_BUILD_LOCK_DIR/pid")" = "$mypid" ] && echo yes || echo no)"
+        config_build_lock_acquire; echo "reentrant-rc=$?"
+        config_build_lock_release; echo "released=$([ -e "$CONFIG_BUILD_LOCK_DIR" ] && echo no || echo yes)"
+
+        # a second build waits for the running one and goes on only after it let go
+        (
+            config_build_lock_acquire
+            echo first-start >> "$ORDER"
+            sleep 2
+            echo first-end >> "$ORDER"
+            config_build_lock_release
+        ) &
+        n=0; while [ ! -e "$CONFIG_BUILD_LOCK_DIR/pid" ] && [ "$n" -lt 50 ]; do sleep 0.1; n=$((n + 1)); done
+        config_build_lock_acquire; echo "waited-rc=$?"
+        echo second >> "$ORDER"
+        config_build_lock_release
+        wait
+        echo "order=$(tr '\n' ' ' < "$ORDER")"
+
+        # a lock of a build that died is taken over at once
+        mkdir "$CONFIG_BUILD_LOCK_DIR"; echo 999999 > "$CONFIG_BUILD_LOCK_DIR/pid"
+        config_build_lock_acquire; echo "stale-rc=$? owner-is-me=$([ "$(cat "$CONFIG_BUILD_LOCK_DIR/pid")" = "$mypid" ] && echo yes || echo no)"
+        config_build_lock_release
+
+        # a build that does not finish in time: the caller is told, nothing is taken
+        sleep 30 &
+        holder=$!
+        mkdir "$CONFIG_BUILD_LOCK_DIR"; echo "$holder" > "$CONFIG_BUILD_LOCK_DIR/pid"
+        CONFIG_BUILD_LOCK_WAIT=2
+        config_build_lock_acquire; echo "timeout-rc=$? holder-kept=$([ "$(cat "$CONFIG_BUILD_LOCK_DIR/pid")" = "$holder" ] && echo yes || echo no)"
+        config_build_lock_release; echo "foreign-release-kept=$([ -e "$CONFIG_BUILD_LOCK_DIR" ] && echo yes || echo no)"
+        kill "$holder" 2> /dev/null
+    )"
+    _lk() {
+        if printf '%s\n' "$lockout" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$lockout" | tr '\n' '~')"
+        fi
+    }
+    _lk "the build lock is taken and signed with the pid of the build" "acquire-rc=0 owner-is-me=yes"
+    _lk "the same build can take it again" "reentrant-rc=0"
+    _lk "and gives it back" "released=yes"
+    _lk "a second build gets the lock after the first one let it go" "waited-rc=0"
+    _lk "...and starts only then" "order=first-start first-end second "
+    _lk "the lock of a dead build is taken over" "stale-rc=0 owner-is-me=yes"
+    _lk "a build that does not finish in time is reported, its lock is left alone" "timeout-rc=1 holder-kept=yes"
+    _lk "a build gives back only its own lock" "foreign-release-kept=yes"
+    local _acq _rst _app _rel
+    _acq="$(grep -n '^    config_build_lock_acquire' "$bin" | cut -d: -f1 | sed -n '1p')"
+    _rst="$(grep -n '^    naive_sidecars_reset$' "$bin" | cut -d: -f1 | sed -n '1p')"
+    _app="$(grep -n '^    naive_sidecars_apply$' "$bin" | cut -d: -f1 | sed -n '1p')"
+    _rel="$(grep -n '^    config_build_lock_release$' "$bin" | cut -d: -f1 | sed -n '1p')"
+    if [ -n "$_acq" ] && [ -n "$_rst" ] && [ -n "$_app" ] && [ -n "$_rel" ] && [ "$_acq" -lt "$_rst" ] && [ "$_app" -lt "$_rel" ]; then
+        pass "a build holds the lock from before the clients' list is reset until after it is applied"
+    else
+        fail "a build holds the lock from before the clients' list is reset until after it is applied" "acquire=$_acq reset=$_rst apply=$_app release=$_rel"
+    fi
+    rm -rf "$work"
+}
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -20540,6 +20833,7 @@ main() {
             test_dns_forward
             test_subscription_info
             test_port_rules
+            test_naive
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -20622,9 +20916,10 @@ main() {
         dnshijack)   test_dns_hijack ;;
         subinfo)     test_subscription_info ;;
         portrules)   test_port_rules ;;
+        naive)       test_naive ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules naive"
             exit 1
             ;;
     esac

@@ -658,6 +658,52 @@ sing_box_cm_add_direct_outbound() {
 }
 
 #######################################
+# Add a NaiveProxy outbound (sing-box 1.13+, built with the naive outbound).
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   tag, server, server_port, username, password
+#   quic: "true" to carry the connection over QUIC (naive+quic links)
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+sing_box_cm_add_naive_outbound() {
+    local config="$1"
+    local tag="$2"
+    local server="$3"
+    local server_port="$4"
+    local username="$5"
+    local password="$6"
+    local quic="$7"
+    local server_is_ip=""
+
+    # no jq regex on OpenWrt: the shell tells an address from a name
+    if is_ipv4 "$server" || is_ipv6 "$server"; then
+        server_is_ip="1"
+    fi
+
+    echo "$config" | jq \
+        --arg tag "$tag" \
+        --arg server "$server" \
+        --arg server_is_ip "$server_is_ip" \
+        --arg server_port "$server_port" \
+        --arg username "$username" \
+        --arg password "$password" \
+        --arg quic "$quic" \
+        '.outbounds += [(
+            {
+                type: "naive",
+                tag: $tag,
+                server: $server,
+                server_port: ($server_port | tonumber),
+                tls: ({enabled: true} + (if $server_is_ip == "1" then {} else {server_name: $server} end))
+            }
+            + (if $username != "" then {username: $username} else {} end)
+            + (if $password != "" then {password: $password} else {} end)
+            + (if $quic == "true" then {quic: true} else {} end)
+        )]'
+}
+
+#######################################
 # Add a SOCKS outbound to the outbounds section of a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
