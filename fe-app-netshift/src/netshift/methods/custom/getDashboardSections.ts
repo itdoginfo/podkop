@@ -13,13 +13,11 @@ interface IGetDashboardSectionsResponse {
   data: NetShift.OutboundGroup[];
 }
 
-// The backend numbers the non-empty lines of a pasted list (comments and links
-// it skips included), and names each member outbound after that number.
+// The backend walks a pasted list with the shell's word splitting (any
+// whitespace, not only line breaks), skips blank entries, and names each member
+// outbound after the position of the entry: the same split gives the same numbers.
 function splitTextLinks(text?: string): string[] {
-  return (text ?? '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
+  return (text ?? '').split(/\s+/).filter(Boolean);
 }
 
 function linkIndexOfTag(section: string, tag?: string): number {

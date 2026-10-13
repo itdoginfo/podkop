@@ -1542,7 +1542,7 @@ function buildSubscriptionOutboundGroup(sectionName, proxies) {
 
 // src/netshift/methods/custom/getDashboardSections.ts
 function splitTextLinks(text2) {
-  return (text2 ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
+  return (text2 ?? "").split(/\s+/).filter(Boolean);
 }
 function linkIndexOfTag(section, tag) {
   const match = tag?.slice(section.length + 1).match(/^(\d+)-out$/);

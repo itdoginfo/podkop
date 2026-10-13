@@ -107,6 +107,42 @@ describe('getDashboardSections: text list sections', () => {
     expect(group.outbounds[0].selected).toBe(true);
   });
 
+  it('numbers links like the backend: two links on one line are two servers', async () => {
+    vi.stubGlobal('uci', {
+      load: async () => undefined,
+      sections: () => [
+        {
+          '.name': 'sel',
+          '.type': 'section',
+          connection_type: 'proxy',
+          proxy_config_type: 'selector_text',
+          selector_proxy_links_text:
+            'hy2://p@a.example:1#A hy2://p@b.example:2#B',
+        },
+      ],
+    });
+    vi.spyOn(NetShiftShellMethods, 'getClashApiProxies').mockResolvedValue({
+      success: true,
+      data: {
+        proxies: {
+          ...proxies(['sel-1-out', 'sel-2-out']),
+          'sel-out': {
+            type: 'Selector',
+            name: 'sel-out',
+            udp: true,
+            history: [],
+            now: 'sel-1-out',
+            all: ['sel-1-out', 'sel-2-out'],
+          },
+        },
+      },
+    } as Awaited<ReturnType<typeof NetShiftShellMethods.getClashApiProxies>>);
+
+    const { data } = await getDashboardSections();
+
+    expect(data[0].outbounds.map((o) => o.displayName)).toEqual(['A', 'B']);
+  });
+
   it('lists the servers of a Selector text list, dropping skipped lines', async () => {
     const { data } = await getDashboardSections();
     const group = data.find((g) => g.displayName === 'sel')!;
