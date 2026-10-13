@@ -31,6 +31,7 @@ check_required_file "$NETSHIFT_LIB/snapshots.sh"
 check_required_file "$NETSHIFT_LIB/pinguard.sh"
 check_required_file "$NETSHIFT_LIB/dnsbench.sh"
 check_required_file "$NETSHIFT_LIB/subinfo.sh"
+check_required_file "$NETSHIFT_LIB/lint.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -52,6 +53,7 @@ check_required_file "$NETSHIFT_LIB/subinfo.sh"
 . "$NETSHIFT_LIB/snapshots.sh"
 . "$NETSHIFT_LIB/pinguard.sh"
 . "$NETSHIFT_LIB/dnsbench.sh"
+. "$NETSHIFT_LIB/lint.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -3753,6 +3755,8 @@ sing_box_configure_service() {
 
 sing_box_init_config() {
     local config='{"log":{},"dns":{},"ntp":{},"certificate":{},"endpoints":[],"inbounds":[],"outbounds":[],"route":{},"services":[],"experimental":{}}'
+
+    lint_log_warnings
 
     sing_box_configure_log
     sing_box_configure_inbounds
@@ -8457,6 +8461,7 @@ Available commands:
     get_sing_box_status     Get sing-box service status
     get_system_info         Get system information in JSON format
     check_dns_available     Check DNS server availability
+    get_config_warnings     Settings that are valid but do not do what they say (JSON)
     global_check            Run global system check
     component_action        Run component action: <component> <action>
                             (e.g. sing_box install_extended|install_extended_lite|
@@ -8599,6 +8604,9 @@ get_system_info)
     ;;
 check_dns_available)
     check_dns_available
+    ;;
+get_config_warnings)
+    get_config_warnings
     ;;
 global_check)
     global_check "${2:-}"

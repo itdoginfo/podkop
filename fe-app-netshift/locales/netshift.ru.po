@@ -269,6 +269,9 @@ msgstr "Не удалось переключить ядро"
 msgid "Core switch timed out"
 msgstr "Истекло время ожидания переключения ядра"
 
+msgid "Could not duplicate the section: %s"
+msgstr "Не удалось создать копию секции: %s"
+
 msgid "Currently unavailable"
 msgstr "Временно недоступно"
 
@@ -463,6 +466,12 @@ msgstr "Отбросить серверы, в названии которых е
 
 msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive)."
 msgstr "Исключать серверы подписки, имя которых содержит любое из этих ключевых слов (без учёта регистра)."
+
+msgid "Duplicate"
+msgstr "Дублировать"
+
+msgid "Duplicate this section"
+msgstr "Дублировать секцию"
 
 msgid "Dynamic"
 msgstr "Динамический"
@@ -982,6 +991,9 @@ msgstr "Основной DNS"
 
 msgid "Main DNS via outbound"
 msgstr "Основной DNS через outbound"
+
+msgid "Makes a copy of the section with all its settings under a new name. The copy is switched off and has no Mixed Proxy, so nothing changes until you review and enable it. The copy is saved at once; Save and apply puts it into effect."
+msgstr "Создаёт копию секции со всеми настройками под новым именем. Копия выключена и без Mixed Proxy, поэтому ничего не изменится, пока вы её не проверите и не включите. Копия сохраняется сразу, а «Сохранить и применить» вводит её в действие."
 
 msgid "Matched list"
 msgstr "Сработавший список"

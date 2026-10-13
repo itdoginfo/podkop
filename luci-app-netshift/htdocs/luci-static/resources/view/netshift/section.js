@@ -2,6 +2,7 @@
 "require form";
 "require baseclass";
 "require ui";
+"require uci";
 "require tools.widgets as widgets";
 "require view.netshift.main as main";
 
@@ -1313,6 +1314,52 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
+
+  // A copy of this section under a new name, switched off: a copy that started at
+  // once would take the same ports and the same lists as the original.
+  o = section.taboption(
+    "advanced",
+    form.Button,
+    "_duplicate",
+    _("Duplicate this section"),
+    _(
+      "Makes a copy of the section with all its settings under a new name. The copy is switched off and has no Mixed Proxy, so nothing changes until you review and enable it. The copy is saved at once; Save and apply puts it into effect.",
+    ),
+  );
+  o.inputtitle = _("Duplicate");
+  o.inputstyle = "action";
+  o.onclick = function (ev, section_id) {
+    const names = uci.sections("netshift", "section").map((item) => item[".name"]);
+    let name = `${section_id}_copy`;
+    let counter = 2;
+
+    while (names.includes(name)) {
+      name = `${section_id}_copy${counter}`;
+      counter += 1;
+    }
+
+    const source = uci.get("netshift", section_id);
+
+    uci.add("netshift", "section", name);
+    Object.keys(source)
+      .filter((key) => !key.startsWith("."))
+      .forEach((key) => uci.set("netshift", name, key, source[key]));
+    uci.set("netshift", name, "disabled", "1");
+    ["mixed_proxy_enabled", "mixed_proxy_port", "mixed_proxy_auth", "mixed_proxy_username", "mixed_proxy_password"].forEach(
+      (key) => uci.unset("netshift", name, key),
+    );
+
+    return uci
+      .save()
+      .then(() => window.location.reload())
+      .catch((error) => {
+        ui.addNotification(
+          null,
+          E("p", _("Could not duplicate the section: %s").format(error.message || error)),
+          "danger",
+        );
+      });
+  };
 
   o = section.taboption(
     "advanced",
