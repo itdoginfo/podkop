@@ -1706,6 +1706,7 @@ BIN="BIN_PATH_PLACEHOLDER"
 extract() { awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN"; }
 eval "$(extract dnsmasq_restore)"
 eval "$(extract dnsmasq_is_configured_for_netshift)"
+eval "$(extract dnsmasq_has_backup)"
 eval "$(extract dnsmasq_should_be_restored)"
 eval "$(extract uci_remove_quiet)"
 
@@ -15086,6 +15087,7 @@ LIVE="$CP_DIR/live/cache.db"
 LOG="$CP_DIR/log"
 
 log() { printf '%s %s\n' "${2:-info}" "$1" >> "$LOG"; }
+dnsmasq_has_backup() { [ "${CFG_BACKUP:-0}" = 1 ]; }
 CFG_CACHE_PATH="$LIVE"
 CFG_LISTEN=""
 CFG_SECRET=""
@@ -15341,6 +15343,7 @@ for DTD in 0 1; do
     reset_state
     CFG_SHUTDOWN="0"
     CFG_DONT_TOUCH_DHCP="$DTD"
+    if [ "$DTD" = "0" ]; then CFG_NS_CONFIGURED=1; else CFG_NS_CONFIGURED=0; fi
     RESTORED=0
     CONFIGURED=0
     dnsmasq_restore() { RESTORED=$((RESTORED + 1)); }
@@ -15366,11 +15369,10 @@ for DTD in 0 1; do
 done
 CFG_DONT_TOUCH_DHCP=""
 
-# H6: ownership beats the flag. dont_touch_dhcp=1 switched on AFTER NetShift had
-#     configured dnsmasq must still get that undone on a crash/stop (the sentinel
-#     says the values are ours); with the flag on and the sentinel clear nothing
-#     is touched (the original #40 case).
-for CASE in "1 1 yes" "1 0 no" "0 0 yes" "0 1 yes"; do
+# H6: restore follows durable ownership, not dont_touch_dhcp. A completed
+# configuration remains recoverable if the flag changes; no sentinel or backup
+# means a failed start leaves user DNS untouched.
+for CASE in "1 1 yes" "1 0 no" "0 0 no" "0 1 yes"; do
     set -- $CASE
     CFG_DONT_TOUCH_DHCP="$1"
     CFG_NS_CONFIGURED="$2"
@@ -16155,6 +16157,159 @@ test_mixed_proxy_auth() {
     _mp "a section without the option gets nothing" 'no-option=[]'
     _mp "an unavailable subscription keeps its inbound but rejects" 'unavailable-inbound=[["dead-mixed-in",2090,"open"]] rule=[["dead-mixed-in","reject"]]'
     _mp "sing-box accepts the result" "singbox-check=ok"
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test: dnsmasq lifecycle ownership and recovery
+# ─────────────────────────────────────────────────────────────────
+test_dnsmasq_lifecycle() {
+    header "dnsmasq lifecycle ownership and recovery"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift" lib="${NETSHIFT_LIB_DIR}"
+    if [ ! -r "$bin" ] || [ ! -r "$lib/helpers.sh" ] || [ ! -r "$lib/constants.sh" ] || [ ! -r "$lib/dnsforward.sh" ]; then
+        fail "dnsmasq lifecycle sources not found"
+        return
+    fi
+
+    local drv="/tmp/netshift-dnsmasq-lifecycle-$$.sh" saved="/tmp/netshift-dhcp-lifecycle-$$" saved_netshift="/tmp/netshift-config-lifecycle-$$"
+    cp /etc/config/dhcp "$saved"
+    [ ! -f /etc/config/netshift ] || cp /etc/config/netshift "$saved_netshift"
+    {
+        cat << 'DLEOF'
+. /lib/functions.sh
+. /lib/config/uci.sh
+LIB="LIB_DIR"
+. "$LIB/constants.sh"
+. "$LIB/helpers.sh"
+. "$LIB/dnsforward.sh"
+BIN="BIN_PATH"
+extract() { awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\\}/{exit}' "$BIN"; }
+log() { :; }
+config_get() { eval "$1=\"${TEST_SHUTDOWN:-0}\""; }
+kill_switch_enabled() { [ "${TEST_BLOCK_LEAKS:-0}" = 1 ]; }
+DLEOF
+        for fn in backup_dnsmasq_config_option uci_remove_quiet dnsmasq_is_configured_for_netshift dnsmasq_has_backup dnsmasq_should_be_restored dnsmasq_configure dnsmasq_restore; do
+            awk -v fn="$fn" '$0 ~ "^"fn"\\(\\) \\{"{p=1} p{print} p&&/^\\}/{exit}' "$bin" | sed 's|/etc/init.d/dnsmasq restart|:|'
+        done
+        cat << 'DLEOF'
+failures=0
+check() { if [ "$2" = "$3" ]; then echo "$1:OK"; else echo "$1:FAIL got=[$2] want=[$3]"; failures=$((failures + 1)); fi; }
+reset_fixture() {
+    for option in server noresolv cachesize netshift_server netshift_noresolv netshift_cachesize netshift_configured netshift_dnsmasq_backup netshift_noresolv_set netshift_cachesize_set; do
+        uci -q delete "dhcp.@dnsmasq[0].$option" 2>/dev/null || :
+    done
+    uci -q add_list dhcp.@dnsmasq[0].server='/alpha.lan/192.0.2.53'
+    uci -q add_list dhcp.@dnsmasq[0].server='/beta.lan/198.51.100.53'
+    uci -q set dhcp.@dnsmasq[0].cachesize=1000
+    uci -q set dhcp.@dnsmasq[0].noresolv=0
+    uci -q set netshift.settings=settings
+    uci -q set netshift.settings.shutdown_correctly=0
+    uci -q delete netshift.settings.dns_forward 2>/dev/null || :
+    uci -q set netshift.settings.dont_touch_dhcp="${TEST_DONT_TOUCH:-0}"
+    uci -q set netshift.settings.block_leaks="${TEST_BLOCK_LEAKS:-0}"
+    uci commit dhcp; uci commit netshift; config_load netshift
+}
+servers() { uci -q get dhcp.@dnsmasq[0].server | tr ' ' ','; }
+
+TEST_DONT_TOUCH=0 reset_fixture
+before="$(uci -q export dhcp)"
+dnsmasq_should_be_restored && decision=yes || decision=no
+check failed-start-stop-does-not-restore "$decision" no
+check failed-start-stop-preserves-user-config "$(uci -q export dhcp)" "$before"
+check apk-remove-path-uses-same-safe-stop "$decision" no
+
+TEST_DONT_TOUCH=0 reset_fixture
+dnsmasq_configure force
+check setup-records-durable-backup "$(uci -q get dhcp.@dnsmasq[0].netshift_dnsmasq_backup)" 1
+check setup-points-dns-at-sing-box "$(uci -q get dhcp.@dnsmasq[0].server)" 127.0.0.42
+dnsmasq_configure force
+check repeated-setup-keeps-original-cache-backup "$(uci -q get dhcp.@dnsmasq[0].netshift_cachesize)" 1000
+dnsmasq_restore
+check normal-stop-restores-forwarders "$(servers)" /alpha.lan/192.0.2.53,/beta.lan/198.51.100.53
+check normal-stop-restores-cache "$(uci -q get dhcp.@dnsmasq[0].cachesize)" 1000
+check normal-stop-restores-noresolv "$(uci -q get dhcp.@dnsmasq[0].noresolv)" 0
+
+TEST_DONT_TOUCH=0 reset_fixture
+uci -q delete dhcp.@dnsmasq[0].cachesize
+uci -q delete dhcp.@dnsmasq[0].noresolv
+uci commit dhcp
+dnsmasq_configure force
+dnsmasq_restore
+uci -q get dhcp.@dnsmasq[0].cachesize >/dev/null 2>&1 && cache_state=present || cache_state=absent
+uci -q get dhcp.@dnsmasq[0].noresolv >/dev/null 2>&1 && noresolv_state=present || noresolv_state=absent
+check absent-options-stay-absent "$cache_state/$noresolv_state" absent/absent
+
+TEST_DONT_TOUCH=0 reset_fixture
+(
+    commit_count=0
+    uci_commit() {
+        uci commit "$1"
+        commit_count=$((commit_count + 1))
+        [ "$commit_count" -eq 1 ] && exit 77
+    }
+    dnsmasq_configure force
+) >/dev/null 2>&1
+check interrupted-setup-saved-marker "$(uci -q get dhcp.@dnsmasq[0].netshift_dnsmasq_backup)" 1
+uci -q delete dhcp.@dnsmasq[0].server
+uci -q add_list dhcp.@dnsmasq[0].server=127.0.0.42
+uci -q set dhcp.@dnsmasq[0].cachesize=0
+uci -q set dhcp.@dnsmasq[0].noresolv=1
+uci commit dhcp
+dnsmasq_should_be_restored && decision=yes || decision=no
+check partial-setup-is-recoverable "$decision" yes
+dnsmasq_restore
+check partial-setup-restores-user-forwarders "$(servers)" /alpha.lan/192.0.2.53,/beta.lan/198.51.100.53
+check partial-setup-restores-exact-values "$(uci -q get dhcp.@dnsmasq[0].cachesize)/$(uci -q get dhcp.@dnsmasq[0].noresolv)" 1000/0
+
+TEST_DONT_TOUCH=1 reset_fixture
+dnsmasq_should_be_restored && decision=yes || decision=no
+check dont-touch-without-ownership "$decision" no
+uci -q set dhcp.@dnsmasq[0].netshift_configured=0; uci commit dhcp
+dnsmasq_should_be_restored && decision=yes || decision=no
+check zero-ownership-sentinel "$decision" no
+uci -q set dhcp.@dnsmasq[0].netshift_configured=1; uci commit dhcp
+dnsmasq_should_be_restored && decision=yes || decision=no
+check completed-ownership-sentinel "$decision" yes
+TEST_BLOCK_LEAKS=1
+dnsmasq_should_be_restored && decision=yes || decision=no
+check block-leaks-defers-dns-restore "$decision" no
+TEST_BLOCK_LEAKS=0
+dnsmasq_restore
+dnsmasq_should_be_restored && decision=yes || decision=no
+check repeated-stop-is-idempotent "$decision" no
+
+TEST_DONT_TOUCH=0 reset_fixture
+uci -q delete dhcp.@dnsmasq[0].server
+uci -q add_list dhcp.@dnsmasq[0].server=127.0.0.42
+uci -q set dhcp.@dnsmasq[0].netshift_server=192.0.2.53
+uci -q set dhcp.@dnsmasq[0].netshift_cachesize=1000
+uci -q set dhcp.@dnsmasq[0].netshift_noresolv=0
+uci -q set dhcp.@dnsmasq[0].netshift_configured=0
+uci commit dhcp
+dnsmasq_should_be_restored && decision=yes || decision=no
+check legacy-backup-authorizes-recovery "$decision" yes
+dnsmasq_restore
+check legacy-backup-restores-original-values "$(uci -q get dhcp.@dnsmasq[0].server)/$(uci -q get dhcp.@dnsmasq[0].cachesize)/$(uci -q get dhcp.@dnsmasq[0].noresolv)" 192.0.2.53/1000/0
+cp DHCP_BACKUP /etc/config/dhcp
+if [ -f NETSHIFT_BACKUP ]; then cp NETSHIFT_BACKUP /etc/config/netshift; else rm -f /etc/config/netshift; fi
+exit "$failures"
+DLEOF
+    } > "$drv"
+    sed -i "s|LIB_DIR|$lib|; s|BIN_PATH|$bin|; s|DHCP_BACKUP|$saved|; s|NETSHIFT_BACKUP|$saved_netshift|" "$drv"
+
+    local out line
+    out="$(ash "$drv" 2>&1)" || true
+    while IFS= read -r line; do
+        case "$line" in
+        *:OK) pass "dnslifecycle:$line" ;;
+        *:FAIL*) fail "dnslifecycle:$line" ;;
+        esac
+    done <<EOF
+$out
+EOF
+    cp "$saved" /etc/config/dhcp
+    if [ -f "$saved_netshift" ]; then cp "$saved_netshift" /etc/config/netshift; else rm -f /etc/config/netshift; fi
+    rm -f "$saved" "$saved_netshift" "$drv"
 }
 
 # ─────────────────────────────────────────────────────────────────
@@ -17810,7 +17965,7 @@ log() { :; }
 . "$LIB/dnsforward.sh"
 file_exists() { [ -f "$1" ]; }
 E2EOF
-        for fn in backup_dnsmasq_config_option uci_remove_quiet dnsmasq_is_configured_for_netshift dnsmasq_configure dnsmasq_restore; do
+        for fn in backup_dnsmasq_config_option uci_remove_quiet dnsmasq_is_configured_for_netshift dnsmasq_has_backup dnsmasq_configure dnsmasq_restore; do
             awk -v fn="$fn" '$0 ~ "^"fn"\\(\\) \\{"{f=1} f{print} f&&/^}/{exit}' "$bin"
         done | sed 's|/etc/init.d/dnsmasq restart|:|'
         cat << 'E2EOF'
@@ -21065,6 +21220,7 @@ main() {
         snapshots)   test_config_snapshots ;;
         pinguard)    test_pin_guard ;;
         dnsforward)  test_dns_forward ;;
+        dnslifecycle) test_dnsmasq_lifecycle ;;
         dnshijack)   test_dns_hijack ;;
         subinfo)     test_subscription_info ;;
         portrules)   test_port_rules ;;
@@ -21072,7 +21228,7 @@ main() {
         naive)       test_naive ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive"
             exit 1
             ;;
     esac
