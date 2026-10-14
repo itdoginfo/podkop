@@ -121,7 +121,8 @@ test_syntax() {
         "$lib/sing_box_config_facade.sh" \
         "$lib/updater.sh" \
         "$lib/dnsforward.sh" \
-        "$lib/subinfo.sh"; do
+        "$lib/subinfo.sh" \
+        "$lib/lint.sh"; do
 
         if [ ! -r "$f" ]; then
             fail "File not found: $f"
@@ -20448,6 +20449,155 @@ test_port_rules() {
     rm -rf "$work"
 }
 
+
+# ─────────────────────────────────────────────────────────────────
+# Test: warnings about a DNS section whose domains another section takes first
+# ─────────────────────────────────────────────────────────────────
+test_config_lint() {
+    header "Config warnings (DNS section shadowed by a routing section)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/lint.sh" ]; then
+        fail "lint.sh not found"
+        return
+    fi
+
+    local out lt_tmp="/tmp/netshift-lint-tmp-$$"
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        LT_LOG="/tmp/netshift-lint-log-$$"; : > "$LT_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LT_LOG"; }
+        mkdir -p "$lt_tmp"
+        TMPDIR="$lt_tmp"; export TMPDIR
+        . "$lib/lint.sh"
+        section_is_disabled() { [ "${LT_DISABLED:-}" = "$1" ]; }
+        config_foreach() { local _s; for _s in $LT_SECTIONS; do "$1" "$_s"; done; }
+        config_get() { eval "$1=\"\${LT_${2}_${3}:-}\""; }
+        netshift_config_list_foreach() {
+            local _l _d
+            eval "_l=\"\${LT_${1}_${2}:-}\""
+            for _d in $_l; do "$3" "$_d"; done
+        }
+        w() { get_config_warnings | jq -c '[.[] | [.domain, .dns_section, .section]]'; }
+
+        LT_SECTIONS="corp main blk"
+        LT_corp_user_domain_list_type=dynamic; LT_main_user_domain_list_type=dynamic; LT_blk_user_domain_list_type=dynamic
+        LT_corp_connection_type=dns;   LT_corp_user_domains="corp.example.com intranet.example.org .other.net"
+        LT_main_connection_type=proxy; LT_main_user_domains="example.com Intranet.Example.ORG"
+        LT_blk_connection_type=block;  LT_blk_user_domains="other.net"
+        echo "suffix-and-exact=$(w)"
+
+        # a longer name of the same suffix is covered, an unrelated suffix of letters is not
+        LT_main_user_domains="ample.com"
+        echo "letters-not-suffix=$(w)"
+        LT_main_user_domains="com"
+        echo "tld=$(w)"
+
+        # full: matches one name only
+        LT_corp_user_domains="full:www.example.com full:example.com"
+        LT_main_user_domains="full:example.com"
+        echo "full-exact=$(w)"
+        LT_main_user_domains="example.com"
+        echo "full-covered-by-suffix=$(w)"
+
+        # keyword / regex are not compared; a disabled section does not shadow
+        LT_corp_user_domains="keyword:corp regex:^a"
+        LT_main_user_domains="corp"
+        echo "keyword-skipped=$(w)"
+        LT_corp_user_domains="corp.example.com"
+        LT_main_user_domains="example.com"
+        LT_DISABLED=main
+        echo "disabled-main=$(w)"
+        LT_DISABLED=corp
+        echo "disabled-dns=$(w)"
+        LT_DISABLED=""
+
+        # a vpn section shadows too; the logger names both sections
+        LT_main_connection_type=vpn
+        lint_log_warnings
+        echo "logged=$(grep -c "DNS section 'corp'.*'corp.example.com'.*section 'main'" "$LT_LOG")"
+        # nothing to say: no output at all
+        LT_main_user_domains="unrelated.org"
+        : > "$LT_LOG"; lint_log_warnings
+        echo "quiet=$(grep -c '' "$LT_LOG") empty=$(w)"
+        echo "temp-removed=$([ -z "$(ls -A "$lt_tmp")" ] && echo yes || echo no)"
+
+        # the Text List mode is read from user_domains_text; the stale dynamic list is not looked at
+        LT_corp_connection_type=dns;   LT_corp_user_domains=""
+        LT_main_connection_type=proxy
+        LT_main_user_domain_list_type=text
+        LT_main_user_domains_text="Other.Example.net, example.com
+        third.org // a comment"
+        LT_corp_user_domains_text="corp.example.com"
+        LT_corp_user_domain_list_type=text
+        echo "text-mode=$(w)"
+        LT_main_user_domains="corp.example.com"
+        LT_main_user_domains_text="unrelated.org"
+        echo "text-mode-stale-dynamic-ignored=$(w)"
+        LT_main_user_domain_list_type=dynamic
+        echo "dynamic-mode-reads-dynamic=$(w)"
+
+        # a section whose list is switched off (or has no type) routes nothing, whatever stale
+        # user_domains it still holds: the backend builds no rule for it
+        LT_corp_user_domain_list_type=dynamic; LT_corp_user_domains="corp.example.com"
+        LT_main_user_domain_list_type=disabled; LT_main_user_domains="corp.example.com"
+        echo "disabled-list-main=$(w)"
+        LT_main_user_domain_list_type=""
+        echo "no-type-main=$(w)"
+        LT_main_user_domain_list_type=dynamic
+        LT_corp_user_domain_list_type=disabled
+        echo "disabled-list-dns=$(w)"
+        LT_corp_user_domain_list_type=dynamic
+
+        # an exclusion section takes the FakeIP answer first too; regexp: is skipped like regex:
+        LT_main_connection_type=exclusion
+        echo "exclusion=$(w)"
+        LT_main_user_domains="regexp:^corp"
+        echo "regexp-skipped=$(w)"
+        LT_main_connection_type=proxy
+
+        # a fixed file in /tmp pointing elsewhere is not followed
+        printf 'keep me\n' > "$lt_tmp/victim"
+        ln -s "$lt_tmp/victim" /tmp/netshift-lint.tmp
+        w > /dev/null
+        echo "symlink-victim=$(cat "$lt_tmp/victim")"
+        rm -f /tmp/netshift-lint.tmp
+    )"
+    rm -rf "$lt_tmp"
+
+    _lt() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _lt "a domain of a DNS section that a proxy section routes is named; a block section does not count" 'suffix-and-exact=[["corp.example.com","corp","main"],["intranet.example.org","corp","main"]]'
+    _lt "only a real subdomain is covered" "letters-not-suffix=[]"
+    _lt "a whole suffix covers its names" 'tld=[["corp.example.com","corp","main"]]'
+    _lt "full: against full: needs the same name" 'full-exact=[["example.com","corp","main"]]'
+    _lt "full: is covered by a suffix" 'full-covered-by-suffix=[["www.example.com","corp","main"],["example.com","corp","main"]]'
+    _lt "keywords and regular expressions are left alone" "keyword-skipped=[]"
+    _lt "a disabled routing section shadows nothing" "disabled-main=[]"
+    _lt "a disabled DNS section is not warned about" "disabled-dns=[]"
+    _lt "the warning is logged, naming both sections" "logged=1"
+    _lt "no shadowing: nothing is logged" "quiet=0 empty=[]"
+    _lt "the temporary file is removed" "temp-removed=yes"
+    _lt "a Text List section is compared by its text, comments and blanks left out" 'text-mode=[["corp.example.com","corp","main"]]'
+    _lt "...and the dynamic list it was switched from is ignored" "text-mode-stale-dynamic-ignored=[]"
+    _lt "a dynamic section still reads the dynamic list" 'dynamic-mode-reads-dynamic=[["corp.example.com","corp","main"]]'
+    _lt "a section with its list switched off shadows nothing" "disabled-list-main=[]"
+    _lt "...and neither does one without a list type" "no-type-main=[]"
+    _lt "a DNS section with its list switched off is not warned about" "disabled-list-dns=[]"
+    _lt "an exclusion section shadows too" 'exclusion=[["corp.example.com","corp","main"]]'
+    _lt "regexp: is left alone like regex:" "regexp-skipped=[]"
+    _lt "a file that a symlink at the old fixed path points to is left alone" "symlink-victim=keep me"
+}
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -20540,6 +20690,7 @@ main() {
             test_dns_forward
             test_subscription_info
             test_port_rules
+            test_config_lint
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -20622,9 +20773,10 @@ main() {
         dnshijack)   test_dns_hijack ;;
         subinfo)     test_subscription_info ;;
         portrules)   test_port_rules ;;
+        configlint)  test_config_lint ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint"
             exit 1
             ;;
     esac
