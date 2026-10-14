@@ -1356,7 +1356,7 @@ function createSectionContent(section) {
         ui.addNotification(
           null,
           E("p", _("Could not duplicate the section: %s").format(error.message || error)),
-          "danger",
+          "error",
         );
       });
   };
