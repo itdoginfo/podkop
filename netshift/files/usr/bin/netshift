@@ -5051,11 +5051,13 @@ sing_box_configure_dns() {
         dns_domain_resolver=$SB_BOOTSTRAP_SERVER_TAG
     fi
 
-    # Only the MAIN DNS server may carry a detour. Bootstrap stays direct (it
-    # resolves the DoH/DoT hostname before the tunnel is up) and FakeIP stays
+    # The main DNS server and every server of the pool carry the detour of their own route
+    # (dns_server_route, or the global switch when the server has no entry). Bootstrap stays
+    # direct (it resolves the DoH/DoT hostname before the tunnel is up) and FakeIP stays
     # direct. An empty tag means no detour -> byte-identical to the off path.
     local dns_detour_tag
-    dns_detour_tag="$(_get_dns_detour_tag)"
+    dns_routes_init
+    dns_detour_tag="$(dns_server_detour_tag "$dns_type://$dns_server")"
 
     config=$(sing_box_cm_add_udp_dns_server "$config" "$SB_BOOTSTRAP_SERVER_TAG" "$bootstrap_dns_server" 53)
     config=$(sing_box_cf_add_dns_server "$config" "$dns_type" "$SB_DNS_SERVER_TAG" "$dns_server" "$dns_domain_resolver" "$dns_detour_tag")
@@ -5117,7 +5119,7 @@ sing_box_configure_dns() {
     # FakeIP path, the DNS sections only take over domains that go out directly.
     config_foreach configure_dns_section_handler "section"
     # Last: the pool rules match every query that no rule above handled.
-    sing_box_configure_dns_pool "$dns_detour_tag"
+    sing_box_configure_dns_pool
     # Bootstrap the proxy hostname without using the DNS transport it carries.
     config=$(sing_box_cm_set_proxy_bootstrap_resolver "$config" "$SB_BOOTSTRAP_SERVER_TAG" "$dns_detour_tag")
 }
@@ -5475,9 +5477,10 @@ _dns_pool_collect_entry() {
     DNS_POOL_ENTRIES="$DNS_POOL_ENTRIES $entry"
 }
 
-# $1 - detour tag of the main DNS server (empty = direct); the pool uses the same
+# Every pool server gets its own detour (dns_server_detour_tag), the routes having
+# been set up by dns_routes_init.
 sing_box_configure_dns_pool() {
-    local detour_tag="$1"
+    local detour_tag doh_direct=""
     local mode timeout entry type server host resolver tag server_tags last_tag
     local index rcode block_doh
 
@@ -5523,16 +5526,16 @@ sing_box_configure_dns_pool() {
         if is_ipv4 "$host" || is_ipv6 "$host"; then
             resolver=""
         fi
+        detour_tag="$(dns_server_detour_tag "$entry")"
         config=$(sing_box_cf_add_dns_server "$config" "$type" "$tag" "$server" "$resolver" "$detour_tag")
         server_tags="$server_tags $tag"
+        case "$type" in
+        doh | doh3) [ -n "$detour_tag" ] || doh_direct="1" ;;
+        esac
     done
 
-    if [ -z "$detour_tag" ] && [ "$block_doh" -eq 1 ]; then
-        case " $DNS_POOL_ENTRIES " in
-        *" doh://"* | *" doh3://"*)
-            log "DoH blocking is enabled and the DNS pool has doh/doh3 upstreams without a detour. Their queries will be blocked; use udp, tcp, dot or doq upstreams, or send DNS through an outbound." "warn"
-            ;;
-        esac
+    if [ -n "$doh_direct" ] && [ "$block_doh" -eq 1 ]; then
+        log "DoH blocking is enabled and the DNS pool has doh/doh3 upstreams without a detour. Their queries will be blocked; use udp, tcp, dot or doq upstreams, or send DNS through an outbound." "warn"
     fi
 
     log "DNS pool enabled: mode $mode, $((DNS_POOL_COUNT + 1)) upstreams, $timeout per query" "info"
@@ -7228,20 +7231,20 @@ _determine_first_outbound_section() {
     fi
 }
 
-# Resolve the outbound tag the MAIN sing-box DNS server should detour through.
-# Echoes the tag, or an EMPTY string meaning "no detour / direct DNS" (the safe
-# default). NEVER exits: every failure path logs the reason and falls back to
-# direct DNS so the service always starts and resolves. Mirrors the toggle +
-# optional section selector model of get_subscription_download_proxy_address.
-_get_dns_detour_tag() {
-    local dns_via_outbound dns_outbound_section candidate
+# The outbound tag of the tunnel the DNS servers can be sent through (empty when
+# none is usable), whatever the global switch says: a server marked "tunnel" in
+# dns_server_route uses it even while the switch is off.
+# $1 - a section to use instead of the configured one (a server routed "via:<section>").
+_resolve_dns_outbound_tag() {
+    local dns_outbound_section candidate strict
     local candidate_connection_type
 
-    # Step 1: feature off -> direct (silent).
-    config_get_bool dns_via_outbound "settings" "dns_via_outbound" 0
-    [ "$dns_via_outbound" -eq 1 ] || return 0
-
-    config_get dns_outbound_section "settings" "dns_outbound_section"
+    dns_outbound_section="$1"
+    [ -n "$dns_outbound_section" ] || config_get dns_outbound_section "settings" "dns_outbound_section"
+    # $2 = strict: the section was chosen for one server by name (via:<section>). If it is gone,
+    # renamed or disabled, that server must not quietly go through ANOTHER provider's tunnel
+    # (a corporate resolver through someone else's VPN): it goes out directly.
+    strict="${2:-}"
 
     # Step 2: resolve the candidate section.
     if [ -n "$dns_outbound_section" ] && \
@@ -7250,6 +7253,10 @@ _get_dns_detour_tag() {
         section_has_configured_outbound "$dns_outbound_section"; then
         candidate="$dns_outbound_section"
     else
+        if [ "$strict" = "strict" ] && [ -n "$dns_outbound_section" ]; then
+            log "DNS route via:$dns_outbound_section: the section is invalid or has no configured outbound; this DNS server goes out directly" "warn"
+            return 0
+        fi
         if [ -n "$dns_outbound_section" ]; then
             log "DNS-via-outbound section '$dns_outbound_section' is invalid or has no configured outbound; falling back to the first outbound section" "warn"
         fi
@@ -7279,6 +7286,119 @@ _get_dns_detour_tag() {
 
     # Step 6: use the candidate section's outbound tag.
     get_outbound_tag_by_section "$candidate"
+}
+
+# Per-server route of the DNS servers: `list dns_server_route '<server> <route>'`, the
+# route being "direct", "via:<section>" (through that section's outbound) or "tunnel"
+# (through the DNS outbound section, the older spelling). It overrides the global
+# "Route main DNS through proxy/VPN" switch for one server
+# (<server> is written exactly as in the server list: scheme://host[:port][/path]).
+# A server without an entry follows the switch.
+# A server is written scheme://host[:port][/path]; the scheme and the host are not case
+# sensitive and the generator keeps them in lower case (normalize_domain_case), so the key of a
+# route is compared in lower case too: "doh://Dns.Google/dns-query" is the same server as
+# "doh://dns.google/dns-query" (the path stays as it is).
+_dns_route_key_norm() {
+    local key="$1" head rest authority path=""
+
+    case "$key" in
+    *://*) ;;
+    *)
+        printf '%s' "$key"
+        return 0
+        ;;
+    esac
+    head="${key%%://*}"
+    rest="${key#*://}"
+    case "$rest" in
+    */*)
+        authority="${rest%%/*}"
+        path="/${rest#*/}"
+        ;;
+    *) authority="$rest" ;;
+    esac
+    printf '%s://%s%s' "$(printf '%s' "$head" | tr 'A-Z' 'a-z')" "$(printf '%s' "$authority" | tr 'A-Z' 'a-z')" "$path"
+}
+
+_dns_route_match_handler() {
+    local entry="$1"
+    local wanted="$2"
+    local mode="${entry##* }"
+
+    [ "$(_dns_route_key_norm "${entry% *}")" = "$wanted" ] || return 0
+    case "$mode" in
+    tunnel | direct | via:?*) DNS_ROUTE_FOUND="$mode" ;;
+    esac
+}
+
+# Prints the route ("tunnel", "direct", "via:<section>"), or nothing (follow the switch).
+get_dns_server_route() {
+    local len raw token pending="" wanted
+
+    wanted="$(_dns_route_key_norm "$1")"
+    DNS_ROUTE_FOUND=""
+    config_get len "settings" "dns_server_route_LENGTH"
+    if [ -n "$len" ]; then
+        # a UCI list: one "<server> <route>" per element
+        config_list_foreach "settings" "dns_server_route" _dns_route_match_handler "$wanted"
+    else
+        # a plain option ('<server> <route> <server> <route>'): the words go in pairs
+        config_get raw "settings" "dns_server_route"
+        for token in $raw; do
+            if [ -z "$pending" ]; then
+                pending="$token"
+            else
+                _dns_route_match_handler "$pending $token" "$wanted"
+                pending=""
+            fi
+        done
+    fi
+    printf '%s' "$DNS_ROUTE_FOUND"
+}
+
+_dns_route_tunnel_handler() {
+    [ "${1##* }" = "tunnel" ] && DNS_ROUTE_HAS_TUNNEL=1
+    return 0
+}
+
+# Resolves the tunnel once per run; call before dns_server_detour_tag. Only when something uses
+# it (the switch, or an entry routed "tunnel"): resolving it for entries that are all "direct" or
+# "via:<section>" would warn about a DNS-via-outbound section nobody asked for.
+dns_routes_init() {
+    local via overrides list_length token
+
+    DNS_ROUTE_DEFAULT="direct"
+    DNS_ROUTE_TUNNEL_TAG=""
+    DNS_ROUTE_HAS_TUNNEL=0
+    config_get_bool via "settings" "dns_via_outbound" 0
+    [ "$via" -eq 1 ] && DNS_ROUTE_DEFAULT="tunnel"
+    # a plain option is read by name, a UCI list (what the page writes) only by its length
+    config_get overrides "settings" "dns_server_route"
+    config_get list_length "settings" "dns_server_route_LENGTH"
+    if [ -n "$list_length" ]; then
+        config_list_foreach "settings" "dns_server_route" _dns_route_tunnel_handler
+    else
+        for token in $overrides; do
+            [ "$token" = "tunnel" ] && DNS_ROUTE_HAS_TUNNEL=1
+        done
+    fi
+
+    if [ "$DNS_ROUTE_DEFAULT" = "tunnel" ] || [ "$DNS_ROUTE_HAS_TUNNEL" -eq 1 ]; then
+        DNS_ROUTE_TUNNEL_TAG="$(_resolve_dns_outbound_tag)"
+    fi
+}
+
+# The detour tag for one server ("scheme://host..."): empty means direct.
+dns_server_detour_tag() {
+    local mode
+
+    mode="$(get_dns_server_route "$1")"
+    [ -n "$mode" ] || mode="$DNS_ROUTE_DEFAULT"
+    case "$mode" in
+    tunnel) printf '%s' "$DNS_ROUTE_TUNNEL_TAG" ;;
+    via:*) _resolve_dns_outbound_tag "${mode#via:}" strict ;;
+    esac
+    return 0
 }
 
 get_first_outbound_section() {
@@ -7908,6 +8028,9 @@ check_dns_available() {
     config_get dns_type "settings" "dns_type"
     config_get dns_server "settings" "dns_server"
     config_get bootstrap_dns_server "settings" "bootstrap_dns_server"
+    # the server as it is written in the configuration: the key of its route (below, the DoH
+    # path is cut off the working copy)
+    local dns_server_raw="$dns_server"
 
     local dns_status=0
     local dns_on_router=0
@@ -7979,7 +8102,8 @@ check_dns_available() {
 
     # Effective detour tag the main DNS would use (empty string = direct DNS).
     local dns_via_outbound_tag
-    dns_via_outbound_tag="$(_get_dns_detour_tag)"
+    dns_routes_init
+    dns_via_outbound_tag="$(dns_server_detour_tag "$dns_type://$dns_server_raw")"
 
     echo "{\"dns_type\":\"$dns_type\",\"dns_server\":\"$display_dns_server\",\"dns_status\":$dns_status,\"dns_on_router\":$dns_on_router,\"bootstrap_dns_server\":\"$bootstrap_dns_server\",\"bootstrap_dns_status\":$bootstrap_dns_status,\"dhcp_config_status\":$dhcp_config_status,\"dns_via_outbound_tag\":\"$dns_via_outbound_tag\"}" | jq .
 }

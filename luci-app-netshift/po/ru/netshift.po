@@ -53,6 +53,9 @@ msgstr "Активный"
 msgid "Active Connections"
 msgstr "Активные соединения"
 
+msgid "Add a server: pick one or type scheme://host"
+msgstr "Добавить сервер: выберите из списка или введите схема://хост"
+
 msgid "Add feeds from a list"
 msgstr "Добавить ленты из списка"
 
@@ -407,9 +410,6 @@ msgstr "Перенаправление DNS по зонам"
 msgid "DNS on router"
 msgstr "DNS на роутере"
 
-msgid "DNS outbound section"
-msgstr "Секция outbound для DNS"
-
 msgid "DNS over HTTP/3 (DoH3)"
 msgstr "DNS через HTTP/3 (DoH3)"
 
@@ -448,9 +448,6 @@ msgstr "Таймаут DNS-сервера"
 
 msgid "DNS servers"
 msgstr "DNS-серверы"
-
-msgid "DNS speed test"
-msgstr "Тест скорости DNS"
 
 msgid "DNS: answered with a FakeIP address, the traffic enters the tunnel path"
 msgstr "DNS: выдаётся адрес FakeIP, трафик идёт по пути туннеля"
@@ -706,6 +703,9 @@ msgstr "Найдено лент: %d, добавлено: %d. Чтобы сохр
 
 msgid "From the device (optional)"
 msgstr "С устройства (необязательно)"
+
+msgid "from the router"
+msgstr "с роутера"
 
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
@@ -1070,6 +1070,9 @@ msgstr "Уровень логов"
 msgid "MAC address"
 msgstr "MAC-адрес"
 
+msgid "main"
+msgstr "основной"
+
 msgid "Main DNS"
 msgstr "Основной DNS"
 
@@ -1084,12 +1087,6 @@ msgstr "Сработавший список"
 
 msgid "Matches no list, goes through the global proxy section"
 msgstr "Не входит ни в один список, идёт через секцию глобального прокси"
-
-msgid "Measured from the router"
-msgstr "Замер с самого роутера"
-
-msgid "Measured through the tunnel, the way real queries go"
-msgstr "Замер через туннель, так же, как идут настоящие запросы"
 
 msgid "Memory Usage"
 msgstr "Использование памяти"
@@ -1117,6 +1114,12 @@ msgstr "Ещё серверы для этой секции, в любом соч
 
 msgid "Most traffic first"
 msgstr "Сначала с большим трафиком"
+
+msgid "Move down"
+msgstr "Вниз"
+
+msgid "Move up"
+msgstr "Вверх"
 
 msgid "ms"
 msgstr "мс"
@@ -1307,6 +1310,9 @@ msgstr "Настоящие адреса (IPv6 идёт напрямую)"
 msgid "Reality: post-quantum key share (X25519MLKEM768)"
 msgstr "Reality: пост-квантовый обмен ключами (X25519MLKEM768)"
 
+msgid "Refresh"
+msgstr "Обновить"
+
 msgid "Refresh all subscriptions"
 msgstr "Обновить все подписки"
 
@@ -1367,9 +1373,6 @@ msgstr "Направлять весь несовпавший трафик чер
 msgid "Route BitTorrent traffic directly, bypassing the proxy or VPN. Some providers block subscriptions when they detect torrent traffic."
 msgstr "Направлять трафик BitTorrent напрямую, минуя прокси или VPN. Некоторые провайдеры блокируют подписки, обнаружив торрент-трафик."
 
-msgid "Route main DNS through proxy/VPN"
-msgstr "Основной DNS через прокси/VPN"
-
 msgid "Router DNS is not routed through sing-box"
 msgstr "DNS роутера не проходит через sing-box"
 
@@ -1421,8 +1424,11 @@ msgstr "Сохранён при удачном запуске"
 msgid "Saved by hand"
 msgstr "Сохранён вручную"
 
-msgid "scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. The first one is the main server. Pick a ready-made server or type your own."
-msgstr "scheme://host[:port][/path], где scheme - udp, tcp, dot, doh, doh3 или doq. Первый сервер - основной. Выберите готовый сервер или введите свой."
+msgid "scheme://host[:port][/path], then Enter"
+msgstr "схема://хост[:порт][/путь], затем Enter"
+
+msgid "scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. The first server is the main one. Choose for each server whether its queries go directly or through the proxy/VPN of a section (bootstrap DNS always stays direct). The time is measured from the router, through the tunnel for the servers that go through one, with the routes saved last."
+msgstr "схема://хост[:порт][/путь], где схема - udp, tcp, dot, doh, doh3 или doq. Первый сервер - основной. Для каждого сервера выберите, идут ли его запросы напрямую или через прокси/VPN секции (bootstrap DNS всегда идёт напрямую). Время замеряется с роутера, а для серверов, идущих через туннель, - через него, по последним сохранённым маршрутам."
 
 msgid "Search by address, section or list"
 msgstr "Поиск по адресу, секции или списку"
@@ -1502,8 +1508,8 @@ msgstr "Отправлять DNS-запросы LAN на роутер"
 msgid "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable. The detected WAN subnets are offered in the list."
 msgstr "Отправлять этот IP-адрес или префикс с каждым DNS-запросом (EDNS Client Subnet, RFC 7871), чтобы геораспределённые сервисы отдавали ближайший к вам узел. Пусто - отключено. Найденные WAN-подсети предлагаются в списке."
 
-msgid "Send upstream DNS queries through a proxy/VPN outbound instead of directly. Bootstrap DNS always stays direct."
-msgstr "Отправлять запросы к основному DNS через outbound прокси/VPN вместо прямого подключения. Bootstrap DNS всегда остаётся прямым."
+msgid "Server"
+msgstr "Сервер"
 
 msgid "Servers per feed"
 msgstr "Серверов в ленте"
@@ -1664,9 +1670,6 @@ msgstr "TCP-порты, которые всегда идут напрямую"
 msgid "Test latency"
 msgstr "Тестирование задержки"
 
-msgid "Test the servers"
-msgstr "Проверить серверы"
-
 msgid "Testing..."
 msgstr "Проверяю..."
 
@@ -1772,8 +1775,20 @@ msgstr "Это ядро собрано без QUIC: серверы DoH3 и DoQ �
 msgid "This is a security trade-off: an attacker could intercept the fetch."
 msgstr "Это компромисс в безопасности: злоумышленник может перехватить загрузку."
 
+msgid "This server is already in the list"
+msgstr "Этот сервер уже есть в списке"
+
+msgid "Through %s"
+msgstr "Через %s"
+
+msgid "Through %s (not available)"
+msgstr "Через %s (недоступна)"
+
 msgid "Tiles"
 msgstr "Плитки"
+
+msgid "Time"
+msgstr "Время"
 
 msgid "Time cannot be empty"
 msgstr "Время не может быть пустым"
@@ -1783,9 +1798,6 @@ msgstr "Время в секундах для кэширования DNS зап�
 
 msgid "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists"
 msgstr "Время ежедневного обновления, ЧЧ:ММ (00:00–23:59) по местному времени роутера. Избегайте минут, совпадающих с другими интервалами обновления, например :00 и :30, если есть секция с интервалом 30 минут."
-
-msgid "Times every configured DNS server (UDP, TCP, DoT and DoH; DoH3 and DoQ cannot be timed). With \"Route main DNS through proxy/VPN\" the servers are reached through the tunnel, so a resolver inside it can be timed too. Nothing is changed: use it to decide the order of the servers."
-msgstr "Замеряет каждый настроенный DNS-сервер (UDP, TCP, DoT и DoH; DoH3 и DoQ замерить нельзя). При включённом «Route main DNS through proxy/VPN» серверы опрашиваются через туннель, поэтому можно замерить и резолвер внутри него. Ничего не меняется: результат помогает выбрать порядок серверов."
 
 msgid "TLS and Reality fail with a wrong time: check NTP"
 msgstr "С неверным временем не работают TLS и Reality: проверьте NTP"
@@ -1940,6 +1952,9 @@ msgstr "Ошибки валидации:"
 msgid "Version"
 msgstr "Версия"
 
+msgid "via the tunnel"
+msgstr "через туннель"
+
 msgid "View logs"
 msgstr "Посмотреть логи"
 
@@ -1984,9 +1999,6 @@ msgstr "Откуда приходят обновления NetShift (менед�
 
 msgid "Where will a request go"
 msgstr "Куда пойдёт запрос"
-
-msgid "Which proxy/VPN section carries the DNS. Leave unset to use the first configured outbound."
-msgstr "Какая секция прокси/VPN обслуживает DNS. Оставьте пустым, чтобы использовать первый настроенный outbound."
 
 msgid "Which subscription format (client) to fetch first. Auto uses the default order. Choose Xray JSON (Happ) when your panel only exposes some nodes (e.g. xhttp) under a Happ-like client, or Sing-box to prefer the sing-box format."
 msgstr "Какой формат подписки (клиент) запрашивать первым. «Авто» использует порядок по умолчанию. Выберите «Xray JSON (Happ)», если ваша панель отдаёт некоторые узлы (например, xhttp) только под клиентом вроде Happ, или «Sing-box», чтобы предпочесть формат sing-box."

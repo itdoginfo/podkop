@@ -5,12 +5,12 @@ export async function callBaseMethod<T>(
   method: NetShift.AvailableMethods,
   args: string[] = [],
   command: string = '/usr/bin/netshift',
-  options: { nobatch?: boolean } = {},
+  options: { nobatch?: boolean; timeout?: number } = {},
 ): Promise<NetShift.MethodResponse<T>> {
   const response = await executeShellCommand({
     command,
     args: [method as string, ...args],
-    timeout: 15000,
+    timeout: options.timeout ?? 15000,
     nobatch: options.nobatch,
   });
 

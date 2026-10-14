@@ -11,6 +11,8 @@ import {
 } from './pollSingBoxComponentAction';
 import { parseComponentCheckUpdate } from './parseComponentCheckUpdate';
 
+const DNS_BENCHMARK_TIMEOUT = 60000;
+
 // Starts a component action with the async backend contract and polls it to
 // completion. A component action can outlast the rpcd ~30s wall (a subscription
 // refresh re-downloads feeds and restarts sing-box), so it MUST go through the
@@ -144,12 +146,15 @@ export const NetShiftShellMethods = {
     ),
   getPinGuardEvents: async () =>
     callBaseMethod<unknown>(NetShift.AvailableMethods.GET_PIN_GUARD_EVENTS),
-  dnsBenchmark: async () =>
+  dnsBenchmark: async (servers: string[] = []) =>
     callBaseMethod<unknown>(
       NetShift.AvailableMethods.DNS_BENCHMARK,
-      [],
+      servers,
       undefined,
-      { nobatch: true },
+      // Servers behind different outbounds are measured by one extra sing-box each
+      // (at the same time, at most a few at once), which takes well past the usual
+      // 15 seconds.
+      { nobatch: true, timeout: DNS_BENCHMARK_TIMEOUT },
     ),
   getSubscriptionInfo: async () =>
     callBaseMethod<unknown>(NetShift.AvailableMethods.GET_SUBSCRIPTION_INFO),
