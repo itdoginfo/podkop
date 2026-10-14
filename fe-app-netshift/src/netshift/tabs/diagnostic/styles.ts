@@ -172,7 +172,6 @@ export const styles = `
 }
 
 .pdk_diagnostic-page__route-check {
-.pdk_diagnostic-page__snapshots {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-row-gap: 8px;
@@ -184,7 +183,6 @@ export const styles = `
 }
 
 .pdk_diagnostic-page__route-check__hint {
-.pdk_diagnostic-page__snapshots__hint {
     opacity: 0.75;
     font-size: 0.9em;
 }
@@ -193,7 +191,21 @@ export const styles = `
     display: grid;
     grid-row-gap: 4px;
     overflow-wrap: anywhere;
+}
+
+.pdk_diagnostic-page__snapshots {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-row-gap: 8px;
+}
+
+.pdk_diagnostic-page__snapshots__hint {
+    opacity: 0.75;
+    font-size: 0.9em;
+}
+
 .pdk_diagnostic-page__snapshots__list {
+    display: grid;
     grid-row-gap: 6px;
 }
 

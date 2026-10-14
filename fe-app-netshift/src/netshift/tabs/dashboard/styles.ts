@@ -275,7 +275,7 @@ export const styles = `
     }
 }
 
-.pdk_dashboard-page__update-notice {
+.pdk_dashboard-page__update-notice,
 .pdk_dashboard-page__pin-guard {
     margin-top: 10px;
     display: grid;
