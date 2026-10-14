@@ -2405,15 +2405,17 @@ dnsmasq_is_configured_for_netshift() {
     [ "$configured" = "1" ]
 }
 
-# Whether teardown (stop, sing-box crash) has to undo our dnsmasq changes.
-# `dont_touch_dhcp` only promises that NetShift will not CHANGE /etc/config/dhcp,
-# so with the flag on there is nothing to undo - unless NetShift already
-# configured dnsmasq earlier (the flag was switched on later): then
-# server=127.0.0.42 / noresolv=1 are ours and must go, or DNS stays broken after
-# NetShift stops. Ownership is the netshift_configured sentinel, not the flag.
-dnsmasq_should_be_restored() {
-    local dont_touch_dhcp
+dnsmasq_has_backup() {
+    [ "$(uci_get "dhcp" "@dnsmasq[0]" "netshift_dnsmasq_backup")" = "1" ] ||
+        [ -n "$(uci_get "dhcp" "@dnsmasq[0]" "netshift_server")" ] ||
+        [ -n "$(uci_get "dhcp" "@dnsmasq[0]" "netshift_noresolv")" ] ||
+        [ -n "$(uci_get "dhcp" "@dnsmasq[0]" "netshift_cachesize")" ]
+}
 
+# Whether teardown (stop, sing-box crash) has to undo our dnsmasq changes.
+# Restore only when a completed ownership sentinel or durable backup proves
+# NetShift changed dnsmasq; the user preference does not prove prior ownership.
+dnsmasq_should_be_restored() {
     # block_leaks keeps DNS fail-closed while sing-box is down: handing the
     # direct resolvers back here would let proxied DOMAINS resolve to real IPs
     # and leak even though the nft guard still blocks proxied subnets. DNS comes
@@ -2421,8 +2423,7 @@ dnsmasq_should_be_restored() {
     # inbound).
     kill_switch_enabled && return 1
 
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-    [ "$dont_touch_dhcp" -eq 0 ] || dnsmasq_is_configured_for_netshift
+    dnsmasq_is_configured_for_netshift || dnsmasq_has_backup
 }
 
 dnsmasq_configure() {
@@ -2440,20 +2441,29 @@ dnsmasq_configure() {
     fi
 
     log "Backup dnsmasq configuration"
-    current_servers="$(uci_get "dhcp" "@dnsmasq[0]" "server")"
-    if [ -n "$current_servers" ]; then
-        for server in $(uci_get "dhcp" "@dnsmasq[0]" "server"); do
-            if ! [ "$server" = "$SB_DNS_INBOUND_ADDRESS" ]; then
-                uci_add_list "dhcp" "@dnsmasq[0]" "netshift_server" "$server"
-            fi
-        done
-        uci_remove_quiet "dhcp" "@dnsmasq[0]" "server"
+    if [ "$(uci_get "dhcp" "@dnsmasq[0]" "netshift_dnsmasq_backup")" != "1" ]; then
+        current_servers="$(uci_get "dhcp" "@dnsmasq[0]" "server")"
+        if [ -n "$current_servers" ]; then
+            for server in $current_servers; do
+                if ! [ "$server" = "$SB_DNS_INBOUND_ADDRESS" ]; then
+                    uci_add_list "dhcp" "@dnsmasq[0]" "netshift_server" "$server"
+                fi
+            done
+        fi
+
+        [ -n "$(uci_get "dhcp" "@dnsmasq[0]" "noresolv")" ] && uci_set "dhcp" "@dnsmasq[0]" "netshift_noresolv_set" 1
+        [ -n "$(uci_get "dhcp" "@dnsmasq[0]" "cachesize")" ] && uci_set "dhcp" "@dnsmasq[0]" "netshift_cachesize_set" 1
+        backup_dnsmasq_config_option "noresolv" "netshift_noresolv"
+        backup_dnsmasq_config_option "cachesize" "netshift_cachesize"
+        uci_set "dhcp" "@dnsmasq[0]" "netshift_dnsmasq_backup" 1
+        # Persist the original values and recovery marker before the first live edit.
+        uci_commit "dhcp"
     fi
 
-    backup_dnsmasq_config_option "noresolv" "netshift_noresolv"
-    backup_dnsmasq_config_option "cachesize" "netshift_cachesize"
-
     log "Configure dnsmasq for sing-box"
+    if [ -n "$(uci_get "dhcp" "@dnsmasq[0]" "server")" ]; then
+        uci_remove_quiet "dhcp" "@dnsmasq[0]" "server"
+    fi
     uci_add_list "dhcp" "@dnsmasq[0]" "server" "$SB_DNS_INBOUND_ADDRESS"
     dns_forward_apply
     uci_set "dhcp" "@dnsmasq[0]" "noresolv" 1
@@ -2474,16 +2484,19 @@ dnsmasq_restore() {
     # A stop with block_leaks on is a correct shutdown that deliberately LEFT
     # dnsmasq pointed at sing-box. When the kill switch is released afterwards
     # (package removal, the option switched off) the restore is still owed, so
-    # the ownership sentinel decides, not the shutdown flag alone.
-    if [ "$shutdown_correctly" -eq 1 ] && ! dnsmasq_is_configured_for_netshift; then
+    # either ownership or the durable backup must bypass the shutdown flag.
+    if [ "$shutdown_correctly" -eq 1 ] && ! dnsmasq_is_configured_for_netshift && ! dnsmasq_has_backup; then
         log "Previous shutdown of netshift was correct, reconfiguration of dnsmasq is not required"
         return 0
     fi
 
-    local cachesize noresolv backup_servers resolvfile
+    local cachesize noresolv backup_servers resolvfile backup
+    backup="$(uci_get "dhcp" "@dnsmasq[0]" "netshift_dnsmasq_backup")"
     log "Restoring cachesize" "debug"
     cachesize="$(uci_get "dhcp" "@dnsmasq[0]" "netshift_cachesize")"
-    if [ -z "$cachesize" ]; then
+    if [ "$backup" = "1" ] && [ "$(uci_get "dhcp" "@dnsmasq[0]" "netshift_cachesize_set")" != "1" ]; then
+        uci_remove_quiet "dhcp" "@dnsmasq[0]" "cachesize"
+    elif [ -z "$cachesize" ]; then
         uci_remove_quiet "dhcp" "@dnsmasq[0]" "cachesize"
         uci_set "dhcp" "@dnsmasq[0]" "cachesize" 150
     else
@@ -2493,7 +2506,9 @@ dnsmasq_restore() {
 
     log "Restoring noresolv" "debug"
     noresolv="$(uci_get "dhcp" "@dnsmasq[0]" "netshift_noresolv")"
-    if [ -z "$noresolv" ]; then
+    if [ "$backup" = "1" ] && [ "$(uci_get "dhcp" "@dnsmasq[0]" "netshift_noresolv_set")" != "1" ]; then
+        uci_remove_quiet "dhcp" "@dnsmasq[0]" "noresolv"
+    elif [ -z "$noresolv" ]; then
         uci_set "dhcp" "@dnsmasq[0]" "noresolv" 0
     else
         uci_set "dhcp" "@dnsmasq[0]" "noresolv" "$noresolv"
@@ -2509,7 +2524,7 @@ dnsmasq_restore() {
             uci_add_list "dhcp" "@dnsmasq[0]" "server" "$server"
         done
         uci_remove_quiet "dhcp" "@dnsmasq[0]" "netshift_server"
-    elif file_exists "$resolvfile"; then
+    elif [ "$backup" != "1" ] && file_exists "$resolvfile"; then
         log "Backup DNS servers not found, using default resolvfile" "debug"
         uci_set "dhcp" "@dnsmasq[0]" "resolvfile" "$resolvfile"
         if [ -n "$noresolv" ] && [ "$noresolv" -eq 1 ]; then
@@ -2524,6 +2539,9 @@ dnsmasq_restore() {
     # re-establishes ownership cleanly (and dnsmasq_is_configured_for_netshift
     # no longer short-circuits once we have torn down).
     uci_remove_quiet "dhcp" "@dnsmasq[0]" "netshift_configured"
+    uci_remove_quiet "dhcp" "@dnsmasq[0]" "netshift_dnsmasq_backup"
+    uci_remove_quiet "dhcp" "@dnsmasq[0]" "netshift_noresolv_set"
+    uci_remove_quiet "dhcp" "@dnsmasq[0]" "netshift_cachesize_set"
 
     uci_commit "dhcp"
 
