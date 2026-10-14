@@ -1317,11 +1317,13 @@ config_get_bool() {
     return 0
 }
 dnsmasq_is_configured_for_netshift() { return 1; }
+uci_get() { [ "$3" = "netshift_dnsmasq_backup" ] && printf '1'; }
 
 extract() { awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN"; }
 
 # The gate that stops DNS being handed back while sing-box is down, and the
 # SHIPPED functions that fill the sets (the only place they grow).
+eval "$(extract dnsmasq_has_backup)"
 eval "$(extract dnsmasq_should_be_restored)"
 eval "$(extract populate_netshift_subnets_from_file)"
 eval "$(extract populate_netshift_subnets_from_string)"
@@ -16183,13 +16185,13 @@ LIB="LIB_DIR"
 . "$LIB/helpers.sh"
 . "$LIB/dnsforward.sh"
 BIN="BIN_PATH"
-extract() { awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\\}/{exit}' "$BIN"; }
+extract() { awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^}/{exit}' "$BIN"; }
 log() { :; }
 config_get() { eval "$1=\"${TEST_SHUTDOWN:-0}\""; }
 kill_switch_enabled() { [ "${TEST_BLOCK_LEAKS:-0}" = 1 ]; }
 DLEOF
         for fn in backup_dnsmasq_config_option uci_remove_quiet dnsmasq_is_configured_for_netshift dnsmasq_has_backup dnsmasq_should_be_restored dnsmasq_configure dnsmasq_restore; do
-            awk -v fn="$fn" '$0 ~ "^"fn"\\(\\) \\{"{p=1} p{print} p&&/^\\}/{exit}' "$bin" | sed 's|/etc/init.d/dnsmasq restart|:|'
+            awk -v fn="$fn" '$0 ~ "^"fn"\\(\\) \\{"{p=1} p{print} p&&/^}/{exit}' "$bin" | sed 's|/etc/init.d/dnsmasq restart|:|'
         done
         cat << 'DLEOF'
 failures=0
@@ -16297,16 +16299,18 @@ DLEOF
     } > "$drv"
     sed -i "s|LIB_DIR|$lib|; s|BIN_PATH|$bin|; s|DHCP_BACKUP|$saved|; s|NETSHIFT_BACKUP|$saved_netshift|" "$drv"
 
-    local out line
+    local out line checks=0
     out="$(ash "$drv" 2>&1)" || true
     while IFS= read -r line; do
         case "$line" in
-        *:OK) pass "dnslifecycle:$line" ;;
-        *:FAIL*) fail "dnslifecycle:$line" ;;
+        *:OK) pass "dnslifecycle:$line"; checks=$((checks + 1)) ;;
+        *:FAIL*) fail "dnslifecycle:$line"; checks=$((checks + 1)) ;;
+        '') ;;
         esac
     done <<EOF
 $out
 EOF
+    [ "$checks" -gt 0 ] || fail "dnslifecycle produced no assertions"
     cp "$saved" /etc/config/dhcp
     if [ -f "$saved_netshift" ]; then cp "$saved_netshift" /etc/config/netshift; else rm -f /etc/config/netshift; fi
     rm -f "$saved" "$saved_netshift" "$drv"
@@ -17982,6 +17986,7 @@ config_load netshift
 uci -q delete dhcp.@dnsmasq[0].server
 uci -q add_list dhcp.@dnsmasq[0].server='/office.lan/10.1.1.1'
 uci -q add_list dhcp.@dnsmasq[0].server='9.9.9.9'
+uci -q set dhcp.@dnsmasq[0].noresolv=0
 uci -q commit dhcp
 
 dnsmasq_configure force
