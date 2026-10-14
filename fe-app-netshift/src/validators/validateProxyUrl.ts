@@ -5,6 +5,7 @@ import { validateTrojanUrl } from './validateTrojanUrl';
 import { validateSocksUrl } from './validateSocksUrl';
 import { validateHysteria2Url } from './validateHysteriaUrl';
 import { validateVmessUrl } from './validateVmessUrl';
+import { isNaiveUrl, validateNaiveUrl } from './validateNaiveUrl';
 
 // TODO refactor current validation and add tests
 export function validateProxyUrl(url: string): ValidationResult {
@@ -37,10 +38,14 @@ export function validateProxyUrl(url: string): ValidationResult {
     return validateHysteria2Url(trimmedUrl);
   }
 
+  if (isNaiveUrl(trimmedUrl)) {
+    return validateNaiveUrl(trimmedUrl);
+  }
+
   return {
     valid: false,
     message: _(
-      'URL must start with vless://, vmess://, ss://, trojan://, socks4/5://, or hysteria2://hy2://',
+      'URL must start with vless://, vmess://, ss://, trojan://, socks4/5://, hysteria2://hy2:// or naive+https://',
     ),
   };
 }

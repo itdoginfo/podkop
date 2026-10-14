@@ -1,0 +1,57 @@
+#!/bin/sh /etc/rc.common
+# The NaiveProxy clients of NetShift: one `naive` per link, each a local SOCKS5
+# server for sing-box. Started and stopped by NetShift (not enabled at boot): the
+# list in /tmp/netshift-naive.list is written by the configuration builder.
+
+USE_PROCD=1
+START=96
+
+# shellcheck disable=SC1091
+. /usr/lib/netshift/constants.sh
+# shellcheck disable=SC1091
+. /usr/lib/netshift/naive.sh
+
+# The clients run as their own user: mangle_output returns that uid before any
+# marking, so a client that dials through a proxied destination cannot be captured
+# back into tproxy (see NAIVE_CLIENT_UID in constants.sh). The uid is what the nft
+# rule matches, so a user of that name with another uid (or the uid under another
+# name) is an error, not something to run with.
+ensure_client_user() {
+    local uid owner
+
+    uid="$(awk -F: -v n="$NAIVE_CLIENT_USER" '$1 == n { print $3 }' /etc/passwd 2> /dev/null)"
+    owner="$(awk -F: -v u="$NAIVE_CLIENT_UID" '$3 == u { print $1 }' /etc/passwd 2> /dev/null)"
+
+    if [ -z "$uid" ] && [ -z "$owner" ]; then
+        grep -q "^$NAIVE_CLIENT_USER:" /etc/group 2> /dev/null ||
+            echo "$NAIVE_CLIENT_USER:x:$NAIVE_CLIENT_UID:" >> /etc/group
+        echo "$NAIVE_CLIENT_USER:x:$NAIVE_CLIENT_UID:$NAIVE_CLIENT_UID:$NAIVE_CLIENT_USER:/var:/bin/false" >> /etc/passwd
+        return 0
+    fi
+    [ "$uid" = "$NAIVE_CLIENT_UID" ] && return 0
+
+    logger -t netshift-naive -p daemon.err "the user '$NAIVE_CLIENT_USER' must have uid $NAIVE_CLIENT_UID (found: name uid '${uid:-none}', uid owner '${owner:-none}'): otherwise the traffic of the clients would be captured back into the proxy; not starting"
+    return 1
+}
+
+start_service() {
+    local binary port proxy_url
+
+    [ -s "$NAIVE_LIST_FILE" ] || return 0
+    binary="$(naive_binary)" || {
+        logger -t netshift-naive "the naive client is not installed"
+        return 1
+    }
+
+    ensure_client_user || return 1
+
+    while IFS='|' read -r port proxy_url; do
+        [ -n "$port" ] && [ -n "$proxy_url" ] || continue
+        procd_open_instance "naive-$port"
+        procd_set_param command "$binary" "--listen=socks://$SB_TPROXY_INBOUND_ADDRESS:$port" "--proxy=$proxy_url"
+        procd_set_param respawn 3600 5 0
+        procd_set_param stderr 1
+        procd_set_param user "$NAIVE_CLIENT_USER"
+        procd_close_instance
+    done < "$NAIVE_LIST_FILE"
+}

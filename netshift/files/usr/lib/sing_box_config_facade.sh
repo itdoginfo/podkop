@@ -154,6 +154,49 @@ sing_box_cf_add_proxy_outbound() {
             "$([ "$udp_over_tcp" = "1" ] && echo 2)" # if udp_over_tcp is enabled, enable version 2
         )"
         ;;
+    naive+https | naive+quic | naive | https)
+        # NaiveProxy. A plain https:// link counts only with a login (user:password):
+        # that is how a NaiveProxy server is written down.
+        local tag host port naive_user naive_pass naive_quic naive_scheme naive_userinfo naive_proxy_url naive_port
+
+        case "$url_userinfo" in
+        ?*:?*) ;;
+        *)
+            log "Section '$section': a $scheme:// link without a login and a password is not a NaiveProxy link; skipping it." "error"
+            echo "$config"
+            return 1
+            ;;
+        esac
+
+        tag=$(get_outbound_tag_by_section "$section")
+        host="$url_host"
+        port="${url_port:-443}"
+        naive_user="${url_userinfo%%:*}"
+        naive_pass=""
+        case "$url_userinfo" in
+        *:*) naive_pass="${url_userinfo#*:}" ;;
+        esac
+        naive_quic="false"
+        naive_scheme="https"
+        if [ "$scheme" = "naive+quic" ]; then
+            naive_quic="true"
+            naive_scheme="quic"
+        fi
+
+        if naive_core_supported; then
+            config=$(sing_box_cm_add_naive_outbound "$config" "$tag" "$host" "$port" "$naive_user" "$naive_pass" "$naive_quic")
+        elif naive_binary > /dev/null; then
+            # the client takes the link as it was written: the login stays percent-encoded
+            naive_userinfo="$(url_get_userinfo "$url")"
+            naive_proxy_url="$naive_scheme://$naive_userinfo@$host:$port"
+            naive_port="$(naive_register "$naive_proxy_url")"
+            config=$(sing_box_cm_add_socks_outbound "$config" "$tag" "127.0.0.1" "$naive_port" "5" "" "" "" "")
+        else
+            log "Section '$section': NaiveProxy needs the naive client (klzgrad/naiveproxy; on OpenWrt the 'naiveproxy' package of the Passwall feed, or the binary from its releases as /usr/bin/naive) or a sing-box core built with the naive outbound; skipping the link." "error"
+            echo "$config"
+            return 1
+        fi
+        ;;
     vless)
         local tag host port uuid flow packet_encoding encryption
         tag=$(get_outbound_tag_by_section "$section")
