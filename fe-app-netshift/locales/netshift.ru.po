@@ -71,6 +71,9 @@ msgstr "Добавьте свои подсети или IP: выберите Д�
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
 
+msgid "Adds UDP ports 500 and 4500 (the IKE and NAT-T tunnel of the operator's ePDG) to the ports that go out directly. A call over Wi-Fi is not accepted by the operator from a foreign exit address of a tunnel. Added to the list above; nothing else changes."
+msgstr "Добавляет UDP-порты 500 и 4500 (туннель IKE и NAT-T к ePDG оператора) к портам, которые идут напрямую. Звонок по Wi-Fi оператор не принимает с чужого адреса выхода туннеля. Добавляется к списку выше, больше ничего не меняется."
+
 msgid "Ads (sing-geosite category-ads, for a Block section)"
 msgstr "Реклама (sing-geosite category-ads, для секции блокировки)"
 
@@ -1951,6 +1954,9 @@ msgstr "Какой формат подписки (клиент) запрашив
 
 msgid "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up."
 msgstr "Пока sing-box не работает, DNS (а значит, и разрешение имён) недоступен до его восстановления. Прямой непроксируемый трафик не затрагивается, пока sing-box запущен."
+
+msgid "Wi-Fi Calling directly"
+msgstr "Звонки по Wi-Fi напрямую"
 
 msgid "With several WAN interfaces choose the one whose address represents you. Automatic uses the first working one."
 msgstr "Если WAN-интерфейсов несколько, выберите тот, чей адрес вас представляет. Автоматически берётся первый рабочий."

@@ -587,7 +587,7 @@ for fn in nft_init_interfaces_set populate_netshift_subnets_from_file \
           populate_netshift_subnets_from_string nft_mark_fully_routed_source_ips \
           _nft_mark_fully_routed_ips_for_section _nft_mark_fully_routed_ip_handler \
           foreach_active_section _active_section_dispatch \
-          nft_add_dns_hijack nft_add_port_rules disable_quic_mode nft_add_quic_block \
+          nft_add_dns_hijack nft_add_port_rules port_rules_value _port_list_has disable_quic_mode nft_add_quic_block \
           create_nft_rules; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
@@ -20510,13 +20510,14 @@ test_port_rules() {
         PR_LOG="$work/log"; : > "$PR_LOG"
         log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$PR_LOG"; }
         . "$lib/sing_box_config_manager.sh"
-        for fn in sing_box_configure_port_rules nft_add_port_rules tproxy_route_inbounds _nft_mark_fully_routed_ip_handler; do
+        for fn in sing_box_configure_port_rules nft_add_port_rules tproxy_route_inbounds _nft_mark_fully_routed_ip_handler port_rules_value _port_list_has; do
             eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
         done
         gen_id() { PR_N=$((${PR_N:-0} + 1)); echo "rule$PR_N"; }
         V6=0
         netshift_ipv6_enabled() { [ "$V6" = 1 ]; }
         config_get() { eval "$1=\"\${PR_${3}:-}\""; }
+        config_get_bool() { eval "$1=\"\${PR_${3}:-$4}\""; }
         NFT_TABLE_NAME=T
         NFT_LOG="$work/nft"; : > "$NFT_LOG"
         nft() { echo "$*" >> "$NFT_LOG"; }
@@ -20553,6 +20554,34 @@ test_port_rules() {
         PR_direct_udp_ports="abc"
         sing_box_configure_port_rules
         echo "invalid-list=$(printf '%s' "$config" | jq -c '.route.rules | length') warned=$(grep -c "has no valid port" "$PR_LOG")"
+        PR_direct_udp_ports=""
+
+        # Wi-Fi Calling: UDP 500 and 4500 join the direct UDP list
+        config='{"route":{"rules":[]}}'
+        PR_wifi_calling_direct=1
+        sing_box_configure_port_rules
+        echo "wifi-alone=$(printf '%s' "$config" | jq -c '.route.rules | map([.rules[0].network, .rules[1].rules, .outbound])')"
+        config='{"route":{"rules":[]}}'
+        PR_direct_udp_ports="3478"
+        sing_box_configure_port_rules
+        echo "wifi-merged=$(printf '%s' "$config" | jq -c '.route.rules | map(.rules[1].rules)')"
+        : > "$NFT_LOG"; nft_add_port_rules
+        echo "wifi-nft=$(sed -n '1p' "$NFT_LOG")"
+        echo "wifi-value-tcp-untouched=[$(PR_direct_tcp_ports=22; port_rules_value direct tcp)]"
+        # a port the list already holds, or a range that covers it, is not added again
+        PR_direct_udp_ports="500,4500"
+        echo "wifi-dup=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="1-1000"
+        echo "wifi-covered-by-range=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="4000:5000, 3478"
+        echo "wifi-covered-by-colon-range=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="0500"
+        echo "wifi-leading-zero=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="4500"
+        echo "wifi-partial=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="3478"
+        PR_wifi_calling_direct=0
+        echo "wifi-off=[$(port_rules_value direct udp)]"
         PR_direct_udp_ports=""
 
         # nft
@@ -20628,6 +20657,16 @@ test_port_rules() {
     else
         skip "sing-box not installed: the core check of the port rules"
     fi
+    _pr "Wi-Fi Calling alone: a direct UDP rule for 500 and 4500" 'wifi-alone=[["udp",[{"port":[500,4500]}],"direct-out"]]'
+    _pr "...and added to the user's own UDP ports" 'wifi-merged=[[{"port":[3478,500,4500]}]]'
+    _pr "...on the nft side too" "wifi-nft=insert rule inet T mangle udp dport { 3478, 500, 4500 } ip daddr != 198.18.0.0/15 counter return"
+    _pr "the TCP list is not touched by it" "wifi-value-tcp-untouched=[22]"
+    _pr "a port the list already holds is not added again" "wifi-dup=[500,4500]"
+    _pr "a range that covers a port is not duplicated by it (an overlap would make nft refuse the set)" "wifi-covered-by-range=[1-1000,4500]"
+    _pr "...the same for a range written with a colon" "wifi-covered-by-colon-range=[4000:5000, 3478,500]"
+    _pr "a port with a leading zero is the same port (no octal reading)" "wifi-leading-zero=[0500,4500]"
+    _pr "only the missing one of the two is added" "wifi-partial=[4500,500]"
+    _pr "switched off, the UDP list is the user's own" "wifi-off=[3478]"
     _pr "nothing set adds nothing" "none=0"
     _pr "a list with no valid port is ignored with a warning" "invalid-list=0 warned=1"
     _pr "no nft rule when nothing is set" "nft-none=0"

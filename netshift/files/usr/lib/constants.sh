@@ -429,3 +429,7 @@ URLTEST_INTERVAL_OFF="8760h"
 # Servers of one subscription feed that are used when the section does not say
 # (subscription_max_nodes; 0 means all of them)
 SUBSCRIPTION_MAX_NODES_DEFAULT=500
+
+# Wi-Fi Calling (wifi_calling_direct): the IKE and NAT-T ports of the operator's ePDG tunnel,
+# added to the UDP ports that go out directly
+WIFI_CALLING_DIRECT_UDP_PORTS="500 4500"

@@ -535,6 +535,18 @@ function createSettingsContent(section) {
 
   o = section.taboption(
     "network",
+    form.Flag,
+    "wifi_calling_direct",
+    _("Wi-Fi Calling directly"),
+    _(
+      "Adds UDP ports 500 and 4500 (the IKE and NAT-T tunnel of the operator's ePDG) to the ports that go out directly. A call over Wi-Fi is not accepted by the operator from a foreign exit address of a tunnel. Added to the list above; nothing else changes.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "network",
     form.Value,
     "proxy_only_tcp_ports",
     _("Only these TCP ports take the tunnel"),
