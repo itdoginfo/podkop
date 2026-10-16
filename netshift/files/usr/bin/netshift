@@ -6784,8 +6784,16 @@ import_community_service_subnet_list_handler() {
     download_to_file "$url" "$tmpfile" "$http_proxy_address"
 
     if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
-        log "Download $service list failed" "error"
-        return 1
+        if [ "$service" = "telegram" ]; then
+            # the built-in ranges: Telegram keeps working while the list cannot be downloaded
+            log "Download telegram list failed; using the built-in Telegram ranges" "warn"
+            # shellcheck disable=SC2086
+            printf '%s\n' $TELEGRAM_FALLBACK_SUBNETS > "$tmpfile"
+        else
+            log "Download $service list failed" "error"
+            rm -f "$tmpfile"
+            return 1
+        fi
     fi
 
     if [ "$is_discord" -eq 1 ]; then
