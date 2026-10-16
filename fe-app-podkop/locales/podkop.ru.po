@@ -539,6 +539,12 @@ msgstr "Разрешение реальных IP-адресов"
 msgid "Restart podkop"
 msgstr "Перезапустить Podkop"
 
+msgid "Return AAAA records from the DNS server for domains that are not in the lists. Domains in the lists still get only IPv4 FakeIP addresses and go through the tunnel"
+msgstr "Отдавать AAAA-записи от DNS-сервера для доменов не из списков. Домены из списков по-прежнему получают только IPv4-адреса FakeIP и идут через туннель"
+
+msgid "Return IPv6 Addresses (AAAA)"
+msgstr "Отдавать IPv6-адреса (AAAA)"
+
 msgid "Router DNS is not routed through sing-box"
 msgstr "DNS роутера не проходит через sing-box"
 

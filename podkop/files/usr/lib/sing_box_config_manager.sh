@@ -329,6 +329,39 @@ sing_box_cm_add_dns_reject_rule() {
 }
 
 #######################################
+# Answer AAAA queries with an empty response for the names of the DNS routing rules to a server.
+# Before every routing rule to the server, a copy of its conditions is inserted with the action
+# "predefined" for AAAA queries. Rules without a condition are skipped: they are left out when the
+# configuration is saved, and a copy of such a rule would match every AAAA query.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   server: string, tag of the DNS server whose routing rules get the empty AAAA answers
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_add_dns_empty_aaaa_rules "$CONFIG" "fakeip-server")
+#######################################
+sing_box_cm_add_dns_empty_aaaa_rules() {
+    local config="$1"
+    local server="$2"
+
+    echo "$config" | jq \
+        --arg server "$server" \
+        --arg service_tag "$SERVICE_TAG" \
+        '.dns.rules |= reduce .[] as $rule ([];
+            ($rule | del(.action, .server, .rewrite_ttl, .[$service_tag])) as $conditions |
+            if $rule.action == "route" and $rule.server == $server and $conditions != {} then
+                . + [
+                    ($conditions + { query_type: ["AAAA"], action: "predefined", rcode: "NOERROR" }),
+                    $rule
+                ]
+            else
+                . + [$rule]
+            end
+        )'
+}
+
+#######################################
 # Add a TProxy inbound to the inbounds section of a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
