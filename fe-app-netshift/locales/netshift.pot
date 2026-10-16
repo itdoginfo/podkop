@@ -1,15 +1,15 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) 2026 THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# agent <agent@local>, 2026.
+# yandexru45 <sukadark228@gmail.com>, 2026.
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-14 06:47+0300\n"
-"PO-Revision-Date: 2026-10-14 06:47+0300\n"
-"Last-Translator: agent <agent@local>\n"
+"POT-Creation-Date: 2026-10-16 18:18+0300\n"
+"PO-Revision-Date: 2026-10-16 18:18+0300\n"
+"Last-Translator: yandexru45 <sukadark228@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
 "MIME-Version: 1.0\n"

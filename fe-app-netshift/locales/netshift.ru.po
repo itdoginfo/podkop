@@ -1,15 +1,15 @@
 # RU translations for NETSHIFT package.
 # Copyright (C) 2026 THE NETSHIFT'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# agent, 2026.
+# yandexru45, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-14 09:47+0300\n"
-"PO-Revision-Date: 2026-10-14 09:47+0300\n"
-"Last-Translator: agent\n"
+"POT-Creation-Date: 2026-10-16 21:18+0300\n"
+"PO-Revision-Date: 2026-10-16 21:18+0300\n"
+"Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
