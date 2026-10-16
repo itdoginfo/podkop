@@ -68,6 +68,9 @@ msgstr "Добавьте свои домены: выберите Динамич�
 msgid "Add your own subnets or IPs: choose Dynamic List (one per row) or Text List (free-form), or Disabled to skip"
 msgstr "Добавьте свои подсети или IP: выберите Динамический список (по одному в строке) или Текстовый список (свободный ввод), либо Отключено, чтобы пропустить"
 
+msgid "Additional DNS servers"
+msgstr "Дополнительные DNS-серверы"
+
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
 
@@ -1096,6 +1099,9 @@ msgstr "Имя пользователя Mixed Proxy"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
+
+msgid "More servers for this section, any mix of udp, tcp, dot, doh, doh3 and doq: scheme://host[:port][/path]. Used together with the server above as the mode below says. Pick a ready-made server or type your own."
+msgstr "Ещё серверы для этой секции, в любом сочетании udp, tcp, dot, doh, doh3 и doq: scheme://host[:port][/path]. Работают вместе с сервером выше так, как указано в режиме ниже. Выберите готовый сервер или введите свой."
 
 msgid "Most traffic first"
 msgstr "Сначала с большим трафиком"

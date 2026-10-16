@@ -15756,7 +15756,7 @@ config_list_foreach() { # $1=section $2=option $3=callback ... : the option valu
 for fn in section_is_dns_rule section_has_enabled_lists configure_dns_section_handler configure_routing_for_section_lists \
     configure_community_list_handler subscription_outbound_is_unavailable \
     prune_dns_section_rules_without_domains download_proxy_section_is_unavailable section_is_disabled \
-    patch_section_dns_rule_set section_ipv6_real_dns; do
+    patch_section_dns_rule_set section_ipv6_real_dns configure_dns_section_rules _tag_last_dns_rule; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
 netshift_ipv6_enabled() { return 1; }
@@ -21913,6 +21913,167 @@ LIST
     rm -rf "$work" /etc/config/netshift
 }
 
+test_dns_section_pool() {
+    header "DNS section: several servers (dns_pool_server, dns_pool_mode)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$bin" ] || [ ! -r "$lib/sing_box_config_manager.sh" ]; then
+        fail "netshift bin / config manager not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+
+    local work="/tmp/netshift-dnssecpool-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        DP_LOG="$work/log"; : > "$DP_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$DP_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        for fn in configure_dns_section_rules _tag_last_dns_rule _dns_pool_collect_entry is_valid_dns_pool_timeout \
+            prune_dns_section_rules_without_domains; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        DP_VERSION="1.14.1"
+        is_sing_box_at_least() { is_min_package_version "$DP_VERSION" "$1"; }
+        get_sing_box_version() { echo "$DP_VERSION"; }
+        config_get() { eval "$1=\"\${DP_${2}_${3}:-$4}\""; }
+        config_get_bool() { eval "$1=\"\${DP_${2}_${3}:-$4}\""; }
+        config_list_foreach() { local _l _d; eval "_l=\"\${DP_${1}_${2}:-}\""; for _d in $_l; do "$3" "$_d"; done; }
+        sing_box_cf_add_dns_server() { # config type tag server resolver detour
+            printf '%s' "$1" | jq -c --arg t "$2" --arg tag "$3" --arg s "$4" --arg r "$5" --arg d "$6" \
+                '.dns.servers += [{type: $t, tag: $tag, server: $s} + (if $r != "" then {domain_resolver: $r} else {} end) + (if $d != "" then {detour: $d} else {} end)]'
+        }
+        base='{"dns":{"servers":[],"rules":[]}}'
+
+        # one line per rule: [action, server-or-response, service tag suffix]
+        rules() { printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" --arg p "$SB_SECTION_DNS_RULE_PREFIX" '
+            [.dns.rules[] | [.action, (.server // .match_response), ((.[$key] // "") | ltrimstr($p)), (.response_rcode // ""), (.race // false), (.rule_set // "")]]'; }
+        servers() { printf '%s' "$config" | jq -c '[.dns.servers[] | .tag]'; }
+        build() { # the handler's order: primary server, rules, then the routing patches the lists in
+            config="$base"
+            config=$(sing_box_cf_add_dns_server "$config" "${DP_corp_dns_type:-udp}" "dns-section-corp" "10.0.0.1" "" "$DP_DETOUR")
+            configure_dns_section_rules corp dns-section-corp "$DP_DETOUR"
+            SECTION_DNS_RULE_TAG="$SB_SECTION_DNS_RULE_PREFIX""corp"
+            [ "$DP_NOLIST" = 1 ] || config=$(sing_box_cm_patch_dns_route_rule "$config" "$SECTION_DNS_RULE_TAG" "rule_set" "corp-domains")
+            prune_dns_section_rules_without_domains
+        }
+        DP_DETOUR=""; DP_NOLIST=0
+
+        # single (default): one route rule to the server, as before
+        build; echo "single-rules=$(rules)"; echo "single-servers=$(servers)"
+        DP_corp_dns_pool_server="doh://dns.google/dns-query dot://one.one.one.one"
+        build; echo "single-ignores-list=$(rules)"
+
+        # priority: the others in order, evaluate + two respond rules each, the last server routed
+        DP_corp_dns_pool_mode=fallback
+        build
+        echo "fallback-rules=$(rules)"
+        echo "fallback-servers=$(servers)"
+        echo "fallback-server-2=$(printf '%s' "$config" | jq -c '.dns.servers[] | select(.tag == "dns-section-corp-2") | [.type, .server, .domain_resolver]')"
+
+        # parallel: every server evaluated, race rules for NOERROR then NXDOMAIN, the primary answers last
+        DP_corp_dns_pool_mode=race
+        build; echo "race-rules=$(rules)"
+
+        # a detour applies to all the servers
+        DP_DETOUR="main-out"; build
+        echo "detour-all=$(printf '%s' "$config" | jq -c '[.dns.servers[] | .detour]')"; DP_DETOUR=""
+
+        # the lists reach every evaluate and the final route rule, not the respond rules
+        build; echo "lists-patched=$(printf '%s' "$config" | jq -c '[.dns.rules[] | select(.rule_set != null) | .action]')"
+
+        # nothing usable: the single server, with a warning
+        DP_corp_dns_pool_server="bogus"; : > "$DP_LOG"; build
+        echo "no-valid-entry=$(rules) warned=$(grep -c 'no valid dns_pool_server' "$DP_LOG")"
+        DP_corp_dns_pool_server="doh://dns.google/dns-query"
+        DP_VERSION="1.12.22"; : > "$DP_LOG"; build
+        echo "old-core=$(rules) warned=$(grep -c 'needs sing-box' "$DP_LOG")"; DP_VERSION="1.14.1"
+        DP_corp_dns_pool_mode=bogus; : > "$DP_LOG"; build
+        echo "unknown-mode=$(rules) warned=$(grep -c 'unknown dns_pool_mode' "$DP_LOG")"
+        DP_corp_dns_pool_mode=race
+
+        # a section left with no domains drops its rules AND its servers (including the extra ones)
+        DP_NOLIST=1; build
+        echo "no-domains-rules=$(rules) servers=$(servers)"
+        DP_NOLIST=0
+
+        # an invalid timeout is said in the log and the default is used
+        DP_corp_dns_pool_mode=fallback; DP_corp_dns_pool_server="dot://one.one.one.one"
+        DP_corp_dns_pool_timeout=bogus; : > "$DP_LOG"; build
+        echo "bad-timeout-warned=$(grep -c 'invalid dns_pool_timeout' "$DP_LOG") rules=$(printf '%s' "$config" | jq -c '[.dns.rules[] | .timeout // "none"] | unique')"
+        DP_corp_dns_pool_timeout=""; unset DP_corp_dns_pool_timeout
+
+        # block_doh: a DoH server of the pool without a detour is blocked, and the log says so
+        DP_corp_dns_pool_server="doh://dns.google/dns-query"; DP_settings_block_doh=1
+        : > "$DP_LOG"; build; echo "blockdoh-no-detour-warned=$(grep -c 'DoH blocking is enabled' "$DP_LOG")"
+        DP_DETOUR="main-out"; : > "$DP_LOG"; build; echo "blockdoh-detour-warned=$(grep -c 'DoH blocking is enabled' "$DP_LOG")"; DP_DETOUR=""
+        DP_corp_dns_pool_server="dot://one.one.one.one"; : > "$DP_LOG"; build; echo "blockdoh-dot-warned=$(grep -c 'DoH blocking is enabled' "$DP_LOG")"
+        DP_settings_block_doh=0
+
+        # a section named like the first one plus a suffix is not touched by its prune: not a
+        # name that merely starts with it ("corp2"), nor one that continues it with a dash and
+        # something that is not a pool number ("corp-x"); the pool servers "corp-2" are its own
+        DP_corp_dns_pool_mode=race
+        config="$base"
+        config=$(sing_box_cf_add_dns_server "$config" udp "dns-section-corp" 10.0.0.1 "" "")
+        configure_dns_section_rules corp dns-section-corp ""
+        config=$(sing_box_cf_add_dns_server "$config" udp "dns-section-corp2" 10.0.0.2 "" "")
+        config=$(sing_box_cm_add_dns_route_rule "$config" "dns-section-corp2" "dns-section-rule-corp2")
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "dns-section-rule-corp2" "rule_set" "other-domains")
+        prune_dns_section_rules_without_domains
+        echo "neighbour-kept=$(servers)"
+        config="$base"
+        config=$(sing_box_cf_add_dns_server "$config" udp "dns-section-corp" 10.0.0.1 "" "")
+        configure_dns_section_rules corp dns-section-corp ""
+        config=$(sing_box_cf_add_dns_server "$config" udp "dns-section-corp-x" 10.0.0.3 "" "")
+        config=$(sing_box_cm_add_dns_route_rule "$config" "dns-section-corp-x" "dns-section-rule-corp-x")
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "dns-section-rule-corp-x" "rule_set" "x-domains")
+        prune_dns_section_rules_without_domains
+        echo "dash-neighbour-kept=$(servers)"
+    )"
+
+    _dp() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _dp "one server: one route rule, as before" 'single-rules=[["route","dns-section-corp","corp","",false,"corp-domains"]]'
+    _dp "...and only that server" 'single-servers=["dns-section-corp"]'
+    _dp "the list is ignored in the default mode" 'single-ignores-list=[["route","dns-section-corp","corp","",false,"corp-domains"]]'
+    _dp "priority: evaluate each server but the last, respond on NOERROR and NXDOMAIN, route the last" 'fallback-rules=[["evaluate","dns-section-corp","corp","",false,"corp-domains"],["respond","dns-section-response-corp-1","corp-respond","NOERROR",false,""],["respond","dns-section-response-corp-1","corp-respond","NXDOMAIN",false,""],["evaluate","dns-section-corp-2","corp","",false,"corp-domains"],["respond","dns-section-response-corp-2","corp-respond","NOERROR",false,""],["respond","dns-section-response-corp-2","corp-respond","NXDOMAIN",false,""],["route","dns-section-corp-3","corp","",false,"corp-domains"]]'
+    _dp "the extra servers are added next to the first" 'fallback-servers=["dns-section-corp","dns-section-corp-2","dns-section-corp-3"]'
+    _dp "a server given by name is looked up through the bootstrap server" 'fallback-server-2=["doh","dns.google/dns-query","bootstrap-dns-server"]'
+    _dp "parallel: evaluate all, race rules for NOERROR then NXDOMAIN, the first server answers last" 'race-rules=[["evaluate","dns-section-corp","corp","",false,"corp-domains"],["evaluate","dns-section-corp-2","corp","",false,"corp-domains"],["evaluate","dns-section-corp-3","corp","",false,"corp-domains"],["respond","dns-section-response-corp-1","corp-respond","NOERROR",true,""],["respond","dns-section-response-corp-2","corp-respond","NOERROR",true,""],["respond","dns-section-response-corp-3","corp-respond","NOERROR",true,""],["respond","dns-section-response-corp-1","corp-respond","NXDOMAIN",true,""],["respond","dns-section-response-corp-2","corp-respond","NXDOMAIN",true,""],["respond","dns-section-response-corp-3","corp-respond","NXDOMAIN",true,""],["route","dns-section-corp","corp","",false,"corp-domains"]]'
+    _dp "a detour applies to every server of the section" 'detour-all=["main-out","main-out","main-out"]'
+    _dp "the lists are patched into the evaluate and route rules only" 'lists-patched=["evaluate","evaluate","evaluate","route"]'
+    _dp "no valid extra server: the single server, with a warning" 'no-valid-entry=[["route","dns-section-corp","corp","",false,"corp-domains"]] warned=1'
+    _dp "an old core: the single server, with a warning" 'old-core=[["route","dns-section-corp","corp","",false,"corp-domains"]] warned=1'
+    _dp "an unknown mode: the single server, with a warning" 'unknown-mode=[["route","dns-section-corp","corp","",false,"corp-domains"]] warned=1'
+    _dp "a section with no domains drops all its rules and servers" 'no-domains-rules=[] servers=[]'
+    _dp "a section whose name starts with another's keeps its servers" 'neighbour-kept=["dns-section-corp2"]'
+    _dp "a name that continues another's with a dash and a non-number keeps its servers too" 'dash-neighbour-kept=["dns-section-corp-x"]'
+    _dp "an invalid timeout is said in the log, the default is used" 'bad-timeout-warned=1 rules=["2s","none"]'
+    _dp "block_doh: a DoH server of the pool without a detour is warned about" "blockdoh-no-detour-warned=1"
+    _dp "...not when it goes through a detour" "blockdoh-detour-warned=0"
+    _dp "...nor for a server that is not DoH" "blockdoh-dot-warned=0"
+
+    rm -rf "$work"
+}
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -22015,6 +22176,7 @@ main() {
             test_telegram_fallback
             test_naive_component
             test_collected_lists
+            test_dns_section_pool
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -22107,9 +22269,10 @@ main() {
         tgfallback)  test_telegram_fallback ;;
         naivecomp)   test_naive_component ;;
         collected)   test_collected_lists ;;
+        dnssectionpool) test_dns_section_pool ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra dnssectionpool"
             exit 1
             ;;
     esac

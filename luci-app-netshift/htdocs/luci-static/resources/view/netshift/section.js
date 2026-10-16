@@ -96,6 +96,86 @@ function createSectionContent(section) {
 
   o = section.taboption(
     "connection",
+    form.DynamicList,
+    "dns_pool_server",
+    _("Additional DNS servers"),
+    _(
+      "More servers for this section, any mix of udp, tcp, dot, doh, doh3 and doq: scheme://host[:port][/path]. Used together with the server above as the mode below says. Pick a ready-made server or type your own.",
+    ),
+  );
+  Object.entries(main.DNS_POOL_PRESETS).forEach(([key, label]) => {
+    o.value(key, label);
+  });
+  o.depends("connection_type", "dns");
+  o.rmempty = true;
+  // Servers added to the list are ignored in "first server only" mode: when the list grows,
+  // switch to priority (the user can still pick another mode below), as the DNS settings do.
+  const poolKnownCount = {};
+  o.onchange = function (ev, section_id, value) {
+    const count = Array.isArray(value) ? value.length : 0;
+    const grew =
+      poolKnownCount[section_id] !== undefined &&
+      count > poolKnownCount[section_id];
+
+    poolKnownCount[section_id] = count;
+
+    if (!grew) {
+      return;
+    }
+
+    const mode = this.section.getUIElement(section_id, "dns_pool_mode");
+
+    if (mode && mode.getValue() === "single") {
+      mode.setValue("fallback");
+    }
+  };
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateDnsPoolServer(value);
+
+    return validation.valid ? true : validation.message;
+  };
+
+  o = section.taboption(
+    "connection",
+    form.ListValue,
+    "dns_pool_mode",
+    _("Several DNS servers"),
+    _(
+      "How the servers of the list are used together when there are several. Needs sing-box 1.14 or newer; on an older core only the first server is used.",
+    ),
+  );
+  o.value("single", _("First server only"));
+  o.value("fallback", _("Priority: next server if the previous one fails"));
+  o.value("race", _("Parallel: the first usable answer wins"));
+  o.default = "single";
+  o.depends("connection_type", "dns");
+  o.rmempty = false;
+
+  o = section.taboption(
+    "connection",
+    form.Value,
+    "dns_pool_timeout",
+    _("DNS server timeout"),
+    _(
+      "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s",
+    ),
+  );
+  o.depends({ connection_type: "dns", dns_pool_mode: "fallback" });
+  o.depends({ connection_type: "dns", dns_pool_mode: "race" });
+  o.default = "2s";
+  o.rmempty = false;
+  o.validate = function (section_id, value) {
+    const validation = main.validateDnsPoolTimeout(value);
+
+    return validation.valid ? true : validation.message;
+  };
+
+  o = section.taboption(
+    "connection",
     form.ListValue,
     "dns_detour_section",
     _("Send DNS queries through section"),

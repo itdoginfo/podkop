@@ -5176,7 +5176,126 @@ configure_dns_section_handler() {
 
     server_tag="$SB_SECTION_DNS_SERVER_PREFIX$section"
     config=$(sing_box_cf_add_dns_server "$config" "$dns_type" "$server_tag" "$dns_server" "$dns_domain_resolver" "$detour_tag")
-    config=$(sing_box_cm_add_dns_route_rule "$config" "$server_tag" "$SB_SECTION_DNS_RULE_PREFIX$section")
+    configure_dns_section_rules "$section" "$server_tag" "$detour_tag"
+}
+
+# Gives the last DNS rule of the config a service tag. The evaluate and route rules of a
+# section carry the section's rule tag, so its lists are patched into all of them; the respond
+# rules carry "<rule tag>-respond": they only answer an evaluated response and need no domains,
+# but a section left with no domains drops them together with the rest.
+_tag_last_dns_rule() {
+    config=$(printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" --arg tag "$1" '.dns.rules[-1] += {($key): $tag}')
+}
+
+# The rules of a DNS section. By default one route rule to its server. With
+# dns_pool_server (more servers, any mix of udp/tcp/dot/doh/doh3/doq) and dns_pool_mode
+# fallback (in order: the next server when one fails) or race (parallel: the first usable
+# answer wins) the section's domains are sent through the same evaluate/respond rules as
+# the main DNS pool, with the section's domains as their condition. Needs sing-box 1.14.
+configure_dns_section_rules() {
+    local section="$1"
+    local primary_tag="$2"
+    local detour_tag="$3"
+    local rule_tag="$SB_SECTION_DNS_RULE_PREFIX$section"
+    local mode timeout entry type server host resolver tag server_tags last_tag index rcode block_doh
+
+    config_get mode "$section" "dns_pool_mode" "single"
+    case "$mode" in
+    fallback | race) ;;
+    *)
+        [ "$mode" = "single" ] || [ -z "$mode" ] || log "DNS section '$section': unknown dns_pool_mode '$mode', using its single server" "warn"
+        config=$(sing_box_cm_add_dns_route_rule "$config" "$primary_tag" "$rule_tag")
+        return 0
+        ;;
+    esac
+
+    DNS_POOL_ENTRIES=""
+    DNS_POOL_COUNT=0
+    config_list_foreach "$section" "dns_pool_server" _dns_pool_collect_entry
+    if [ "$DNS_POOL_COUNT" -eq 0 ]; then
+        log "DNS section '$section': dns_pool_mode is '$mode' but no valid dns_pool_server is set; using its single server" "warn"
+        config=$(sing_box_cm_add_dns_route_rule "$config" "$primary_tag" "$rule_tag")
+        return 0
+    fi
+    if ! is_sing_box_at_least "$SB_DNS_EVALUATE_MIN"; then
+        log "DNS section '$section': dns_pool_mode '$mode' needs sing-box $SB_DNS_EVALUATE_MIN or newer (installed: $(get_sing_box_version)); using its single server" "warn"
+        config=$(sing_box_cm_add_dns_route_rule "$config" "$primary_tag" "$rule_tag")
+        return 0
+    fi
+
+    config_get timeout "$section" "dns_pool_timeout" "$DNS_POOL_TIMEOUT_DEFAULT"
+    if ! is_valid_dns_pool_timeout "$timeout"; then
+        log "DNS section '$section': invalid dns_pool_timeout '$timeout', using $DNS_POOL_TIMEOUT_DEFAULT" "warn"
+        timeout="$DNS_POOL_TIMEOUT_DEFAULT"
+    fi
+
+    server_tags="$primary_tag"
+    index=1
+    for entry in $DNS_POOL_ENTRIES; do
+        index=$((index + 1))
+        tag="$primary_tag-$index"
+        type="${entry%%://*}"
+        server="${entry#*://}"
+        host="$(url_get_host "$server")"
+        resolver="$SB_BOOTSTRAP_SERVER_TAG"
+        if is_ipv4 "$host" || is_ipv6 "$host"; then
+            resolver=""
+        fi
+        config=$(sing_box_cf_add_dns_server "$config" "$type" "$tag" "$server" "$resolver" "$detour_tag")
+        server_tags="$server_tags $tag"
+    done
+
+    log "DNS section '$section': $((DNS_POOL_COUNT + 1)) servers, mode $mode, $timeout per query" "info"
+
+    # same warning as for the main pool: with block_doh a DoH server without a detour is blocked
+    config_get_bool block_doh "settings" "block_doh" 0
+    if [ -z "$detour_tag" ] && [ "$block_doh" -eq 1 ]; then
+        case " $DNS_POOL_ENTRIES " in
+        *" doh://"* | *" doh3://"*)
+            log "DNS section '$section': DoH blocking is enabled and its pool has doh/doh3 servers without a detour. Their queries will be blocked; use udp, tcp, dot or doq servers, or set dns_detour_section." "warn"
+            ;;
+        esac
+    fi
+
+    last_tag=""
+    for tag in $server_tags; do
+        last_tag="$tag"
+    done
+
+    case "$mode" in
+    fallback)
+        index=0
+        for tag in $server_tags; do
+            [ "$tag" != "$last_tag" ] || continue
+            index=$((index + 1))
+            config=$(sing_box_cm_add_dns_evaluate_rule "$config" "$tag" "$SB_SECTION_DNS_RESPONSE_PREFIX$section-$index" "$timeout")
+            _tag_last_dns_rule "$rule_tag"
+            for rcode in NOERROR NXDOMAIN; do
+                config=$(sing_box_cm_add_dns_respond_rule "$config" "$SB_SECTION_DNS_RESPONSE_PREFIX$section-$index" "$rcode")
+                _tag_last_dns_rule "$rule_tag-respond"
+            done
+        done
+        config=$(sing_box_cm_add_dns_route_rule "$config" "$last_tag" "$rule_tag")
+        ;;
+    race)
+        index=0
+        for tag in $server_tags; do
+            index=$((index + 1))
+            config=$(sing_box_cm_add_dns_evaluate_rule "$config" "$tag" "$SB_SECTION_DNS_RESPONSE_PREFIX$section-$index" "$timeout")
+            _tag_last_dns_rule "$rule_tag"
+        done
+        for rcode in NOERROR NXDOMAIN; do
+            index=0
+            for tag in $server_tags; do
+                index=$((index + 1))
+                config=$(sing_box_cm_add_dns_respond_rule "$config" "$SB_SECTION_DNS_RESPONSE_PREFIX$section-$index" "$rcode" true)
+                _tag_last_dns_rule "$rule_tag-respond"
+            done
+        done
+        # every server failed: the first one gives the final (empty or error) answer
+        config=$(sing_box_cm_add_dns_route_rule "$config" "$primary_tag" "$rule_tag")
+        ;;
+    esac
 }
 
 # --- Multi-DNS upstream pool (issue #74) ---------------------------------------
@@ -5525,14 +5644,15 @@ prune_dns_section_rules_without_domains() {
     local empty tag
 
     empty="$(printf '%s' "$config" | jq -r --arg prefix "$SB_SECTION_DNS_RULE_PREFIX" --arg key "$SERVICE_TAG" '
-        [.dns.rules[]? | select(((.[$key] // "") | startswith($prefix)) and (.rule_set == null)) | .[$key] | ltrimstr($prefix)] | .[]' 2> /dev/null)"
+        [.dns.rules[]? | select(((.[$key] // "") | startswith($prefix)) and (.rule_set == null) and (.match_response == null)) | .[$key] | ltrimstr($prefix)] | unique | .[]' 2> /dev/null)"
     [ -n "$empty" ] || return 0
 
     for tag in $empty; do
         log "DNS section '$tag' has no domain lists (subnets cannot select DNS queries); skipping it" "warn"
         config=$(printf '%s' "$config" | jq -c --arg server "$SB_SECTION_DNS_SERVER_PREFIX$tag" --arg rule "$SB_SECTION_DNS_RULE_PREFIX$tag" --arg key "$SERVICE_TAG" '
-            .dns.rules |= map(select((.[$key] // "") != $rule))
-            | .dns.servers |= map(select(.tag != $server))')
+            .dns.rules |= map(select((.[$key] // "") != $rule and (.[$key] // "") != ($rule + "-respond")))
+            | def numeric: length > 0 and (explode | all(. >= 48 and . <= 57));
+              .dns.servers |= map(select((.tag == $server or ((.tag | startswith($server + "-")) and (.tag | ltrimstr($server + "-") | numeric))) | not))')
     done
 }
 
