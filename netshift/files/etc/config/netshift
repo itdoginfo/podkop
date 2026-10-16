@@ -18,6 +18,12 @@ config settings 'settings'
         # Dashboard notice about a newer NetShift / sing-box-extended (one background
         # GitHub check a day, only while the dashboard is opened).
         option update_notice '1'
+        # Where NetShift itself is updated from: 'upstream' (the developer's stable releases, default)
+        # or 'fork' (cergo666/netshift). Both offer their latest release that is not marked as a pre-release.
+        #option update_repo 'upstream'
+        # GitHub mirrors for downloads, tried only after the direct download failed. None by default:
+        # what a mirror returns is not signed.
+        #list update_mirror 'https://gh-proxy.com/'
         list source_network_interfaces 'br-lan'
         option enable_output_network_interface '0'
         #option output_network_interface 'wan'

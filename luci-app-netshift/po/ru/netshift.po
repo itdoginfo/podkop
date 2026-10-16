@@ -98,6 +98,9 @@ msgstr "Обеспечивает доступ к YACD из WAN. Убедитес
 msgid "And more errors"
 msgstr "И ещё ошибок"
 
+msgid "Another build is available"
+msgstr "Доступна другая сборка"
+
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
 
@@ -178,6 +181,9 @@ msgstr "Отмена"
 
 msgid "Cannot receive checks result"
 msgstr "Не удалось получить результаты проверки"
+
+msgid "cergo666/netshift (fork builds)"
+msgstr "cergo666/netshift (сборки форка)"
 
 msgid "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly."
 msgstr "Соединить цепочкой (двойной хоп): серверы этой секции достигаются через выход выбранной секции. Если цепочку построить нельзя, трафик этой секции отклоняется, а не отправляется напрямую."
@@ -701,6 +707,9 @@ msgstr "Полностью маршрутизированные IP-адреса"
 msgid "Get global check"
 msgstr "Получить глобальную проверку"
 
+msgid "GitHub mirrors for downloads"
+msgstr "Зеркала GitHub для загрузок"
+
 msgid "Global check"
 msgstr "Глобальная проверка"
 
@@ -1118,6 +1127,9 @@ msgstr "NetShift"
 msgid "NetShift Settings"
 msgstr "Настройки NetShift"
 
+msgid "NetShift update source"
+msgstr "Источник обновлений NetShift"
+
 msgid "NetShift updated, version:"
 msgstr "NetShift обновлён, версия:"
 
@@ -1205,8 +1217,14 @@ msgstr "Время ожидания истекло"
 msgid "Optional"
 msgstr "Необязательно"
 
+msgid "Optional: https:// addresses of GitHub mirrors, for when GitHub is hard to reach. A mirror is tried only after the direct download failed, and is put in front of the full GitHub address (for example https://gh-proxy.com/). What a mirror returns is not signed, so list only a mirror you trust: it supplies the downloaded packages (checksum lists are always read from GitHub itself). Empty: no mirror."
+msgstr "Необязательно: https://-адреса зеркал GitHub на случай, когда GitHub плохо доступен. Зеркало пробуется только после неудачной прямой загрузки и подставляется перед полным адресом GitHub (например, https://gh-proxy.com/). Ответ зеркала не подписан, поэтому указывайте только то зеркало, которому доверяете: оно отдаёт скачиваемые пакеты (списки контрольных сумм всегда читаются с самого GitHub). Пусто: зеркал нет."
+
 msgid "Optional: query this DNS server through the outbound of another section. If that outbound is not usable the queries go out directly."
 msgstr "Необязательно: опрашивать этот DNS-сервер через outbound другой секции. Если этот outbound недоступен, запросы уходят напрямую."
+
+msgid "Other build"
+msgstr "Другая сборка"
 
 msgid "Outbound Config"
 msgstr "Конфигурация Outbound"
@@ -1601,6 +1619,9 @@ msgstr "Подписки"
 msgid "Successfully copied!"
 msgstr "Успешно скопировано!"
 
+msgid "Switch to %s"
+msgstr "Переключиться на %s"
+
 msgid "Switch to extended"
 msgstr "Переключить на extended"
 
@@ -1868,6 +1889,9 @@ msgstr "Формат «зона сервер», например: ru 77.88.8.8"
 msgid "Use a two-letter country code, for example NL"
 msgstr "Укажите двухбуквенный код страны, например NL"
 
+msgid "Use an https:// address, for example https://gh-proxy.com/"
+msgstr "Укажите адрес https://, например https://gh-proxy.com/"
+
 msgid "Use only for IP-host panels that serve an invalid or self-signed certificate."
 msgstr "Используйте только для панелей с IP-адресом, у которых недействительный или самоподписанный сертификат."
 
@@ -1928,6 +1952,9 @@ msgstr "Предупреждение: %s нельзя использовать �
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
 
+msgid "What is new in this build"
+msgstr "Что нового в этой сборке"
+
 msgid "When a server picked by hand stops answering (three checks in a row, every 30 seconds), go back to the automatic choice (the fastest server) and say so on the dashboard. Needs the automatic group, so it works with URLTest lists and subscriptions; it does nothing together with the list-order mode."
 msgstr "Когда сервер, выбранный вручную, перестаёт отвечать (три проверки подряд, раз в 30 секунд), вернуться к автоматическому выбору (самый быстрый сервер) и сообщить об этом на дашборде. Нужна автоматическая группа, поэтому работает со списками URLTest и подписками; вместе с режимом «по порядку списка» не действует."
 
@@ -1939,6 +1966,9 @@ msgstr "Если задано, TCP-трафик на все остальные �
 
 msgid "When set, UDP traffic to every other port goes directly. For example 443 leaves only QUIC to the tunnel. A port in the list above still goes directly."
 msgstr "Если задано, UDP-трафик на все остальные порты идёт напрямую. Например, 443 оставляет в туннеле только QUIC. Порт из списка выше всё равно идёт напрямую."
+
+msgid "Where the NetShift updates (the Components manager and the notice on the dashboard) come from. Each repository offers its latest release (the one GitHub shows as latest; a release marked as a pre-release is never offered), even when its version is lower than the installed one: after switching the source, press Check update in the Components manager to see what is offered and what is new in it. The builds of the fork are ordinary releases and are offered like any other."
+msgstr "Откуда приходят обновления NetShift (менеджер компонентов и уведомление на дашборде). Каждый репозиторий предлагает свой последний релиз (тот, что GitHub показывает как последний; релиз, помеченный как пред-релиз, не предлагается никогда), даже если его версия ниже установленной: после переключения источника нажмите «Проверить обновление» в менеджере компонентов, чтобы увидеть, что предлагается и что в нём нового. Сборки форка - обычные релизы и предлагаются как любые другие."
 
 msgid "Where will a request go"
 msgstr "Куда пойдёт запрос"
@@ -1960,6 +1990,9 @@ msgstr "Xray JSON (Happ)"
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
+
+msgid "yandexru45/netshift (developer, stable releases)"
+msgstr "yandexru45/netshift (разработчик, стабильные релизы)"
 
 msgid "You can select Output Network Interface, by default autodetect"
 msgstr "Вы можете выбрать выходной сетевой интерфейс, по умолчанию он определяется автоматически."

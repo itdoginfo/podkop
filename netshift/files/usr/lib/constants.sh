@@ -281,9 +281,21 @@ NETSHIFT_RELEASE_API_URL="https://api.github.com/repos/yandexru45/netshift/relea
 # only — do not hardcode it elsewhere.
 NETSHIFT_REPO_RELEASES_LATEST_URL="https://github.com/yandexru45/netshift/releases/latest"
 NETSHIFT_REPO_RELEASES_DOWNLOAD_BASE="https://github.com/yandexru45/netshift/releases/download"
+# Where the NetShift updates come from (settings.update_repo): the developer's repository
+# (default) or the fork. Both are read the same way: the newest release that is not marked as
+# a pre-release (/releases/latest). The builds of the fork are ordinary releases and are offered;
+# only what is marked as a pre-release is not.
+NETSHIFT_GITHUB_API_REPOS="https://api.github.com/repos"
+NETSHIFT_REPO_UPSTREAM="yandexru45/netshift"
+NETSHIFT_REPO_FORK="cergo666/netshift"
+# Optional download mirrors for GitHub (settings: list update_mirror 'https://host/'): a mirror
+# is tried only after the direct download failed, and is put in front of the full GitHub URL.
+# No mirror is used by default: what a mirror returns is not signed, so it is the user's choice.
 # tmpfs scratch dir for the self-update download (release packages) — RAM, never
 # the tiny overlay; reaped on success and on reboot.
 UPDATES_NETSHIFT_DOWNLOAD_DIR="/tmp/netshift/selfupdate"
+# Release notes shown with the build the update check offers (characters)
+UPDATES_NETSHIFT_NOTES_MAX=24000
 # tmpfs backup of /etc/config/netshift taken before the self-update package
 # install (conffiles normally preserve it; this is the defensive belt).
 UPDATES_NETSHIFT_CONFIG_BACKUP="/tmp/netshift/config.bak"

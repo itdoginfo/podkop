@@ -13896,6 +13896,31 @@ DRVEOF
         fail "selfupdate-noop-download-dir-cleaned:FAIL" "dl dir remains"
     fi
 
+    # ── Scenario 7: a switch to a LOWER version (the other update source) ─────────
+    # The installed 0.8.0 is higher than the offered 0.7.9. A package manager that really
+    # installs it ends in success:true; one that refuses ("Not downgrading", rc=0, the version
+    # stays) must be reported as a failure: "installed is higher" is no success here.
+    : > "$SU_DNS_OK"; : > "$SU_HTTP_OK"; : > "$SU_GH_OK"; : > "$SU_DL_OK"; : > "$SU_PKG_OK"
+    export SU_LATEST_TAG="0.7.9" SU_TARGET_INSTALLED_VER="0.7.9-r1"
+    printf 'CONFIG-ORIG\n' > "$work/etc-config-netshift"
+    printf 'netshift - 0.8.0-r1\n' > "$work/installed.list"
+    run_scenario
+    if jq -e '.success == true and .version == "0.7.9"' "$out" > /dev/null 2>&1; then
+        pass "selfupdate-downgrade-installed-success:OK"
+    else
+        fail "selfupdate-downgrade-installed-success:FAIL" "$(cat "$out" 2>/dev/null)"
+    fi
+    export SU_NOOP=1
+    printf 'netshift - 0.8.0-r1\n' > "$work/installed.list"
+    run_scenario
+    unset SU_NOOP
+    if jq -e '.success == false' "$out" > /dev/null 2>&1; then
+        pass "selfupdate-downgrade-refused-is-failure:OK"
+    else
+        fail "selfupdate-downgrade-refused-is-failure:FAIL" "$(cat "$out" 2>/dev/null)"
+    fi
+    export SU_LATEST_TAG="0.8.1" SU_TARGET_INSTALLED_VER="0.8.1-r1"
+
     : > "$work/installed.list"
 
     # ── Restore the real init script (if any) and clean up. ──────────────────
@@ -21913,6 +21938,181 @@ LIST
     rm -rf "$work" /etc/config/netshift
 }
 
+test_update_repo() {
+    header "NetShift update source (update_repo) and GitHub mirrors (update_mirror)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local updater="$lib/updater.sh"
+    if [ ! -r "$updater" ]; then
+        fail "updater.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-updaterepo-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin"
+
+    local drv="$work/driver.sh"
+    cat > "$drv" << 'DRVEOF'
+log() { :; }
+echolog() { :; }
+nolog() { :; }
+. "DRV_HELPERS"
+. "DRV_UPDATER"
+. "DRV_CONSTANTS"
+updates_log() { printf '%s\n' "$1" >> "$WORK/log"; }
+NETSHIFT_VERSION="0.9.0"
+UR_CHOICE=""; UR_MIRRORS=""; UR_MIRROR_FORM=list
+# uci as it is: a list has <option>_LENGTH and is read by config_list_foreach; a plain option is only
+# read by config_get (the real netshift_config_list_foreach of helpers.sh decides between the two)
+config_get() {
+    case "$3" in
+    update_mirror_LENGTH) [ "$UR_MIRROR_FORM" = list ] && [ -n "$UR_MIRRORS" ] && eval "$1=1" || eval "$1=\"\"" ;;
+    update_mirror) [ "$UR_MIRROR_FORM" = scalar ] && eval "$1=\"\$UR_MIRRORS\"" || eval "$1=\"\"" ;;
+    *) eval "$1=\"\${UR_CHOICE:-\$3}\"" ;;
+    esac
+}
+config_list_foreach() { local _m; [ "$UR_MIRROR_FORM" = list ] || return 0; for _m in $UR_MIRRORS; do "$3" "$_m"; done; }
+updates_components_proxy_address() { :; }
+updates_github_resolve_redirect() { printf '%s\n' "$1" >> "$WORK/gets"; case "$1" in */cergo666/*) printf '%s' "$UR_REDIRECT_FORK" ;; *) printf '%s' "$UR_REDIRECT" ;; esac; }
+updates_http_get() { printf '%s\n' "$1" >> "$WORK/gets"; case "$1" in */releases/tags/*) printf '%s' "$UR_NOTES" ;; *) printf '%s' "$UR_API" ;; esac; }
+
+UR_REDIRECT="https://github.com/yandexru45/netshift/releases/tag/0.9.10"
+UR_REDIRECT_FORK="https://github.com/cergo666/netshift/releases/tag/0.9.10.1"
+UR_API='{"tag_name":"0.9.10.1"}'
+UR_NOTES='{"body":"## 0.9.10.1\n- one\n- two"}'
+
+# the developer's repository (default): the redirect of /releases/latest
+UR_CHOICE=upstream; : > "$WORK/gets"
+echo "upstream-tag=$(updates_netshift_latest_tag)"
+echo "upstream-no-fork=$(grep -c 'cergo666' "$WORK/gets")"
+UR_CHOICE=""
+echo "unset-is-upstream=$(updates_netshift_latest_tag)"
+
+# the fork: the same /releases/latest of ITS repository (test builds are pre-releases and not seen)
+UR_CHOICE=fork; : > "$WORK/gets"
+echo "fork-tag=$(updates_netshift_latest_tag)"
+echo "fork-redirect-used=$(grep -c 'github.com/cergo666/netshift/releases/latest' "$WORK/gets")"
+updates_select_netshift_repo
+echo "fork-base=$NETSHIFT_REPO_RELEASES_DOWNLOAD_BASE"
+echo "fork-api=$NETSHIFT_RELEASE_API_URL"
+UR_REDIRECT_FORK=""
+echo "fork-api-fallback=$(updates_netshift_latest_tag)"
+UR_API=""
+updates_netshift_latest_tag > /dev/null && echo "fork-none=ok" || echo "fork-none=fail"
+UR_CHOICE=""
+
+# the status: a newer build is "outdated", the same is "latest", a lower one is a "switch"
+UR_REDIRECT_FORK="https://github.com/cergo666/netshift/releases/tag/0.9.10.1"; UR_API='{"tag_name":"0.9.10.1"}'
+NETSHIFT_VERSION="0.9.10"; UR_CHOICE=fork
+echo "fork-status=$(updates_check_netshift 2> /dev/null | jq -r '.status')"
+NETSHIFT_VERSION="0.9.10.1"
+echo "fork-current=$(updates_check_netshift 2> /dev/null | jq -r '.status')"
+echo "latest-has-no-notes=$(updates_check_netshift with_notes 2> /dev/null | jq -r 'has("notes")')"
+NETSHIFT_VERSION="0.9.11.4"
+echo "fork-lower=$(updates_check_netshift 2> /dev/null | jq -r '.status')"
+# each call of the CLI is a process of its own: the upstream answers come from fresh shells
+UR_CHOICE=upstream
+UR_CHOICE=fork; NETSHIFT_VERSION="0.9.10"; : > "$WORK/gets"
+echo "notes-of-the-offered-build=$(updates_check_netshift with_notes 2> /dev/null | jq -c '.notes')"
+echo "notes-url=$(grep -c 'repos/cergo666/netshift/releases/tags/0.9.10.1' "$WORK/gets")"
+# the background check of the dashboard notice does not ask for the notes at all
+: > "$WORK/gets"
+echo "notice-check-no-notes=$(updates_check_netshift 2> /dev/null | jq -c 'has("notes")') asked=$(grep -c 'releases/tags/' "$WORK/gets")"
+UR_NOTES=""
+echo "no-notes-still-ok=$(updates_check_netshift with_notes 2> /dev/null | jq -c '[.success, has("notes")]')"
+UR_CHOICE=""
+
+# mirrors: used only after the direct download failed, only for GitHub files, only https://
+cat > "$WORK/bin/curl" << 'CEOF'
+#!/bin/sh
+# fails for a direct GitHub URL, works for a URL behind a mirror prefix
+url=""; out=""; prev=""
+for a in "$@"; do
+    case "$a" in http*) url="$a" ;; esac
+    [ "$prev" = "-o" ] && out="$a"
+    prev="$a"
+done
+printf '%s\n' "$url" >> "$WORK/curl.calls"
+case "$url" in
+https://mirror.example/https://github.com/*) printf 'PKG' > "$out"; exit 0 ;;
+https://github.com/*) [ -f "$WORK/direct_ok" ] && { printf 'DIRECT' > "$out"; exit 0; }; exit 22 ;;
+*) exit 22 ;;
+esac
+CEOF
+chmod +x "$WORK/bin/curl"
+printf '#!/bin/sh\nexit 1\n' > "$WORK/bin/wget"; chmod +x "$WORK/bin/wget"
+PATH="$WORK/bin:$PATH"; export WORK PATH
+
+UR_MIRRORS="http://insecure.example/ https://mirror.example"
+: > "$WORK/curl.calls"; : > "$WORK/log"; rm -f "$WORK/pkg"
+updates_download_to_file "https://github.com/cergo666/netshift/releases/download/0.9.11.4/netshift.ipk" "$WORK/pkg" && echo "mirror-download=ok size=$(wc -c < "$WORK/pkg" | tr -d ' ')" || echo "mirror-download=fail"
+echo "mirror-tried-after-direct=$(sed -n '1p' "$WORK/curl.calls" | grep -c '^https://github.com/')"
+echo "mirror-url=$(tail -n1 "$WORK/curl.calls")"
+echo "http-mirror-rejected=$(grep -c 'must be an https' "$WORK/log")"
+
+UR_MIRRORS="https://mirror.example/"; : > "$WORK/curl.calls"
+updates_download_to_file "https://example.org/file.bin" "$WORK/pkg2" && echo "other-host=ok" || echo "other-host=fail"
+echo "other-host-calls=$(wc -l < "$WORK/curl.calls" | tr -d ' ')"
+UR_MIRRORS=""; : > "$WORK/curl.calls"
+updates_download_to_file "https://github.com/x/y/releases/download/1/a.ipk" "$WORK/pkg3" && echo "no-mirror=ok" || echo "no-mirror=fail"
+echo "no-mirror-calls=$(wc -l < "$WORK/curl.calls" | tr -d ' ')"
+UR_MIRRORS="https://mirror.example/"
+# the same mirror written as a plain option (uci set ...update_mirror=...) is used too
+UR_MIRROR_FORM=scalar; : > "$WORK/curl.calls"; rm -f "$WORK/pkg4"
+updates_download_to_file "https://github.com/x/y/releases/download/1/a.ipk" "$WORK/pkg4" && echo "scalar-mirror=ok" || echo "scalar-mirror=fail"
+UR_MIRROR_FORM=list
+# a direct download that works never touches the mirror
+touch "$WORK/direct_ok"; : > "$WORK/curl.calls"; rm -f "$WORK/pkg5"
+updates_download_to_file "https://github.com/x/y/releases/download/1/a.ipk" "$WORK/pkg5" && echo "direct-ok=$(cat "$WORK/pkg5") calls=$(wc -l < "$WORK/curl.calls" | tr -d ' ')" || echo "direct-ok=fail"
+rm -f "$WORK/direct_ok"
+# a file that decides whether another download is trusted (a checksum list) is never fetched through a mirror
+: > "$WORK/curl.calls"; rm -f "$WORK/sums"
+updates_download_to_file "https://github.com/x/y/releases/download/1/sha256sums.txt" "$WORK/sums" nomirror && echo "nomirror=ok" || echo "nomirror=refused calls=$(wc -l < "$WORK/curl.calls" | tr -d ' ')"
+DRVEOF
+    sed -i "s|DRV_UPDATER|$updater|g;s|DRV_HELPERS|${lib}/helpers.sh|g;s|DRV_CONSTANTS|${lib}/constants.sh|g" "$drv"
+
+    local out
+    out="$(WORK="$work" ash "$drv" 2>&1)"
+
+    _ur() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _ur "the developer's repository: the redirect of /releases/latest gives the tag" "upstream-tag=0.9.10"
+    _ur "...and the fork is not asked" "upstream-no-fork=0"
+    _ur "no setting is the developer's repository" "unset-is-upstream=0.9.10"
+    _ur "the fork: the /releases/latest of its repository" "fork-tag=0.9.10.1"
+    _ur "...read from the repository of the fork" "fork-redirect-used=1"
+    _ur "...and its packages are downloaded from the fork" "fork-base=https://github.com/cergo666/netshift/releases/download"
+    _ur "...the API fallback is the latest release of the fork" "fork-api=https://api.github.com/repos/cergo666/netshift/releases/latest"
+    _ur "without the redirect the API gives the tag" "fork-api-fallback=0.9.10.1"
+    _ur "nothing reachable: no tag, a failure" "fork-none=fail"
+    _ur "a newer build of the fork is offered as an update" "fork-status=outdated"
+    _ur "the build that is installed is the latest" "fork-current=latest"
+    _ur "the latest build has no release notes fetched" "latest-has-no-notes=false"
+    _ur "a LOWER build of the chosen repository is offered as a switch" "fork-lower=switch"
+    _ur "the release notes of the offered build come with the check" 'notes-of-the-offered-build="## 0.9.10.1\n- one\n- two"'
+    _ur "...fetched from the repository the build is in" "notes-url=1"
+    _ur "the background check of the dashboard notice does not fetch the notes" "notice-check-no-notes=false asked=0"
+    _ur "no notes: the check still works" "no-notes-still-ok=[true,false]"
+    _ur "a failed direct download falls back to the mirror, with the file written" "mirror-download=ok size=3"
+    _ur "the direct download is tried first" "mirror-tried-after-direct=1"
+    _ur "the mirror address is put in front of the full GitHub address" "mirror-url=https://mirror.example/https://github.com/cergo666/netshift/releases/download/0.9.11.4/netshift.ipk"
+    _ur "a mirror that is not https:// is ignored with a warning" "http-mirror-rejected=1"
+    _ur "a file that is not from GitHub never goes through a mirror" "other-host=fail"
+    _ur "...so only the direct attempt is made" "other-host-calls=1"
+    _ur "a mirror written as a plain option is used too" "scalar-mirror=ok"
+    _ur "a direct download that works never touches the mirror" "direct-ok=DIRECT calls=1"
+    _ur "a checksum list is never fetched through a mirror" "nomirror=refused calls=1"
+    _ur "no mirror set: a failed download just fails" "no-mirror=fail"
+    _ur "...after the direct attempt only" "no-mirror-calls=1"
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -22015,6 +22215,7 @@ main() {
             test_telegram_fallback
             test_naive_component
             test_collected_lists
+            test_update_repo
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -22107,9 +22308,10 @@ main() {
         tgfallback)  test_telegram_fallback ;;
         naivecomp)   test_naive_component ;;
         collected)   test_collected_lists ;;
+        updaterepo)  test_update_repo ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra updaterepo"
             exit 1
             ;;
     esac

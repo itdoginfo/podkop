@@ -1202,6 +1202,7 @@ var VALID_STATUSES = [
   "latest",
   "outdated",
   "dev",
+  "switch",
   "not_installed"
 ];
 function normalizeStatus(status) {
@@ -1218,7 +1219,8 @@ function parseComponentCheckUpdate(stdout) {
       current_version: typeof parsed.current_version === "string" ? parsed.current_version : void 0,
       latest_version: typeof parsed.latest_version === "string" ? parsed.latest_version : void 0,
       status: normalizeStatus(parsed.status),
-      message: typeof parsed.message === "string" ? parsed.message : void 0
+      message: typeof parsed.message === "string" ? parsed.message : void 0,
+      notes: typeof parsed.notes === "string" ? parsed.notes : void 0
     };
   } catch (_e) {
     return {
@@ -7201,6 +7203,31 @@ function render3() {
   ]);
 }
 
+// src/netshift/tabs/manager/changelog.ts
+var INLINE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|\*\*([^*]+)\*\*|`([^`]+)`/g;
+function tokenizeInline(line) {
+  const tokens = [];
+  let last = 0;
+  for (const match of line.matchAll(INLINE)) {
+    const index = match.index ?? 0;
+    if (index > last) {
+      tokens.push({ kind: "text", text: line.slice(last, index) });
+    }
+    if (match[1] !== void 0) {
+      tokens.push({ kind: "link", text: match[1], href: match[2] });
+    } else if (match[3] !== void 0) {
+      tokens.push({ kind: "bold", text: match[3] });
+    } else {
+      tokens.push({ kind: "code", text: match[4] });
+    }
+    last = index + match[0].length;
+  }
+  if (last < line.length) {
+    tokens.push({ kind: "text", text: line.slice(last) });
+  }
+  return tokens;
+}
+
 // src/netshift/tabs/manager/cards.ts
 var NOT_INSTALLED = "not installed";
 function isSingBoxInstalled(systemInfo) {
@@ -7236,6 +7263,9 @@ function getCheckTag(status) {
   if (status === "not_installed") {
     return { label: _("Not installed"), kind: "neutral" };
   }
+  if (status === "switch") {
+    return { label: _("Other build"), kind: "neutral" };
+  }
   return { label: _("Dev"), kind: "neutral" };
 }
 function netshiftStatus(systemInfo, check) {
@@ -7249,11 +7279,14 @@ function netshiftCard(systemInfo, check) {
   const status = netshiftStatus(systemInfo, check);
   const latest = check.latest_version;
   const actions = [];
-  if (status === "outdated") {
+  if (status === "outdated" || status === "switch") {
     actions.push({
       loadingKey: "netshiftUpdate",
       kind: "self_update",
-      text: latest ? _("Install %s").replace("%s", latest) : _("Update NetShift"),
+      text: latest ? (status === "switch" ? _("Switch to %s") : _("Install %s")).replace(
+        "%s",
+        latest
+      ) : _("Update NetShift"),
       backendAction: "self_update"
     });
   } else {
@@ -7270,6 +7303,7 @@ function netshiftCard(systemInfo, check) {
     version: normalizeCompiledVersion(systemInfo.netshift_version),
     installed: true,
     tag: getCheckTag(status),
+    notes: status === "outdated" || status === "switch" ? check.notes : void 0,
     actions
   };
 }
@@ -7500,14 +7534,15 @@ function setActionLoading(action, loading) {
     }
   });
 }
-function setCheckResult(component, status, latestVersion) {
+function setCheckResult(component, status, latestVersion, notes = "") {
   const managerChecks = store.get().managerChecks;
   store.set({
     managerChecks: {
       ...managerChecks,
       [component]: {
         status,
-        latest_version: latestVersion
+        latest_version: latestVersion,
+        notes
       }
     }
   });
@@ -7518,6 +7553,9 @@ function resetCheckResult(component) {
 function getCheckToastMessage(status) {
   if (status === "outdated") {
     return _("Update is available");
+  }
+  if (status === "switch") {
+    return _("Another build is available");
   }
   if (status === "dev") {
     return _("Installed version is newer than release");
@@ -7555,7 +7593,12 @@ async function runNetshiftCheck(button) {
       return;
     }
     const status = parsed.status ?? null;
-    setCheckResult("netshift", status, parsed.latest_version || "");
+    setCheckResult(
+      "netshift",
+      status,
+      parsed.latest_version || "",
+      parsed.notes || ""
+    );
     showToast(getCheckToastMessage(status), "success");
   } catch (error) {
     logger.error("[MANAGER]", "runNetshiftCheck failed", error);
@@ -7772,7 +7815,55 @@ function renderComponentCard(card) {
       E("div", { class: "pdk_manager-page__component__note" }, card.note)
     );
   }
+  if (card.notes) {
+    children.push(
+      E("details", { class: "pdk_manager-page__component__changelog" }, [
+        E("summary", {}, _("What is new in this build")),
+        E("div", {}, renderChangelog(card.notes))
+      ])
+    );
+  }
   return E("div", { class: "card pdk_manager-page__component" }, children);
+}
+function renderInline(text2) {
+  return tokenizeInline(text2).map((token) => {
+    if (token.kind === "link") {
+      return E(
+        "a",
+        { href: token.href, target: "_blank", rel: "noopener noreferrer" },
+        token.text
+      );
+    }
+    if (token.kind === "bold") {
+      return E("strong", {}, token.text);
+    }
+    if (token.kind === "code") {
+      return E("code", {}, token.text);
+    }
+    return token.text;
+  });
+}
+function renderChangelog(notes) {
+  return notes.split("\n").map((raw) => raw.replace(/\r$/, "")).filter((line) => line.trim() !== "").map((line) => {
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (heading) {
+      return E(
+        "div",
+        {
+          class: `pdk_manager-page__changelog-h${Math.min(heading[1].length, 3)}`
+        },
+        renderInline(heading[2])
+      );
+    }
+    const item = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (item) {
+      return E("div", { class: "pdk_manager-page__changelog-item" }, [
+        "\u2022 ",
+        ...renderInline(item[1])
+      ]);
+    }
+    return E("div", {}, renderInline(line));
+  });
 }
 function renderManagerComponents() {
   const container = document.getElementById("pdk_manager-components");
@@ -7961,6 +8052,36 @@ var styles5 = `
     line-height: 1.35;
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+.pdk_manager-page__component__changelog {
+    font-size: 12px;
+    line-height: 1.4;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.pdk_manager-page__component__changelog > summary {
+    cursor: pointer;
+    color: var(--text-color-medium);
+}
+
+.pdk_manager-page__component__changelog > div {
+    max-height: 260px;
+    overflow-y: auto;
+    margin-top: 6px;
+    padding-right: 4px;
+}
+
+.pdk_manager-page__changelog-h1,
+.pdk_manager-page__changelog-h2,
+.pdk_manager-page__changelog-h3 {
+    font-weight: 600;
+    margin-top: 6px;
+}
+
+.pdk_manager-page__changelog-item {
+    padding-left: 6px;
 }
 
 .pdk_manager-page__component__actions > .pdk-partial-button {

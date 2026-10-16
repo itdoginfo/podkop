@@ -69,6 +69,8 @@ export interface ManagerCardDescriptor {
   extraTag?: ManagerCardTag;
   // Muted footnote under the actions (unsupported-arch / UPX RAM caveat).
   note?: string;
+  // Release notes of the build the card offers (shown folded under the actions).
+  notes?: string;
   // Disables every action of the card (e.g. lite on an unsupported arch).
   actionsDisabled?: boolean;
   actions: ManagerActionDescriptor[];
@@ -91,6 +93,7 @@ export type ManagerSystemInfo = {
 export type ManagerCheckState = {
   status: NetShift.ComponentUpdateStatus | null;
   latest_version: string;
+  notes?: string;
 };
 
 const NOT_INSTALLED = 'not installed';
@@ -158,6 +161,10 @@ export function getCheckTag(
     return { label: _('Not installed'), kind: 'neutral' };
   }
 
+  if (status === 'switch') {
+    return { label: _('Other build'), kind: 'neutral' };
+  }
+
   return { label: _('Dev'), kind: 'neutral' };
 }
 
@@ -188,12 +195,15 @@ function netshiftCard(
   const latest = check.latest_version;
   const actions: ManagerActionDescriptor[] = [];
 
-  if (status === 'outdated') {
+  if (status === 'outdated' || status === 'switch') {
     actions.push({
       loadingKey: 'netshiftUpdate',
       kind: 'self_update',
       text: latest
-        ? _('Install %s').replace('%s', latest)
+        ? (status === 'switch' ? _('Switch to %s') : _('Install %s')).replace(
+            '%s',
+            latest,
+          )
         : _('Update NetShift'),
       backendAction: 'self_update',
     });
@@ -212,6 +222,8 @@ function netshiftCard(
     version: normalizeCompiledVersion(systemInfo.netshift_version),
     installed: true,
     tag: getCheckTag(status),
+    notes:
+      status === 'outdated' || status === 'switch' ? check.notes : undefined,
     actions,
   };
 }

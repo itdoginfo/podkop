@@ -236,6 +236,7 @@ export interface StoreType {
     {
       status: NetShift.ComponentUpdateStatus | null;
       latest_version: string;
+      notes?: string;
     }
   >;
 }
