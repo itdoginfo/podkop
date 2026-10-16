@@ -65,6 +65,12 @@ msgstr "Добавьте свои подсети или IP: выберите Д�
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
 
+msgid "Ads (sing-geosite category-ads, for a Block section)"
+msgstr "Реклама (sing-geosite category-ads, для секции блокировки)"
+
+msgid "Ads and trackers (sing-geosite category-ads-all, for a Block section)"
+msgstr "Реклама и трекеры (sing-geosite category-ads-all, для секции блокировки)"
+
 msgid "Advanced"
 msgstr "Дополнительно"
 
@@ -106,6 +112,9 @@ msgstr "Автоматически (первый рабочий)"
 
 msgid "Available actions"
 msgstr "Доступные действия"
+
+msgid "BitTorrent public trackers (sing-geosite, for a Block section)"
+msgstr "Публичные BitTorrent-трекеры (sing-geosite, для секции блокировки)"
 
 msgid "Block direct connections to known public DoH servers (Cloudflare, Google, Quad9, OpenDNS, AdGuard, Yandex) so apps cannot bypass router DNS filtering."
 msgstr "Блокировать прямые подключения к известным публичным DoH-серверам (Cloudflare, Google, Quad9, OpenDNS, AdGuard, Yandex), чтобы приложения не могли обойти DNS-фильтрацию роутера."
