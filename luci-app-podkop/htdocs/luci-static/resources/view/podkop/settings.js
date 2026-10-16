@@ -84,6 +84,17 @@ function createSettingsContent(section, singBoxFeatures = []) {
   };
 
   o = section.option(
+    form.Flag,
+    "enable_dns_aaaa",
+    _("Return IPv6 Addresses (AAAA)"),
+    _(
+      "Return AAAA records from the DNS server for domains that are not in the lists. Domains in the lists still get only IPv4 FakeIP addresses and go through the tunnel",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.option(
     widgets.DeviceSelect,
     "source_network_interfaces",
     _("Source Network Interface"),
