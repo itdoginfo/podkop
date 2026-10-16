@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-16 23:01+0300\n"
-"PO-Revision-Date: 2026-10-16 23:01+0300\n"
+"POT-Creation-Date: 2026-10-16 23:06+0300\n"
+"PO-Revision-Date: 2026-10-16 23:06+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -211,6 +211,9 @@ msgstr "Очистить кеш подписок"
 
 msgid "Clearing subscription cache and re-downloading… this may take a minute"
 msgstr "Очистка кеша подписок и повторная загрузка… это может занять минуту"
+
+msgid "Client for naive+https:// links (~4 MB), used beside sing-box; not needed with a core that has the naive outbound"
+msgstr "Клиент для ссылок naive+https:// (~4 МБ), работает рядом с sing-box; не нужен с ядром, где есть исходящее naive"
 
 msgid "Close"
 msgstr "Закрыть"
@@ -734,11 +737,17 @@ msgstr "Оставить серверы по защите"
 msgid "Include servers by transport"
 msgstr "Оставить серверы по транспорту"
 
+msgid "Install"
+msgstr "Установить"
+
 msgid "Install %s"
 msgstr "Установить %s"
 
 msgid "Installed version is newer than release"
 msgstr "Установленная версия новее релиза"
+
+msgid "Installing the NaiveProxy client, this may take a minute…"
+msgstr "Устанавливаем клиент NaiveProxy, это может занять минуту…"
 
 msgid "Interface Monitoring"
 msgstr "Мониторинг интерфейса"
@@ -1079,6 +1088,12 @@ msgstr "мс"
 msgid "Must be a number in the range of 50 - 1000"
 msgstr "Должно быть числом от 50 до 1000"
 
+msgid "NaiveProxy client installed, version:"
+msgstr "Клиент NaiveProxy установлен, версия:"
+
+msgid "NaiveProxy client removed"
+msgstr "Клиент NaiveProxy удалён"
+
 msgid "NetShift"
 msgstr "NetShift"
 
@@ -1270,6 +1285,12 @@ msgstr "Внешние списки доменов"
 
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
+
+msgid "Remove"
+msgstr "Удалить"
+
+msgid "Removing the NaiveProxy client…"
+msgstr "Удаляем клиент NaiveProxy…"
 
 msgid "Require a login for the Mixed Proxy"
 msgstr "Требовать логин для Mixed Proxy"

@@ -355,6 +355,70 @@ export const NetShiftShellMethods = {
         message: response.stderr || '',
       };
     },
+  // The NaiveProxy client component: check (sync), install and remove (async, like the
+  // core switch: the download and the restart can outlast the rpcd limit).
+  naiveCheckUpdate: async (): Promise<NetShift.ComponentCheckUpdateResult> => {
+    const response = await executeShellCommand({
+      command: '/usr/bin/netshift',
+      args: ['component_action', 'naive', 'check_update'],
+      timeout: 600000,
+    });
+
+    if (response.stdout) {
+      return parseComponentCheckUpdate(response.stdout);
+    }
+
+    return { success: false, message: response.stderr || '' };
+  },
+  naiveComponentAction: async (
+    action: 'install' | 'remove',
+  ): Promise<SingBoxComponentActionResult> => {
+    const startResponse = await executeShellCommand({
+      command: '/usr/bin/netshift',
+      args: ['component_action_async', 'naive', action],
+    });
+
+    let start: ComponentActionStartResponse | null = null;
+
+    if (startResponse.stdout) {
+      try {
+        start = JSON.parse(
+          startResponse.stdout,
+        ) as ComponentActionStartResponse;
+      } catch (_e) {
+        start = null;
+      }
+    }
+
+    if (!start || start.success !== true || !start.job_id) {
+      return {
+        success: false,
+        message: start?.message || startResponse.stderr || '',
+      };
+    }
+
+    const jobId = start.job_id;
+
+    return pollSingBoxComponentAction(async () => {
+      try {
+        const statusResponse = await executeShellCommand({
+          command: '/usr/bin/netshift',
+          args: ['component_action_status', jobId],
+        });
+
+        if (!statusResponse.stdout) {
+          return { running: true } as ComponentActionStatus;
+        }
+
+        return (
+          parseComponentActionStatus(statusResponse.stdout) ??
+          ({ running: true } as ComponentActionStatus)
+        );
+      } catch (_e) {
+        return { running: true } as ComponentActionStatus;
+      }
+    });
+  },
   // Clear subscription cache (async) — task-039/040 contract:
   // component_action_async subscription clear_cache + component_action_status
   // <job>. Deletes all subscription caches then re-downloads, which restarts

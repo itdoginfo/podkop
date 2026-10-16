@@ -5,7 +5,8 @@ export type ManagerComponentKey =
   | 'netshift'
   | 'sing_box_stock'
   | 'sing_box_extended'
-  | 'sing_box_extended_lite';
+  | 'sing_box_extended_lite'
+  | 'naive';
 
 // `check` = a sing-box update check (routed to the sing-box check method);
 // `check_netshift` = the NetShift card's on-demand check (task-030), which now
@@ -18,7 +19,10 @@ export type ManagerActionKind =
   | 'check_netshift'
   | 'update'
   | 'switch'
-  | 'self_update';
+  | 'self_update'
+  | 'naive_check'
+  | 'naive_install'
+  | 'naive_remove';
 
 export interface ManagerActionDescriptor {
   // The store-slice key driving this button's loading flag.
@@ -30,7 +34,9 @@ export interface ManagerActionDescriptor {
     | 'singBoxExtendedCheck'
     | 'singBoxExtendedAction'
     | 'singBoxExtendedLiteCheck'
-    | 'singBoxExtendedLiteAction';
+    | 'singBoxExtendedLiteAction'
+    | 'naiveCheck'
+    | 'naiveAction';
   kind: ManagerActionKind;
   text: string;
   // For `update`/`switch`: the backend install action; for `self_update`:
@@ -78,6 +84,8 @@ export type ManagerSystemInfo = {
   sing_box_variant: NetShift.SingBoxVariant;
   sing_box_lite_upx: 0 | 1;
   sing_box_lite_supported: 0 | 1;
+  // Release of the NaiveProxy client, "not installed" or "unknown".
+  naive_version?: string;
 };
 
 export type ManagerCheckState = {
@@ -365,8 +373,65 @@ function singBoxExtendedLiteCard(
   };
 }
 
+// The NaiveProxy client (klzgrad/naiveproxy): a separate small program that carries
+// naive+https:// links beside sing-box. Installed from the GitHub release.
+function naiveCard(
+  systemInfo: ManagerSystemInfo,
+  check: ManagerCheckState,
+): ManagerCardDescriptor {
+  const version = systemInfo.naive_version || 'not installed';
+  const installed = version !== 'not installed';
+  const actions: ManagerActionDescriptor[] = [];
+
+  if (!installed) {
+    actions.push({
+      loadingKey: 'naiveAction',
+      kind: 'naive_install',
+      text: _('Install'),
+    });
+  } else {
+    if (check.status === 'outdated') {
+      actions.push({
+        loadingKey: 'naiveAction',
+        kind: 'naive_install',
+        text: check.latest_version
+          ? _('Install %s').replace('%s', check.latest_version)
+          : _('Update'),
+      });
+    } else {
+      actions.push({
+        loadingKey: 'naiveCheck',
+        kind: 'naive_check',
+        text: _('Check update'),
+      });
+    }
+
+    actions.push({
+      loadingKey: 'naiveAction',
+      kind: 'naive_remove',
+      text: _('Remove'),
+    });
+  }
+
+  return {
+    key: 'naive',
+    title: 'NaiveProxy',
+    description: _(
+      'Client for naive+https:// links (~4 MB), used beside sing-box; not needed with a core that has the naive outbound',
+    ),
+    version: installed
+      ? version === 'unknown'
+        ? _('unknown')
+        : version
+      : _('Not installed'),
+    installed,
+    tag: installed ? getCheckTag(check.status) : getCheckTag('not_installed'),
+    actions,
+  };
+}
+
 /**
- * Build the four Component Manager cards from systemInfo + per-component check
+ * Build the Component Manager cards from systemInfo + per-component check
  * state. Pure (no DOM, no store) so it is unit-testable; the controller maps
  * descriptors to DOM + click handlers.
  */
@@ -379,5 +444,6 @@ export function getComponentCards(
     singBoxStockCard(systemInfo, checks.sing_box_stock),
     singBoxExtendedCard(systemInfo, checks.sing_box_extended),
     singBoxExtendedLiteCard(systemInfo, checks.sing_box_extended_lite),
+    naiveCard(systemInfo, checks.naive),
   ];
 }

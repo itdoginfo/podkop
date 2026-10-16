@@ -7576,7 +7576,7 @@ get_luci_app_version() {
 
 get_system_info() {
     local netshift_version netshift_latest_version luci_app_version sing_box_version openwrt_version device_model sing_box_extended
-    local sing_box_variant sing_box_lite_upx sing_box_lite_supported ram_total_mb flash_free_mb
+    local sing_box_variant sing_box_lite_upx sing_box_lite_supported ram_total_mb flash_free_mb naive_version
 
     netshift_version="$NETSHIFT_VERSION"
 
@@ -7620,6 +7620,16 @@ get_system_info() {
     ram_total_mb="$(get_ram_total_mb)"
     flash_free_mb="$(get_flash_free_mb)"
 
+    # the NaiveProxy client (a separate component): its release, or "not installed"
+    naive_version="$(naive_installed_version)"
+    if [ -z "$naive_version" ]; then
+        if naive_binary > /dev/null 2>&1; then
+            naive_version="unknown"
+        else
+            naive_version="not installed"
+        fi
+    fi
+
     if [ -f /etc/os-release ]; then
         openwrt_version=$(grep OPENWRT_RELEASE /etc/os-release | cut -d'"' -f2)
         [ -z "$openwrt_version" ] && openwrt_version="unknown"
@@ -7634,7 +7644,7 @@ get_system_info() {
         device_model="unknown"
     fi
 
-    echo "{\"netshift_version\": \"$netshift_version\", \"netshift_latest_version\": \"$netshift_latest_version\", \"luci_app_version\": \"$luci_app_version\", \"sing_box_version\": \"$sing_box_version\", \"sing_box_extended\": $sing_box_extended, \"sing_box_variant\": \"$sing_box_variant\", \"sing_box_lite_upx\": $sing_box_lite_upx, \"sing_box_lite_supported\": $sing_box_lite_supported, \"ram_total_mb\": $ram_total_mb, \"flash_free_mb\": $flash_free_mb, \"openwrt_version\": \"$openwrt_version\", \"device_model\": \"$device_model\"}" | jq .
+    echo "{\"netshift_version\": \"$netshift_version\", \"netshift_latest_version\": \"$netshift_latest_version\", \"luci_app_version\": \"$luci_app_version\", \"sing_box_version\": \"$sing_box_version\", \"sing_box_extended\": $sing_box_extended, \"sing_box_variant\": \"$sing_box_variant\", \"sing_box_lite_upx\": $sing_box_lite_upx, \"sing_box_lite_supported\": $sing_box_lite_supported, \"naive_version\": \"$naive_version\", \"ram_total_mb\": $ram_total_mb, \"flash_free_mb\": $flash_free_mb, \"openwrt_version\": \"$openwrt_version\", \"device_model\": \"$device_model\"}" | jq .
 }
 
 get_sing_box_status() {

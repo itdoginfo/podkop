@@ -317,6 +317,8 @@ export namespace NetShift {
     sing_box_lite_upx: 0 | 1;
     // 0 when the lite repo has no build for this device's architecture.
     sing_box_lite_supported: 0 | 1;
+    // Release of the NaiveProxy client, "not installed" or "unknown" (put there by hand).
+    naive_version?: string;
     ram_total_mb: number;
     flash_free_mb: number;
   }

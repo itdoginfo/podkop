@@ -12,6 +12,7 @@ const emptyChecks = {
   sing_box_stock: { status: null, latest_version: '' },
   sing_box_extended: { status: null, latest_version: '' },
   sing_box_extended_lite: { status: null, latest_version: '' },
+  naive: { status: null, latest_version: '' },
 };
 
 function makeSystemInfo(patch = {}) {
@@ -88,7 +89,7 @@ describe('getSingBoxMutationWarningMessage', () => {
 });
 
 describe('getComponentCards', () => {
-  it('always builds exactly four cards in order', () => {
+  it('always builds the cards in order: NetShift, the three cores, NaiveProxy', () => {
     const cards = getComponentCards(makeSystemInfo(), emptyChecks);
 
     expect(cards.map((c) => c.key)).toEqual([
@@ -96,6 +97,7 @@ describe('getComponentCards', () => {
       'sing_box_stock',
       'sing_box_extended',
       'sing_box_extended_lite',
+      'naive',
     ]);
   });
 
@@ -209,7 +211,7 @@ describe('getComponentCards', () => {
     const lite = cards[3];
 
     // The card stays visible with its switch button, but disabled + note.
-    expect(cards).toHaveLength(4);
+    expect(cards).toHaveLength(5);
     expect(lite.actions[0].kind).toBe('switch');
     expect(lite.actions[0].text).toBe('Switch to lite');
     expect(lite.actionsDisabled).toBe(true);
@@ -364,5 +366,58 @@ describe('getComponentCards', () => {
 
     expect(netshift.tag).toBeUndefined();
     expect(netshift.actions[0].kind).toBe('check_netshift');
+  });
+});
+
+describe('the NaiveProxy card', () => {
+  const card = (patch = {}, check = {}) =>
+    getComponentCards(makeSystemInfo(patch), {
+      ...emptyChecks,
+      naive: { status: null, latest_version: '', ...check },
+    }).find((item) => item.key === 'naive');
+
+  it('is the last card', () => {
+    const cards = getComponentCards(makeSystemInfo(), emptyChecks);
+
+    expect(cards[cards.length - 1].key).toBe('naive');
+  });
+
+  it('offers to install when the client is not there', () => {
+    const naive = card({ naive_version: 'not installed' });
+
+    expect(naive.installed).toBe(false);
+    expect(naive.actions.map((action) => action.kind)).toEqual([
+      'naive_install',
+    ]);
+    expect(naive.tag).toEqual({ label: 'Not installed', kind: 'neutral' });
+  });
+
+  it('offers to check for updates, and to remove, when it is there', () => {
+    const naive = card({ naive_version: '154.0.8037.49-4' });
+
+    expect(naive.installed).toBe(true);
+    expect(naive.version).toBe('154.0.8037.49-4');
+    expect(naive.actions.map((action) => action.kind)).toEqual([
+      'naive_check',
+      'naive_remove',
+    ]);
+  });
+
+  it('offers the newer release when the check found one', () => {
+    const naive = card(
+      { naive_version: '154.0.8037.49-4' },
+      { status: 'outdated', latest_version: '155.0.1-1' },
+    );
+
+    expect(naive.actions.map((action) => action.kind)).toEqual([
+      'naive_install',
+      'naive_remove',
+    ]);
+    expect(naive.actions[0].text).toContain('155.0.1-1');
+    expect(naive.tag).toEqual({ label: 'Outdated', kind: 'warning' });
+  });
+
+  it('treats a missing version as not installed', () => {
+    expect(card({}).installed).toBe(false);
   });
 });

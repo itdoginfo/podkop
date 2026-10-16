@@ -217,6 +217,7 @@ export interface StoreType {
     sing_box_variant: NetShift.SingBoxVariant;
     sing_box_lite_upx: 0 | 1;
     sing_box_lite_supported: 0 | 1;
+    naive_version?: string;
   };
   managerActions: {
     netshiftCheck: { loading: boolean };
@@ -227,6 +228,8 @@ export interface StoreType {
     singBoxExtendedAction: { loading: boolean };
     singBoxExtendedLiteCheck: { loading: boolean };
     singBoxExtendedLiteAction: { loading: boolean };
+    naiveCheck: { loading: boolean };
+    naiveAction: { loading: boolean };
   };
   managerChecks: Record<
     ManagerComponentKey,
