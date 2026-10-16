@@ -79,6 +79,13 @@ function getSubscriptionPollMessages(): ComponentActionPollMessages {
 }
 
 export const NetShiftShellMethods = {
+  fetchFeedList: async (url: string) =>
+    callBaseMethod<unknown>(
+      NetShift.AvailableMethods.FETCH_FEED_LIST,
+      [url],
+      undefined,
+      { nobatch: true },
+    ),
   checkDNSAvailable: async () =>
     callBaseMethod<NetShift.DnsCheckResult>(
       NetShift.AvailableMethods.CHECK_DNS_AVAILABLE,

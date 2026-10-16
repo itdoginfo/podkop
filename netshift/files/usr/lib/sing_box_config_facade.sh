@@ -415,9 +415,11 @@ _add_outbound_security() {
     scheme="$(url_get_scheme "$url")"
 
     if [ -z "$security" ]; then
-        if [ "$scheme" = "hysteria2" ] || [ "$scheme" = "hy2" ]; then
-            security="tls"
-        fi
+        case "$scheme" in
+        # these have TLS unless the link says otherwise (a trojan link without
+        # security= is a TLS one, as everywhere else)
+        hysteria2 | hy2 | trojan) security="tls" ;;
+        esac
     fi
 
     case "$security" in
@@ -491,9 +493,13 @@ _add_outbound_security() {
                 "$reality_mlkem"
         )
         ;;
-    none) ;;
+    # No security: the link says so (none), or does not say anything (a vless/vmess/ss
+    # link without security=), or writes a "no" in one of the ways collected lists have.
+    none | "" | false | 0 | off | no | disable | disabled) ;;
     *)
-        log "Unknown security '$security' detected." "error"
+        # the link still gets its outbound (without TLS), and one odd link of a
+        # list of thousands is not an error of the service
+        log "Link for '$outbound_tag': unknown security '$security'; it is ignored." "warn"
         ;;
     esac
 

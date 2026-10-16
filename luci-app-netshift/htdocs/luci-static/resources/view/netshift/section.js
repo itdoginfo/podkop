@@ -225,6 +225,115 @@ function createSectionContent(section) {
     return validation.message;
   };
 
+  // A published list of feeds (a text file with an address per line, or a JSON object
+  // keyed by the addresses): its feeds are put into the list above.
+  o = section.taboption(
+    "subscription",
+    form.DummyValue,
+    "_feed_list",
+    _("Add feeds from a list"),
+    _(
+      "The address of a published list of subscriptions: a text file with a feed address per line, or a JSON object whose keys are the addresses. The feeds found are added to the list above (the ones already there are skipped); save and apply to keep them. A feed with thousands of servers is cut to the number below.",
+    ),
+  );
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+  o.rawhtml = true;
+  o.cfgvalue = function (section_id) {
+    const input = E("input", {
+      class: "cbi-input-text",
+      type: "text",
+      placeholder: "https://example.com/urls.txt",
+      style: "min-width:18em",
+    });
+    const result = E("div", { class: "ns-muted" });
+    const button = E(
+      "button",
+      {
+        class: "btn cbi-button cbi-button-add",
+        click: (ev) => {
+          ev.preventDefault();
+
+          const address = input.value.trim();
+
+          if (!address) {
+            return;
+          }
+
+          button.disabled = true;
+          result.textContent = _("Downloading the list...");
+
+          main.NetShiftShellMethods.fetchFeedList(address)
+            .then((reply) => {
+              const answer = reply.success
+                ? main.parseFeedList(reply.data)
+                : { ok: false, urls: [], error: "" };
+
+              if (!answer.ok) {
+                result.textContent = [
+                  _("Could not read the list"),
+                  answer.error,
+                ]
+                  .filter(Boolean)
+                  .join(": ");
+                return;
+              }
+
+              const element = this.section.getUIElement(
+                section_id,
+                "subscription_url",
+              );
+              const current = element ? element.getValue() : [];
+              const existing = Array.isArray(current)
+                ? current
+                : current
+                  ? [current]
+                  : [];
+              const added = main.newFeeds(existing, answer.urls);
+
+              if (element) {
+                element.setValue([...existing, ...added]);
+              }
+
+              result.textContent = _(
+                "Found %d feeds, added %d. Save and apply to keep them.",
+              )
+                .format(answer.urls.length, added.length);
+            })
+            .catch(() => {
+              result.textContent = _("Could not read the list");
+            })
+            .finally(() => {
+              button.disabled = false;
+            });
+        },
+      },
+      _("Add the feeds"),
+    );
+
+    return E("div", {}, [
+      E("div", { style: "display:flex;gap:.5em;flex-wrap:wrap" }, [
+        input,
+        button,
+      ]),
+      result,
+    ]);
+  };
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_max_nodes",
+    _("Servers per feed"),
+    _(
+      "How many servers of one feed are used (the first ones). Published lists hold thousands of servers: each is processed one by one and the group of them is tested by the router, which is too much for it. 0 uses all of them.",
+    ),
+  );
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+  o.datatype = "uinteger";
+  o.placeholder = "500";
+  o.default = "500";
+  o.rmempty = true;
+
   o = section.taboption(
     "subscription",
     form.ListValue,

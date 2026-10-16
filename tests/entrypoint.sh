@@ -123,7 +123,8 @@ test_syntax() {
         "$lib/dnsforward.sh" \
         "$lib/subinfo.sh" \
         "$lib/lint.sh" \
-        "$lib/naive.sh"; do
+        "$lib/naive.sh" \
+        "$lib/feedlist.sh"; do
 
         if [ ! -r "$f" ]; then
             fail "File not found: $f"
@@ -20892,6 +20893,130 @@ test_naive() {
     rm -rf "$work"
 }
 
+
+# ─────────────────────────────────────────────────────────────────
+# Test: collected lists (thousands of links, odd "security" values) and lists of feeds
+# ─────────────────────────────────────────────────────────────────
+test_collected_lists() {
+    header "Collected lists: odd links, the cap on servers, lists of feeds"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/helpers.sh" ] || [ ! -r "$lib/sing_box_config_facade.sh" ] || [ ! -r "$lib/feedlist.sh" ]; then
+        fail "helpers / facade / feedlist.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-collected-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        mkdir -p /usr/lib/netshift
+        for f in constants.sh helpers.sh logging.sh sing_box_config_manager.sh sing_box_config_facade.sh; do
+            ln -sf "$lib/$f" "/usr/lib/netshift/$f"
+        done
+        . /usr/lib/netshift/constants.sh
+        . /usr/lib/netshift/logging.sh
+        . /usr/lib/netshift/sing_box_config_facade.sh
+        . "$lib/feedlist.sh"
+        CL_LOG="$work/log"; : > "$CL_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$CL_LOG"; }
+
+        # links as the collected lists write them (taken from such a list)
+        cat > "$work/odd.txt" << 'LIST'
+vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@a.example.com:443?security=false&type=tcp&sni=a.example.com#false
+vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@b.example.com:443?security=&type=tcp#empty
+vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@c.example.com:80?type=ws&path=%2F&host=c.example.com#nosecurity
+vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@d.example.com:443?security=none&type=tcp#none
+vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@e.example.com:443?security=tls&type=tcp&sni=e.example.com#tls
+trojan://secret@f.example.com:443?type=tcp&sni=f.example.com#trojan-default
+trojan://secret@g.example.com:443?security=none&type=tcp#trojan-none
+vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@h.example.com:443?security=weird&type=tcp#weird
+LIST
+        # section settings come from a real uci config
+        : > /etc/config/netshift
+        uci -q set netshift.cl=section
+        uci -q commit netshift
+
+        n="$work/n.json"
+        normalize_subscription_to_singbox "$work/odd.txt" "$n" "cl" > /dev/null 2>&1
+        echo "count=$(jq -c '.outbounds | length' "$n")"
+        tls() { jq -c --arg k "$1" '[.outbounds[] | select(.server == $k) | (.tls // {}) | .enabled // false] | first' "$n"; }
+        echo "false=$(tls a.example.com) empty=$(tls b.example.com) nosec=$(tls c.example.com) none=$(tls d.example.com) tls=$(tls e.example.com)"
+        echo "trojan-default=$(tls f.example.com) trojan-none=$(tls g.example.com)"
+        echo "errors-logged=$(grep -c '^\[error\]' "$CL_LOG")"
+        echo "weird-warned=$(grep -c "unknown security 'weird'" "$CL_LOG")"
+
+        # the cap on servers
+        i=0; : > "$work/many.txt"
+        while [ "$i" -lt 12 ]; do
+            echo "vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@s$i.example.com:443?security=tls&type=tcp&sni=s$i.example.com#n$i" >> "$work/many.txt"
+            i=$((i + 1))
+        done
+        uci -q set netshift.cl.subscription_max_nodes=5; uci -q commit netshift
+        : > "$CL_LOG"
+        normalize_subscription_to_singbox "$work/many.txt" "$work/m.json" "cl" > /dev/null 2>&1
+        echo "cap-5=$(jq -c '.outbounds | length' "$work/m.json") warned=$(grep -c 'only the first 5' "$CL_LOG")"
+        uci -q set netshift.cl.subscription_max_nodes=0; uci -q commit netshift
+        normalize_subscription_to_singbox "$work/many.txt" "$work/m.json" "cl" > /dev/null 2>&1
+        echo "cap-0=$(jq -c '.outbounds | length' "$work/m.json")"
+        uci -q delete netshift.cl.subscription_max_nodes; uci -q commit netshift
+        SUBSCRIPTION_MAX_NODES_DEFAULT=7
+        normalize_subscription_to_singbox "$work/many.txt" "$work/m.json" "cl" > /dev/null 2>&1
+        echo "cap-default=$(jq -c '.outbounds | length' "$work/m.json")"
+
+        # lists of feeds
+        feeds() { fetch_feed_list "$1" | jq -c "$2"; }
+        updates_http_get() { cat "$FEED_BODY"; }
+        printf '%s\n' '# the sources' 'https://raw.githubusercontent.com/a/b/main/one.txt' '  https://github.com/c/d/raw/main/two.txt  ' 'not a url' 'https://raw.githubusercontent.com/a/b/main/one.txt' 'ftp://x/y' > "$work/list.txt"
+        FEED_BODY="$work/list.txt"
+        echo "txt=$(feeds https://example.com/urls.txt '[.ok, .urls]')"
+        printf '%s' '{"https://raw.githubusercontent.com/a/b/v.txt": {"Num": 4, "Source": "a/b"}, "https://github.com/c/d/raw/main/w": {"Num": 5}}' > "$work/list.json"
+        FEED_BODY="$work/list.json"
+        echo "json=$(feeds https://example.com/urls.json '[.ok, .urls]')"
+        printf '%s' '["https://a.example.com/x", 5, "https://b.example.com/y", "junk"]' > "$work/list2.json"
+        FEED_BODY="$work/list2.json"
+        echo "json-array=$(feeds https://example.com/a.json '.urls')"
+        printf 'vless://only-links@example.com:443#x\n' > "$work/links.txt"
+        FEED_BODY="$work/links.txt"
+        echo "no-feeds=$(feeds https://example.com/l.txt '[.ok, .error]')"
+        updates_http_get() { return 1; }
+        echo "download-fails=$(feeds https://example.com/l.txt '[.ok, .error]')"
+        echo "bad-address=$(feeds 'ftp://example.com/l.txt' '[.ok, .error]')"
+        i=0; : > "$work/big.txt"; while [ "$i" -lt 250 ]; do echo "https://example.com/f$i" >> "$work/big.txt"; i=$((i + 1)); done
+        updates_http_get() { cat "$work/big.txt"; }
+        echo "capped=$(feeds https://example.com/big.txt '.urls | length')"
+    )"
+
+    _cl() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _cl "every link of the list becomes an outbound" "count=8"
+    _cl "security=false, empty and absent mean no TLS; tls means TLS" 'false=false empty=false nosec=false none=false tls=true'
+    _cl "a trojan link without security has TLS, with none it has not" 'trojan-default=true trojan-none=false'
+    _cl "odd values are no error of the service" "errors-logged=0"
+    _cl "an unknown value is told as a warning" "weird-warned=1"
+    _cl "only the first servers of a feed are used, and it is said" "cap-5=5 warned=1"
+    _cl "0 takes all of them" "cap-0=12"
+    _cl "without a setting the default cap applies" "cap-default=7"
+    _cl "a text list gives its addresses once, comments and junk left out" 'txt=[true,["https://raw.githubusercontent.com/a/b/main/one.txt","https://github.com/c/d/raw/main/two.txt"]]'
+    _cl "a JSON object gives its keys" 'json=[true,["https://raw.githubusercontent.com/a/b/v.txt","https://github.com/c/d/raw/main/w"]]'
+    _cl "a JSON array gives its strings" 'json-array=["https://a.example.com/x","https://b.example.com/y"]'
+    _cl "a list of links is not a list of feeds" 'no-feeds=[false,"no feed addresses were found in the list"]'
+    _cl "a failed download is an error" 'download-fails=[false,"the list could not be downloaded"]'
+    _cl "an address that is not http(s) is refused" 'bad-address=[false,"the address of the list must start with http:// or https://"]'
+    _cl "at most 200 feeds are taken" "capped=200"
+    rm -rf "$work" /etc/config/netshift
+}
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -20986,6 +21111,7 @@ main() {
             test_port_rules
             test_config_lint
             test_naive
+            test_collected_lists
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -21070,9 +21196,10 @@ main() {
         portrules)   test_port_rules ;;
         configlint)  test_config_lint ;;
         naive)       test_naive ;;
+        collected)   test_collected_lists ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive collected"
             exit 1
             ;;
     esac

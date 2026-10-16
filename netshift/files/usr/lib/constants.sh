@@ -418,3 +418,7 @@ PIN_GUARD_EVENTS_FILE="/tmp/netshift-pin-guard.json"
 PIN_GUARD_EVENTS_KEEP=10
 # URLTest interval standing for "only at start" (urltest_check_interval 'off')
 URLTEST_INTERVAL_OFF="8760h"
+
+# Servers of one subscription feed that are used when the section does not say
+# (subscription_max_nodes; 0 means all of them)
+SUBSCRIPTION_MAX_NODES_DEFAULT=500
