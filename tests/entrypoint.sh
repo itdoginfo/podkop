@@ -20892,6 +20892,64 @@ test_naive() {
     rm -rf "$work"
 }
 
+test_telegram_fallback() {
+    header "Telegram ranges when the community list cannot be downloaded"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ]; then
+        fail "netshift bin not found"
+        return
+    fi
+
+    local work="/tmp/netshift-tgfallback-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        TG_LOG="$work/log"; : > "$TG_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$TG_LOG"; }
+        eval "$(awk '/^import_community_service_subnet_list_handler\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        get_service_proxy_address() { :; }
+        TG_DOWNLOAD_RC=1
+        download_to_file() { [ "$TG_DOWNLOAD_RC" = 0 ] && printf '10.0.0.0/8\n' > "$2"; return "$TG_DOWNLOAD_RC"; }
+        populate_netshift_subnets_from_file() { cp "$1" "$work/populated"; echo "$1" > "$work/populated.path"; }
+
+        rm -f "$work/populated"
+        import_community_service_subnet_list_handler telegram
+        echo "telegram-fallback-rc=$?"
+        echo "telegram-fallback-ranges=$(tr '\n' ' ' < "$work/populated" | sed 's/ $//')"
+        echo "telegram-fallback-warned=$(grep -c 'built-in Telegram ranges' "$TG_LOG")"
+        echo "telegram-tmp-removed=$([ -e "$(cat "$work/populated.path")" ] && echo no || echo yes)"
+
+        # a list that was downloaded wins
+        TG_DOWNLOAD_RC=0; rm -f "$work/populated"
+        import_community_service_subnet_list_handler telegram
+        echo "telegram-downloaded=$(cat "$work/populated")"
+
+        # another service has no built-in ranges: the failure stays a failure
+        TG_DOWNLOAD_RC=1; rm -f "$work/populated"; : > "$TG_LOG"
+        import_community_service_subnet_list_handler twitter
+        echo "twitter-failure-rc=$? populated=$([ -e "$work/populated" ] && echo yes || echo no) logged=$(grep -c 'Download twitter list failed' "$TG_LOG")"
+    )"
+
+    _tg() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _tg "a failed download of the telegram list is not a failure" "telegram-fallback-rc=0"
+    _tg "the official Telegram ranges are used" "telegram-fallback-ranges=91.105.192.0/23 91.108.4.0/22 91.108.8.0/22 91.108.12.0/22 91.108.16.0/22 91.108.20.0/22 91.108.56.0/22 149.154.160.0/20 185.76.151.0/24"
+    _tg "...and it is said in the log" "telegram-fallback-warned=1"
+    _tg "the temporary file is removed" "telegram-tmp-removed=yes"
+    _tg "a downloaded list is used as it is" "telegram-downloaded=10.0.0.0/8"
+    _tg "another service whose list cannot be downloaded still fails" "twitter-failure-rc=1 populated=no logged=1"
+    rm -rf "$work"
+}
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -20986,6 +21044,7 @@ main() {
             test_port_rules
             test_config_lint
             test_naive
+            test_telegram_fallback
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -21070,6 +21129,7 @@ main() {
         portrules)   test_port_rules ;;
         configlint)  test_config_lint ;;
         naive)       test_naive ;;
+        tgfallback)  test_telegram_fallback ;;
         *)
             echo "Unknown test: $target"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive"
