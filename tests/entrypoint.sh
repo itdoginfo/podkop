@@ -20892,6 +20892,169 @@ test_naive() {
     rm -rf "$work"
 }
 
+# ─────────────────────────────────────────────────────────────────
+# Test: the NaiveProxy client as a component (check, install, remove)
+# ─────────────────────────────────────────────────────────────────
+test_naive_component() {
+    header "NaiveProxy client component"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/naive.sh" ] || [ ! -r "$lib/updater.sh" ]; then
+        fail "naive.sh / updater.sh not found"
+        return
+    fi
+
+    local work="/tmp/netshift-naivecomp-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin" "$work/fixture/naiveproxy-v1.2.3-4-openwrt-x86_64" "$work/state"
+
+    # the "archive": a tar.gz that the test's xz stand-in unpacks
+    printf '#!/bin/sh\necho "naive 1.2.3"\n' > "$work/fixture/naiveproxy-v1.2.3-4-openwrt-x86_64/naive"
+    chmod +x "$work/fixture/naiveproxy-v1.2.3-4-openwrt-x86_64/naive"
+    tar -czf "$work/archive.tar.xz" -C "$work/fixture" naiveproxy-v1.2.3-4-openwrt-x86_64
+    local good_sum
+    good_sum="$(sha256sum "$work/archive.tar.xz" | awk '{print $1}')"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        NC_LOG="$work/log"; : > "$NC_LOG"
+        GOOD_SUM="$good_sum"
+        ARCHIVE="$work/archive.tar.xz"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$NC_LOG"; }
+        NETSHIFT_STATE_DIR="$work/state"
+        . "$lib/updater.sh"
+        . "$lib/naive.sh"
+        NAIVE_BIN="$work/bin/naive"
+        NAIVE_VERSION_FILE="$work/state/naive.version"
+        NAIVE_LIST_FILE="$work/naive.list"
+        NAIVE_RUNNING_FILE="$work/naive.running"
+        NAIVE_INIT="$work/no-such-init"
+        PATH="$work/bin:$PATH"
+
+        NC_ARCH=x86_64
+        updates_read_openwrt_release_value() { echo "$NC_ARCH"; }
+        NC_TAG=v1.2.3-4
+        
+        
+        release() {
+            jq -n -c --arg tag "$NC_TAG" --arg digest "$NC_DIGEST" '{tag_name: $tag, assets: [
+                {name: ("naiveproxy-" + $tag + "-openwrt-x86_64.tar.xz"), browser_download_url: "https://example.invalid/a.tar.xz", digest: $digest},
+                {name: ("naiveproxy-" + $tag + "-openwrt-aarch64_generic.tar.xz"), browser_download_url: "https://example.invalid/b.tar.xz"}]}'
+        }
+        updates_http_get() { release; }
+        updates_download_to_file() { cp "$ARCHIVE" "$2"; }
+        xz() { [ "$1" = "-dc" ] && gzip -dc "$2"; }
+        pidof() { return 1; }
+        updates_restart_netshift() { echo restarted >> "$NC_LOG"; }
+
+        j() { jq -c "$1"; }
+
+        # nothing installed yet
+        NC_DIGEST="sha256:$GOOD_SUM"
+        echo "check-none=$(naive_component_check | j '[.success, .current_version, .latest_version, .status]')"
+
+        # arch mapping
+        for a in aarch64_cortex-a76 i386_pentium4 mipsel_74kc riscv64_riscv64 arm_cortex-a7_neon-vfpv4 x86_64; do
+            NC_ARCH="$a"; printf 'arch[%s]=%s\n' "$a" "$(naive_openwrt_arch)"
+        done
+        NC_ARCH=x86_64
+
+        # a wrong checksum: nothing is installed
+        NC_DIGEST="sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        echo "bad-sum=$(naive_component_install | j '[.success, .message]')"
+        echo "bad-sum-installed=$([ -e "$NAIVE_BIN" ] && echo yes || echo no)"
+        NC_DIGEST="sha256:$GOOD_SUM"
+
+        # no build for the architecture
+        NC_ARCH=mips_24kc
+        echo "no-arch=$(naive_component_install | j '[.success, (.message | contains("mips_24kc"))]')"
+        NC_ARCH=x86_64
+
+        # xz missing and not installable
+        unset -f xz
+        opkg() { return 1; }
+        echo "no-xz=$(naive_component_install | j '[.success, .message]')"
+        xz() { [ "$1" = "-dc" ] && gzip -dc "$2"; }
+
+        # the install
+        out="$(naive_component_install)"
+        echo "install=$(printf '%s' "$out" | j '[.success, .version]')"
+        echo "installed=$([ -x "$NAIVE_BIN" ] && echo yes || echo no) version-file=$(cat "$NAIVE_VERSION_FILE")"
+        echo "binary-works=$("$NAIVE_BIN" --version)"
+        echo "restart-when-stopped=$(grep -c restarted "$NC_LOG")"
+        echo "check-latest=$(naive_component_check | j '[.current_version, .status]')"
+        NC_TAG=v1.2.4-1
+        echo "check-outdated=$(naive_component_check | j '[.current_version, .latest_version, .status]')"
+        NC_TAG=v1.2.3-4
+
+        # a client put there by hand: its release is not known
+        rm -f "$NAIVE_VERSION_FILE"
+        echo "check-by-hand=$(naive_component_check | j '[.current_version, .status]')"
+        printf '1.2.3-4\n' > "$NAIVE_VERSION_FILE"
+
+        # a binary that does not start (another architecture)
+        rm -f "$NAIVE_BIN" "$NAIVE_VERSION_FILE"
+        printf '#!/nonexistent/interpreter\n' > "$work/fixture/naiveproxy-v1.2.3-4-openwrt-x86_64/naive"
+        tar -czf "$ARCHIVE" -C "$work/fixture" naiveproxy-v1.2.3-4-openwrt-x86_64
+        NC_DIGEST="sha256:$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+        echo "wrong-arch=$(naive_component_install | j '[.success, .message]')"
+        echo "wrong-arch-installed=$([ -e "$NAIVE_BIN" ] && echo yes || echo no)"
+
+        # running NetShift is restarted after an install and a removal
+        printf '#!/bin/sh\necho "naive 1.2.3"\n' > "$work/fixture/naiveproxy-v1.2.3-4-openwrt-x86_64/naive"
+        tar -czf "$ARCHIVE" -C "$work/fixture" naiveproxy-v1.2.3-4-openwrt-x86_64
+        NC_DIGEST="sha256:$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+        pidof() { return 0; }
+        : > "$NC_LOG"
+        naive_component_install > /dev/null
+        echo "restart-when-running=$(grep -c restarted "$NC_LOG")"
+        : > "$NC_LOG"
+        echo "remove=$(naive_component_remove | j '[.success]') left=$([ -e "$NAIVE_BIN" ] && echo yes || echo no)/$([ -e "$NAIVE_VERSION_FILE" ] && echo yes || echo no) restarted=$(grep -c restarted "$NC_LOG")"
+        echo "check-after-remove=$(naive_component_check | j '[.current_version, .status]')"
+
+        # the dispatcher knows the actions
+        component_action naive check_update | j '.status' | sed 's/^/dispatch-check=/'
+    )"
+
+    _nc() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _nc "not installed: the latest release is offered" 'check-none=[true,"not installed","1.2.3-4","not_installed"]'
+    _nc "an Aarch64 A76 uses the generic build" "arch[aarch64_cortex-a76]=aarch64_generic"
+    _nc "a Pentium 4 uses the x86 build" "arch[i386_pentium4]=x86"
+    _nc "a 74Kc MIPS uses the 24Kc build" "arch[mipsel_74kc]=mipsel_24kc"
+    _nc "riscv64 has its own build" "arch[riscv64_riscv64]=riscv64"
+    _nc "other names stay" "arch[arm_cortex-a7_neon-vfpv4]=arm_cortex-a7_neon-vfpv4"
+    _nc "x86_64 stays" "arch[x86_64]=x86_64"
+    _nc "a wrong checksum stops the install" 'bad-sum=[false,"The downloaded archive does not match the checksum of the release"]'
+    _nc "and leaves nothing behind" "bad-sum-installed=no"
+    _nc "an architecture without a build is named" "no-arch=[false,true]"
+    _nc "without xz (and no way to get it) the install stops" 'no-xz=[false,"The xz package is needed to unpack the archive and could not be installed"]'
+    _nc "the install reports the release" 'install=[true,"1.2.3-4"]'
+    _nc "the binary and the version file are in place" "installed=yes version-file=1.2.3-4"
+    _nc "the binary runs" "binary-works=naive 1.2.3"
+    _nc "a stopped NetShift is not restarted" "restart-when-stopped=0"
+    _nc "an installed client is the latest" 'check-latest=["1.2.3-4","latest"]'
+    _nc "a newer release is told" 'check-outdated=["1.2.3-4","1.2.4-1","outdated"]'
+    _nc "a client that was put there by hand is offered an update" 'check-by-hand=["unknown","outdated"]'
+    _nc "a binary that does not start is refused" 'wrong-arch=[false,"The NaiveProxy binary does not run on this device"]'
+    _nc "and is not installed" "wrong-arch-installed=no"
+    _nc "a running NetShift is restarted after an install" "restart-when-running=1"
+    _nc "removal deletes the binary and the version file, restarting NetShift" "remove=[true] left=no/no restarted=1"
+    _nc "after the removal the client is not installed" 'check-after-remove=["not installed","not_installed"]'
+    _nc "component_action knows naive" 'dispatch-check="not_installed"'
+    rm -rf "$work"
+}
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -20986,6 +21149,7 @@ main() {
             test_port_rules
             test_config_lint
             test_naive
+            test_naive_component
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -21070,9 +21234,10 @@ main() {
         portrules)   test_port_rules ;;
         configlint)  test_config_lint ;;
         naive)       test_naive ;;
+        naivecomp)   test_naive_component ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive naivecomp"
             exit 1
             ;;
     esac

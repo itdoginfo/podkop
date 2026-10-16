@@ -192,7 +192,7 @@ sing_box_cf_add_proxy_outbound() {
             naive_port="$(naive_register "$naive_proxy_url")"
             config=$(sing_box_cm_add_socks_outbound "$config" "$tag" "127.0.0.1" "$naive_port" "5" "" "" "" "")
         else
-            log "Section '$section': NaiveProxy needs the naive client (klzgrad/naiveproxy; on OpenWrt the 'naiveproxy' package of the Passwall feed, or the binary from its releases as /usr/bin/naive) or a sing-box core built with the naive outbound; skipping the link." "error"
+            log "Section '$section': NaiveProxy needs the naive client (install it in the Component Manager, or put the binary of klzgrad/naiveproxy at /usr/bin/naive) or a sing-box core built with the naive outbound; skipping the link." "error"
             echo "$config"
             return 1
         fi

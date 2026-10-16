@@ -3177,6 +3177,15 @@ component_action() {
     sing_box:check_update_stable)
         updates_check_sing_box_stable
         ;;
+    naive:check_update)
+        naive_component_check
+        ;;
+    naive:install)
+        naive_component_install
+        ;;
+    naive:remove)
+        naive_component_remove
+        ;;
     netshift:check_update)
         updates_check_netshift
         ;;

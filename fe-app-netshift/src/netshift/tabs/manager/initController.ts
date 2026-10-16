@@ -34,6 +34,7 @@ async function fetchSystemInfo() {
         sing_box_lite_upx: systemInfo.data.sing_box_lite_upx === 1 ? 1 : 0,
         sing_box_lite_supported:
           systemInfo.data.sing_box_lite_supported === 1 ? 1 : 0,
+        naive_version: systemInfo.data.naive_version || 'not installed',
       },
     });
   } else {
@@ -50,6 +51,7 @@ async function fetchSystemInfo() {
         sing_box_variant: 'stock',
         sing_box_lite_upx: 0,
         sing_box_lite_supported: 0,
+        naive_version: 'not installed',
       },
     });
   }
@@ -226,6 +228,66 @@ async function runSingBoxMutation(
   }
 }
 
+// NaiveProxy client: check, install/update, remove.
+async function runNaiveCheck(button: ManagerActionDescriptor) {
+  setActionLoading(button.loadingKey, true);
+
+  try {
+    const parsed = await NetShiftShellMethods.naiveCheckUpdate();
+
+    if (!parsed.success) {
+      showToast(parsed.message || _('Failed to execute!'), 'error');
+      return;
+    }
+
+    const status = parsed.status ?? null;
+
+    setCheckResult('naive', status, parsed.latest_version || '');
+    showToast(getCheckToastMessage(status), 'success');
+  } catch (error) {
+    logger.error('[MANAGER]', 'runNaiveCheck failed', error);
+    showToast(_('Failed to execute!'), 'error');
+  } finally {
+    setActionLoading(button.loadingKey, false);
+  }
+}
+
+async function runNaiveAction(
+  button: ManagerActionDescriptor,
+  action: 'install' | 'remove',
+) {
+  setActionLoading(button.loadingKey, true);
+  showToast(
+    action === 'install'
+      ? _('Installing the NaiveProxy client, this may take a minute…')
+      : _('Removing the NaiveProxy client…'),
+    'info',
+  );
+
+  try {
+    const result = await NetShiftShellMethods.naiveComponentAction(action);
+
+    if (result.success) {
+      showToast(
+        action === 'install'
+          ? `${_('NaiveProxy client installed, version:')} ${result.version || ''}`.trim()
+          : _('NaiveProxy client removed'),
+        'success',
+      );
+      resetCheckResult('naive');
+      await fetchSystemInfo();
+    } else {
+      logger.error('[MANAGER]', 'runNaiveAction failed', result);
+      showToast(result.message || _('Failed to execute!'), 'error');
+    }
+  } catch (error) {
+    logger.error('[MANAGER]', 'runNaiveAction failed', error);
+    showToast(_('Failed to execute!'), 'error');
+  } finally {
+    setActionLoading(button.loadingKey, false);
+  }
+}
+
 function reloadPageAfterSelfUpdate() {
   window.setTimeout(() => {
     window.location.reload();
@@ -272,6 +334,21 @@ function handleManagerAction(
 
   if (button.kind === 'check_netshift') {
     void runNetshiftCheck(button);
+    return;
+  }
+
+  if (button.kind === 'naive_check') {
+    void runNaiveCheck(button);
+    return;
+  }
+
+  if (button.kind === 'naive_install') {
+    void runNaiveAction(button, 'install');
+    return;
+  }
+
+  if (button.kind === 'naive_remove') {
+    void runNaiveAction(button, 'remove');
     return;
   }
 
@@ -364,7 +441,9 @@ function renderComponentCard(card: ManagerCardDescriptor) {
         return renderButton({
           text: action.text,
           icon:
-            action.kind === 'check' || action.kind === 'check_netshift'
+            action.kind === 'check' ||
+            action.kind === 'check_netshift' ||
+            action.kind === 'naive_check'
               ? renderSearchIcon24
               : renderRotateCcwIcon24,
           loading,
@@ -405,6 +484,7 @@ function renderManagerComponents() {
       sing_box_variant: diagnosticsSystemInfo.sing_box_variant,
       sing_box_lite_upx: diagnosticsSystemInfo.sing_box_lite_upx,
       sing_box_lite_supported: diagnosticsSystemInfo.sing_box_lite_supported,
+      naive_version: diagnosticsSystemInfo.naive_version,
     },
     managerChecks,
   ).map(renderComponentCard);

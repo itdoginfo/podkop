@@ -224,10 +224,11 @@ msgstr ""
 msgid "Check"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:196
-#: src/netshift/tabs/manager/cards.ts:233
-#: src/netshift/tabs/manager/cards.ts:279
-#: src/netshift/tabs/manager/cards.ts:334
+#: src/netshift/tabs/manager/cards.ts:204
+#: src/netshift/tabs/manager/cards.ts:241
+#: src/netshift/tabs/manager/cards.ts:287
+#: src/netshift/tabs/manager/cards.ts:342
+#: src/netshift/tabs/manager/cards.ts:405
 msgid "Check update"
 msgstr ""
 
@@ -274,6 +275,10 @@ msgstr ""
 msgid "Clearing subscription cache and re-downloading… this may take a minute"
 msgstr ""
 
+#: src/netshift/tabs/manager/cards.ts:419
+msgid "Client for naive+https:// links (~4 MB), used beside sing-box; not needed with a core that has the naive outbound"
+msgstr ""
+
 #: src/partials/modal/renderModal.ts:26
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:93
 msgid "Close"
@@ -311,7 +316,7 @@ msgstr ""
 msgid "Component Manager"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:361
+#: src/netshift/tabs/manager/cards.ts:369
 msgid "Compressed build: uses more RAM at startup"
 msgstr ""
 
@@ -426,7 +431,7 @@ msgstr ""
 msgid "Detect the EDNS Client Subnet from the WAN"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:153
+#: src/netshift/tabs/manager/cards.ts:161
 msgid "Dev"
 msgstr ""
 
@@ -837,7 +842,7 @@ msgstr ""
 msgid "Expires"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:295
+#: src/netshift/tabs/manager/cards.ts:303
 msgid "Extended core with all features (~105 MB)"
 msgstr ""
 
@@ -845,7 +850,7 @@ msgstr ""
 msgid "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered."
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:387
+#: src/netshift/methods/shell/index.ts:451
 #: src/netshift/tabs/diagnostic/initController.ts:354
 #: src/netshift/tabs/diagnostic/initController.ts:358
 msgid "Failed to clear subscription cache"
@@ -861,14 +866,18 @@ msgstr ""
 #: src/netshift/tabs/diagnostic/initController.ts:277
 #: src/netshift/tabs/diagnostic/initController.ts:314
 #: src/netshift/tabs/diagnostic/initController.ts:318
-#: src/netshift/tabs/manager/initController.ts:135
-#: src/netshift/tabs/manager/initController.ts:145
-#: src/netshift/tabs/manager/initController.ts:163
-#: src/netshift/tabs/manager/initController.ts:173
-#: src/netshift/tabs/manager/initController.ts:206
-#: src/netshift/tabs/manager/initController.ts:223
-#: src/netshift/tabs/manager/initController.ts:256
-#: src/netshift/tabs/manager/initController.ts:260
+#: src/netshift/tabs/manager/initController.ts:137
+#: src/netshift/tabs/manager/initController.ts:147
+#: src/netshift/tabs/manager/initController.ts:165
+#: src/netshift/tabs/manager/initController.ts:175
+#: src/netshift/tabs/manager/initController.ts:208
+#: src/netshift/tabs/manager/initController.ts:225
+#: src/netshift/tabs/manager/initController.ts:239
+#: src/netshift/tabs/manager/initController.ts:249
+#: src/netshift/tabs/manager/initController.ts:281
+#: src/netshift/tabs/manager/initController.ts:285
+#: src/netshift/tabs/manager/initController.ts:318
+#: src/netshift/tabs/manager/initController.ts:322
 msgid "Failed to execute!"
 msgstr ""
 
@@ -990,15 +999,24 @@ msgstr ""
 msgid "Include servers by transport"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:188
-#: src/netshift/tabs/manager/cards.ts:226
-#: src/netshift/tabs/manager/cards.ts:272
-#: src/netshift/tabs/manager/cards.ts:327
+#: src/netshift/tabs/manager/cards.ts:390
+msgid "Install"
+msgstr ""
+
+#: src/netshift/tabs/manager/cards.ts:196
+#: src/netshift/tabs/manager/cards.ts:234
+#: src/netshift/tabs/manager/cards.ts:280
+#: src/netshift/tabs/manager/cards.ts:335
+#: src/netshift/tabs/manager/cards.ts:398
 msgid "Install %s"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:105
+#: src/netshift/tabs/manager/initController.ts:107
 msgid "Installed version is newer than release"
+msgstr ""
+
+#: src/netshift/tabs/manager/initController.ts:262
+msgid "Installing the NaiveProxy client, this may take a minute…"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:651
@@ -1339,11 +1357,11 @@ msgid "Latency test URL"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:48
-#: src/netshift/tabs/manager/cards.ts:142
+#: src/netshift/tabs/manager/cards.ts:150
 msgid "Latest"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:112
+#: src/netshift/tabs/manager/initController.ts:114
 msgid "Latest version is installed"
 msgstr ""
 
@@ -1351,7 +1369,7 @@ msgstr ""
 msgid "Leave a dead server chosen by hand"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:350
+#: src/netshift/tabs/manager/cards.ts:358
 msgid "Light build of the extended core for low-flash devices (~10 MB instead of ~105 MB)"
 msgstr ""
 
@@ -1461,6 +1479,14 @@ msgstr ""
 msgid "Must be a number in the range of 50 - 1000"
 msgstr ""
 
+#: src/netshift/tabs/manager/initController.ts:273
+msgid "NaiveProxy client installed, version:"
+msgstr ""
+
+#: src/netshift/tabs/manager/initController.ts:274
+msgid "NaiveProxy client removed"
+msgstr ""
+
 #: src/netshift/tabs/dashboard/initController.ts:560
 #: src/netshift/tabs/dashboard/initController.ts:701
 msgid "NetShift"
@@ -1470,7 +1496,7 @@ msgstr ""
 msgid "NetShift Settings"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:248
+#: src/netshift/tabs/manager/initController.ts:310
 msgid "NetShift updated, version:"
 msgstr ""
 
@@ -1518,7 +1544,7 @@ msgstr ""
 msgid "Not available"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:359
+#: src/netshift/tabs/manager/cards.ts:367
 msgid "Not available for your architecture"
 msgstr ""
 
@@ -1526,11 +1552,12 @@ msgstr ""
 msgid "Not implement yet"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:150
-#: src/netshift/tabs/manager/cards.ts:250
-#: src/netshift/tabs/manager/cards.ts:296
-#: src/netshift/tabs/manager/cards.ts:353
-#: src/netshift/tabs/manager/initController.ts:109
+#: src/netshift/tabs/manager/cards.ts:158
+#: src/netshift/tabs/manager/cards.ts:258
+#: src/netshift/tabs/manager/cards.ts:304
+#: src/netshift/tabs/manager/cards.ts:361
+#: src/netshift/tabs/manager/cards.ts:426
+#: src/netshift/tabs/manager/initController.ts:111
 msgid "Not installed"
 msgstr ""
 
@@ -1605,7 +1632,7 @@ msgid "Outbound Configuration"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:38
-#: src/netshift/tabs/manager/cards.ts:146
+#: src/netshift/tabs/manager/cards.ts:154
 msgid "Outdated"
 msgstr ""
 
@@ -1724,6 +1751,14 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1258
 msgid "Remote Subnet Lists"
+msgstr ""
+
+#: src/netshift/tabs/manager/cards.ts:412
+msgid "Remove"
+msgstr ""
+
+#: src/netshift/tabs/manager/initController.ts:263
+msgid "Removing the NaiveProxy client…"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1398
@@ -1931,7 +1966,7 @@ msgstr ""
 msgid "Selector Proxy Links (one per line)"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:462
+#: src/netshift/methods/shell/index.ts:526
 msgid "Self-update failed"
 msgstr ""
 
@@ -1982,7 +2017,7 @@ msgstr ""
 msgid "Sing-box autostart disabled"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:199
+#: src/netshift/tabs/manager/initController.ts:201
 msgid "Sing-box core changed, version:"
 msgstr ""
 
@@ -2112,19 +2147,19 @@ msgstr ""
 msgid "Successfully copied!"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:287
+#: src/netshift/tabs/manager/cards.ts:295
 msgid "Switch to extended"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:342
+#: src/netshift/tabs/manager/cards.ts:350
 msgid "Switch to lite"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:242
+#: src/netshift/tabs/manager/cards.ts:250
 msgid "Switch to stable"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:184
+#: src/netshift/tabs/manager/initController.ts:186
 msgid "Switching sing-box core, this may take a few minutes…"
 msgstr ""
 
@@ -2364,12 +2399,13 @@ msgstr ""
 #: src/netshift/tabs/diagnostic/initController.ts:49
 #: src/netshift/tabs/diagnostic/initController.ts:50
 #: src/netshift/tabs/diagnostic/initController.ts:51
-#: src/netshift/tabs/manager/initController.ts:43
+#: src/netshift/tabs/manager/cards.ts:424
 #: src/netshift/tabs/manager/initController.ts:44
 #: src/netshift/tabs/manager/initController.ts:45
 #: src/netshift/tabs/manager/initController.ts:46
 #: src/netshift/tabs/manager/initController.ts:47
 #: src/netshift/tabs/manager/initController.ts:48
+#: src/netshift/tabs/manager/initController.ts:49
 msgid "unknown"
 msgstr ""
 
@@ -2381,13 +2417,14 @@ msgstr ""
 msgid "Unknown error"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:226
-#: src/netshift/tabs/manager/cards.ts:272
-#: src/netshift/tabs/manager/cards.ts:327
+#: src/netshift/tabs/manager/cards.ts:234
+#: src/netshift/tabs/manager/cards.ts:280
+#: src/netshift/tabs/manager/cards.ts:335
+#: src/netshift/tabs/manager/cards.ts:399
 msgid "Update"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:101
+#: src/netshift/tabs/manager/initController.ts:103
 msgid "Update is available"
 msgstr ""
 
@@ -2395,7 +2432,7 @@ msgstr ""
 msgid "Update it in the Component Manager tab."
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:189
+#: src/netshift/tabs/manager/cards.ts:197
 msgid "Update NetShift"
 msgstr ""
 
@@ -2407,7 +2444,7 @@ msgstr ""
 msgid "Updating all subscriptions… this may take a minute"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:239
+#: src/netshift/tabs/manager/initController.ts:301
 msgid "Updating NetShift, this may take a few minutes; the page will reload…"
 msgstr ""
 
@@ -2420,11 +2457,11 @@ msgstr ""
 msgid "Upstream and bootstrap DNS resolvers, and optional DNS-over-proxy"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:357
+#: src/netshift/tabs/manager/cards.ts:365
 msgid "UPX"
 msgstr ""
 
-#: src/netshift/tabs/manager/cards.ts:122
+#: src/netshift/tabs/manager/cards.ts:130
 msgid "UPX-compressed core: a RAM spike is possible at startup; on devices with less than 256 MB of RAM, enable zram swap"
 msgstr ""
 
@@ -2545,7 +2582,7 @@ msgstr ""
 msgid "Validation errors:"
 msgstr ""
 
-#: src/netshift/tabs/manager/initController.ts:350
+#: src/netshift/tabs/manager/initController.ts:427
 msgid "Version"
 msgstr ""
 

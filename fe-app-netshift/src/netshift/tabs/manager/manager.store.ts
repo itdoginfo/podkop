@@ -13,11 +13,14 @@ export const initialManagerStore: Pick<
     singBoxExtendedAction: { loading: false },
     singBoxExtendedLiteCheck: { loading: false },
     singBoxExtendedLiteAction: { loading: false },
+    naiveCheck: { loading: false },
+    naiveAction: { loading: false },
   },
   managerChecks: {
     netshift: { status: null, latest_version: '' },
     sing_box_stock: { status: null, latest_version: '' },
     sing_box_extended: { status: null, latest_version: '' },
     sing_box_extended_lite: { status: null, latest_version: '' },
+    naive: { status: null, latest_version: '' },
   },
 };
