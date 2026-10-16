@@ -401,8 +401,54 @@ sing_box_cf_add_proxy_outbound() {
         upload_mbps=$(url_get_query_param "$url" "upmbps")
         download_mbps=$(url_get_query_param "$url" "downmbps")
 
+        # Port hopping: the link's mport (or ports) is a list of ports and ranges the client hops
+        # among, with the port of the link among them; hop-interval is the pause in seconds. A
+        # value that is not a port list is ignored, the link then connects to its own port.
+        local hy2_hop_ports hy2_hop_interval hy2_hop_value=""
+        hy2_hop_ports=$(url_get_query_param "$url" "mport")
+        [ -n "$hy2_hop_ports" ] || hy2_hop_ports=$(url_get_query_param "$url" "ports")
+        hy2_hop_interval=$(url_get_query_param "$url" "hop-interval")
+        [ -n "$hy2_hop_interval" ] || hy2_hop_interval=$(url_get_query_param "$url" "hop_interval")
+        if [ -n "$hy2_hop_ports" ]; then
+            # a range may be written with ":" and a list with spaces ("+" in a link): the
+            # same forms parse_port_list takes
+            hy2_hop_ports="$(printf '%s' "$hy2_hop_ports" | tr -d ' ' | tr ':' '-')"
+            if _hy2_valid_hop_ports "$hy2_hop_ports"; then
+                case "$port" in
+                *","* | *"-"*)
+                    log "The link for '$tag' has a port range of its own; its mport ('$hy2_hop_ports') is not used" "warn"
+                    ;;
+                "") port="$hy2_hop_ports" ;;
+                *) port="$(_hy2_dedupe_ports "$port,$hy2_hop_ports")" ;;
+                esac
+                # leading zeros ("00010") are the same number of seconds
+                case "$hy2_hop_interval" in
+                *[!0-9]*) ;;
+                ?*)
+                    hy2_hop_interval="${hy2_hop_interval#"${hy2_hop_interval%%[!0]*}"}"
+                    [ -n "$hy2_hop_interval" ] || hy2_hop_interval=0
+                    ;;
+                esac
+                case "$hy2_hop_interval" in
+                "") ;;
+                *[!0-9]* | ?????*)
+                    log "The link for '$tag' has a hop interval ('$hy2_hop_interval') that is not a number of seconds; the default is used" "warn"
+                    ;;
+                *)
+                    if [ "$hy2_hop_interval" -ge 5 ] && [ "$hy2_hop_interval" -le 3600 ]; then
+                        hy2_hop_value="${hy2_hop_interval}s"
+                    else
+                        log "The link for '$tag' has a hop interval of $hy2_hop_interval s; it must be 5-3600, the default is used" "warn"
+                    fi
+                    ;;
+                esac
+            else
+                log "The link for '$tag' has a port list for port hopping ('$hy2_hop_ports') that is not valid; connecting to its own port only" "warn"
+            fi
+        fi
+
         config=$(sing_box_cm_add_hysteria2_outbound "$config" "$tag" "$host" "$port" "$password" "$obfuscator_type" \
-            "$obfuscator_password" "$upload_mbps" "$download_mbps")
+            "$obfuscator_password" "$upload_mbps" "$download_mbps" "" "$hy2_hop_value")
         config=$(_add_outbound_security "$config" "$tag" "$url")
         ;;
     vmess)
@@ -492,6 +538,67 @@ sing_box_cf_add_proxy_outbound() {
     esac
 
     echo "$config"
+}
+
+# A list of ports and ranges for port hopping: "20000-30000" or "443,20000-30000,40000"; every
+# port 1-65535, every range ascending. No regex.
+_hy2_valid_hop_ports() {
+    local list="$1"
+    local entry from to old_ifs="$IFS" noglob=""
+
+    [ -n "$list" ] || return 1
+    # an empty element ("20000-30000," or "443,,20000-30000") would vanish in the split below
+    # and still reach the config as ":"
+    case "$list" in
+    ,* | *, | *,,*) return 1 ;;
+    esac
+    # the split must not expand a "*" or "[0-9]" into file names: the verdict may not depend
+    # on the working directory
+    case "$-" in *f*) noglob=1 ;; esac
+    set -f
+    IFS=','
+    # shellcheck disable=SC2086
+    set -- $list
+    IFS="$old_ifs"
+    [ -n "$noglob" ] || set +f
+    for entry in "$@"; do
+        case "$entry" in
+        "" | *[!0-9-]* | -* | *- | *-*-*) return 1 ;;
+        *-*)
+            from="${entry%-*}"
+            to="${entry#*-}"
+            ;;
+        *)
+            from="$entry"
+            to="$entry"
+            ;;
+        esac
+        [ "${#from}" -le 5 ] && [ "${#to}" -le 5 ] || return 1
+        [ "$from" -ge 1 ] && [ "$to" -le 65535 ] && [ "$from" -le "$to" ] || return 1
+    done
+    return 0
+}
+
+# The same list without repeated elements, in the order of first appearance
+# ("443,443,20000-30000,443" -> "443,20000-30000").
+_hy2_dedupe_ports() {
+    local list="$1"
+    local entry out="" old_ifs="$IFS" noglob=""
+
+    case "$-" in *f*) noglob=1 ;; esac
+    set -f
+    IFS=','
+    # shellcheck disable=SC2086
+    set -- $list
+    IFS="$old_ifs"
+    [ -n "$noglob" ] || set +f
+    for entry in "$@"; do
+        case ",$out," in
+        *",$entry,"*) ;;
+        *) out="${out:+$out,}$entry" ;;
+        esac
+    done
+    printf '%s' "$out"
 }
 
 _add_outbound_security() {

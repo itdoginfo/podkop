@@ -24496,6 +24496,138 @@ DRVEOF
     rm -rf "$work"
 }
 
+test_hy2_hop() {
+    header "Hysteria2 links: port hopping (mport, hop-interval)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local work="/tmp/netshift-hy2hop-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        HH_LOG="$work/log"; : > "$HH_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$HH_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        core_has_tag() { return 0; }
+        ob() { sing_box_cf_add_proxy_outbound '{"outbounds":[]}' t "$1" 0 | jq -c '.outbounds[0] | [.server_port, .server_ports, .hop_interval]'; }
+        B="hy2://pw@h.example:443/?sni=h.example"
+
+        echo "plain=$(ob "$B#x")"
+        echo "mport-range=$(ob "$B&mport=20000-30000#x")"
+        echo "mport-list=$(ob "$B&mport=20000-30000,40000#x")"
+        echo "ports-alias=$(ob "$B&ports=20000-30000#x")"
+        echo "interval=$(ob "$B&mport=20000-30000&hop-interval=10#x")"
+        echo "interval-underscore=$(ob "$B&mport=20000-30000&hop_interval=45#x")"
+        echo "interval-too-short=$(ob "$B&mport=20000-30000&hop-interval=2#x")"
+        echo "interval-not-number=$(ob "$B&mport=20000-30000&hop-interval=fast#x")"
+        echo "interval-without-ports=$(ob "$B&hop-interval=10#x")"
+        for bad in "abc" "0" "70000" "30000-20000" "1-2-3" "20000-" "-5" "443,,5" "99999"; do
+            echo "bad[$bad]=$(ob "$B&mport=$bad#x")"
+        done
+        # an empty element would be dropped by the validator's split and still reach the config
+        # as ":": a trailing, a leading and a doubled comma are not a valid list
+        for bad in "20000-30000," ",20000-30000" "20000-30000,,40000"; do
+            echo "empty-elem[$bad]=$(ob "$B&mport=$bad#x")"
+        done
+        # repeated ports are collapsed (the link's own port included), the order stays
+        echo "dup-list=$(ob "$B&mport=443,443,20000-30000,20000-30000,443#x")"
+        echo "dup-own-port=$(ob "$B&mport=443#x")"
+        # leading zeros of the interval are the same number of seconds
+        echo "interval-zeros=$(ob "$B&mport=20000-30000&hop-interval=00010#x")"
+        echo "interval-all-zeros=$(ob "$B&mport=20000-30000&hop-interval=000#x")"
+        : > "$HH_LOG"; ob "$B&mport=abc#x" > /dev/null
+        echo "bad-warned=$(grep -c 'not valid' "$HH_LOG")"
+        # the link already has a range as its port: mport is not mixed in, and it is said so
+        : > "$HH_LOG"
+        echo "own-range=$(ob "hy2://pw@h.example:20000-30000/?sni=h.example&mport=40000-50000#x")"
+        echo "own-range-warned=$(grep -c 'is not used' "$HH_LOG")"
+        # a link without a port of its own: the list is the whole set of ports
+        echo "no-port=$(ob "hy2://pw@h.example/?sni=h.example&mport=20000-30000#x")"
+        echo "no-port-list=$(ob "hy2://pw@h.example/?sni=h.example&mport=20000-30000,40000#x")"
+        echo "no-port-ipv6=$(ob "hy2://pw@[2001:db8::1]/?sni=h.example&mport=20000-30000#x")"
+        # a range written with a colon, or with spaces
+        echo "colon-range=$(ob "$B&mport=20000:30000#x")"
+        echo "plus-spaces=$(ob "$B&mport=20000-30000,+40000#x")"
+        # a glob in the list is not expanded by the shell: the verdict does not depend on the
+        # files of the working directory
+        mkdir -p "$work/glob"; : > "$work/glob/443"
+        echo "glob=$(cd "$work/glob" && ob "$B&mport=44[0-9]#x")"
+        # an interval out of range, or too long to be a number, is left to the default and said so
+        : > "$HH_LOG"; ob "$B&mport=20000-30000&hop-interval=2#x" > /dev/null
+        echo "interval-warned=$(grep -c 'must be 5-3600' "$HH_LOG")"
+        : > "$HH_LOG"
+        echo "interval-huge=$(ob "$B&mport=20000-30000&hop-interval=99999999999999999999#x" 2>&1)"
+        echo "interval-huge-warned=$(grep -c 'not a number of seconds' "$HH_LOG")"
+
+        SB=/usr/local/bin/sing-box-1.14
+        if [ -x "$SB" ]; then
+            sing_box_cf_add_proxy_outbound '{"outbounds":[]}' t "$B&mport=20000-30000,40000&hop-interval=15#x" 0 \
+                | jq '{outbounds: (.outbounds + [{type: "direct", tag: "direct-out"}]), route: {final: "direct-out"}}' > "$work/c.json"
+            "$SB" check -c "$work/c.json" > "$work/c.out" 2>&1 && echo "core-check=ok" || echo "core-check=FAIL $(sed 's/\x1b\[[0-9;]*m//g' "$work/c.out" | head -c 200)"
+        fi
+    )"
+
+    _hh() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _hh "a link without mport is as before: one port" 'plain=[443,null,null]'
+    _hh "mport turns it into a list of ports, the link's own port included" 'mport-range=[null,["443:443","20000:30000"],null]'
+    _hh "a list of ranges and ports" 'mport-list=[null,["443:443","20000:30000","40000:40000"],null]'
+    _hh "ports works as mport" 'ports-alias=[null,["443:443","20000:30000"],null]'
+    _hh "hop-interval is the pause in seconds" 'interval=[null,["443:443","20000:30000"],"10s"]'
+    _hh "hop_interval too" 'interval-underscore=[null,["443:443","20000:30000"],"45s"]'
+    _hh "an interval under 5 seconds is left to the default" 'interval-too-short=[null,["443:443","20000:30000"],null]'
+    _hh "an interval that is not a number as well" 'interval-not-number=[null,["443:443","20000:30000"],null]'
+    _hh "an interval without ports has nothing to hop among" 'interval-without-ports=[443,null,null]'
+    local bad
+    for bad in abc 0 70000 30000-20000 1-2-3 20000- -5 443,,5 99999; do
+        _hh "a port list that is not valid ($bad) is ignored: the link's own port" "bad[$bad]=[443,null,null]"
+    done
+    for bad in "20000-30000," ",20000-30000" "20000-30000,,40000"; do
+        _hh "a list with an empty element ($bad) is ignored, not turned into a \":\" port" "empty-elem[$bad]=[443,null,null]"
+    done
+    _hh "repeated ports are collapsed, in the order of first appearance" 'dup-list=[null,["443:443","20000:30000"],null]'
+    _hh "mport with the port of the link itself is not doubled" 'dup-own-port=[443,null,null]'
+    _hh "an interval with leading zeros is the same number" 'interval-zeros=[null,["443:443","20000:30000"],"10s"]'
+    _hh "an interval of zeros is out of range: the default" 'interval-all-zeros=[null,["443:443","20000:30000"],null]'
+    _hh "...and it is said in the log" "bad-warned=1"
+    _hh "a link whose port is already a range keeps it" 'own-range=[null,["20000:30000"],null]'
+    _hh "...and the mport that is not used is said in the log" "own-range-warned=1"
+    _hh "a link without a port of its own: the list is the set of ports" 'no-port=[null,["20000:30000"],null]'
+    _hh "...also a list of ranges and ports" 'no-port-list=[null,["20000:30000","40000:40000"],null]'
+    _hh "...also with an IPv6 address" 'no-port-ipv6=[null,["20000:30000"],null]'
+    _hh "a range written with a colon is a range" 'colon-range=[null,["443:443","20000:30000"],null]'
+    _hh "spaces in the list are ignored" 'plus-spaces=[null,["443:443","20000:30000","40000:40000"],null]'
+    _hh "a glob is not expanded by the shell: it is not a port list" 'glob=[443,null,null]'
+    _hh "an interval out of range is said in the log" "interval-warned=1"
+    _hh "an interval too long to be a number is the default, without a shell error" 'interval-huge=[null,["443:443","20000:30000"],null]'
+    _hh "...and it is said in the log" "interval-huge-warned=1"
+    if [ -x /usr/local/bin/sing-box-1.14 ]; then
+        _hh "sing-box 1.14 accepts the hopping outbound" "core-check=ok"
+    else
+        skip "sing-box 1.14 not in the image: the core check of the hopping outbound"
+    fi
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -24621,6 +24753,7 @@ main() {
         dnsroute)    test_dns_server_route ;;
         firstrun)    test_first_run_message ;;
         autoupdate)  test_auto_update ;;
+        hy2hop)      test_hy2_hop ;;
         *)
             # a test by its function name, with or without the test_ prefix ("hy2_hop")
             case "$target" in

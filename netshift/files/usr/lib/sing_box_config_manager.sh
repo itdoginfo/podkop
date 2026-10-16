@@ -1056,6 +1056,7 @@ sing_box_cm_add_anytls_outbound() {
 #   upload_mbps: integer, upload bandwidth limit in Mbps (optional)
 #   download_mbps: integer, download bandwidth limit in Mbps (optional)
 #   network: string, network type (e.g., "udp") (optional)
+#   hop_interval: string, port hopping interval, e.g. "30s" (optional, only with several ports)
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -1073,6 +1074,7 @@ sing_box_cm_add_hysteria2_outbound() {
     local upload_mbps="$8"
     local download_mbps="$9"
     local network="${10}"
+    local hop_interval="${11:-}"
 
     local is_multi_port="false"
     case "$server_port" in
@@ -1089,6 +1091,7 @@ sing_box_cm_add_hysteria2_outbound() {
         --arg upload_mbps "$upload_mbps" \
         --arg download_mbps "$download_mbps" \
         --arg network "$network" \
+        --arg hop_interval "$hop_interval" \
         --argjson is_multi_port "$is_multi_port" \
         '
         def parse_port_entry:
@@ -1105,7 +1108,9 @@ sing_box_cm_add_hysteria2_outbound() {
         }
         + (if $is_multi_port then {
                 server_ports: ($server_port | split(",") | map(ltrimstr(" ") | rtrimstr(" ") | parse_port_entry))
-            } else {
+            }
+            + (if $hop_interval != "" then {hop_interval: $hop_interval} else {} end)
+            else {
                 server_port: ($server_port | tonumber)
             } end)
         + (if $obfuscator_type != "" and $obfuscator_password != "" then {
