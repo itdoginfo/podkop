@@ -638,6 +638,12 @@ msgstr "Не удалось обновить подписку"
 msgid "Failed to update subscriptions"
 msgstr "Не удалось обновить подписки"
 
+msgid "FakeIP (same route as IPv4)"
+msgstr "FakeIP (тот же маршрут, что у IPv4)"
+
+msgid "FakeIP: IPv6 goes through sing-box like IPv4, the same way as the section's IPv4 traffic. Real addresses: the domains of this section are answered with their real IPv6 addresses, so their IPv6 traffic goes out directly, outside the tunnel (their IPv4 traffic keeps the section's route). Needs IPv6 enabled in the settings."
+msgstr "FakeIP: IPv6 идёт через sing-box так же, как IPv4 этой секции. Настоящие адреса: на запросы AAAA для доменов секции отвечают их реальные IPv6-адреса, и IPv6-трафик уходит напрямую, мимо туннеля (IPv4-трафик сохраняет маршрут секции). Нужно включённое IPv6 в настройках."
+
 msgid "Fastest"
 msgstr "Самый быстрый"
 
@@ -929,6 +935,9 @@ msgstr "IP-адрес"
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr "IP-адрес 0.0.0.0 не допускается"
 
+msgid "IPv6 addresses of this section's domains"
+msgstr "IPv6-адреса доменов этой секции"
+
 msgid "IPv6 CIDR must be between 0 and 128"
 msgstr "IPv6 CIDR должен быть от 0 до 128"
 
@@ -1210,6 +1219,9 @@ msgstr "Прокси-трафик не маршрутизируется чере
 
 msgid "Proxy traffic is routed via FakeIP"
 msgstr "Прокси-трафик направляется через FakeIP"
+
+msgid "Real addresses (IPv6 goes out directly)"
+msgstr "Настоящие адреса (IPv6 идёт напрямую)"
 
 msgid "Reality: post-quantum key share (X25519MLKEM768)"
 msgstr "Reality: пост-квантовый обмен ключами (X25519MLKEM768)"

@@ -4980,6 +4980,9 @@ sing_box_configure_dns() {
     log "Adding DNS-level DoH prevention rules" "debug"
     config=$(sing_box_cm_add_dns_reject_rule "$config" "query_type" "HTTPS")
     config=$(sing_box_cm_add_dns_reject_rule "$config" "domain_suffix" '"use-application-dns.net"')
+    # Before the FakeIP rule (the first matching rule wins): the AAAA queries of the sections
+    # that keep real IPv6 addresses. Their domains are patched in with the section lists.
+    config_foreach configure_ipv6_real_dns_rule "section"
     config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_DNS_RULE_TAG")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
     service_domains=$(comma_string_to_json_array "$FAKEIP_TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
@@ -4990,6 +4993,56 @@ sing_box_configure_dns() {
     config_foreach configure_dns_section_handler "section"
     # Last: the pool rules match every query that no rule above handled.
     sing_box_configure_dns_pool "$dns_detour_tag"
+}
+
+# --- Real IPv6 addresses for a section (ipv6_dns_policy) ----------------------
+# By default every domain of a section gets a FakeIP answer for A and for AAAA, so its IPv6
+# connections go through sing-box like its IPv4 ones. With ipv6_dns_policy=real the AAAA
+# queries of the section's domains are answered with the real addresses instead: its IPv4
+# traffic keeps the section's route (FakeIP), its IPv6 traffic goes out directly, where it is
+# not marked, and never through the tunnel. Only meaningful with IPv6 enabled (without it no
+# AAAA FakeIP is handed out at all), and only for sections that route by domain lists.
+section_ipv6_real_dns() {
+    local section="$1"
+    local connection_type policy
+
+    netshift_ipv6_enabled || return 1
+    config_get connection_type "$section" "connection_type"
+    case "$connection_type" in
+    proxy | vpn | exclusion) ;;
+    *) return 1 ;;
+    esac
+    config_get policy "$section" "ipv6_dns_policy" "fakeip"
+    [ "$policy" = "real" ]
+}
+
+configure_ipv6_real_dns_rule() {
+    local section="$1"
+
+    section_is_disabled "$section" && return 0
+    section_has_enabled_lists "$section" || return 0
+    section_ipv6_real_dns "$section" || return 0
+
+    log "Section '$section': AAAA answers are real IPv6 addresses (ipv6_dns_policy=real), its IPv6 traffic goes out directly" "info"
+    config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_DNS_SERVER_TAG" "$SB_SECTION_AAAA_RULE_PREFIX$section")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_SECTION_AAAA_RULE_PREFIX$section" "query_type" '["AAAA"]')
+}
+
+# Adds a domain rule-set to the DNS rule(s) of the section being configured: its FakeIP (or
+# DNS section) rule and, when it keeps real IPv6 addresses, its AAAA rule.
+patch_section_dns_rule_set() {
+    local ruleset_tag="$1"
+
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "${SECTION_DNS_RULE_TAG:-$SB_FAKEIP_DNS_RULE_TAG}" "rule_set" "$ruleset_tag")
+    if [ -n "${SECTION_AAAA_RULE_TAG:-}" ]; then
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SECTION_AAAA_RULE_TAG" "rule_set" "$ruleset_tag")
+    fi
+}
+
+# An AAAA rule that ended up with no domains matches EVERY AAAA query of the router: drop it.
+prune_ipv6_real_dns_rules_without_domains() {
+    config=$(printf '%s' "$config" | jq -c --arg prefix "$SB_SECTION_AAAA_RULE_PREFIX" --arg key "$SERVICE_TAG" '
+        .dns.rules |= map(select(((.[$key] // "") | startswith($prefix) | not) or (.rule_set != null)))')
 }
 
 # --- DNS sections ---------------------------------------------------------------
@@ -5405,6 +5458,7 @@ sing_box_configure_route() {
     foreach_active_section configure_routing_for_section_lists "section"
 
     prune_dns_section_rules_without_domains
+    prune_ipv6_real_dns_rules_without_domains
 }
 
 # A DNS section selects its queries by the domain rule-sets of its lists. A section
@@ -6097,6 +6151,10 @@ configure_routing_for_section_lists() {
     local section="$1"
 
     SECTION_DNS_RULE_TAG="$SB_FAKEIP_DNS_RULE_TAG"
+    SECTION_AAAA_RULE_TAG=""
+    if section_ipv6_real_dns "$section"; then
+        SECTION_AAAA_RULE_TAG="$SB_SECTION_AAAA_RULE_PREFIX$section"
+    fi
 
     log "Configuring routing for '$section' section"
     if ! section_has_enabled_lists "$section"; then
@@ -6206,7 +6264,7 @@ configure_community_list_handler() {
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-    config=$(sing_box_cm_patch_dns_route_rule "$config" "${SECTION_DNS_RULE_TAG:-$SB_FAKEIP_DNS_RULE_TAG}" "rule_set" "$ruleset_tag")
+    patch_section_dns_rule_set "$ruleset_tag"
 }
 
 # True when the rule tagged $2 in $1 ("route" or "dns") already references the
@@ -6291,7 +6349,7 @@ prepare_source_ruleset() {
 
     if [ "$type" = "domains" ] &&
         ! rule_references_ruleset "dns" "${SECTION_DNS_RULE_TAG:-$SB_FAKEIP_DNS_RULE_TAG}" "$ruleset_tag"; then
-        config=$(sing_box_cm_patch_dns_route_rule "$config" "${SECTION_DNS_RULE_TAG:-$SB_FAKEIP_DNS_RULE_TAG}" "rule_set" "$ruleset_tag")
+        patch_section_dns_rule_set "$ruleset_tag"
     fi
 }
 
@@ -6409,7 +6467,7 @@ configure_remote_domain_or_subnet_list_handler() {
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
         domains)
-            config=$(sing_box_cm_patch_dns_route_rule "$config" "${SECTION_DNS_RULE_TAG:-$SB_FAKEIP_DNS_RULE_TAG}" "rule_set" "$ruleset_tag")
+            patch_section_dns_rule_set "$ruleset_tag"
             ;;
         subnets) ;;
         *) log "Unsupported remote rule set type: $type" "error" ;;
