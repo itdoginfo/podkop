@@ -723,6 +723,23 @@ function createSectionContent(section) {
 
   o = section.taboption(
     "connection",
+    form.ListValue,
+    "ipv6_dns_policy",
+    _("IPv6 addresses of this section's domains"),
+    _(
+      "FakeIP: IPv6 goes through sing-box like IPv4, the same way as the section's IPv4 traffic. Real addresses: the domains of this section are answered with their real IPv6 addresses, so their IPv6 traffic goes out directly, outside the tunnel (their IPv4 traffic keeps the section's route). Needs IPv6 enabled in the settings.",
+    ),
+  );
+  o.value("fakeip", _("FakeIP (same route as IPv4)"));
+  o.value("real", _("Real addresses (IPv6 goes out directly)"));
+  o.default = "fakeip";
+  o.rmempty = false;
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
+  o.depends("connection_type", "exclusion");
+
+  o = section.taboption(
+    "connection",
     form.Flag,
     "bypass_singbox",
     _("Bypass sing-box"),

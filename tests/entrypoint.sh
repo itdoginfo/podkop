@@ -14108,6 +14108,7 @@ mkdir -p "$HR_DIR"
 # twice in one build (several plain remote lists) must be added only once.
 eval "$(extract rule_references_ruleset)"
 eval "$(extract prepare_source_ruleset)"
+eval "$(extract patch_section_dns_rule_set)"
 
 TMP_RULESET_FOLDER="$HR_DIR/rulesets"
 mkdir -p "$TMP_RULESET_FOLDER"
@@ -15754,9 +15755,11 @@ config_list_foreach() { # $1=section $2=option $3=callback ... : the option valu
 }
 for fn in section_is_dns_rule section_has_enabled_lists configure_dns_section_handler configure_routing_for_section_lists \
     configure_community_list_handler subscription_outbound_is_unavailable \
-    prune_dns_section_rules_without_domains download_proxy_section_is_unavailable section_is_disabled; do
+    prune_dns_section_rules_without_domains download_proxy_section_is_unavailable section_is_disabled \
+    patch_section_dns_rule_set section_ipv6_real_dns; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
+netshift_ipv6_enabled() { return 1; }
 get_ruleset_tag() { echo "$1-$2-$3"; }
 get_download_detour_tag() { echo ""; }
 gen_id() { echo "gen$$"; }
@@ -21227,6 +21230,155 @@ test_core_caps() {
     rm -rf "$work"
 }
 
+test_ipv6_dns_policy() {
+    header "IPv6 answers of a section (ipv6_dns_policy=real)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$bin" ] || [ ! -r "$lib/sing_box_config_manager.sh" ]; then
+        fail "netshift bin / config manager not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+
+    local work="/tmp/netshift-ipv6dns-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        log() { :; }
+        . "$lib/sing_box_config_manager.sh"
+        for fn in section_ipv6_real_dns configure_ipv6_real_dns_rule patch_section_dns_rule_set prune_ipv6_real_dns_rules_without_domains; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        V6=1
+        netshift_ipv6_enabled() { [ "$V6" = 1 ]; }
+        config_get() { eval "$1=\"\${IP_${2}_${3}:-$4}\""; }
+        section_is_disabled() { [ "${IP_DISABLED:-}" = "$1" ]; }
+        section_has_enabled_lists() { [ "${IP_NOLISTS:-}" != "$1" ]; }
+        config_foreach() { local _s; for _s in $IP_SECTIONS; do "$1" "$_s"; done; }
+        tags() { printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" '[.dns.rules[] | .[$key]]'; }
+
+        build() { # the order of sing_box_configure_dns, then the routing of every section
+            config='{"dns":{"servers":[],"rules":[]}}'
+            config_foreach configure_ipv6_real_dns_rule "section"
+            config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_DNS_RULE_TAG")
+            local s
+            for s in $IP_SECTIONS; do
+                section_is_disabled "$s" && continue
+                SECTION_DNS_RULE_TAG="$SB_FAKEIP_DNS_RULE_TAG"
+                SECTION_AAAA_RULE_TAG=""
+                if section_ipv6_real_dns "$s"; then
+                    SECTION_AAAA_RULE_TAG="$SB_SECTION_AAAA_RULE_PREFIX$s"
+                fi
+                [ "${IP_NORULESET:-}" = "$s" ] || patch_section_dns_rule_set "$s-domains"
+            done
+            prune_ipv6_real_dns_rules_without_domains
+        }
+
+        IP_SECTIONS="yt vpn"
+        IP_yt_connection_type=proxy; IP_yt_ipv6_dns_policy=real
+        IP_vpn_connection_type=proxy
+        build
+        echo "tags=$(tags)"
+        echo "aaaa-rule=$(printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" '.dns.rules[] | select(.[$key] == "ipv6-real-dns-rule-yt") | [.action, .server, .query_type, .rule_set]')"
+        echo "fakeip-rule-has-both=$(printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" '.dns.rules[] | select(.[$key] == "fakeip-dns-rule-tag") | .rule_set')"
+
+        # the default policy, a missing option and anything but "real" add nothing
+        IP_yt_ipv6_dns_policy=fakeip; build; echo "default-policy=$(tags)"
+        IP_yt_ipv6_dns_policy=""; build; echo "empty-policy=$(tags)"
+        IP_yt_ipv6_dns_policy=bogus; build; echo "unknown-policy=$(tags)"
+        IP_yt_ipv6_dns_policy=real
+
+        # without IPv6 there is no AAAA FakeIP to replace: nothing is added
+        V6=0; build; echo "ipv6-off=$(tags)"; V6=1
+
+        # only sections that route by domain lists; a disabled one or one without lists is skipped
+        IP_yt_connection_type=dns; build; echo "dns-section=$(tags)"
+        IP_yt_connection_type=block; build; echo "block-section=$(tags)"
+        IP_yt_connection_type=exclusion; build; echo "exclusion-section=$(tags)"
+        IP_yt_connection_type=vpn; build; echo "vpn-section=$(tags)"
+        IP_yt_connection_type=proxy
+        IP_DISABLED=yt; build; echo "disabled=$(tags)"; IP_DISABLED=""
+        IP_NOLISTS=yt; build; echo "no-lists=$(tags)"; IP_NOLISTS=""
+
+        # a rule that ended with no domain matches every AAAA query of the router: it is dropped
+        IP_NORULESET=yt; build; echo "no-domains-pruned=$(tags)"; IP_NORULESET=""
+
+        # two sections, each with its own rule, both ahead of the FakeIP rule
+        IP_SECTIONS="yt other"; IP_other_connection_type=vpn; IP_other_ipv6_dns_policy=real
+        build; echo "two-sections=$(tags)"
+
+        # the core accepts the assembled rules (the service tags are not part of its schema)
+        if command -v sing-box > /dev/null 2>&1; then
+            IP_SECTIONS="yt"; IP_other_ipv6_dns_policy=""; build
+            printf '%s' "$config" | jq --arg key "$SERVICE_TAG" '
+                .dns.servers = [{type: "udp", tag: "dns-server", server: "8.8.8.8"},
+                                {type: "fakeip", tag: "fakeip-server", inet4_range: "198.18.0.0/15", inet6_range: "2001:2::/48"}]
+                | .dns.rules |= map(del(.[$key]))
+                | .route = {rule_set: [{type: "inline", tag: "yt-domains", rules: [{domain_suffix: ["example.com"]}]}]}
+                | .dns.rules |= map(if .rule_set then .rule_set = ["yt-domains"] else . end)
+                | .dns.final = "dns-server"' > "$work/check.json"
+            sing-box check -c "$work/check.json" > "$work/check.out" 2>&1 && echo "core-check=ok" || echo "core-check=FAIL $(head -c 300 "$work/check.out")"
+        fi
+    )"
+
+    _ip() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _ip "the AAAA rule of the section stands ahead of the FakeIP rule; a default section adds none" 'tags=["ipv6-real-dns-rule-yt","fakeip-dns-rule-tag"]'
+    _ip "it routes AAAA queries of the section's domains to the main DNS server" 'aaaa-rule=["route","dns-server",["AAAA"],"yt-domains"]'
+    _ip "the FakeIP rule still carries the domains of both sections (A keeps its route)" 'fakeip-rule-has-both=["yt-domains","vpn-domains"]'
+    _ip "the default policy adds nothing" 'default-policy=["fakeip-dns-rule-tag"]'
+    _ip "an empty option is the default" 'empty-policy=["fakeip-dns-rule-tag"]'
+    _ip "an unknown value is the default" 'unknown-policy=["fakeip-dns-rule-tag"]'
+    _ip "without IPv6 enabled nothing is added" 'ipv6-off=["fakeip-dns-rule-tag"]'
+    _ip "a DNS section never gets one" 'dns-section=["fakeip-dns-rule-tag"]'
+    _ip "neither does a block section" 'block-section=["fakeip-dns-rule-tag"]'
+    _ip "an exclusion section does" 'exclusion-section=["ipv6-real-dns-rule-yt","fakeip-dns-rule-tag"]'
+    _ip "and a VPN section" 'vpn-section=["ipv6-real-dns-rule-yt","fakeip-dns-rule-tag"]'
+    _ip "a disabled section is skipped" 'disabled=["fakeip-dns-rule-tag"]'
+    _ip "a section without lists is skipped" 'no-lists=["fakeip-dns-rule-tag"]'
+    _ip "a rule left with no domains is dropped, not left to match every AAAA query" 'no-domains-pruned=["fakeip-dns-rule-tag"]'
+    _ip "every section keeps its own rule, all ahead of the FakeIP rule" 'two-sections=["ipv6-real-dns-rule-yt","ipv6-real-dns-rule-other","fakeip-dns-rule-tag"]'
+    if command -v sing-box > /dev/null 2>&1; then
+        _ip "the core accepts the rules" "core-check=ok"
+    else
+        skip "sing-box not installed: the core check of the AAAA rules"
+    fi
+
+    # the rule of a section is added before the FakeIP rule is, and the sections' lists are patched into it
+    local _aaaa _fake _cfg
+    _aaaa="$(grep -n '^    config_foreach configure_ipv6_real_dns_rule "section"$' "$bin" | cut -d: -f1 | sed -n '1p')"
+    _fake="$(grep -n 'sing_box_cm_add_dns_route_rule "\$config" "\$SB_FAKEIP_DNS_SERVER_TAG" "\$SB_FAKEIP_DNS_RULE_TAG"' "$bin" | cut -d: -f1 | sed -n '1p')"
+    if [ -n "$_aaaa" ] && [ -n "$_fake" ] && [ "$_aaaa" -lt "$_fake" ]; then
+        pass "sing_box_configure_dns adds the AAAA rules before the FakeIP rule"
+    else
+        fail "sing_box_configure_dns adds the AAAA rules before the FakeIP rule" "aaaa=$_aaaa fakeip=$_fake"
+    fi
+    _cfg="$(grep -c 'sing_box_cm_patch_dns_route_rule "\$config" "\${SECTION_DNS_RULE_TAG:-\$SB_FAKEIP_DNS_RULE_TAG}" "rule_set"' "$bin")"
+    if grep -q 'patch_section_dns_rule_set "\$ruleset_tag"' "$bin" && [ "$_cfg" = 1 ]; then
+        pass "the lists of a section are patched into its DNS rules through one helper"
+    else
+        fail "the lists of a section are patched into its DNS rules through one helper" "direct patches left: $_cfg"
+    fi
+    rm -rf "$work"
+}
+
 test_xhttp_extra() {
     header "XHTTP links: the extra (padding, post sizes, xmux) of the link"
 
@@ -21448,6 +21600,7 @@ main() {
             test_config_lint
             test_naive
             test_core_caps
+            test_ipv6_dns_policy
             test_xhttp_extra
             ;;
         deps)        test_deps ;;
@@ -21535,10 +21688,11 @@ main() {
         configlint)  test_config_lint ;;
         naive)       test_naive ;;
         corecaps)    test_core_caps ;;
+        ipv6dnspolicy) test_ipv6_dns_policy ;;
         xhttpextra)  test_xhttp_extra ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps xhttpextra"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra"
             exit 1
             ;;
     esac
