@@ -570,13 +570,29 @@ _add_outbound_transport() {
             echo "$config"
             return 1
         fi
-        local xhttp_path xhttp_host xhttp_sni xhttp_mode
+        local xhttp_path xhttp_host xhttp_sni xhttp_mode xhttp_extra xhttp_padding xhttp_extra_opts xhttp_ignored
         xhttp_path=$(url_get_query_param "$url" "path")
         xhttp_host=$(url_get_query_param "$url" "host")
         xhttp_sni=$(url_get_query_param "$url" "sni")
         [ -n "$xhttp_host" ] || xhttp_host="$xhttp_sni"
         xhttp_mode=$(url_get_query_param "$url" "mode")
-        config=$(sing_box_cm_set_xhttp_transport_for_outbound "$config" "$outbound_tag" "$xhttp_path" "$xhttp_host" "$xhttp_mode")
+        # `extra` (padding, post sizes, xmux ...): the link carries the values the server expects. A
+        # server whose xPaddingBytes range does not contain the client's drops the requests.
+        xhttp_extra=$(url_get_query_param_component "$url" "extra")
+        xhttp_padding=$(url_get_query_param "$url" "x_padding_bytes")
+        xhttp_extra_opts="{}"
+        if [ -n "$xhttp_extra" ] || [ -n "$xhttp_padding" ]; then
+            xhttp_extra_opts=$(sing_box_cm_xhttp_extra_options "$xhttp_extra" "$xhttp_mode" "$xhttp_padding")
+            if [ -n "$xhttp_extra" ]; then
+                if ! printf '%s' "$xhttp_extra" | jq -e 'type == "object"' > /dev/null 2>&1; then
+                    log "The XHTTP 'extra' of the link for '$outbound_tag' is not a JSON object; ignoring it" "warn"
+                else
+                    xhttp_ignored=$(sing_box_cm_xhttp_extra_ignored "$xhttp_extra")
+                    [ -z "$xhttp_ignored" ] || log "The XHTTP 'extra' of the link for '$outbound_tag' has options this core does not take (left out): $xhttp_ignored" "info"
+                fi
+            fi
+        fi
+        config=$(sing_box_cm_set_xhttp_transport_for_outbound "$config" "$outbound_tag" "$xhttp_path" "$xhttp_host" "$xhttp_mode" "$xhttp_extra_opts")
         ;;
     *)
         # Unknown transport: skip the WHOLE link (echo the config unchanged and

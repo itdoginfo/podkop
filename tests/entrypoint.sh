@@ -21107,6 +21107,131 @@ test_naive() {
     rm -rf "$work"
 }
 
+test_xhttp_extra() {
+    header "XHTTP links: the extra (padding, post sizes, xmux) of the link"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/sing_box_config_facade.sh" ] || [ ! -r "$lib/sing_box_config_manager.sh" ]; then
+        fail "facade / config manager not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local work="/tmp/netshift-xhttpextra-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        XE_LOG="$work/log"; : > "$XE_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$XE_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        is_sing_box_extended() { return 0; }
+        is_sing_box_extended_at_least() { return 0; }
+        is_sing_box_at_least() { return 0; }
+        NETSHIFT_REALITY_MLKEM=0
+        U=29a8999e-3cff-4de5-8ae5-27645a3a6615
+
+        tr_of() { sing_box_cf_add_proxy_outbound '{"outbounds":[]}' t "$1" 0 | jq -c '.outbounds[0].transport'; }
+        enc() { printf '%s' "$1" | jq -sRr @uri; }
+
+        # the link the autoXRAY script writes (stream-up, TLS, h2, extra with xmux)
+        AUTO="vless://$U@host.example:443?security=tls&alpn=h2&type=xhttp&mode=stream-up&path=%2Ftkles2&extra=%7B%22noGRPCHeader%22%3Afalse%2C%22xPaddingBytes%22%3A%22150-400%22%2C%22scMaxEachPostBytes%22%3A500000%2C%22scMinPostsIntervalMs%22%3A%225-15%22%2C%22scMaxBufferedPosts%22%3A20%2C%22scStreamUpServerSecs%22%3A%2290-180%22%2C%22xmux%22%3A%7B%22maxConcurrency%22%3A%222-4%22%2C%22cMaxReuseTimes%22%3A%22800-1500%22%2C%22hMaxReusableSecs%22%3A%22900-1200%22%7D%7D&sni=host.example&fp=firefox#x"
+        echo "auto=$(tr_of "$AUTO")"
+
+        # no extra: exactly what it was before
+        echo "plain=$(tr_of "vless://$U@host.example:443?security=tls&type=xhttp&mode=auto&path=%2Fp&sni=host.example#x")"
+
+        # 3x-ui writes the padding next to the extra
+        echo "top-padding=$(tr_of "vless://$U@host.example:443?security=none&type=xhttp&path=%2F&x_padding_bytes=150-400#x" | jq -c '.x_padding_bytes')"
+        echo "extra-wins=$(tr_of "vless://$U@host.example:443?security=none&type=xhttp&path=%2F&x_padding_bytes=150-400&extra=$(enc '{"xPaddingBytes":"200-300"}')#x" | jq -c '.x_padding_bytes')"
+
+        # values the core would refuse are dropped, the defaults stay
+        BAD='{"xPaddingBytes":"abc","scMaxEachPostBytes":-1,"scMinPostsIntervalMs":"9-3","scMaxBufferedPosts":"x","xmux":{"maxConcurrency":[1],"hKeepAlivePeriod":-5},"uplinkHTTPMethod":"GET","xPaddingPlacement":"nowhere","sessionKey":"a b","headers":{"Host":"evil","X-A":"1","X-B":2}}'
+        echo "bad-values=$(tr_of "vless://$U@host.example:443?security=none&type=xhttp&mode=stream-up&path=%2F&extra=$(enc "$BAD")#x")"
+        echo "get-packet-up=$(tr_of "vless://$U@host.example:443?security=none&type=xhttp&mode=packet-up&path=%2F&extra=$(enc '{"uplinkHTTPMethod":"get"}')#x" | jq -c '.uplink_http_method')"
+        echo "not-object=$(tr_of "vless://$U@host.example:443?security=none&type=xhttp&mode=auto&path=%2F&extra=$(enc '[1,2]')#x")"
+        echo "garbage=$(tr_of "vless://$U@host.example:443?security=none&type=xhttp&mode=auto&path=%2F&extra=%7Bnot-json#x")"
+        : > "$XE_LOG"
+        tr_of "vless://$U@host.example:443?security=none&type=xhttp&path=%2F&extra=%7Bnot-json#x" > /dev/null
+        echo "garbage-warned=$(grep -c "not a JSON object" "$XE_LOG")"
+        : > "$XE_LOG"
+        tr_of "vless://$U@host.example:443?security=none&type=xhttp&path=%2F&extra=$(enc '{"xPaddingBytes":"10-20","downloadSettings":{},"extra":1}')#x" > /dev/null
+        echo "ignored-named=$(grep -c "left out): downloadSettings, extra" "$XE_LOG")"
+
+        # both set: the core refuses the pair, the link keeps max_concurrency
+        echo "xmux-pair=$(tr_of "vless://$U@host.example:443?security=none&type=xhttp&path=%2F&extra=$(enc '{"xmux":{"maxConcurrency":"2-4","maxConnections":3}}')#x" | jq -c '.xmux')"
+        echo "xmux-connections=$(tr_of "vless://$U@host.example:443?security=none&type=xhttp&path=%2F&extra=$(enc '{"xmux":{"maxConnections":3,"maxConcurrency":0}}')#x" | jq -c '.xmux')"
+
+        # what an Xray JSON subscription carries over
+        cat > "$work/sub.json" <<'XJ'
+{"outbounds":[{"protocol":"vless","tag":"x","settings":{"vnext":[{"address":"xj.example.com","port":443,"users":[{"id":"cccccccc-dddd-eeee-ffff-000000000000"}]}]},
+ "streamSettings":{"network":"xhttp","security":"tls","tlsSettings":{"serverName":"xj.example.com"},
+   "xhttpSettings":{"path":"/xj","host":"xj.example.com","mode":"stream-up","extra":{"xPaddingBytes":"150-400","xmux":{"maxConcurrency":"2-4"}}}}}]}
+XJ
+        URI="$(xray_json_to_uri_lines "$work/sub.json" 2> /dev/null | sed -n '1p')"
+        echo "sub-extra-in-uri=$(case "$URI" in *"extra=%7B"*) echo yes ;; *) echo no ;; esac)"
+        echo "sub-roundtrip=$(tr_of "$URI" | jq -c '[.x_padding_bytes, .xmux.max_concurrency, .mode]')"
+
+        # the real core accepts the options (a bad value would fail the whole config)
+        SBX=/usr/local/bin/sing-box-extended
+        if [ -x "$SBX" ]; then
+            RICH='{"xPaddingBytes":"120-300","scMaxEachPostBytes":"400000-600000","scMinPostsIntervalMs":"5-15","scMaxBufferedPosts":20,"scStreamUpServerSecs":"90-180","uplinkChunkSize":"1000-2000","xPaddingObfsMode":true,"xPaddingKey":"pk","xPaddingHeader":"X-Pad","xPaddingPlacement":"header","xPaddingMethod":"tokenish","uplinkHTTPMethod":"PUT","sessionPlacement":"cookie","seqPlacement":"query","uplinkDataPlacement":"cookie","noSSEHeader":true,"headers":{"X-A":"1"},"xmux":{"maxConcurrency":"2-4","cMaxReuseTimes":"800-1500","hMaxRequestTimes":"600-900","hMaxReusableSecs":"900-1200","hKeepAlivePeriod":30}}'
+            for variant in "$AUTO" "vless://$U@host.example:443?security=tls&type=xhttp&mode=packet-up&path=%2Fp&sni=host.example&extra=$(enc "$RICH")#x" "vless://$U@host.example:443?security=tls&type=xhttp&mode=stream-up&path=%2Fp&sni=host.example&extra=$(enc "$BAD")#x"; do
+                n=$((${n:-0} + 1))
+                sing_box_cf_add_proxy_outbound '{"outbounds":[]}' t "$variant" 0 \
+                    | jq '{outbounds: (.outbounds + [{type: "direct", tag: "direct-out"}]), route: {final: "direct-out"}}' > "$work/core$n.json"
+                if "$SBX" check -c "$work/core$n.json" > "$work/core$n.out" 2>&1; then
+                    echo "core-check-$n=ok"
+                else
+                    echo "core-check-$n=FAIL $(sed 's/\x1b\[[0-9;]*m//g' "$work/core$n.out" | head -c 200)"
+                fi
+            done
+        fi
+    )"
+
+    _xe() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _xe "the autoXRAY link: its padding, post sizes, stream-up timing and xmux reach the transport" 'auto={"type":"xhttp","mode":"stream-up","path":"/tkles2","x_padding_bytes":"150-400","no_grpc_header":false,"sc_max_each_post_bytes":500000,"sc_min_posts_interval_ms":"5-15","host":"host.example","sc_max_buffered_posts":20,"sc_stream_up_server_secs":"90-180","xmux":{"max_concurrency":"2-4","c_max_reuse_times":"800-1500","h_max_reusable_secs":"900-1200"}}'
+    _xe "a link without extra gives exactly the transport it gave before" 'plain={"type":"xhttp","mode":"auto","path":"/p","x_padding_bytes":"100-1000","no_grpc_header":false,"sc_max_each_post_bytes":1000000,"sc_min_posts_interval_ms":30,"host":"host.example"}'
+    _xe "the x_padding_bytes next to the extra (3x-ui) is used" 'top-padding="150-400"'
+    _xe "...but the extra's own value wins" 'extra-wins="200-300"'
+    _xe "bad values are dropped, a Host header too; the defaults stay" 'bad-values={"type":"xhttp","mode":"stream-up","path":"/","x_padding_bytes":"100-1000","no_grpc_header":false,"sc_max_each_post_bytes":1000000,"sc_min_posts_interval_ms":30,"headers":{"X-A":"1"}}'
+    _xe "GET is taken in packet-up (any case)" 'get-packet-up="GET"'
+    _xe "an extra that is not an object changes nothing" 'not-object={"type":"xhttp","mode":"auto","path":"/","x_padding_bytes":"100-1000","no_grpc_header":false,"sc_max_each_post_bytes":1000000,"sc_min_posts_interval_ms":30}'
+    _xe "neither does text that is not JSON" 'garbage={"type":"xhttp","mode":"auto","path":"/","x_padding_bytes":"100-1000","no_grpc_header":false,"sc_max_each_post_bytes":1000000,"sc_min_posts_interval_ms":30}'
+    _xe "...and it is said in the log" "garbage-warned=1"
+    _xe "keys the core does not take are named in the log" "ignored-named=1"
+    _xe "max_concurrency and max_connections together: the link keeps max_concurrency" 'xmux-pair={"max_concurrency":"2-4"}'
+    _xe "max_connections alone (max_concurrency 0) stays" 'xmux-connections={"max_concurrency":0,"max_connections":3}'
+    _xe "an Xray JSON subscription passes xhttpSettings.extra on in the link" "sub-extra-in-uri=yes"
+    _xe "...and it comes back out of the link as the same options" 'sub-roundtrip=["150-400","2-4","stream-up"]'
+    if [ -x /usr/local/bin/sing-box-extended ]; then
+        _xe "sing-box-extended accepts the autoXRAY link" "core-check-1=ok"
+        _xe "...and one using every option" "core-check-2=ok"
+        _xe "...and one full of bad values (they are dropped, not passed on)" "core-check-3=ok"
+    else
+        skip "sing-box-extended not in the image: the core check of the xhttp options"
+    fi
+    rm -rf "$work"
+}
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -21202,6 +21327,7 @@ main() {
             test_port_rules
             test_config_lint
             test_naive
+            test_xhttp_extra
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -21287,9 +21413,10 @@ main() {
         portrules)   test_port_rules ;;
         configlint)  test_config_lint ;;
         naive)       test_naive ;;
+        xhttpextra)  test_xhttp_extra ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive xhttpextra"
             exit 1
             ;;
     esac
