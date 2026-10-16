@@ -1,5 +1,15 @@
 import { renderSections, renderWidget } from './partials';
 
+// The tiles with traffic and system numbers can be switched off in the settings
+// (dashboard_widgets); they are shown unless the option says 0.
+function widgetsAreShown(): boolean {
+  try {
+    return uci.get('netshift', 'settings', 'dashboard_widgets') !== '0';
+  } catch {
+    return true;
+  }
+}
+
 export function render() {
   return E(
     'div',
@@ -13,28 +23,55 @@ export function render() {
       // The servers the pin guard gave up (filled by the controller)
       E('div', { id: 'dashboard-pin-guard' }),
       // Widgets section
-      E('div', { class: 'pdk_dashboard-page__widgets-section' }, [
-        E(
-          'div',
-          { id: 'dashboard-widget-traffic' },
-          renderWidget({ loading: true, failed: false, title: '', items: [] }),
-        ),
-        E(
-          'div',
-          { id: 'dashboard-widget-traffic-total' },
-          renderWidget({ loading: true, failed: false, title: '', items: [] }),
-        ),
-        E(
-          'div',
-          { id: 'dashboard-widget-system-info' },
-          renderWidget({ loading: true, failed: false, title: '', items: [] }),
-        ),
-        E(
-          'div',
-          { id: 'dashboard-widget-service-info' },
-          renderWidget({ loading: true, failed: false, title: '', items: [] }),
-        ),
-      ]),
+      E(
+        'div',
+        {
+          class: 'pdk_dashboard-page__widgets-section',
+          ...(widgetsAreShown() ? {} : { style: 'display: none' }),
+        },
+        [
+          E(
+            'div',
+            { id: 'dashboard-widget-traffic' },
+            renderWidget({
+              loading: true,
+              failed: false,
+              title: '',
+              items: [],
+            }),
+          ),
+          E(
+            'div',
+            { id: 'dashboard-widget-traffic-total' },
+            renderWidget({
+              loading: true,
+              failed: false,
+              title: '',
+              items: [],
+            }),
+          ),
+          E(
+            'div',
+            { id: 'dashboard-widget-system-info' },
+            renderWidget({
+              loading: true,
+              failed: false,
+              title: '',
+              items: [],
+            }),
+          ),
+          E(
+            'div',
+            { id: 'dashboard-widget-service-info' },
+            renderWidget({
+              loading: true,
+              failed: false,
+              title: '',
+              items: [],
+            }),
+          ),
+        ],
+      ),
       // Subscription refresh toolbar (hidden without subscription sections)
       E('div', { id: 'dashboard-sections-toolbar' }),
       // All outbounds

@@ -26,6 +26,12 @@ export const styles = `
     grid-gap: 10px;
 }
 
+@media (max-width: 600px) {
+    .pdk_dashboard-page__widgets-section {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .pdk_dashboard-page__widgets-section__item {
 }
 
@@ -82,7 +88,7 @@ export const styles = `
 .pdk_dashboard-page__outbound-grid {
     margin-top: 5px;
     display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
     grid-gap: 10px;
 }
 
@@ -106,10 +112,12 @@ export const styles = `
     content: '\\2713\\00a0';
 }
 
+/* One column on a phone, more of them as the screen gets wider */
 .pdk_dashboard-page__outbound-list {
     margin-top: 5px;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+    align-content: start;
     gap: 6px;
     max-height: 520px;
     overflow-y: auto;

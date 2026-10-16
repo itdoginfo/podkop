@@ -290,6 +290,9 @@ msgstr "Дашборд"
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
 
+msgid "Dashboard tiles, YACD web dashboard access and remote-access protection"
+msgstr "Плитки дашборда, доступ к веб-панели YACD и защита удалённого доступа"
+
 msgid "days left"
 msgstr "дн. осталось"
 
@@ -983,8 +986,8 @@ msgstr "Список"
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
 
-msgid "List update schedule, download routing, and routing exclusions"
-msgstr "Расписание обновления списков, маршрутизация загрузок и исключения из маршрутизации"
+msgid "List update schedule and the way lists and components are downloaded"
+msgstr "Расписание обновления списков и способ загрузки списков и компонентов"
 
 msgid "Lists & Updates"
 msgstr "Списки и обновления"
@@ -1421,6 +1424,9 @@ msgstr "Показывать на дашборде уведомление о н�
 msgid "Show sing-box config"
 msgstr "Показать sing-box конфигурацию"
 
+msgid "Show the tiles on the dashboard"
+msgstr "Показывать плитки на дашборде"
+
 msgid "Sing-box"
 msgstr "Sing-box"
 
@@ -1457,8 +1463,8 @@ msgstr "Сортировать по пингу"
 msgid "Source"
 msgstr "Источник"
 
-msgid "Source and output interfaces, and Bad WAN interface monitoring"
-msgstr "Входящий и исходящий интерфейсы, а также мониторинг интерфейсов Bad WAN"
+msgid "Source and output interfaces, Bad WAN interface monitoring and devices excluded from routing"
+msgstr "Входные и выходные интерфейсы, контроль плохого WAN и устройства, исключённые из маршрутизации"
 
 msgid "Source Network Interface"
 msgstr "Сетевой интерфейс источника"
@@ -1639,6 +1645,9 @@ msgstr "Подсети этой секции-исключения вообще �
 
 msgid "The test could not be run"
 msgstr "Не удалось выполнить проверку"
+
+msgid "The tiles with the traffic, the total traffic, the system information and the services above the lists of servers. Turn them off to leave only the servers."
+msgstr "Плитки с трафиком, общим трафиком, системной информацией и службами над списками серверов. Выключите, чтобы остались только серверы."
 
 msgid "The URL the dashboard uses to measure server latency. Change it if the default is slow or blocked in your region."
 msgstr "URL, который дашборд использует для измерения задержки серверов. Измените его, если значение по умолчанию медленное или заблокировано в вашем регионе."
@@ -1864,9 +1873,6 @@ msgstr "Xray JSON (Happ)"
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
-
-msgid "YACD web dashboard access and remote-access protection"
-msgstr "Доступ к веб-панели YACD и защита удалённого доступа"
 
 msgid "You can select Output Network Interface, by default autodetect"
 msgstr "Вы можете выбрать выходной сетевой интерфейс, по умолчанию он определяется автоматически."

@@ -42,6 +42,57 @@ ${ManagerTab.styles}
 ${PartialStyles}
 
 
+/*
+ * The custom tabs (dashboard, devices, connections, component manager,
+ * diagnostics) fill the whole width of the page: some themes narrow the field of a
+ * form row, and these tabs are not forms.
+ */
+:is(#cbi-netshift-dashboard, #cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-manager, #cbi-netshift-diagnostic) :is(.cbi-section-node, .cbi-value, .cbi-value-field) {
+    display: block;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+    box-sizing: border-box;
+}
+
+:is(#cbi-netshift-dashboard, #cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-manager, #cbi-netshift-diagnostic) .cbi-value-title {
+    display: none;
+}
+
+/*
+ * Inputs and selects of the custom tabs look like the ones of the forms: the theme
+ * styles them only inside a form row, so the same tokens are applied here.
+ */
+:is(#cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-diagnostic) :is(input.cbi-input-text, select.cbi-input-select, textarea) {
+    box-sizing: border-box;
+    min-height: 2.4em;
+    padding: 0.4em 0.7em;
+    color: var(--text-color-high, inherit);
+    background: var(--background-color-high, transparent);
+    border: 1px solid var(--border-color-medium, rgba(128, 128, 128, 0.5));
+    border-radius: var(--border-radius, 4px);
+    font: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+:is(#cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-diagnostic) :is(input.cbi-input-text, select.cbi-input-select, textarea):focus {
+    outline: none;
+    border-color: var(--primary-color-high, #2196f3);
+}
+
+
+:is(#cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-diagnostic) select.cbi-input-select {
+    padding-right: 2em;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 1.1em) 55%, calc(100% - 0.8em) 55%;
+    background-size: 0.3em 0.3em, 0.3em 0.3em;
+    background-repeat: no-repeat;
+}
+
 /* Hide extra H3 for settings tab */
 #cbi-netshift-settings > h3 {
     display: none;

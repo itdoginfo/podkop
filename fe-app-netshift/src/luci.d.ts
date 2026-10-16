@@ -42,6 +42,11 @@ declare global {
   const uci: {
     load: (packages: string | string[]) => Promise<string>;
     sections: (conf: string, type?: string, cb?: () => void) => Promise<T>;
+    get: (
+      conf: string,
+      section: string,
+      option: string,
+    ) => string | string[] | null | undefined;
   };
 
   const _ = (_key: string) => string;
