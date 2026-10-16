@@ -274,19 +274,19 @@ function buildDevices(sectionsSection, settingsSection) {
 
   const dhcpCell = (device) => {
     if (!device.mac) {
-      return E("td", { class: "td" }, ["-"]);
+      return E("td", { class: "td", "data-title": _("DHCP lease") }, ["-"]);
     }
 
     const lease = main.findStaticLease(lan, device.mac);
 
     if (!lease) {
-      return E("td", { class: "td" }, [
+      return E("td", { class: "td", "data-title": _("DHCP lease") }, [
         E("span", {}, _("Dynamic") + " "),
         E("button", { class: "btn cbi-button", click: () => editLease(device, null) }, _("Pin address")),
       ]);
     }
 
-    return E("td", { class: "td" }, [
+    return E("td", { class: "td", "data-title": _("DHCP lease") }, [
       E("span", {}, _("Static") + " "),
       E("button", { class: "btn cbi-button", click: () => editLease(device, lease) }, _("Edit")),
       " ",
@@ -343,13 +343,13 @@ function buildDevices(sectionsSection, settingsSection) {
 
       tableBody.appendChild(
         E("tr", { class: "tr" }, [
-          E("td", { class: "td" }, [
+          E("td", { class: "td", "data-title": _("Device") }, [
             device.name || (device.offline ? _("Not on the network") : "-"),
           ]),
-          E("td", { class: "td" }, [device.ip]),
-          E("td", { class: "td" }, [device.mac || "-"]),
+          E("td", { class: "td", "data-title": _("IP address") }, [device.ip]),
+          E("td", { class: "td", "data-title": _("MAC address") }, [device.mac || "-"]),
           dhcpCell(device),
-          E("td", { class: "td" }, [select]),
+          E("td", { class: "td", "data-title": _("Routing") }, [select]),
         ]),
       );
     });
@@ -386,7 +386,7 @@ function buildDevices(sectionsSection, settingsSection) {
       }),
     ]),
     E("div", { class: "table" }, [
-      E("table", { class: "table" }, [
+      E("table", { class: "table ns-table" }, [
         E("thead", {}, [
           E("tr", { class: "tr table-titles" }, [
             E("th", { class: "th" }, [_("Device")]),

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-16 18:18+0300\n"
-"PO-Revision-Date: 2026-10-16 18:18+0300\n"
+"POT-Creation-Date: 2026-10-16 18:21+0300\n"
+"PO-Revision-Date: 2026-10-16 18:21+0300\n"
 "Last-Translator: yandexru45 <sukadark228@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -85,6 +85,7 @@ msgstr ""
 msgid "Advanced"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:88
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:151
 msgid "Age"
 msgstr ""
@@ -414,6 +415,7 @@ msgstr ""
 msgid "Delay value cannot be empty"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:79
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:146
 msgid "Destination"
 msgstr ""
@@ -430,6 +432,7 @@ msgstr ""
 msgid "Dev"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:346
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:392
 msgid "Device"
 msgstr ""
@@ -442,6 +445,9 @@ msgstr ""
 msgid "DHCP has DNS server"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:277
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:283
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:289
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:395
 msgid "DHCP lease"
 msgstr ""
@@ -1285,6 +1291,7 @@ msgid "Invalid zone"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:250
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:349
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:393
 msgid "IP address"
 msgstr ""
@@ -1388,6 +1395,7 @@ msgid "Log Level"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:249
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:350
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:394
 msgid "MAC address"
 msgstr ""
@@ -1666,6 +1674,7 @@ msgstr ""
 msgid "Priority: next server if the previous one fails"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:80
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:147
 msgid "Protocol"
 msgstr ""
@@ -1754,6 +1763,7 @@ msgstr ""
 msgid "Restored. Reload the page to see the settings."
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:82
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:149
 msgid "Route"
 msgstr ""
@@ -1778,6 +1788,7 @@ msgstr ""
 msgid "Router DNS is routed through sing-box"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:352
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:396
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:27
 msgid "Routing"
@@ -2018,6 +2029,7 @@ msgstr ""
 msgid "Sort by ping"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:81
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:148
 msgid "Source"
 msgstr ""
@@ -2312,6 +2324,7 @@ msgstr ""
 #: src/netshift/tabs/dashboard/initController.ts:455
 #: src/netshift/tabs/dashboard/partials/renderSections.ts:110
 #: src/netshift/tabs/dashboard/partials/renderSections.ts:111
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:85
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:150
 msgid "Traffic"
 msgstr ""
