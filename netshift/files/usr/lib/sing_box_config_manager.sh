@@ -1240,6 +1240,8 @@ sing_box_cm_set_http_transport_for_outbound() {
 #   path: string, XHTTP path (defaults to "/" if empty)
 #   host: string, Host header for XHTTP (optional)
 #   mode: string, XHTTP mode (auto|packet-up|stream-up|stream-one; defaults to "auto")
+#   extra: string (JSON object), already-sanitized transport options from
+#          sing_box_cm_xhttp_extra_options (optional, defaults to {}); they replace the defaults
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -1251,6 +1253,7 @@ sing_box_cm_set_xhttp_transport_for_outbound() {
     local path="$3"
     local host="$4"
     local mode="$5"
+    local extra="${6:-}"
 
     case "$mode" in
     auto | packet-up | stream-up | stream-one) ;;
@@ -1258,12 +1261,14 @@ sing_box_cm_set_xhttp_transport_for_outbound() {
     esac
 
     [ -n "$path" ] || path="/"
+    [ -n "$extra" ] || extra="{}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
         --arg path "$path" \
         --arg host "$host" \
         --arg mode "$mode" \
+        --argjson extra "$extra" \
         '.outbounds |= map(
             if .tag == $tag then
                 . + {
@@ -1278,12 +1283,116 @@ sing_box_cm_set_xhttp_transport_for_outbound() {
                             sc_min_posts_interval_ms: 30
                         }
                         + (if $host != "" then {host: $host} else {} end)
+                        + $extra
                     )
                 }
             else
                 .
             end
         )'
+}
+
+#######################################
+# The `extra` of an XHTTP share link (Xray's xhttpSettings.extra: padding, post sizes and intervals,
+# xmux, placements ...) as options of the sing-box-extended xhttp transport. Only known keys with
+# usable values pass: the core refuses a whole configuration for one bad value, so a value that
+# is out of range, has a wrong type or is not in the allowed set is dropped, and the transport
+# keeps its default for it. Ranges are a number or "from-to" (digits only, no regex).
+# Arguments:
+#   extra: string, the decoded JSON of the link's `extra` parameter (may be empty)
+#   mode: string, XHTTP mode of the link (some values are valid only in packet-up)
+#   padding: string, the link's own x_padding_bytes parameter (3x-ui writes it next to `extra`),
+#            used when `extra` does not carry xPaddingBytes (optional)
+# Outputs:
+#   A JSON object of transport options on stdout; "{}" when there is nothing usable
+#######################################
+sing_box_cm_xhttp_extra_options() {
+    local extra="${1:-}"
+    local mode="${2:-auto}"
+    local padding="${3:-}"
+
+    [ -n "$extra" ] || extra="null"
+    if ! printf '%s' "$extra" | jq -e 'type == "object"' > /dev/null 2>&1; then
+        extra="null"
+    fi
+
+    printf '%s' "$extra" | jq -c --arg mode "$mode" --arg padding "$padding" '
+        def digits: type == "string" and length > 0 and length <= 9 and all(explode[]; . >= 48 and . <= 57);
+        def rng($min):
+            if type == "number" then
+                (if . == floor and . >= $min and . <= 2147483647 then . else null end)
+            elif type == "string" then
+                (split("-")) as $p
+                | if ($p | length) == 1 and ($p[0] | digits) then
+                    (($p[0] | tonumber) as $n | if $n >= $min then $n else null end)
+                  elif ($p | length) == 2 and ($p[0] | digits) and ($p[1] | digits) then
+                    (($p[0] | tonumber) as $a | ($p[1] | tonumber) as $b
+                     | if $a >= $min and $b >= $a then "\($a)-\($b)" else null end)
+                  else null end
+            else null end;
+        def rng_to: if type == "number" then . else (split("-") | last | tonumber) end;
+        def uint: if type == "number" and . == floor and . >= 0 and . <= 2147483647 then . else null end;
+        def bool: if type == "boolean" then . else null end;
+        def enum($list): if type == "string" and (. as $v | $list | index($v)) != null then . else null end;
+        def key:
+            if type == "string" and length >= 1 and length <= 64
+               and all(explode[]; (. >= 48 and . <= 57) or (. >= 65 and . <= 90) or (. >= 97 and . <= 122) or . == 45 or . == 95)
+            then . else null end;
+        def packet_up: $mode == "packet-up";
+
+        (if type == "object" then . else {} end) as $e
+        | ($e.xmux | if type == "object" then . else {} end) as $x
+        | ({
+            max_concurrency: ($x.maxConcurrency | rng(0)),
+            max_connections: ($x.maxConnections | rng(0)),
+            c_max_reuse_times: ($x.cMaxReuseTimes | rng(0)),
+            h_max_request_times: ($x.hMaxRequestTimes | rng(0)),
+            h_max_reusable_secs: ($x.hMaxReusableSecs | rng(0)),
+            h_keep_alive_period: ($x.hKeepAlivePeriod | uint)
+          } | with_entries(select(.value != null))
+            # the core refuses both of these set together: the link keeps max_concurrency
+            | if (.max_connections // 0 | rng_to) > 0 and (.max_concurrency // 0 | rng_to) > 0 then del(.max_connections) else . end
+          ) as $xmux
+        | ($e.headers | if type == "object" then
+              with_entries(select((.value | type) == "string" and ((.key | ascii_downcase) != "host")))
+              | if length > 0 then . else null end
+          else null end) as $headers
+        | ({
+            x_padding_bytes: (($e.xPaddingBytes | rng(1)) // ($padding | rng(1))),
+            no_grpc_header: ($e.noGRPCHeader | bool),
+            no_sse_header: ($e.noSSEHeader | bool),
+            sc_max_each_post_bytes: ($e.scMaxEachPostBytes | rng(1)),
+            sc_min_posts_interval_ms: ($e.scMinPostsIntervalMs | rng(0)),
+            sc_max_buffered_posts: ($e.scMaxBufferedPosts | uint),
+            sc_stream_up_server_secs: ($e.scStreamUpServerSecs | rng(0)),
+            uplink_chunk_size: ($e.uplinkChunkSize | rng(0)),
+            x_padding_obfs_mode: ($e.xPaddingObfsMode | bool),
+            x_padding_key: ($e.xPaddingKey | key),
+            x_padding_header: ($e.xPaddingHeader | key),
+            x_padding_placement: ($e.xPaddingPlacement | enum(["cookie", "header", "query", "queryInHeader"])),
+            x_padding_method: ($e.xPaddingMethod | enum(["repeat-x", "tokenish"])),
+            uplink_http_method: ($e.uplinkHTTPMethod | if type == "string" then ascii_upcase else null end
+                                 | enum(if packet_up then ["POST", "PUT", "GET"] else ["POST", "PUT"] end)),
+            session_placement: ($e.sessionPlacement | enum(["path", "cookie", "header", "query"])),
+            session_key: ($e.sessionKey | key),
+            seq_placement: ($e.seqPlacement | enum(["path", "cookie", "header", "query"])),
+            seq_key: ($e.seqKey | key),
+            uplink_data_placement: ($e.uplinkDataPlacement | enum(if packet_up then ["auto", "body", "cookie", "header"] else ["auto", "body"] end)),
+            uplink_data_key: ($e.uplinkDataKey | key),
+            headers: $headers,
+            xmux: (if ($xmux | length) > 0 then $xmux else null end)
+          } | with_entries(select(.value != null)))' 2> /dev/null || echo '{}'
+}
+
+# The keys of an XHTTP `extra` that the transport does not take (printed comma-separated), so the
+# log can say what was left out.
+sing_box_cm_xhttp_extra_ignored() {
+    printf '%s' "${1:-null}" | jq -r '
+        ["xPaddingBytes", "noGRPCHeader", "noSSEHeader", "scMaxEachPostBytes", "scMinPostsIntervalMs", "scMaxBufferedPosts",
+         "scStreamUpServerSecs", "uplinkChunkSize", "xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement",
+         "xPaddingMethod", "uplinkHTTPMethod", "sessionPlacement", "sessionKey", "seqPlacement", "seqKey",
+         "uplinkDataPlacement", "uplinkDataKey", "headers", "xmux"] as $known
+        | if type == "object" then (keys - $known | join(", ")) else "" end' 2> /dev/null
 }
 
 #######################################

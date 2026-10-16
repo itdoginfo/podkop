@@ -1899,7 +1899,10 @@ xray_json_to_uri_lines() {
                 # $xs binds to whichever settings object is present.
                 [ kv("path"; ($xs.path // "")),
                   kv("host"; ($xs.host // "")),
-                  kv("mode"; ($xs.mode // "")) ]
+                  kv("mode"; ($xs.mode // "")),
+                  # the options the server expects (padding, post sizes, xmux): percent-encoded JSON
+                  (if ($xs.extra | type) == "object" and ($xs.extra | length) > 0
+                   then ("extra=" + ($xs.extra | tojson | @uri)) else empty end) ]
               elif $net == "grpc" then
                 [ kv("serviceName"; ($ss.grpcSettings.serviceName // "")) ]
               else [] end
