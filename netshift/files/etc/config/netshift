@@ -168,3 +168,10 @@ config section 'main'
 #        #option urltest_check_interval '3m'
 #        #option urltest_tolerance '50'
 #        #option urltest_testing_url 'https://www.gstatic.com/generate_204'
+
+# Failover to direct: while none of the section's servers answers (three checks in a
+# row), its traffic goes out directly (e.g. to zapret) and comes back when one answers.
+#config section 'failover_example'
+#        option connection_type 'proxy'
+#        option proxy_config_type 'urltest'
+#        option failover_direct '1'

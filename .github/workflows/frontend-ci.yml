@@ -43,6 +43,15 @@ jobs:
       - name: Check translations
         run: node fe-app-netshift/check-locales.js
 
+      # The views in luci-app-netshift are written by hand and never built, so a stray
+      # line in one of them (it once left section.js unparsable) breaks the whole page
+      # and no other gate notices.
+      - name: Syntax-check the hand-written views
+        run: |
+          for f in luci-app-netshift/htdocs/luci-static/resources/view/netshift/*.js; do
+            node --check "$f"
+          done
+
   frontend-checks:
     name: Frontend Quality Checks
     runs-on: ubuntu-24.04

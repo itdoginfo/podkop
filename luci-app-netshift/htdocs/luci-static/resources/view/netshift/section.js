@@ -889,6 +889,19 @@ function createSectionContent(section) {
   o = section.taboption(
     "connection",
     form.Flag,
+    "failover_direct",
+    _("Go direct if all servers are down"),
+    _(
+      "When no server of this section answers (three checks in a row, at the check interval of the priority mode), its traffic goes out directly, where zapret or another tool for direct traffic can pick it up, and returns to the section as soon as a server answers. Every switch is written to the log. Off by default.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = true;
+  o.depends("connection_type", "proxy");
+
+  o = section.taboption(
+    "connection",
+    form.Flag,
     "geoip_flags",
     _("Detect country by IP (GeoIP)"),
     _(

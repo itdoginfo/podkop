@@ -36,6 +36,7 @@ check_required_file "$NETSHIFT_LIB/feedlist.sh"
 check_required_file "$NETSHIFT_LIB/naive.sh"
 check_required_file "$NETSHIFT_LIB/corecaps.sh"
 check_required_file "$NETSHIFT_LIB/applyconfig.sh"
+check_required_file "$NETSHIFT_LIB/failover.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -60,6 +61,7 @@ check_required_file "$NETSHIFT_LIB/applyconfig.sh"
 . "$NETSHIFT_LIB/lint.sh"
 . "$NETSHIFT_LIB/feedlist.sh"
 . "$NETSHIFT_LIB/applyconfig.sh"
+. "$NETSHIFT_LIB/failover.sh"
 . "$NETSHIFT_LIB/naive.sh"
 . "$NETSHIFT_LIB/corecaps.sh"
 
@@ -1718,6 +1720,7 @@ monitor_sing_box() {
                 priority_last="$now"
                 priority_check_sections
                 pin_guard_check_sections
+                failover_check_sections
             fi
             continue
         fi
@@ -3903,6 +3906,7 @@ sing_box_init_config() {
     sing_box_configure_experimental
     sing_box_additional_inbounds
     sing_box_reject_unmatched_for_broken_chain
+    failover_configure
     sing_box_save_config
     # after a configuration sing-box accepted: the clients it sends traffic to
     naive_sidecars_apply
