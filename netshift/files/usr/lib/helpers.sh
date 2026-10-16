@@ -2145,6 +2145,15 @@ normalize_subscription_to_singbox() {
     # udp_over_tcp from the section if present, else empty.
     udp_over_tcp="$(uci -q get "netshift.${section}.udp_over_tcp" 2>/dev/null)"
 
+    # How many servers of one feed are used (the section's subscription_max_nodes;
+    # 500 when it is not set, 0 for no limit).
+    local max_nodes
+    max_nodes="$(uci -q get "netshift.${section}.subscription_max_nodes" 2>/dev/null)"
+    case "$max_nodes" in
+    '') max_nodes="$SUBSCRIPTION_MAX_NODES_DEFAULT" ;;
+    *[!0-9]*) max_nodes="$SUBSCRIPTION_MAX_NODES_DEFAULT" ;;
+    esac
+
     config='{"outbounds":[]}'
     idx=0
     kept=0
@@ -2178,12 +2187,21 @@ normalize_subscription_to_singbox() {
         # reaches the builder's fatal path.
         scheme="$(url_get_scheme "$line")"
         case "$scheme" in
-        vless | trojan | ss | hysteria2 | hy2 | socks5 | socks4 | socks4a) ;;
+        vless | vmess | trojan | ss | hysteria2 | hy2 | socks5 | socks4 | socks4a | naive+https | naive+quic) ;;
         *)
             skipped=$(( skipped + 1 ))
             continue
             ;;
         esac
+
+        # A collected list can hold thousands of servers: each one costs a few
+        # processes here, and the config built from all of them is too much for a
+        # router (and for the speed tests of the group). Only the first
+        # subscription_max_nodes are taken (0: all of them).
+        if [ "$max_nodes" -gt 0 ] && [ "$kept" -ge "$max_nodes" ]; then
+            log "Subscription for '$section' has more than $max_nodes servers; only the first $max_nodes are used (see 'Servers per feed')" "warn"
+            break
+        fi
 
         # Extract the human-readable name from the URI fragment (the part after
         # the first '#', e.g. vless://...#🇩🇪 Frankfurt). The builder strips the

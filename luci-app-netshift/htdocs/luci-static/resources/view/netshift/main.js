@@ -1114,6 +1114,7 @@ var NetShift;
   ((AvailableMethods2) => {
     AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
     AvailableMethods2["GET_CORE_CAPABILITIES"] = "get_core_capabilities";
+    AvailableMethods2["FETCH_FEED_LIST"] = "fetch_feed_list";
     AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
     AvailableMethods2["CHECK_ENVIRONMENT"] = "check_environment";
     AvailableMethods2["CHECK_ROUTE"] = "check_route";
@@ -1273,6 +1274,12 @@ function getSubscriptionPollMessages() {
 }
 var NetShiftShellMethods = {
   getCoreCapabilities: async () => callBaseMethod(NetShift.AvailableMethods.GET_CORE_CAPABILITIES),
+  fetchFeedList: async (url) => callBaseMethod(
+    NetShift.AvailableMethods.FETCH_FEED_LIST,
+    [url],
+    void 0,
+    { nobatch: true }
+  ),
   checkDNSAvailable: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_DNS_AVAILABLE
   ),
@@ -8680,6 +8687,44 @@ function sortBySpeed(results) {
   }).map((item) => item.result);
 }
 
+// src/helpers/feedList.ts
+function parseFeedList(input) {
+  let data = input;
+  if (typeof input === "string") {
+    try {
+      data = JSON.parse(input);
+    } catch {
+      return { ok: false, urls: [], error: "" };
+    }
+  }
+  if (!data || typeof data !== "object") {
+    return { ok: false, urls: [], error: "" };
+  }
+  const value = data;
+  if (value.ok !== true || !Array.isArray(value.urls)) {
+    return {
+      ok: false,
+      urls: [],
+      error: typeof value.error === "string" ? value.error : ""
+    };
+  }
+  return {
+    ok: true,
+    urls: value.urls.filter(
+      (item) => typeof item === "string" && /^https?:\/\/\S+$/.test(item)
+    )
+  };
+}
+function newFeeds(existing, found) {
+  const known = new Set(existing.map((item) => item.trim()));
+  return found.filter((item, index) => {
+    if (known.has(item) || found.indexOf(item) !== index) {
+      return false;
+    }
+    return true;
+  });
+}
+
 // src/main.ts
 if (typeof structuredClone !== "function")
   globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -8757,11 +8802,13 @@ return baseclass.extend({
   logLineMessage,
   logger,
   maskIP,
+  newFeeds,
   onMount,
   parseConnections,
   parseCoreCapabilities,
   parseDnsBenchmark,
   parseDnsBenchmarkVia,
+  parseFeedList,
   parseLanInfo,
   parsePinGuardEvents,
   parseQueryString,

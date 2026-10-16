@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-16 23:06+0300\n"
-"PO-Revision-Date: 2026-10-16 23:06+0300\n"
+"POT-Creation-Date: 2026-10-16 23:34+0300\n"
+"PO-Revision-Date: 2026-10-16 23:34+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -53,8 +53,14 @@ msgstr "Активный"
 msgid "Active Connections"
 msgstr "Активные соединения"
 
+msgid "Add feeds from a list"
+msgstr "Добавить ленты из списка"
+
 msgid "Add one or more subscription URLs to fetch proxy configurations from. All feeds are downloaded and merged."
 msgstr "Добавьте один или несколько URL подписок для получения конфигураций прокси. Все источники загружаются и объединяются."
+
+msgid "Add the feeds"
+msgstr "Добавить ленты"
 
 msgid "Add your own domains: choose Dynamic List (one per row) or Text List (free-form), or Disabled to skip"
 msgstr "Добавьте свои домены: выберите Динамический список (по одному в строке) или Текстовый список (свободный ввод), либо Отключено, чтобы пропустить"
@@ -287,6 +293,9 @@ msgstr "Истекло время ожидания переключения яд
 msgid "Could not duplicate the section: %s"
 msgstr "Не удалось создать копию секции: %s"
 
+msgid "Could not read the list"
+msgstr "Не удалось прочитать список"
+
 msgid "Currently unavailable"
 msgstr "Временно недоступно"
 
@@ -475,6 +484,9 @@ msgstr "Скачивать sing-box, пакеты NetShift и сведения �
 
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr "Загрузка всех списков через указанный прокси/VPN"
+
+msgid "Downloading the list..."
+msgstr "Скачиваем список..."
 
 msgid "Drop servers that connect this way."
 msgstr "Убрать серверы, подключающиеся так."
@@ -677,6 +689,9 @@ msgstr "Flow Offloading выключен"
 msgid "For servers whose name has no flag, look the country up once by the server address and show its flag: in front of the name in a subscription (so grouping and the country filters work for it too), on the dashboard for your own links. The server addresses are sent to api.country.is over HTTPS; results are cached on the router."
 msgstr "Для серверов, в имени которых нет флага, страна один раз определяется по адресу сервера и показывается флагом: впереди имени в подписке (чтобы для неё работали группировка и фильтры по странам), на дашборде — для ваших собственных ссылок. Адреса серверов отправляются на api.country.is по HTTPS; результаты кешируются на роутере."
 
+msgid "Found %d feeds, added %d. Save and apply to keep them."
+msgstr "Найдено лент: %d, добавлено: %d. Чтобы сохранить, нажмите «Сохранить и применить»."
+
 msgid "From the device (optional)"
 msgstr "С устройства (необязательно)"
 
@@ -709,6 +724,9 @@ msgstr "Имя хоста"
 
 msgid "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s"
 msgstr "Сколько времени может занимать один DNS-сервер, прежде чем будет опрошен следующий (приоритет) или его ответ отброшен (параллельно). Примеры: 500ms, 2s"
+
+msgid "How many servers of one feed are used (the first ones). Published lists hold thousands of servers: each is processed one by one and the group of them is tested by the router, which is too much for it. 0 uses all of them."
+msgstr "Сколько серверов одной ленты используется (первые). В опубликованных списках тысячи серверов: каждый обрабатывается по отдельности, а вся группа проверяется роутером, и это ему не по силам. 0 - использовать все."
 
 msgid "How often to automatically update the subscription"
 msgstr "Как часто автоматически обновлять подписку"
@@ -1460,6 +1478,9 @@ msgstr "Отправлять этот IP-адрес или префикс с к�
 msgid "Send upstream DNS queries through a proxy/VPN outbound instead of directly. Bootstrap DNS always stays direct."
 msgstr "Отправлять запросы к основному DNS через outbound прокси/VPN вместо прямого подключения. Bootstrap DNS всегда остаётся прямым."
 
+msgid "Servers per feed"
+msgstr "Серверов в ленте"
+
 msgid "Services info"
 msgstr "Информация о сервисах"
 
@@ -1627,6 +1648,9 @@ msgstr "Адрес уже выдан другому устройству"
 
 msgid "The address is outside the local networks"
 msgstr "Адрес вне локальных сетей"
+
+msgid "The address of a published list of subscriptions: a text file with a feed address per line, or a JSON object whose keys are the addresses. The feeds found are added to the list above (the ones already there are skipped); save and apply to keep them. A feed with thousands of servers is cut to the number below."
+msgstr "Адрес опубликованного списка подписок: текстовый файл с адресом ленты в строке или JSON-объект, ключи которого - адреса. Найденные ленты добавляются в список выше (уже имеющиеся пропускаются); чтобы сохранить их, нажмите «Сохранить и применить». Лента с тысячами серверов обрезается до числа ниже."
 
 msgid "The check could not be completed"
 msgstr "Проверку выполнить не удалось"

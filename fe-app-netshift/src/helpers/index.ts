@@ -25,3 +25,4 @@ export * from './dnsBenchmark';
 export * from './summarizeLogErrors';
 export * from './subscriptionInfo';
 export * from './coreCapabilities';
+export * from './feedList';
