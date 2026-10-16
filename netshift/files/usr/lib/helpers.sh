@@ -1038,6 +1038,44 @@ get_sing_box_version() {
     echo "${version:-1.0}"
 }
 
+# Prints the build tags of the sing-box core, comma separated (the "Tags:" line
+# of `sing-box version`), or nothing when the banner has no such line.
+#
+# Like the version, it can be resolved once by a caller that asks many times
+# (`sing-box version` of the UPX lite build unpacks the whole core into memory):
+#   local NETSHIFT_SING_BOX_TAGS
+#   NETSHIFT_SING_BOX_TAGS="$(get_sing_box_tags)"
+get_sing_box_tags() {
+    if [ -n "${NETSHIFT_SING_BOX_TAGS+x}" ]; then
+        echo "$NETSHIFT_SING_BOX_TAGS"
+        return
+    fi
+
+    if command -v sing-box > /dev/null 2>&1; then
+        sing-box version 2> /dev/null | sed -n 's/^Tags:[[:space:]]*//p' | sed -n '1p'
+    fi
+}
+
+# Returns 0 when the core has the build tag (for example with_quic). A core that
+# does not say which tags it was built with is given the benefit of the doubt:
+# refusing a feature it may well have would break setups that work.
+# Arguments:
+#   $1 - the tag
+core_has_tag() {
+    local tags
+
+    tags="$(get_sing_box_tags)"
+    [ -n "$tags" ] || return 0
+
+    core_has_tag_strict "$1"
+}
+
+# Returns 0 only when the core says it has the tag (for features that no usual
+# build carries, such as the naive outbound).
+core_has_tag_strict() {
+    get_sing_box_tags | tr ',' '\n' | grep -qx "$1"
+}
+
 # Returns 0 if the given (or detected) sing-box core is at least the given
 # upstream release. Only the part in front of the first "-" is compared, so
 # "1.14.1-extended-2.7.2-lite" counts as 1.14.1 whatever the fork adds after it;

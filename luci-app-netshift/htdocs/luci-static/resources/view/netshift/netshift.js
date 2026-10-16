@@ -29,6 +29,8 @@
 const EntryPoint = {
   async render() {
     main.injectGlobalStyles();
+    // what the installed core can do, for the validators and the hints
+    await main.loadCoreCapabilities();
 
     const netshiftMap = new form.Map(
       "netshift",

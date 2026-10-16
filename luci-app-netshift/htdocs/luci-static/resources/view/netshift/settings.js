@@ -55,6 +55,9 @@ function createSettingsContent(section) {
     o.value(key, label);
   });
   o.rmempty = false;
+  if (!main.getCoreCapabilities().quic) {
+    o.description = `${o.description} ${_("This core is built without QUIC: DoH3 and DoQ servers are replaced by DoH and DoT.")}`;
+  }
   let knownCount = null;
   o.cfgvalue = function (section_id) {
     const list = main.dnsServersFromOptions({
@@ -223,6 +226,9 @@ function createSettingsContent(section) {
       "How the servers of the list are used together when there are several. Needs sing-box 1.14 or newer; on an older core only the first server is used.",
     ),
   );
+  if (!main.getCoreCapabilities().dns_pool) {
+    o.description = `${o.description} ${_("The installed core (%s) is older: only the first server is used.").format(main.getCoreCapabilities().version)}`;
+  }
   o.value("single", _("First server only"));
   o.value("fallback", _("Priority: next server if the previous one fails"));
   o.value("race", _("Parallel: the first usable answer wins"));

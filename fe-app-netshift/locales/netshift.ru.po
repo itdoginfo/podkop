@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-16 21:30+0300\n"
-"PO-Revision-Date: 2026-10-16 21:30+0300\n"
+"POT-Creation-Date: 2026-10-16 21:53+0300\n"
+"PO-Revision-Date: 2026-10-16 21:53+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -694,6 +694,9 @@ msgstr "Как серверы списка используются вместе
 
 msgid "HTTP error"
 msgstr "Ошибка HTTP"
+
+msgid "Hysteria2 needs a sing-box core built with QUIC"
+msgstr "Hysteria2 требует ядро sing-box, собранное с QUIC"
 
 msgid "Include servers by country"
 msgstr "Оставить серверы по стране"
@@ -1592,6 +1595,12 @@ msgstr "DNS-сервер, используемый для поиска IP-адр
 msgid "The domains of this section's lists are resolved by this server instead of the main one and are not sent through any tunnel (split DNS). Address, address:port or host/path for DoH"
 msgstr "Домены из списков этой секции резолвит этот сервер вместо основного, и через туннель они не идут (split DNS). Адрес, адрес:порт или хост/путь для DoH"
 
+msgid "The installed core (%s) does not know this option, so it is ignored."
+msgstr "Установленное ядро (%s) не знает этой опции, поэтому она игнорируется."
+
+msgid "The installed core (%s) is older: only the first server is used."
+msgstr "Установленное ядро (%s) старше: используется только первый сервер."
+
 msgid "The interval between connectivity tests. A longer interval means less traffic through every server of the group; \"Only at start\" tests once when the service starts."
 msgstr "Интервал между проверками связи. Чем он длиннее, тем меньше трафика на каждый сервер группы; «Только при запуске» проверяет один раз при старте службы."
 
@@ -1645,6 +1654,9 @@ msgstr "URL, который дашборд использует для изме�
 
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"
+
+msgid "This core is built without QUIC: DoH3 and DoQ servers are replaced by DoH and DoT."
+msgstr "Это ядро собрано без QUIC: серверы DoH3 и DoQ заменяются на DoH и DoT."
 
 msgid "This is a security trade-off: an attacker could intercept the fetch."
 msgstr "Это компромисс в безопасности: злоумышленник может перехватить загрузку."
@@ -1822,6 +1834,9 @@ msgstr "ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hyst
 
 msgid "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// links — one per line"
 msgstr "Ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// — по одной в строке"
+
+msgid "VMess needs the sing-box-extended core"
+msgstr "VMess требует ядро sing-box-extended"
 
 msgid "WAN interface for the EDNS Client Subnet"
 msgstr "WAN-интерфейс для EDNS Client Subnet"

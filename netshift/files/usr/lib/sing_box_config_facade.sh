@@ -61,11 +61,27 @@ sing_box_cf_add_dns_server() {
         ;;
     doh3)
         [ -z "$server_port" ] && server_port=443
+        if ! core_has_tag with_quic; then
+            # the core has no QUIC: DoH over HTTP/2 goes to the same address
+            log "DNS server '$tag': this sing-box core is built without QUIC, so DoH3 is not available; using DoH instead." "warn"
+            config=$(sing_box_cm_add_https_dns_server "$config" "$tag" "$server_address" "$server_port" \
+                "$(url_get_path "$server")" "" "$domain_resolver" "$detour")
+            echo "$config"
+            return 0
+        fi
         config=$(sing_box_cm_add_other_dns_server "$config" "h3" "$tag" "$server_address" "$server_port" \
             "$(url_get_path "$server")" "$domain_resolver" "$detour")
         ;;
     doq)
         [ -z "$server_port" ] && server_port=853
+        if ! core_has_tag with_quic; then
+            # the core has no QUIC: DNS over TLS uses the same port
+            log "DNS server '$tag': this sing-box core is built without QUIC, so DoQ is not available; using DoT instead." "warn"
+            config=$(sing_box_cm_add_tls_dns_server "$config" "$tag" "$server_address" "$server_port" "$domain_resolver" \
+                "$detour")
+            echo "$config"
+            return 0
+        fi
         config=$(sing_box_cm_add_other_dns_server "$config" "quic" "$tag" "$server_address" "$server_port" "" \
             "$domain_resolver" "$detour")
         ;;
@@ -126,6 +142,13 @@ sing_box_cf_add_proxy_outbound() {
     url_host=$(url_decode_component "$(url_get_host "$url")")
     url_port=$(url_decode_component "$(url_get_port "$url")")
     url_userinfo=$(url_decode_component "$(url_get_userinfo "$url")")
+
+    # REALITY needs uTLS in the core; without it sing-box would reject the whole config
+    if [ "$(url_get_query_param "$url" "security")" = "reality" ] && ! core_has_tag with_utls; then
+        log "Section '$section': REALITY needs a sing-box core built with uTLS (with_utls); skipping the link." "error"
+        echo "$config"
+        return 1
+    fi
 
     case "$scheme" in
     socks4 | socks4a | socks5)
@@ -303,6 +326,11 @@ sing_box_cf_add_proxy_outbound() {
         ;;
     hysteria2 | hy2)
         local tag host port password obfuscator_type obfuscator_password upload_mbps download_mbps
+        if ! core_has_tag with_quic; then
+            log "Section '$section': Hysteria2 needs a sing-box core built with QUIC (with_quic); skipping the link." "error"
+            echo "$config"
+            return 1
+        fi
         tag=$(get_outbound_tag_by_section "$section")
         host="$url_host"
         port="$url_port"
@@ -427,6 +455,11 @@ _add_outbound_security() {
         insecure=$(_get_insecure_query_param_from_url "$url")
         alpn=$(comma_string_to_json_array "$(url_get_query_param "$url" "alpn")")
         fingerprint=$(url_get_query_param "$url" "fp")
+        # without uTLS in the core a fingerprint makes sing-box reject the whole config
+        if [ -n "$fingerprint" ] && ! core_has_tag with_utls; then
+            log "The link for '$outbound_tag' asks for the fingerprint '$fingerprint', but this sing-box core is built without uTLS; the fingerprint is left out." "warn"
+            fingerprint=""
+        fi
         public_key=$(url_get_query_param "$url" "pbk")
         short_id=$(url_get_query_param "$url" "sid")
 

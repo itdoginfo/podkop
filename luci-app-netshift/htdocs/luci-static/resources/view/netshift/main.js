@@ -829,6 +829,60 @@ function validateNaiveUrl(url) {
   return { valid: true, message: _("Valid") };
 }
 
+// src/helpers/coreCapabilities.ts
+var UNKNOWN_CORE_CAPABILITIES = {
+  version: "",
+  variant: "stock",
+  quic: true,
+  utls: true,
+  naive: true,
+  naive_core: false,
+  naive_client: false,
+  dns_pool: true,
+  extended: true,
+  vmess: true,
+  xhttp: true,
+  vless_encryption: true,
+  reality_mlkem: true
+};
+function parseCoreCapabilities(input) {
+  let data = input;
+  if (typeof input === "string") {
+    try {
+      data = JSON.parse(input);
+    } catch {
+      return { ...UNKNOWN_CORE_CAPABILITIES };
+    }
+  }
+  if (!data || typeof data !== "object") {
+    return { ...UNKNOWN_CORE_CAPABILITIES };
+  }
+  const value = data;
+  const flag = (key) => typeof value[key] === "boolean" ? value[key] : UNKNOWN_CORE_CAPABILITIES[key];
+  return {
+    version: typeof value.version === "string" ? value.version : "",
+    variant: typeof value.variant === "string" ? value.variant : "stock",
+    quic: flag("quic"),
+    utls: flag("utls"),
+    naive: flag("naive"),
+    naive_core: flag("naive_core"),
+    naive_client: flag("naive_client"),
+    dns_pool: flag("dns_pool"),
+    extended: flag("extended"),
+    vmess: flag("vmess"),
+    xhttp: flag("xhttp"),
+    vless_encryption: flag("vless_encryption"),
+    reality_mlkem: flag("reality_mlkem")
+  };
+}
+var current = { ...UNKNOWN_CORE_CAPABILITIES };
+function setCoreCapabilities(value) {
+  current = value;
+}
+function getCoreCapabilities() {
+  return current;
+}
+
 // src/validators/validateProxyUrl.ts
 function validateProxyUrl(url) {
   const trimmedUrl = url.trim();
@@ -842,12 +896,24 @@ function validateProxyUrl(url) {
     return validateTrojanUrl(trimmedUrl);
   }
   if (trimmedUrl.startsWith("vmess://")) {
+    if (!getCoreCapabilities().vmess) {
+      return {
+        valid: false,
+        message: _("VMess needs the sing-box-extended core")
+      };
+    }
     return validateVmessUrl(trimmedUrl);
   }
   if (/^socks(4|4a|5):\/\//.test(trimmedUrl)) {
     return validateSocksUrl(trimmedUrl);
   }
   if (trimmedUrl.startsWith("hysteria2://") || trimmedUrl.startsWith("hy2://")) {
+    if (!getCoreCapabilities().quic) {
+      return {
+        valid: false,
+        message: _("Hysteria2 needs a sing-box core built with QUIC")
+      };
+    }
     return validateHysteria2Url(trimmedUrl);
   }
   if (isNaiveUrl(trimmedUrl)) {
@@ -1047,6 +1113,7 @@ var NetShift;
   let AvailableMethods;
   ((AvailableMethods2) => {
     AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
+    AvailableMethods2["GET_CORE_CAPABILITIES"] = "get_core_capabilities";
     AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
     AvailableMethods2["CHECK_ENVIRONMENT"] = "check_environment";
     AvailableMethods2["CHECK_ROUTE"] = "check_route";
@@ -1205,6 +1272,7 @@ function getSubscriptionPollMessages() {
   };
 }
 var NetShiftShellMethods = {
+  getCoreCapabilities: async () => callBaseMethod(NetShift.AvailableMethods.GET_CORE_CAPABILITIES),
   checkDNSAvailable: async () => callBaseMethod(
     NetShift.AvailableMethods.CHECK_DNS_AVAILABLE
   ),
@@ -2019,6 +2087,17 @@ var RemoteFakeIPMethods = {
   getFakeIpCheck,
   getIpCheck
 };
+
+// src/netshift/methods/loadCoreCapabilities.ts
+async function loadCoreCapabilities() {
+  try {
+    const reply = await NetShiftShellMethods.getCoreCapabilities();
+    if (reply.success) {
+      setCoreCapabilities(parseCoreCapabilities(reply.data));
+    }
+  } catch {
+  }
+}
 
 // src/netshift/services/tab.service.ts
 var TabService = class _TabService {
@@ -8396,6 +8475,7 @@ return baseclass.extend({
   SUBSCRIPTION_UPDATE_INTERVAL_OPTIONS,
   TabService,
   TabServiceInstance,
+  UNKNOWN_CORE_CAPABILITIES,
   UPDATE_INTERVAL_OPTIONS,
   bulkValidate,
   connectionAge,
@@ -8413,6 +8493,7 @@ return baseclass.extend({
   formatSnapshotTime,
   getClashUIUrl,
   getClashWsUrl,
+  getCoreCapabilities,
   getDeviceRoute,
   getOutdatedComponents,
   getProxyUrlName,
@@ -8424,12 +8505,14 @@ return baseclass.extend({
   isNaiveUrl,
   isValidMac,
   listedDeviceIps,
+  loadCoreCapabilities,
   loadDashboardViewPrefs,
   logLineMessage,
   logger,
   maskIP,
   onMount,
   parseConnections,
+  parseCoreCapabilities,
   parseDnsBenchmark,
   parseDnsBenchmarkVia,
   parseLanInfo,
@@ -8443,6 +8526,7 @@ return baseclass.extend({
   prettyBytes,
   recentPinGuardEvents,
   saveDashboardViewPrefs,
+  setCoreCapabilities,
   setDeviceRoute,
   shouldRefreshUpdateNotice,
   socket,
