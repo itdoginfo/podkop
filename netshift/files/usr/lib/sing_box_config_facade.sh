@@ -177,6 +177,67 @@ sing_box_cf_add_proxy_outbound() {
             "$([ "$udp_over_tcp" = "1" ] && echo 2)" # if udp_over_tcp is enabled, enable version 2
         )"
         ;;
+    tuic)
+        # tuic://uuid:password@host:port?congestion_control=bbr&udp_relay_mode=native&alpn=h3&sni=...
+        local tag host port tuic_uuid tuic_password tuic_congestion tuic_relay
+        if ! core_has_tag with_quic; then
+            log "Section '$section': TUIC needs a sing-box core built with QUIC (with_quic); skipping the link." "error"
+            echo "$config"
+            return 1
+        fi
+        if [ -z "$url_userinfo" ]; then
+            log "Section '$section': a TUIC link needs a uuid (and a password); skipping it." "error"
+            echo "$config"
+            return 1
+        fi
+
+        tag=$(get_outbound_tag_by_section "$section")
+        host="$url_host"
+        port="${url_port:-443}"
+        tuic_uuid="${url_userinfo%%:*}"
+        tuic_password=""
+        case "$url_userinfo" in
+        *:*) tuic_password="${url_userinfo#*:}" ;;
+        esac
+        tuic_congestion=$(url_get_query_param "$url" "congestion_control")
+        [ -n "$tuic_congestion" ] || tuic_congestion=$(url_get_query_param "$url" "congestion-control")
+        case "$tuic_congestion" in
+        bbr | cubic | new_reno) ;;
+        *) tuic_congestion="" ;;
+        esac
+        tuic_relay=$(url_get_query_param "$url" "udp_relay_mode")
+        [ -n "$tuic_relay" ] || tuic_relay=$(url_get_query_param "$url" "udp-relay-mode")
+        case "$tuic_relay" in
+        native | quic) ;;
+        *) tuic_relay="" ;;
+        esac
+
+        config=$(sing_box_cm_add_tuic_outbound "$config" "$tag" "$host" "$port" "$tuic_uuid" "$tuic_password" \
+            "$tuic_congestion" "$tuic_relay")
+        config=$(_add_outbound_security "$config" "$tag" "$url")
+        ;;
+    anytls)
+        # anytls://password@host:port?sni=...&insecure=1&alpn=h2,http/1.1
+        local tag host port anytls_password
+        if ! is_sing_box_at_least "1.12.0"; then
+            log "Section '$section': AnyTLS needs sing-box 1.12 or newer (installed: $(get_sing_box_version)); skipping the link." "error"
+            echo "$config"
+            return 1
+        fi
+        if [ -z "$url_userinfo" ]; then
+            log "Section '$section': an AnyTLS link needs a password; skipping it." "error"
+            echo "$config"
+            return 1
+        fi
+
+        tag=$(get_outbound_tag_by_section "$section")
+        host="$url_host"
+        port="${url_port:-443}"
+        anytls_password="$url_userinfo"
+
+        config=$(sing_box_cm_add_anytls_outbound "$config" "$tag" "$host" "$port" "$anytls_password")
+        config=$(_add_outbound_security "$config" "$tag" "$url")
+        ;;
     naive+https | naive+quic | naive | https)
         # NaiveProxy. A plain https:// link counts only with a login (user:password):
         # that is how a NaiveProxy server is written down.
@@ -356,9 +417,9 @@ sing_box_cf_add_proxy_outbound() {
         # unavailable instead.
         #
         # Schemes this dispatcher PARSES: socks4/socks4a/socks5, vless, ss,
-        # trojan, hysteria2/hy2, and vmess (vmess is extended-gated above). Any
-        # OTHER scheme (tuic, hysteria v1, anytls, shadowtls, wireguard, http,
-        # or a typo) is NOT parsed here: it hits the default `*)` arm below,
+        # trojan, hysteria2/hy2, tuic, anytls, naive, and vmess (vmess is
+        # extended-gated above). Any OTHER scheme (hysteria v1, shadowtls,
+        # wireguard, http, or a typo) is NOT parsed here: it hits the default `*)` arm below,
         # which logs a WARNING and returns the config UNCHANGED (rc 1, skip) so a
         # single bad link in a url/selector/urltest input never aborts the whole
         # config. Such schemes are reachable only via a raw `outbound_json`
@@ -446,7 +507,7 @@ _add_outbound_security() {
         case "$scheme" in
         # these have TLS unless the link says otherwise (a trojan link without
         # security= is a TLS one, as everywhere else)
-        hysteria2 | hy2 | trojan) security="tls" ;;
+        hysteria2 | hy2 | tuic | anytls | trojan) security="tls" ;;
         esac
     fi
 
@@ -472,9 +533,10 @@ _add_outbound_security() {
             alpn='["h2","http/1.1"]'
         fi
 
-        if [ "$scheme" = "hysteria2" ] || [ "$scheme" = "hy2" ]; then
-                fingerprint=""
-        fi
+        # uTLS does not apply over QUIC
+        case "$scheme" in
+        hysteria2 | hy2 | tuic) fingerprint="" ;;
+        esac
 
         # NETSHIFT_REALITY_MLKEM is set per section by set_section_reality_mlkem
         # (bin/netshift), already gated on a core that knows the option.
@@ -546,6 +608,9 @@ _get_insecure_query_param_from_url() {
     insecure=$(url_get_query_param "$url" "allowInsecure")
     if [ -z "$insecure" ]; then
         insecure=$(url_get_query_param "$url" "insecure")
+    fi
+    if [ -z "$insecure" ]; then
+        insecure=$(url_get_query_param "$url" "allow_insecure")
     fi
 
     echo "$insecure"
