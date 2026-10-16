@@ -1254,6 +1254,21 @@ function createSectionContent(section) {
     _("Remote Domain Lists"),
     _("Specify remote URLs to download and use domain lists"),
   );
+  // Ready-made lists for a Block section (ads, trackers). Only .srs: sing-box reads them
+  // itself and keeps them small; a plain text list of tens of thousands of domains is read
+  // line by line by the router and is far too slow.
+  o.value(
+    "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs",
+    _("Ads and trackers (sing-geosite category-ads-all, for a Block section)"),
+  );
+  o.value(
+    "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads.srs",
+    _("Ads (sing-geosite category-ads, for a Block section)"),
+  );
+  o.value(
+    "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-public-tracker.srs",
+    _("BitTorrent public trackers (sing-geosite, for a Block section)"),
+  );
   o.placeholder = "https://example.com/domains.srs";
   o.rmempty = true;
   o.validate = function (section_id, value) {
