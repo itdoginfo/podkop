@@ -12,6 +12,7 @@ import {
   renderRouteCheck,
   renderRunAction,
   renderSnapshots,
+  renderSupportReport,
   renderSystemInfo,
 } from './partials';
 import { NetShiftShellMethods } from '../../methods';
@@ -584,6 +585,10 @@ function onPageMount() {
   document
     .getElementById('pdk_diagnostic-page-snapshots')
     ?.replaceChildren(renderSnapshots());
+  // Report for support (keeps its own state)
+  document
+    .getElementById('pdk_diagnostic-page-support-report')
+    ?.replaceChildren(renderSupportReport());
 
   // Initial services info fetch
   fetchServicesInfo();

@@ -39,6 +39,7 @@ check_required_file "$NETSHIFT_LIB/autoupdate.sh"
 check_required_file "$NETSHIFT_LIB/applyconfig.sh"
 check_required_file "$NETSHIFT_LIB/failover.sh"
 check_required_file "$NETSHIFT_LIB/filterpreview.sh"
+check_required_file "$NETSHIFT_LIB/support.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -65,6 +66,7 @@ check_required_file "$NETSHIFT_LIB/filterpreview.sh"
 . "$NETSHIFT_LIB/applyconfig.sh"
 . "$NETSHIFT_LIB/failover.sh"
 . "$NETSHIFT_LIB/filterpreview.sh"
+. "$NETSHIFT_LIB/support.sh"
 . "$NETSHIFT_LIB/naive.sh"
 . "$NETSHIFT_LIB/corecaps.sh"
 . "$NETSHIFT_LIB/autoupdate.sh"
@@ -9328,6 +9330,8 @@ Available commands:
     apply_config            Restart only if the configuration changed in options the service uses
     preview_subscription_filter <section> [overrides_json]
                             How many servers of the cached subscription pass the filters
+    support_report          A report for support: versions, settings, config, logs (secrets masked)
+    get_crash_log           The last crash of sing-box from the system log
     global_check            Run global system check
     component_action        Run component action: <component> <action>
                             (e.g. sing_box install_extended|install_extended_lite|
@@ -9497,6 +9501,12 @@ fetch_feed_list)
     ;;
 preview_subscription_filter)
     preview_subscription_filter "${2:-}" "${3:-}"
+    ;;
+support_report)
+    support_report
+    ;;
+get_crash_log)
+    get_sing_box_crash_log | support_mask_text
     ;;
 global_check)
     global_check "${2:-}"

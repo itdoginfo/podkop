@@ -281,6 +281,9 @@ msgstr "Закрыть все соединения? Идущие загрузк�
 msgid "cloudflare-dns.com/dns-query (Cloudflare DoH)"
 msgstr "cloudflare-dns.com/dns-query (Cloudflare DoH)"
 
+msgid "Collects the versions, settings, configuration, state and logs in one text, with passwords, keys, links and server addresses hidden. Send it when you ask for help."
+msgstr "Собирает версии, настройки, конфигурацию, состояние и журналы в один текст, скрывая пароли, ключи, ссылки и адреса серверов. Отправьте его, когда просите о помощи."
+
 msgid "Combined with the other filters: a server has to pass all of them."
 msgstr "Сочетается с остальными фильтрами: сервер должен пройти все."
 
@@ -328,6 +331,9 @@ msgstr "URL подключения"
 
 msgid "Connections"
 msgstr "Соединения"
+
+msgid "Copied"
+msgstr "Скопировано"
 
 msgid "Copy"
 msgstr "Копировать"
@@ -1388,6 +1394,12 @@ msgstr "Предпочитать серверы в порядке списка"
 msgid "Prefix length"
 msgstr "Длина префикса"
 
+msgid "Prepare the report"
+msgstr "Подготовить отчёт"
+
+msgid "Preparing the report..."
+msgstr "Готовлю отчёт..."
+
 msgid "Priority: next server if the previous one fails"
 msgstr "Приоритет: следующий сервер, если предыдущий не отвечает"
 
@@ -1414,6 +1426,9 @@ msgstr "Прокси-трафик не маршрутизируется чере
 
 msgid "Proxy traffic is routed via FakeIP"
 msgstr "Прокси-трафик направляется через FakeIP"
+
+msgid "Read it before you send it: servers are shown as host-N and links, passwords and lists are hidden, but check that nothing of yours is left."
+msgstr "Прочитайте перед отправкой: серверы показаны как host-N, ссылки, пароли и списки скрыты, но проверьте, не осталось ли что-то ваше."
 
 msgid "Real addresses (IPv6 goes out directly)"
 msgstr "Настоящие адреса (IPv6 идёт напрямую)"
@@ -1453,6 +1468,9 @@ msgstr "Удалить"
 
 msgid "Removing the NaiveProxy client…"
 msgstr "Удаляем клиент NaiveProxy…"
+
+msgid "Report for support"
+msgstr "Отчёт для поддержки"
 
 msgid "Require a login for the Mixed Proxy"
 msgstr "Требовать логин для Mixed Proxy"
@@ -1588,6 +1606,9 @@ msgstr "Выберите сетевой интерфейс, с которого 
 
 msgid "Select the network interface to which the traffic will originate"
 msgstr "Выберите сетевой интерфейс, на который будет поступать трафик."
+
+msgid "Select the text and copy it"
+msgstr "Выделите текст и скопируйте его"
 
 msgid "Select the WAN interfaces to be monitored"
 msgstr "Выберите WAN интерфейсы для мониторинга"
@@ -1852,6 +1873,9 @@ msgstr "Максимально допустимая разница во врем
 
 msgid "The name is already used by another device"
 msgstr "Имя уже занято другим устройством"
+
+msgid "The report could not be prepared"
+msgstr "Не удалось подготовить отчёт"
 
 msgid "The router clock is not set"
 msgstr "Часы роутера не установлены"

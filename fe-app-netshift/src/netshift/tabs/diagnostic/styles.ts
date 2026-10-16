@@ -204,6 +204,22 @@ export const styles = `
     font-size: 0.9em;
 }
 
+.pdk_diagnostic-page__support-report {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-row-gap: 8px;
+}
+
+.pdk_diagnostic-page__support-report__hint {
+    opacity: 0.75;
+    font-size: 0.9em;
+}
+
+.pdk_diagnostic-page__support-report__actions {
+    display: flex;
+    gap: 8px;
+}
+
 .pdk_diagnostic-page__snapshots__list {
     display: grid;
     grid-row-gap: 6px;

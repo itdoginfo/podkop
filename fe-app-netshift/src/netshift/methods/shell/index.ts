@@ -119,6 +119,15 @@ export const NetShiftShellMethods = {
       undefined,
       { nobatch: true, timeout: 25000 },
     ),
+  // The report for support (plain text, secrets masked): it reads the logs and the config, so it
+  // may take longer than the usual 15 seconds (an rpcd call lives about 30 seconds).
+  getSupportReport: async () =>
+    callBaseMethod<string>(
+      NetShift.AvailableMethods.SUPPORT_REPORT,
+      [],
+      undefined,
+      { nobatch: true, timeout: 25000 },
+    ),
   getConnections: async () =>
     callBaseMethod<unknown>(
       NetShift.AvailableMethods.CLASH_API,
