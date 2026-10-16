@@ -16174,8 +16174,15 @@ test_dnsmasq_lifecycle() {
     fi
 
     local drv="/tmp/netshift-dnsmasq-lifecycle-$$.sh" saved="/tmp/netshift-dhcp-lifecycle-$$" saved_netshift="/tmp/netshift-config-lifecycle-$$"
-    cp /etc/config/dhcp "$saved"
-    [ ! -f /etc/config/netshift ] || cp /etc/config/netshift "$saved_netshift"
+    if ! cp /etc/config/dhcp "$saved"; then
+        fail "could not save /etc/config/dhcp for dnslifecycle"
+        return
+    fi
+    if [ -f /etc/config/netshift ] && ! cp /etc/config/netshift "$saved_netshift"; then
+        rm -f "$saved"
+        fail "could not save /etc/config/netshift for dnslifecycle"
+        return
+    fi
     {
         cat << 'DLEOF'
 . /lib/functions.sh
@@ -16186,7 +16193,11 @@ LIB="LIB_DIR"
 . "$LIB/dnsforward.sh"
 BIN="BIN_PATH"
 extract() { awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^}/{exit}' "$BIN"; }
-log() { :; }
+LOG_FILE="/tmp/netshift-dnsmasq-lifecycle-log-$$"
+TEST_RESOLVFILE="/tmp/resolv.conf.d/resolv.conf.auto"
+TEST_RESOLV_EXISTS=0
+log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOG_FILE"; }
+file_exists() { [ "$1" = "$TEST_RESOLVFILE" ] && [ "$TEST_RESOLV_EXISTS" = 1 ]; }
 config_get() { eval "$1=\"${TEST_SHUTDOWN:-0}\""; }
 kill_switch_enabled() { [ "${TEST_BLOCK_LEAKS:-0}" = 1 ]; }
 DLEOF
@@ -16196,6 +16207,12 @@ DLEOF
         cat << 'DLEOF'
 failures=0
 check() { if [ "$2" = "$3" ]; then echo "$1:OK"; else echo "$1:FAIL got=[$2] want=[$3]"; failures=$((failures + 1)); fi; }
+cleanup() {
+    cp DHCP_BACKUP /etc/config/dhcp
+    if [ -f NETSHIFT_BACKUP ]; then cp NETSHIFT_BACKUP /etc/config/netshift; else rm -f /etc/config/netshift; fi
+    rm -f DHCP_BACKUP NETSHIFT_BACKUP "$LOG_FILE"
+}
+trap cleanup EXIT
 reset_fixture() {
     for option in server noresolv cachesize netshift_server netshift_noresolv netshift_cachesize netshift_configured netshift_dnsmasq_backup netshift_noresolv_set netshift_cachesize_set; do
         uci -q delete "dhcp.@dnsmasq[0].$option" 2>/dev/null || :
@@ -16263,6 +16280,47 @@ dnsmasq_restore
 check partial-setup-restores-user-forwarders "$(servers)" /alpha.lan/192.0.2.53,/beta.lan/198.51.100.53
 check partial-setup-restores-exact-values "$(uci -q get dhcp.@dnsmasq[0].cachesize)/$(uci -q get dhcp.@dnsmasq[0].noresolv)" 1000/0
 
+TEST_DONT_TOUCH=0 reset_fixture
+uci -q delete dhcp.@dnsmasq[0].server
+uci -q set dhcp.@dnsmasq[0].resolvfile=/tmp/custom-resolv.conf
+uci -q set dhcp.@dnsmasq[0].cachesize=150
+uci -q set dhcp.@dnsmasq[0].noresolv=1
+uci -q set dhcp.@dnsmasq[0].netshift_dnsmasq_backup=1
+uci -q set dhcp.@dnsmasq[0].netshift_cachesize=1000
+uci -q set dhcp.@dnsmasq[0].netshift_cachesize_set=1
+uci -q set dhcp.@dnsmasq[0].netshift_noresolv=0
+uci -q set dhcp.@dnsmasq[0].netshift_noresolv_set=1
+uci commit dhcp
+: > "$LOG_FILE"
+dnsmasq_restore
+check no-original-servers-restores-options "$(uci -q get dhcp.@dnsmasq[0].cachesize)/$(uci -q get dhcp.@dnsmasq[0].noresolv)" 1000/0
+check no-original-servers-keeps-resolvfile "$(uci -q get dhcp.@dnsmasq[0].resolvfile)" /tmp/custom-resolv.conf
+uci -q get dhcp.@dnsmasq[0].server >/dev/null 2>&1 && server_state=present || server_state=absent
+check no-original-servers-remain-absent "$server_state" absent
+if grep -q 'possible resolving issues' "$LOG_FILE"; then echo 'no-original-servers-no-false-warning:FAIL'; failures=$((failures + 1)); else echo 'no-original-servers-no-false-warning:OK'; fi
+if grep -q '^\[debug\] Original dnsmasq config had no explicit servers; nothing to restore$' "$LOG_FILE"; then echo 'no-original-servers-debug-message:OK'; else echo 'no-original-servers-debug-message:FAIL'; failures=$((failures + 1)); fi
+
+TEST_DONT_TOUCH=0 reset_fixture
+uci -q delete dhcp.@dnsmasq[0].server
+uci -q delete dhcp.@dnsmasq[0].netshift_dnsmasq_backup
+uci -q set dhcp.@dnsmasq[0].noresolv=1
+uci -q set dhcp.@dnsmasq[0].netshift_noresolv=1
+uci -q delete dhcp.@dnsmasq[0].netshift_server
+uci commit dhcp
+TEST_RESOLV_EXISTS=1
+dnsmasq_restore
+check legacy-resolvfile-fallback-remains "$(uci -q get dhcp.@dnsmasq[0].resolvfile)/$(uci -q get dhcp.@dnsmasq[0].noresolv)" "$TEST_RESOLVFILE/0"
+
+TEST_DONT_TOUCH=0 reset_fixture
+uci -q delete dhcp.@dnsmasq[0].server
+uci -q delete dhcp.@dnsmasq[0].netshift_dnsmasq_backup
+uci -q delete dhcp.@dnsmasq[0].netshift_server
+uci commit dhcp
+TEST_RESOLV_EXISTS=0
+: > "$LOG_FILE"
+dnsmasq_restore
+if grep -q 'possible resolving issues' "$LOG_FILE"; then echo 'unrecoverable-legacy-restore-still-warns:OK'; else echo 'unrecoverable-legacy-restore-still-warns:FAIL'; failures=$((failures + 1)); fi
+
 TEST_DONT_TOUCH=1 reset_fixture
 dnsmasq_should_be_restored && decision=yes || decision=no
 check dont-touch-without-ownership "$decision" no
@@ -16292,15 +16350,13 @@ dnsmasq_should_be_restored && decision=yes || decision=no
 check legacy-backup-authorizes-recovery "$decision" yes
 dnsmasq_restore
 check legacy-backup-restores-original-values "$(uci -q get dhcp.@dnsmasq[0].server)/$(uci -q get dhcp.@dnsmasq[0].cachesize)/$(uci -q get dhcp.@dnsmasq[0].noresolv)" 192.0.2.53/1000/0
-cp DHCP_BACKUP /etc/config/dhcp
-if [ -f NETSHIFT_BACKUP ]; then cp NETSHIFT_BACKUP /etc/config/netshift; else rm -f /etc/config/netshift; fi
 exit "$failures"
 DLEOF
     } > "$drv"
     sed -i "s|LIB_DIR|$lib|; s|BIN_PATH|$bin|; s|DHCP_BACKUP|$saved|; s|NETSHIFT_BACKUP|$saved_netshift|" "$drv"
 
-    local out line checks=0
-    out="$(ash "$drv" 2>&1)" || true
+    local out line checks=0 driver_status=0
+    if out="$(ash "$drv" 2>&1)"; then :; else driver_status=$?; fi
     while IFS= read -r line; do
         case "$line" in
         *:OK) pass "dnslifecycle:$line"; checks=$((checks + 1)) ;;
@@ -16310,9 +16366,8 @@ DLEOF
     done <<EOF
 $out
 EOF
-    [ "$checks" -gt 0 ] || fail "dnslifecycle produced no assertions"
-    cp "$saved" /etc/config/dhcp
-    if [ -f "$saved_netshift" ]; then cp "$saved_netshift" /etc/config/netshift; else rm -f /etc/config/netshift; fi
+    if [ "$checks" -ne 28 ]; then fail "dnslifecycle expected 28 assertions, got $checks"; fi
+    if [ "$driver_status" -ne 0 ] && ! printf '%s\n' "$out" | grep -q ':FAIL'; then fail "dnslifecycle driver exited with status $driver_status"; fi
     rm -f "$saved" "$saved_netshift" "$drv"
 }
 
@@ -21142,6 +21197,7 @@ main() {
             test_config_snapshots
             test_pin_guard
             test_dns_forward
+            test_dnsmasq_lifecycle
             test_subscription_info
             test_port_rules
             test_config_lint
