@@ -745,6 +745,9 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
+  if (!main.getCoreCapabilities().reality_mlkem) {
+    o.description = `${o.description}. ${_("The installed core (%s) does not know this option, so it is ignored.").format(main.getCoreCapabilities().version)}`;
+  }
   // Not offered for a hand-written outbound JSON (it carries its own TLS block)
   [
     "url",

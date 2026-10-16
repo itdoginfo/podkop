@@ -6,6 +6,7 @@ import { validateSocksUrl } from './validateSocksUrl';
 import { validateHysteria2Url } from './validateHysteriaUrl';
 import { validateVmessUrl } from './validateVmessUrl';
 import { isNaiveUrl, validateNaiveUrl } from './validateNaiveUrl';
+import { getCoreCapabilities } from '../helpers/coreCapabilities';
 
 // TODO refactor current validation and add tests
 export function validateProxyUrl(url: string): ValidationResult {
@@ -24,6 +25,13 @@ export function validateProxyUrl(url: string): ValidationResult {
   }
 
   if (trimmedUrl.startsWith('vmess://')) {
+    if (!getCoreCapabilities().vmess) {
+      return {
+        valid: false,
+        message: _('VMess needs the sing-box-extended core'),
+      };
+    }
+
     return validateVmessUrl(trimmedUrl);
   }
 
@@ -35,6 +43,13 @@ export function validateProxyUrl(url: string): ValidationResult {
     trimmedUrl.startsWith('hysteria2://') ||
     trimmedUrl.startsWith('hy2://')
   ) {
+    if (!getCoreCapabilities().quic) {
+      return {
+        valid: false,
+        message: _('Hysteria2 needs a sing-box core built with QUIC'),
+      };
+    }
+
     return validateHysteria2Url(trimmedUrl);
   }
 

@@ -33,6 +33,7 @@ check_required_file "$NETSHIFT_LIB/dnsbench.sh"
 check_required_file "$NETSHIFT_LIB/subinfo.sh"
 check_required_file "$NETSHIFT_LIB/lint.sh"
 check_required_file "$NETSHIFT_LIB/naive.sh"
+check_required_file "$NETSHIFT_LIB/corecaps.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -56,6 +57,7 @@ check_required_file "$NETSHIFT_LIB/naive.sh"
 . "$NETSHIFT_LIB/dnsbench.sh"
 . "$NETSHIFT_LIB/lint.sh"
 . "$NETSHIFT_LIB/naive.sh"
+. "$NETSHIFT_LIB/corecaps.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -3764,6 +3766,11 @@ sing_box_init_config() {
     # One build at a time: the list of NaiveProxy clients is numbered and rewritten while
     # the outbounds are built. A build that dies leaves its lock to be taken over.
     config_build_lock_acquire || log "Another configuration build did not finish in ${CONFIG_BUILD_LOCK_WAIT}s; building without waiting for it" "warn"
+
+    # One `sing-box version` for the whole build (see get_sing_box_version)
+    local NETSHIFT_SING_BOX_VERSION NETSHIFT_SING_BOX_TAGS
+    NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
+    NETSHIFT_SING_BOX_TAGS="$(get_sing_box_tags)"
 
     # NaiveProxy clients are listed while the outbounds are built
     naive_sidecars_reset
@@ -8477,6 +8484,7 @@ Available commands:
     get_system_info         Get system information in JSON format
     check_dns_available     Check DNS server availability
     get_config_warnings     Settings that are valid but do not do what they say (JSON)
+    get_core_capabilities   What the installed sing-box core can do (JSON)
     global_check            Run global system check
     component_action        Run component action: <component> <action>
                             (e.g. sing_box install_extended|install_extended_lite|
@@ -8622,6 +8630,9 @@ check_dns_available)
     ;;
 get_config_warnings)
     get_config_warnings
+    ;;
+get_core_capabilities)
+    get_core_capabilities
     ;;
 global_check)
     global_check "${2:-}"

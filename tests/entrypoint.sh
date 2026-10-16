@@ -123,7 +123,8 @@ test_syntax() {
         "$lib/dnsforward.sh" \
         "$lib/subinfo.sh" \
         "$lib/lint.sh" \
-        "$lib/naive.sh"; do
+        "$lib/naive.sh" \
+        "$lib/corecaps.sh"; do
 
         if [ ! -r "$f" ]; then
             fail "File not found: $f"
@@ -20892,6 +20893,125 @@ test_naive() {
     rm -rf "$work"
 }
 
+
+# ─────────────────────────────────────────────────────────────────
+# Test: features follow the build tags of the core (QUIC, uTLS), capabilities JSON
+# ─────────────────────────────────────────────────────────────────
+test_core_caps() {
+    header "Core capabilities and feature gates"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/corecaps.sh" ] || [ ! -r "$lib/sing_box_config_facade.sh" ]; then
+        fail "corecaps.sh / facade not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local work="/tmp/netshift-caps-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        CAPS_LOG="$work/log"; : > "$CAPS_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$CAPS_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        . "$lib/naive.sh"
+        . "$lib/corecaps.sh"
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        PATH="$work/bin:$PATH"
+
+        banner() { # $1 version, $2 tags (empty: no Tags line)
+            printf '#!/bin/sh\nprintf "sing-box version %s\\n\\nEnvironment: go1.25\\n"\n' "$1" > "$work/bin/sing-box"
+            [ -z "$2" ] || printf 'printf "Tags: %s\\n"\n' "$2" >> "$work/bin/sing-box"
+            chmod +x "$work/bin/sing-box"
+        }
+        caps() { get_core_capabilities | jq -c "$1"; }
+
+        # the lite core: QUIC and uTLS, no naive, extended
+        banner 1.14.1-extended-2.7.2-lite "with_quic,with_dhcp,with_wireguard,with_utls,with_clash_api"
+        echo "lite=$(caps '[.variant, .quic, .utls, .naive_core, .dns_pool, .vmess, .xhttp, .vless_encryption, .reality_mlkem]')"
+        echo "tags=$(caps '.tags | length')"
+        # a stock core of the older kind, no QUIC
+        banner 1.12.22 "with_clash_api,with_gvisor,with_utls"
+        echo "stock-noquic=$(caps '[.variant, .quic, .utls, .dns_pool, .vmess, .tags_known]')"
+        # a core that does not say its tags: believed able, except for the rare naive
+        banner 1.13.4 ""
+        echo "unknown=$(caps '[.tags_known, .quic, .utls, .naive_core]')"
+        # the core with naive
+        banner 1.14.2 "with_quic,with_utls,with_clash_api,with_naive_outbound"
+        echo "naive=$(caps '[.naive_core, .naive]')"
+
+        # gates
+        base='{"outbounds":[]}'
+        add() { sing_box_cf_add_proxy_outbound "$base" "$1" "$2" ""; }
+        HY='hysteria2://secret@hy.example.com:443?sni=hy.example.com'
+        RL='vless://11111111-2222-3333-4444-555555555555@r.example.com:443?security=reality&pbk=KEYKEYKEY&sid=ab&fp=chrome&sni=r.example.com&type=tcp'
+        TL='vless://11111111-2222-3333-4444-555555555555@t.example.com:443?security=tls&fp=chrome&sni=t.example.com&type=tcp'
+
+        NETSHIFT_SING_BOX_TAGS="with_quic,with_utls,with_clash_api"
+        o="$(add s1 "$HY")"; echo "hy-quic=$(printf '%s' "$o" | jq -c '.outbounds | length')"
+        o="$(add s1 "$RL")"; echo "reality-utls=$(printf '%s' "$o" | jq -c '.outbounds[0].tls.reality.enabled // false')"
+        NETSHIFT_SING_BOX_TAGS="with_clash_api,with_utls"
+        o="$(add s1 "$HY")"; rc=$?; echo "hy-noquic-rc=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        NETSHIFT_SING_BOX_TAGS="with_clash_api,with_quic"
+        o="$(add s1 "$RL")"; rc=$?; echo "reality-noutls-rc=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        o="$(add s1 "$TL")"; rc=$?
+        echo "tls-noutls=$rc $(printf '%s' "$o" | jq -c '.outbounds[0].tls | [.server_name, has("utls")]')"
+        NETSHIFT_SING_BOX_TAGS="with_clash_api,with_quic,with_utls"
+        o="$(add s1 "$TL")"
+        echo "tls-utls=$(printf '%s' "$o" | jq -c '.outbounds[0].tls.utls.fingerprint')"
+        NETSHIFT_SING_BOX_TAGS=""
+        o="$(add s1 "$HY")"; echo "hy-unknown-tags=$(printf '%s' "$o" | jq -c '.outbounds | length')"
+
+        # DNS transports over QUIC fall back where the core has no QUIC
+        dns() { sing_box_cf_add_dns_server '{"dns":{"servers":[]}}' "$1" t "$2" "" ""; }
+        NETSHIFT_SING_BOX_TAGS="with_clash_api,with_utls"
+        echo "doh3-noquic=$(dns doh3 'dns.google/dns-query' | jq -c '.dns.servers[0] | [.type, .server_port, .path]')"
+        echo "doq-noquic=$(dns doq 'dns.adguard-dns.com' | jq -c '.dns.servers[0] | [.type, .server_port]')"
+        NETSHIFT_SING_BOX_TAGS="with_clash_api,with_quic"
+        echo "doh3-quic=$(dns doh3 'dns.google/dns-query' | jq -c '.dns.servers[0] | [.type, .server_port]')"
+        echo "doq-quic=$(dns doq 'dns.adguard-dns.com' | jq -c '.dns.servers[0] | [.type, .server_port]')"
+        echo "warned=$(grep -c 'built without QUIC' "$CAPS_LOG")"
+    )"
+
+    _cc() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _cc "the lite core: QUIC, uTLS, no naive, 1.14, extended features" 'lite=["extended_lite",true,true,false,true,true,true,true,true]'
+    _cc "the tags are listed" "tags=5"
+    _cc "a core without QUIC is told apart" 'stock-noquic=["stock",false,true,false,false,true]'
+    _cc "a core that hides its tags is believed able, naive excepted" 'unknown=[false,true,true,false]'
+    _cc "a core with the naive outbound is recognized" "naive=[true,true]"
+    _cc "Hysteria2 is made with QUIC" "hy-quic=1"
+    _cc "REALITY is made with uTLS" "reality-utls=true"
+    _cc "Hysteria2 is skipped without QUIC, the config is left alone" "hy-noquic-rc=1 unchanged=yes"
+    _cc "REALITY is skipped without uTLS, the config is left alone" "reality-noutls-rc=1 unchanged=yes"
+    _cc "a fingerprint is left out without uTLS" 'tls-noutls=0 ["t.example.com",false]'
+    _cc "a fingerprint is used with uTLS" 'tls-utls="chrome"'
+    _cc "a core that hides its tags gets Hysteria2" "hy-unknown-tags=1"
+    _cc "DoH3 falls back to DoH without QUIC" 'doh3-noquic=["https",443,"/dns-query"]'
+    _cc "DoQ falls back to DoT without QUIC" 'doq-noquic=["tls",853]'
+    _cc "DoH3 stays with QUIC" 'doh3-quic=["h3",443]'
+    _cc "DoQ stays with QUIC" 'doq-quic=["quic",853]'
+    _cc "the fallbacks are reported" "warned=2"
+    rm -rf "$work"
+}
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -20986,6 +21106,7 @@ main() {
             test_port_rules
             test_config_lint
             test_naive
+            test_core_caps
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -21070,9 +21191,10 @@ main() {
         portrules)   test_port_rules ;;
         configlint)  test_config_lint ;;
         naive)       test_naive ;;
+        corecaps)    test_core_caps ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps"
             exit 1
             ;;
     esac
