@@ -4094,6 +4094,13 @@ function renderWidget(props) {
 }
 
 // src/netshift/tabs/dashboard/render.ts
+function widgetsAreShown() {
+  try {
+    return uci.get("netshift", "settings", "dashboard_widgets") !== "0";
+  } catch {
+    return true;
+  }
+}
 function render() {
   return E(
     "div",
@@ -4107,28 +4114,55 @@ function render() {
       // The servers the pin guard gave up (filled by the controller)
       E("div", { id: "dashboard-pin-guard" }),
       // Widgets section
-      E("div", { class: "pdk_dashboard-page__widgets-section" }, [
-        E(
-          "div",
-          { id: "dashboard-widget-traffic" },
-          renderWidget({ loading: true, failed: false, title: "", items: [] })
-        ),
-        E(
-          "div",
-          { id: "dashboard-widget-traffic-total" },
-          renderWidget({ loading: true, failed: false, title: "", items: [] })
-        ),
-        E(
-          "div",
-          { id: "dashboard-widget-system-info" },
-          renderWidget({ loading: true, failed: false, title: "", items: [] })
-        ),
-        E(
-          "div",
-          { id: "dashboard-widget-service-info" },
-          renderWidget({ loading: true, failed: false, title: "", items: [] })
-        )
-      ]),
+      E(
+        "div",
+        {
+          class: "pdk_dashboard-page__widgets-section",
+          ...widgetsAreShown() ? {} : { style: "display: none" }
+        },
+        [
+          E(
+            "div",
+            { id: "dashboard-widget-traffic" },
+            renderWidget({
+              loading: true,
+              failed: false,
+              title: "",
+              items: []
+            })
+          ),
+          E(
+            "div",
+            { id: "dashboard-widget-traffic-total" },
+            renderWidget({
+              loading: true,
+              failed: false,
+              title: "",
+              items: []
+            })
+          ),
+          E(
+            "div",
+            { id: "dashboard-widget-system-info" },
+            renderWidget({
+              loading: true,
+              failed: false,
+              title: "",
+              items: []
+            })
+          ),
+          E(
+            "div",
+            { id: "dashboard-widget-service-info" },
+            renderWidget({
+              loading: true,
+              failed: false,
+              title: "",
+              items: []
+            })
+          )
+        ]
+      ),
       // Subscription refresh toolbar (hidden without subscription sections)
       E("div", { id: "dashboard-sections-toolbar" }),
       // All outbounds
@@ -4899,6 +4933,12 @@ var styles3 = `
     grid-gap: 10px;
 }
 
+@media (max-width: 600px) {
+    .pdk_dashboard-page__widgets-section {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .pdk_dashboard-page__widgets-section__item {
 }
 
@@ -4955,7 +4995,7 @@ var styles3 = `
 .pdk_dashboard-page__outbound-grid {
     margin-top: 5px;
     display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
     grid-gap: 10px;
 }
 
@@ -4979,10 +5019,12 @@ var styles3 = `
     content: '\\2713\\00a0';
 }
 
+/* One column on a phone, more of them as the screen gets wider */
 .pdk_dashboard-page__outbound-list {
     margin-top: 5px;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+    align-content: start;
     gap: 6px;
     max-height: 520px;
     overflow-y: auto;
@@ -7827,6 +7869,56 @@ ${PartialStyles}
     opacity: 0.7;
     font-size: 0.9em;
 }
+
+/*
+ * The custom tabs (dashboard, devices, connections, component manager,
+ * diagnostics) fill the whole width of the page: some themes narrow the field of a
+ * form row, and these tabs are not forms.
+ */
+:is(#cbi-netshift-dashboard, #cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-manager, #cbi-netshift-diagnostic) :is(.cbi-section-node, .cbi-value, .cbi-value-field) {
+    display: block;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+    box-sizing: border-box;
+}
+
+:is(#cbi-netshift-dashboard, #cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-manager, #cbi-netshift-diagnostic) .cbi-value-title {
+    display: none;
+}
+
+/*
+ * Inputs and selects of the custom tabs look like the ones of the forms: the theme
+ * styles them only inside a form row, so the same tokens are applied here.
+ */
+:is(#cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-diagnostic) :is(input.cbi-input-text, select.cbi-input-select, textarea) {
+    box-sizing: border-box;
+    min-height: 2.4em;
+    padding: 0.4em 0.7em;
+    color: var(--text-color-high, inherit);
+    background: var(--background-color-high, transparent);
+    border: 1px solid var(--border-color-medium, rgba(128, 128, 128, 0.5));
+    border-radius: var(--border-radius, 4px);
+    font: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+:is(#cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-diagnostic) :is(input.cbi-input-text, select.cbi-input-select, textarea):focus {
+    outline: none;
+    border-color: var(--primary-color-high, #2196f3);
+}
+
+
+:is(#cbi-netshift-devices, #cbi-netshift-connections, #cbi-netshift-diagnostic) select.cbi-input-select {
+    padding-right: 2em;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 1.1em) 55%, calc(100% - 0.8em) 55%;
+    background-size: 0.3em 0.3em, 0.3em 0.3em;
+    background-repeat: no-repeat;
 
 /* Hide extra H3 for settings tab */
 #cbi-netshift-settings > h3 {
