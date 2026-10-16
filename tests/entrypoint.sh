@@ -586,7 +586,7 @@ for fn in nft_init_interfaces_set populate_netshift_subnets_from_file \
           populate_netshift_subnets_from_string nft_mark_fully_routed_source_ips \
           _nft_mark_fully_routed_ips_for_section _nft_mark_fully_routed_ip_handler \
           foreach_active_section _active_section_dispatch \
-          nft_add_dns_hijack nft_add_port_rules \
+          nft_add_dns_hijack nft_add_port_rules disable_quic_mode nft_add_quic_block \
           create_nft_rules; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
@@ -20892,6 +20892,73 @@ test_naive() {
     rm -rf "$work"
 }
 
+test_quic_mode() {
+    header "disable_quic: off, tunneled (the old flag) and all"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ]; then
+        fail "netshift bin not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        QM_LOG=/dev/null
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "${QM_LOG:-/dev/null}"; }
+        for fn in disable_quic_mode nft_add_quic_block; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        config_get() { eval "$1=\"\${QM_${3}:-$4}\""; }
+
+        for v in "" 0 false no off 1 true yes on tunneled all bogus; do
+            QM_disable_quic="$v"
+            echo "mode[$v]=$(disable_quic_mode)"
+        done
+        QM_disable_quic=""; unset QM_disable_quic
+        echo "mode-unset=$(disable_quic_mode)"
+
+        # the rule on the nft side, in the real nft: only the "all" mode writes it
+        if command -v nft > /dev/null 2>&1; then
+            NFT_TABLE_NAME="NetShiftQuicTest$$"
+            NFT_INTERFACE_SET_NAME="interfaces"
+            nft add table inet "$NFT_TABLE_NAME" 2> /dev/null &&
+                nft add set inet "$NFT_TABLE_NAME" "$NFT_INTERFACE_SET_NAME" '{ type ifname; }' &&
+                nft add chain inet "$NFT_TABLE_NAME" mangle '{ type filter hook prerouting priority mangle; }' &&
+                nft add rule inet "$NFT_TABLE_NAME" mangle counter accept
+            QM_disable_quic=1; nft_add_quic_block
+            echo "nft-tunneled-rules=$(nft list chain inet "$NFT_TABLE_NAME" mangle 2> /dev/null | grep -c 'dport 443')"
+            QM_disable_quic=all; nft_add_quic_block
+            echo "nft-all-rule=$(nft list chain inet "$NFT_TABLE_NAME" mangle 2> /dev/null | grep -c 'udp dport 443.*reject')"
+            echo "nft-all-first=$(nft list chain inet "$NFT_TABLE_NAME" mangle 2> /dev/null | grep -n 'dport 443\|counter.*accept' | head -2 | cut -d: -f1 | tr '\n' ' ')"
+            nft delete table inet "$NFT_TABLE_NAME" 2> /dev/null
+        fi
+    )"
+
+    _qm() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _qm "an empty or unset option is off" "mode[]=off"
+    _qm "0 is off" "mode[0]=off"
+    _qm "false/no/off are off" "mode[off]=off"
+    _qm "the old flag 1 is tunneled" "mode[1]=tunneled"
+    _qm "true/yes/on are tunneled too" "mode[yes]=tunneled"
+    _qm "tunneled is tunneled" "mode[tunneled]=tunneled"
+    _qm "all is all" "mode[all]=all"
+    _qm "an unknown value blocks nothing" "mode[bogus]=off"
+    _qm "no setting at all is off" "mode-unset=off"
+    if command -v nft > /dev/null 2>&1; then
+        _qm "the tunneled mode adds nothing to nft" "nft-tunneled-rules=0"
+        _qm "the all mode refuses UDP/443 from the network with a port-unreachable" "nft-all-rule=1"
+    else
+        skip "nft not available: the nft rule of the all mode"
+    fi
+}
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -20986,6 +21053,7 @@ main() {
             test_port_rules
             test_config_lint
             test_naive
+            test_quic_mode
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -21070,6 +21138,7 @@ main() {
         portrules)   test_port_rules ;;
         configlint)  test_config_lint ;;
         naive)       test_naive ;;
+        quicmode)    test_quic_mode ;;
         *)
             echo "Unknown test: $target"
 echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive"

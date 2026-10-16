@@ -25,6 +25,7 @@ config settings 'settings'
         #list badwan_monitored_interfaces 'wan'
         #option badwan_reload_delay '2000'
         option enable_yacd '0'
+        # QUIC: 0 off | 1 reject the QUIC that goes through the tunnel | all also refuse the QUIC that goes out directly (UDP/443)
         option disable_quic '0'
         option update_interval '1d'
         option download_lists_via_proxy '0'

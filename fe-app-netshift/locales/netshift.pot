@@ -89,6 +89,10 @@ msgstr ""
 msgid "Age"
 msgstr ""
 
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:867
+msgid "All QUIC (UDP/443)"
+msgstr ""
+
 #: src/netshift/tabs/dashboard/initController.ts:324
 msgid "All subscriptions updated"
 msgstr ""
@@ -137,15 +141,15 @@ msgstr ""
 msgid "Available actions"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:941
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:944
 msgid "Block direct connections to known public DoH servers (Cloudflare, Google, Quad9, OpenDNS, AdGuard, Yandex) so apps cannot bypass router DNS filtering."
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:940
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:943
 msgid "Block DoH Servers"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:952
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:955
 msgid "Block Leaks When Tunnel Is Down"
 msgstr ""
 
@@ -193,11 +197,11 @@ msgstr ""
 msgid "Bypass sing-box for excluded IPs"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:994
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:997
 msgid "Cache File Path"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1008
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1011
 msgid "Cache file path cannot be empty"
 msgstr ""
 
@@ -315,7 +319,7 @@ msgstr ""
 msgid "Compressed build: uses more RAM at startup"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:980
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:983
 msgid "Config File Path"
 msgstr ""
 
@@ -475,7 +479,7 @@ msgid "Disable section"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:861
-msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
+msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming. Only the QUIC that goes through the tunnel: the app falls back to TCP, traffic that goes out directly is not touched. All QUIC: also the QUIC that goes out directly, every UDP/443 packet from the network is refused."
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1017
@@ -595,7 +599,7 @@ msgstr ""
 msgid "Domain Resolver"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:872
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:875
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
@@ -678,11 +682,11 @@ msgstr ""
 msgid "Enable DNS resolve to get real IP when routing"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:968
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:971
 msgid "Enable IPv6 Support"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:969
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:972
 msgid "Enable IPv6 TProxy routing, IPv6 DNS inbound, and IPv6 FakeIP support."
 msgstr ""
 
@@ -797,15 +801,15 @@ msgstr ""
 msgid "Everything through: %s"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:894
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:897
 msgid "Exclude BitTorrent"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:882
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:885
 msgid "Exclude NTP"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:883
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:886
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr ""
 
@@ -841,7 +845,7 @@ msgstr ""
 msgid "Extended core with all features (~105 MB)"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:953
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:956
 msgid "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered."
 msgstr ""
 
@@ -1334,7 +1338,7 @@ msgstr ""
 msgid "Keyword may contain only letters, digits, dots, dashes and underscores"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:906
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:909
 msgid "Latency test URL"
 msgstr ""
 
@@ -1383,7 +1387,7 @@ msgstr ""
 msgid "Local Subnet Lists"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1031
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1034
 msgid "Log Level"
 msgstr ""
 
@@ -1474,7 +1478,7 @@ msgstr ""
 msgid "NetShift updated, version:"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:873
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:876
 msgid "NetShift will not modify your DHCP configuration"
 msgstr ""
 
@@ -1561,6 +1565,7 @@ msgid "Number of leading characters of each proxy name to group by."
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:317
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:865
 msgid "Off"
 msgstr ""
 
@@ -1574,6 +1579,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:773
 msgid "Only one section can be global at a time."
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:866
+msgid "Only QUIC through the tunnel"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:534
@@ -1621,15 +1630,15 @@ msgstr ""
 msgid "Path cannot be empty"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1012
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1015
 msgid "Path must be absolute (start with /)"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1021
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1024
 msgid "Path must contain at least one directory (like /tmp/cache.db)"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1016
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1019
 msgid "Path must end with cache.db"
 msgstr ""
 
@@ -1762,7 +1771,7 @@ msgstr ""
 msgid "Route all unmatched traffic through this section's outbound."
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:895
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:898
 msgid "Route BitTorrent traffic directly, bypassing the proxy or VPN. Some providers block subscriptions when they detect torrent traffic."
 msgstr ""
 
@@ -1887,11 +1896,11 @@ msgstr ""
 msgid "Select or enter DNS server address"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:995
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:998
 msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:981
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:984
 msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
 msgstr ""
 
@@ -1899,7 +1908,7 @@ msgstr ""
 msgid "Select the DNS protocol type for the domain resolver"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1032
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:1035
 msgid "Select the log level for sing-box"
 msgstr ""
 
@@ -2273,7 +2282,7 @@ msgstr ""
 msgid "The test could not be run"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:907
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:910
 msgid "The URL the dashboard uses to measure server latency. Change it if the default is slow or blocked in your region."
 msgstr ""
 
@@ -2485,7 +2494,7 @@ msgstr ""
 msgid "Use the first server of the list that works and go back to a higher one as soon as it recovers (checked every 30 seconds). Unlike URLTest this ignores speed. Grouped subscriptions are not supported."
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:971
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:974
 msgid "Use this only when the router has working IPv6 connectivity."
 msgstr ""
 
@@ -2609,7 +2618,7 @@ msgstr ""
 msgid "Which subscription format (client) to fetch first. Auto uses the default order. Choose Xray JSON (Happ) when your panel only exposes some nodes (e.g. xhttp) under a Happ-like client, or Sing-box to prefer the sing-box format."
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:957
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:960
 msgid "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up."
 msgstr ""
 
