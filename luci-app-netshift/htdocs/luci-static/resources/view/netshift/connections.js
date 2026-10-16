@@ -76,16 +76,16 @@ function buildConnections() {
     tableBody.replaceChildren(
       ...shown.map((connection) =>
         E("tr", { class: "tr" }, [
-          E("td", { class: "td" }, [main.connectionTarget(connection)]),
-          E("td", { class: "td" }, [connection.network.toUpperCase()]),
-          E("td", { class: "td" }, [connection.source]),
-          E("td", { class: "td" }, [
+          E("td", { class: "td", "data-title": _("Destination") }, [main.connectionTarget(connection)]),
+          E("td", { class: "td", "data-title": _("Protocol") }, [connection.network.toUpperCase()]),
+          E("td", { class: "td", "data-title": _("Source") }, [connection.source]),
+          E("td", { class: "td", "data-title": _("Route") }, [
             main.connectionRoute(connection) || sectionNameOf(connection.chains) || "-",
           ]),
-          E("td", { class: "td" }, [
+          E("td", { class: "td", "data-title": _("Traffic") }, [
             `↓ ${main.prettyBytes(connection.download)} ↑ ${main.prettyBytes(connection.upload)}`,
           ]),
-          E("td", { class: "td" }, [ageText(connection)]),
+          E("td", { class: "td", "data-title": _("Age") }, [ageText(connection)]),
           E("td", { class: "td" }, [
             E(
               "button",
@@ -140,7 +140,7 @@ function buildConnections() {
       E("button", { class: "btn cbi-button-negative", click: closeAll }, _("Close all")),
     ]),
     E("div", { class: "table" }, [
-      E("table", { class: "table" }, [
+      E("table", { class: "table ns-table" }, [
         E("thead", {}, [
           E("tr", { class: "tr table-titles" }, [
             E("th", { class: "th" }, [_("Destination")]),

@@ -7720,6 +7720,23 @@ ${ManagerTab.styles}
 ${PartialStyles}
 
 
+/*
+ * Tables of the custom tabs (devices, connections). Their cells carry
+ * data-title, which the themes use to label the cells when they turn a row into a
+ * card on a narrow screen (the header row is not shown there, so nothing that must
+ * stay reachable may live in it).
+ */
+.ns-table {
+    width: 100%;
+}
+
+/* Secondary text of the custom tabs (the themes put an icon in front of
+   .cbi-value-description, which does not belong here) */
+.ns-muted {
+    opacity: 0.7;
+    font-size: 0.9em;
+}
+
 /* Hide extra H3 for settings tab */
 #cbi-netshift-settings > h3 {
     display: none;

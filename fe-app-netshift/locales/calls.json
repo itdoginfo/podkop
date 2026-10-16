@@ -123,6 +123,7 @@
     "call": "Age",
     "key": "Age",
     "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:88",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:151"
     ]
   },
@@ -686,6 +687,7 @@
     "call": "Destination",
     "key": "Destination",
     "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:79",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:146"
     ]
   },
@@ -714,6 +716,7 @@
     "call": "Device",
     "key": "Device",
     "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:346",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:392"
     ]
   },
@@ -735,6 +738,9 @@
     "call": "DHCP lease",
     "key": "DHCP lease",
     "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:277",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:283",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:289",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:395"
     ]
   },
@@ -2178,6 +2184,7 @@
     "key": "IP address",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:250",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:349",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:393"
     ]
   },
@@ -2356,6 +2363,7 @@
     "key": "MAC address",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:249",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:350",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:394"
     ]
   },
@@ -2829,6 +2837,7 @@
     "call": "Protocol",
     "key": "Protocol",
     "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:80",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:147"
     ]
   },
@@ -2983,6 +2992,7 @@
     "call": "Route",
     "key": "Route",
     "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:82",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:149"
     ]
   },
@@ -3025,6 +3035,7 @@
     "call": "Routing",
     "key": "Routing",
     "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:352",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:396",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:27"
     ]
@@ -3442,6 +3453,7 @@
     "call": "Source",
     "key": "Source",
     "places": [
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:81",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:148"
     ]
   },
@@ -3949,6 +3961,7 @@
       "src/netshift/tabs/dashboard/initController.ts:455",
       "src/netshift/tabs/dashboard/partials/renderSections.ts:110",
       "src/netshift/tabs/dashboard/partials/renderSections.ts:111",
+      "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:85",
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/connections.js:150"
     ]
   },
