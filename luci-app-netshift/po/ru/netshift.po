@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-16 22:13+0300\n"
-"PO-Revision-Date: 2026-10-16 22:13+0300\n"
+"POT-Creation-Date: 2026-10-16 22:41+0300\n"
+"PO-Revision-Date: 2026-10-16 22:41+0300\n"
 "Last-Translator: yandexru45\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -70,6 +70,9 @@ msgstr "Дополнительно"
 
 msgid "Age"
 msgstr "Возраст"
+
+msgid "All QUIC (UDP/443)"
+msgstr "Весь QUIC (UDP/443)"
 
 msgid "All subscriptions updated"
 msgstr "Все подписки обновлены"
@@ -347,8 +350,8 @@ msgstr "Отключить QUIC"
 msgid "Disable section"
 msgstr "Отключить секцию"
 
-msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
-msgstr "Отключить QUIC протокол для улучшения совместимости или исправления видео стриминга"
+msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming. Only the QUIC that goes through the tunnel: the app falls back to TCP, traffic that goes out directly is not touched. All QUIC: also the QUIC that goes out directly, every UDP/443 packet from the network is refused."
+msgstr "Отключает протокол QUIC для совместимости или при проблемах с видео. Только QUIC через туннель: приложение переходит на TCP, трафик, который идёт напрямую, не затрагивается. Весь QUIC: также и тот, что идёт напрямую, любой пакет UDP/443 из сети отклоняется."
 
 msgid "Disabled"
 msgstr "Отключено"
@@ -1141,6 +1144,9 @@ msgstr "Только при запуске, потом не проверять"
 
 msgid "Only one section can be global at a time."
 msgstr "Только одна секция может быть глобальной одновременно."
+
+msgid "Only QUIC through the tunnel"
+msgstr "Только QUIC через туннель"
 
 msgid "Only these TCP ports take the tunnel"
 msgstr "Только эти TCP-порты идут в туннель"

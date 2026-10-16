@@ -861,13 +861,16 @@ function createSettingsContent(section) {
   // --- Advanced tab ---
   o = section.taboption(
     "advanced",
-    form.Flag,
+    form.ListValue,
     "disable_quic",
     _("Disable QUIC"),
     _(
-      "Disable the QUIC protocol to improve compatibility or fix issues with video streaming",
+      "Disable the QUIC protocol to improve compatibility or fix issues with video streaming. Only the QUIC that goes through the tunnel: the app falls back to TCP, traffic that goes out directly is not touched. All QUIC: also the QUIC that goes out directly, every UDP/443 packet from the network is refused.",
     ),
   );
+  o.value("0", _("Off"));
+  o.value("1", _("Only QUIC through the tunnel"));
+  o.value("all", _("All QUIC (UDP/443)"));
   o.default = "0";
   o.rmempty = false;
 
