@@ -35,6 +35,7 @@ check_required_file "$NETSHIFT_LIB/lint.sh"
 check_required_file "$NETSHIFT_LIB/feedlist.sh"
 check_required_file "$NETSHIFT_LIB/naive.sh"
 check_required_file "$NETSHIFT_LIB/corecaps.sh"
+check_required_file "$NETSHIFT_LIB/applyconfig.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -58,6 +59,7 @@ check_required_file "$NETSHIFT_LIB/corecaps.sh"
 . "$NETSHIFT_LIB/dnsbench.sh"
 . "$NETSHIFT_LIB/lint.sh"
 . "$NETSHIFT_LIB/feedlist.sh"
+. "$NETSHIFT_LIB/applyconfig.sh"
 . "$NETSHIFT_LIB/naive.sh"
 . "$NETSHIFT_LIB/corecaps.sh"
 
@@ -1323,6 +1325,9 @@ stop_main() {
 
 start() {
     local start_rc dont_touch_dhcp
+
+    # until this start has succeeded no configuration is "the one the service runs with"
+    config_applied_hash_clear
     start_main
     start_rc=$?
 
@@ -1344,6 +1349,7 @@ start() {
     uci_set "netshift" "settings" "shutdown_correctly" 0
     uci commit "netshift" && config_load "$NETSHIFT_CONFIG"
 
+    config_applied_hash_save
     start_sing_box_monitor
 }
 
@@ -1481,6 +1487,7 @@ stop() {
     fi
 
     stop_main
+    config_applied_hash_clear
 
     uci_set "netshift" "settings" "shutdown_correctly" 1
     uci commit "netshift" && config_load "$NETSHIFT_CONFIG"
@@ -1701,6 +1708,9 @@ monitor_sing_box() {
             fi
             # Real time, not ticks: a check that takes a while must not stretch the interval.
             now="$(date +%s)"
+            # The options the checks use (interval, priority mode, pin guard) apply without a
+            # restart of the service: the configuration is read anew before every look.
+            config_load "$NETSHIFT_CONFIG"
             if [ $((now - priority_last)) -ge "$(priority_check_interval)" ]; then
                 priority_last="$now"
                 priority_check_sections
@@ -8611,6 +8621,7 @@ Available commands:
     get_config_warnings     Settings that are valid but do not do what they say (JSON)
     get_core_capabilities   What the installed sing-box core can do (JSON)
     fetch_feed_list <url>   The feed addresses of a published list of subscriptions (JSON)
+    apply_config            Restart only if the configuration changed in options the service uses
     global_check            Run global system check
     component_action        Run component action: <component> <action>
                             (e.g. sing_box install_extended|install_extended_lite|
@@ -8635,6 +8646,9 @@ stop)
     ;;
 reload)
     reload
+    ;;
+apply_config)
+    apply_config_change
     ;;
 restart)
     restart

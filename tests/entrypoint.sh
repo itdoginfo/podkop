@@ -124,7 +124,8 @@ test_syntax() {
         "$lib/subinfo.sh" \
         "$lib/lint.sh" \
         "$lib/naive.sh" \
-        "$lib/corecaps.sh"; do
+        "$lib/corecaps.sh" \
+        "$lib/applyconfig.sh"; do
 
         if [ ! -r "$f" ]; then
             fail "File not found: $f"
@@ -21913,6 +21914,141 @@ LIST
     rm -rf "$work" /etc/config/netshift
 }
 
+test_apply_config() {
+    header "Applying a configuration change: restart only when the service depends on it"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local initscript="${NETSHIFT_SRC}/etc/init.d/netshift"
+    if ! command -v uci > /dev/null 2>&1 || [ ! -r "$lib/applyconfig.sh" ] || [ ! -r "$bin" ]; then
+        skip "uci, applyconfig.sh or the netshift bin not available"
+        return
+    fi
+
+    local work="/tmp/netshift-applycfg-$$"
+    rm -rf "$work"
+    mkdir -p "$work/uci"
+    cat > "$work/uci/netshift" << 'CF'
+config settings 'settings'
+	option dns_type 'doh'
+	option update_notice '1'
+	option latency_test_url 'https://example.com/204'
+	option shutdown_correctly '0'
+
+config section 'main'
+	option connection_type 'proxy'
+	list user_domains 'a.com'
+CF
+    # a stand-in for the init script: it only records that it was asked to restart
+    printf '#!/bin/sh\necho "$1" >> "%s/restarts"\n' "$work" > "$work/init"
+    chmod +x "$work/init"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        log() { printf '%s\n' "$1" >> "$work/log"; }
+        uci() { command uci -c "$work/uci" "$@"; }
+        NETSHIFT_INIT="$work/init"
+        . "$lib/applyconfig.sh"
+        # the production path of the hash is the one under test
+        config_applied_hash_clear
+        n() { wc -l < "$work/restarts" | tr -d ' '; }
+
+        : > "$work/restarts"
+        apply_config_change
+        echo "no-hash-restarts=$(n)"
+        config_applied_hash_save
+        h0="$(cat "$CONFIG_APPLIED_HASH_FILE")"
+        echo "hash-saved=$([ -n "$h0" ] && echo yes || echo no)"
+        echo "hash-file-mode=$(ls -l "$CONFIG_APPLIED_HASH_FILE" | cut -c1-10)"
+
+        : > "$work/restarts"
+        uci -q set netshift.settings.shutdown_correctly='1'
+        uci -q set netshift.settings.update_notice='0'
+        uci -q set netshift.settings.wget_ipv4_mode='on'
+        uci -q commit netshift
+        apply_config_change
+        echo "ignored-options-restarts=$(n)"
+        echo "ignored-options-hash-same=$([ "$(config_runtime_hash)" = "$h0" ] && echo yes || echo no)"
+        echo "ignored-logged=$(grep -c 'is not restarted' "$work/log")"
+
+        # the options of the monitor, the dashboard and the component installer
+        config_applied_hash_save
+        : > "$work/restarts"
+        uci -q set netshift.settings.priority_check_interval='60'
+        uci -q set netshift.settings.latency_test_url='https://example.org/204'
+        uci -q set netshift.main.pin_guard='1'
+        uci -q set netshift.main.priority_mode='1'
+        uci -q commit netshift
+        apply_config_change
+        echo "monitor-options-restarts=$(n)"
+
+        : > "$work/restarts"
+        uci -q set netshift.settings.dns_type='udp'
+        uci -q commit netshift
+        apply_config_change
+        echo "dns-change-restarts=$(n)"
+
+        config_applied_hash_save
+        : > "$work/restarts"
+        uci -q add_list netshift.main.user_domains='b.com'
+        uci -q commit netshift
+        apply_config_change
+        echo "section-change-restarts=$(n)"
+
+        # the service is down (stopped, or a start that failed): the hash is forgotten, so putting
+        # the hashed options back to what they were at the last good start (reverting the change that
+        # broke the start) does not pass for "only options that need no restart"
+        config_applied_hash_save
+        uci -q set netshift.settings.dns_type='tcp'
+        uci -q commit netshift
+        config_applied_hash_clear
+        : > "$work/restarts"
+        uci -q set netshift.settings.dns_type='udp'
+        uci -q commit netshift
+        apply_config_change
+        echo "down-service-restarts=$(n)"
+        echo "hash-gone-after-clear=$([ -e "$CONFIG_APPLIED_HASH_FILE" ] && echo no || echo yes)"
+        rm -f "$CONFIG_APPLIED_HASH_FILE"
+    )"
+
+    # start() forgets the hash before it starts and saves it only after a successful start; stop() forgets it
+    local start_body stop_body
+    start_body="$(awk '/^start\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+    stop_body="$(awk '/^stop\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+    out="$out
+start-clears-before-start_main=$(printf '%s\n' "$start_body" | awk '/config_applied_hash_clear/{c=NR} /^    start_main/{s=NR} END{print (c && s && c < s) ? "yes" : "no"}')
+start-saves-after-success=$(printf '%s\n' "$start_body" | awk '/^    start_main/{s=NR} /return "\$start_rc"/{r=NR} /config_applied_hash_save/{v=NR} END{print (s && r && v && v > r) ? "yes" : "no"}')
+stop-clears=$(printf '%s\n' "$stop_body" | grep -c 'config_applied_hash_clear')
+trigger-wired=$(grep -cF 'procd_add_config_trigger "config.change" "$NAME" /usr/bin/netshift apply_config' "$initscript" 2> /dev/null)
+command-wired=$(grep -c '^apply_config)' "$bin")"
+
+    _ac() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _ac "no saved hash (not started by NetShift): restart as before" "no-hash-restarts=1"
+    _ac "the hash is saved at start" "hash-saved=yes"
+    _ac "...readable by root only" "hash-file-mode=-rw-------"
+    _ac "only the notice, an extra option of the downloads and the shutdown flag changed: no restart" "ignored-options-restarts=0"
+    _ac "...the hash of the configuration stays the same" "ignored-options-hash-same=yes"
+    _ac "...and the log says why nothing restarted" "ignored-logged=1"
+    _ac "the options of the monitor (interval, pin guard, priority mode) and the latency URL: no restart" "monitor-options-restarts=0"
+    _ac "a DNS option changed: restart" "dns-change-restarts=1"
+    _ac "a section changed: restart" "section-change-restarts=1"
+    _ac "the service is down: a change that restores the hashed options still restarts it" "down-service-restarts=1"
+    _ac "...because the hash is forgotten when the service is not running" "hash-gone-after-clear=yes"
+    _ac "start() forgets the hash before it starts the service" "start-clears-before-start_main=yes"
+    _ac "...and saves it only after a start that succeeded" "start-saves-after-success=yes"
+    _ac "stop() forgets the hash" "stop-clears=1"
+    _ac "procd calls netshift apply_config when the configuration changes" "trigger-wired=1"
+    _ac "...and the command exists" "command-wired=1"
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -22015,6 +22151,7 @@ main() {
             test_telegram_fallback
             test_naive_component
             test_collected_lists
+            test_apply_config
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -22107,9 +22244,10 @@ main() {
         tgfallback)  test_telegram_fallback ;;
         naivecomp)   test_naive_component ;;
         collected)   test_collected_lists ;;
+        applyconfig) test_apply_config ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra applyconfig"
             exit 1
             ;;
     esac
