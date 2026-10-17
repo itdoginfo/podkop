@@ -21913,6 +21913,82 @@ LIST
     rm -rf "$work" /etc/config/netshift
 }
 
+test_install_download() {
+    header "Installer: a download that stalls or fails is given up and retried (wget, then curl)"
+
+    local installer="${NETSHIFT_SRC}/../install.sh"
+    if [ ! -r "$installer" ]; then
+        skip "install.sh is not mounted into the test container"
+        return
+    fi
+
+    local work="/tmp/netshift-installdl-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin" "$work/dl"
+
+    # wget and curl stand in for the tools: they record how they were called and succeed or fail
+    # as the scenario says (ID_WGET, ID_CURL: ok or fail)
+    cat > "$work/bin/wget" << 'WEOF'
+#!/bin/sh
+echo "$*" >> "$ID_DIR/wget.calls"
+out=""; prev=""
+for a in "$@"; do [ "$prev" = "-O" ] && out="$a"; prev="$a"; done
+[ "$ID_WGET" = ok ] || exit 4
+printf 'FROM-WGET' > "$out"
+WEOF
+    cat > "$work/bin/curl" << 'CEOF'
+#!/bin/sh
+echo "$*" >> "$ID_DIR/curl.calls"
+out=""; prev=""
+for a in "$@"; do [ "$prev" = "-o" ] && out="$a"; prev="$a"; done
+[ "$ID_CURL" = ok ] || exit 22
+printf 'FROM-CURL' > "$out"
+CEOF
+    chmod +x "$work/bin/wget" "$work/bin/curl"
+
+    local out
+    out="$(
+        export ID_DIR="$work"
+        grep -E '^(COUNT|DOWNLOAD_TIMEOUT|DOWNLOAD_MAX_TIME)=' "$installer" > "$work/vars.sh"
+        . "$work/vars.sh"
+        for fn in fetch_url download_release_asset; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$installer")"
+        done
+        msg() { printf '%s\n' "$*" >> "$work/msg.log"; }
+        DOWNLOAD_DIR="$work/dl"
+        PATH="$work/bin:$PATH"
+        calls() { [ -f "$work/$1.calls" ] && wc -l < "$work/$1.calls" | tr -d ' ' || echo 0; }
+        reset() { rm -f "$work"/*.calls "$work/dl"/*; : > "$work/msg.log"; }
+
+        reset; ID_WGET=ok ID_CURL=fail download_release_asset https://example.org/a.ipk a.ipk > /dev/null; echo "wget-ok-rc=$? file=$(cat "$work/dl/a.ipk") curl=$(calls curl)"
+        echo "wget-has-timeout=$(grep -c -- "-T $DOWNLOAD_TIMEOUT " "$work/wget.calls")"
+
+        reset; ID_WGET=fail ID_CURL=ok download_release_asset https://example.org/b.ipk b.ipk > /dev/null; echo "curl-after-wget-rc=$? file=$(cat "$work/dl/b.ipk") wget=$(calls wget) curl=$(calls curl)"
+        echo "curl-has-timeouts=$(grep -c -- "--connect-timeout $DOWNLOAD_TIMEOUT -m $DOWNLOAD_MAX_TIME" "$work/curl.calls")"
+
+        reset; ID_WGET=fail ID_CURL=fail download_release_asset https://example.org/c.ipk c.ipk > /dev/null; echo "both-fail-rc=$? wget=$(calls wget) curl=$(calls curl) leftover=$(ls "$work/dl" | wc -l | tr -d ' ')"
+
+        # no curl on the router: wget alone, retried COUNT times
+        reset; rm -f "$work/bin/curl"; PATH="$work/bin:/usr/bin:/bin"
+        ID_WGET=fail download_release_asset https://example.org/d.ipk d.ipk > /dev/null; echo "no-curl-rc=$? wget=$(calls wget) curl=$(calls curl)"
+    )"
+
+    _id() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _id "wget that works: done at once, curl is not asked" "wget-ok-rc=0 file=FROM-WGET curl=0"
+    _id "wget runs with a timeout (a stalled connection no longer hangs the installer)" "wget-has-timeout=1"
+    _id "wget that fails: curl takes over, in the same attempt" "curl-after-wget-rc=0 file=FROM-CURL wget=1 curl=1"
+    _id "curl runs with a connect timeout and a total time limit" "curl-has-timeouts=1"
+    _id "both fail: every attempt tries both, then the download is given up, nothing is left behind" "both-fail-rc=1 wget=3 curl=3 leftover=0"
+    _id "no curl on the router: wget alone, retried" "no-curl-rc=1 wget=3 curl=0"
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -22015,6 +22091,7 @@ main() {
             test_telegram_fallback
             test_naive_component
             test_collected_lists
+            test_install_download
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -22107,9 +22184,10 @@ main() {
         tgfallback)  test_telegram_fallback ;;
         naivecomp)   test_naive_component ;;
         collected)   test_collected_lists ;;
+        installdl)   test_install_download ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra installdl"
             exit 1
             ;;
     esac
