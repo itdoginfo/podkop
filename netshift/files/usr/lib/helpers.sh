@@ -2167,8 +2167,8 @@ normalize_subscription_to_singbox() {
         rm -f "$work_dir/stripped"
     fi
 
-    # udp_over_tcp from the section if present, else empty.
-    udp_over_tcp="$(uci -q get "netshift.${section}.udp_over_tcp" 2>/dev/null)"
+    # UDP over TCP from the section (the "UDP over TCP" flag), else empty.
+    udp_over_tcp="$(uci -q get "netshift.${section}.enable_udp_over_tcp" 2>/dev/null)"
 
     # How many servers of one feed are used (the section's subscription_max_nodes;
     # 500 when it is not set, 0 for no limit).

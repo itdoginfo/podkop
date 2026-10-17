@@ -4614,6 +4614,49 @@ uci -q delete netshift.testsub
 uci -q commit netshift
 rm -f "$caseC4_in" "$caseC4_out" /etc/config/netshift
 
+# ── CASE C4b: the "UDP over TCP" flag reaches socks and ss links ─────
+# The flag lives in the section as enable_udp_over_tcp; reading another option
+# name made it silently do nothing for subscription links (it worked for a
+# single link, a selector and an urltest).
+caseC4b_in="/tmp/netshift-fb-caseC4b-$$.txt"
+caseC4b_out="/tmp/netshift-fb-caseC4b-out-$$.json"
+printf '%s\n' \
+    'socks5://u:p@example.com:1080#S1' \
+    'ss://YWVzLTEyOC1nY206cHc=@example.com:8388#S2' \
+    'trojan://pw@example.com:8443?security=tls&sni=example.com#T1' > "$caseC4b_in"
+cat > /etc/config/netshift << 'CAPCONF'
+config section 'testuot'
+	option connection_type 'proxy'
+	option enable_udp_over_tcp '1'
+CAPCONF
+normalize_subscription_to_singbox "$caseC4b_in" "$caseC4b_out" "testuot" > /dev/null 2>&1
+uot_types="$(jq -c '[.outbounds[] | select(.udp_over_tcp.enabled == true) | .type] | unique' "$caseC4b_out" 2> /dev/null)"
+if [ "$uot_types" = '["shadowsocks","socks"]' ]; then
+    echo 'fb-caseC4b-flag-reaches-socks-and-ss:OK'
+else
+    echo "fb-caseC4b-flag-reaches-socks-and-ss:FAIL (got $uot_types)"
+fi
+uot_trojan="$(jq -r '[.outbounds[] | select(.type == "trojan" and .udp_over_tcp != null)] | length' "$caseC4b_out" 2> /dev/null)"
+if [ "$uot_trojan" = "0" ]; then
+    echo 'fb-caseC4b-flag-not-applied-to-trojan:OK'
+else
+    echo "fb-caseC4b-flag-not-applied-to-trojan:FAIL (got $uot_trojan)"
+fi
+# ...and the flag being off leaves the outbounds without it
+cat > /etc/config/netshift << 'CAPCONF'
+config section 'testuot'
+	option connection_type 'proxy'
+	option enable_udp_over_tcp '0'
+CAPCONF
+normalize_subscription_to_singbox "$caseC4b_in" "$caseC4b_out" "testuot" > /dev/null 2>&1
+uot_off="$(jq -r '[.outbounds[] | select(.udp_over_tcp != null)] | length' "$caseC4b_out" 2> /dev/null)"
+if [ "$uot_off" = "0" ]; then
+    echo 'fb-caseC4b-flag-off-adds-nothing:OK'
+else
+    echo "fb-caseC4b-flag-off-adds-nothing:FAIL (got $uot_off)"
+fi
+rm -f "$caseC4b_in" "$caseC4b_out" /etc/config/netshift
+
 # ── CASE C5: a download left behind by a killed start is wiped ──────
 # The body lives in tmpfs while it is parsed; a start the OOM killer took out
 # leaves it there and it stays in RAM until the router reboots.
