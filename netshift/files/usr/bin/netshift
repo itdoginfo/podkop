@@ -2303,6 +2303,11 @@ create_nft_rules() {
     nft add chain inet "$NFT_TABLE_NAME" proxy '{ type filter hook prerouting priority -100; policy accept; }'
 
     nft add rule inet "$NFT_TABLE_NAME" mangle ct status dnat return
+    # A packet to an address of the router itself (its external IP or DDNS name, reached from the
+    # LAN) is not for the tunnel: with a global proxy, or a device that is fully routed, it would
+    # be marked, taken by tproxy and lost, and a server on the router (VPN, web interface) would
+    # not answer from inside the network. The private ranges below do not cover the external address.
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" fib daddr type local return
     nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_LOCALV4_SET_NAME" return
     if netshift_ipv6_enabled; then
         nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip6 daddr "@$NFT_LOCALV6_SET_NAME" return

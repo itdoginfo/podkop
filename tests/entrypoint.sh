@@ -756,6 +756,24 @@ SELEOF
     else
         fail "selective:globalproxy — mark-all rules missing under global_proxy" "$out3"
     fi
+    # A packet to an address of the router itself (its external IP or DDNS name, from the LAN) is
+    # never marked, whatever marks follow: the return is in the chain and comes before the first
+    # mark, with the selective marks and with mark-all.
+    local lr_line lr_first lr_gp
+    lr_line="$(echo "$mangle1" | grep -n 'fib daddr type local return' | head -1 | cut -d: -f1)"
+    lr_first="$(echo "$mangle1" | grep -n 'meta mark set' | head -1 | cut -d: -f1)"
+    if [ -n "$lr_line" ] && [ -n "$lr_first" ] && [ "$lr_line" -lt "$lr_first" ]; then
+        pass "selective:local-return — traffic to the router's own addresses returns before the marks"
+    else
+        fail "selective:local-return — no return for the router's own addresses before the marks" "return=$lr_line first_mark=$lr_first"
+    fi
+    lr_line="$(echo "$mangle3" | grep -n 'fib daddr type local return' | head -1 | cut -d: -f1)"
+    lr_gp="$(echo "$mangle3" | grep -n 'meta mark set' | head -1 | cut -d: -f1)"
+    if [ -n "$lr_line" ] && [ -n "$lr_gp" ] && [ "$lr_line" -lt "$lr_gp" ]; then
+        pass "selective:local-return-globalproxy — the same return precedes the mark-all rules"
+    else
+        fail "selective:local-return-globalproxy — the router's own addresses can be marked by mark-all" "return=$lr_line first_mark=$lr_gp"
+    fi
     # router-originated OUTPUT marking fix: router-originated traffic must be marked too under global_proxy
     # (tcp AND udp), or the router's own flows still bypass the proxy.
     if echo "$mout3" | grep -q "meta l4proto tcp meta mark set $NFT_FAKEIP_MARK counter"; then
