@@ -21,7 +21,7 @@
 #             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade, environment,
 #             scalaropt, emptylink, urlint,
 #             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade,
-#             scalaropt, emptylink, dnshijack, subinfo, portrules, configlint, naive, corecaps, dnsroute, dnssectionpool, ipv6dnspolicy, sectiondns, xhttpextra, naivecomp, tuicanytls, collected,
+#             scalaropt, emptylink, dnshijack, subinfo, portrules, configlint, naive, corecaps, dnsroute, dnssectionpool, ipv6dnspolicy, sectiondns, xhttpextra, naivecomp, tuicanytls, collected, kwalt,
 # ──────────────────────────────────────────────────────────────────
 
 services:

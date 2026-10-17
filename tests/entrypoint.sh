@@ -21913,6 +21913,61 @@ LIST
     rm -rf "$work" /etc/config/netshift
 }
 
+test_filter_keyword_alternatives() {
+    header "Subscription keyword filters: several words in one entry (a|b)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / jq not found"
+        return
+    fi
+
+    local work="/tmp/netshift-kwalt-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        for fn in append_subscription_filter_keyword_handler build_subscription_filter_keywords_json; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        # the entries of the list, one per line (an entry may hold blanks)
+        config_list_foreach() {
+            local _i
+            while IFS= read -r _i; do
+                [ -n "$_i" ] && "$3" "$_i"
+            done < "$work/items"
+        }
+        kw() { printf '%s\n' "$@" > "$work/items"; build_subscription_filter_keywords_json s keywords; }
+
+        echo "plain=$(kw Germany Finland)"
+        echo "alternatives=$(kw 'NL|DE|Finland')"
+        echo "mixed=$(kw 'Premium' 'NL|DE')"
+        echo "bar-with-blanks-is-the-name=$(kw 'Amsterdam | 1' 'NL |' '| NL')"
+        echo "empty-side-is-the-name=$(kw 'a|' '|a' 'a||b' '|')"
+        echo "one-blank-side-is-the-name=$(kw 'a| b' 'a |b')"
+        echo "tab-beside-the-bar=$(kw "$(printf 'a|\tb')")"
+        echo "flags-and-words=$(kw '🇩🇪|🇳🇱')"
+    )"
+
+    _ka() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _ka "separate entries stay separate keywords" 'plain=["Germany","Finland"]'
+    _ka "an entry with bars and no blanks is the words between them" 'alternatives=["NL","DE","Finland"]'
+    _ka "...next to ordinary entries" 'mixed=["Premium","NL","DE"]'
+    _ka "a bar with a blank beside it is part of the name, as before" 'bar-with-blanks-is-the-name=["Amsterdam | 1","NL |","| NL"]'
+    _ka "a bar with an empty side is part of the name" 'empty-side-is-the-name=["a|","|a","a||b","|"]'
+    _ka "one blank beside a bar is enough to keep the entry whole" 'one-blank-side-is-the-name=["a| b","a |b"]'
+    _ka "a tab beside the bar too" 'tab-beside-the-bar=["a|\tb"]'
+    _ka "flags and other non-ASCII words split like any others" 'flags-and-words=["🇩🇪","🇳🇱"]'
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -22015,6 +22070,7 @@ main() {
             test_telegram_fallback
             test_naive_component
             test_collected_lists
+            test_filter_keyword_alternatives
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -22107,9 +22163,10 @@ main() {
         tgfallback)  test_telegram_fallback ;;
         naivecomp)   test_naive_component ;;
         collected)   test_collected_lists ;;
+        kwalt)       test_filter_keyword_alternatives ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt"
             exit 1
             ;;
     esac

@@ -494,8 +494,8 @@ msgstr "Убрать серверы, подключающиеся так."
 msgid "Drop servers whose name carries the flag of one of these countries. Two-letter codes, for example RU or US."
 msgstr "Отбросить серверы, в названии которых есть флаг одной из этих стран. Двухбуквенные коды, например RU или US."
 
-msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive)."
-msgstr "Исключать серверы подписки, имя которых содержит любое из этих ключевых слов (без учёта регистра)."
+msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive). Several words can be written in one line, separated by | without spaces (test|expired)."
+msgstr "Исключать серверы подписки, имя которых содержит любое из этих ключевых слов (без учёта регистра). Несколько слов можно написать в одной строке через | без пробелов (test|expired)."
 
 msgid "Duplicate"
 msgstr "Дублировать"
@@ -1001,8 +1001,8 @@ msgstr "Оставить только серверы, подключающиес
 msgid "Keep only servers whose name carries the flag of one of these countries. Two-letter codes, for example NL or DE. Combined with the keywords above (any match keeps a server)."
 msgstr "Оставить только серверы, в названии которых есть флаг одной из этих стран. Двухбуквенные коды, например NL или DE. Объединяется с ключевыми словами выше (подходит любое совпадение)."
 
-msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
-msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все."
+msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all. Several words can be written in one line, separated by | without spaces (NL|DE|Finland)."
+msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все. Несколько слов можно написать в одной строке через | без пробелов (NL|DE|Finland)."
 
 msgid "Kept before a restore"
 msgstr "Сохранён перед восстановлением"

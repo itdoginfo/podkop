@@ -5637,12 +5637,19 @@ append_subscription_filter_keyword_handler() {
     local keyword="$1"
     local next
 
+    # "a|b" with no blank next to the bar stands for the alternatives "a" and "b" (the list is an OR
+    # already, this only saves writing one line per word). A bar that has a blank beside it
+    # ("Amsterdam | 1"), or an empty side ("a|", "|"), is part of the name and stays as it is.
     next=$(printf '%s' "$SUBSCRIPTION_FILTER_KEYWORDS_JSON" |
-        jq -c --arg kw "$keyword" '. + [$kw]' 2>/dev/null)
+        jq -c --arg kw "$keyword" '
+            def blank_edge: startswith(" ") or endswith(" ") or startswith("\t") or endswith("\t");
+            ($kw | split("|")) as $parts
+            | . + (if ($parts | length) > 1 and all($parts[]; length > 0 and (blank_edge | not)) then $parts else [$kw] end)' 2>/dev/null)
     [ -n "$next" ] && SUBSCRIPTION_FILTER_KEYWORDS_JSON="$next"
 }
 
-# Read a per-section UCI list of keyword filter values into a JSON array string.
+# Read a per-section UCI list of keyword filter values into a JSON array string
+# (an entry "a|b" becomes the two keywords "a" and "b", see append_subscription_filter_keyword_handler).
 # Arguments:
 #   section: string, the UCI section name
 #   list_name: string, the UCI list option name

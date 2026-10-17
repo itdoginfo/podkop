@@ -1146,8 +1146,8 @@
     ]
   },
   {
-    "call": "Drop subscription servers whose name contains any of these keywords (case-insensitive).",
-    "key": "Drop subscription servers whose name contains any of these keywords (case-insensitive).",
+    "call": "Drop subscription servers whose name contains any of these keywords (case-insensitive). Several words can be written in one line, separated by | without spaces (test|expired).",
+    "key": "Drop subscription servers whose name contains any of these keywords (case-insensitive). Several words can be written in one line, separated by | without spaces (test|expired).",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:466"
     ]
@@ -2372,8 +2372,8 @@
     ]
   },
   {
-    "call": "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all.",
-    "key": "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all.",
+    "call": "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all. Several words can be written in one line, separated by | without spaces (NL|DE|Finland).",
+    "key": "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all. Several words can be written in one line, separated by | without spaces (NL|DE|Finland).",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:454"
     ]
