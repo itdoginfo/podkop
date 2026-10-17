@@ -1224,6 +1224,9 @@ start_main() {
     mkdir -p "$TMP_SING_BOX_FOLDER"
     mkdir -p "$TMP_RULESET_FOLDER"
     mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
+    # A download left behind by a killed start stays in tmpfs (RAM) until the next
+    # reboot: wipe it before this start downloads anything of its own.
+    subscription_downloads_clean
     ensure_subscription_cache_dir
     migrate_subscription_cache_from_tmp
 

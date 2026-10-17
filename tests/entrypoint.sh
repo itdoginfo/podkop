@@ -4534,6 +4534,119 @@ else
 fi
 rm -f "$caseC_in" "$caseC_out"
 
+# ── CASE C2: a body whose last line has no trailing newline ─────────
+# The body is read straight from the downloaded file (a published feed can be
+# a hundred megabytes, so it is never copied into a shell variable), which
+# means the loop sees the file exactly as it is: a plain `while read` would
+# drop the last link of a body that ends after it.
+caseC2_in="/tmp/netshift-fb-caseC2-$$.txt"
+caseC2_out="/tmp/netshift-fb-caseC2-out-$$.json"
+printf '%s' 'vless://44444444-4444-4444-4444-444444444444@example.com:443?security=tls&sni=example.com&type=tcp#N1
+trojan://pw4@example.com:8443?security=tls&sni=example.com#N2' > "$caseC2_in"
+if normalize_subscription_to_singbox "$caseC2_in" "$caseC2_out" "testsub"; then
+    echo 'fb-caseC2-rc:OK'
+else
+    echo 'fb-caseC2-rc:FAIL'
+fi
+c2_len="$(jq -r '.outbounds | length' "$caseC2_out" 2>/dev/null)"
+[ -n "$c2_len" ] || c2_len=0
+if [ "$c2_len" -eq 2 ]; then
+    echo "fb-caseC2-last-line-kept(==2 got $c2_len):OK"
+else
+    echo "fb-caseC2-last-line-kept(==2 got $c2_len):FAIL"
+fi
+rm -f "$caseC2_in" "$caseC2_out"
+
+# ...and the same body base64-encoded (decoded to a file, so no trailing
+# newline either).
+caseC3_in="/tmp/netshift-fb-caseC3-$$.txt"
+caseC3_out="/tmp/netshift-fb-caseC3-out-$$.json"
+printf '%s' 'vless://55555555-5555-5555-5555-555555555555@example.com:443?security=tls&sni=example.com&type=tcp#N3
+trojan://pw5@example.com:8443?security=tls&sni=example.com#N4' | base64 | tr -d '\n' > "$caseC3_in"
+if normalize_subscription_to_singbox "$caseC3_in" "$caseC3_out" "testsub"; then
+    echo 'fb-caseC3-rc:OK'
+else
+    echo 'fb-caseC3-rc:FAIL'
+fi
+c3_len="$(jq -r '.outbounds | length' "$caseC3_out" 2>/dev/null)"
+[ -n "$c3_len" ] || c3_len=0
+if [ "$c3_len" -eq 2 ]; then
+    echo "fb-caseC3-base64-last-line-kept(==2 got $c3_len):OK"
+else
+    echo "fb-caseC3-base64-last-line-kept(==2 got $c3_len):FAIL"
+fi
+rm -f "$caseC3_in" "$caseC3_out"
+
+# ── CASE C4: a published feed of many links is cut to subscription_max_nodes
+# A collected public list holds thousands of links; only the first
+# subscription_max_nodes are used (0 = all). The body is never held in a
+# variable, so a big feed costs no more memory than the file itself: this
+# test would otherwise be the one that OOM-kills a small router.
+caseC4_in="/tmp/netshift-fb-caseC4-$$.txt"
+caseC4_out="/tmp/netshift-fb-caseC4-out-$$.json"
+i=0
+: > "$caseC4_in"
+while [ "$i" -lt 400 ]; do
+    printf 'vless://66666666-6666-6666-6666-666666666666@example.com:443?security=tls&sni=example.com&type=tcp#L%s\n' "$i" >> "$caseC4_in"
+    i=$((i + 1))
+done
+# normalize_subscription_to_singbox reads the option through uci, so a throwaway
+# /etc/config/netshift carries the section for this case and is removed after
+# (the same pattern the other subscription-option cases use).
+cat > /etc/config/netshift << 'CAPCONF'
+config section 'testsub'
+	option connection_type 'proxy'
+	option subscription_max_nodes '7'
+CAPCONF
+if normalize_subscription_to_singbox "$caseC4_in" "$caseC4_out" "testsub" 2> /dev/null; then
+    echo 'fb-caseC4-rc:OK'
+else
+    echo 'fb-caseC4-rc:FAIL'
+fi
+c4_len="$(jq -r '.outbounds | length' "$caseC4_out" 2>/dev/null)"
+[ -n "$c4_len" ] || c4_len=0
+if [ "$c4_len" -eq 7 ]; then
+    echo "fb-caseC4-max-nodes-cap(==7 got $c4_len):OK"
+else
+    echo "fb-caseC4-max-nodes-cap(==7 got $c4_len):FAIL"
+fi
+uci -q delete netshift.testsub
+uci -q commit netshift
+rm -f "$caseC4_in" "$caseC4_out" /etc/config/netshift
+
+# ── CASE C5: a download left behind by a killed start is wiped ──────
+# The body lives in tmpfs while it is parsed; a start the OOM killer took out
+# leaves it there and it stays in RAM until the router reboots.
+dl_dir="$(mktemp -d)"
+: > "$dl_dir/pubtest.download.XXXXXX"
+: > "$dl_dir/pubtest.download.XXXXXX.ua"
+if (
+    TMP_SUBSCRIPTION_DOWNLOAD_FOLDER="$dl_dir"
+    SUBSCRIPTION_UPDATE_LOCK_DIR="$dl_dir.no-lock"
+    subscription_downloads_clean
+) > /dev/null 2>&1 && [ -d "$dl_dir" ] && [ -z "$(ls -A "$dl_dir" 2> /dev/null)" ]; then
+    echo 'dl-clean-wipes-leftovers:OK'
+else
+    echo "dl-clean-wipes-leftovers:FAIL ($(ls -A "$dl_dir" 2> /dev/null | tr '\n' ' '))"
+fi
+rm -rf "$dl_dir"
+
+# ...but an update that holds the lock may be using its own file right now.
+dl_dir="$(mktemp -d)"
+: > "$dl_dir/pubtest.download.YYYYYY"
+lock_dir="$dl_dir.lock"
+mkdir -p "$lock_dir"
+if (
+    TMP_SUBSCRIPTION_DOWNLOAD_FOLDER="$dl_dir"
+    SUBSCRIPTION_UPDATE_LOCK_DIR="$lock_dir"
+    subscription_downloads_clean
+) > /dev/null 2>&1 && [ -f "$dl_dir/pubtest.download.YYYYYY" ]; then
+    echo 'dl-clean-keeps-inflight:OK'
+else
+    echo 'dl-clean-keeps-inflight:FAIL'
+fi
+rm -rf "$dl_dir" "$lock_dir"
+
 # ── CASE D: negative — only comments / junk, no valid keys ──────────
 caseD_in="/tmp/netshift-fb-caseD-$$.txt"
 caseD_out="/tmp/netshift-fb-caseD-out-$$.json"
@@ -18281,13 +18394,13 @@ test_route_check() {
         ROUTE_CHECK_CACHE_FOLDER="$work/cache"
         log() { :; }
 
-        printf '%s' '{"version":3,"rules":[{"domain_suffix":["example.com"],"domain":["exact.example.org"],"domain_keyword":["tracker"],"domain_regex":["^ads[0-9]+\\.cdn\\.net$"]}]}' > "$work/main-domains.json"
+        printf '%s' '{"version":3,"rules":[{"domain_suffix":["example.com","shadowed.test"],"domain":["exact.example.org"],"domain_keyword":["tracker"],"domain_regex":["^ads[0-9]+\\.cdn\\.net$"]}]}' > "$work/main-domains.json"
         printf '%s' '{"version":3,"rules":[{"ip_cidr":["203.0.113.0/24"]}]}' > "$work/vpn-subnets.json"
         jq -n --arg d "$work/main-domains.json" --arg s "$work/vpn-subnets.json" '{
             dns: { servers: [], rules: [
                 { query_type: "HTTPS", action: "reject", __service_tag: "doh-https" },
-                { action: "route", server: "fakeip-server", rule_set: ["main-domains"], __service_tag: "fakeip-rule" },
-                { action: "route", server: "dns-section-corp", domain_suffix: ["corp.test"], __service_tag: "dns-section-rule-corp" }
+                { action: "route", server: "fakeip-server", domain: ["fakeip.podkop.fyi", "ip.podkop.fyi"], rule_set: ["main-domains"], __service_tag: "fakeip-rule" },
+                { action: "route", server: "dns-section-corp", domain_suffix: ["corp.test", "shadowed.test"], __service_tag: "dns-section-rule-corp" }
             ], final: "dns-server" },
             inbounds: [ { type: "tproxy", tag: "tproxy-in" } ],
             outbounds: [ { type: "direct", tag: "direct-out" } ],
@@ -18337,6 +18450,12 @@ test_route_check() {
         show ip-miss 198.51.100.7
         show direct-default unknown.example.net
         show dns-section host.corp.test
+        # a rule that carries BOTH inline domains and rule sets is one OR group in
+        # sing-box: the FakeIP rule of a section is exactly that, so a name that a
+        # DNS section also lists still gets the FakeIP answer (and the DNS section
+        # never looks it up - see get_config_warnings).
+        show dns-shadowed x.shadowed.test
+        show dns-shadowed-suffix shadowed.test
         show service-only only-service.test
         show device-source example.com 192.168.1.50
         show device-other-source example.com 192.168.1.51
@@ -18398,6 +18517,8 @@ test_route_check() {
     _rc "an IP in no list goes direct" "ip-miss|direct|-|-|-|-|-|true|false"
     _rc "an unlisted domain goes direct (final)" "direct-default|direct|-|-|-|dns-server|final|true|false"
     _rc "a DNS section answers its names" "dns-section|direct|-|-|-|dns-section-corp|rule|true|false"
+    _rc "a rule with inline domains AND rule sets matches either of them" "dns-shadowed|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
+    _rc "...and a name only the rule set covers is matched by it too" "dns-shadowed-suffix|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
     _rc "rules of another inbound are not replayed for LAN traffic" "service-only|direct|-|-|-|dns-server|final|true|false"
     _rc "a rule with a source address applies to that client" "device-source|direct|-|device-bypass|-|fakeip-server|rule|false|false"
     _rc "a different source skips the device rule" "device-other-source|section|main|main-rule|main-domains|fakeip-server|rule|false|false"
@@ -19737,6 +19858,13 @@ test_urltest_interval() {
         for v in 30s 3m 10m 30m 1h 24h off ""; do
             printf 'interval[%s]=%s\n' "$v" "$(sing_box_cm_add_urltest_outbound "$base" t '["a","b"]' "" "$v" 50 | jq -r '.outbounds[0].interval // "none"')"
         done
+        # The core refuses to start when interval is longer than idle_timeout, so
+        # every interval above the core's default (30m) has to carry an
+        # idle_timeout of its own. This is a config-shape check on purpose:
+        # `sing-box check` does not validate the pair, only `sing-box run` does.
+        for v in 30s 3m 10m 20m 30m 1h 6h 24h off 1h30m; do
+            printf 'idle[%s]=%s\n' "$v" "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" "$v" 50 | jq -r '.outbounds[0].idle_timeout // "default"')"
+        done
         # without the constants the value still means "almost never"
         unset URLTEST_INTERVAL_OFF
         printf 'off-no-constants=%s\n' "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" off 50 | jq -r '.outbounds[0].interval')"
@@ -19757,13 +19885,23 @@ test_urltest_interval() {
     _ti "'off' becomes a year: one test at start" "interval[off]=8760h"
     _ti "an empty interval adds no field" "interval[]=none"
     _ti "'off' works without the constants file" "off-no-constants=8760h"
+    # The core's default idle_timeout is 30m: intervals up to that keep it, longer
+    # ones raise it, or sing-box would refuse to start the whole service.
+    _ti "a short interval keeps the core's default idle_timeout" "idle[30s]=default"
+    _ti "the default interval keeps the core's default idle_timeout" "idle[3m]=default"
+    _ti "a 30 minute interval keeps the core's default idle_timeout" "idle[30m]=default"
+    _ti "an hour raises idle_timeout" "idle[1h]=1h"
+    _ti "six hours raise idle_timeout" "idle[6h]=6h"
+    _ti "a day raises idle_timeout" "idle[24h]=24h"
+    _ti "'off' raises idle_timeout too" "idle[off]=8760h"
+    _ti "a compound interval this parser cannot read raises idle_timeout" "idle[1h30m]=1h30m"
 
     if sing-box version > /dev/null 2>&1; then
         local cfg="/tmp/netshift-urltest-int-$$.json"
         (
             . "$constants_lib"
             . "$cm_lib"
-            c='{"log":{"level":"error"},"outbounds":[{"type":"direct","tag":"a"},{"type":"direct","tag":"b"}]}'
+            c='{"log":{"level":"error"},"outbounds":[{"type":"socks","tag":"a","server":"127.0.0.1","server_port":1},{"type":"socks","tag":"b","server":"127.0.0.1","server_port":1}]}'
             sing_box_cm_add_urltest_outbound "$c" t '["a","b"]' "https://www.gstatic.com/generate_204" off 50
         ) > "$cfg"
         if sing-box check -c "$cfg" > /dev/null 2>&1; then
@@ -19771,6 +19909,26 @@ test_urltest_interval() {
         else
             fail "the core rejects the 'off' interval"
         fi
+
+        # `sing-box check` accepts a pair the core then refuses at start, so run
+        # the core for a moment: a rejected config exits at once with
+        # "interval must be less or equal than idle_timeout".
+        local run_out="" run_pid="" run_log="/tmp/netshift-urltest-run-$$.log"
+        sing-box run -c "$cfg" > "$run_log" 2>&1 &
+        run_pid=$!
+        sleep 2
+        kill "$run_pid" 2> /dev/null
+        wait "$run_pid" 2> /dev/null
+        run_out="$(cat "$run_log" 2> /dev/null)"
+        rm -f "$run_log"
+        case "$run_out" in
+        *"interval must be less or equal than idle_timeout"*)
+            fail "the core refuses the 'off' interval at start" "$(printf '%s' "$run_out" | tr '\n' '~')"
+            ;;
+        *)
+            pass "the core starts with the 'off' interval"
+            ;;
+        esac
         rm -f "$cfg"
     fi
 
