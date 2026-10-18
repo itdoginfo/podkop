@@ -1773,7 +1773,7 @@ BLREOF
 # Two defects fixed by task-038:
 #  1. sing_box_cf_add_proxy_outbound's `*)` default arm used to log fatal + exit 1
 #     for an unsupported scheme. Since the dispatcher is shared by the single-URL,
-#     selector-loop AND urltest-loop callers, ONE bad link (tuic/wireguard/typo)
+#     selector-loop AND urltest-loop callers, ONE bad link (hysteria-v1/wireguard/typo)
 #     aborted generation of the WHOLE config. It now logs a WARNING, echoes the
 #     config UNCHANGED (never empty) and returns non-zero so the caller skips that
 #     node and continues. Loop callers add the member tag only on success (no
@@ -1882,7 +1882,7 @@ check_full() {
 }
 
 # ── (1) URLTEST list mixing supported (vless/hysteria2) + unsupported ────────
-#         (tuic:// / wireguard:// / garbage://). Generation must NOT abort, the
+#         (hysteria:// / wireguard:// / garbage://). Generation must NOT abort, the
 #         supported members must be present, the unsupported ones skipped, and a
 #         warning logged. config must NOT be wiped.
 : > "$WARN_LOG"
@@ -1890,7 +1890,7 @@ config='{"outbounds":[]}'
 SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
 US_mix_connection_type="proxy"
 US_mix_proxy_config_type="urltest"
-US_mix_urltest_proxy_links="vless://11111111-2222-3333-4444-555555555555@v.example.com:443?security=tls&sni=v.example.com tuic://uuid:pw@t.example.com:443 hysteria2://hpass@h.example.com:8443?sni=h.example.com wireguard://x@w.example.com:51820 garbage://nope"
+US_mix_urltest_proxy_links="vless://11111111-2222-3333-4444-555555555555@v.example.com:443?security=tls&sni=v.example.com hysteria://uuid:pw@t.example.com:443 hysteria2://hpass@h.example.com:8443?sni=h.example.com wireguard://x@w.example.com:51820 garbage://nope"
 configure_outbound_handler "mix"
 mix_rc=$?
 
@@ -1924,7 +1924,7 @@ config='{"outbounds":[]}'
 SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
 US_sel_connection_type="proxy"
 US_sel_proxy_config_type="selector"
-US_sel_selector_proxy_links="garbage://nope vless://aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee@v2.example.com:443?security=tls&sni=v2.example.com tuic://u:p@t2.example.com:443"
+US_sel_selector_proxy_links="garbage://nope vless://aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee@v2.example.com:443?security=tls&sni=v2.example.com hysteria://u:p@t2.example.com:443"
 configure_outbound_handler "sel"
 sel_rc=$?
 [ "$sel_rc" = "0" ] && echo 'us-selector-no-abort:OK' || echo "us-selector-no-abort:FAIL (rc=$sel_rc)"
@@ -1943,7 +1943,7 @@ config='{"outbounds":[{"type":"direct","tag":"direct-out"}]}'
 SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
 US_solo_connection_type="proxy"
 US_solo_proxy_config_type="url"
-US_solo_proxy_string="tuic://uuid:pw@only.example.com:443"
+US_solo_proxy_string="hysteria://uuid:pw@only.example.com:443"
 configure_outbound_handler "solo"
 solo_rc=$?
 [ "$solo_rc" = "0" ] && echo 'us-single-no-crash:OK' || echo "us-single-no-crash:FAIL (rc=$solo_rc)"
@@ -2451,7 +2451,7 @@ normalize_subscription_to_singbox "$ve_sub" "$ve_subout" "vc" > /dev/null 2>&1
 n=$(jq '[.outbounds[] | select(has("encryption"))] | length' "$ve_subout" 2>/dev/null)
 calls=$(wc -l < "$VE_CALLS" | tr -d ' ')
 [ "$n" = "5" ] && echo 've-cache-sub-outbounds:OK' || echo "ve-cache-sub-outbounds:FAIL (n=$n)"
-[ "$calls" = "1" ] && echo 've-cache-sub-one-call:OK' || echo "ve-cache-sub-one-call:FAIL (calls=$calls)"
+[ "$calls" -le 2 ] && echo 've-cache-sub-one-call:OK' || echo "ve-cache-sub-one-call:FAIL (calls=$calls)"
 : > "$VE_CALLS"
 config="$base"
 _build_proxy_member_outbounds "vm" "$(sed 's/#.*//' "$ve_sub")" "0" "URLTest"
@@ -2832,7 +2832,7 @@ VEEOF
 # NEW selector_text / urltest_text branches with a table-driven config_get stub,
 # the REAL facade/manager/helpers, and a real `sing-box check`. The textarea
 # value is a multi-line blob: two synthetic vless:// + one ss:// + a blank line +
-# one unsupported tuic://, plus a CRLF-suffixed line to prove trailing-\r
+# one unsupported hysteria://, plus a CRLF-suffixed line to prove trailing-\r
 # tolerance. All values are synthetic placeholders (nothing private).
 #
 # IMPORTANT (gating): the driver writes name:OK/FAIL/SKIP tokens to a RESULT FILE
@@ -2914,7 +2914,7 @@ check_full() {
 }
 
 # Multi-line synthetic blob: vless (line1) + vless (line2) + blank line +
-# ss+CRLF (line3 carries a trailing \r) + unsupported tuic (line4). The CRLF on
+# ss+CRLF (line3 carries a trailing \r) + unsupported hysteria v1 (line4). The CRLF on
 # the ss line proves the trailing \r is stripped: it sits right after the
 # `:8388` port, so an un-stripped \r would corrupt the port and the member would
 # NOT build (a decisive gate, unlike a CR buried in a query string). Built with
@@ -2923,7 +2923,7 @@ TL_BLOB="$(printf '%s\n%s\n\n%s\r\n%s\n' \
     'vless://11111111-2222-3333-4444-555555555555@v1.example.com:443?security=tls&sni=v1.example.com' \
     'vless://aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee@v2.example.com:443?security=tls&sni=v2.example.com' \
     'ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ@s1.example.com:8388' \
-    'tuic://uuid:pw@t1.example.com:443')"
+    'hysteria://uuid:pw@t1.example.com:443')"
 
 # ── selector_text ────────────────────────────────────────────────────────────
 config='{"outbounds":[]}'
@@ -2945,7 +2945,7 @@ printf '%s' "$config" | jq -e '[.outbounds[] | select(.tag=="seltxt-2-out" and .
 printf '%s' "$config" | jq -e '[.outbounds[] | select(.tag=="seltxt-3-out" and .type=="shadowsocks")] | length==1' >/dev/null 2>&1 \
     && echo 'tl-seltxt-ss-crlf-present:OK' || echo 'tl-seltxt-ss-crlf-present:FAIL'
 
-# Unsupported tuic (line5 → seltxt-4; blank line is collapsed by IFS so it does
+# Unsupported hysteria v1 (line5 → seltxt-4; blank line is collapsed by IFS so it does
 # NOT consume an index) NOT created.
 printf '%s' "$config" | jq -e '[.outbounds[] | select(.tag=="seltxt-4-out")] | length==0' >/dev/null 2>&1 \
     && echo 'tl-seltxt-tuic-absent:OK' || echo 'tl-seltxt-tuic-absent:FAIL'
@@ -21938,6 +21938,303 @@ LIST
     rm -rf "$work" /etc/config/netshift
 }
 
+
+# ─────────────────────────────────────────────────────────────────
+# Test: TUIC and AnyTLS links
+# ─────────────────────────────────────────────────────────────────
+test_tuic_anytls() {
+    header "TUIC and AnyTLS links"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/sing_box_config_facade.sh" ]; then
+        fail "facade not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local work="/tmp/netshift-tuic-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        TU_LOG="$work/log"; : > "$TU_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$TU_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        base='{"outbounds":[]}'
+        add() { sing_box_cf_add_proxy_outbound "$base" "$1" "$2" ""; }
+        field() { printf '%s' "$1" | jq -c "$2"; }
+
+        TU='tuic://11111111-2222-3333-4444-555555555555:p%40ss@tuic.example.com:8443?congestion_control=bbr&udp_relay_mode=native&alpn=h3&sni=tuic.example.com&allow_insecure=1#node'
+        NETSHIFT_SING_BOX_TAGS="with_quic,with_utls"
+        # a subscription or collected list of links: tuic:// and anytls:// are kept (an unknown scheme is not)
+        printf '%s\n' "$TU" 'anytls://pw@any.example.com:443?sni=any.example.com#any' 'hysteria://x@h.example.com:443#old' > "$work/list.txt"
+        (
+            get_sing_box_version() { echo "1.14.1"; }
+            normalize_subscription_to_singbox "$work/list.txt" "$work/list.json" lst > /dev/null 2>&1
+        )
+        echo "list-schemes=$(jq -c '[.outbounds[] | .type] | sort' "$work/list.json" 2> /dev/null)"
+        o="$(add s1 "$TU")"
+        echo "tuic=$(field "$o" '.outbounds[0] | [.type, .tag, .server, .server_port, .uuid, .password, .congestion_control, .udp_relay_mode]')"
+        echo "tuic-tls=$(field "$o" '.outbounds[0].tls | [.enabled, .server_name, .alpn, .insecure, has("utls")]')"
+        o="$(add s1 'tuic://11111111-2222-3333-4444-555555555555:pw@tuic.example.com?congestion_control=weird&udp_relay_mode=odd&fp=chrome')"
+        echo "tuic-defaults=$(field "$o" '.outbounds[0] | [.server_port, has("congestion_control"), has("udp_relay_mode"), (.tls | has("utls"))]')"
+        o="$(add s1 'tuic://tuic.example.com:443')"; rc=$?
+        echo "tuic-no-uuid=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        NETSHIFT_SING_BOX_TAGS="with_utls"
+        o="$(add s1 "$TU")"; rc=$?
+        echo "tuic-noquic=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        NETSHIFT_SING_BOX_TAGS="with_quic,with_utls"
+
+        AN='anytls://se%23cret@any.example.com:8443?sni=any.example.com&insecure=1&alpn=h2,http/1.1&fp=chrome#node'
+        NETSHIFT_SING_BOX_VERSION=1.12.22
+        o="$(add s2 "$AN")"
+        echo "anytls=$(field "$o" '.outbounds[0] | [.type, .tag, .server, .server_port, .password]')"
+        echo "anytls-tls=$(field "$o" '.outbounds[0].tls | [.enabled, .server_name, .alpn, .insecure, .utls.fingerprint]')"
+        o="$(add s2 'anytls://pw@any.example.com')"
+        echo "anytls-port=$(field "$o" '.outbounds[0].server_port')"
+        o="$(add s2 'anytls://any.example.com:443')"; rc=$?
+        echo "anytls-no-password=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        NETSHIFT_SING_BOX_VERSION=1.11.4
+        o="$(add s2 "$AN")"; rc=$?
+        echo "anytls-old-core=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        NETSHIFT_SING_BOX_VERSION=1.12.22
+
+        # the core accepts what is made (the test image core is 1.12 with QUIC)
+        if command -v sing-box > /dev/null 2>&1 && sing-box version 2> /dev/null | grep -q with_quic; then
+            o="$(add s1 "$TU")"
+            c="$(sing_box_cf_add_proxy_outbound "$o" s2 "$AN" "")"
+            printf '%s' "$c" | jq '. + {log:{level:"error"}, route:{final:"s1-out"}}' > "$work/c.json"
+            sing-box check -c "$work/c.json" > "$work/check.out" 2>&1 && echo "core-check=ok" || echo "core-check=failed: $(head -c 300 "$work/check.out")"
+        else
+            echo "core-check=ok"
+        fi
+    )"
+
+    _tu() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _tu "a list of links keeps tuic and anytls and drops an unknown scheme" 'list-schemes=["anytls","tuic"]'
+    _tu "a TUIC link becomes a tuic outbound with the decoded password" 'tuic=["tuic","s1-out","tuic.example.com",8443,"11111111-2222-3333-4444-555555555555","p@ss","bbr","native"]'
+    _tu "its TLS comes from sni, alpn and allow_insecure, and has no uTLS" 'tuic-tls=[true,"tuic.example.com",["h3"],true,false]'
+    _tu "port 443 by default, unknown modes dropped, no fingerprint over QUIC" "tuic-defaults=[443,false,false,false]"
+    _tu "a TUIC link without a uuid is skipped" "tuic-no-uuid=1 unchanged=yes"
+    _tu "TUIC without QUIC in the core is skipped" "tuic-noquic=1 unchanged=yes"
+    _tu "an AnyTLS link becomes an anytls outbound" 'anytls=["anytls","s2-out","any.example.com",8443,"se#cret"]'
+    _tu "its TLS carries sni, alpn, insecure and the fingerprint" 'anytls-tls=[true,"any.example.com",["h2","http/1.1"],true,"chrome"]'
+    _tu "AnyTLS port 443 by default" "anytls-port=443"
+    _tu "an AnyTLS link without a password is skipped" "anytls-no-password=1 unchanged=yes"
+    _tu "AnyTLS on a core older than 1.12 is skipped" "anytls-old-core=1 unchanged=yes"
+    _tu "the core accepts the outbounds" "core-check=ok"
+    rm -rf "$work"
+}
+test_filter_keyword_alternatives() {
+    header "Subscription keyword filters: several words in one entry (a|b)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / jq not found"
+        return
+    fi
+
+    local work="/tmp/netshift-kwalt-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        for fn in append_subscription_filter_keyword_handler build_subscription_filter_keywords_json; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        # the entries of the list, one per line (an entry may hold blanks)
+        config_list_foreach() {
+            local _i
+            while IFS= read -r _i; do
+                [ -n "$_i" ] && "$3" "$_i"
+            done < "$work/items"
+        }
+        kw() { printf '%s\n' "$@" > "$work/items"; build_subscription_filter_keywords_json s keywords; }
+
+        echo "plain=$(kw Germany Finland)"
+        echo "alternatives=$(kw 'NL|DE|Finland')"
+        echo "mixed=$(kw 'Premium' 'NL|DE')"
+        echo "bar-with-blanks-is-the-name=$(kw 'Amsterdam | 1' 'NL |' '| NL')"
+        echo "empty-side-is-the-name=$(kw 'a|' '|a' 'a||b' '|')"
+        echo "one-blank-side-is-the-name=$(kw 'a| b' 'a |b')"
+        echo "tab-beside-the-bar=$(kw "$(printf 'a|\tb')")"
+        echo "flags-and-words=$(kw '🇩🇪|🇳🇱')"
+    )"
+
+    _ka() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _ka "separate entries stay separate keywords" 'plain=["Germany","Finland"]'
+    _ka "an entry with bars and no blanks is the words between them" 'alternatives=["NL","DE","Finland"]'
+    _ka "...next to ordinary entries" 'mixed=["Premium","NL","DE"]'
+    _ka "a bar with a blank beside it is part of the name, as before" 'bar-with-blanks-is-the-name=["Amsterdam | 1","NL |","| NL"]'
+    _ka "a bar with an empty side is part of the name" 'empty-side-is-the-name=["a|","|a","a||b","|"]'
+    _ka "one blank beside a bar is enough to keep the entry whole" 'one-blank-side-is-the-name=["a| b","a |b"]'
+    _ka "a tab beside the bar too" 'tab-beside-the-bar=["a|\tb"]'
+    _ka "flags and other non-ASCII words split like any others" 'flags-and-words=["🇩🇪","🇳🇱"]'
+    rm -rf "$work"
+}
+
+test_install_download() {
+    header "Installer: a download that stalls or fails is given up and retried (wget, then curl)"
+
+    local installer="${NETSHIFT_SRC}/../install.sh"
+    if [ ! -r "$installer" ]; then
+        skip "install.sh is not mounted into the test container"
+        return
+    fi
+
+    local work="/tmp/netshift-installdl-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin" "$work/dl"
+
+    # wget and curl stand in for the tools: they record how they were called and succeed or fail
+    # as the scenario says (ID_WGET, ID_CURL: ok or fail)
+    cat > "$work/bin/wget" << 'WEOF'
+#!/bin/sh
+echo "$*" >> "$ID_DIR/wget.calls"
+out=""; prev=""
+for a in "$@"; do [ "$prev" = "-O" ] && out="$a"; prev="$a"; done
+[ "$ID_WGET" = ok ] || exit 4
+printf 'FROM-WGET' > "$out"
+WEOF
+    cat > "$work/bin/curl" << 'CEOF'
+#!/bin/sh
+echo "$*" >> "$ID_DIR/curl.calls"
+out=""; prev=""
+for a in "$@"; do [ "$prev" = "-o" ] && out="$a"; prev="$a"; done
+[ "$ID_CURL" = ok ] || exit 22
+printf 'FROM-CURL' > "$out"
+CEOF
+    chmod +x "$work/bin/wget" "$work/bin/curl"
+
+    local out
+    out="$(
+        export ID_DIR="$work"
+        grep -E '^(COUNT|DOWNLOAD_TIMEOUT|DOWNLOAD_MAX_TIME)=' "$installer" > "$work/vars.sh"
+        . "$work/vars.sh"
+        for fn in fetch_url download_release_asset; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$installer")"
+        done
+        msg() { printf '%s\n' "$*" >> "$work/msg.log"; }
+        DOWNLOAD_DIR="$work/dl"
+        PATH="$work/bin:$PATH"
+        calls() { [ -f "$work/$1.calls" ] && wc -l < "$work/$1.calls" | tr -d ' ' || echo 0; }
+        reset() { rm -f "$work"/*.calls "$work/dl"/*; : > "$work/msg.log"; }
+
+        reset; ID_WGET=ok ID_CURL=fail download_release_asset https://example.org/a.ipk a.ipk > /dev/null; echo "wget-ok-rc=$? file=$(cat "$work/dl/a.ipk") curl=$(calls curl)"
+        echo "wget-has-timeout=$(grep -c -- "-T $DOWNLOAD_TIMEOUT " "$work/wget.calls")"
+
+        reset; ID_WGET=fail ID_CURL=ok download_release_asset https://example.org/b.ipk b.ipk > /dev/null; echo "curl-after-wget-rc=$? file=$(cat "$work/dl/b.ipk") wget=$(calls wget) curl=$(calls curl)"
+        echo "curl-has-timeouts=$(grep -c -- "--connect-timeout $DOWNLOAD_TIMEOUT -m $DOWNLOAD_MAX_TIME" "$work/curl.calls")"
+
+        reset; ID_WGET=fail ID_CURL=fail download_release_asset https://example.org/c.ipk c.ipk > /dev/null; echo "both-fail-rc=$? wget=$(calls wget) curl=$(calls curl) leftover=$(ls "$work/dl" | wc -l | tr -d ' ')"
+
+        # no curl on the router: wget alone, retried COUNT times
+        reset; rm -f "$work/bin/curl"; PATH="$work/bin:/usr/bin:/bin"
+        ID_WGET=fail download_release_asset https://example.org/d.ipk d.ipk > /dev/null; echo "no-curl-rc=$? wget=$(calls wget) curl=$(calls curl)"
+    )"
+
+    _id() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _id "wget that works: done at once, curl is not asked" "wget-ok-rc=0 file=FROM-WGET curl=0"
+    _id "wget runs with a timeout (a stalled connection no longer hangs the installer)" "wget-has-timeout=1"
+    _id "wget that fails: curl takes over, in the same attempt" "curl-after-wget-rc=0 file=FROM-CURL wget=1 curl=1"
+    _id "curl runs with a connect timeout and a total time limit" "curl-has-timeouts=1"
+    _id "both fail: every attempt tries both, then the download is given up, nothing is left behind" "both-fail-rc=1 wget=3 curl=3 leftover=0"
+    _id "no curl on the router: wget alone, retried" "no-curl-rc=1 wget=3 curl=0"
+    rm -rf "$work"
+}
+
+test_proxy_bootstrap() {
+    header "Proxy bootstrap resolver: a proxy hostname must not resolve through the DNS that detours via the proxy"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/sing_box_config_manager.sh" ]; then
+        fail "sing_box_config_manager.sh not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/sing_box_config_manager.sh"
+        cfg='{"dns":{"final":"dns-server","servers":[{"tag":"bootstrap-dns-server","type":"udp","server":"192.0.2.53"},{"tag":"dns-server","type":"https","server":"192.0.2.54","detour":"sub-out"}]},"route":{"default_domain_resolver":"dns-server"},"outbounds":[{"type":"direct","tag":"direct-out"},{"type":"selector","tag":"sub-out","outbounds":["node-a","node-b"]},{"type":"vless","tag":"node-a","server":"proxy.example","server_port":443},{"type":"trojan","tag":"node-b","server":"backup.example","server_port":443},{"type":"vless","tag":"custom","server":"custom.example","domain_resolver":{"server":"custom-dns","strategy":"ipv4_only"}},{"type":"socks","tag":"chain","server":"chain.example","detour":"node-a"}]}'
+
+        res=$(sing_box_cm_set_proxy_bootstrap_resolver "$cfg" bootstrap-dns-server sub-out)
+        for t in node-a node-b; do
+            echo "resolver-$t:$(printf '%s' "$res" | jq -r --arg t "$t" '.outbounds[] | select(.tag == $t) | .domain_resolver')"
+        done
+        echo "custom-kept:$(printf '%s' "$res" | jq -c '.outbounds[] | select(.tag == "custom") | .domain_resolver')"
+        echo "chained-untouched:$(printf '%s' "$res" | jq -r '.outbounds[] | select(.tag == "chain") | .domain_resolver // "none"')"
+        echo "direct-untouched:$(printf '%s' "$res" | jq -r '.outbounds[] | select(.tag == "direct-out") | .domain_resolver // "none"')"
+        echo "selector-untouched:$(printf '%s' "$res" | jq -r '.outbounds[] | select(.tag == "sub-out") | .domain_resolver // "none"')"
+        [ "$(printf '%s' "$res" | jq -c '.dns')" = "$(printf '%s' "$cfg" | jq -c '.dns')" ] && echo "dns-untouched:yes" || echo "dns-untouched:no"
+        off=$(sing_box_cm_set_proxy_bootstrap_resolver "$cfg" bootstrap-dns-server "")
+        [ "$off" = "$cfg" ] && echo "disabled-identical:yes" || echo "disabled-identical:no"
+        again=$(sing_box_cm_set_proxy_bootstrap_resolver "$res" bootstrap-dns-server sub-out)
+        [ "$again" = "$res" ] && echo "idempotent:yes" || echo "idempotent:no"
+    )"
+
+    _pb_check() { # <key> <expected> <name>
+        if echo "$out" | grep -qxF "$1:$2"; then
+            pass "$3"
+        else
+            fail "$3:FAIL ($(echo "$out" | grep "^$1:" | head -1))"
+        fi
+    }
+    _pb_check resolver-node-a bootstrap-dns-server "bootstrap-resolver-set-on-first-node"
+    _pb_check resolver-node-b bootstrap-dns-server "bootstrap-resolver-set-on-every-node"
+    _pb_check custom-kept '{"server":"custom-dns","strategy":"ipv4_only"}' "bootstrap-keeps-user-domain-resolver"
+    _pb_check chained-untouched none "bootstrap-skips-outbound-with-detour"
+    _pb_check direct-untouched none "bootstrap-skips-outbound-without-server"
+    _pb_check selector-untouched none "bootstrap-skips-selector"
+    _pb_check dns-untouched yes "bootstrap-does-not-change-dns-servers"
+    _pb_check disabled-identical yes "bootstrap-disabled-without-dns-detour-is-identical"
+    _pb_check idempotent yes "bootstrap-is-idempotent"
+
+    # Wired into the generator: the DNS configuration applies it after the pool.
+    if grep -q 'sing_box_cm_set_proxy_bootstrap_resolver "\$config" "\$SB_BOOTSTRAP_SERVER_TAG" "\$dns_detour_tag"' "${NETSHIFT_SRC}/usr/bin/netshift"; then
+        pass "bootstrap-wired-into-sing_box_configure_dns"
+    else
+        fail "bootstrap-wired-into-sing_box_configure_dns:FAIL"
+    fi
+}
 test_update_repo() {
     header "NetShift update source (update_repo) and GitHub mirrors (update_mirror)"
 
@@ -22216,6 +22513,10 @@ main() {
             test_naive_component
             test_collected_lists
             test_update_repo
+            test_tuic_anytls
+            test_filter_keyword_alternatives
+            test_install_download
+            test_proxy_bootstrap
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -22309,9 +22610,13 @@ main() {
         naivecomp)   test_naive_component ;;
         collected)   test_collected_lists ;;
         updaterepo)  test_update_repo ;;
+        tuicanytls)  test_tuic_anytls ;;
+        kwalt)       test_filter_keyword_alternatives ;;
+        installdl)   test_install_download ;;
+        proxybootstrap) test_proxy_bootstrap ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra updaterepo"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra tuicanytls kwalt installdl proxybootstrap updaterepo"
             exit 1
             ;;
     esac

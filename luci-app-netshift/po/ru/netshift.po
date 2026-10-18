@@ -1,15 +1,15 @@
 # RU translations for NETSHIFT package.
 # Copyright (C) 2026 THE NETSHIFT'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# yandexru45, 2026.
+# agent, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-16 23:34+0300\n"
-"PO-Revision-Date: 2026-10-16 23:34+0300\n"
-"Last-Translator: yandexru45\n"
+"POT-Creation-Date: 2026-10-18 14:45+0300\n"
+"PO-Revision-Date: 2026-10-18 14:45+0300\n"
+"Last-Translator: agent\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -68,8 +68,14 @@ msgstr "Добавьте свои домены: выберите Динамич�
 msgid "Add your own subnets or IPs: choose Dynamic List (one per row) or Text List (free-form), or Disabled to skip"
 msgstr "Добавьте свои подсети или IP: выберите Динамический список (по одному в строке) или Текстовый список (свободный ввод), либо Отключено, чтобы пропустить"
 
+msgid "Additional DNS servers"
+msgstr "Дополнительные DNS-серверы"
+
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
+
+msgid "Adds UDP ports 500 and 4500 (the IKE and NAT-T tunnel of the operator's ePDG) to the ports that go out directly. A call over Wi-Fi is not accepted by the operator from a foreign exit address of a tunnel. Added to the list above; nothing else changes."
+msgstr "Добавляет UDP-порты 500 и 4500 (туннель IKE и NAT-T к ePDG оператора) к портам, которые идут напрямую. Звонок по Wi-Fi оператор не принимает с чужого адреса выхода туннеля. Добавляется к списку выше, больше ничего не меняется."
 
 msgid "Ads (sing-geosite category-ads, for a Block section)"
 msgstr "Реклама (sing-geosite category-ads, для секции блокировки)"
@@ -500,8 +506,8 @@ msgstr "Убрать серверы, подключающиеся так."
 msgid "Drop servers whose name carries the flag of one of these countries. Two-letter codes, for example RU or US."
 msgstr "Отбросить серверы, в названии которых есть флаг одной из этих стран. Двухбуквенные коды, например RU или US."
 
-msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive)."
-msgstr "Исключать серверы подписки, имя которых содержит любое из этих ключевых слов (без учёта регистра)."
+msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive). Several words can be written in one line, separated by | without spaces (test|expired)."
+msgstr "Исключать серверы подписки, имя которых содержит любое из этих ключевых слов (без учёта регистра). Несколько слов можно написать в одной строке через | без пробелов (test|expired)."
 
 msgid "Duplicate"
 msgstr "Дублировать"
@@ -1010,8 +1016,8 @@ msgstr "Оставить только серверы, подключающиес
 msgid "Keep only servers whose name carries the flag of one of these countries. Two-letter codes, for example NL or DE. Combined with the keywords above (any match keeps a server)."
 msgstr "Оставить только серверы, в названии которых есть флаг одной из этих стран. Двухбуквенные коды, например NL или DE. Объединяется с ключевыми словами выше (подходит любое совпадение)."
 
-msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
-msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все."
+msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all. Several words can be written in one line, separated by | without spaces (NL|DE|Finland)."
+msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все. Несколько слов можно написать в одной строке через | без пробелов (NL|DE|Finland)."
 
 msgid "Kept before a restore"
 msgstr "Сохранён перед восстановлением"
@@ -1105,6 +1111,9 @@ msgstr "Имя пользователя Mixed Proxy"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
+
+msgid "More servers for this section, any mix of udp, tcp, dot, doh, doh3 and doq: scheme://host[:port][/path]. Used together with the server above as the mode below says. Pick a ready-made server or type your own."
+msgstr "Ещё серверы для этой секции, в любом сочетании udp, tcp, dot, doh, doh3 и doq: scheme://host[:port][/path]. Работают вместе с сервером выше так, как указано в режиме ниже. Выберите готовый сервер или введите свой."
 
 msgid "Most traffic first"
 msgstr "Сначала с большим трафиком"
@@ -1805,6 +1814,9 @@ msgstr "TTL должно быть положительным числом"
 msgid "TTL value cannot be empty"
 msgstr "Значение TTL не может быть пустым"
 
+msgid "TUIC needs a sing-box core built with QUIC"
+msgstr "TUIC требует ядро sing-box, собранное с QUIC"
+
 msgid "UDP (Unprotected DNS)"
 msgstr "UDP (Незащищённый DNS)"
 
@@ -1856,8 +1868,8 @@ msgstr "UPX"
 msgid "UPX-compressed core: a RAM spike is possible at startup; on devices with less than 256 MB of RAM, enable zram swap"
 msgstr "Сжатое ядро (UPX): при запуске возможен скачок потребления RAM; на устройствах с RAM менее 256 МБ включите zram-swap"
 
-msgid "URL must start with vless://, vmess://, ss://, trojan://, socks4/5://, hysteria2://hy2:// or naive+https://"
-msgstr "Ссылка должна начинаться с vless://, vmess://, ss://, trojan://, socks4/5://, hysteria2://hy2:// или naive+https://"
+msgid "URL must start with vless://, vmess://, ss://, trojan://, socks4/5://, hysteria2://hy2://, tuic://, anytls:// or naive+https://"
+msgstr "Ссылка должна начинаться с vless://, vmess://, ss://, trojan://, socks4/5://, hysteria2://hy2://, tuic://, anytls:// или naive+https://"
 
 msgid "URL must use one of the following protocols:"
 msgstr "URL должен использовать один из следующих протоколов:"
@@ -1934,11 +1946,11 @@ msgstr "Посмотреть логи"
 msgid "Visit Wiki"
 msgstr "Перейти в wiki"
 
-msgid "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// links"
-msgstr "ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https://"
+msgid "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, tuic://, anytls://, naive+https:// links"
+msgstr "ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, tuic://, anytls://, naive+https://"
 
-msgid "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// links — one per line"
-msgstr "Ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, naive+https:// — по одной в строке"
+msgid "vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, tuic://, anytls://, naive+https:// links — one per line"
+msgstr "Ссылки vless://, vmess://, ss://, trojan://, socks4/5://, hy2/hysteria2://, tuic://, anytls://, naive+https:// — по одной в строке"
 
 msgid "VMess needs the sing-box-extended core"
 msgstr "VMess требует ядро sing-box-extended"
@@ -1981,6 +1993,9 @@ msgstr "Какой формат подписки (клиент) запрашив
 
 msgid "While sing-box is down, DNS (and therefore name resolution) is unavailable until it recovers. Direct non-proxied traffic is unaffected while sing-box is up."
 msgstr "Пока sing-box не работает, DNS (а значит, и разрешение имён) недоступен до его восстановления. Прямой непроксируемый трафик не затрагивается, пока sing-box запущен."
+
+msgid "Wi-Fi Calling directly"
+msgstr "Звонки по Wi-Fi напрямую"
 
 msgid "With several WAN interfaces choose the one whose address represents you. Automatic uses the first working one."
 msgstr "Если WAN-интерфейсов несколько, выберите тот, чей адрес вас представляет. Автоматически берётся первый рабочий."

@@ -53,6 +53,8 @@ config settings 'settings'
         #option dns_hijack '0'
         #option direct_tcp_ports '22, 25, 6881-6889'
         #option proxy_only_udp_ports '443'
+        # Wi-Fi Calling directly: adds UDP 500 and 4500 (the operator's ePDG tunnel) to direct_udp_ports
+        #option wifi_calling_direct '1'
         option config_path '/etc/sing-box/config.json'
         option cache_path '/tmp/sing-box/cache.db'
         option log_level 'warn'

@@ -17,3 +17,4 @@ export * from './validateDnsPool';
 export * from './validateDnsForward';
 export * from './validatePortList';
 export * from './validateNaiveUrl';
+export * from './validateTuicAnytlsUrl';
