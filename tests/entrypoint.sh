@@ -23024,6 +23024,41 @@ CRON
     rm -rf "$work"
 }
 
+test_list_update_checks() {
+    header "list_update: the DNS and GitHub checks (an answer on the last attempt counts)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    [ -r "$bin" ] || { skip "netshift bin not found"; return; }
+
+    local out
+    out="$(
+        eval "$(awk '/^list_update\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        echolog() { :; }
+        sleep() { :; }
+        get_service_proxy_address() { :; }
+        ensure_nft_ready_for_list_update() { return 0; }
+        foreach_active_section() { return 0; }
+        NS_OK_AT=1; CURL_OK_AT=1; NS_N=0; CURL_N=0
+        nslookup() { NS_N=$((NS_N + 1)); [ "$NS_N" -ge "$NS_OK_AT" ]; }
+        curl() { CURL_N=$((CURL_N + 1)); [ "$CURL_N" -ge "$CURL_OK_AT" ]; }
+        run() { NS_N=0; CURL_N=0; list_update > /dev/null 2>&1; echo $?; }
+        echo "first-attempt=$(run)"
+        NS_OK_AT=10; echo "dns-on-last-attempt=$(run)"
+        NS_OK_AT=1; CURL_OK_AT=10; echo "github-on-last-attempt=$(run)"
+        NS_OK_AT=11; CURL_OK_AT=1; echo "dns-never=$(run)"
+        NS_OK_AT=1; CURL_OK_AT=11; echo "github-never=$(run)"
+    )"
+
+    _lu() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then pass "$1"; else fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"; fi
+    }
+    _lu "both checks pass at once: the lists are updated" "first-attempt=0"
+    _lu "DNS answers on the last attempt: the check has passed" "dns-on-last-attempt=0"
+    _lu "GitHub answers on the last attempt: the check has passed" "github-on-last-attempt=0"
+    _lu "DNS never answers: the update fails" "dns-never=1"
+    _lu "GitHub never answers: the update fails" "github-never=1"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -23133,6 +23168,7 @@ main() {
             test_proxy_bootstrap
             test_tuic_anytls
             test_update_repo
+            test_list_update_checks
             test_cron_running
             ;;
         deps)        test_deps ;;
@@ -23233,10 +23269,11 @@ main() {
         proxybootstrap) test_proxy_bootstrap ;;
         tuicanytls)  test_tuic_anytls ;;
         updaterepo)  test_update_repo ;;
+        listupdate) test_list_update_checks ;;
         cronrun) test_cron_running ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo cronrun"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo cronrun listupdate"
             exit 1
             ;;
     esac

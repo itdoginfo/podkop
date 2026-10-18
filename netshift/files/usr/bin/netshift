@@ -3014,24 +3014,27 @@ list_update() {
     local curl_attempts=10
     local curl_max_timeout=10
     local delay=3
-    local i
+    local i passed
 
-    # DNS Check
+    # DNS Check (a check that passes on the last attempt has passed)
+    passed=0
     for i in $(seq 1 $nslookup_attempts); do
         if nslookup -timeout=$nslookup_timeout openwrt.org > /dev/null 2>&1; then
             echolog "✅ DNS check passed"
+            passed=1
             break
         fi
         echolog "DNS is unavailable [$i/$nslookup_attempts]"
-        sleep $delay
+        [ "$i" -lt "$nslookup_attempts" ] && sleep $delay
     done
 
-    if [ "$i" -eq $nslookup_attempts ]; then
+    if [ "$passed" -eq 0 ]; then
         echolog "❌ DNS check failed after $nslookup_attempts attempts"
         return 1
     fi
 
     # Github Check
+    passed=0
     for i in $(seq 1 $curl_attempts); do
         local service_proxy_address
         service_proxy_address="$(get_service_proxy_address)"
@@ -3039,11 +3042,13 @@ list_update() {
         if [ -n "$service_proxy_address" ]; then
             if curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed (via proxy)"
+                passed=1
                 break
             fi
         else
             if curl -s -m $curl_timeout https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed"
+                passed=1
                 break
             fi
         fi
@@ -3052,10 +3057,10 @@ list_update() {
         if [ "$curl_timeout" -lt $curl_max_timeout ]; then
             curl_timeout=$((curl_timeout + 1))
         fi
-        sleep $delay
+        [ "$i" -lt "$curl_attempts" ] && sleep $delay
     done
 
-    if [ "$i" -eq $curl_attempts ]; then
+    if [ "$passed" -eq 0 ]; then
         echolog "❌ GitHub connection check failed after $curl_attempts attempts"
         return 1
     fi
