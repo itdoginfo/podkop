@@ -10144,6 +10144,7 @@ create_nft_rules() { :; }
 sing_box_configure_service() { :; }
 sing_box_init_config() { :; }
 add_cron_job() { :; }
+cron_ensure_running() { :; }
 list_update() { :; }
 TMP_SING_BOX_FOLDER="$WORK/sing-box"
 TMP_RULESET_FOLDER="$WORK/rulesets"
@@ -14881,6 +14882,7 @@ route_table_rule_mark() { :; }
 create_nft_rules() { :; }
 sing_box_configure_service() { :; }
 add_cron_job() { :; }
+cron_ensure_running() { :; }
 # start_main has to (re)build the subscription jobs once the config it just built
 # was accepted. The stub counts the calls, so dropping the call from start_main
 # fails the assertions below instead of passing unnoticed.
@@ -22963,6 +22965,65 @@ DRVEOF
     rm -rf "$work"
 }
 
+test_cron_running() {
+    header "cron is started for the scheduled updates (a fresh router has no running crond)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    [ -r "$bin" ] || { skip "netshift bin not found"; return; }
+
+    local work="/tmp/netshift-cronrun-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        W="$work"
+        eval "$(awk '/^cron_ensure_running\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin" | sed "s#/etc/init.d/cron#$work/cron#g")"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$W/log"; }
+        # the init script of cron: "enabled" from a flag file, "start" recorded
+        cat > "$W/cron" << 'CRON'
+#!/bin/sh
+case "$1" in
+enabled) [ -e "$(dirname "$0")/enabled" ] ;;
+start) echo start >> "$(dirname "$0")/started" ;;
+esac
+CRON
+        chmod +x "$W/cron"
+        CRONTAB_LINES=""
+        crontab() { [ "$1" = -l ] && printf '%s' "$CRONTAB_LINES"; }
+        CROND_RUNNING=0
+        pgrep() { [ "$CROND_RUNNING" = 1 ]; }
+
+        : > "$W/enabled"
+        cron_ensure_running
+        echo "no-job-no-start=$([ -e "$W/started" ] && echo started || echo none)"
+        CRONTAB_LINES="13 9 * * * /usr/bin/netshift list_update
+"
+        cron_ensure_running
+        echo "job-starts-cron=$(cat "$W/started" 2> /dev/null | wc -l | tr -d ' ')"
+        rm -f "$W/started"; CROND_RUNNING=1
+        cron_ensure_running
+        echo "running-left-alone=$([ -e "$W/started" ] && echo started || echo none)"
+        CROND_RUNNING=0; rm -f "$W/enabled" "$W/log"
+        cron_ensure_running
+        echo "disabled-not-started=$([ -e "$W/started" ] && echo started || echo none) warned=$(grep -c 'cron service is disabled' "$W/log")"
+    )"
+
+    _cr() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then pass "$1"; else fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"; fi
+    }
+    _cr "without a job of NetShift nothing is started" "no-job-no-start=none"
+    _cr "a job and no crond: cron is started" "job-starts-cron=1"
+    _cr "a running crond is left alone" "running-left-alone=none"
+    _cr "a cron the administrator disabled is not started, and it is said" "disabled-not-started=none warned=1"
+    if grep -q '^    cron_ensure_running$' "$bin"; then
+        pass "start_main makes sure cron runs after writing the jobs"
+    else
+        fail "start_main makes sure cron runs after writing the jobs"
+    fi
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -23072,6 +23133,7 @@ main() {
             test_proxy_bootstrap
             test_tuic_anytls
             test_update_repo
+            test_cron_running
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -23171,9 +23233,10 @@ main() {
         proxybootstrap) test_proxy_bootstrap ;;
         tuicanytls)  test_tuic_anytls ;;
         updaterepo)  test_update_repo ;;
+        cronrun) test_cron_running ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo cronrun"
             exit 1
             ;;
     esac

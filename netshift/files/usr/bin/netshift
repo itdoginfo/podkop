@@ -1271,6 +1271,7 @@ start_main() {
     snapshot_save auto > /dev/null 2>&1
     foreach_active_section add_cron_job "section"
     sync_subscription_cron_jobs
+    cron_ensure_running
     drop_stale_fakeip_cache
     restore_sing_box_cache
     /etc/init.d/sing-box start
@@ -2690,6 +2691,23 @@ add_cron_job() {
         } | crontab -
         log "The cron job has been created: $cron_job"
     fi
+}
+
+# The jobs above are written with `crontab`, but on a fresh router crond is not running at all:
+# OpenWrt's /etc/init.d/cron refuses to start while /etc/crontabs is empty, which it is at boot
+# before the first start of NetShift, so the lists and the subscriptions would only begin to
+# update after the next reboot. Starts the service when there is a job of ours to run and it is
+# enabled (a cron switched off by the administrator is left alone and said so).
+cron_ensure_running() {
+    [ -x /etc/init.d/cron ] || return 0
+    crontab -l 2> /dev/null | grep -q '/usr/bin/netshift ' || return 0
+    pgrep -x crond > /dev/null 2>&1 && return 0
+    if ! /etc/init.d/cron enabled; then
+        log "The scheduled updates of the lists and subscriptions need cron, but the cron service is disabled" "warn"
+        return 0
+    fi
+    log "Starting the cron service for the scheduled updates" "info"
+    /etc/init.d/cron start > /dev/null 2>&1
 }
 
 remove_cron_job() {
