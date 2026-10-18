@@ -686,7 +686,7 @@ msgid "Drop servers whose name carries the flag of one of these countries. Two-l
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:466
-msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive)."
+msgid "Drop subscription servers whose name contains any of these keywords (case-insensitive). Several words can be written in one line, separated by | without spaces (test|expired)."
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1473
@@ -1405,7 +1405,7 @@ msgid "Keep only servers whose name carries the flag of one of these countries. 
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:454
-msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all."
+msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all. Several words can be written in one line, separated by | without spaces (NL|DE|Finland)."
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/partials/renderSnapshots.ts:20
