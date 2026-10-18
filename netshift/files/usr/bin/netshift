@@ -5346,6 +5346,7 @@ sing_box_configure_dns() {
     config=$(sing_box_cm_add_dns_reject_rule "$config" "domain_suffix" '"use-application-dns.net"')
     # Before the FakeIP rule (the first matching rule wins): the AAAA queries of the sections
     # that keep real IPv6 addresses. Their domains are patched in with the section lists.
+    config_foreach configure_section_own_dns "section"
     config_foreach configure_ipv6_real_dns_rule "section"
     config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_DNS_RULE_TAG")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
@@ -5382,14 +5383,126 @@ section_ipv6_real_dns() {
     [ "$policy" = "real" ]
 }
 
+# --- Own DNS servers of a routing section (own_dns_server) ---------------------
+# Until now the DNS was one list for every section. A proxy, VPN or exclusion section can have
+# its own: list own_dns_server '<scheme>://<host>[:port][/path]' (udp, tcp, dot, doh, doh3, doq),
+# own_dns_mode (fallback or race, the same as the main pool), own_dns_timeout, and
+# own_dns_via_section=1 to ask them through the outbound of the section (a resolver inside the VPN).
+# A section without them is exactly as before. They are used where the answer of the section's
+# own resolver matters:
+#   - the real AAAA answers of a section with ipv6_dns_policy=real (all the servers, by the mode);
+#   - the connections the router itself dials for a VPN or exclusion section: the domain is
+#     resolved through the FIRST server by a resolve rule ahead of the route rule (a proxy
+#     section is not resolved here: the proxy server resolves the name).
+section_own_dns_applies() {
+    local connection_type
+
+    config_get connection_type "$1" "connection_type"
+    case "$connection_type" in
+    proxy | vpn | exclusion) return 0 ;;
+    esac
+    return 1
+}
+
+# Prints the tags of the own DNS servers of a section that are in the config, in order.
+section_own_dns_tags() {
+    local section="$1"
+    local index=1 tag tags=""
+
+    while :; do
+        tag="$SB_SECTION_OWN_DNS_PREFIX$section-$index"
+        printf '%s' "$config" | jq -e --arg tag "$tag" 'any(.dns.servers[]?; .tag == $tag)' > /dev/null 2>&1 || break
+        tags="${tags:+$tags }$tag"
+        index=$((index + 1))
+    done
+    printf '%s' "$tags"
+}
+
+configure_section_own_dns() {
+    local section="$1"
+    local entry type server host resolver tag index via detour_tag="" connection_type
+
+    section_is_disabled "$section" && return 0
+    section_own_dns_applies "$section" || return 0
+    section_has_enabled_lists "$section" || return 0
+
+    DNS_POOL_ENTRY_LABEL="own_dns_server"
+    DNS_POOL_ENTRIES=""
+    DNS_POOL_COUNT=0
+    config_list_foreach "$section" "own_dns_server" _dns_pool_collect_entry
+    DNS_POOL_ENTRY_LABEL="dns_pool_server"
+    [ "$DNS_POOL_COUNT" -gt 0 ] || return 0
+
+    config_get connection_type "$section" "connection_type"
+    config_get_bool via "$section" "own_dns_via_section" 0
+    if [ "$via" -eq 1 ]; then
+        if [ "$connection_type" = "exclusion" ]; then
+            log "Section '$section': own_dns_via_section does not apply to an exclusion section (it has no outbound); querying directly" "warn"
+        elif subscription_outbound_is_unavailable "$section" ||
+            ! printf '%s' "$config" | jq -e --arg tag "$(get_outbound_tag_by_section "$section")" 'any(.outbounds[]?; .tag == $tag)' > /dev/null 2>&1; then
+            log "Section '$section': its outbound is not usable, its own DNS servers are queried directly" "warn"
+        else
+            detour_tag="$(get_outbound_tag_by_section "$section")"
+        fi
+    fi
+
+    index=0
+    for entry in $DNS_POOL_ENTRIES; do
+        index=$((index + 1))
+        tag="$SB_SECTION_OWN_DNS_PREFIX$section-$index"
+        type="${entry%%://*}"
+        server="${entry#*://}"
+        host="$(url_get_host "$server")"
+        resolver="$SB_BOOTSTRAP_SERVER_TAG"
+        if is_ipv4 "$host" || is_ipv6 "$host"; then
+            resolver=""
+        fi
+        config=$(sing_box_cf_add_dns_server "$config" "$type" "$tag" "$server" "$resolver" "$detour_tag")
+    done
+    log "Section '$section': $index own DNS server(s)${detour_tag:+, asked through its outbound}" "info"
+}
+
+# The settings of the group of a section's own DNS servers: "<mode> <timeout>".
+section_own_dns_mode() {
+    local section="$1"
+    local mode timeout
+
+    config_get mode "$section" "own_dns_mode" "fallback"
+    case "$mode" in
+    single | fallback | race) ;;
+    *)
+        log "Section '$section': unknown own_dns_mode '$mode', using fallback" "warn"
+        mode="fallback"
+        ;;
+    esac
+    if [ "$mode" != "single" ] && ! is_sing_box_at_least "$SB_DNS_EVALUATE_MIN"; then
+        log "Section '$section': own_dns_mode '$mode' needs sing-box $SB_DNS_EVALUATE_MIN or newer (installed: $(get_sing_box_version)); only its first DNS server answers the AAAA queries" "warn"
+        mode="single"
+    fi
+    config_get timeout "$section" "own_dns_timeout" "$DNS_POOL_TIMEOUT_DEFAULT"
+    if ! is_valid_dns_pool_timeout "$timeout"; then
+        log "Section '$section': invalid own_dns_timeout '$timeout', using $DNS_POOL_TIMEOUT_DEFAULT" "warn"
+        timeout="$DNS_POOL_TIMEOUT_DEFAULT"
+    fi
+    printf '%s %s' "$mode" "$timeout"
+}
+
 configure_ipv6_real_dns_rule() {
     local section="$1"
+    local own_tags
 
     section_is_disabled "$section" && return 0
     section_has_enabled_lists "$section" || return 0
     section_ipv6_real_dns "$section" || return 0
 
     log "Section '$section': AAAA answers are real IPv6 addresses (ipv6_dns_policy=real), its IPv6 traffic goes out directly" "info"
+    own_tags="$(section_own_dns_tags "$section")"
+    if [ -n "$own_tags" ]; then
+        # the section's own servers answer, by its mode; only the AAAA queries of its domains
+        _add_dns_group_rules "$SB_SECTION_AAAA_RULE_PREFIX$section" "$SB_SECTION_DNS_RESPONSE_PREFIX$section" \
+            "$(section_own_dns_mode "$section")" "AAAA" "$own_tags"
+        return 0
+    fi
     config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_DNS_SERVER_TAG" "$SB_SECTION_AAAA_RULE_PREFIX$section")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_SECTION_AAAA_RULE_PREFIX$section" "query_type" '["AAAA"]')
 }
@@ -5405,10 +5518,31 @@ patch_section_dns_rule_set() {
     fi
 }
 
-# An AAAA rule that ended up with no domains matches EVERY AAAA query of the router: drop it.
+# An AAAA rule that ended up with no domains matches EVERY AAAA query of the router: drop it,
+# with the respond rules that belong to it.
 prune_ipv6_real_dns_rules_without_domains() {
     config=$(printf '%s' "$config" | jq -c --arg prefix "$SB_SECTION_AAAA_RULE_PREFIX" --arg key "$SERVICE_TAG" '
-        .dns.rules |= map(select(((.[$key] // "") | startswith($prefix) | not) or (.rule_set != null)))')
+        ([.dns.rules[]? | select(((.[$key] // "") | startswith($prefix)) and (.rule_set == null) and (.match_response == null)) | .[$key]] | unique) as $dead
+        | .dns.rules |= map(select(((.[$key] // "") as $t | ($dead | index($t)) == null and ($dead | index($t | rtrimstr("-respond"))) == null)))')
+}
+
+# A resolve rule of a section ended up with no domains would resolve EVERY connection through
+# that section's server: drop it.
+prune_section_resolve_rules_without_domains() {
+    config=$(printf '%s' "$config" | jq -c --arg prefix "$SB_SECTION_RESOLVE_RULE_PREFIX" --arg key "$SERVICE_TAG" '
+        .route.rules |= map(select(((.[$key] // "") | startswith($prefix) | not) or (.rule_set != null)))')
+}
+
+# Adds a rule-set to the route rule being configured and, when the section has its own DNS, to
+# its resolve rule (the lists the rule-set belongs to are the same).
+patch_section_route_rule_set() {
+    local route_rule_tag="$1"
+    local ruleset_tag="$2"
+
+    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+    if [ -n "${SECTION_RESOLVE_RULE_TAG:-}" ] && ! rule_references_ruleset "route" "$SECTION_RESOLVE_RULE_TAG" "$ruleset_tag"; then
+        config=$(sing_box_cm_patch_route_rule "$config" "$SECTION_RESOLVE_RULE_TAG" "rule_set" "$ruleset_tag")
+    fi
 }
 
 # --- DNS sections ---------------------------------------------------------------
@@ -5487,12 +5621,75 @@ configure_dns_section_handler() {
     configure_dns_section_rules "$section" "$server_tag" "$detour_tag"
 }
 
-# Gives the last DNS rule of the config a service tag. The evaluate and route rules of a
-# section carry the section's rule tag, so its lists are patched into all of them; the respond
-# rules carry "<rule tag>-respond": they only answer an evaluated response and need no domains,
-# but a section left with no domains drops them together with the rest.
+# Gives the last DNS rule of the config a service tag (and, for a rule that must only match one
+# query type, that type). The evaluate and route rules of a group carry the group's rule tag, so
+# the lists of the section are patched into all of them; the respond rules carry
+# "<rule tag>-respond": they only answer an evaluated response and need no domains, but a
+# section left with no domains drops them together with the rest.
 _tag_last_dns_rule() {
-    config=$(printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" --arg tag "$1" '.dns.rules[-1] += {($key): $tag}')
+    config=$(printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" --arg tag "$1" --arg qt "${2:-}" \
+        '.dns.rules[-1] += ({($key): $tag} + (if $qt != "" then {query_type: [$qt]} else {} end))')
+}
+
+# The rules that send the domains of a rule tag to a group of DNS servers: $4 is "" or the one
+# query type the rules are limited to, $5 the server tags in order. Mode fallback: each server
+# but the last gets a turn (an evaluate rule and a respond rule for NOERROR and for NXDOMAIN), the
+# last one answers whatever is left. Mode race: every server is evaluated and the first usable
+# answer wins; if every one failed the first server gives the final answer.
+# $1 rule tag, $2 base of the response tags, $3 mode and timeout "<mode> <timeout>".
+_add_dns_group_rules() {
+    local rule_tag="$1"
+    local response_base="$2"
+    local mode="${3%% *}"
+    local timeout="${3#* }"
+    local query_type="$4"
+    local server_tags="$5"
+    local tag first_tag="" last_tag="" index rcode
+
+    for tag in $server_tags; do
+        [ -n "$first_tag" ] || first_tag="$tag"
+        last_tag="$tag"
+    done
+
+    case "$mode" in
+    fallback)
+        index=0
+        for tag in $server_tags; do
+            [ "$tag" != "$last_tag" ] || continue
+            index=$((index + 1))
+            config=$(sing_box_cm_add_dns_evaluate_rule "$config" "$tag" "$response_base-$index" "$timeout")
+            _tag_last_dns_rule "$rule_tag" "$query_type"
+            for rcode in NOERROR NXDOMAIN; do
+                config=$(sing_box_cm_add_dns_respond_rule "$config" "$response_base-$index" "$rcode")
+                _tag_last_dns_rule "$rule_tag-respond"
+            done
+        done
+        config=$(sing_box_cm_add_dns_route_rule "$config" "$last_tag" "$rule_tag")
+        _tag_last_dns_rule "$rule_tag" "$query_type"
+        ;;
+    race)
+        index=0
+        for tag in $server_tags; do
+            index=$((index + 1))
+            config=$(sing_box_cm_add_dns_evaluate_rule "$config" "$tag" "$response_base-$index" "$timeout")
+            _tag_last_dns_rule "$rule_tag" "$query_type"
+        done
+        for rcode in NOERROR NXDOMAIN; do
+            index=0
+            for tag in $server_tags; do
+                index=$((index + 1))
+                config=$(sing_box_cm_add_dns_respond_rule "$config" "$response_base-$index" "$rcode" true)
+                _tag_last_dns_rule "$rule_tag-respond"
+            done
+        done
+        config=$(sing_box_cm_add_dns_route_rule "$config" "$first_tag" "$rule_tag")
+        _tag_last_dns_rule "$rule_tag" "$query_type"
+        ;;
+    *)
+        config=$(sing_box_cm_add_dns_route_rule "$config" "$first_tag" "$rule_tag")
+        _tag_last_dns_rule "$rule_tag" "$query_type"
+        ;;
+    esac
 }
 
 # The rules of a DNS section. By default one route rule to its server. With
@@ -5565,45 +5762,7 @@ configure_dns_section_rules() {
         esac
     fi
 
-    last_tag=""
-    for tag in $server_tags; do
-        last_tag="$tag"
-    done
-
-    case "$mode" in
-    fallback)
-        index=0
-        for tag in $server_tags; do
-            [ "$tag" != "$last_tag" ] || continue
-            index=$((index + 1))
-            config=$(sing_box_cm_add_dns_evaluate_rule "$config" "$tag" "$SB_SECTION_DNS_RESPONSE_PREFIX$section-$index" "$timeout")
-            _tag_last_dns_rule "$rule_tag"
-            for rcode in NOERROR NXDOMAIN; do
-                config=$(sing_box_cm_add_dns_respond_rule "$config" "$SB_SECTION_DNS_RESPONSE_PREFIX$section-$index" "$rcode")
-                _tag_last_dns_rule "$rule_tag-respond"
-            done
-        done
-        config=$(sing_box_cm_add_dns_route_rule "$config" "$last_tag" "$rule_tag")
-        ;;
-    race)
-        index=0
-        for tag in $server_tags; do
-            index=$((index + 1))
-            config=$(sing_box_cm_add_dns_evaluate_rule "$config" "$tag" "$SB_SECTION_DNS_RESPONSE_PREFIX$section-$index" "$timeout")
-            _tag_last_dns_rule "$rule_tag"
-        done
-        for rcode in NOERROR NXDOMAIN; do
-            index=0
-            for tag in $server_tags; do
-                index=$((index + 1))
-                config=$(sing_box_cm_add_dns_respond_rule "$config" "$SB_SECTION_DNS_RESPONSE_PREFIX$section-$index" "$rcode" true)
-                _tag_last_dns_rule "$rule_tag-respond"
-            done
-        done
-        # every server failed: the first one gives the final (empty or error) answer
-        config=$(sing_box_cm_add_dns_route_rule "$config" "$primary_tag" "$rule_tag")
-        ;;
-    esac
+    _add_dns_group_rules "$rule_tag" "$SB_SECTION_DNS_RESPONSE_PREFIX$section" "$mode $timeout" "" "$server_tags"
 }
 
 # --- Multi-DNS upstream pool (issue #74) ---------------------------------------
@@ -5643,12 +5802,12 @@ _dns_pool_collect_entry() {
 
     case "$entry" in
     *" "* | *"	"*)
-        log "Ignoring dns_pool_server '$entry': it must not contain spaces" "warn"
+        log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': it must not contain spaces" "warn"
         return 0
         ;;
     *://*) ;;
     *)
-        log "Ignoring dns_pool_server '$entry': expected <scheme>://<host>[:port][/path]" "warn"
+        log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': expected <scheme>://<host>[:port][/path]" "warn"
         return 0
         ;;
     esac
@@ -5666,7 +5825,7 @@ _dns_pool_collect_entry() {
     case "$scheme" in
     udp | tcp | dot | doh | doh3 | doq) ;;
     *)
-        log "Ignoring dns_pool_server '$entry': unknown scheme '$scheme' (use udp, tcp, dot, doh, doh3 or doq)" "warn"
+        log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': unknown scheme '$scheme' (use udp, tcp, dot, doh, doh3 or doq)" "warn"
         return 0
         ;;
     esac
@@ -5674,7 +5833,7 @@ _dns_pool_collect_entry() {
     case "$scheme:$rest" in
     doh:* | doh3:*) ;;
     *:*/*)
-        log "Ignoring dns_pool_server '$entry': a path is only allowed for doh and doh3" "warn"
+        log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': a path is only allowed for doh and doh3" "warn"
         return 0
         ;;
     esac
@@ -5691,22 +5850,22 @@ _dns_pool_collect_entry() {
     *) is_ip_or_ip_prefix "$host" && host_ok=1 ;;
     esac
     if [ "$host_ok" -ne 1 ]; then
-        log "Ignoring dns_pool_server '$entry': '$host' is not an IP address or domain" "warn"
+        log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': '$host' is not an IP address or domain" "warn"
         return 0
     fi
     case "$port" in
     *[!0-9]*)
-        log "Ignoring dns_pool_server '$entry': invalid port '$port'" "warn"
+        log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': invalid port '$port'" "warn"
         return 0
         ;;
     esac
     if [ -n "$port" ] && { [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; }; then
-        log "Ignoring dns_pool_server '$entry': port $port is out of range" "warn"
+        log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': port $port is out of range" "warn"
         return 0
     fi
 
     if [ $((DNS_POOL_COUNT + 2)) -gt "$DNS_POOL_MAX_SERVERS" ]; then
-        log "Ignoring dns_pool_server '$entry': at most $DNS_POOL_MAX_SERVERS upstreams (including the primary) are used" "warn"
+        log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': at most $DNS_POOL_MAX_SERVERS upstreams (including the primary) are used" "warn"
         return 0
     fi
 
@@ -5943,6 +6102,7 @@ sing_box_configure_route() {
 
     prune_dns_section_rules_without_domains
     prune_ipv6_real_dns_rules_without_domains
+    prune_section_resolve_rules_without_domains
 }
 
 # A DNS section selects its queries by the domain rule-sets of its lists. A section
@@ -6655,7 +6815,7 @@ configure_routing_for_section_lists() {
     fi
 
     local community_lists user_domain_list_type user_subnet_list_type local_domain_lists local_subnet_lists \
-        remote_domain_lists remote_subnet_lists section_connection_type route_rule_tag resolve_real_ip_for_routing outbound_tag
+        remote_domain_lists remote_subnet_lists section_connection_type route_rule_tag resolve_real_ip_for_routing outbound_tag own_dns_tags
     config_get community_lists "$section" "community_lists"
     config_get user_domain_list_type "$section" "user_domain_list_type" "disabled"
     config_get user_subnet_list_type "$section" "user_subnet_list_type" "disabled"
@@ -6699,6 +6859,19 @@ configure_routing_for_section_lists() {
         ;;
     esac
 
+    # A VPN or exclusion section with its own DNS: its domains are resolved through the first of
+    # those servers by a resolve rule ahead of the route rule (the lists are patched into both).
+    SECTION_RESOLVE_RULE_TAG=""
+    own_dns_tags="$(section_own_dns_tags "$section")"
+    case "$section_connection_type" in
+    vpn | exclusion)
+        if [ -n "$own_dns_tags" ] && [ -n "$route_rule_tag" ]; then
+            SECTION_RESOLVE_RULE_TAG="$SB_SECTION_RESOLVE_RULE_PREFIX$section"
+            config=$(sing_box_cm_add_resolve_rule_before "$config" "$route_rule_tag" "$SECTION_RESOLVE_RULE_TAG" "${own_dns_tags%% *}")
+        fi
+        ;;
+    esac
+
     if [ -n "$community_lists" ]; then
         log "Processing community list routing rules for '$section' section"
         config_list_foreach "$section" "community_lists" configure_community_list_handler "$section" "$route_rule_tag"
@@ -6737,7 +6910,8 @@ configure_routing_for_section_lists() {
     fi
 
     if [ "$resolve_real_ip_for_routing" -eq 1 ] && [ "$section_connection_type" != "dns" ]; then
-        config=$(sing_box_cm_add_resolve_rule "$config" "$route_rule_tag" "$(gen_id)" "$SB_DNS_SERVER_TAG")
+        [ -n "$own_dns_tags" ] || own_dns_tags="$SB_DNS_SERVER_TAG"
+        config=$(sing_box_cm_add_resolve_rule "$config" "$route_rule_tag" "$(gen_id)" "${own_dns_tags%% *}")
         log "Added resolve rule for '$section' section" "debug"
     fi
 }
@@ -6755,7 +6929,7 @@ configure_community_list_handler() {
     config_get update_interval "settings" "update_interval" "1d"
 
     config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
-    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+    patch_section_route_rule_set "$route_rule_tag" "$ruleset_tag"
     patch_section_dns_rule_set "$ruleset_tag"
 }
 
@@ -6836,7 +7010,7 @@ prepare_source_ruleset() {
     fi
 
     if ! rule_references_ruleset "route" "$route_rule_tag" "$ruleset_tag"; then
-        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+        patch_section_route_rule_set "$route_rule_tag" "$ruleset_tag"
     fi
 
     if [ "$type" = "domains" ] &&
@@ -6956,7 +7130,7 @@ configure_remote_domain_or_subnet_list_handler() {
         config_get update_interval "settings" "update_interval" "1d"
 
         config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
-        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+        patch_section_route_rule_set "$route_rule_tag" "$ruleset_tag"
         case "$type" in
         domains)
             patch_section_dns_rule_set "$ruleset_tag"

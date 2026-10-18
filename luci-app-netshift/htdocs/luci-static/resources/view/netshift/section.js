@@ -949,6 +949,199 @@ function createSectionContent(section) {
   o.depends("connection_type", "vpn");
   o.depends("connection_type", "exclusion");
 
+  // Writes the time of each server into its row of the list ("140 ms"), the way the
+  // dashboard shows a server's latency; a best effort, the list below the button stays.
+  const markRowTimes = (widget, optionName, rows) => {
+    try {
+      const times = new Map(rows.map((row) => [row.server, row.ms]));
+      const root = widget.map.findElement("data-name", optionName);
+
+      root?.querySelectorAll(".cbi-dynlist .item").forEach((item) => {
+        const value = item.querySelector("input[type=hidden]")?.value ?? item.dataset.value;
+
+        item.querySelector(".ns-dns-ms")?.remove();
+
+        if (!times.has(value)) {
+          return;
+        }
+
+        const ms = times.get(value);
+
+        item.appendChild(
+          E(
+            "span",
+            {
+              class: "ns-dns-ms",
+              style: `margin-left:.6em;font-weight:600;color:${ms === null ? "var(--error-color-medium, #dc3545)" : "var(--success-color-medium, #28a745)"}`,
+            },
+            ms === null ? _("no answer") : `${ms} ${_("ms")}`,
+          ),
+        );
+      });
+    } catch (_e) {
+      // the list below the button is enough
+    }
+  };
+
+  // DNS of this section only: until now the DNS was one list for every section.
+  o = section.taboption(
+    "connection",
+    form.DynamicList,
+    "own_dns_server",
+    _("DNS servers of this section"),
+    _(
+      "Optional: DNS servers for this section only, instead of the global ones: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. A VPN or exclusion section resolves its direct connections through the first server; with real IPv6 addresses (above) all the servers answer the AAAA queries of its domains. A proxy section is resolved by its proxy server. Empty: the global DNS.",
+    ),
+  );
+  Object.entries(main.DNS_POOL_PRESETS).forEach(([key, label]) => {
+    o.value(key, label);
+  });
+  ["proxy", "vpn", "exclusion"].forEach((type) =>
+    o.depends("connection_type", type),
+  );
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+
+    const validation = main.validateDnsPoolServer(value);
+
+    return validation.valid ? true : validation.message;
+  };
+
+  o = section.taboption(
+    "connection",
+    form.ListValue,
+    "own_dns_mode",
+    _("Several DNS servers"),
+    _(
+      "How the servers of the list are used together when there are several. Needs sing-box 1.14 or newer; on an older core only the first server is used.",
+    ),
+  );
+  o.value("fallback", _("Priority: next server if the previous one fails"));
+  o.value("race", _("Parallel: the first usable answer wins"));
+  o.value("single", _("First server only"));
+  o.default = "fallback";
+  ["proxy", "vpn", "exclusion"].forEach((type) =>
+    o.depends("connection_type", type),
+  );
+  // the defaults are not written into every section that has no own DNS at all
+  o.rmempty = true;
+  o.cfgvalue = function (section_id) {
+    return uci.get("netshift", section_id, "own_dns_mode") || "fallback";
+  };
+
+  o = section.taboption(
+    "connection",
+    form.Value,
+    "own_dns_timeout",
+    _("DNS server timeout"),
+    _(
+      "How long one DNS server may take before the next one is tried (priority) or its answer is dropped (parallel). Examples: 500ms, 2s",
+    ),
+  );
+  ["proxy", "vpn", "exclusion"].forEach((type) =>
+    o.depends("connection_type", type),
+  );
+  o.default = "2s";
+  o.rmempty = true;
+  o.cfgvalue = function (section_id) {
+    return uci.get("netshift", section_id, "own_dns_timeout") || "2s";
+  };
+  o.validate = function (section_id, value) {
+    const validation = main.validateDnsPoolTimeout(value);
+
+    return validation.valid ? true : validation.message;
+  };
+
+  o = section.taboption(
+    "connection",
+    form.Flag,
+    "own_dns_via_section",
+    _("Ask these DNS servers through this section"),
+    _(
+      "The servers above are reached through the outbound of this section (a resolver that exists only inside the VPN or tunnel). If the outbound is not usable they are asked directly.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = true;
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
+
+  // Speed of the servers above, from this router (the same test as in the settings).
+  o = section.taboption(
+    "connection",
+    form.DummyValue,
+    "_own_dns_speed",
+    _("DNS speed test"),
+    _(
+      "Times every DNS server of the list (UDP, TCP, DoT and DoH; DoH3 and DoQ cannot be timed). Nothing is changed: use it to decide the order of the servers.",
+    ),
+  );
+  o.rawhtml = true;
+  ["proxy", "vpn", "exclusion"].forEach((type) =>
+    o.depends("connection_type", type),
+  );
+  o.cfgvalue = function (section_id) {
+    const widget = this;
+    // not cbi-value-description: themes put a help icon in front of every such line
+    const result = E("div", { style: "margin-top:.4em" });
+    const button = E(
+      "button",
+      {
+        class: "btn cbi-button",
+        click: (ev) => {
+          ev.preventDefault();
+
+          // the live value of the list (as the filter preview reads it), unsaved servers included
+          const element = widget.section.getUIElement(section_id, "own_dns_server");
+          const value = element ? element.getValue() : [];
+          const servers = (Array.isArray(value) ? value : [value]).filter(Boolean);
+
+          if (!servers.length) {
+            result.textContent = _("Add a DNS server above first");
+
+            return;
+          }
+
+          button.disabled = true;
+          result.textContent = _("Testing...");
+
+          // timed the way the configuration sends them (through the section with
+          // own_dns_via_section), not by the routes of the global DNS list
+          main.NetShiftShellMethods.dnsBenchmark(["--section", section_id, ...servers])
+            .then((reply) => {
+              const rows = main.sortBySpeed(
+                reply.success ? main.parseDnsBenchmark(reply.data) : [],
+              );
+
+              markRowTimes(widget, "own_dns_server", rows);
+              result.replaceChildren(
+                ...(rows.length
+                  ? rows.map((row) =>
+                      E("div", {}, [
+                        `${row.server}: `,
+                        row.ms === null ? _("no answer") : `${row.ms} ${_("ms")}`,
+                      ]),
+                    )
+                  : [_("The test could not be run")]),
+              );
+            })
+            .catch(() => {
+              result.textContent = _("The test could not be run");
+            })
+            .finally(() => {
+              button.disabled = false;
+            });
+        },
+      },
+      _("Test the servers"),
+    );
+
+    return E("div", {}, [button, result]);
+  };
+
   o = section.taboption(
     "connection",
     form.Flag,
