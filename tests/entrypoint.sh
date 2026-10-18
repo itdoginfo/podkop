@@ -563,7 +563,7 @@ config_get_bool() {
     eval "$1=\"\${4:-0}\""
     case "$3" in
         block_doh) eval "$1=\"${SCN_BLOCKDOH:-0}\"" ;;
-        exclude_ntp) eval "$1=\"0\"" ;;
+        exclude_ntp) eval "$1=\"${SCN_NTP:-0}\"" ;;
     esac
 }
 # fully_routed_ips iteration: one proxy section "frsec" carrying SCN_FULLROUTED.
@@ -685,6 +685,18 @@ SELEOF
         pass "selective:default — union set $NFT_COMMON_SET_NAME created"
     else
         fail "selective:default — union set $NFT_COMMON_SET_NAME not created"
+    fi
+
+    # exclude_ntp returns NTP before any mark in both chains: the router's own time sync too
+    local out_ntp
+    out_ntp="$(SCN_TABLE="selmark_ntp_$$" SCN_IPV6=0 SCN_GLOBALPROXY="gpsec" SCN_BLOCKDOH=0 SCN_NTP=1 \
+        SCN_FULLROUTED="" sh "$drv" 2>/dev/null)"
+    nft delete table inet "selmark_ntp_$$" 2>/dev/null
+    if sel_section "$out_ntp" MANGLE | grep -q 'udp dport 123 return' &&
+        sel_section "$out_ntp" MANGLE_OUTPUT | grep -q 'udp dport 123 return'; then
+        pass "selective:exclude_ntp — NTP returned in mangle and in mangle_output (the router's own sync)"
+    else
+        fail "selective:exclude_ntp — NTP not returned in both chains" "$(sel_section "$out_ntp" MANGLE_OUTPUT)"
     fi
 
     # router-originated OUTPUT marking fix: the OUTPUT chain (router-originated traffic) must carry the SAME
@@ -1626,6 +1638,12 @@ BLEOF
         pass "blockleaks:globalproxy — exclude_ntp traffic is accepted, as in the marking model"
     else
         fail "blockleaks:globalproxy — exclude_ntp is not mirrored into the guard" "$fwd3"
+    fi
+    if [ -n "$(_bl_line "$out3c" 'udp dport 123 accept$')" ] &&
+        [ "$(_bl_line "$out3c" 'udp dport 123 accept$')" -lt "$(_bl_line "$out3c" 'drop$')" ]; then
+        pass "blockleaks:globalproxy — exclude_ntp: the router's own time sync is accepted too"
+    else
+        fail "blockleaks:globalproxy — exclude_ntp is missing in the output guard" "$out3c"
     fi
     if [ -n "$first_drop" ] && [ -n "$bsrc_at" ] && [ "$bsrc_at" -lt "$first_drop" ] &&
         _bl_section "$out3" GUARD | sed -n "/set $NFT_GUARD_BYPASS_SOURCE_SET_NAME {/,/}/p" | grep -q "192.168.50.9"; then

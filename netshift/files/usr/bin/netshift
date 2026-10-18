@@ -2465,6 +2465,8 @@ create_nft_rules() {
     if [ "$exclude_ntp" -eq 1 ]; then
         log "NTP traffic exclude for proxy"
         nft insert rule inet "$NFT_TABLE_NAME" mangle udp dport 123 return
+        # the router's own time sync too (with a global proxy it would be marked like any flow)
+        nft insert rule inet "$NFT_TABLE_NAME" mangle_output udp dport 123 return
     fi
 }
 
