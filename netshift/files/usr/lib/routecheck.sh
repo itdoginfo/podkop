@@ -80,7 +80,7 @@ route_check_rule_hit() {
     local source_ip="$5"
     local inbound="$6"
     local unknown inline probe tag file format
-    local rc_set
+    local rc_set inline_hit
 
     # Conditions that are replayed here. Everything else on a rule makes it unknown.
     unknown="$(printf '%s' "$rule" | jq -r --arg service_tag "$SERVICE_TAG" '
@@ -115,14 +115,19 @@ route_check_rule_hit() {
         rm -f "$probe"
     fi
 
-    # destination conditions of the rule itself
+    # Destination conditions: the inline ones (domain / domain_suffix /
+    # domain_keyword / domain_regex / ip_cidr) and the rule sets are ONE OR group
+    # for sing-box - a rule carrying both matches a name that either of them
+    # covers. The FakeIP DNS rule of a section is exactly that (its own test
+    # domains plus the rule sets of the section's lists), so ANDing them here made
+    # the check skip that rule and name a DNS section that never sees the name.
+    inline_hit=1
     inline="$(printf '%s' "$rule" | jq -c '{domain, domain_suffix, domain_keyword, domain_regex, ip_cidr} | with_entries(select(.value != null))')"
     if [ "$inline" != "{}" ]; then
         probe="$(mktemp)"
         printf '%s' "$inline" | jq '{version: 3, rules: [with_entries(.value |= (if type == "array" then . else [.] end))]}' > "$probe"
-        if ! route_check_rule_set_hit "$probe" source "$target"; then
-            rm -f "$probe"
-            return 1
+        if route_check_rule_set_hit "$probe" source "$target"; then
+            inline_hit=0
         fi
         rm -f "$probe"
     fi
@@ -142,11 +147,14 @@ route_check_rule_hit() {
                 return 0
             fi
         done
+        [ "$inline_hit" -eq 0 ] && return 0
         return $rc_set
     fi
 
+    [ "$inline_hit" -eq 0 ] && return 0
     # no destination condition at all: the rule is a catch-all for this inbound
-    return 0
+    [ "$inline" = "{}" ] && return 0
+    return 1
 }
 
 # Finds the section a sing-box outbound tag belongs to (section ids prefix their
