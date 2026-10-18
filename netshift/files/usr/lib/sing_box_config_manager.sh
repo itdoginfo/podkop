@@ -1538,6 +1538,34 @@ sing_box_cm_set_tls_for_outbound() {
 }
 
 #######################################
+# Resolve proxy server addresses independently when the main DNS uses a proxy.
+# Otherwise the proxy inherits route.default_domain_resolver and resolving its
+# own hostname tries to open the same proxy again (DNS resolution loop).
+# Keep explicit resolvers and chained outbounds intact. The resolver has no
+# effect for a numeric server address; direct and group outbounds have no server.
+# Arguments: config (JSON), bootstrap DNS tag, main DNS detour tag (empty = off).
+#######################################
+sing_box_cm_set_proxy_bootstrap_resolver() {
+    local config="$1"
+    local bootstrap_resolver="$2"
+    local dns_detour="$3"
+
+    if [ -z "$dns_detour" ]; then
+        printf '%s\n' "$config"
+        return 0
+    fi
+
+    printf '%s' "$config" | jq --arg resolver "$bootstrap_resolver" '
+        .outbounds |= map(
+            if ((.server | type) == "string") and (.server != "")
+                and ((.domain_resolver // "") == "")
+                and ((.detour // "") == "") then
+                . + {domain_resolver: $resolver}
+            else . end
+        )'
+}
+
+#######################################
 # Add a Direct outbound with a specific network interface to a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
@@ -1622,6 +1650,23 @@ sing_box_cm_add_urltest_outbound() {
     # "off": test once at start and not again (the core has no switch for it, a
     # year is as good as never).
     [ "$interval" != "off" ] || interval="${URLTEST_INTERVAL_OFF:-8760h}"
+
+    # sing-box refuses to start an urltest whose interval is longer than its
+    # idle_timeout ("interval must be less or equal than idle_timeout") and only
+    # reports that at start, not in `sing-box check`. idle_timeout defaults to
+    # 30m, so the longer intervals (1h, 6h, 24h) and "off" (a year) must raise it
+    # or the whole service fails to start. Shorter intervals keep the default.
+    if [ -z "$idle_timeout" ] && [ -n "$interval" ]; then
+        local interval_seconds
+        interval_seconds="$(_duration_to_seconds "$interval" 2> /dev/null)"
+        # An interval this parser cannot read (a hand-written "1h30m") raises
+        # idle_timeout as well: an interval longer than idle_timeout stops the
+        # whole service, while idle_timeout equal to the interval is always
+        # accepted.
+        if [ -z "$interval_seconds" ] || [ "$interval_seconds" -gt "${URLTEST_IDLE_TIMEOUT_DEFAULT_SECONDS:-1800}" ]; then
+            idle_timeout="$interval"
+        fi
+    fi
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -2271,6 +2316,35 @@ sing_box_cm_save_config_to_file() {
         --arg tag "$SERVICE_TAG" \
         'walk(if type == "object" then del(.[$tag]) else . end)' \
         > "$filepath"
+}
+
+# Converts a duration sing-box understands ("3m", "1h", "8760h", "90s", or a
+# bare number of seconds) to seconds; prints nothing when it cannot be parsed.
+# Lives here, next to its only caller, because the config manager is also used on
+# its own (the smoke suite sources it without the rest of the libraries).
+_duration_to_seconds() {
+    local value="$1"
+    local number unit
+
+    case "$value" in
+    '' | *[!0-9smhd]*) return 1 ;;
+    esac
+
+    number="${value%[smhd]}"
+    unit="${value#"$number"}"
+    case "$number" in
+    '' | *[!0-9]*) return 1 ;;
+    esac
+
+    case "$unit" in
+    '' | s) : ;;
+    m) number=$((number * 60)) ;;
+    h) number=$((number * 3600)) ;;
+    d) number=$((number * 86400)) ;;
+    *) return 1 ;;
+    esac
+
+    printf '%s\n' "$number"
 }
 
 _normalize_arg() {

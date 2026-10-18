@@ -1441,6 +1441,24 @@ _wget_subscription_request() {
         "$req_url" 2>"$req_errfile"
 }
 
+# A subscription download writes the whole body into tmpfs (a published feed of
+# collected links is easily a hundred megabytes) and removes it when it is done.
+# A start that was killed halfway (the OOM killer, a reboot, a stop in the middle)
+# leaves that file behind, and it then sits in RAM for the lifetime of the router.
+# Nothing in the directory is needed across runs, so a start wipes it - unless a
+# subscription update holds the lock right now and may be using its own file.
+subscription_downloads_clean() {
+    local dir="$TMP_SUBSCRIPTION_DOWNLOAD_FOLDER"
+
+    [ -n "$dir" ] || return 0
+    if [ -d "${SUBSCRIPTION_UPDATE_LOCK_DIR:-}" ]; then
+        log "A subscription update is running; leaving its temporary downloads in $dir alone" "debug"
+        return 0
+    fi
+    [ -d "$dir" ] && rm -rf "$dir"
+    mkdir -p "$dir"
+}
+
 # Downloads a subscription body from the given URL with client-mimicking headers
 # Arguments:
 #   $1 - subscription URL
@@ -2055,8 +2073,8 @@ normalize_subscription_to_singbox() {
     local out_file="$2"
     local section="$3"
 
-    local raw stripped candidate pad_len decoded bom
-    local udp_over_tcp config new_config lines_file
+    local pad_len bom work_dir body_file candidate_file
+    local udp_over_tcp config new_config
     local line scheme idx kept skipped final_count builder_tag builder_out_tag
     local fragment display_name first_char xray_uris xray_unsupported
 
@@ -2072,26 +2090,41 @@ normalize_subscription_to_singbox() {
     local NETSHIFT_REALITY_MLKEM_HINT_UNGATED=1
 
     [ -s "$src_file" ] || return 1
+
+    # Everything below works on FILES, never on one shell variable holding the
+    # whole body: a published list of collected links is easily a hundred
+    # megabytes, and every command substitution would keep another full copy in
+    # RAM until the kernel kills the service on a router with a few hundred
+    # megabytes (see the 104 MB public feed that OOM-killed the start).
+    work_dir="$(mktemp -d 2> /dev/null)" || {
+        log "Cannot create a working directory in /tmp to parse the subscription of '$section'" "error"
+        return 1
+    }
+    body_file="$src_file"
+
     # Strip a leading UTF-8 BOM (EF BB BF) if present; it would otherwise break
     # base64 charset detection and decoding. busybox sed lacks \x hex escapes,
     # so build the BOM literally with printf octal escapes.
     bom="$(printf '\357\273\277')"
-    raw="$(sed "1s/^${bom}//" "$src_file" 2>/dev/null)"
-    [ -n "$raw" ] || raw="$(cat "$src_file" 2>/dev/null)"
-    [ -n "$raw" ] || return 1
+    if [ "$(head -c 3 "$src_file" 2> /dev/null)" = "$bom" ]; then
+        tail -c +4 "$src_file" > "$work_dir/body" 2> /dev/null && [ -s "$work_dir/body" ] && body_file="$work_dir/body"
+    fi
 
     # Xray-JSON detection (before base64/URI handling). When the body is a JSON
     # object/array of Xray client configs, convert its proxy outbounds to share
     # URIs and feed those through the URI loop below. Only attempt this when the
     # first non-whitespace byte is '{' or '[' (cheap pre-gate) so plaintext URI
-    # lists never pay the jq cost.
-    first_char="$(printf '%s' "$raw" | sed -n '1{s/^[[:space:]]*//;s/\(.\).*/\1/p;};1q' 2>/dev/null)"
+    # lists never pay the jq cost. Only the first few kilobytes are read: a
+    # minified body can be one enormous line.
+    first_char="$(head -c 4096 "$body_file" 2> /dev/null | sed -n '1{s/^[[:space:]]*//;s/\(.\).*/\1/p;};1q' 2> /dev/null)"
     case "$first_char" in
     '{' | '[')
-        xray_uris="$(xray_json_to_uri_lines "$src_file" 2>/dev/null)"
+        xray_uris="$(xray_json_to_uri_lines "$body_file" 2> /dev/null)"
         if [ -n "$xray_uris" ]; then
             log "Detected Xray JSON subscription for '$section'; converting proxy outbounds to share URIs" "debug"
-            raw="$xray_uris"
+            printf '%s\n' "$xray_uris" > "$work_dir/xray"
+            unset xray_uris
+            body_file="$work_dir/xray"
             # Surface unsupported protocols (vmess) explicitly: they are dropped
             # by the converter because the facade cannot build them, and a silent
             # drop looks like a bug to the user.
@@ -2110,40 +2143,32 @@ normalize_subscription_to_singbox() {
     # Be conservative: only treat as base64 when the raw body has NO '://'
     # substring (a plaintext URI list always contains '://') but the decoded
     # body does contain '://'.
-    candidate="$raw"
-    case "$raw" in
-    *"://"*)
-        # Raw already contains URIs -> treat as plaintext.
-        :
-        ;;
-    *)
+    candidate_file="$body_file"
+    if ! grep -q -F -- '://' "$body_file" 2> /dev/null; then
         # Strip all whitespace and check the remaining charset is base64-only.
-        stripped="$(printf '%s' "$raw" | tr -d ' \t\r\n')"
-        if [ -n "$stripped" ] && [ -z "$(printf '%s' "$stripped" | tr -d 'A-Za-z0-9+/=')" ]; then
+        tr -d ' \t\r\n' < "$body_file" > "$work_dir/stripped" 2> /dev/null
+        if [ -s "$work_dir/stripped" ] &&
+            [ -z "$(tr -d 'A-Za-z0-9+/=' < "$work_dir/stripped" 2> /dev/null | head -c 1)" ]; then
             # Add '=' padding to a multiple of 4 (older coreutils-base64 lacks
             # auto-padding).
-            pad_len=$(( ${#stripped} % 4 ))
+            pad_len=$(( $(wc -c < "$work_dir/stripped" | tr -d ' ') % 4 ))
             if [ "$pad_len" -eq 2 ]; then
-                stripped="${stripped}=="
+                printf '==' >> "$work_dir/stripped"
             elif [ "$pad_len" -eq 3 ]; then
-                stripped="${stripped}="
-            elif [ "$pad_len" -eq 1 ]; then
-                # Length 1 mod 4 is not valid base64; leave as-is and let
-                # decode fail.
-                :
+                printf '=' >> "$work_dir/stripped"
             fi
-            decoded="$(base64_decode "$stripped")"
-            case "$decoded" in
-            *"://"*)
-                candidate="$decoded"
-                ;;
-            esac
+            # Length 1 mod 4 is not valid base64: the decode below fails and the
+            # body stays as it was.
+            if base64 -d < "$work_dir/stripped" > "$work_dir/decoded" 2> /dev/null &&
+                grep -q -F -- '://' "$work_dir/decoded" 2> /dev/null; then
+                candidate_file="$work_dir/decoded"
+            fi
         fi
-        ;;
-    esac
+        rm -f "$work_dir/stripped"
+    fi
 
-    # udp_over_tcp from the section if present, else empty.
-    udp_over_tcp="$(uci -q get "netshift.${section}.udp_over_tcp" 2>/dev/null)"
+    # UDP over TCP from the section (the "UDP over TCP" flag), else empty.
+    udp_over_tcp="$(uci -q get "netshift.${section}.enable_udp_over_tcp" 2>/dev/null)"
 
     # How many servers of one feed are used (the section's subscription_max_nodes;
     # 500 when it is not set, 0 for no limit).
@@ -2159,12 +2184,12 @@ normalize_subscription_to_singbox() {
     kept=0
     skipped=0
 
-    # Write candidate lines to a temp file and feed the loop via redirect rather
-    # than a heredoc/pipe. The builder calls helpers that read stdin (e.g.
-    # base64 pipelines); feeding the loop from the same stdin would let them
-    # consume subsequent lines. A file redirect keeps the loop's stdin isolated.
-    lines_file="$(mktemp 2>/dev/null)" || lines_file="/tmp/netshift-sub-fb.$$"
-    printf '%s\n' "$candidate" > "$lines_file"
+    # The candidate body is already a file (see above), and the loop is fed from
+    # it by redirect rather than a heredoc/pipe. The builder calls helpers that
+    # read stdin (e.g. base64 pipelines); feeding the loop from the same stdin
+    # would let them consume subsequent lines. A file redirect keeps the loop's
+    # stdin isolated, and reading stops at the first `break` below, so a feed of
+    # half a million links costs no more memory than the file itself.
 
     # Resolve the core version once for the whole feed: the builder checks it
     # per link (e.g. VLESS Encryption), and each check would otherwise spawn
@@ -2172,7 +2197,11 @@ normalize_subscription_to_singbox() {
     local NETSHIFT_SING_BOX_VERSION
     NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
 
-    while IFS= read -r line; do
+    # `|| [ -n "$line" ]`: the body is read straight from the downloaded file, so
+    # its last line may come without a trailing newline (a base64 blob decoded to
+    # a file, a feed that simply ends after the last link). Plain `read` would
+    # drop that line, i.e. the last server of the feed.
+    while IFS= read -r line || [ -n "$line" ]; do
         # Trim leading/trailing whitespace.
         line="${line#"${line%%[![:space:]]*}"}"
         line="${line%"${line##*[![:space:]]}"}"
@@ -2259,8 +2288,8 @@ normalize_subscription_to_singbox() {
 
         config="$new_config"
         kept=$(( kept + 1 ))
-    done < "$lines_file"
-    rm -f "$lines_file"
+    done < "$candidate_file"
+    rm -rf "$work_dir"
 
     if [ "$skipped" -gt 0 ]; then
         log "Fallback subscription parser for '$section' skipped $skipped key(s) with unknown/unsupported schemes" "debug"

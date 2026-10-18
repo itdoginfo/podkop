@@ -284,6 +284,13 @@ NETSHIFT_REPO_RELEASES_DOWNLOAD_BASE="https://github.com/yandexru45/netshift/rel
 # tmpfs scratch dir for the self-update download (release packages) — RAM, never
 # the tiny overlay; reaped on success and on reboot.
 UPDATES_NETSHIFT_DOWNLOAD_DIR="/tmp/netshift/selfupdate"
+# Options that never reach the running service: changing only these does not restart it
+# (applyconfig.sh). shutdown_correctly is flipped by the service itself.
+# Read only while the service runs: by the monitor (it loads the configuration anew on every
+# check cycle), by the dashboard, or when a component is installed.
+CONFIG_NO_RESTART_OPTIONS="update_notice shutdown_correctly latency_test_url priority_check_interval priority_mode pin_guard wget_ipv4_mode sing_box_extended_arm_build sing_box_lite_build"
+CONFIG_APPLIED_HASH_FILE="/tmp/netshift-applied-config.hash"
+NETSHIFT_INIT="/etc/init.d/netshift"
 # tmpfs backup of /etc/config/netshift taken before the self-update package
 # install (conffiles normally preserve it; this is the defensive belt).
 UPDATES_NETSHIFT_CONFIG_BACKUP="/tmp/netshift/config.bak"
@@ -328,6 +335,8 @@ SB_SECTION_DNS_RULE_PREFIX="dns-section-rule-"
 # A section whose AAAA queries are answered with the real addresses (ipv6_dns_policy=real)
 # gets a DNS rule of its own, ahead of the FakeIP rule.
 SB_SECTION_AAAA_RULE_PREFIX="ipv6-real-dns-rule-"
+# The evaluated responses of a DNS section's own server list: "<prefix><section>-<n>".
+SB_SECTION_DNS_RESPONSE_PREFIX="dns-section-response-"
 SB_INVERT_FAKEIP_DNS_RULE_TAG="invert-fakeip-dns-rule-tag"
 # Inbounds
 SB_TPROXY_INBOUND_TAG="tproxy-in"
@@ -425,7 +434,17 @@ PIN_GUARD_EVENTS_FILE="/tmp/netshift-pin-guard.json"
 PIN_GUARD_EVENTS_KEEP=10
 # URLTest interval standing for "only at start" (urltest_check_interval 'off')
 URLTEST_INTERVAL_OFF="8760h"
+# The idle_timeout sing-box gives a urltest outbound when the config does not set
+# one. The core refuses to start when interval is longer than idle_timeout
+# ("interval must be less or equal than idle_timeout"), and that check only runs
+# at start, not in `sing-box check`: a longer interval has to raise idle_timeout
+# itself (see sing_box_cm_add_urltest_outbound).
+URLTEST_IDLE_TIMEOUT_DEFAULT_SECONDS=1800
 
 # Servers of one subscription feed that are used when the section does not say
 # (subscription_max_nodes; 0 means all of them)
 SUBSCRIPTION_MAX_NODES_DEFAULT=500
+
+# Wi-Fi Calling (wifi_calling_direct): the IKE and NAT-T ports of the operator's ePDG tunnel,
+# added to the UDP ports that go out directly
+WIFI_CALLING_DIRECT_UDP_PORTS="500 4500"
