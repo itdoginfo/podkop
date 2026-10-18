@@ -124,7 +124,8 @@ test_syntax() {
         "$lib/subinfo.sh" \
         "$lib/lint.sh" \
         "$lib/naive.sh" \
-        "$lib/corecaps.sh"; do
+        "$lib/corecaps.sh" \
+        "$lib/applyconfig.sh"; do
 
         if [ ! -r "$f" ]; then
             fail "File not found: $f"
@@ -587,7 +588,7 @@ for fn in nft_init_interfaces_set populate_netshift_subnets_from_file \
           populate_netshift_subnets_from_string nft_mark_fully_routed_source_ips \
           _nft_mark_fully_routed_ips_for_section _nft_mark_fully_routed_ip_handler \
           foreach_active_section _active_section_dispatch \
-          nft_add_dns_hijack nft_add_port_rules disable_quic_mode nft_add_quic_block \
+          nft_add_dns_hijack nft_add_port_rules port_rules_value _port_list_has disable_quic_mode nft_add_quic_block \
           create_nft_rules; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
@@ -755,6 +756,24 @@ SELEOF
         pass "selective:globalproxy — mark-EVERYTHING rules present under global_proxy"
     else
         fail "selective:globalproxy — mark-all rules missing under global_proxy" "$out3"
+    fi
+    # A packet to an address of the router itself (its external IP or DDNS name, from the LAN) is
+    # never marked, whatever marks follow: the return is in the chain and comes before the first
+    # mark, with the selective marks and with mark-all.
+    local lr_line lr_first lr_gp
+    lr_line="$(echo "$mangle1" | grep -n 'fib daddr type local return' | head -1 | cut -d: -f1)"
+    lr_first="$(echo "$mangle1" | grep -n 'meta mark set' | head -1 | cut -d: -f1)"
+    if [ -n "$lr_line" ] && [ -n "$lr_first" ] && [ "$lr_line" -lt "$lr_first" ]; then
+        pass "selective:local-return — traffic to the router's own addresses returns before the marks"
+    else
+        fail "selective:local-return — no return for the router's own addresses before the marks" "return=$lr_line first_mark=$lr_first"
+    fi
+    lr_line="$(echo "$mangle3" | grep -n 'fib daddr type local return' | head -1 | cut -d: -f1)"
+    lr_gp="$(echo "$mangle3" | grep -n 'meta mark set' | head -1 | cut -d: -f1)"
+    if [ -n "$lr_line" ] && [ -n "$lr_gp" ] && [ "$lr_line" -lt "$lr_gp" ]; then
+        pass "selective:local-return-globalproxy — the same return precedes the mark-all rules"
+    else
+        fail "selective:local-return-globalproxy — the router's own addresses can be marked by mark-all" "return=$lr_line first_mark=$lr_gp"
     fi
     # router-originated OUTPUT marking fix: router-originated traffic must be marked too under global_proxy
     # (tcp AND udp), or the router's own flows still bypass the proxy.
@@ -4533,6 +4552,162 @@ else
     echo "fb-caseC-count(==2 valid got $c_len):FAIL"
 fi
 rm -f "$caseC_in" "$caseC_out"
+
+# ── CASE C2: a body whose last line has no trailing newline ─────────
+# The body is read straight from the downloaded file (a published feed can be
+# a hundred megabytes, so it is never copied into a shell variable), which
+# means the loop sees the file exactly as it is: a plain `while read` would
+# drop the last link of a body that ends after it.
+caseC2_in="/tmp/netshift-fb-caseC2-$$.txt"
+caseC2_out="/tmp/netshift-fb-caseC2-out-$$.json"
+printf '%s' 'vless://44444444-4444-4444-4444-444444444444@example.com:443?security=tls&sni=example.com&type=tcp#N1
+trojan://pw4@example.com:8443?security=tls&sni=example.com#N2' > "$caseC2_in"
+if normalize_subscription_to_singbox "$caseC2_in" "$caseC2_out" "testsub"; then
+    echo 'fb-caseC2-rc:OK'
+else
+    echo 'fb-caseC2-rc:FAIL'
+fi
+c2_len="$(jq -r '.outbounds | length' "$caseC2_out" 2>/dev/null)"
+[ -n "$c2_len" ] || c2_len=0
+if [ "$c2_len" -eq 2 ]; then
+    echo "fb-caseC2-last-line-kept(==2 got $c2_len):OK"
+else
+    echo "fb-caseC2-last-line-kept(==2 got $c2_len):FAIL"
+fi
+rm -f "$caseC2_in" "$caseC2_out"
+
+# ...and the same body base64-encoded (decoded to a file, so no trailing
+# newline either).
+caseC3_in="/tmp/netshift-fb-caseC3-$$.txt"
+caseC3_out="/tmp/netshift-fb-caseC3-out-$$.json"
+printf '%s' 'vless://55555555-5555-5555-5555-555555555555@example.com:443?security=tls&sni=example.com&type=tcp#N3
+trojan://pw5@example.com:8443?security=tls&sni=example.com#N4' | base64 | tr -d '\n' > "$caseC3_in"
+if normalize_subscription_to_singbox "$caseC3_in" "$caseC3_out" "testsub"; then
+    echo 'fb-caseC3-rc:OK'
+else
+    echo 'fb-caseC3-rc:FAIL'
+fi
+c3_len="$(jq -r '.outbounds | length' "$caseC3_out" 2>/dev/null)"
+[ -n "$c3_len" ] || c3_len=0
+if [ "$c3_len" -eq 2 ]; then
+    echo "fb-caseC3-base64-last-line-kept(==2 got $c3_len):OK"
+else
+    echo "fb-caseC3-base64-last-line-kept(==2 got $c3_len):FAIL"
+fi
+rm -f "$caseC3_in" "$caseC3_out"
+
+# ── CASE C4: a published feed of many links is cut to subscription_max_nodes
+# A collected public list holds thousands of links; only the first
+# subscription_max_nodes are used (0 = all). The body is never held in a
+# variable, so a big feed costs no more memory than the file itself: this
+# test would otherwise be the one that OOM-kills a small router.
+caseC4_in="/tmp/netshift-fb-caseC4-$$.txt"
+caseC4_out="/tmp/netshift-fb-caseC4-out-$$.json"
+i=0
+: > "$caseC4_in"
+while [ "$i" -lt 400 ]; do
+    printf 'vless://66666666-6666-6666-6666-666666666666@example.com:443?security=tls&sni=example.com&type=tcp#L%s\n' "$i" >> "$caseC4_in"
+    i=$((i + 1))
+done
+# normalize_subscription_to_singbox reads the option through uci, so a throwaway
+# /etc/config/netshift carries the section for this case and is removed after
+# (the same pattern the other subscription-option cases use).
+cat > /etc/config/netshift << 'CAPCONF'
+config section 'testsub'
+	option connection_type 'proxy'
+	option subscription_max_nodes '7'
+CAPCONF
+if normalize_subscription_to_singbox "$caseC4_in" "$caseC4_out" "testsub" 2> /dev/null; then
+    echo 'fb-caseC4-rc:OK'
+else
+    echo 'fb-caseC4-rc:FAIL'
+fi
+c4_len="$(jq -r '.outbounds | length' "$caseC4_out" 2>/dev/null)"
+[ -n "$c4_len" ] || c4_len=0
+if [ "$c4_len" -eq 7 ]; then
+    echo "fb-caseC4-max-nodes-cap(==7 got $c4_len):OK"
+else
+    echo "fb-caseC4-max-nodes-cap(==7 got $c4_len):FAIL"
+fi
+uci -q delete netshift.testsub
+uci -q commit netshift
+rm -f "$caseC4_in" "$caseC4_out" /etc/config/netshift
+
+# ── CASE C4b: the "UDP over TCP" flag reaches socks and ss links ─────
+# The flag lives in the section as enable_udp_over_tcp; reading another option
+# name made it silently do nothing for subscription links (it worked for a
+# single link, a selector and an urltest).
+caseC4b_in="/tmp/netshift-fb-caseC4b-$$.txt"
+caseC4b_out="/tmp/netshift-fb-caseC4b-out-$$.json"
+printf '%s\n' \
+    'socks5://u:p@example.com:1080#S1' \
+    'ss://YWVzLTEyOC1nY206cHc=@example.com:8388#S2' \
+    'trojan://pw@example.com:8443?security=tls&sni=example.com#T1' > "$caseC4b_in"
+cat > /etc/config/netshift << 'CAPCONF'
+config section 'testuot'
+	option connection_type 'proxy'
+	option enable_udp_over_tcp '1'
+CAPCONF
+normalize_subscription_to_singbox "$caseC4b_in" "$caseC4b_out" "testuot" > /dev/null 2>&1
+uot_types="$(jq -c '[.outbounds[] | select(.udp_over_tcp.enabled == true) | .type] | unique' "$caseC4b_out" 2> /dev/null)"
+if [ "$uot_types" = '["shadowsocks","socks"]' ]; then
+    echo 'fb-caseC4b-flag-reaches-socks-and-ss:OK'
+else
+    echo "fb-caseC4b-flag-reaches-socks-and-ss:FAIL (got $uot_types)"
+fi
+uot_trojan="$(jq -r '[.outbounds[] | select(.type == "trojan" and .udp_over_tcp != null)] | length' "$caseC4b_out" 2> /dev/null)"
+if [ "$uot_trojan" = "0" ]; then
+    echo 'fb-caseC4b-flag-not-applied-to-trojan:OK'
+else
+    echo "fb-caseC4b-flag-not-applied-to-trojan:FAIL (got $uot_trojan)"
+fi
+# ...and the flag being off leaves the outbounds without it
+cat > /etc/config/netshift << 'CAPCONF'
+config section 'testuot'
+	option connection_type 'proxy'
+	option enable_udp_over_tcp '0'
+CAPCONF
+normalize_subscription_to_singbox "$caseC4b_in" "$caseC4b_out" "testuot" > /dev/null 2>&1
+uot_off="$(jq -r '[.outbounds[] | select(.udp_over_tcp != null)] | length' "$caseC4b_out" 2> /dev/null)"
+if [ "$uot_off" = "0" ]; then
+    echo 'fb-caseC4b-flag-off-adds-nothing:OK'
+else
+    echo "fb-caseC4b-flag-off-adds-nothing:FAIL (got $uot_off)"
+fi
+rm -f "$caseC4b_in" "$caseC4b_out" /etc/config/netshift
+
+# ── CASE C5: a download left behind by a killed start is wiped ──────
+# The body lives in tmpfs while it is parsed; a start the OOM killer took out
+# leaves it there and it stays in RAM until the router reboots.
+dl_dir="$(mktemp -d)"
+: > "$dl_dir/pubtest.download.XXXXXX"
+: > "$dl_dir/pubtest.download.XXXXXX.ua"
+if (
+    TMP_SUBSCRIPTION_DOWNLOAD_FOLDER="$dl_dir"
+    SUBSCRIPTION_UPDATE_LOCK_DIR="$dl_dir.no-lock"
+    subscription_downloads_clean
+) > /dev/null 2>&1 && [ -d "$dl_dir" ] && [ -z "$(ls -A "$dl_dir" 2> /dev/null)" ]; then
+    echo 'dl-clean-wipes-leftovers:OK'
+else
+    echo "dl-clean-wipes-leftovers:FAIL ($(ls -A "$dl_dir" 2> /dev/null | tr '\n' ' '))"
+fi
+rm -rf "$dl_dir"
+
+# ...but an update that holds the lock may be using its own file right now.
+dl_dir="$(mktemp -d)"
+: > "$dl_dir/pubtest.download.YYYYYY"
+lock_dir="$dl_dir.lock"
+mkdir -p "$lock_dir"
+if (
+    TMP_SUBSCRIPTION_DOWNLOAD_FOLDER="$dl_dir"
+    SUBSCRIPTION_UPDATE_LOCK_DIR="$lock_dir"
+    subscription_downloads_clean
+) > /dev/null 2>&1 && [ -f "$dl_dir/pubtest.download.YYYYYY" ]; then
+    echo 'dl-clean-keeps-inflight:OK'
+else
+    echo 'dl-clean-keeps-inflight:FAIL'
+fi
+rm -rf "$dl_dir" "$lock_dir"
 
 # ── CASE D: negative — only comments / junk, no valid keys ──────────
 caseD_in="/tmp/netshift-fb-caseD-$$.txt"
@@ -15781,7 +15956,7 @@ config_list_foreach() { # $1=section $2=option $3=callback ... : the option valu
 for fn in section_is_dns_rule section_has_enabled_lists configure_dns_section_handler configure_routing_for_section_lists \
     configure_community_list_handler subscription_outbound_is_unavailable \
     prune_dns_section_rules_without_domains download_proxy_section_is_unavailable section_is_disabled \
-    patch_section_dns_rule_set section_ipv6_real_dns; do
+    patch_section_dns_rule_set section_ipv6_real_dns configure_dns_section_rules _tag_last_dns_rule; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
 netshift_ipv6_enabled() { return 1; }
@@ -18306,13 +18481,13 @@ test_route_check() {
         ROUTE_CHECK_CACHE_FOLDER="$work/cache"
         log() { :; }
 
-        printf '%s' '{"version":3,"rules":[{"domain_suffix":["example.com"],"domain":["exact.example.org"],"domain_keyword":["tracker"],"domain_regex":["^ads[0-9]+\\.cdn\\.net$"]}]}' > "$work/main-domains.json"
+        printf '%s' '{"version":3,"rules":[{"domain_suffix":["example.com","shadowed.test"],"domain":["exact.example.org"],"domain_keyword":["tracker"],"domain_regex":["^ads[0-9]+\\.cdn\\.net$"]}]}' > "$work/main-domains.json"
         printf '%s' '{"version":3,"rules":[{"ip_cidr":["203.0.113.0/24"]}]}' > "$work/vpn-subnets.json"
         jq -n --arg d "$work/main-domains.json" --arg s "$work/vpn-subnets.json" '{
             dns: { servers: [], rules: [
                 { query_type: "HTTPS", action: "reject", __service_tag: "doh-https" },
-                { action: "route", server: "fakeip-server", rule_set: ["main-domains"], __service_tag: "fakeip-rule" },
-                { action: "route", server: "dns-section-corp", domain_suffix: ["corp.test"], __service_tag: "dns-section-rule-corp" }
+                { action: "route", server: "fakeip-server", domain: ["fakeip.podkop.fyi", "ip.podkop.fyi"], rule_set: ["main-domains"], __service_tag: "fakeip-rule" },
+                { action: "route", server: "dns-section-corp", domain_suffix: ["corp.test", "shadowed.test"], __service_tag: "dns-section-rule-corp" }
             ], final: "dns-server" },
             inbounds: [ { type: "tproxy", tag: "tproxy-in" } ],
             outbounds: [ { type: "direct", tag: "direct-out" } ],
@@ -18362,6 +18537,12 @@ test_route_check() {
         show ip-miss 198.51.100.7
         show direct-default unknown.example.net
         show dns-section host.corp.test
+        # a rule that carries BOTH inline domains and rule sets is one OR group in
+        # sing-box: the FakeIP rule of a section is exactly that, so a name that a
+        # DNS section also lists still gets the FakeIP answer (and the DNS section
+        # never looks it up - see get_config_warnings).
+        show dns-shadowed x.shadowed.test
+        show dns-shadowed-suffix shadowed.test
         show service-only only-service.test
         show device-source example.com 192.168.1.50
         show device-other-source example.com 192.168.1.51
@@ -18423,6 +18604,8 @@ test_route_check() {
     _rc "an IP in no list goes direct" "ip-miss|direct|-|-|-|-|-|true|false"
     _rc "an unlisted domain goes direct (final)" "direct-default|direct|-|-|-|dns-server|final|true|false"
     _rc "a DNS section answers its names" "dns-section|direct|-|-|-|dns-section-corp|rule|true|false"
+    _rc "a rule with inline domains AND rule sets matches either of them" "dns-shadowed|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
+    _rc "...and a name only the rule set covers is matched by it too" "dns-shadowed-suffix|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
     _rc "rules of another inbound are not replayed for LAN traffic" "service-only|direct|-|-|-|dns-server|final|true|false"
     _rc "a rule with a source address applies to that client" "device-source|direct|-|device-bypass|-|fakeip-server|rule|false|false"
     _rc "a different source skips the device rule" "device-other-source|section|main|main-rule|main-domains|fakeip-server|rule|false|false"
@@ -19762,6 +19945,13 @@ test_urltest_interval() {
         for v in 30s 3m 10m 30m 1h 24h off ""; do
             printf 'interval[%s]=%s\n' "$v" "$(sing_box_cm_add_urltest_outbound "$base" t '["a","b"]' "" "$v" 50 | jq -r '.outbounds[0].interval // "none"')"
         done
+        # The core refuses to start when interval is longer than idle_timeout, so
+        # every interval above the core's default (30m) has to carry an
+        # idle_timeout of its own. This is a config-shape check on purpose:
+        # `sing-box check` does not validate the pair, only `sing-box run` does.
+        for v in 30s 3m 10m 20m 30m 1h 6h 24h off 1h30m; do
+            printf 'idle[%s]=%s\n' "$v" "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" "$v" 50 | jq -r '.outbounds[0].idle_timeout // "default"')"
+        done
         # without the constants the value still means "almost never"
         unset URLTEST_INTERVAL_OFF
         printf 'off-no-constants=%s\n' "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" off 50 | jq -r '.outbounds[0].interval')"
@@ -19782,13 +19972,23 @@ test_urltest_interval() {
     _ti "'off' becomes a year: one test at start" "interval[off]=8760h"
     _ti "an empty interval adds no field" "interval[]=none"
     _ti "'off' works without the constants file" "off-no-constants=8760h"
+    # The core's default idle_timeout is 30m: intervals up to that keep it, longer
+    # ones raise it, or sing-box would refuse to start the whole service.
+    _ti "a short interval keeps the core's default idle_timeout" "idle[30s]=default"
+    _ti "the default interval keeps the core's default idle_timeout" "idle[3m]=default"
+    _ti "a 30 minute interval keeps the core's default idle_timeout" "idle[30m]=default"
+    _ti "an hour raises idle_timeout" "idle[1h]=1h"
+    _ti "six hours raise idle_timeout" "idle[6h]=6h"
+    _ti "a day raises idle_timeout" "idle[24h]=24h"
+    _ti "'off' raises idle_timeout too" "idle[off]=8760h"
+    _ti "a compound interval this parser cannot read raises idle_timeout" "idle[1h30m]=1h30m"
 
     if sing-box version > /dev/null 2>&1; then
         local cfg="/tmp/netshift-urltest-int-$$.json"
         (
             . "$constants_lib"
             . "$cm_lib"
-            c='{"log":{"level":"error"},"outbounds":[{"type":"direct","tag":"a"},{"type":"direct","tag":"b"}]}'
+            c='{"log":{"level":"error"},"outbounds":[{"type":"socks","tag":"a","server":"127.0.0.1","server_port":1},{"type":"socks","tag":"b","server":"127.0.0.1","server_port":1}]}'
             sing_box_cm_add_urltest_outbound "$c" t '["a","b"]' "https://www.gstatic.com/generate_204" off 50
         ) > "$cfg"
         if sing-box check -c "$cfg" > /dev/null 2>&1; then
@@ -19796,6 +19996,26 @@ test_urltest_interval() {
         else
             fail "the core rejects the 'off' interval"
         fi
+
+        # `sing-box check` accepts a pair the core then refuses at start, so run
+        # the core for a moment: a rejected config exits at once with
+        # "interval must be less or equal than idle_timeout".
+        local run_out="" run_pid="" run_log="/tmp/netshift-urltest-run-$$.log"
+        sing-box run -c "$cfg" > "$run_log" 2>&1 &
+        run_pid=$!
+        sleep 2
+        kill "$run_pid" 2> /dev/null
+        wait "$run_pid" 2> /dev/null
+        run_out="$(cat "$run_log" 2> /dev/null)"
+        rm -f "$run_log"
+        case "$run_out" in
+        *"interval must be less or equal than idle_timeout"*)
+            fail "the core refuses the 'off' interval at start" "$(printf '%s' "$run_out" | tr '\n' '~')"
+            ;;
+        *)
+            pass "the core starts with the 'off' interval"
+            ;;
+        esac
         rm -f "$cfg"
     fi
 
@@ -20535,13 +20755,14 @@ test_port_rules() {
         PR_LOG="$work/log"; : > "$PR_LOG"
         log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$PR_LOG"; }
         . "$lib/sing_box_config_manager.sh"
-        for fn in sing_box_configure_port_rules nft_add_port_rules tproxy_route_inbounds _nft_mark_fully_routed_ip_handler; do
+        for fn in sing_box_configure_port_rules nft_add_port_rules tproxy_route_inbounds _nft_mark_fully_routed_ip_handler port_rules_value _port_list_has; do
             eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
         done
         gen_id() { PR_N=$((${PR_N:-0} + 1)); echo "rule$PR_N"; }
         V6=0
         netshift_ipv6_enabled() { [ "$V6" = 1 ]; }
         config_get() { eval "$1=\"\${PR_${3}:-}\""; }
+        config_get_bool() { eval "$1=\"\${PR_${3}:-$4}\""; }
         NFT_TABLE_NAME=T
         NFT_LOG="$work/nft"; : > "$NFT_LOG"
         nft() { echo "$*" >> "$NFT_LOG"; }
@@ -20578,6 +20799,34 @@ test_port_rules() {
         PR_direct_udp_ports="abc"
         sing_box_configure_port_rules
         echo "invalid-list=$(printf '%s' "$config" | jq -c '.route.rules | length') warned=$(grep -c "has no valid port" "$PR_LOG")"
+        PR_direct_udp_ports=""
+
+        # Wi-Fi Calling: UDP 500 and 4500 join the direct UDP list
+        config='{"route":{"rules":[]}}'
+        PR_wifi_calling_direct=1
+        sing_box_configure_port_rules
+        echo "wifi-alone=$(printf '%s' "$config" | jq -c '.route.rules | map([.rules[0].network, .rules[1].rules, .outbound])')"
+        config='{"route":{"rules":[]}}'
+        PR_direct_udp_ports="3478"
+        sing_box_configure_port_rules
+        echo "wifi-merged=$(printf '%s' "$config" | jq -c '.route.rules | map(.rules[1].rules)')"
+        : > "$NFT_LOG"; nft_add_port_rules
+        echo "wifi-nft=$(sed -n '1p' "$NFT_LOG")"
+        echo "wifi-value-tcp-untouched=[$(PR_direct_tcp_ports=22; port_rules_value direct tcp)]"
+        # a port the list already holds, or a range that covers it, is not added again
+        PR_direct_udp_ports="500,4500"
+        echo "wifi-dup=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="1-1000"
+        echo "wifi-covered-by-range=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="4000:5000, 3478"
+        echo "wifi-covered-by-colon-range=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="0500"
+        echo "wifi-leading-zero=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="4500"
+        echo "wifi-partial=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="3478"
+        PR_wifi_calling_direct=0
+        echo "wifi-off=[$(port_rules_value direct udp)]"
         PR_direct_udp_ports=""
 
         # nft
@@ -20653,6 +20902,16 @@ test_port_rules() {
     else
         skip "sing-box not installed: the core check of the port rules"
     fi
+    _pr "Wi-Fi Calling alone: a direct UDP rule for 500 and 4500" 'wifi-alone=[["udp",[{"port":[500,4500]}],"direct-out"]]'
+    _pr "...and added to the user's own UDP ports" 'wifi-merged=[[{"port":[3478,500,4500]}]]'
+    _pr "...on the nft side too" "wifi-nft=insert rule inet T mangle udp dport { 3478, 500, 4500 } ip daddr != 198.18.0.0/15 counter return"
+    _pr "the TCP list is not touched by it" "wifi-value-tcp-untouched=[22]"
+    _pr "a port the list already holds is not added again" "wifi-dup=[500,4500]"
+    _pr "a range that covers a port is not duplicated by it (an overlap would make nft refuse the set)" "wifi-covered-by-range=[1-1000,4500]"
+    _pr "...the same for a range written with a colon" "wifi-covered-by-colon-range=[4000:5000, 3478,500]"
+    _pr "a port with a leading zero is the same port (no octal reading)" "wifi-leading-zero=[0500,4500]"
+    _pr "only the missing one of the two is added" "wifi-partial=[4500,500]"
+    _pr "switched off, the UDP list is the user's own" "wifi-off=[3478]"
     _pr "nothing set adds nothing" "none=0"
     _pr "a list with no valid port is ignored with a warning" "invalid-list=0 warned=1"
     _pr "no nft rule when nothing is set" "nft-none=0"
@@ -21938,112 +22197,6 @@ LIST
     rm -rf "$work" /etc/config/netshift
 }
 
-
-# ─────────────────────────────────────────────────────────────────
-# Test: TUIC and AnyTLS links
-# ─────────────────────────────────────────────────────────────────
-test_tuic_anytls() {
-    header "TUIC and AnyTLS links"
-
-    local lib="${NETSHIFT_LIB_DIR}"
-    if ! command -v jq > /dev/null 2>&1; then
-        skip "jq not available"
-        return
-    fi
-    if [ ! -r "$lib/sing_box_config_facade.sh" ]; then
-        fail "facade not found"
-        return
-    fi
-
-    mkdir -p /usr/lib/netshift
-    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
-    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
-    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
-
-    local work="/tmp/netshift-tuic-test-$$"
-    rm -rf "$work"
-    mkdir -p "$work"
-
-    local out
-    out="$(
-        . "$lib/constants.sh"
-        . "$lib/helpers.sh"
-        TU_LOG="$work/log"; : > "$TU_LOG"
-        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$TU_LOG"; }
-        . "$lib/sing_box_config_manager.sh"
-        . "$lib/sing_box_config_facade.sh"
-        get_outbound_tag_by_section() { echo "$1-out"; }
-        base='{"outbounds":[]}'
-        add() { sing_box_cf_add_proxy_outbound "$base" "$1" "$2" ""; }
-        field() { printf '%s' "$1" | jq -c "$2"; }
-
-        TU='tuic://11111111-2222-3333-4444-555555555555:p%40ss@tuic.example.com:8443?congestion_control=bbr&udp_relay_mode=native&alpn=h3&sni=tuic.example.com&allow_insecure=1#node'
-        NETSHIFT_SING_BOX_TAGS="with_quic,with_utls"
-        # a subscription or collected list of links: tuic:// and anytls:// are kept (an unknown scheme is not)
-        printf '%s\n' "$TU" 'anytls://pw@any.example.com:443?sni=any.example.com#any' 'hysteria://x@h.example.com:443#old' > "$work/list.txt"
-        (
-            get_sing_box_version() { echo "1.14.1"; }
-            normalize_subscription_to_singbox "$work/list.txt" "$work/list.json" lst > /dev/null 2>&1
-        )
-        echo "list-schemes=$(jq -c '[.outbounds[] | .type] | sort' "$work/list.json" 2> /dev/null)"
-        o="$(add s1 "$TU")"
-        echo "tuic=$(field "$o" '.outbounds[0] | [.type, .tag, .server, .server_port, .uuid, .password, .congestion_control, .udp_relay_mode]')"
-        echo "tuic-tls=$(field "$o" '.outbounds[0].tls | [.enabled, .server_name, .alpn, .insecure, has("utls")]')"
-        o="$(add s1 'tuic://11111111-2222-3333-4444-555555555555:pw@tuic.example.com?congestion_control=weird&udp_relay_mode=odd&fp=chrome')"
-        echo "tuic-defaults=$(field "$o" '.outbounds[0] | [.server_port, has("congestion_control"), has("udp_relay_mode"), (.tls | has("utls"))]')"
-        o="$(add s1 'tuic://tuic.example.com:443')"; rc=$?
-        echo "tuic-no-uuid=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
-        NETSHIFT_SING_BOX_TAGS="with_utls"
-        o="$(add s1 "$TU")"; rc=$?
-        echo "tuic-noquic=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
-        NETSHIFT_SING_BOX_TAGS="with_quic,with_utls"
-
-        AN='anytls://se%23cret@any.example.com:8443?sni=any.example.com&insecure=1&alpn=h2,http/1.1&fp=chrome#node'
-        NETSHIFT_SING_BOX_VERSION=1.12.22
-        o="$(add s2 "$AN")"
-        echo "anytls=$(field "$o" '.outbounds[0] | [.type, .tag, .server, .server_port, .password]')"
-        echo "anytls-tls=$(field "$o" '.outbounds[0].tls | [.enabled, .server_name, .alpn, .insecure, .utls.fingerprint]')"
-        o="$(add s2 'anytls://pw@any.example.com')"
-        echo "anytls-port=$(field "$o" '.outbounds[0].server_port')"
-        o="$(add s2 'anytls://any.example.com:443')"; rc=$?
-        echo "anytls-no-password=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
-        NETSHIFT_SING_BOX_VERSION=1.11.4
-        o="$(add s2 "$AN")"; rc=$?
-        echo "anytls-old-core=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
-        NETSHIFT_SING_BOX_VERSION=1.12.22
-
-        # the core accepts what is made (the test image core is 1.12 with QUIC)
-        if command -v sing-box > /dev/null 2>&1 && sing-box version 2> /dev/null | grep -q with_quic; then
-            o="$(add s1 "$TU")"
-            c="$(sing_box_cf_add_proxy_outbound "$o" s2 "$AN" "")"
-            printf '%s' "$c" | jq '. + {log:{level:"error"}, route:{final:"s1-out"}}' > "$work/c.json"
-            sing-box check -c "$work/c.json" > "$work/check.out" 2>&1 && echo "core-check=ok" || echo "core-check=failed: $(head -c 300 "$work/check.out")"
-        else
-            echo "core-check=ok"
-        fi
-    )"
-
-    _tu() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
-    _tu "a list of links keeps tuic and anytls and drops an unknown scheme" 'list-schemes=["anytls","tuic"]'
-    _tu "a TUIC link becomes a tuic outbound with the decoded password" 'tuic=["tuic","s1-out","tuic.example.com",8443,"11111111-2222-3333-4444-555555555555","p@ss","bbr","native"]'
-    _tu "its TLS comes from sni, alpn and allow_insecure, and has no uTLS" 'tuic-tls=[true,"tuic.example.com",["h3"],true,false]'
-    _tu "port 443 by default, unknown modes dropped, no fingerprint over QUIC" "tuic-defaults=[443,false,false,false]"
-    _tu "a TUIC link without a uuid is skipped" "tuic-no-uuid=1 unchanged=yes"
-    _tu "TUIC without QUIC in the core is skipped" "tuic-noquic=1 unchanged=yes"
-    _tu "an AnyTLS link becomes an anytls outbound" 'anytls=["anytls","s2-out","any.example.com",8443,"se#cret"]'
-    _tu "its TLS carries sni, alpn, insecure and the fingerprint" 'anytls-tls=[true,"any.example.com",["h2","http/1.1"],true,"chrome"]'
-    _tu "AnyTLS port 443 by default" "anytls-port=443"
-    _tu "an AnyTLS link without a password is skipped" "anytls-no-password=1 unchanged=yes"
-    _tu "AnyTLS on a core older than 1.12 is skipped" "anytls-old-core=1 unchanged=yes"
-    _tu "the core accepts the outbounds" "core-check=ok"
-    rm -rf "$work"
-}
 test_filter_keyword_alternatives() {
     header "Subscription keyword filters: several words in one entry (a|b)"
 
@@ -22235,6 +22388,406 @@ test_proxy_bootstrap() {
         fail "bootstrap-wired-into-sing_box_configure_dns:FAIL"
     fi
 }
+test_dns_section_pool() {
+    header "DNS section: several servers (dns_pool_server, dns_pool_mode)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$bin" ] || [ ! -r "$lib/sing_box_config_manager.sh" ]; then
+        fail "netshift bin / config manager not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+
+    local work="/tmp/netshift-dnssecpool-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        DP_LOG="$work/log"; : > "$DP_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$DP_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        for fn in configure_dns_section_rules _tag_last_dns_rule _dns_pool_collect_entry is_valid_dns_pool_timeout \
+            prune_dns_section_rules_without_domains; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        DP_VERSION="1.14.1"
+        is_sing_box_at_least() { is_min_package_version "$DP_VERSION" "$1"; }
+        get_sing_box_version() { echo "$DP_VERSION"; }
+        config_get() { eval "$1=\"\${DP_${2}_${3}:-$4}\""; }
+        config_get_bool() { eval "$1=\"\${DP_${2}_${3}:-$4}\""; }
+        config_list_foreach() { local _l _d; eval "_l=\"\${DP_${1}_${2}:-}\""; for _d in $_l; do "$3" "$_d"; done; }
+        sing_box_cf_add_dns_server() { # config type tag server resolver detour
+            printf '%s' "$1" | jq -c --arg t "$2" --arg tag "$3" --arg s "$4" --arg r "$5" --arg d "$6" \
+                '.dns.servers += [{type: $t, tag: $tag, server: $s} + (if $r != "" then {domain_resolver: $r} else {} end) + (if $d != "" then {detour: $d} else {} end)]'
+        }
+        base='{"dns":{"servers":[],"rules":[]}}'
+
+        # one line per rule: [action, server-or-response, service tag suffix]
+        rules() { printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" --arg p "$SB_SECTION_DNS_RULE_PREFIX" '
+            [.dns.rules[] | [.action, (.server // .match_response), ((.[$key] // "") | ltrimstr($p)), (.response_rcode // ""), (.race // false), (.rule_set // "")]]'; }
+        servers() { printf '%s' "$config" | jq -c '[.dns.servers[] | .tag]'; }
+        build() { # the handler's order: primary server, rules, then the routing patches the lists in
+            config="$base"
+            config=$(sing_box_cf_add_dns_server "$config" "${DP_corp_dns_type:-udp}" "dns-section-corp" "10.0.0.1" "" "$DP_DETOUR")
+            configure_dns_section_rules corp dns-section-corp "$DP_DETOUR"
+            SECTION_DNS_RULE_TAG="$SB_SECTION_DNS_RULE_PREFIX""corp"
+            [ "$DP_NOLIST" = 1 ] || config=$(sing_box_cm_patch_dns_route_rule "$config" "$SECTION_DNS_RULE_TAG" "rule_set" "corp-domains")
+            prune_dns_section_rules_without_domains
+        }
+        DP_DETOUR=""; DP_NOLIST=0
+
+        # single (default): one route rule to the server, as before
+        build; echo "single-rules=$(rules)"; echo "single-servers=$(servers)"
+        DP_corp_dns_pool_server="doh://dns.google/dns-query dot://one.one.one.one"
+        build; echo "single-ignores-list=$(rules)"
+
+        # priority: the others in order, evaluate + two respond rules each, the last server routed
+        DP_corp_dns_pool_mode=fallback
+        build
+        echo "fallback-rules=$(rules)"
+        echo "fallback-servers=$(servers)"
+        echo "fallback-server-2=$(printf '%s' "$config" | jq -c '.dns.servers[] | select(.tag == "dns-section-corp-2") | [.type, .server, .domain_resolver]')"
+
+        # parallel: every server evaluated, race rules for NOERROR then NXDOMAIN, the primary answers last
+        DP_corp_dns_pool_mode=race
+        build; echo "race-rules=$(rules)"
+
+        # a detour applies to all the servers
+        DP_DETOUR="main-out"; build
+        echo "detour-all=$(printf '%s' "$config" | jq -c '[.dns.servers[] | .detour]')"; DP_DETOUR=""
+
+        # the lists reach every evaluate and the final route rule, not the respond rules
+        build; echo "lists-patched=$(printf '%s' "$config" | jq -c '[.dns.rules[] | select(.rule_set != null) | .action]')"
+
+        # nothing usable: the single server, with a warning
+        DP_corp_dns_pool_server="bogus"; : > "$DP_LOG"; build
+        echo "no-valid-entry=$(rules) warned=$(grep -c 'no valid dns_pool_server' "$DP_LOG")"
+        DP_corp_dns_pool_server="doh://dns.google/dns-query"
+        DP_VERSION="1.12.22"; : > "$DP_LOG"; build
+        echo "old-core=$(rules) warned=$(grep -c 'needs sing-box' "$DP_LOG")"; DP_VERSION="1.14.1"
+        DP_corp_dns_pool_mode=bogus; : > "$DP_LOG"; build
+        echo "unknown-mode=$(rules) warned=$(grep -c 'unknown dns_pool_mode' "$DP_LOG")"
+        DP_corp_dns_pool_mode=race
+
+        # a section left with no domains drops its rules AND its servers (including the extra ones)
+        DP_NOLIST=1; build
+        echo "no-domains-rules=$(rules) servers=$(servers)"
+        DP_NOLIST=0
+
+        # an invalid timeout is said in the log and the default is used
+        DP_corp_dns_pool_mode=fallback; DP_corp_dns_pool_server="dot://one.one.one.one"
+        DP_corp_dns_pool_timeout=bogus; : > "$DP_LOG"; build
+        echo "bad-timeout-warned=$(grep -c 'invalid dns_pool_timeout' "$DP_LOG") rules=$(printf '%s' "$config" | jq -c '[.dns.rules[] | .timeout // "none"] | unique')"
+        DP_corp_dns_pool_timeout=""; unset DP_corp_dns_pool_timeout
+
+        # block_doh: a DoH server of the pool without a detour is blocked, and the log says so
+        DP_corp_dns_pool_server="doh://dns.google/dns-query"; DP_settings_block_doh=1
+        : > "$DP_LOG"; build; echo "blockdoh-no-detour-warned=$(grep -c 'DoH blocking is enabled' "$DP_LOG")"
+        DP_DETOUR="main-out"; : > "$DP_LOG"; build; echo "blockdoh-detour-warned=$(grep -c 'DoH blocking is enabled' "$DP_LOG")"; DP_DETOUR=""
+        DP_corp_dns_pool_server="dot://one.one.one.one"; : > "$DP_LOG"; build; echo "blockdoh-dot-warned=$(grep -c 'DoH blocking is enabled' "$DP_LOG")"
+        DP_settings_block_doh=0
+
+        # a section named like the first one plus a suffix is not touched by its prune: not a
+        # name that merely starts with it ("corp2"), nor one that continues it with a dash and
+        # something that is not a pool number ("corp-x"); the pool servers "corp-2" are its own
+        DP_corp_dns_pool_mode=race
+        config="$base"
+        config=$(sing_box_cf_add_dns_server "$config" udp "dns-section-corp" 10.0.0.1 "" "")
+        configure_dns_section_rules corp dns-section-corp ""
+        config=$(sing_box_cf_add_dns_server "$config" udp "dns-section-corp2" 10.0.0.2 "" "")
+        config=$(sing_box_cm_add_dns_route_rule "$config" "dns-section-corp2" "dns-section-rule-corp2")
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "dns-section-rule-corp2" "rule_set" "other-domains")
+        prune_dns_section_rules_without_domains
+        echo "neighbour-kept=$(servers)"
+        config="$base"
+        config=$(sing_box_cf_add_dns_server "$config" udp "dns-section-corp" 10.0.0.1 "" "")
+        configure_dns_section_rules corp dns-section-corp ""
+        config=$(sing_box_cf_add_dns_server "$config" udp "dns-section-corp-x" 10.0.0.3 "" "")
+        config=$(sing_box_cm_add_dns_route_rule "$config" "dns-section-corp-x" "dns-section-rule-corp-x")
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "dns-section-rule-corp-x" "rule_set" "x-domains")
+        prune_dns_section_rules_without_domains
+        echo "dash-neighbour-kept=$(servers)"
+    )"
+
+    _dp() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _dp "one server: one route rule, as before" 'single-rules=[["route","dns-section-corp","corp","",false,"corp-domains"]]'
+    _dp "...and only that server" 'single-servers=["dns-section-corp"]'
+    _dp "the list is ignored in the default mode" 'single-ignores-list=[["route","dns-section-corp","corp","",false,"corp-domains"]]'
+    _dp "priority: evaluate each server but the last, respond on NOERROR and NXDOMAIN, route the last" 'fallback-rules=[["evaluate","dns-section-corp","corp","",false,"corp-domains"],["respond","dns-section-response-corp-1","corp-respond","NOERROR",false,""],["respond","dns-section-response-corp-1","corp-respond","NXDOMAIN",false,""],["evaluate","dns-section-corp-2","corp","",false,"corp-domains"],["respond","dns-section-response-corp-2","corp-respond","NOERROR",false,""],["respond","dns-section-response-corp-2","corp-respond","NXDOMAIN",false,""],["route","dns-section-corp-3","corp","",false,"corp-domains"]]'
+    _dp "the extra servers are added next to the first" 'fallback-servers=["dns-section-corp","dns-section-corp-2","dns-section-corp-3"]'
+    _dp "a server given by name is looked up through the bootstrap server" 'fallback-server-2=["doh","dns.google/dns-query","bootstrap-dns-server"]'
+    _dp "parallel: evaluate all, race rules for NOERROR then NXDOMAIN, the first server answers last" 'race-rules=[["evaluate","dns-section-corp","corp","",false,"corp-domains"],["evaluate","dns-section-corp-2","corp","",false,"corp-domains"],["evaluate","dns-section-corp-3","corp","",false,"corp-domains"],["respond","dns-section-response-corp-1","corp-respond","NOERROR",true,""],["respond","dns-section-response-corp-2","corp-respond","NOERROR",true,""],["respond","dns-section-response-corp-3","corp-respond","NOERROR",true,""],["respond","dns-section-response-corp-1","corp-respond","NXDOMAIN",true,""],["respond","dns-section-response-corp-2","corp-respond","NXDOMAIN",true,""],["respond","dns-section-response-corp-3","corp-respond","NXDOMAIN",true,""],["route","dns-section-corp","corp","",false,"corp-domains"]]'
+    _dp "a detour applies to every server of the section" 'detour-all=["main-out","main-out","main-out"]'
+    _dp "the lists are patched into the evaluate and route rules only" 'lists-patched=["evaluate","evaluate","evaluate","route"]'
+    _dp "no valid extra server: the single server, with a warning" 'no-valid-entry=[["route","dns-section-corp","corp","",false,"corp-domains"]] warned=1'
+    _dp "an old core: the single server, with a warning" 'old-core=[["route","dns-section-corp","corp","",false,"corp-domains"]] warned=1'
+    _dp "an unknown mode: the single server, with a warning" 'unknown-mode=[["route","dns-section-corp","corp","",false,"corp-domains"]] warned=1'
+    _dp "a section with no domains drops all its rules and servers" 'no-domains-rules=[] servers=[]'
+    _dp "a section whose name starts with another's keeps its servers" 'neighbour-kept=["dns-section-corp2"]'
+    _dp "a name that continues another's with a dash and a non-number keeps its servers too" 'dash-neighbour-kept=["dns-section-corp-x"]'
+    _dp "an invalid timeout is said in the log, the default is used" 'bad-timeout-warned=1 rules=["2s","none"]'
+    _dp "block_doh: a DoH server of the pool without a detour is warned about" "blockdoh-no-detour-warned=1"
+    _dp "...not when it goes through a detour" "blockdoh-detour-warned=0"
+    _dp "...nor for a server that is not DoH" "blockdoh-dot-warned=0"
+
+    rm -rf "$work"
+}
+
+test_apply_config() {
+    header "Applying a configuration change: restart only when the service depends on it"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local initscript="${NETSHIFT_SRC}/etc/init.d/netshift"
+    if ! command -v uci > /dev/null 2>&1 || [ ! -r "$lib/applyconfig.sh" ] || [ ! -r "$bin" ]; then
+        skip "uci, applyconfig.sh or the netshift bin not available"
+        return
+    fi
+
+    local work="/tmp/netshift-applycfg-$$"
+    rm -rf "$work"
+    mkdir -p "$work/uci"
+    cat > "$work/uci/netshift" << 'CF'
+config settings 'settings'
+	option dns_type 'doh'
+	option update_notice '1'
+	option latency_test_url 'https://example.com/204'
+	option shutdown_correctly '0'
+
+config section 'main'
+	option connection_type 'proxy'
+	list user_domains 'a.com'
+CF
+    # a stand-in for the init script: it only records that it was asked to restart
+    printf '#!/bin/sh\necho "$1" >> "%s/restarts"\n' "$work" > "$work/init"
+    chmod +x "$work/init"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        log() { printf '%s\n' "$1" >> "$work/log"; }
+        uci() { command uci -c "$work/uci" "$@"; }
+        NETSHIFT_INIT="$work/init"
+        . "$lib/applyconfig.sh"
+        # the production path of the hash is the one under test
+        config_applied_hash_clear
+        n() { wc -l < "$work/restarts" | tr -d ' '; }
+
+        : > "$work/restarts"
+        apply_config_change
+        echo "no-hash-restarts=$(n)"
+        config_applied_hash_save
+        h0="$(cat "$CONFIG_APPLIED_HASH_FILE")"
+        echo "hash-saved=$([ -n "$h0" ] && echo yes || echo no)"
+        echo "hash-file-mode=$(ls -l "$CONFIG_APPLIED_HASH_FILE" | cut -c1-10)"
+
+        : > "$work/restarts"
+        uci -q set netshift.settings.shutdown_correctly='1'
+        uci -q set netshift.settings.update_notice='0'
+        uci -q set netshift.settings.wget_ipv4_mode='on'
+        uci -q commit netshift
+        apply_config_change
+        echo "ignored-options-restarts=$(n)"
+        echo "ignored-options-hash-same=$([ "$(config_runtime_hash)" = "$h0" ] && echo yes || echo no)"
+        echo "ignored-logged=$(grep -c 'is not restarted' "$work/log")"
+
+        # the options of the monitor, the dashboard and the component installer
+        config_applied_hash_save
+        : > "$work/restarts"
+        uci -q set netshift.settings.priority_check_interval='60'
+        uci -q set netshift.settings.latency_test_url='https://example.org/204'
+        uci -q set netshift.main.pin_guard='1'
+        uci -q set netshift.main.priority_mode='1'
+        uci -q commit netshift
+        apply_config_change
+        echo "monitor-options-restarts=$(n)"
+
+        : > "$work/restarts"
+        uci -q set netshift.settings.dns_type='udp'
+        uci -q commit netshift
+        apply_config_change
+        echo "dns-change-restarts=$(n)"
+
+        config_applied_hash_save
+        : > "$work/restarts"
+        uci -q add_list netshift.main.user_domains='b.com'
+        uci -q commit netshift
+        apply_config_change
+        echo "section-change-restarts=$(n)"
+
+        # the service is down (stopped, or a start that failed): the hash is forgotten, so putting
+        # the hashed options back to what they were at the last good start (reverting the change that
+        # broke the start) does not pass for "only options that need no restart"
+        config_applied_hash_save
+        uci -q set netshift.settings.dns_type='tcp'
+        uci -q commit netshift
+        config_applied_hash_clear
+        : > "$work/restarts"
+        uci -q set netshift.settings.dns_type='udp'
+        uci -q commit netshift
+        apply_config_change
+        echo "down-service-restarts=$(n)"
+        echo "hash-gone-after-clear=$([ -e "$CONFIG_APPLIED_HASH_FILE" ] && echo no || echo yes)"
+        rm -f "$CONFIG_APPLIED_HASH_FILE"
+    )"
+
+    # start() forgets the hash before it starts and saves it only after a successful start; stop() forgets it
+    local start_body stop_body
+    start_body="$(awk '/^start\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+    stop_body="$(awk '/^stop\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+    out="$out
+start-clears-before-start_main=$(printf '%s\n' "$start_body" | awk '/config_applied_hash_clear/{c=NR} /^    start_main/{s=NR} END{print (c && s && c < s) ? "yes" : "no"}')
+start-saves-after-success=$(printf '%s\n' "$start_body" | awk '/^    start_main/{s=NR} /return "\$start_rc"/{r=NR} /config_applied_hash_save/{v=NR} END{print (s && r && v && v > r) ? "yes" : "no"}')
+stop-clears=$(printf '%s\n' "$stop_body" | grep -c 'config_applied_hash_clear')
+trigger-wired=$(grep -cF 'procd_add_config_trigger "config.change" "$NAME" /usr/bin/netshift apply_config' "$initscript" 2> /dev/null)
+command-wired=$(grep -c '^apply_config)' "$bin")"
+
+    _ac() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _ac "no saved hash (not started by NetShift): restart as before" "no-hash-restarts=1"
+    _ac "the hash is saved at start" "hash-saved=yes"
+    _ac "...readable by root only" "hash-file-mode=-rw-------"
+    _ac "only the notice, an extra option of the downloads and the shutdown flag changed: no restart" "ignored-options-restarts=0"
+    _ac "...the hash of the configuration stays the same" "ignored-options-hash-same=yes"
+    _ac "...and the log says why nothing restarted" "ignored-logged=1"
+    _ac "the options of the monitor (interval, pin guard, priority mode) and the latency URL: no restart" "monitor-options-restarts=0"
+    _ac "a DNS option changed: restart" "dns-change-restarts=1"
+    _ac "a section changed: restart" "section-change-restarts=1"
+    _ac "the service is down: a change that restores the hashed options still restarts it" "down-service-restarts=1"
+    _ac "...because the hash is forgotten when the service is not running" "hash-gone-after-clear=yes"
+    _ac "start() forgets the hash before it starts the service" "start-clears-before-start_main=yes"
+    _ac "...and saves it only after a start that succeeded" "start-saves-after-success=yes"
+    _ac "stop() forgets the hash" "stop-clears=1"
+    _ac "procd calls netshift apply_config when the configuration changes" "trigger-wired=1"
+    _ac "...and the command exists" "command-wired=1"
+    rm -rf "$work"
+}
+
+test_tuic_anytls() {
+    header "TUIC and AnyTLS links"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/sing_box_config_facade.sh" ]; then
+        fail "facade not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+
+    local work="/tmp/netshift-tuic-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        TU_LOG="$work/log"; : > "$TU_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$TU_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        . "$lib/sing_box_config_facade.sh"
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        base='{"outbounds":[]}'
+        add() { sing_box_cf_add_proxy_outbound "$base" "$1" "$2" ""; }
+        field() { printf '%s' "$1" | jq -c "$2"; }
+
+        TU='tuic://11111111-2222-3333-4444-555555555555:p%40ss@tuic.example.com:8443?congestion_control=bbr&udp_relay_mode=native&alpn=h3&sni=tuic.example.com&allow_insecure=1#node'
+        NETSHIFT_SING_BOX_TAGS="with_quic,with_utls"
+        # a subscription or collected list of links: tuic:// and anytls:// are kept (an unknown scheme is not)
+        printf '%s\n' "$TU" 'anytls://pw@any.example.com:443?sni=any.example.com#any' 'hysteria://x@h.example.com:443#old' > "$work/list.txt"
+        (
+            get_sing_box_version() { echo "1.14.1"; }
+            normalize_subscription_to_singbox "$work/list.txt" "$work/list.json" lst > /dev/null 2>&1
+        )
+        echo "list-schemes=$(jq -c '[.outbounds[] | .type] | sort' "$work/list.json" 2> /dev/null)"
+        o="$(add s1 "$TU")"
+        echo "tuic=$(field "$o" '.outbounds[0] | [.type, .tag, .server, .server_port, .uuid, .password, .congestion_control, .udp_relay_mode]')"
+        echo "tuic-tls=$(field "$o" '.outbounds[0].tls | [.enabled, .server_name, .alpn, .insecure, has("utls")]')"
+        o="$(add s1 'tuic://11111111-2222-3333-4444-555555555555:pw@tuic.example.com?congestion_control=weird&udp_relay_mode=odd&fp=chrome')"
+        echo "tuic-defaults=$(field "$o" '.outbounds[0] | [.server_port, has("congestion_control"), has("udp_relay_mode"), (.tls | has("utls"))]')"
+        o="$(add s1 'tuic://tuic.example.com:443')"; rc=$?
+        echo "tuic-no-uuid=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        NETSHIFT_SING_BOX_TAGS="with_utls"
+        o="$(add s1 "$TU")"; rc=$?
+        echo "tuic-noquic=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        NETSHIFT_SING_BOX_TAGS="with_quic,with_utls"
+
+        AN='anytls://se%23cret@any.example.com:8443?sni=any.example.com&insecure=1&alpn=h2,http/1.1&fp=chrome#node'
+        NETSHIFT_SING_BOX_VERSION=1.12.22
+        o="$(add s2 "$AN")"
+        echo "anytls=$(field "$o" '.outbounds[0] | [.type, .tag, .server, .server_port, .password]')"
+        echo "anytls-tls=$(field "$o" '.outbounds[0].tls | [.enabled, .server_name, .alpn, .insecure, .utls.fingerprint]')"
+        o="$(add s2 'anytls://pw@any.example.com')"
+        echo "anytls-port=$(field "$o" '.outbounds[0].server_port')"
+        o="$(add s2 'anytls://any.example.com:443')"; rc=$?
+        echo "anytls-no-password=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        NETSHIFT_SING_BOX_VERSION=1.11.4
+        o="$(add s2 "$AN")"; rc=$?
+        echo "anytls-old-core=$rc unchanged=$([ "$o" = "$base" ] && echo yes || echo no)"
+        NETSHIFT_SING_BOX_VERSION=1.12.22
+
+        # the core accepts what is made (the test image core is 1.12 with QUIC)
+        if command -v sing-box > /dev/null 2>&1 && sing-box version 2> /dev/null | grep -q with_quic; then
+            o="$(add s1 "$TU")"
+            c="$(sing_box_cf_add_proxy_outbound "$o" s2 "$AN" "")"
+            printf '%s' "$c" | jq '. + {log:{level:"error"}, route:{final:"s1-out"}}' > "$work/c.json"
+            sing-box check -c "$work/c.json" > "$work/check.out" 2>&1 && echo "core-check=ok" || echo "core-check=failed: $(head -c 300 "$work/check.out")"
+        else
+            echo "core-check=ok"
+        fi
+    )"
+
+    _tu() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _tu "a list of links keeps tuic and anytls and drops an unknown scheme" 'list-schemes=["anytls","tuic"]'
+    _tu "a TUIC link becomes a tuic outbound with the decoded password" 'tuic=["tuic","s1-out","tuic.example.com",8443,"11111111-2222-3333-4444-555555555555","p@ss","bbr","native"]'
+    _tu "its TLS comes from sni, alpn and allow_insecure, and has no uTLS" 'tuic-tls=[true,"tuic.example.com",["h3"],true,false]'
+    _tu "port 443 by default, unknown modes dropped, no fingerprint over QUIC" "tuic-defaults=[443,false,false,false]"
+    _tu "a TUIC link without a uuid is skipped" "tuic-no-uuid=1 unchanged=yes"
+    _tu "TUIC without QUIC in the core is skipped" "tuic-noquic=1 unchanged=yes"
+    _tu "an AnyTLS link becomes an anytls outbound" 'anytls=["anytls","s2-out","any.example.com",8443,"se#cret"]'
+    _tu "its TLS carries sni, alpn, insecure and the fingerprint" 'anytls-tls=[true,"any.example.com",["h2","http/1.1"],true,"chrome"]'
+    _tu "AnyTLS port 443 by default" "anytls-port=443"
+    _tu "an AnyTLS link without a password is skipped" "anytls-no-password=1 unchanged=yes"
+    _tu "AnyTLS on a core older than 1.12 is skipped" "anytls-old-core=1 unchanged=yes"
+    _tu "the core accepts the outbounds" "core-check=ok"
+    rm -rf "$work"
+}
+
 test_update_repo() {
     header "NetShift update source (update_repo) and GitHub mirrors (update_mirror)"
 
@@ -22512,11 +23065,13 @@ main() {
             test_telegram_fallback
             test_naive_component
             test_collected_lists
-            test_update_repo
-            test_tuic_anytls
+            test_apply_config
+            test_dns_section_pool
             test_filter_keyword_alternatives
             test_install_download
             test_proxy_bootstrap
+            test_tuic_anytls
+            test_update_repo
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -22609,14 +23164,16 @@ main() {
         tgfallback)  test_telegram_fallback ;;
         naivecomp)   test_naive_component ;;
         collected)   test_collected_lists ;;
-        updaterepo)  test_update_repo ;;
-        tuicanytls)  test_tuic_anytls ;;
+        applyconfig) test_apply_config ;;
+        dnssectionpool) test_dns_section_pool ;;
         kwalt)       test_filter_keyword_alternatives ;;
         installdl)   test_install_download ;;
         proxybootstrap) test_proxy_bootstrap ;;
+        tuicanytls)  test_tuic_anytls ;;
+        updaterepo)  test_update_repo ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra tuicanytls kwalt installdl proxybootstrap updaterepo"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo"
             exit 1
             ;;
     esac
