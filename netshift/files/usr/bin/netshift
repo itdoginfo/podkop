@@ -2182,13 +2182,62 @@ nft_add_quic_block() {
     nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" udp dport 443 counter reject with icmpx type port-unreachable
 }
 
+# Returns 0 when the port $2 is already covered by the port list $1 ("80,443, 1000-2000";
+# a range may be written with "-" or ":").
+_port_list_has() {
+    local list="$1"
+    local port="$2"
+    local item low high
+
+    for item in $(printf '%s' "$list" | tr ',' ' '); do
+        case "$item" in
+        '' | *[!0-9:-]*) continue ;;
+        *[-:]*)
+            low="${item%%[-:]*}"
+            high="${item##*[-:]}"
+            # leading zeros would make ash read the number as octal: cut them textually
+            low="${low#"${low%%[!0]*}"}"
+            high="${high#"${high%%[!0]*}"}"
+            [ -n "$high" ] || continue
+            [ "${low:-0}" -le "$port" ] && [ "$port" -le "$high" ] && return 0
+            ;;
+        *)
+            [ "${item#"${item%%[!0]*}"}" = "$port" ] && return 0
+            ;;
+        esac
+    done
+    return 1
+}
+
+# The value of one port-list option. Wi-Fi Calling (wifi_calling_direct) adds the IKE and NAT-T
+# ports of the ePDG tunnel (WIFI_CALLING_DIRECT_UDP_PORTS) to the UDP list that goes out
+# directly: a phone's call over Wi-Fi must not be tunnelled to a foreign exit, where the
+# operator does not accept it. A port the list already covers is not added a second time
+# (an overlapping element makes nft refuse the set).
+port_rules_value() {
+    local list_kind="$1"
+    local network="$2"
+    local value wifi_calling port
+
+    config_get value "settings" "${list_kind}_${network}_ports"
+    if [ "$list_kind" = "direct" ] && [ "$network" = "udp" ]; then
+        config_get_bool wifi_calling "settings" "wifi_calling_direct" 0
+        if [ "$wifi_calling" -eq 1 ]; then
+            for port in $WIFI_CALLING_DIRECT_UDP_PORTS; do
+                _port_list_has "$value" "$port" || value="${value:+$value,}$port"
+            done
+        fi
+    fi
+    printf '%s' "$value"
+}
+
 sing_box_configure_port_rules() {
     local network list_kind option value tag invert
 
     for network in tcp udp; do
         for list_kind in direct proxy_only; do
             option="${list_kind}_${network}_ports"
-            config_get value "settings" "$option"
+            value="$(port_rules_value "$list_kind" "$network")"
             [ -n "$value" ] || continue
 
             if ! parse_port_list "$value"; then
@@ -2229,7 +2278,7 @@ nft_add_port_rules() {
     for network in tcp udp; do
         for list_kind in direct proxy_only; do
             option="${list_kind}_${network}_ports"
-            config_get value "settings" "$option"
+            value="$(port_rules_value "$list_kind" "$network")"
             [ -n "$value" ] || continue
             parse_port_list "$value" || continue
 
