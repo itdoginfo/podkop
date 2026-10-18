@@ -19275,6 +19275,10 @@ test_update_notice() {
         . "$lib/constants.sh"
         . "$lib/update_notice.sh"
         UPDATE_NOTICE_FILE="$work/notice.json"
+        # the versions the router runs; the stored answers are made for them
+        NETSHIFT_VERSION="0.9.10"
+        SB_NOW="1.12.0-extended-1"
+        get_sing_box_version() { echo "$SB_NOW"; }
 
         NOTICE_ENABLED=1
         config_get_bool() { eval "$1=\"$NOTICE_ENABLED\""; }
@@ -19327,6 +19331,36 @@ test_update_notice() {
         echo 'not json' > "$UPDATE_NOTICE_FILE"
         echo "garbage=$(get_update_notice | jq -c '[.stale, .netshift]')"
 
+        # an answer made for another version: after an update the notice must not keep
+        # offering the old step (the answer is kept for a day)
+        printf '%s\n' '{"checked":'"$(date +%s)"',"netshift":{"success":true,"current_version":"0.9.10","latest_version":"0.9.12","status":"outdated"},"sing_box":{"success":true,"current_version":"1.12.0-extended-1","latest_version":"1.12.0-extended-2","status":"outdated"}}' > "$UPDATE_NOTICE_FILE"
+        echo "same-version=$(get_update_notice | jq -c '[.stale, .netshift.latest_version, .sing_box.latest_version]')"
+        NETSHIFT_VERSION="0.9.12"
+        echo "netshift-updated=$(get_update_notice | jq -c '[.stale, .netshift, .sing_box.latest_version]')"
+        NETSHIFT_VERSION="0.9.10"; SB_NOW="1.12.0-extended-2"
+        echo "core-updated=$(get_update_notice | jq -c '[.stale, .netshift.latest_version, .sing_box]')"
+        SB_NOW="1.12.0-extended-1"
+        # ...and with GitHub unreachable right after the update: the refresh keeps nothing that
+        # names the old version, so the next page load does not ask for a refresh again
+        updates_check_netshift() { echo '{"success":false}'; return 1; }
+        updates_check_sing_box_lite() { echo '{"success":false}'; return 1; }
+        VARIANT=extended_lite
+        printf '%s\n' '{"checked":1000,"netshift":{"success":true,"current_version":"0.9.10","latest_version":"0.9.12","status":"outdated"},"sing_box":{"success":true,"current_version":"1.12.0-extended-1","latest_version":"1.12.0-extended-2","status":"outdated"}}' > "$UPDATE_NOTICE_FILE"
+        NETSHIFT_VERSION="0.9.12"
+        update_notice_refresh
+        echo "offline-after-update=$(get_update_notice | jq -c '[.stale, .netshift, .sing_box.latest_version]')"
+        NETSHIFT_VERSION="0.9.10"
+        updates_check_netshift() { printf '%s\n' "$NS_JSON"; }
+        updates_check_sing_box_lite() { echo "LITE-CALLED" >> "$work/calls"; printf '%s\n' "$SB_JSON"; }
+        # no answer at all and GitHub unreachable: the checks are asked once, not twice
+        rm -f "$UPDATE_NOTICE_FILE" "$work/calls"
+        updates_check_sing_box_lite() { echo "LITE-CALLED" >> "$work/calls"; echo '{"success":false}'; return 1; }
+        updates_check_netshift() { echo '{"success":false}'; return 1; }
+        update_notice_refresh
+        echo "offline-asked-once=$(grep -c LITE-CALLED "$work/calls")"
+        updates_check_netshift() { printf '%s\n' "$NS_JSON"; }
+        updates_check_sing_box_lite() { echo "LITE-CALLED" >> "$work/calls"; printf '%s\n' "$SB_JSON"; }
+
         # the background refresh: starts once, a second call while it runs does nothing
         rm -f "$UPDATE_NOTICE_FILE" "$UPDATE_NOTICE_FILE.lock"
         updates_check_netshift() { sleep 2; printf '%s\n' "$NS_JSON"; }
@@ -19358,6 +19392,11 @@ test_update_notice() {
     _un "...and does not ask again at once" "offline-not-stale=false"
     _un "nothing known and unreachable gives empty parts" "empty=[null,null]"
     _un "a broken file reads as nothing known" "garbage=[true,null]"
+    _un "an answer for the installed versions is shown" 'same-version=[false,"0.9.12","1.12.0-extended-2"]'
+    _un "after a NetShift update its old answer is dropped and a refresh is due" 'netshift-updated=[true,null,"1.12.0-extended-2"]'
+    _un "after a core update its old answer is dropped and a refresh is due" 'core-updated=[true,"0.9.12",null]'
+    _un "offline right after an update: the old part is gone and no refresh is asked for again" 'offline-after-update=[false,null,"1.12.0-extended-2"]'
+    _un "nothing known and GitHub unreachable: the checks run once" "offline-asked-once=1"
     _un "the background refresh starts" 'async-first={"started":true}'
     _un "...once at a time" 'async-second={"started":false}'
     _un "...and stores its answer" 'async-done="0.9.12"'
