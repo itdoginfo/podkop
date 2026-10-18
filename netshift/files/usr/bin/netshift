@@ -2539,7 +2539,10 @@ dnsmasq_configure() {
     fi
 
     if dnsmasq_is_configured_for_netshift; then
-        log "dnsmasq is already configured for sing-box"
+        # A stop with block_leaks on leaves dnsmasq configured (see dnsmasq_should_be_restored),
+        # so this start finds it so: the forwards by zone may have changed since, and are
+        # brought in line here instead of staying as they were.
+        dnsmasq_sync_servers
         return 0
     fi
 
@@ -2577,6 +2580,26 @@ dnsmasq_configure() {
     uci_set "dhcp" "@dnsmasq[0]" "netshift_configured" 1
     uci_commit "dhcp"
 
+    /etc/init.d/dnsmasq restart
+}
+
+# The server list of a dnsmasq that NetShift has configured: the DNS inbound of sing-box and the
+# forwards by zone of the settings. Rewritten (and dnsmasq restarted) only when it differs.
+dnsmasq_sync_servers() {
+    local current wanted
+
+    current="$(uci_get "dhcp" "@dnsmasq[0]" "server" | tr -s ' \n' '  ' | sed 's/^ //;s/ $//')"
+    wanted="$(printf '%s\n%s\n' "$SB_DNS_INBOUND_ADDRESS" "$(dns_forward_entries)" | sed '/^$/d' | tr '\n' ' ' | sed 's/ $//')"
+    if [ "$current" = "$wanted" ]; then
+        log "dnsmasq is already configured for sing-box"
+        return 0
+    fi
+
+    log "dnsmasq is configured for sing-box; updating its servers (the forwards by zone changed)"
+    uci_remove_quiet "dhcp" "@dnsmasq[0]" "server"
+    uci_add_list "dhcp" "@dnsmasq[0]" "server" "$SB_DNS_INBOUND_ADDRESS"
+    dns_forward_apply
+    uci_commit "dhcp"
     /etc/init.d/dnsmasq restart
 }
 

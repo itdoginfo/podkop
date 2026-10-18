@@ -16422,10 +16422,16 @@ TEST_RESOLVFILE="/tmp/resolv.conf.d/resolv.conf.auto"
 TEST_RESOLV_EXISTS=0
 log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOG_FILE"; }
 file_exists() { [ "$1" = "$TEST_RESOLVFILE" ] && [ "$TEST_RESOLV_EXISTS" = 1 ]; }
-config_get() { eval "$1=\"${TEST_SHUTDOWN:-0}\""; }
+# shutdown_correctly from the test; any other option as config_load stored it (the forwards by zone)
+config_get() {
+    case "$3" in
+    shutdown_correctly) eval "$1=\"${TEST_SHUTDOWN:-0}\"" ;;
+    *) eval "$1=\"\${CONFIG_${2}_${3}:-${4:-}}\"" ;;
+    esac
+}
 kill_switch_enabled() { [ "${TEST_BLOCK_LEAKS:-0}" = 1 ]; }
 DLEOF
-        for fn in backup_dnsmasq_config_option uci_remove_quiet dnsmasq_is_configured_for_netshift dnsmasq_has_backup dnsmasq_should_be_restored dnsmasq_configure dnsmasq_restore; do
+        for fn in backup_dnsmasq_config_option uci_remove_quiet dnsmasq_is_configured_for_netshift dnsmasq_has_backup dnsmasq_should_be_restored dnsmasq_configure dnsmasq_sync_servers dnsmasq_restore; do
             awk -v fn="$fn" '$0 ~ "^"fn"\\(\\) \\{"{p=1} p{print} p&&/^}/{exit}' "$bin" | sed 's|/etc/init.d/dnsmasq restart|:|'
         done
         cat << 'DLEOF'
@@ -16557,6 +16563,18 @@ check completed-ownership-sentinel "$decision" yes
 TEST_BLOCK_LEAKS=1
 dnsmasq_should_be_restored && decision=yes || decision=no
 check block-leaks-defers-dns-restore "$decision" no
+# the stop with block_leaks left dnsmasq configured: the next start still brings the forwards by
+# zone in line (one added, then removed), and the backup of the original servers stays
+: >> /etc/config/netshift
+reset_fixture
+dnsmasq_configure force
+uci -q add_list netshift.settings.dns_forward='corp.lan 10.0.0.53'; uci commit netshift; config_load netshift
+dnsmasq_configure force
+check block-leaks-start-adds-new-forward "$(servers)" 127.0.0.42,/corp.lan/10.0.0.53
+uci -q delete netshift.settings.dns_forward; uci commit netshift; config_load netshift
+dnsmasq_configure force
+check block-leaks-start-drops-removed-forward "$(servers)" 127.0.0.42
+check block-leaks-start-keeps-original-backup "$(uci -q get dhcp.@dnsmasq[0].netshift_server | tr ' ' ',')" /alpha.lan/192.0.2.53,/beta.lan/198.51.100.53
 TEST_BLOCK_LEAKS=0
 dnsmasq_restore
 dnsmasq_should_be_restored && decision=yes || decision=no
@@ -16590,7 +16608,7 @@ DLEOF
     done <<EOF
 $out
 EOF
-    if [ "$checks" -ne 28 ]; then fail "dnslifecycle expected 28 assertions, got $checks"; fi
+    if [ "$checks" -ne 31 ]; then fail "dnslifecycle expected 31 assertions, got $checks"; fi
     if [ "$driver_status" -ne 0 ] && ! printf '%s\n' "$out" | grep -q ':FAIL'; then fail "dnslifecycle driver exited with status $driver_status"; fi
     rm -f "$saved" "$saved_netshift" "$drv"
 }
