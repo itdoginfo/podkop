@@ -8,20 +8,10 @@
 # Run specific test:
 #   docker compose -f tests/docker-compose.yml run --rm netshift-test <test-name>
 #
-# Test names: all, deps, syntax, config, helpers, jq, cm, sb, proxylink, nft,
-#             nftv6, selmark, isolation, monfd, unsupported, extgate, vlessenc, textlist,
-#             chunkcheck, diagnostics, subscription, fastest, insecure, rejected,
-#             jobstate, selfheal, dnsdetour, ecssubnet, suburlopt, subcron, globalproxy, realitymlkem, sectiondisabled, cachebust,
-#             bittorrent, dnssection, utfilters, stablecheck, extcheck, sbextarch, sbextlite, netshiftcheck, latesttag,
-#             ghredirect, selfupdate, backupguard, hotreload, cachepersist,
-#             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade, environment, mixedauth, domrules, routecheck, paramfilters, ecsauto, dnsservers, connections, lan, updatenotice, snapshots, pinguard, dnsbench,
-#             scalaropt, emptylink,
-#             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade, environment,
-#             scalaropt, emptylink, dnsforward,
-#             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade, environment,
-#             scalaropt, emptylink, urlint,
-#             domsep, domcase, updatepkg, ipv6routing, latencyurl, geoip, compproxy, httpupgrade,
-#             scalaropt, emptylink, dnshijack, subinfo, portrules, configlint, naive, corecaps, dnsroute, dnssectionpool, ipv6dnspolicy, sectiondns, xhttpextra, naivecomp, tuicanytls, collected, kwalt, installdl, proxybootstrap, applyconfig, updaterepo,
+# Test names: all, the name of a test function without its test_ prefix
+#             (hy2_hop for test_hy2_hop), or one of the short names in main() of
+#             tests/entrypoint.sh (hy2hop). A new test needs no registration: defining a
+#             test_* function adds it to "all".
 # ──────────────────────────────────────────────────────────────────
 
 services:
