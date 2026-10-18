@@ -14501,6 +14501,7 @@ fi
 # Stubs replace only the process boundary (pidof/kill), the full restart and
 # the heavy config generator. The generator stub behaves like the real one:
 # it writes the config, or exits the shell when sing-box rejects it.
+eval "$(extract sing_box_pids)"
 eval "$(extract get_sing_box_daemon_pid)"
 eval "$(extract reload_sing_box_config_in_place)"
 
@@ -14522,9 +14523,18 @@ uci_get() {
 # helpers NetShift spawns (`check`) on NetShift's config, 4242 is the daemon the
 # sing-box init script starts (argv as seen on a router), 4243 is another
 # `sing-box run` on a config that is not NetShift's.
+# The lite core runs as /usr/libexec/sing-box-core: pidof knows it by that name (HR_CORE_PIDS).
 pidof() {
-    [ "$1" = "sing-box" ] && [ -n "$HR_PIDS" ] || return 1
-    printf '%s\n' "$HR_PIDS"
+    local name found=""
+    for name in "$@"; do
+        case "$name" in
+        sing-box) found="$found $HR_PIDS" ;;
+        sing-box-core) found="$found ${HR_CORE_PIDS:-}" ;;
+        esac
+    done
+    found="$(echo $found)"
+    [ -n "$found" ] || return 1
+    printf '%s\n' "$found"
 }
 read_proc_cmdline() {
     eval "printf '%s\n' \"\${HR_CMDLINE_$1:-}\""
@@ -14563,6 +14573,7 @@ hr_reset() {
     rm -f "$HR_DIR/kill.log" "$HR_DIR/restart.log" "$HR_DIR/build.log"
     printf '%s' '{"generation":1}' > "$hr_cfg"
     HR_PIDS="4241 4242"
+    HR_CORE_PIDS=""
     HR_CONFFILE="$hr_cfg"
     HR_KILL_RC=0
     HR_KILL_DIES=0
@@ -14619,6 +14630,26 @@ if [ "$rc" -eq 0 ] && [ "$(hr_count build)" = "1" ] && [ "$(hr_count restart)" =
     echo 'hr-reload-changed-config-sighup:OK'
 else
     echo "hr-reload-changed-config-sighup(rc=$rc build=$(hr_count build) restart=$(hr_count restart) kill='$(hr_kills)'):FAIL"
+fi
+
+# CASE R4b: the lite core (the wrapper execs /usr/libexec/sing-box-core): the daemon is found
+#           under that name and reloaded in place, not restarted.
+hr_reset
+HR_PIDS=""
+HR_CORE_PIDS="4250"
+HR_CMDLINE_4250="/bin/sh
+/usr/libexec/sing-box-core
+run
+-c
+$hr_cfg
+-D
+/usr/share/sing-box"
+reload_sing_box_config_in_place
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(hr_count restart)" = "0" ] && [ "$(hr_kills)" = "-HUP 4250" ]; then
+    echo 'hr-reload-lite-core-sighup:OK'
+else
+    echo "hr-reload-lite-core-sighup(rc=$rc restart=$(hr_count restart) kill='$(hr_kills)'):FAIL"
 fi
 
 # CASE R5: the signal cannot be delivered -> fall back to the full restart.
@@ -22016,6 +22047,7 @@ test_naive_component() {
         updates_download_to_file() { cp "$ARCHIVE" "$2"; }
         xz() { [ "$1" = "-dc" ] && gzip -dc "$2"; }
         pidof() { return 1; }
+        eval "$(awk '/^sing_box_pids\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "${NETSHIFT_SRC}/usr/bin/netshift")"
         updates_restart_netshift() { echo restarted >> "$NC_LOG"; }
 
         j() { jq -c "$1"; }
@@ -22075,7 +22107,7 @@ test_naive_component() {
         printf '#!/bin/sh\necho "naive 1.2.3"\n' > "$work/fixture/naiveproxy-v1.2.3-4-openwrt-x86_64/naive"
         tar -czf "$ARCHIVE" -C "$work/fixture" naiveproxy-v1.2.3-4-openwrt-x86_64
         NC_DIGEST="sha256:$(sha256sum "$ARCHIVE" | awk '{print $1}')"
-        pidof() { return 0; }
+        pidof() { echo 4242; }
         : > "$NC_LOG"
         naive_component_install > /dev/null
         echo "restart-when-running=$(grep -c restarted "$NC_LOG")"

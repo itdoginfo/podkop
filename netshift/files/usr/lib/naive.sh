@@ -355,7 +355,7 @@ naive_component_remove() {
 # NetShift is restarted only when it runs, so that the links of the sections are built
 # again with (or without) the client.
 naive_component_restart_service() {
-    if pidof sing-box > /dev/null 2>&1; then
+    if [ -n "$(sing_box_pids)" ]; then
         updates_restart_netshift
     fi
 }

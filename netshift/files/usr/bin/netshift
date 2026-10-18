@@ -1780,7 +1780,7 @@ monitor_sing_box() {
 }
 
 sing_box_process_exists() {
-    pgrep "sing-box" > /dev/null 2>&1 || pidof sing-box > /dev/null 2>&1
+    pgrep "sing-box" > /dev/null 2>&1 || [ -n "$(sing_box_pids)" ]
 }
 
 reload() {
@@ -3133,11 +3133,17 @@ read_proc_cmdline() {
 # take the signal just as well and apply nothing. Arguments are matched whole,
 # not as substrings of the command line, so flags and paths cannot produce a
 # false positive.
+# The pids of the sing-box processes. The lite core runs as /usr/libexec/sing-box-core (the
+# /usr/bin/sing-box wrapper execs it), and `pidof sing-box` does not see that one.
+sing_box_pids() {
+    pidof sing-box "${UPDATES_SING_BOX_LITE_CORE_BIN##*/}" 2>/dev/null
+}
+
 get_sing_box_daemon_pid() {
     local config_path="$1"
     local pid
 
-    for pid in $(pidof sing-box 2>/dev/null); do
+    for pid in $(sing_box_pids); do
         if read_proc_cmdline "$pid" | awk -v config_path="$config_path" '
             $0 == "run" { run = 1 }
             previous == "-c" && $0 == config_path { own = 1 }
