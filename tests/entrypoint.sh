@@ -23134,6 +23134,101 @@ test_list_update_checks() {
     _lu "GitHub never answers: the update fails" "github-never=1"
 }
 
+test_daemon_and_route_table() {
+    header "The sing-box daemon is told from helper processes; the routing table of NetShift"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    [ -r "$bin" ] || { skip "netshift bin not found"; return; }
+
+    local work="/tmp/netshift-daemon-$$" saved_rt=""
+    rm -rf "$work"
+    mkdir -p "$work" /etc/iproute2
+    if [ -f /etc/iproute2/rt_tables ]; then
+        saved_rt="$work/rt_tables.saved"
+        cp /etc/iproute2/rt_tables "$saved_rt"
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        for fn in sing_box_pids get_sing_box_daemon_pid sing_box_process_exists route_table_rule_mark; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$work/log"; }
+        CFG="/etc/sing-box/config.json"
+        config_get() { eval "$1=\"\$CFG\""; }
+        # a fake process table: name -> pids, pid -> argv
+        PIDS_SB=""; PIDS_CORE=""
+        pidof() {
+            local n found=""
+            for n in "$@"; do
+                case "$n" in
+                sing-box) found="$found $PIDS_SB" ;;
+                sing-box-core) found="$found $PIDS_CORE" ;;
+                esac
+            done
+            found="$(echo $found)"; [ -n "$found" ] || return 1; echo "$found"
+        }
+        read_proc_cmdline() { eval "printf '%s\n' \"\${ARGV_$1:-}\""; }
+        ARGV_10="/usr/bin/sing-box
+check
+-c
+/tmp/x.json"
+        ARGV_11="/usr/bin/sing-box
+run
+-c
+$CFG
+-D
+/usr/share/sing-box"
+        ARGV_12="/bin/sh
+/usr/libexec/sing-box-core
+run
+-c
+$CFG"
+        ARGV_13="/usr/bin/sing-box
+run
+-c
+/tmp/netshift-bench/cfg.json"
+        alive() { sing_box_process_exists && echo yes || echo no; }
+        PIDS_SB="10"; echo "only-check=$(alive)"
+        PIDS_SB="10 13"; echo "only-helpers=$(alive)"
+        PIDS_SB="10 11"; echo "daemon=$(alive)"
+        PIDS_SB=""; PIDS_CORE="12"; echo "lite-daemon=$(alive)"
+        PIDS_CORE=""; PIDS_SB="13"; CFG=""; echo "no-config-path-any-run=$(alive)"
+
+        # the routing table: written once, a table of another name under the same number is said
+        ip() { :; }
+        netshift_ipv6_enabled() { return 1; }
+        CFG=""
+        printf '255\tlocal\n254\tmain\n' > /etc/iproute2/rt_tables
+        route_table_rule_mark; route_table_rule_mark
+        echo "rt-once=$(grep -c "^$RT_TABLE_ID $RT_TABLE_NAME\$" /etc/iproute2/rt_tables)"
+        printf '255\tlocal\n%s\tother\n' "$RT_TABLE_ID" > /etc/iproute2/rt_tables; : > "$work/log"
+        route_table_rule_mark
+        echo "rt-shared-warned=$(grep -c "also named 'other'" "$work/log")"
+        echo "rt-no-literal=$(grep -c 'priority 105\|"105 ' "$bin")"
+    )"
+
+    _dd() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _dd "a short-lived sing-box check is not the daemon" "only-check=no"
+    _dd "...nor the extra sing-box of the DNS test" "only-helpers=no"
+    _dd "the run of the configured config is the daemon" "daemon=yes"
+    _dd "...also under the name of the lite core" "lite-daemon=yes"
+    _dd "without a configured path any sing-box run counts" "no-config-path-any-run=yes"
+    _dd "the routing table line is written once" "rt-once=1"
+    _dd "another table under the same number is said in the log" "rt-shared-warned=1"
+    _dd "the number of the table and the rule priority come from the constants" "rt-no-literal=0"
+
+    if [ -n "$saved_rt" ]; then cp "$saved_rt" /etc/iproute2/rt_tables; else rm -f /etc/iproute2/rt_tables; fi
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -23244,6 +23339,7 @@ main() {
             test_tuic_anytls
             test_update_repo
             test_list_update_checks
+            test_daemon_and_route_table
             test_cron_running
             ;;
         deps)        test_deps ;;
@@ -23345,10 +23441,11 @@ main() {
         tuicanytls)  test_tuic_anytls ;;
         updaterepo)  test_update_repo ;;
         listupdate) test_list_update_checks ;;
+        daemon) test_daemon_and_route_table ;;
         cronrun) test_cron_running ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo cronrun listupdate"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo cronrun listupdate daemon"
             exit 1
             ;;
     esac

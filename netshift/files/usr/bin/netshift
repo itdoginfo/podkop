@@ -1315,8 +1315,8 @@ stop_main() {
     kill_switch_enabled || kill_switch_delete
 
     log "Flush ip rule"
-    ip -4 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2>/dev/null
-    ip -6 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2>/dev/null
+    ip -4 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority "$RT_RULE_PRIORITY" 2>/dev/null
+    ip -6 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority "$RT_RULE_PRIORITY" 2>/dev/null
 
     log "Flush ip route"
     ip -4 route flush table "$RT_TABLE_NAME" 2>/dev/null
@@ -1779,8 +1779,21 @@ monitor_sing_box() {
     rm -f "$MONITOR_PIDFILE"
 }
 
+# Is the sing-box daemon of NetShift running? Not "any sing-box process": NetShift itself starts
+# short-lived ones (`check`, `rule-set`, the extra instances of the DNS test), and one of those
+# must not hide a daemon that has died from the monitor. The daemon is the `run` of config_path.
 sing_box_process_exists() {
-    pgrep "sing-box" > /dev/null 2>&1 || [ -n "$(sing_box_pids)" ]
+    local config_path pid
+
+    config_get config_path "settings" "config_path"
+    if [ -n "$config_path" ]; then
+        get_sing_box_daemon_pid "$config_path" > /dev/null
+        return
+    fi
+    for pid in $(sing_box_pids); do
+        read_proc_cmdline "$pid" | grep -qx run && return 0
+    done
+    return 1
 }
 
 reload() {
@@ -1898,7 +1911,13 @@ br_netfilter_disable() {
 # Main funcs
 
 route_table_rule_mark() {
-    grep -q "105 $RT_TABLE_NAME" /etc/iproute2/rt_tables || echo "105 $RT_TABLE_NAME" >> /etc/iproute2/rt_tables
+    local rt_other
+    if ! awk -v id="$RT_TABLE_ID" -v name="$RT_TABLE_NAME" '$1 == id && $2 == name { found = 1 } END { exit !found }' /etc/iproute2/rt_tables 2> /dev/null; then
+        echo "$RT_TABLE_ID $RT_TABLE_NAME" >> /etc/iproute2/rt_tables
+    fi
+    # another table under the same number would get NetShift's routes (and the other way round)
+    rt_other="$(awk -v id="$RT_TABLE_ID" -v name="$RT_TABLE_NAME" '$1 == id && $2 != name { print $2; exit }' /etc/iproute2/rt_tables 2> /dev/null)"
+    [ -z "$rt_other" ] || log "Routing table $RT_TABLE_ID is also named '$rt_other' in /etc/iproute2/rt_tables: that table shares NetShift's routes" "warn"
 
     log "Configure IPv4 route for tproxy" "debug"
     ip -4 route replace local 0.0.0.0/0 dev lo table "$RT_TABLE_NAME" 2>/dev/null || \
@@ -1911,13 +1930,13 @@ route_table_rule_mark() {
     fi
 
     log "Configure IPv4 marking rule" "debug"
-    ip -4 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2>/dev/null
-    ip -4 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2>/dev/null
+    ip -4 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority "$RT_RULE_PRIORITY" 2>/dev/null
+    ip -4 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority "$RT_RULE_PRIORITY" 2>/dev/null
 
     if netshift_ipv6_enabled; then
         log "Configure IPv6 marking rule" "debug"
-        ip -6 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2>/dev/null
-        ip -6 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2>/dev/null
+        ip -6 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority "$RT_RULE_PRIORITY" 2>/dev/null
+        ip -6 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority "$RT_RULE_PRIORITY" 2>/dev/null
     fi
 }
 
@@ -7630,60 +7649,8 @@ check_nft() {
         return 1
     fi
 
-    local found_hetzner=0
-    local found_ovh=0
-
-    check_domain_list_contains() {
-        local section="$1"
-
-        config_get_bool domain_list_enabled "$section" "domain_list_enabled" "0"
-        if [ "$domain_list_enabled" -eq 1 ]; then
-            config_list_foreach "$section" "domain_list" check_domain_value
-        fi
-    }
-
-    check_domain_value() {
-        local domain_value="$1"
-
-        if [ "$domain_value" = "hetzner" ]; then
-            found_hetzner=1
-        elif [ "$domain_value" = "ovh" ]; then
-            found_ovh=1
-        fi
-    }
-
-    config_foreach check_domain_list_contains
-
-    if [ "$found_hetzner" -eq 1 ] || [ "$found_ovh" -eq 1 ]; then
-
-        local sets="netshift_domains interfaces netshift_discord_subnets localv4"
-
-        nolog "Sets statistics:"
-        for set_name in $sets; do
-            if nft list set inet "$NFT_TABLE_NAME" $set_name > /dev/null 2>&1; then
-                # Count elements using grep to count commas and add 1 (last element has no comma)
-                local count=$(nft list set inet "$NFT_TABLE_NAME" $set_name 2> /dev/null | grep -o ',\|{' | wc -l)
-                echo "- $set_name: $count elements"
-            fi
-        done
-
-        nolog "Chain configurations:"
-
-        # Create a temporary file for processing
-        local tmp_file=$(mktemp)
-        nft list table inet "$NFT_TABLE_NAME" > "$tmp_file"
-
-        # Extract chain configurations without element listings
-        sed -n '/chain mangle {/,/}/p' "$tmp_file" | grep -v "elements" | grep -v "^[[:space:]]*[0-9]"
-        sed -n '/chain proxy {/,/}/p' "$tmp_file" | grep -v "elements" | grep -v "^[[:space:]]*[0-9]"
-
-        # Clean up
-        rm -f "$tmp_file"
-    else
-        # Simple view as originally implemented
-        nolog "Sets configuration:"
-        nft list table inet "$NFT_TABLE_NAME"
-    fi
+    nolog "Sets configuration:"
+    nft list table inet "$NFT_TABLE_NAME"
 
     nolog "NFT check completed"
 }
