@@ -427,7 +427,17 @@ PIN_GUARD_EVENTS_FILE="/tmp/netshift-pin-guard.json"
 PIN_GUARD_EVENTS_KEEP=10
 # URLTest interval standing for "only at start" (urltest_check_interval 'off')
 URLTEST_INTERVAL_OFF="8760h"
+# The idle_timeout sing-box gives a urltest outbound when the config does not set
+# one. The core refuses to start when interval is longer than idle_timeout
+# ("interval must be less or equal than idle_timeout"), and that check only runs
+# at start, not in `sing-box check`: a longer interval has to raise idle_timeout
+# itself (see sing_box_cm_add_urltest_outbound).
+URLTEST_IDLE_TIMEOUT_DEFAULT_SECONDS=1800
 
 # Servers of one subscription feed that are used when the section does not say
 # (subscription_max_nodes; 0 means all of them)
 SUBSCRIPTION_MAX_NODES_DEFAULT=500
+
+# Wi-Fi Calling (wifi_calling_direct): the IKE and NAT-T ports of the operator's ePDG tunnel,
+# added to the UDP ports that go out directly
+WIFI_CALLING_DIRECT_UDP_PORTS="500 4500"

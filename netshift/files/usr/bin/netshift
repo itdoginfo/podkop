@@ -1224,6 +1224,9 @@ start_main() {
     mkdir -p "$TMP_SING_BOX_FOLDER"
     mkdir -p "$TMP_RULESET_FOLDER"
     mkdir -p "$TMP_SUBSCRIPTION_FOLDER"
+    # A download left behind by a killed start stays in tmpfs (RAM) until the next
+    # reboot: wipe it before this start downloads anything of its own.
+    subscription_downloads_clean
     ensure_subscription_cache_dir
     migrate_subscription_cache_from_tmp
 
@@ -2179,13 +2182,62 @@ nft_add_quic_block() {
     nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" udp dport 443 counter reject with icmpx type port-unreachable
 }
 
+# Returns 0 when the port $2 is already covered by the port list $1 ("80,443, 1000-2000";
+# a range may be written with "-" or ":").
+_port_list_has() {
+    local list="$1"
+    local port="$2"
+    local item low high
+
+    for item in $(printf '%s' "$list" | tr ',' ' '); do
+        case "$item" in
+        '' | *[!0-9:-]*) continue ;;
+        *[-:]*)
+            low="${item%%[-:]*}"
+            high="${item##*[-:]}"
+            # leading zeros would make ash read the number as octal: cut them textually
+            low="${low#"${low%%[!0]*}"}"
+            high="${high#"${high%%[!0]*}"}"
+            [ -n "$high" ] || continue
+            [ "${low:-0}" -le "$port" ] && [ "$port" -le "$high" ] && return 0
+            ;;
+        *)
+            [ "${item#"${item%%[!0]*}"}" = "$port" ] && return 0
+            ;;
+        esac
+    done
+    return 1
+}
+
+# The value of one port-list option. Wi-Fi Calling (wifi_calling_direct) adds the IKE and NAT-T
+# ports of the ePDG tunnel (WIFI_CALLING_DIRECT_UDP_PORTS) to the UDP list that goes out
+# directly: a phone's call over Wi-Fi must not be tunnelled to a foreign exit, where the
+# operator does not accept it. A port the list already covers is not added a second time
+# (an overlapping element makes nft refuse the set).
+port_rules_value() {
+    local list_kind="$1"
+    local network="$2"
+    local value wifi_calling port
+
+    config_get value "settings" "${list_kind}_${network}_ports"
+    if [ "$list_kind" = "direct" ] && [ "$network" = "udp" ]; then
+        config_get_bool wifi_calling "settings" "wifi_calling_direct" 0
+        if [ "$wifi_calling" -eq 1 ]; then
+            for port in $WIFI_CALLING_DIRECT_UDP_PORTS; do
+                _port_list_has "$value" "$port" || value="${value:+$value,}$port"
+            done
+        fi
+    fi
+    printf '%s' "$value"
+}
+
 sing_box_configure_port_rules() {
     local network list_kind option value tag invert
 
     for network in tcp udp; do
         for list_kind in direct proxy_only; do
             option="${list_kind}_${network}_ports"
-            config_get value "settings" "$option"
+            value="$(port_rules_value "$list_kind" "$network")"
             [ -n "$value" ] || continue
 
             if ! parse_port_list "$value"; then
@@ -2226,7 +2278,7 @@ nft_add_port_rules() {
     for network in tcp udp; do
         for list_kind in direct proxy_only; do
             option="${list_kind}_${network}_ports"
-            config_get value "settings" "$option"
+            value="$(port_rules_value "$list_kind" "$network")"
             [ -n "$value" ] || continue
             parse_port_list "$value" || continue
 
@@ -2303,6 +2355,11 @@ create_nft_rules() {
     nft add chain inet "$NFT_TABLE_NAME" proxy '{ type filter hook prerouting priority -100; policy accept; }'
 
     nft add rule inet "$NFT_TABLE_NAME" mangle ct status dnat return
+    # A packet to an address of the router itself (its external IP or DDNS name, reached from the
+    # LAN) is not for the tunnel: with a global proxy, or a device that is fully routed, it would
+    # be marked, taken by tproxy and lost, and a server on the router (VPN, web interface) would
+    # not answer from inside the network. The private ranges below do not cover the external address.
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" fib daddr type local return
     nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_LOCALV4_SET_NAME" return
     if netshift_ipv6_enabled; then
         nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip6 daddr "@$NFT_LOCALV6_SET_NAME" return
@@ -5051,6 +5108,8 @@ sing_box_configure_dns() {
     config_foreach configure_dns_section_handler "section"
     # Last: the pool rules match every query that no rule above handled.
     sing_box_configure_dns_pool "$dns_detour_tag"
+    # Bootstrap the proxy hostname without using the DNS transport it carries.
+    config=$(sing_box_cm_set_proxy_bootstrap_resolver "$config" "$SB_BOOTSTRAP_SERVER_TAG" "$dns_detour_tag")
 }
 
 # --- Real IPv6 addresses for a section (ipv6_dns_policy) ----------------------
@@ -5757,12 +5816,19 @@ append_subscription_filter_keyword_handler() {
     local keyword="$1"
     local next
 
+    # "a|b" with no blank next to the bar stands for the alternatives "a" and "b" (the list is an OR
+    # already, this only saves writing one line per word). A bar that has a blank beside it
+    # ("Amsterdam | 1"), or an empty side ("a|", "|"), is part of the name and stays as it is.
     next=$(printf '%s' "$SUBSCRIPTION_FILTER_KEYWORDS_JSON" |
-        jq -c --arg kw "$keyword" '. + [$kw]' 2>/dev/null)
+        jq -c --arg kw "$keyword" '
+            def blank_edge: startswith(" ") or endswith(" ") or startswith("\t") or endswith("\t");
+            ($kw | split("|")) as $parts
+            | . + (if ($parts | length) > 1 and all($parts[]; length > 0 and (blank_edge | not)) then $parts else [$kw] end)' 2>/dev/null)
     [ -n "$next" ] && SUBSCRIPTION_FILTER_KEYWORDS_JSON="$next"
 }
 
-# Read a per-section UCI list of keyword filter values into a JSON array string.
+# Read a per-section UCI list of keyword filter values into a JSON array string
+# (an entry "a|b" becomes the two keywords "a" and "b", see append_subscription_filter_keyword_handler).
 # Arguments:
 #   section: string, the UCI section name
 #   list_name: string, the UCI list option name

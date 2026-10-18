@@ -532,7 +532,7 @@ function createSectionContent(section) {
     "subscription_filter_include_keywords",
     _("Include servers by keyword"),
     _(
-      "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all.",
+      "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all. Several words can be written in one line, separated by | without spaces (NL|DE|Finland).",
     ),
   );
   o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
@@ -544,7 +544,7 @@ function createSectionContent(section) {
     "subscription_filter_exclude_keywords",
     _("Exclude servers by keyword"),
     _(
-      "Drop subscription servers whose name contains any of these keywords (case-insensitive).",
+      "Drop subscription servers whose name contains any of these keywords (case-insensitive). Several words can be written in one line, separated by | without spaces (test|expired).",
     ),
   );
   o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });

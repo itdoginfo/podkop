@@ -587,7 +587,7 @@ for fn in nft_init_interfaces_set populate_netshift_subnets_from_file \
           populate_netshift_subnets_from_string nft_mark_fully_routed_source_ips \
           _nft_mark_fully_routed_ips_for_section _nft_mark_fully_routed_ip_handler \
           foreach_active_section _active_section_dispatch \
-          nft_add_dns_hijack nft_add_port_rules disable_quic_mode nft_add_quic_block \
+          nft_add_dns_hijack nft_add_port_rules port_rules_value _port_list_has disable_quic_mode nft_add_quic_block \
           create_nft_rules; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
@@ -755,6 +755,24 @@ SELEOF
         pass "selective:globalproxy — mark-EVERYTHING rules present under global_proxy"
     else
         fail "selective:globalproxy — mark-all rules missing under global_proxy" "$out3"
+    fi
+    # A packet to an address of the router itself (its external IP or DDNS name, from the LAN) is
+    # never marked, whatever marks follow: the return is in the chain and comes before the first
+    # mark, with the selective marks and with mark-all.
+    local lr_line lr_first lr_gp
+    lr_line="$(echo "$mangle1" | grep -n 'fib daddr type local return' | head -1 | cut -d: -f1)"
+    lr_first="$(echo "$mangle1" | grep -n 'meta mark set' | head -1 | cut -d: -f1)"
+    if [ -n "$lr_line" ] && [ -n "$lr_first" ] && [ "$lr_line" -lt "$lr_first" ]; then
+        pass "selective:local-return — traffic to the router's own addresses returns before the marks"
+    else
+        fail "selective:local-return — no return for the router's own addresses before the marks" "return=$lr_line first_mark=$lr_first"
+    fi
+    lr_line="$(echo "$mangle3" | grep -n 'fib daddr type local return' | head -1 | cut -d: -f1)"
+    lr_gp="$(echo "$mangle3" | grep -n 'meta mark set' | head -1 | cut -d: -f1)"
+    if [ -n "$lr_line" ] && [ -n "$lr_gp" ] && [ "$lr_line" -lt "$lr_gp" ]; then
+        pass "selective:local-return-globalproxy — the same return precedes the mark-all rules"
+    else
+        fail "selective:local-return-globalproxy — the router's own addresses can be marked by mark-all" "return=$lr_line first_mark=$lr_gp"
     fi
     # router-originated OUTPUT marking fix: router-originated traffic must be marked too under global_proxy
     # (tcp AND udp), or the router's own flows still bypass the proxy.
@@ -4533,6 +4551,162 @@ else
     echo "fb-caseC-count(==2 valid got $c_len):FAIL"
 fi
 rm -f "$caseC_in" "$caseC_out"
+
+# ── CASE C2: a body whose last line has no trailing newline ─────────
+# The body is read straight from the downloaded file (a published feed can be
+# a hundred megabytes, so it is never copied into a shell variable), which
+# means the loop sees the file exactly as it is: a plain `while read` would
+# drop the last link of a body that ends after it.
+caseC2_in="/tmp/netshift-fb-caseC2-$$.txt"
+caseC2_out="/tmp/netshift-fb-caseC2-out-$$.json"
+printf '%s' 'vless://44444444-4444-4444-4444-444444444444@example.com:443?security=tls&sni=example.com&type=tcp#N1
+trojan://pw4@example.com:8443?security=tls&sni=example.com#N2' > "$caseC2_in"
+if normalize_subscription_to_singbox "$caseC2_in" "$caseC2_out" "testsub"; then
+    echo 'fb-caseC2-rc:OK'
+else
+    echo 'fb-caseC2-rc:FAIL'
+fi
+c2_len="$(jq -r '.outbounds | length' "$caseC2_out" 2>/dev/null)"
+[ -n "$c2_len" ] || c2_len=0
+if [ "$c2_len" -eq 2 ]; then
+    echo "fb-caseC2-last-line-kept(==2 got $c2_len):OK"
+else
+    echo "fb-caseC2-last-line-kept(==2 got $c2_len):FAIL"
+fi
+rm -f "$caseC2_in" "$caseC2_out"
+
+# ...and the same body base64-encoded (decoded to a file, so no trailing
+# newline either).
+caseC3_in="/tmp/netshift-fb-caseC3-$$.txt"
+caseC3_out="/tmp/netshift-fb-caseC3-out-$$.json"
+printf '%s' 'vless://55555555-5555-5555-5555-555555555555@example.com:443?security=tls&sni=example.com&type=tcp#N3
+trojan://pw5@example.com:8443?security=tls&sni=example.com#N4' | base64 | tr -d '\n' > "$caseC3_in"
+if normalize_subscription_to_singbox "$caseC3_in" "$caseC3_out" "testsub"; then
+    echo 'fb-caseC3-rc:OK'
+else
+    echo 'fb-caseC3-rc:FAIL'
+fi
+c3_len="$(jq -r '.outbounds | length' "$caseC3_out" 2>/dev/null)"
+[ -n "$c3_len" ] || c3_len=0
+if [ "$c3_len" -eq 2 ]; then
+    echo "fb-caseC3-base64-last-line-kept(==2 got $c3_len):OK"
+else
+    echo "fb-caseC3-base64-last-line-kept(==2 got $c3_len):FAIL"
+fi
+rm -f "$caseC3_in" "$caseC3_out"
+
+# ── CASE C4: a published feed of many links is cut to subscription_max_nodes
+# A collected public list holds thousands of links; only the first
+# subscription_max_nodes are used (0 = all). The body is never held in a
+# variable, so a big feed costs no more memory than the file itself: this
+# test would otherwise be the one that OOM-kills a small router.
+caseC4_in="/tmp/netshift-fb-caseC4-$$.txt"
+caseC4_out="/tmp/netshift-fb-caseC4-out-$$.json"
+i=0
+: > "$caseC4_in"
+while [ "$i" -lt 400 ]; do
+    printf 'vless://66666666-6666-6666-6666-666666666666@example.com:443?security=tls&sni=example.com&type=tcp#L%s\n' "$i" >> "$caseC4_in"
+    i=$((i + 1))
+done
+# normalize_subscription_to_singbox reads the option through uci, so a throwaway
+# /etc/config/netshift carries the section for this case and is removed after
+# (the same pattern the other subscription-option cases use).
+cat > /etc/config/netshift << 'CAPCONF'
+config section 'testsub'
+	option connection_type 'proxy'
+	option subscription_max_nodes '7'
+CAPCONF
+if normalize_subscription_to_singbox "$caseC4_in" "$caseC4_out" "testsub" 2> /dev/null; then
+    echo 'fb-caseC4-rc:OK'
+else
+    echo 'fb-caseC4-rc:FAIL'
+fi
+c4_len="$(jq -r '.outbounds | length' "$caseC4_out" 2>/dev/null)"
+[ -n "$c4_len" ] || c4_len=0
+if [ "$c4_len" -eq 7 ]; then
+    echo "fb-caseC4-max-nodes-cap(==7 got $c4_len):OK"
+else
+    echo "fb-caseC4-max-nodes-cap(==7 got $c4_len):FAIL"
+fi
+uci -q delete netshift.testsub
+uci -q commit netshift
+rm -f "$caseC4_in" "$caseC4_out" /etc/config/netshift
+
+# ── CASE C4b: the "UDP over TCP" flag reaches socks and ss links ─────
+# The flag lives in the section as enable_udp_over_tcp; reading another option
+# name made it silently do nothing for subscription links (it worked for a
+# single link, a selector and an urltest).
+caseC4b_in="/tmp/netshift-fb-caseC4b-$$.txt"
+caseC4b_out="/tmp/netshift-fb-caseC4b-out-$$.json"
+printf '%s\n' \
+    'socks5://u:p@example.com:1080#S1' \
+    'ss://YWVzLTEyOC1nY206cHc=@example.com:8388#S2' \
+    'trojan://pw@example.com:8443?security=tls&sni=example.com#T1' > "$caseC4b_in"
+cat > /etc/config/netshift << 'CAPCONF'
+config section 'testuot'
+	option connection_type 'proxy'
+	option enable_udp_over_tcp '1'
+CAPCONF
+normalize_subscription_to_singbox "$caseC4b_in" "$caseC4b_out" "testuot" > /dev/null 2>&1
+uot_types="$(jq -c '[.outbounds[] | select(.udp_over_tcp.enabled == true) | .type] | unique' "$caseC4b_out" 2> /dev/null)"
+if [ "$uot_types" = '["shadowsocks","socks"]' ]; then
+    echo 'fb-caseC4b-flag-reaches-socks-and-ss:OK'
+else
+    echo "fb-caseC4b-flag-reaches-socks-and-ss:FAIL (got $uot_types)"
+fi
+uot_trojan="$(jq -r '[.outbounds[] | select(.type == "trojan" and .udp_over_tcp != null)] | length' "$caseC4b_out" 2> /dev/null)"
+if [ "$uot_trojan" = "0" ]; then
+    echo 'fb-caseC4b-flag-not-applied-to-trojan:OK'
+else
+    echo "fb-caseC4b-flag-not-applied-to-trojan:FAIL (got $uot_trojan)"
+fi
+# ...and the flag being off leaves the outbounds without it
+cat > /etc/config/netshift << 'CAPCONF'
+config section 'testuot'
+	option connection_type 'proxy'
+	option enable_udp_over_tcp '0'
+CAPCONF
+normalize_subscription_to_singbox "$caseC4b_in" "$caseC4b_out" "testuot" > /dev/null 2>&1
+uot_off="$(jq -r '[.outbounds[] | select(.udp_over_tcp != null)] | length' "$caseC4b_out" 2> /dev/null)"
+if [ "$uot_off" = "0" ]; then
+    echo 'fb-caseC4b-flag-off-adds-nothing:OK'
+else
+    echo "fb-caseC4b-flag-off-adds-nothing:FAIL (got $uot_off)"
+fi
+rm -f "$caseC4b_in" "$caseC4b_out" /etc/config/netshift
+
+# ── CASE C5: a download left behind by a killed start is wiped ──────
+# The body lives in tmpfs while it is parsed; a start the OOM killer took out
+# leaves it there and it stays in RAM until the router reboots.
+dl_dir="$(mktemp -d)"
+: > "$dl_dir/pubtest.download.XXXXXX"
+: > "$dl_dir/pubtest.download.XXXXXX.ua"
+if (
+    TMP_SUBSCRIPTION_DOWNLOAD_FOLDER="$dl_dir"
+    SUBSCRIPTION_UPDATE_LOCK_DIR="$dl_dir.no-lock"
+    subscription_downloads_clean
+) > /dev/null 2>&1 && [ -d "$dl_dir" ] && [ -z "$(ls -A "$dl_dir" 2> /dev/null)" ]; then
+    echo 'dl-clean-wipes-leftovers:OK'
+else
+    echo "dl-clean-wipes-leftovers:FAIL ($(ls -A "$dl_dir" 2> /dev/null | tr '\n' ' '))"
+fi
+rm -rf "$dl_dir"
+
+# ...but an update that holds the lock may be using its own file right now.
+dl_dir="$(mktemp -d)"
+: > "$dl_dir/pubtest.download.YYYYYY"
+lock_dir="$dl_dir.lock"
+mkdir -p "$lock_dir"
+if (
+    TMP_SUBSCRIPTION_DOWNLOAD_FOLDER="$dl_dir"
+    SUBSCRIPTION_UPDATE_LOCK_DIR="$lock_dir"
+    subscription_downloads_clean
+) > /dev/null 2>&1 && [ -f "$dl_dir/pubtest.download.YYYYYY" ]; then
+    echo 'dl-clean-keeps-inflight:OK'
+else
+    echo 'dl-clean-keeps-inflight:FAIL'
+fi
+rm -rf "$dl_dir" "$lock_dir"
 
 # ── CASE D: negative — only comments / junk, no valid keys ──────────
 caseD_in="/tmp/netshift-fb-caseD-$$.txt"
@@ -18281,13 +18455,13 @@ test_route_check() {
         ROUTE_CHECK_CACHE_FOLDER="$work/cache"
         log() { :; }
 
-        printf '%s' '{"version":3,"rules":[{"domain_suffix":["example.com"],"domain":["exact.example.org"],"domain_keyword":["tracker"],"domain_regex":["^ads[0-9]+\\.cdn\\.net$"]}]}' > "$work/main-domains.json"
+        printf '%s' '{"version":3,"rules":[{"domain_suffix":["example.com","shadowed.test"],"domain":["exact.example.org"],"domain_keyword":["tracker"],"domain_regex":["^ads[0-9]+\\.cdn\\.net$"]}]}' > "$work/main-domains.json"
         printf '%s' '{"version":3,"rules":[{"ip_cidr":["203.0.113.0/24"]}]}' > "$work/vpn-subnets.json"
         jq -n --arg d "$work/main-domains.json" --arg s "$work/vpn-subnets.json" '{
             dns: { servers: [], rules: [
                 { query_type: "HTTPS", action: "reject", __service_tag: "doh-https" },
-                { action: "route", server: "fakeip-server", rule_set: ["main-domains"], __service_tag: "fakeip-rule" },
-                { action: "route", server: "dns-section-corp", domain_suffix: ["corp.test"], __service_tag: "dns-section-rule-corp" }
+                { action: "route", server: "fakeip-server", domain: ["fakeip.podkop.fyi", "ip.podkop.fyi"], rule_set: ["main-domains"], __service_tag: "fakeip-rule" },
+                { action: "route", server: "dns-section-corp", domain_suffix: ["corp.test", "shadowed.test"], __service_tag: "dns-section-rule-corp" }
             ], final: "dns-server" },
             inbounds: [ { type: "tproxy", tag: "tproxy-in" } ],
             outbounds: [ { type: "direct", tag: "direct-out" } ],
@@ -18337,6 +18511,12 @@ test_route_check() {
         show ip-miss 198.51.100.7
         show direct-default unknown.example.net
         show dns-section host.corp.test
+        # a rule that carries BOTH inline domains and rule sets is one OR group in
+        # sing-box: the FakeIP rule of a section is exactly that, so a name that a
+        # DNS section also lists still gets the FakeIP answer (and the DNS section
+        # never looks it up - see get_config_warnings).
+        show dns-shadowed x.shadowed.test
+        show dns-shadowed-suffix shadowed.test
         show service-only only-service.test
         show device-source example.com 192.168.1.50
         show device-other-source example.com 192.168.1.51
@@ -18398,6 +18578,8 @@ test_route_check() {
     _rc "an IP in no list goes direct" "ip-miss|direct|-|-|-|-|-|true|false"
     _rc "an unlisted domain goes direct (final)" "direct-default|direct|-|-|-|dns-server|final|true|false"
     _rc "a DNS section answers its names" "dns-section|direct|-|-|-|dns-section-corp|rule|true|false"
+    _rc "a rule with inline domains AND rule sets matches either of them" "dns-shadowed|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
+    _rc "...and a name only the rule set covers is matched by it too" "dns-shadowed-suffix|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
     _rc "rules of another inbound are not replayed for LAN traffic" "service-only|direct|-|-|-|dns-server|final|true|false"
     _rc "a rule with a source address applies to that client" "device-source|direct|-|device-bypass|-|fakeip-server|rule|false|false"
     _rc "a different source skips the device rule" "device-other-source|section|main|main-rule|main-domains|fakeip-server|rule|false|false"
@@ -19737,6 +19919,13 @@ test_urltest_interval() {
         for v in 30s 3m 10m 30m 1h 24h off ""; do
             printf 'interval[%s]=%s\n' "$v" "$(sing_box_cm_add_urltest_outbound "$base" t '["a","b"]' "" "$v" 50 | jq -r '.outbounds[0].interval // "none"')"
         done
+        # The core refuses to start when interval is longer than idle_timeout, so
+        # every interval above the core's default (30m) has to carry an
+        # idle_timeout of its own. This is a config-shape check on purpose:
+        # `sing-box check` does not validate the pair, only `sing-box run` does.
+        for v in 30s 3m 10m 20m 30m 1h 6h 24h off 1h30m; do
+            printf 'idle[%s]=%s\n' "$v" "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" "$v" 50 | jq -r '.outbounds[0].idle_timeout // "default"')"
+        done
         # without the constants the value still means "almost never"
         unset URLTEST_INTERVAL_OFF
         printf 'off-no-constants=%s\n' "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" off 50 | jq -r '.outbounds[0].interval')"
@@ -19757,13 +19946,23 @@ test_urltest_interval() {
     _ti "'off' becomes a year: one test at start" "interval[off]=8760h"
     _ti "an empty interval adds no field" "interval[]=none"
     _ti "'off' works without the constants file" "off-no-constants=8760h"
+    # The core's default idle_timeout is 30m: intervals up to that keep it, longer
+    # ones raise it, or sing-box would refuse to start the whole service.
+    _ti "a short interval keeps the core's default idle_timeout" "idle[30s]=default"
+    _ti "the default interval keeps the core's default idle_timeout" "idle[3m]=default"
+    _ti "a 30 minute interval keeps the core's default idle_timeout" "idle[30m]=default"
+    _ti "an hour raises idle_timeout" "idle[1h]=1h"
+    _ti "six hours raise idle_timeout" "idle[6h]=6h"
+    _ti "a day raises idle_timeout" "idle[24h]=24h"
+    _ti "'off' raises idle_timeout too" "idle[off]=8760h"
+    _ti "a compound interval this parser cannot read raises idle_timeout" "idle[1h30m]=1h30m"
 
     if sing-box version > /dev/null 2>&1; then
         local cfg="/tmp/netshift-urltest-int-$$.json"
         (
             . "$constants_lib"
             . "$cm_lib"
-            c='{"log":{"level":"error"},"outbounds":[{"type":"direct","tag":"a"},{"type":"direct","tag":"b"}]}'
+            c='{"log":{"level":"error"},"outbounds":[{"type":"socks","tag":"a","server":"127.0.0.1","server_port":1},{"type":"socks","tag":"b","server":"127.0.0.1","server_port":1}]}'
             sing_box_cm_add_urltest_outbound "$c" t '["a","b"]' "https://www.gstatic.com/generate_204" off 50
         ) > "$cfg"
         if sing-box check -c "$cfg" > /dev/null 2>&1; then
@@ -19771,6 +19970,26 @@ test_urltest_interval() {
         else
             fail "the core rejects the 'off' interval"
         fi
+
+        # `sing-box check` accepts a pair the core then refuses at start, so run
+        # the core for a moment: a rejected config exits at once with
+        # "interval must be less or equal than idle_timeout".
+        local run_out="" run_pid="" run_log="/tmp/netshift-urltest-run-$$.log"
+        sing-box run -c "$cfg" > "$run_log" 2>&1 &
+        run_pid=$!
+        sleep 2
+        kill "$run_pid" 2> /dev/null
+        wait "$run_pid" 2> /dev/null
+        run_out="$(cat "$run_log" 2> /dev/null)"
+        rm -f "$run_log"
+        case "$run_out" in
+        *"interval must be less or equal than idle_timeout"*)
+            fail "the core refuses the 'off' interval at start" "$(printf '%s' "$run_out" | tr '\n' '~')"
+            ;;
+        *)
+            pass "the core starts with the 'off' interval"
+            ;;
+        esac
         rm -f "$cfg"
     fi
 
@@ -20510,13 +20729,14 @@ test_port_rules() {
         PR_LOG="$work/log"; : > "$PR_LOG"
         log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$PR_LOG"; }
         . "$lib/sing_box_config_manager.sh"
-        for fn in sing_box_configure_port_rules nft_add_port_rules tproxy_route_inbounds _nft_mark_fully_routed_ip_handler; do
+        for fn in sing_box_configure_port_rules nft_add_port_rules tproxy_route_inbounds _nft_mark_fully_routed_ip_handler port_rules_value _port_list_has; do
             eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
         done
         gen_id() { PR_N=$((${PR_N:-0} + 1)); echo "rule$PR_N"; }
         V6=0
         netshift_ipv6_enabled() { [ "$V6" = 1 ]; }
         config_get() { eval "$1=\"\${PR_${3}:-}\""; }
+        config_get_bool() { eval "$1=\"\${PR_${3}:-$4}\""; }
         NFT_TABLE_NAME=T
         NFT_LOG="$work/nft"; : > "$NFT_LOG"
         nft() { echo "$*" >> "$NFT_LOG"; }
@@ -20553,6 +20773,34 @@ test_port_rules() {
         PR_direct_udp_ports="abc"
         sing_box_configure_port_rules
         echo "invalid-list=$(printf '%s' "$config" | jq -c '.route.rules | length') warned=$(grep -c "has no valid port" "$PR_LOG")"
+        PR_direct_udp_ports=""
+
+        # Wi-Fi Calling: UDP 500 and 4500 join the direct UDP list
+        config='{"route":{"rules":[]}}'
+        PR_wifi_calling_direct=1
+        sing_box_configure_port_rules
+        echo "wifi-alone=$(printf '%s' "$config" | jq -c '.route.rules | map([.rules[0].network, .rules[1].rules, .outbound])')"
+        config='{"route":{"rules":[]}}'
+        PR_direct_udp_ports="3478"
+        sing_box_configure_port_rules
+        echo "wifi-merged=$(printf '%s' "$config" | jq -c '.route.rules | map(.rules[1].rules)')"
+        : > "$NFT_LOG"; nft_add_port_rules
+        echo "wifi-nft=$(sed -n '1p' "$NFT_LOG")"
+        echo "wifi-value-tcp-untouched=[$(PR_direct_tcp_ports=22; port_rules_value direct tcp)]"
+        # a port the list already holds, or a range that covers it, is not added again
+        PR_direct_udp_ports="500,4500"
+        echo "wifi-dup=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="1-1000"
+        echo "wifi-covered-by-range=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="4000:5000, 3478"
+        echo "wifi-covered-by-colon-range=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="0500"
+        echo "wifi-leading-zero=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="4500"
+        echo "wifi-partial=[$(port_rules_value direct udp)]"
+        PR_direct_udp_ports="3478"
+        PR_wifi_calling_direct=0
+        echo "wifi-off=[$(port_rules_value direct udp)]"
         PR_direct_udp_ports=""
 
         # nft
@@ -20628,6 +20876,16 @@ test_port_rules() {
     else
         skip "sing-box not installed: the core check of the port rules"
     fi
+    _pr "Wi-Fi Calling alone: a direct UDP rule for 500 and 4500" 'wifi-alone=[["udp",[{"port":[500,4500]}],"direct-out"]]'
+    _pr "...and added to the user's own UDP ports" 'wifi-merged=[[{"port":[3478,500,4500]}]]'
+    _pr "...on the nft side too" "wifi-nft=insert rule inet T mangle udp dport { 3478, 500, 4500 } ip daddr != 198.18.0.0/15 counter return"
+    _pr "the TCP list is not touched by it" "wifi-value-tcp-untouched=[22]"
+    _pr "a port the list already holds is not added again" "wifi-dup=[500,4500]"
+    _pr "a range that covers a port is not duplicated by it (an overlap would make nft refuse the set)" "wifi-covered-by-range=[1-1000,4500]"
+    _pr "...the same for a range written with a colon" "wifi-covered-by-colon-range=[4000:5000, 3478,500]"
+    _pr "a port with a leading zero is the same port (no octal reading)" "wifi-leading-zero=[0500,4500]"
+    _pr "only the missing one of the two is added" "wifi-partial=[4500,500]"
+    _pr "switched off, the UDP list is the user's own" "wifi-off=[3478]"
     _pr "nothing set adds nothing" "none=0"
     _pr "a list with no valid port is ignored with a warning" "invalid-list=0 warned=1"
     _pr "no nft rule when nothing is set" "nft-none=0"
@@ -21913,6 +22171,197 @@ LIST
     rm -rf "$work" /etc/config/netshift
 }
 
+test_filter_keyword_alternatives() {
+    header "Subscription keyword filters: several words in one entry (a|b)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ] || ! command -v jq > /dev/null 2>&1; then
+        skip "netshift bin / jq not found"
+        return
+    fi
+
+    local work="/tmp/netshift-kwalt-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        for fn in append_subscription_filter_keyword_handler build_subscription_filter_keywords_json; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        # the entries of the list, one per line (an entry may hold blanks)
+        config_list_foreach() {
+            local _i
+            while IFS= read -r _i; do
+                [ -n "$_i" ] && "$3" "$_i"
+            done < "$work/items"
+        }
+        kw() { printf '%s\n' "$@" > "$work/items"; build_subscription_filter_keywords_json s keywords; }
+
+        echo "plain=$(kw Germany Finland)"
+        echo "alternatives=$(kw 'NL|DE|Finland')"
+        echo "mixed=$(kw 'Premium' 'NL|DE')"
+        echo "bar-with-blanks-is-the-name=$(kw 'Amsterdam | 1' 'NL |' '| NL')"
+        echo "empty-side-is-the-name=$(kw 'a|' '|a' 'a||b' '|')"
+        echo "one-blank-side-is-the-name=$(kw 'a| b' 'a |b')"
+        echo "tab-beside-the-bar=$(kw "$(printf 'a|\tb')")"
+        echo "flags-and-words=$(kw '🇩🇪|🇳🇱')"
+    )"
+
+    _ka() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _ka "separate entries stay separate keywords" 'plain=["Germany","Finland"]'
+    _ka "an entry with bars and no blanks is the words between them" 'alternatives=["NL","DE","Finland"]'
+    _ka "...next to ordinary entries" 'mixed=["Premium","NL","DE"]'
+    _ka "a bar with a blank beside it is part of the name, as before" 'bar-with-blanks-is-the-name=["Amsterdam | 1","NL |","| NL"]'
+    _ka "a bar with an empty side is part of the name" 'empty-side-is-the-name=["a|","|a","a||b","|"]'
+    _ka "one blank beside a bar is enough to keep the entry whole" 'one-blank-side-is-the-name=["a| b","a |b"]'
+    _ka "a tab beside the bar too" 'tab-beside-the-bar=["a|\tb"]'
+    _ka "flags and other non-ASCII words split like any others" 'flags-and-words=["🇩🇪","🇳🇱"]'
+    rm -rf "$work"
+}
+
+test_install_download() {
+    header "Installer: a download that stalls or fails is given up and retried (wget, then curl)"
+
+    local installer="${NETSHIFT_SRC}/../install.sh"
+    if [ ! -r "$installer" ]; then
+        skip "install.sh is not mounted into the test container"
+        return
+    fi
+
+    local work="/tmp/netshift-installdl-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin" "$work/dl"
+
+    # wget and curl stand in for the tools: they record how they were called and succeed or fail
+    # as the scenario says (ID_WGET, ID_CURL: ok or fail)
+    cat > "$work/bin/wget" << 'WEOF'
+#!/bin/sh
+echo "$*" >> "$ID_DIR/wget.calls"
+out=""; prev=""
+for a in "$@"; do [ "$prev" = "-O" ] && out="$a"; prev="$a"; done
+[ "$ID_WGET" = ok ] || exit 4
+printf 'FROM-WGET' > "$out"
+WEOF
+    cat > "$work/bin/curl" << 'CEOF'
+#!/bin/sh
+echo "$*" >> "$ID_DIR/curl.calls"
+out=""; prev=""
+for a in "$@"; do [ "$prev" = "-o" ] && out="$a"; prev="$a"; done
+[ "$ID_CURL" = ok ] || exit 22
+printf 'FROM-CURL' > "$out"
+CEOF
+    chmod +x "$work/bin/wget" "$work/bin/curl"
+
+    local out
+    out="$(
+        export ID_DIR="$work"
+        grep -E '^(COUNT|DOWNLOAD_TIMEOUT|DOWNLOAD_MAX_TIME)=' "$installer" > "$work/vars.sh"
+        . "$work/vars.sh"
+        for fn in fetch_url download_release_asset; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$installer")"
+        done
+        msg() { printf '%s\n' "$*" >> "$work/msg.log"; }
+        DOWNLOAD_DIR="$work/dl"
+        PATH="$work/bin:$PATH"
+        calls() { [ -f "$work/$1.calls" ] && wc -l < "$work/$1.calls" | tr -d ' ' || echo 0; }
+        reset() { rm -f "$work"/*.calls "$work/dl"/*; : > "$work/msg.log"; }
+
+        reset; ID_WGET=ok ID_CURL=fail download_release_asset https://example.org/a.ipk a.ipk > /dev/null; echo "wget-ok-rc=$? file=$(cat "$work/dl/a.ipk") curl=$(calls curl)"
+        echo "wget-has-timeout=$(grep -c -- "-T $DOWNLOAD_TIMEOUT " "$work/wget.calls")"
+
+        reset; ID_WGET=fail ID_CURL=ok download_release_asset https://example.org/b.ipk b.ipk > /dev/null; echo "curl-after-wget-rc=$? file=$(cat "$work/dl/b.ipk") wget=$(calls wget) curl=$(calls curl)"
+        echo "curl-has-timeouts=$(grep -c -- "--connect-timeout $DOWNLOAD_TIMEOUT -m $DOWNLOAD_MAX_TIME" "$work/curl.calls")"
+
+        reset; ID_WGET=fail ID_CURL=fail download_release_asset https://example.org/c.ipk c.ipk > /dev/null; echo "both-fail-rc=$? wget=$(calls wget) curl=$(calls curl) leftover=$(ls "$work/dl" | wc -l | tr -d ' ')"
+
+        # no curl on the router: wget alone, retried COUNT times
+        reset; rm -f "$work/bin/curl"; PATH="$work/bin:/usr/bin:/bin"
+        ID_WGET=fail download_release_asset https://example.org/d.ipk d.ipk > /dev/null; echo "no-curl-rc=$? wget=$(calls wget) curl=$(calls curl)"
+    )"
+
+    _id() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+
+    _id "wget that works: done at once, curl is not asked" "wget-ok-rc=0 file=FROM-WGET curl=0"
+    _id "wget runs with a timeout (a stalled connection no longer hangs the installer)" "wget-has-timeout=1"
+    _id "wget that fails: curl takes over, in the same attempt" "curl-after-wget-rc=0 file=FROM-CURL wget=1 curl=1"
+    _id "curl runs with a connect timeout and a total time limit" "curl-has-timeouts=1"
+    _id "both fail: every attempt tries both, then the download is given up, nothing is left behind" "both-fail-rc=1 wget=3 curl=3 leftover=0"
+    _id "no curl on the router: wget alone, retried" "no-curl-rc=1 wget=3 curl=0"
+    rm -rf "$work"
+}
+
+test_proxy_bootstrap() {
+    header "Proxy bootstrap resolver: a proxy hostname must not resolve through the DNS that detours via the proxy"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/sing_box_config_manager.sh" ]; then
+        fail "sing_box_config_manager.sh not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/sing_box_config_manager.sh"
+        cfg='{"dns":{"final":"dns-server","servers":[{"tag":"bootstrap-dns-server","type":"udp","server":"192.0.2.53"},{"tag":"dns-server","type":"https","server":"192.0.2.54","detour":"sub-out"}]},"route":{"default_domain_resolver":"dns-server"},"outbounds":[{"type":"direct","tag":"direct-out"},{"type":"selector","tag":"sub-out","outbounds":["node-a","node-b"]},{"type":"vless","tag":"node-a","server":"proxy.example","server_port":443},{"type":"trojan","tag":"node-b","server":"backup.example","server_port":443},{"type":"vless","tag":"custom","server":"custom.example","domain_resolver":{"server":"custom-dns","strategy":"ipv4_only"}},{"type":"socks","tag":"chain","server":"chain.example","detour":"node-a"}]}'
+
+        res=$(sing_box_cm_set_proxy_bootstrap_resolver "$cfg" bootstrap-dns-server sub-out)
+        for t in node-a node-b; do
+            echo "resolver-$t:$(printf '%s' "$res" | jq -r --arg t "$t" '.outbounds[] | select(.tag == $t) | .domain_resolver')"
+        done
+        echo "custom-kept:$(printf '%s' "$res" | jq -c '.outbounds[] | select(.tag == "custom") | .domain_resolver')"
+        echo "chained-untouched:$(printf '%s' "$res" | jq -r '.outbounds[] | select(.tag == "chain") | .domain_resolver // "none"')"
+        echo "direct-untouched:$(printf '%s' "$res" | jq -r '.outbounds[] | select(.tag == "direct-out") | .domain_resolver // "none"')"
+        echo "selector-untouched:$(printf '%s' "$res" | jq -r '.outbounds[] | select(.tag == "sub-out") | .domain_resolver // "none"')"
+        [ "$(printf '%s' "$res" | jq -c '.dns')" = "$(printf '%s' "$cfg" | jq -c '.dns')" ] && echo "dns-untouched:yes" || echo "dns-untouched:no"
+        off=$(sing_box_cm_set_proxy_bootstrap_resolver "$cfg" bootstrap-dns-server "")
+        [ "$off" = "$cfg" ] && echo "disabled-identical:yes" || echo "disabled-identical:no"
+        again=$(sing_box_cm_set_proxy_bootstrap_resolver "$res" bootstrap-dns-server sub-out)
+        [ "$again" = "$res" ] && echo "idempotent:yes" || echo "idempotent:no"
+    )"
+
+    _pb_check() { # <key> <expected> <name>
+        if echo "$out" | grep -qxF "$1:$2"; then
+            pass "$3"
+        else
+            fail "$3:FAIL ($(echo "$out" | grep "^$1:" | head -1))"
+        fi
+    }
+    _pb_check resolver-node-a bootstrap-dns-server "bootstrap-resolver-set-on-first-node"
+    _pb_check resolver-node-b bootstrap-dns-server "bootstrap-resolver-set-on-every-node"
+    _pb_check custom-kept '{"server":"custom-dns","strategy":"ipv4_only"}' "bootstrap-keeps-user-domain-resolver"
+    _pb_check chained-untouched none "bootstrap-skips-outbound-with-detour"
+    _pb_check direct-untouched none "bootstrap-skips-outbound-without-server"
+    _pb_check selector-untouched none "bootstrap-skips-selector"
+    _pb_check dns-untouched yes "bootstrap-does-not-change-dns-servers"
+    _pb_check disabled-identical yes "bootstrap-disabled-without-dns-detour-is-identical"
+    _pb_check idempotent yes "bootstrap-is-idempotent"
+
+    # Wired into the generator: the DNS configuration applies it after the pool.
+    if grep -q 'sing_box_cm_set_proxy_bootstrap_resolver "\$config" "\$SB_BOOTSTRAP_SERVER_TAG" "\$dns_detour_tag"' "${NETSHIFT_SRC}/usr/bin/netshift"; then
+        pass "bootstrap-wired-into-sing_box_configure_dns"
+    else
+        fail "bootstrap-wired-into-sing_box_configure_dns:FAIL"
+    fi
+}
 test_dns_section_pool() {
     header "DNS section: several servers (dns_pool_server, dns_pool_mode)"
 
@@ -22074,6 +22523,7 @@ test_dns_section_pool() {
 
     rm -rf "$work"
 }
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -22177,7 +22627,9 @@ main() {
             test_naive_component
             test_collected_lists
             test_dns_section_pool
-            ;;
+            test_filter_keyword_alternatives
+            test_install_download
+            test_proxy_bootstrap            ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
         config)      test_config ;;
@@ -22270,9 +22722,12 @@ main() {
         naivecomp)   test_naive_component ;;
         collected)   test_collected_lists ;;
         dnssectionpool) test_dns_section_pool ;;
+        kwalt)       test_filter_keyword_alternatives ;;
+        installdl)   test_install_download ;;
+        proxybootstrap) test_proxy_bootstrap ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra dnssectionpool"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool"
             exit 1
             ;;
     esac
