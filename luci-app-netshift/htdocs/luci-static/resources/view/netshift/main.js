@@ -3117,15 +3117,6 @@ function renderLoaderCircleIcon24() {
     [
       svgEl("path", {
         d: "M21 12a9 9 0 1 1-6.219-8.56"
-      }),
-      svgEl("animateTransform", {
-        attributeName: "transform",
-        attributeType: "XML",
-        type: "rotate",
-        from: "0 12 12",
-        to: "360 12 12",
-        dur: "1s",
-        repeatCount: "indefinite"
       })
     ]
   );
@@ -8314,6 +8305,7 @@ ${PartialStyles}
 
 /* Rotate class helper */
 .rotate {
+    transform-origin: 50% 50%;
     animation: spin 1s linear infinite;
 }
 

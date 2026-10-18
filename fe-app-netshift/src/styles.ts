@@ -169,6 +169,7 @@ ${PartialStyles}
 
 /* Rotate class helper */
 .rotate {
+    transform-origin: 50% 50%;
     animation: spin 1s linear infinite;
 }
 
