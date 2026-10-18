@@ -1469,6 +1469,34 @@ sing_box_cm_set_tls_for_outbound() {
 }
 
 #######################################
+# Resolve proxy server addresses independently when the main DNS uses a proxy.
+# Otherwise the proxy inherits route.default_domain_resolver and resolving its
+# own hostname tries to open the same proxy again (DNS resolution loop).
+# Keep explicit resolvers and chained outbounds intact. The resolver has no
+# effect for a numeric server address; direct and group outbounds have no server.
+# Arguments: config (JSON), bootstrap DNS tag, main DNS detour tag (empty = off).
+#######################################
+sing_box_cm_set_proxy_bootstrap_resolver() {
+    local config="$1"
+    local bootstrap_resolver="$2"
+    local dns_detour="$3"
+
+    if [ -z "$dns_detour" ]; then
+        printf '%s\n' "$config"
+        return 0
+    fi
+
+    printf '%s' "$config" | jq --arg resolver "$bootstrap_resolver" '
+        .outbounds |= map(
+            if ((.server | type) == "string") and (.server != "")
+                and ((.domain_resolver // "") == "")
+                and ((.detour // "") == "") then
+                . + {domain_resolver: $resolver}
+            else . end
+        )'
+}
+
+#######################################
 # Add a Direct outbound with a specific network interface to a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify

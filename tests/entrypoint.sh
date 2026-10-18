@@ -22114,6 +22114,65 @@ LIST
     rm -rf "$work" /etc/config/netshift
 }
 
+test_proxy_bootstrap() {
+    header "Proxy bootstrap resolver: a proxy hostname must not resolve through the DNS that detours via the proxy"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/sing_box_config_manager.sh" ]; then
+        fail "sing_box_config_manager.sh not found"
+        return
+    fi
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/sing_box_config_manager.sh"
+        cfg='{"dns":{"final":"dns-server","servers":[{"tag":"bootstrap-dns-server","type":"udp","server":"192.0.2.53"},{"tag":"dns-server","type":"https","server":"192.0.2.54","detour":"sub-out"}]},"route":{"default_domain_resolver":"dns-server"},"outbounds":[{"type":"direct","tag":"direct-out"},{"type":"selector","tag":"sub-out","outbounds":["node-a","node-b"]},{"type":"vless","tag":"node-a","server":"proxy.example","server_port":443},{"type":"trojan","tag":"node-b","server":"backup.example","server_port":443},{"type":"vless","tag":"custom","server":"custom.example","domain_resolver":{"server":"custom-dns","strategy":"ipv4_only"}},{"type":"socks","tag":"chain","server":"chain.example","detour":"node-a"}]}'
+
+        res=$(sing_box_cm_set_proxy_bootstrap_resolver "$cfg" bootstrap-dns-server sub-out)
+        for t in node-a node-b; do
+            echo "resolver-$t:$(printf '%s' "$res" | jq -r --arg t "$t" '.outbounds[] | select(.tag == $t) | .domain_resolver')"
+        done
+        echo "custom-kept:$(printf '%s' "$res" | jq -c '.outbounds[] | select(.tag == "custom") | .domain_resolver')"
+        echo "chained-untouched:$(printf '%s' "$res" | jq -r '.outbounds[] | select(.tag == "chain") | .domain_resolver // "none"')"
+        echo "direct-untouched:$(printf '%s' "$res" | jq -r '.outbounds[] | select(.tag == "direct-out") | .domain_resolver // "none"')"
+        echo "selector-untouched:$(printf '%s' "$res" | jq -r '.outbounds[] | select(.tag == "sub-out") | .domain_resolver // "none"')"
+        [ "$(printf '%s' "$res" | jq -c '.dns')" = "$(printf '%s' "$cfg" | jq -c '.dns')" ] && echo "dns-untouched:yes" || echo "dns-untouched:no"
+        off=$(sing_box_cm_set_proxy_bootstrap_resolver "$cfg" bootstrap-dns-server "")
+        [ "$off" = "$cfg" ] && echo "disabled-identical:yes" || echo "disabled-identical:no"
+        again=$(sing_box_cm_set_proxy_bootstrap_resolver "$res" bootstrap-dns-server sub-out)
+        [ "$again" = "$res" ] && echo "idempotent:yes" || echo "idempotent:no"
+    )"
+
+    _pb_check() { # <key> <expected> <name>
+        if echo "$out" | grep -qxF "$1:$2"; then
+            pass "$3"
+        else
+            fail "$3:FAIL ($(echo "$out" | grep "^$1:" | head -1))"
+        fi
+    }
+    _pb_check resolver-node-a bootstrap-dns-server "bootstrap-resolver-set-on-first-node"
+    _pb_check resolver-node-b bootstrap-dns-server "bootstrap-resolver-set-on-every-node"
+    _pb_check custom-kept '{"server":"custom-dns","strategy":"ipv4_only"}' "bootstrap-keeps-user-domain-resolver"
+    _pb_check chained-untouched none "bootstrap-skips-outbound-with-detour"
+    _pb_check direct-untouched none "bootstrap-skips-outbound-without-server"
+    _pb_check selector-untouched none "bootstrap-skips-selector"
+    _pb_check dns-untouched yes "bootstrap-does-not-change-dns-servers"
+    _pb_check disabled-identical yes "bootstrap-disabled-without-dns-detour-is-identical"
+    _pb_check idempotent yes "bootstrap-is-idempotent"
+
+    # Wired into the generator: the DNS configuration applies it after the pool.
+    if grep -q 'sing_box_cm_set_proxy_bootstrap_resolver "\$config" "\$SB_BOOTSTRAP_SERVER_TAG" "\$dns_detour_tag"' "${NETSHIFT_SRC}/usr/bin/netshift"; then
+        pass "bootstrap-wired-into-sing_box_configure_dns"
+    else
+        fail "bootstrap-wired-into-sing_box_configure_dns:FAIL"
+    fi
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -22216,6 +22275,7 @@ main() {
             test_telegram_fallback
             test_naive_component
             test_collected_lists
+            test_proxy_bootstrap
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -22308,9 +22368,10 @@ main() {
         tgfallback)  test_telegram_fallback ;;
         naivecomp)   test_naive_component ;;
         collected)   test_collected_lists ;;
+        proxybootstrap) test_proxy_bootstrap ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra proxybootstrap"
             exit 1
             ;;
     esac
