@@ -10,6 +10,10 @@ RELEASES_LATEST_REDIRECT="https://github.com/yandexru45/netshift/releases/latest
 RELEASES_DOWNLOAD_BASE="https://github.com/yandexru45/netshift/releases/download"
 DOWNLOAD_DIR="/tmp/netshift"
 COUNT=3
+# Seconds of silence after which a download is given up (a stalled connection used to hang the
+# installer for good), and the longest a single download may take (curl).
+DOWNLOAD_TIMEOUT=30
+DOWNLOAD_MAX_TIME=300
 
 # Cached flag to switch between ipk or apk package managers
 PKG_IS_APK=0
@@ -94,7 +98,7 @@ update_config() {
 
             yes|y|Y)
                 mv /etc/config/netshift /etc/config/netshift-070
-                wget -O /etc/config/netshift https://raw.githubusercontent.com/yandexru45/netshift/refs/heads/main/netshift/files/etc/config/netshift
+                fetch_url https://raw.githubusercontent.com/yandexru45/netshift/refs/heads/main/netshift/files/etc/config/netshift /etc/config/netshift
                 msg "NetShift config has been reset to default. Your old config saved in /etc/config/netshift-070"
                 break
                 ;;
@@ -247,6 +251,23 @@ migrate_from_podkop() {
     msg "Your old config is preserved at /etc/config/podkop.bak.pre-netshift"
 }
 
+# One download attempt of $1 into the file $2, with timeouts: wget first, then curl when the
+# router has it (a wget that cannot reach GitHub often has a curl that can). POSIX sh.
+fetch_url() {
+    if wget -q -T "$DOWNLOAD_TIMEOUT" -O "$2" "$1" && [ -s "$2" ]; then
+        return 0
+    fi
+    rm -f "$2"
+
+    if command -v curl >/dev/null 2>&1 &&
+        curl -fsSL --connect-timeout "$DOWNLOAD_TIMEOUT" -m "$DOWNLOAD_MAX_TIME" -o "$2" "$1" && [ -s "$2" ]; then
+        return 0
+    fi
+    rm -f "$2"
+
+    return 1
+}
+
 # Download one release asset URL into $DOWNLOAD_DIR with retry. POSIX sh.
 download_release_asset() {
     url="$1"
@@ -256,11 +277,9 @@ download_release_asset() {
     attempt=0
     while [ $attempt -lt $COUNT ]; do
         msg "Download $filename (count $((attempt + 1)))..."
-        if wget -q -O "$filepath" "$url"; then
-            if [ -s "$filepath" ]; then
-                msg "$filename successfully downloaded"
-                return 0
-            fi
+        if fetch_url "$url" "$filepath"; then
+            msg "$filename successfully downloaded"
+            return 0
         fi
         msg "Download error for $filename. Retrying..."
         rm -f "$filepath"
@@ -475,7 +494,7 @@ main() {
         local grep_url_pattern
         grep_url_pattern="https://[^\"[:space:]]*\.${ext}"
 
-        wget -qO- "$REPO" | grep -o "$grep_url_pattern" | while read -r url; do
+        wget -qO- -T "$DOWNLOAD_TIMEOUT" "$REPO" | grep -o "$grep_url_pattern" | while read -r url; do
             filename=$(basename "$url")
             download_release_asset "$url" "$filename"
         done
