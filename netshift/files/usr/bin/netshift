@@ -5059,6 +5059,8 @@ sing_box_configure_dns() {
     config_foreach configure_dns_section_handler "section"
     # Last: the pool rules match every query that no rule above handled.
     sing_box_configure_dns_pool "$dns_detour_tag"
+    # Bootstrap the proxy hostname without using the DNS transport it carries.
+    config=$(sing_box_cm_set_proxy_bootstrap_resolver "$config" "$SB_BOOTSTRAP_SERVER_TAG" "$dns_detour_tag")
 }
 
 # --- Real IPv6 addresses for a section (ipv6_dns_policy) ----------------------
