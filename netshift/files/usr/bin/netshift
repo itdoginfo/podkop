@@ -5056,7 +5056,11 @@ sing_box_configure_dns() {
     else
         dns_strategy="ipv4_only"
     fi
-    config=$(sing_box_cm_configure_dns "$config" "$SB_DNS_SERVER_TAG" "$dns_strategy" true)
+    # independent_cache: deprecated by sing-box 1.14 and gone in 1.16, which then refuses the whole
+    # configuration; only an older core gets it
+    local independent_cache="true"
+    is_sing_box_at_least "$SB_DNS_EVALUATE_MIN" && independent_cache=""
+    config=$(sing_box_cm_configure_dns "$config" "$SB_DNS_SERVER_TAG" "$dns_strategy" "$independent_cache")
 
     log "Adding DNS Servers" "debug"
     local dns_type dns_server bootstrap_dns_server dns_domain_resolver dns_server_address

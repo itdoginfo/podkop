@@ -54,7 +54,8 @@ sing_box_cm_configure_log() {
 #   config: string (JSON), sing-box configuration to modify
 #   final: string, default dns server tag
 #   strategy: string, default domain strategy for resolving the domain names
-#   independent_cache: boolean, whether to use an independent DNS cache
+#   independent_cache: boolean, whether to use an independent DNS cache; empty leaves the field
+#     out (sing-box 1.14 deprecates it, 1.16 rejects a configuration that has it)
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -69,14 +70,13 @@ sing_box_cm_configure_dns() {
     echo "$config" | jq \
         --arg final "$final" \
         --arg strategy "$strategy" \
-        --argjson independent_cache "$independent_cache" \
-        '.dns = {
+        --arg independent_cache "$independent_cache" \
+        '.dns = ({
 			servers: (.dns.servers // []),
 			rules: (.dns.rules // []),
 			final: $final,
-			strategy: $strategy,
-			independent_cache: $independent_cache
-		}'
+			strategy: $strategy
+		} + (if $independent_cache == "" then {} else {independent_cache: ($independent_cache == "true")} end))'
 
 }
 

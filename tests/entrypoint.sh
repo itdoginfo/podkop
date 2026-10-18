@@ -17126,6 +17126,13 @@ norm='[.route.rules[] | select(.action != "resolve") | del(.inbound) | del(.["__
 d_set=$(sing_box_cm_configure_dns "$base" "$SB_DNS_SERVER_TAG" "ipv4_only" true)
 echo "$d_set" | jq -e '.dns.strategy == "ipv4_only"' > /dev/null 2>&1 &&
     echo 'ipv6-dns-strategy-kept:OK' || echo 'ipv6-dns-strategy-kept:FAIL'
+# independent_cache: written for an older core, left out for sing-box 1.14+ (1.16 refuses it)
+echo "$(sing_box_cm_configure_dns "$base" "$SB_DNS_SERVER_TAG" "ipv4_only" true)" | jq -e '.dns.independent_cache == true' > /dev/null 2>&1 &&
+    echo 'dns-independent-cache-old-core:OK' || echo 'dns-independent-cache-old-core:FAIL'
+echo "$(sing_box_cm_configure_dns "$base" "$SB_DNS_SERVER_TAG" "ipv4_only" "")" | jq -e '.dns | has("independent_cache") | not' > /dev/null 2>&1 &&
+    echo 'dns-independent-cache-left-out:OK' || echo 'dns-independent-cache-left-out:FAIL'
+grep -q 'is_sing_box_at_least "$SB_DNS_EVALUATE_MIN" && independent_cache=""' "$BIN" &&
+    echo 'dns-independent-cache-gated:OK' || echo 'dns-independent-cache-gated:FAIL'
 
 # The helpers: an empty inbound is a JSON empty string, not a jq error; the DoH-block
 # helper takes the array form too.
