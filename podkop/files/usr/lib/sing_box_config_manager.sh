@@ -966,6 +966,9 @@ sing_box_cm_add_raw_outbound() {
 #   tolerance: string or integer, max latency difference tolerated (optional)
 #   idle_timeout: string or integer, idle timeout duration (optional)
 #   interrupt_exist_connections: boolean, flag to interrupt existing connections ("true"/"false") (optional)
+#   fallbacks: string, JSON array of outbound tags used in order while none of outbounds responds (optional)
+#   download_check: string, download test before switching: "off" or "custom" (optional)
+#   download_url: string, URL of the download test for "custom" (optional)
 # Outputs:
 #   Writes updated JSON configuration to stdout
 # Example:
@@ -980,6 +983,9 @@ sing_box_cm_add_urltest_outbound() {
     local tolerance="$6"
     local idle_timeout="$7"
     local interrupt_exist_connections="$8"
+    local fallbacks="${9:-[]}"
+    local download_check="${10}"
+    local download_url="${11}"
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -989,6 +995,9 @@ sing_box_cm_add_urltest_outbound() {
         --arg tolerance "$tolerance" \
         --arg idle_timeout "$idle_timeout" \
         --arg interrupt_exist_connections "$interrupt_exist_connections" \
+        --argjson fallbacks "$fallbacks" \
+        --arg download_check "$download_check" \
+        --arg download_url "$download_url" \
         '.outbounds += [
             {
                 type: "urltest",
@@ -1000,6 +1009,10 @@ sing_box_cm_add_urltest_outbound() {
             + (if $tolerance != "" then {tolerance: ($tolerance | tonumber)} else {} end)
             + (if $idle_timeout != "" then {idle_timeout: $idle_timeout} else {} end)
             + (if $interrupt_exist_connections == "true" then {interrupt_exist_connections: true} else {} end)
+            + (if ($fallbacks | length) > 0 then {fallbacks: $fallbacks} else {} end)
+            + (if $download_check == "off" then {download_url: ""}
+               elif $download_check == "custom" and $download_url != "" then {download_url: $download_url}
+               else {} end)
         ]'
 }
 
@@ -1450,6 +1463,28 @@ sing_box_cm_configure_cache_file() {
 }
 
 #######################################
+# Configure the experimental utls_fallback section of a sing-box JSON configuration.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   fingerprints: string, JSON array of uTLS fingerprints to try, in this order
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(sing_box_cm_configure_utls_fallback "$CONFIG" '["safari","randomized"]')
+#######################################
+sing_box_cm_configure_utls_fallback() {
+    local config="$1"
+    local fingerprints="$2"
+
+    echo "$config" | jq \
+        --argjson fingerprints "$fingerprints" \
+        '.experimental.utls_fallback = {
+            enabled: true,
+            fingerprints: $fingerprints
+        }'
+}
+
+#######################################
 # Configure the experimental clash_api section of a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
@@ -1480,6 +1515,7 @@ sing_box_cm_configure_clash_api() {
 
 #######################################
 # Save a sing-box JSON configuration to a file, removing service-specific tags.
+# A DNS route rule left without a condition is not saved: it would match every query.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify
 #   file_path: string, path to save the configuration file
@@ -1494,7 +1530,8 @@ sing_box_cm_save_config_to_file() {
 
     echo "$config" | jq \
         --arg tag "$SERVICE_TAG" \
-        'walk(if type == "object" then del(.[$tag]) else . end)' \
+        'del(.dns.rules[]? | select(.action == "route" and del(.action, .server, .rewrite_ttl, .[$tag]) == {})) |
+        walk(if type == "object" then del(.[$tag]) else . end)' \
         > "$filepath"
 }
 

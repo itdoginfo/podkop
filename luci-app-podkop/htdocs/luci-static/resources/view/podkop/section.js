@@ -5,7 +5,7 @@
 "require tools.widgets as widgets";
 "require view.podkop.main as main";
 
-function createSectionContent(section) {
+function createSectionContent(section, singBoxFeatures = []) {
   let o = section.option(
     form.ListValue,
     "connection_type",
@@ -128,6 +128,30 @@ function createSectionContent(section) {
     return validation.message;
   };
 
+  if (singBoxFeatures.includes("urltest.fallbacks")) {
+    o = section.option(
+      form.DynamicList,
+      "urltest_fallback_links",
+      _("Fallback URLs"),
+      _("Used in this order only while none of the URLTest proxy links responds")
+    );
+    o.depends("proxy_config_type", "urltest");
+    o.validate = function (section_id, value) {
+      // Optional
+      if (!value || value.length === 0) {
+        return true;
+      }
+
+      const validation = main.validateProxyUrl(value);
+
+      if (validation.valid) {
+        return true;
+      }
+
+      return validation.message;
+    };
+  }
+
   o = section.option(
     form.ListValue,
     "urltest_check_interval",
@@ -191,6 +215,47 @@ function createSectionContent(section) {
 
     return validation.message;
   };
+
+  if (singBoxFeatures.includes("urltest.download_url")) {
+    o = section.option(
+      form.ListValue,
+      "urltest_download_check",
+      _("Download Check"),
+      _("Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped")
+    );
+    o.value("default", _("Default"));
+    o.value("off", _("Disabled"));
+    o.value("custom", _("Custom URL"));
+    o.default = "default";
+    o.depends("proxy_config_type", "urltest");
+
+    o = section.option(
+      form.Value,
+      "urltest_download_url",
+      _("Download Check URL"),
+      _("The URL must serve at least 64 KiB or announce a shorter length")
+    );
+    Object.entries(main.URLTEST_DOWNLOAD_URL_OPTIONS).forEach(([key, label]) => {
+      o.value(key, _(label));
+    });
+    o.default = "https://speed.cloudflare.com/__down?bytes=65536";
+    o.rmempty = false;
+    o.depends({ proxy_config_type: "urltest", urltest_download_check: "custom" });
+
+    o.validate = function (section_id, value) {
+      if (!value || value.length === 0) {
+        return true;
+      }
+
+      const validation = main.validateUrl(value);
+
+      if (validation.valid) {
+        return true;
+      }
+
+      return validation.message;
+    };
+  }
 
   o = section.option(
     form.Flag,

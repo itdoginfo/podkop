@@ -85,6 +85,9 @@ const EntryPoint = {
   async render() {
     main.injectGlobalStyles();
 
+    // Options of features the installed sing-box does not have are not created
+    const singBoxFeatures = await main.CustomPodkopMethods.getSingBoxFeatures();
+
     const podkopMap = new form.Map(
       "podkop",
       _("Podkop Settings"),
@@ -104,7 +107,7 @@ const EntryPoint = {
     sectionsSection.template = "cbi/simpleform";
 
     // Render section content
-    section.createSectionContent(sectionsSection);
+    section.createSectionContent(sectionsSection, singBoxFeatures);
 
     // Settings tab
     const settingsSection = podkopMap.section(
@@ -120,7 +123,7 @@ const EntryPoint = {
     };
 
     // Render settings content
-    settings.createSettingsContent(settingsSection);
+    settings.createSettingsContent(settingsSection, singBoxFeatures);
 
     // Diagnostic tab
     const diagnosticSection = podkopMap.section(

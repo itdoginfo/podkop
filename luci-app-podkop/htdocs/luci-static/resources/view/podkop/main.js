@@ -622,6 +622,7 @@ var Podkop;
     AvailableMethods2["SHOW_SING_BOX_CONFIG"] = "show_sing_box_config";
     AvailableMethods2["CHECK_LOGS"] = "check_logs";
     AvailableMethods2["GET_SYSTEM_INFO"] = "get_system_info";
+    AvailableMethods2["GET_SING_BOX_FEATURES"] = "get_sing_box_features";
   })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
   let AvailableClashAPIMethods;
   ((AvailableClashAPIMethods2) => {
@@ -696,7 +697,8 @@ var PodkopShellMethods = {
   checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS),
   getSystemInfo: async () => callBaseMethod(
     Podkop.AvailableMethods.GET_SYSTEM_INFO
-  )
+  ),
+  getSingBoxFeatures: async () => callBaseMethod(Podkop.AvailableMethods.GET_SING_BOX_FEATURES)
 };
 
 // src/podkop/methods/custom/getDashboardSections.ts
@@ -793,9 +795,13 @@ async function getDashboardSections() {
         const outbound = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-urltest-out`
         );
+        const links = [
+          ...section.urltest_proxy_links ?? [],
+          ...section.urltest_fallback_links ?? []
+        ];
         const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
           code: item?.code || "",
-          displayName: getProxyUrlName(section.urltest_proxy_links?.[index]) || item?.value?.name || "",
+          displayName: getProxyUrlName(links[index]) || item?.value?.name || "",
           latency: item?.value?.history?.[0]?.delay || 0,
           type: item?.value?.type || "",
           selected: selector?.value?.now === item?.code
@@ -856,11 +862,18 @@ async function getClashApiSecret() {
   return settings?.yacd_secret_key || "";
 }
 
+// src/podkop/methods/custom/getSingBoxFeatures.ts
+async function getSingBoxFeatures() {
+  const { data, success } = await PodkopShellMethods.getSingBoxFeatures();
+  return success && Array.isArray(data) ? data : [];
+}
+
 // src/podkop/methods/custom/index.ts
 var CustomPodkopMethods = {
   getConfigSections,
   getDashboardSections,
-  getClashApiSecret
+  getClashApiSecret,
+  getSingBoxFeatures
 };
 
 // src/constants.ts
@@ -933,6 +946,12 @@ var DNS_SERVER_OPTIONS = {
   "dns.adguard-dns.com": "dns.adguard-dns.com (AdGuard Default)",
   "unfiltered.adguard-dns.com": "unfiltered.adguard-dns.com (AdGuard Unfiltered)",
   "family.adguard-dns.com": "family.adguard-dns.com (AdGuard Family)"
+};
+var URLTEST_DOWNLOAD_URL_OPTIONS = {
+  "https://speed.cloudflare.com/__down?bytes=65536": "https://speed.cloudflare.com/__down?bytes=65536 (Cloudflare)",
+  "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js": "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js (Google)",
+  "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js": "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js (jsDelivr)",
+  "https://cachefly.cachefly.net/1mb.test": "https://cachefly.cachefly.net/1mb.test (CacheFly)"
 };
 var BOOTSTRAP_DNS_SERVER_OPTIONS = {
   "77.88.8.8": "77.88.8.8 (Yandex DNS)",
@@ -4907,6 +4926,7 @@ return baseclass.extend({
   TabService,
   TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
+  URLTEST_DOWNLOAD_URL_OPTIONS,
   bulkValidate,
   coreService,
   executeShellCommand,

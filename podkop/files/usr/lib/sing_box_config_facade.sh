@@ -61,6 +61,19 @@ sing_box_cf_add_proxy_outbound() {
     local url="$3"
     local udp_over_tcp="$4"
 
+    # A link with the xhttp transport is decoded by sing-box itself, before any
+    # decoding here: its "extra" parameter is URL-encoded JSON
+    case "$(url_get_scheme "$url")" in
+    vless | trojan)
+        case "$(url_get_query_param "$(url_strip_fragment "$url")" "type")" in
+        xhttp | splithttp)
+            _add_decoded_proxy_outbound "$config" "$section" "$url"
+            return
+            ;;
+        esac
+        ;;
+    esac
+
     url=$(url_decode "$url")
     url=$(url_strip_fragment "$url")
 
@@ -169,6 +182,45 @@ sing_box_cf_add_proxy_outbound() {
     esac
 
     echo "$config"
+}
+
+#######################################
+# Add a proxy outbound decoded from the link by "sing-box tools decode-link".
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   section: string, the section the outbound tag is derived from
+#   url: string, the link as written in the configuration (not URL-decoded)
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+_add_decoded_proxy_outbound() {
+    local config="$1"
+    local section="$2"
+    local url="$3"
+
+    if ! sing_box_has_feature "tools.decode-link"; then
+        log "The xhttp transport is not supported by the installed sing-box (podkop-engine r11 or later is required). Aborted." "fatal"
+        exit 1
+    fi
+
+    local tag outbound status messages message
+    tag=$(get_outbound_tag_by_section "$section")
+    messages="/tmp/podkop-decode-link.$$"
+    outbound=$(sing-box tools decode-link --compact "$url" 2> "$messages")
+    status=$?
+
+    if [ "$status" -ne 0 ]; then
+        log "Cannot use the proxy link of $section: $(head -n 1 "$messages"). Aborted." "fatal"
+        rm -f "$messages"
+        exit 1
+    fi
+
+    while read -r message; do
+        [ -n "$message" ] && log "Proxy link of $section: $message" "warn"
+    done < "$messages"
+    rm -f "$messages"
+
+    sing_box_cm_add_raw_outbound "$config" "$tag" "$outbound"
 }
 
 _add_outbound_security() {

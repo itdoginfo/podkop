@@ -125,6 +125,23 @@ url_decode() {
     printf '%b' "$(echo "$encoded" | sed 's/+/ /g; s/%/\\x/g')"
 }
 
+# Prints the features the installed sing-box reports in the "Features:" line of
+# "sing-box version", comma-separated; nothing for a sing-box without that line
+sing_box_get_features() {
+    sing-box version 2> /dev/null | sed -n 's/^Features:[[:space:]]*//p'
+}
+
+# Checks if the installed sing-box reports the given feature
+sing_box_has_feature() {
+    local feature="$1"
+
+    case ",$(sing_box_get_features)," in
+    *",$feature,"*) return 0 ;;
+    esac
+
+    return 1
+}
+
 # Returns the scheme (protocol) part of a URL
 url_get_scheme() {
     local url="$1"
