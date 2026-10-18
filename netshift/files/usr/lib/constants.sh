@@ -117,6 +117,10 @@ RT_TABLE_NAME="netshift"
 # reload/restart never block on flock. The monitor writes its own pid here.
 MONITOR_PIDFILE="/var/run/netshift_monitor.pid"
 
+# Pidfile of the detached worker that retries a failed startup subscription refresh. It
+# writes its own pid (O_EXCL, so only one worker runs); start/stop go through it.
+SUBSCRIPTION_RETRY_PIDFILE="/var/run/netshift_subscription_retry.pid"
+
 ## nft
 NFT_TABLE_NAME="NetShiftTable"
 NFT_LOCALV4_SET_NAME="localv4"

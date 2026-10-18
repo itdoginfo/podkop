@@ -14798,18 +14798,16 @@ else
     echo "hr-update-killed-after-cache-write-applied-next-run(rc=$rc reload=$(hr_count reload)):FAIL"
 fi
 
-# ── start_subscription_startup_retry_worker ───────────────────────────
+# ── subscription_startup_retry_worker ─────────────────────────────────
 # The worker runs `/usr/bin/netshift subscription_update` in a child process;
 # the test swaps that one command for a stub fed from a list of exit codes, and
 # records every wait instead of sleeping.
-eval "$(extract start_subscription_startup_retry_worker | sed 's|/usr/bin/netshift subscription_update|hr_worker_update|')"
+eval "$(extract subscription_startup_retry_worker_cleanup)"
+eval "$(extract subscription_startup_retry_worker_claim)"
+eval "$(extract subscription_startup_retry_worker | sed 's|/usr/bin/netshift subscription_update|hr_worker_update|')"
 config_load() { :; }
-# The first wait really pauses for a moment: the parent writes the pidfile right
-# after forking the worker, and a worker that finished before that would leave
-# the pidfile behind.
 sleep() {
     printf '%s\n' "$1" >> "$HR_DIR/sleep.log"
-    [ "$1" = "10" ] && command sleep 1
     return 0
 }
 hr_worker_update() {
@@ -14817,13 +14815,12 @@ hr_worker_update() {
     hr_worker_rc="$(sed -n "$(hr_count worker)p" "$HR_DIR/worker_rcs")"
     return "${hr_worker_rc:-0}"
 }
-hr_worker_pidfile="/var/run/netshift_subscription_retry.pid"
+hr_worker_pidfile="$SUBSCRIPTION_RETRY_PIDFILE"
 mkdir -p /var/run
 hr_worker_run() {
     rm -f "$HR_DIR/worker.log" "$HR_DIR/sleep.log" "$hr_worker_pidfile"
     printf '%s\n' "$@" > "$HR_DIR/worker_rcs"
-    start_subscription_startup_retry_worker
-    wait
+    ( subscription_startup_retry_worker ) > /dev/null 2>&1
 }
 hr_sleeps() {
     tr '\n' ' ' < "$HR_DIR/sleep.log" 2>/dev/null | sed 's/ $//'
@@ -22963,6 +22960,203 @@ DRVEOF
     rm -rf "$work"
 }
 
+test_retry_lifecycle() {
+    header "Subscription retry worker: singleton, TERM handling, pidfile ownership, procd fd"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$bin" ]; then
+        skip "netshift bin not found"
+        return
+    fi
+    if ! command -v setsid > /dev/null 2>&1; then
+        skip "setsid not available"
+        return
+    fi
+
+    local work="/tmp/netshift-retry-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+    local cli="$work/netshift" pidfile="$work/retry.pid"
+
+    # The shipped worker functions, verbatim; only the pidfile and the binary path
+    # are redirected and the 10 s start-up delay is shortened. The subscription
+    # update is a stub that stays busy until the test releases it.
+    {
+        printf '#!/bin/sh\nTEST_ROOT=%s\n' "$work"
+        cat << 'HEAD'
+log() { :; }
+config_load() { :; }
+sleep() { if [ "$1" = 10 ]; then /bin/sleep 0.15 2> /dev/null || /bin/sleep 1; else /bin/sleep "$@"; fi; }
+NETSHIFT_CONFIG=netshift
+SUBSCRIPTION_RETRY_INTERVAL=1
+SUBSCRIPTION_RETRY_PIDFILE=$TEST_ROOT/retry.pid
+SUBSCRIPTION_UPDATE_APPLY_FAILED=3
+SUBSCRIPTION_RETRY_MAX_APPLY_FAILURES=3
+SUBSCRIPTION_RETRY_BACKOFF_MAX=5
+HEAD
+        awk '/^stop_subscription_startup_retry_worker\(\) \{/ {on=1} /^# --- selected server survives/ {on=0} on' "$bin" \
+            | sed -e "s#/usr/bin/netshift#$cli#g"
+        cat << 'TAIL'
+case "$1" in
+start) start_subscription_startup_retry_worker ;;
+stop) stop_subscription_startup_retry_worker ;;
+__subscription_retry) subscription_startup_retry_worker ;;
+subscription_update)
+    echo $$ >> "$TEST_ROOT/updates"
+    while [ ! -e "$TEST_ROOT/release" ]; do /bin/sleep 0.05 2> /dev/null || /bin/sleep 1; done
+    echo completed >> "$TEST_ROOT/results" ;;
+esac
+TAIL
+    } > "$cli"
+    chmod +x "$cli"
+
+    _rl_wait() { # <seconds*10> <command...>
+        local n="$1" i=0
+        shift
+        while [ "$i" -lt "$n" ]; do
+            "$@" && return 0
+            /bin/sleep 0.1 2> /dev/null || /bin/sleep 1
+            i=$((i + 1))
+        done
+        return 1
+    }
+    _rl_alive() { [ -d "/proc/$1" ] && ! grep -q '^State:.*Z' "/proc/$1/status" 2> /dev/null; }
+    _rl_file() { [ -s "$1" ]; }
+    _rl_gone() { ! _rl_alive "$1"; }
+
+    # fd 1000 stands for the procd init lock the service inherits.
+    (
+        exec 1000> "$work/procd-lock"
+        "$cli" start
+    )
+    local pid
+    pid="$(cat "$pidfile" 2> /dev/null)"
+    if [ -n "$pid" ] && _rl_alive "$pid"; then
+        pass "retry-worker-started-and-published-own-pid"
+    else
+        fail "retry-worker-started-and-published-own-pid:FAIL (pidfile='$pid')"
+    fi
+    if [ -n "$pid" ] && [ ! -e "/proc/$pid/fd/1000" ]; then
+        pass "retry-worker-closed-procd-fd"
+    else
+        fail "retry-worker-closed-procd-fd:FAIL (worker holds fd 1000)"
+    fi
+
+    "$cli" start
+    if [ "$(cat "$pidfile" 2> /dev/null)" = "$pid" ]; then
+        pass "retry-worker-start-is-singleton"
+    else
+        fail "retry-worker-start-is-singleton:FAIL (pidfile now '$(cat "$pidfile" 2> /dev/null)', was '$pid')"
+    fi
+
+    _rl_wait 50 _rl_file "$work/updates"
+    local upd
+    upd="$(cat "$work/updates" 2> /dev/null)"
+    if [ "$(echo "$upd" | wc -w)" -eq 1 ]; then
+        pass "retry-worker-single-update-child"
+    else
+        fail "retry-worker-single-update-child:FAIL (updates: $upd)"
+    fi
+
+    "$cli" stop
+    if _rl_wait 30 _rl_gone "$pid" && [ ! -e "$pidfile" ]; then
+        pass "retry-worker-stop-exits-and-removes-pidfile"
+    else
+        fail "retry-worker-stop-exits-and-removes-pidfile:FAIL (alive=$(_rl_alive "$pid" && echo yes || echo no), pidfile=$([ -e "$pidfile" ] && echo present || echo absent))"
+    fi
+    if [ -n "$upd" ] && _rl_alive "$upd"; then
+        pass "retry-worker-stop-keeps-running-update"
+    else
+        fail "retry-worker-stop-keeps-running-update:FAIL (the update child was killed)"
+    fi
+    : > "$work/release"
+    _rl_wait 30 _rl_file "$work/results" || true
+    kill -9 "$upd" 2> /dev/null || true
+
+    # An old worker finishing must not delete the pidfile of its successor.
+    rm -f "$work/release" "$work/updates" "$work/results"
+    "$cli" start
+    pid="$(cat "$pidfile" 2> /dev/null)"
+    echo 99999999 > "$pidfile"
+    kill -TERM "$pid" 2> /dev/null || true
+    _rl_wait 30 _rl_gone "$pid" || true
+    if ! _rl_alive "$pid" && [ "$(cat "$pidfile" 2> /dev/null)" = "99999999" ]; then
+        pass "retry-worker-cleanup-keeps-foreign-pidfile"
+    else
+        fail "retry-worker-cleanup-keeps-foreign-pidfile:FAIL (alive=$(_rl_alive "$pid" && echo yes || echo no), pidfile='$(cat "$pidfile" 2> /dev/null)')"
+    fi
+    for upd in $(cat "$work/updates" 2> /dev/null); do kill -9 "$upd" 2> /dev/null || true; done
+
+    # Two starts that overlap (a restart while the monitor recovers the service) each
+    # spawn a worker; only one may stay, and a single stop must remove it for good.
+    rm -f "$work/release" "$work/updates" "$work/results" "$pidfile"
+    "$cli" start &
+    "$cli" start &
+    wait
+    /bin/sleep 1
+    local alive=0 p
+    for p in $(pgrep -f "$cli __subscription_retry" 2> /dev/null); do
+        _rl_alive "$p" && alive=$((alive + 1))
+    done
+    if [ "$alive" -eq 1 ]; then
+        pass "retry-worker-parallel-starts-leave-one-worker"
+    else
+        fail "retry-worker-parallel-starts-leave-one-worker:FAIL (workers alive: $alive)"
+    fi
+    "$cli" stop
+    /bin/sleep 1
+    alive=0
+    for p in $(pgrep -f "$cli __subscription_retry" 2> /dev/null); do
+        _rl_alive "$p" && alive=$((alive + 1))
+    done
+    if [ "$alive" -eq 0 ] && [ ! -e "$pidfile" ]; then
+        pass "retry-worker-one-stop-leaves-none"
+    else
+        fail "retry-worker-one-stop-leaves-none:FAIL (workers alive: $alive, pidfile $([ -e "$pidfile" ] && echo present || echo absent))"
+    fi
+    for upd in $(cat "$work/updates" 2> /dev/null); do kill -9 "$upd" 2> /dev/null || true; done
+
+    # A pidfile left by a dead worker is taken over.
+    rm -f "$work/updates" "$pidfile"
+    echo 99999999 > "$pidfile"
+    "$cli" start
+    pid="$(cat "$pidfile" 2> /dev/null)"
+    if [ "$pid" != "99999999" ] && [ -n "$pid" ] && _rl_alive "$pid"; then
+        pass "retry-worker-takes-over-stale-pidfile"
+    else
+        fail "retry-worker-takes-over-stale-pidfile:FAIL (pidfile='$pid')"
+    fi
+
+    # A stop during the start-up delay (before the first update) ends the worker.
+    "$cli" stop
+    if _rl_wait 30 _rl_gone "$pid" && [ ! -e "$pidfile" ]; then
+        pass "retry-worker-stop-during-startup-delay"
+    else
+        fail "retry-worker-stop-during-startup-delay:FAIL"
+    fi
+    for upd in $(cat "$work/updates" 2> /dev/null); do kill -9 "$upd" 2> /dev/null || true; done
+
+    # The background list_update of start_main drops the procd lock as well.
+    local frag
+    frag="$(grep 'exec 1000>&-; list_update' "$bin" | head -1 | sed 's/^[[:space:]]*//')"
+    if [ -n "$frag" ]; then
+        if (
+            exec 1000> "$work/procd-lock"
+            list_update() { [ ! -e /proc/self/fd/1000 ]; }
+            eval "$frag"
+            wait $!
+        ); then
+            pass "list-update-closed-procd-fd"
+        else
+            fail "list-update-closed-procd-fd:FAIL (list_update keeps fd 1000)"
+        fi
+    else
+        fail "list-update-closed-procd-fd:FAIL (start_main does not close fd 1000 for list_update)"
+    fi
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -23072,6 +23266,7 @@ main() {
             test_proxy_bootstrap
             test_tuic_anytls
             test_update_repo
+            test_retry_lifecycle
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -23171,9 +23366,10 @@ main() {
         proxybootstrap) test_proxy_bootstrap ;;
         tuicanytls)  test_tuic_anytls ;;
         updaterepo)  test_update_repo ;;
+        retrylife) test_retry_lifecycle ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo retrylife"
             exit 1
             ;;
     esac
