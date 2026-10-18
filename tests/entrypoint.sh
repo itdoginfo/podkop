@@ -23229,6 +23229,164 @@ run
     rm -rf "$work"
 }
 
+# ─────────────────────────────────────────────────────────────────
+# Test: the whole configuration, end to end
+# ─────────────────────────────────────────────────────────────────
+# Every other test checks one piece with the rest stubbed. This one builds the complete
+# sing-box configuration with the real generator (sing_box_init_config, every lib) from a
+# realistic UCI config that switches many options on at once (DNS through a section and a pool,
+# a DNS section with its own pool, TUIC, IPv6, a VPN and an exclusion section), and gives it to sing-box 1.14: `check` must accept it without a warning (a
+# deprecated field is a configuration that a later core refuses) and `run` must come up.
+test_e2e_config() {
+    header "End to end: the generated configuration of many options together, checked and run by sing-box 1.14"
+
+    local sb="/usr/local/bin/sing-box-1.14"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -x "$sb" ] || [ ! -r "$bin" ] || [ ! -r /lib/functions.sh ]; then
+        skip "sing-box 1.14, the netshift bin or /lib/functions.sh not available"
+        return
+    fi
+
+    local work="/tmp/netshift-e2e-$$" saved_config="" sb_link_saved=""
+    rm -rf "$work"
+    mkdir -p "$work" /usr/lib/netshift /etc/sing-box /tmp/sing-box
+    local f
+    for f in "${NETSHIFT_LIB_DIR}"/*; do
+        ln -sf "$f" "/usr/lib/netshift/$(basename "$f")"
+    done
+    if [ -f /etc/config/netshift ]; then
+        saved_config="$work/netshift.saved"
+        cp /etc/config/netshift "$saved_config"
+    fi
+    if [ -e /usr/bin/sing-box ]; then
+        sb_link_saved="$work/sing-box.saved"
+        cp -P /usr/bin/sing-box "$sb_link_saved"
+    fi
+    ln -sf "$sb" /usr/bin/sing-box
+    ip link add e2ewg0 type dummy 2> /dev/null || true
+
+    cat > /etc/config/netshift << UCI
+config settings 'settings'
+	option dns_type 'doh'
+	option dns_server 'dns.google/dns-query'
+	option bootstrap_dns_server '77.88.8.8'
+	option dns_via_outbound '1'
+	option dns_outbound_section 'main'
+	list dns_pool_server 'udp://1.1.1.1'
+	list dns_pool_server 'dot://dns.quad9.net'
+	option dns_pool_mode 'race'
+	option enable_ipv6 '1'
+	option config_path '$work/config.json'
+	option cache_path '$work/cache.db'
+	list source_network_interfaces 'br-lan'
+	option update_interval '1d'
+	option log_level 'warn'
+
+config section 'main'
+	option connection_type 'proxy'
+	option proxy_config_type 'url'
+	option proxy_string 'vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@a.example.com:443?security=tls&type=tcp&sni=a.example.com#A'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'example.org'
+	option ipv6_dns_policy 'real'
+
+config section 'tuic'
+	option connection_type 'proxy'
+	option proxy_config_type 'url'
+	option proxy_string 'tuic://2f35965a-9a9b-45fd-ba32-987296dfb6be:pw@t.example.com:443?sni=t.example.com&congestion_control=bbr&alpn=h3#T'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'tuic.example'
+
+config section 'excl'
+	option connection_type 'exclusion'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'bank.example'
+
+config section 'dnssec'
+	option connection_type 'dns'
+	option dns_type 'udp'
+	option dns_server '10.0.0.53'
+	list dns_pool_server 'udp://10.0.0.54'
+	option dns_pool_mode 'fallback'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'corp.example'
+
+config section 'wg'
+	option connection_type 'vpn'
+	option interface 'e2ewg0'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'vpn.example'
+UCI
+
+    awk '/^[a-zA-Z_][a-zA-Z0-9_]*\(\) \{/{p=1} p{print} p&&/^\}/{p=0}' "$bin" > "$work/funcs.sh"
+    local out
+    out="$(
+        cd "$work" || exit 1
+        NETSHIFT_LIB=/usr/lib/netshift
+        for f in constants logging helpers sing_box_config_manager sing_box_config_facade nft rulesets \
+            kill_switch lint naive corecaps failover support filterpreview applyconfig update_notice \
+            dnsbench dnsforward ecs lan pinguard routecheck snapshots subinfo feedlist updater; do
+            [ -r "$NETSHIFT_LIB/$f.sh" ] && . "$NETSHIFT_LIB/$f.sh"
+        done
+        . /lib/functions.sh
+        . /lib/config/uci.sh
+        [ -r /lib/functions/network.sh ] && . /lib/functions/network.sh
+        . "$work/funcs.sh"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$work/log"; }
+        nolog() { :; }
+        config_load netshift
+        ( sing_box_init_config ) > /dev/null 2>&1
+        echo "built=$([ -s "$work/config.json" ] && echo yes || echo no)"
+    )"
+    printf '%s\n' "$out" > "$work/out"
+
+    local c="$work/config.json"
+    if [ -s "$c" ]; then
+        "$sb" check -c "$c" > "$work/check.out" 2>&1 && echo "check=ok" >> "$work/out" || echo "check=FAIL" >> "$work/out"
+        echo "check-warnings=$(sed 's/\x1b\[[0-9;]*m//g' "$work/check.out" | grep -c 'WARN\|deprecated')" >> "$work/out"
+        "$sb" run -c "$c" > "$work/run.out" 2>&1 &
+        local sb_pid=$!
+        sleep 3
+        echo "running=$(kill -0 "$sb_pid" 2> /dev/null && echo yes || echo no)" >> "$work/out"
+        kill "$sb_pid" 2> /dev/null
+        wait "$sb_pid" 2> /dev/null
+        {
+            echo "dns-detour-and-bootstrap=$(jq -c '[(.dns.servers[] | select(.tag == "dns-server") | .detour), (.outbounds[] | select(.tag == "main-out") | .domain_resolver)]' "$c")"
+            echo "pool-race=$(jq -c '[.dns.rules[] | select(.action == "respond" and (.match_response | startswith("dns-pool-response"))) | .race] | unique' "$c")"
+            echo "dns-section=$(jq -c '[.dns.rules[] | select(.rule_set == "dnssec-user-domains-ruleset") | .action] | unique' "$c")"
+            echo "vpn-bound=$(jq -c '[.outbounds[] | select(.tag == "wg-out") | .bind_interface]' "$c")"
+            echo "tuic=$(jq -c '[.outbounds[] | select(.tag == "tuic-out") | .type]' "$c")"
+            echo "ipv6-inbounds=$(jq -c '[.inbounds[] | .tag] | sort' "$c")"
+            echo "no-independent-cache=$(jq -c '.dns | has("independent_cache") | not' "$c")"
+        } >> "$work/out"
+    fi
+    out="$(cat "$work/out")"
+
+    _e2e() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _e2e "the generator builds the whole configuration" "built=yes"
+    _e2e "sing-box 1.14 accepts it" "check=ok"
+    _e2e "...without a warning (a deprecated field is refused by a later core)" "check-warnings=0"
+    _e2e "...and runs it" "running=yes"
+    _e2e "DNS through the section, the proxy server resolved by the bootstrap DNS (no loop)" 'dns-detour-and-bootstrap=["main-out","bootstrap-dns-server"]'
+    _e2e "the DNS pool in race mode" "pool-race=[true]"
+    _e2e "the DNS section with its own pool (fallback)" 'dns-section=["evaluate","route"]'
+    _e2e "the VPN section is bound to its interface" 'vpn-bound=["e2ewg0"]'
+    _e2e "a TUIC link" 'tuic=["tuic"]'
+    _e2e "IPv6: the inbounds of both families" 'ipv6-inbounds=["dns-in","dns-in-v6","tproxy-in","tproxy-in-v6"]'
+    _e2e "no deprecated independent_cache for sing-box 1.14" "no-independent-cache=true"
+
+    if [ -n "$saved_config" ]; then cp "$saved_config" /etc/config/netshift; else rm -f /etc/config/netshift; fi
+    if [ -n "$sb_link_saved" ]; then cp -P "$sb_link_saved" /usr/bin/sing-box; else rm -f /usr/bin/sing-box; fi
+    ip link del e2ewg0 2> /dev/null || true
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -23339,6 +23497,7 @@ main() {
             test_tuic_anytls
             test_update_repo
             test_list_update_checks
+            test_e2e_config
             test_daemon_and_route_table
             test_cron_running
             ;;
@@ -23441,11 +23600,12 @@ main() {
         tuicanytls)  test_tuic_anytls ;;
         updaterepo)  test_update_repo ;;
         listupdate) test_list_update_checks ;;
+        e2e) test_e2e_config ;;
         daemon) test_daemon_and_route_table ;;
         cronrun) test_cron_running ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo cronrun listupdate daemon"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo cronrun listupdate daemon e2e"
             exit 1
             ;;
     esac
