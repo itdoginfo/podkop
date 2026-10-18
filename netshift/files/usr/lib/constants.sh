@@ -328,6 +328,8 @@ SB_SECTION_DNS_RULE_PREFIX="dns-section-rule-"
 # A section whose AAAA queries are answered with the real addresses (ipv6_dns_policy=real)
 # gets a DNS rule of its own, ahead of the FakeIP rule.
 SB_SECTION_AAAA_RULE_PREFIX="ipv6-real-dns-rule-"
+# The evaluated responses of a DNS section's own server list: "<prefix><section>-<n>".
+SB_SECTION_DNS_RESPONSE_PREFIX="dns-section-response-"
 SB_INVERT_FAKEIP_DNS_RULE_TAG="invert-fakeip-dns-rule-tag"
 # Inbounds
 SB_TPROXY_INBOUND_TAG="tproxy-in"
