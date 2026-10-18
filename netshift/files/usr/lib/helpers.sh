@@ -2216,7 +2216,7 @@ normalize_subscription_to_singbox() {
         # reaches the builder's fatal path.
         scheme="$(url_get_scheme "$line")"
         case "$scheme" in
-        vless | vmess | trojan | ss | hysteria2 | hy2 | socks5 | socks4 | socks4a | naive+https | naive+quic) ;;
+        vless | vmess | trojan | ss | hysteria2 | hy2 | tuic | anytls | socks5 | socks4 | socks4a | naive+https | naive+quic) ;;
         *)
             skipped=$(( skipped + 1 ))
             continue

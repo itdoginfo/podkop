@@ -975,6 +975,75 @@ sing_box_cm_add_trojan_outbound() {
 }
 
 #######################################
+# Add a TUIC outbound (needs QUIC in the core; the TLS block comes separately).
+# Arguments:
+#   config, tag, server, server_port, uuid, password
+#   congestion_control: bbr, cubic or new_reno (optional)
+#   udp_relay_mode: native or quic (optional)
+# Outputs:
+#   Updated JSON config to stdout
+#######################################
+sing_box_cm_add_tuic_outbound() {
+    local config="$1"
+    local tag="$2"
+    local server="$3"
+    local server_port="$4"
+    local uuid="$5"
+    local password="$6"
+    local congestion_control="$7"
+    local udp_relay_mode="$8"
+
+    echo "$config" | jq \
+        --arg tag "$tag" \
+        --arg server "$server" \
+        --arg server_port "$server_port" \
+        --arg uuid "$uuid" \
+        --arg password "$password" \
+        --arg congestion_control "$congestion_control" \
+        --arg udp_relay_mode "$udp_relay_mode" \
+        '.outbounds += [(
+            {
+                type: "tuic",
+                tag: $tag,
+                server: $server,
+                server_port: ($server_port | tonumber),
+                uuid: $uuid
+            }
+            + (if $password != "" then {password: $password} else {} end)
+            + (if $congestion_control != "" then {congestion_control: $congestion_control} else {} end)
+            + (if $udp_relay_mode != "" then {udp_relay_mode: $udp_relay_mode} else {} end)
+        )]'
+}
+
+#######################################
+# Add an AnyTLS outbound (sing-box 1.12+; the TLS block comes separately).
+# Arguments:
+#   config, tag, server, server_port, password
+# Outputs:
+#   Updated JSON config to stdout
+#######################################
+sing_box_cm_add_anytls_outbound() {
+    local config="$1"
+    local tag="$2"
+    local server="$3"
+    local server_port="$4"
+    local password="$5"
+
+    echo "$config" | jq \
+        --arg tag "$tag" \
+        --arg server "$server" \
+        --arg server_port "$server_port" \
+        --arg password "$password" \
+        '.outbounds += [{
+            type: "anytls",
+            tag: $tag,
+            server: $server,
+            server_port: ($server_port | tonumber),
+            password: $password
+        }]'
+}
+
+#######################################
 # Add a Hysteria2 outbound to the outbounds section of a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify

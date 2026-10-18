@@ -829,6 +829,45 @@ function validateNaiveUrl(url) {
   return { valid: true, message: _("Valid") };
 }
 
+// src/validators/validateTuicAnytlsUrl.ts
+function validateCredentialUrl(url, scheme, title) {
+  const invalid = (message) => ({
+    valid: false,
+    message: _(message)
+  });
+  if (/\s/.test(url)) {
+    return invalid(`Invalid ${title} URL: must not contain spaces`);
+  }
+  const body = url.slice(`${scheme}://`.length);
+  const [authority] = body.split(/[/?#]/);
+  const at = authority.lastIndexOf("@");
+  if (at <= 0) {
+    return invalid(
+      scheme === "tuic" ? `Invalid ${title} URL: uuid and password are required` : `Invalid ${title} URL: password is required`
+    );
+  }
+  const hostPort = authority.slice(at + 1);
+  const match = hostPort.match(/^(\[[^\]]+\]|[^:]+)(?::(\d+))?$/);
+  if (!match) {
+    return invalid(`Invalid ${title} URL: missing host`);
+  }
+  const host = match[1];
+  const port = match[2];
+  if (port !== void 0 && (Number(port) < 1 || Number(port) > 65535)) {
+    return invalid(`Invalid ${title} URL: invalid port`);
+  }
+  if (!host.startsWith("[") && !validateIPV4(host).valid && !validateDomain(host).valid) {
+    return invalid(`Invalid ${title} URL: invalid host`);
+  }
+  return { valid: true, message: _("Valid") };
+}
+function validateTuicUrl(url) {
+  return validateCredentialUrl(url, "tuic", "TUIC");
+}
+function validateAnytlsUrl(url) {
+  return validateCredentialUrl(url, "anytls", "AnyTLS");
+}
+
 // src/helpers/coreCapabilities.ts
 var UNKNOWN_CORE_CAPABILITIES = {
   version: "",
@@ -916,13 +955,25 @@ function validateProxyUrl(url) {
     }
     return validateHysteria2Url(trimmedUrl);
   }
+  if (trimmedUrl.startsWith("tuic://")) {
+    if (!getCoreCapabilities().quic) {
+      return {
+        valid: false,
+        message: _("TUIC needs a sing-box core built with QUIC")
+      };
+    }
+    return validateTuicUrl(trimmedUrl);
+  }
+  if (trimmedUrl.startsWith("anytls://")) {
+    return validateAnytlsUrl(trimmedUrl);
+  }
   if (isNaiveUrl(trimmedUrl)) {
     return validateNaiveUrl(trimmedUrl);
   }
   return {
     valid: false,
     message: _(
-      "URL must start with vless://, vmess://, ss://, trojan://, socks4/5://, hysteria2://hy2:// or naive+https://"
+      "URL must start with vless://, vmess://, ss://, trojan://, socks4/5://, hysteria2://hy2://, tuic://, anytls:// or naive+https://"
     )
   };
 }
@@ -8833,6 +8884,7 @@ return baseclass.extend({
   summarizeLogErrors,
   svgEl,
   toIpList,
+  validateAnytlsUrl,
   validateDNS,
   validateDnsForward,
   validateDnsPoolServer,
@@ -8853,6 +8905,7 @@ return baseclass.extend({
   validateSubnet,
   validateTime,
   validateTrojanUrl,
+  validateTuicUrl,
   validateUrl,
   validateVlessUrl,
   withCountryFlag,
