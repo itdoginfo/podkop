@@ -338,6 +338,8 @@ export namespace NetShift {
     | 'latest'
     | 'outdated'
     | 'dev'
+    // a build other than the installed one that is LOWER (the other update source)
+    | 'switch'
     | 'not_installed';
 
   // Shape echoed by the sync update-check actions:
@@ -348,6 +350,8 @@ export namespace NetShift {
     current_version?: string;
     latest_version?: string;
     status?: ComponentUpdateStatus;
+    // Release notes of the offered build (NetShift self-update check only)
+    notes?: string;
     message?: string;
   }
 }

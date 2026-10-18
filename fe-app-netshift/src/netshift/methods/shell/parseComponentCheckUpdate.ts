@@ -4,6 +4,7 @@ const VALID_STATUSES: NetShift.ComponentUpdateStatus[] = [
   'latest',
   'outdated',
   'dev',
+  'switch',
   'not_installed',
 ];
 
@@ -48,6 +49,7 @@ export function parseComponentCheckUpdate(
           : undefined,
       status: normalizeStatus(parsed.status),
       message: typeof parsed.message === 'string' ? parsed.message : undefined,
+      notes: typeof parsed.notes === 'string' ? parsed.notes : undefined,
     };
   } catch (_e) {
     return {

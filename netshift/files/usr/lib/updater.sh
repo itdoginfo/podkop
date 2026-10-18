@@ -902,9 +902,12 @@ updates_extract_sing_box_binary() {
 }
 
 # Downloads a URL to a file path (curl, fall back to wget). Returns 0 on success.
+# $3 = nomirror: never fall back to a mirror (a file whose content decides whether another
+# download is trusted, such as a checksum list, must come from GitHub itself)
 updates_download_to_file() {
     local url="$1"
     local dest="$2"
+    local nomirror="${3:-}"
     local proxy
 
     # Through the service proxy first when components are configured to use it;
@@ -929,7 +932,57 @@ updates_download_to_file() {
         wget -q -O "$dest" "$url" && [ -s "$dest" ] && return 0
     fi
 
-    return 1
+    [ "$nomirror" != "nomirror" ] || return 1
+    updates_download_via_mirrors "$url" "$dest"
+}
+
+# After a failed direct download of a GitHub file: the mirrors the user listed
+# (list update_mirror 'https://host/'), each put in front of the full URL. Nothing is tried
+# for other hosts, or when no mirror is set (the default).
+updates_download_via_mirrors() {
+    local url="$1"
+    local dest="$2"
+
+    case "$url" in
+    https://github.com/* | https://raw.githubusercontent.com/*) ;;
+    *) return 1 ;;
+    esac
+    command -v netshift_config_list_foreach > /dev/null 2>&1 || return 1
+
+    UPDATES_MIRROR_URL="$url"
+    UPDATES_MIRROR_DEST="$dest"
+    UPDATES_MIRROR_DONE=0
+    # also reads a mirror written as a plain option (uci set ...update_mirror='https://...')
+    netshift_config_list_foreach "settings" "update_mirror" _updates_try_mirror
+    [ "$UPDATES_MIRROR_DONE" -eq 1 ]
+}
+
+_updates_try_mirror() {
+    local mirror="$1"
+
+    [ "$UPDATES_MIRROR_DONE" -eq 0 ] || return 0
+    case "$mirror" in
+    https://*/) ;;
+    https://*) mirror="$mirror/" ;;
+    *)
+        updates_log "Ignoring update_mirror '$mirror': it must be an https:// address" "warn"
+        return 0
+        ;;
+    esac
+
+    updates_log "Direct download failed; trying the mirror $mirror" "warn"
+    if command -v curl >/dev/null 2>&1 &&
+        curl -m 120 -fsSL "$mirror$UPDATES_MIRROR_URL" -o "$UPDATES_MIRROR_DEST" && [ -s "$UPDATES_MIRROR_DEST" ]; then
+        UPDATES_MIRROR_DONE=1
+        return 0
+    fi
+    if command -v wget >/dev/null 2>&1 &&
+        wget -q -O "$UPDATES_MIRROR_DEST" "$mirror$UPDATES_MIRROR_URL" && [ -s "$UPDATES_MIRROR_DEST" ]; then
+        UPDATES_MIRROR_DONE=1
+        return 0
+    fi
+    rm -f "$UPDATES_MIRROR_DEST" 2> /dev/null
+    return 0
 }
 
 # Restarts netshift if its init script is present (best-effort).
@@ -2399,7 +2452,8 @@ _updates_install_sing_box_lite_core() {
         echo "{\"success\":false,\"message\":\"Failed to download sing-box extended lite\"}"
         return 1
     fi
-    if ! updates_download_to_file "$sums_url" "$sums_file"; then
+    # the checksums come from GitHub itself, never from a mirror: the mirror supplies the archive
+    if ! updates_download_to_file "$sums_url" "$sums_file" nomirror; then
         rm -rf "$tmp_dir"
         updates_log "Failed to download the sing-box extended lite checksum file" "error"
         echo "{\"success\":false,\"message\":\"Failed to download the sing-box extended lite checksum file\"}"
@@ -2727,6 +2781,7 @@ updates_check_sing_box_stable() {
 # is_min_package_version the cores use.
 updates_check_netshift() {
     local current_version latest cur_norm latest_norm cur_semver latest_semver status
+    local with_notes="${1:-}"
 
     current_version="$NETSHIFT_VERSION"
 
@@ -2759,14 +2814,43 @@ updates_check_netshift() {
     cur_semver="${cur_norm%%-*}"
     latest_semver="${latest_norm%%-*}"
 
-    if is_min_package_version "$cur_semver" "$latest_semver"; then
+    if [ "$cur_semver" = "$latest_semver" ]; then
         status="latest"
+    elif is_min_package_version "$cur_semver" "$latest_semver"; then
+        # installed is NEWER than the latest release of the chosen repository (the source was
+        # switched to the one with the lower version): offered as a switch, never forced
+        status="switch"
     else
         status="outdated"
     fi
 
-    echo "{\"success\":true,\"current_version\":\"$current_version\",\"latest_version\":\"$latest\",\"status\":\"$status\"}"
+    updates_check_netshift_reply "$current_version" "$latest" "$status" "$with_notes"
     return 0
+}
+
+# Prints the reply of the check; for a build other than the installed one, and only when the
+# caller asks for them ($4 = with_notes: the check of the Components manager, not the background
+# notice of the dashboard, which reads the status only), with the release notes (the body of the
+# GitHub release, cut to UPDATES_NETSHIFT_NOTES_MAX bytes), when they can be fetched.
+# $1 current, $2 latest, $3 status.
+updates_check_netshift_reply() {
+    local notes=""
+
+    if [ "$3" != "latest" ] && [ "$4" = "with_notes" ]; then
+        notes="$(updates_netshift_release_notes "$2")"
+    fi
+    jq -cn --arg cur "$1" --arg latest "$2" --arg status "$3" --arg notes "$notes" \
+        '{success: true, current_version: $cur, latest_version: $latest, status: $status} + (if $notes != "" then {notes: $notes} else {} end)'
+}
+
+# Prints the release notes of the tag in the selected repository, or nothing.
+updates_netshift_release_notes() {
+    local response
+
+    updates_select_netshift_repo
+    response="$(updates_http_get "$NETSHIFT_GITHUB_API_REPOS/$UPDATES_NETSHIFT_REPO/releases/tags/$1")"
+    [ -n "$response" ] || return 0
+    printf '%s' "$response" | jq -r '.body // empty' 2> /dev/null | head -c "$UPDATES_NETSHIFT_NOTES_MAX"
 }
 
 # ── NetShift self-update (Component Manager, task-017) ──────────────
@@ -2835,8 +2919,27 @@ updates_github_resolve_redirect() {
 # grabbed the wrong key on minified JSON, causing a false "outdated".
 # Bare tag on success / non-zero otherwise (contract consumed by
 # updates_check_netshift and the self-update worker).
+updates_select_netshift_repo() {
+    local choice=""
+
+    UPDATES_NETSHIFT_REPO="$NETSHIFT_REPO_UPSTREAM"
+    command -v config_get > /dev/null 2>&1 && config_get choice "settings" "update_repo" "upstream"
+    [ "$choice" = "fork" ] || return 0
+
+    # Both repositories are read the same way: the newest release that is not marked as a
+    # pre-release (/releases/latest). Test builds of the fork are pre-releases and so stay
+    # invisible to the update check. The version may be LOWER than the installed one:
+    # switching the source installs the latest build of that repository.
+    UPDATES_NETSHIFT_REPO="$NETSHIFT_REPO_FORK"
+    NETSHIFT_REPO_RELEASES_LATEST_URL="https://github.com/$NETSHIFT_REPO_FORK/releases/latest"
+    NETSHIFT_REPO_RELEASES_DOWNLOAD_BASE="https://github.com/$NETSHIFT_REPO_FORK/releases/download"
+    NETSHIFT_RELEASE_API_URL="$NETSHIFT_GITHUB_API_REPOS/$NETSHIFT_REPO_FORK/releases/latest"
+}
+
 updates_netshift_latest_tag() {
     local response tag redirect
+
+    updates_select_netshift_repo
 
     # PRIMARY: github.com/<repo>/releases/latest 302-redirects to
     # /releases/tag/<tag>. Parse with case/param-expansion (no Oniguruma).
@@ -2894,6 +2997,8 @@ _updates_self_update_download_assets() {
     local dir="$1"
     local response ext pattern url filename dest attempt got_core=0
     local tag pkg
+
+    updates_select_netshift_repo
 
     if updates_pkg_is_apk; then
         ext="apk"
@@ -3004,7 +3109,7 @@ updates_package_file_looks_valid() {
 
 _updates_self_update_netshift_core() {
     local installed latest pkg file_path candidate_file
-    local core_installed core_installed_semver latest_semver
+    local core_installed core_installed_semver latest_semver installed_semver
     local backup_made=0
 
     installed="$NETSHIFT_VERSION"
@@ -3112,8 +3217,13 @@ _updates_self_update_netshift_core() {
     # The install took iff the installed semver equals the target, OR the
     # installed semver is now >= the target (is_min_package_version current
     # required → 0 when current >= required).
+    # A switch to a LOWER version (the other repository) has to land exactly on the target:
+    # "installed is higher" would mean the package manager refused the downgrade.
+    installed_semver="${installed#v}"
+    installed_semver="${installed_semver%%-*}"
     if [ "$core_installed_semver" != "$latest_semver" ] \
-        && ! is_min_package_version "$core_installed_semver" "$latest_semver"; then
+        && { ! is_min_package_version "$latest_semver" "$installed_semver" \
+            || ! is_min_package_version "$core_installed_semver" "$latest_semver"; }; then
         _updates_self_update_restore_config "$backup_made"
         rm -rf "$UPDATES_NETSHIFT_DOWNLOAD_DIR" 2>/dev/null
         updates_log "Self-update: core package version did not change after install (package manager reported success but no upgrade occurred)" "error"
@@ -3187,7 +3297,7 @@ component_action() {
         naive_component_remove
         ;;
     netshift:check_update)
-        updates_check_netshift
+        updates_check_netshift with_notes
         ;;
     netshift:self_update)
         updates_self_update_netshift

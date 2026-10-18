@@ -115,6 +115,36 @@ export const styles = `
     overflow-wrap: anywhere;
 }
 
+.pdk_manager-page__component__changelog {
+    font-size: 12px;
+    line-height: 1.4;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.pdk_manager-page__component__changelog > summary {
+    cursor: pointer;
+    color: var(--text-color-medium);
+}
+
+.pdk_manager-page__component__changelog > div {
+    max-height: 260px;
+    overflow-y: auto;
+    margin-top: 6px;
+    padding-right: 4px;
+}
+
+.pdk_manager-page__changelog-h1,
+.pdk_manager-page__changelog-h2,
+.pdk_manager-page__changelog-h3 {
+    font-weight: 600;
+    margin-top: 6px;
+}
+
+.pdk_manager-page__changelog-item {
+    padding-left: 6px;
+}
+
 .pdk_manager-page__component__actions > .pdk-partial-button {
     margin-left: 0;
 }

@@ -18,7 +18,22 @@ describe('parseComponentCheckUpdate', () => {
       latest_version: '1.12.9',
       status: 'outdated',
       message: undefined,
+      notes: undefined,
     });
+  });
+
+  it('keeps the release notes of the offered build', () => {
+    const result = parseComponentCheckUpdate(
+      JSON.stringify({
+        success: true,
+        latest_version: '0.9.10',
+        status: 'switch',
+        notes: '## 0.9.10',
+      }),
+    );
+
+    expect(result.status).toBe('switch');
+    expect(result.notes).toBe('## 0.9.10');
   });
 
   it('parses the extended-lite check-update JSON (same shape, lite versions)', () => {
@@ -40,7 +55,7 @@ describe('parseComponentCheckUpdate', () => {
     });
   });
 
-  it.each(['latest', 'outdated', 'dev', 'not_installed'])(
+  it.each(['latest', 'outdated', 'dev', 'switch', 'not_installed'])(
     'accepts the valid status %s',
     (status) => {
       const result = parseComponentCheckUpdate(

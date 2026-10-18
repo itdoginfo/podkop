@@ -1,3 +1,4 @@
+import { tokenizeInline } from './changelog';
 import { onMount, preserveScrollForPage } from '../../../helpers';
 import { normalizeCompiledVersion } from '../../../helpers/normalizeCompiledVersion';
 import { showToast } from '../../../helpers/showToast';
@@ -80,6 +81,7 @@ function setCheckResult(
   component: ManagerComponentKey,
   status: NetShift.ComponentUpdateStatus | null,
   latestVersion: string,
+  notes = '',
 ) {
   const managerChecks = store.get().managerChecks;
 
@@ -89,6 +91,7 @@ function setCheckResult(
       [component]: {
         status,
         latest_version: latestVersion,
+        notes,
       },
     },
   });
@@ -101,6 +104,10 @@ function resetCheckResult(component: ManagerComponentKey) {
 function getCheckToastMessage(status: NetShift.ComponentUpdateStatus | null) {
   if (status === 'outdated') {
     return _('Update is available');
+  }
+
+  if (status === 'switch') {
+    return _('Another build is available');
   }
 
   if (status === 'dev') {
@@ -168,7 +175,12 @@ async function runNetshiftCheck(button: ManagerActionDescriptor) {
 
     const status = parsed.status ?? null;
 
-    setCheckResult('netshift', status, parsed.latest_version || '');
+    setCheckResult(
+      'netshift',
+      status,
+      parsed.latest_version || '',
+      parsed.notes || '',
+    );
     showToast(getCheckToastMessage(status), 'success');
   } catch (error) {
     logger.error('[MANAGER]', 'runNetshiftCheck failed', error);
@@ -463,7 +475,71 @@ function renderComponentCard(card: ManagerCardDescriptor) {
     );
   }
 
+  if (card.notes) {
+    children.push(
+      E('details', { class: 'pdk_manager-page__component__changelog' }, [
+        E('summary', {}, _('What is new in this build')),
+        E('div', {}, renderChangelog(card.notes)),
+      ]),
+    );
+  }
+
   return E('div', { class: 'card pdk_manager-page__component' }, children);
+}
+
+// Release notes (Markdown from GitHub) as plain DOM: headings, list items, paragraphs, links,
+// bold and code; everything goes in as text, nothing is interpreted as HTML.
+function renderInline(text: string): Array<string | HTMLElement> {
+  return tokenizeInline(text).map((token) => {
+    if (token.kind === 'link') {
+      return E(
+        'a',
+        { href: token.href, target: '_blank', rel: 'noopener noreferrer' },
+        token.text,
+      );
+    }
+
+    if (token.kind === 'bold') {
+      return E('strong', {}, token.text);
+    }
+
+    if (token.kind === 'code') {
+      return E('code', {}, token.text);
+    }
+
+    return token.text;
+  });
+}
+
+function renderChangelog(notes: string): HTMLElement[] {
+  return notes
+    .split('\n')
+    .map((raw) => raw.replace(/\r$/, ''))
+    .filter((line) => line.trim() !== '')
+    .map((line) => {
+      const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+
+      if (heading) {
+        return E(
+          'div',
+          {
+            class: `pdk_manager-page__changelog-h${Math.min(heading[1].length, 3)}`,
+          },
+          renderInline(heading[2]),
+        );
+      }
+
+      const item = /^\s*[-*]\s+(.*)$/.exec(line);
+
+      if (item) {
+        return E('div', { class: 'pdk_manager-page__changelog-item' }, [
+          '• ',
+          ...renderInline(item[1]),
+        ]);
+      }
+
+      return E('div', {}, renderInline(line));
+    });
 }
 
 function renderManagerComponents() {
