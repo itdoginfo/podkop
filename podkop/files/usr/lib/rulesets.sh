@@ -56,88 +56,75 @@ patch_source_ruleset_rules() {
     mv "$tmpfile" "$filepath"
 }
 
-# Imports a plain domain list into a ruleset in chunks, validating domains and appending them as domain_suffix rules
-import_plain_domain_list_to_local_source_ruleset_chunked() {
-    local plain_list_filepath="$1"
-    local ruleset_filepath="$2"
-    local chunk_size="${3:-1000}"
+#######################################
+# Same as patch_source_ruleset_rules, but takes the values from a file with one value per line. The file is
+# read by jq itself: a list of tens of thousands of entries does not fit into a command line argument.
+# Duplicates are removed and the values are sorted, as patch_source_ruleset_rules does when merging.
+# Arguments:
+#   filepath: path to the JSON file to patch
+#   key: the ruleset key to insert (e.g., "ip_cidr")
+#   values_filepath: path to the file with values, one per line
+#######################################
+patch_source_ruleset_rules_from_file() {
+    local filepath="$1"
+    local key="$2"
+    local values_filepath="$3"
 
-    local array count json_array
-    count=0
-    while IFS= read -r line; do
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    local tmpfile
+    tmpfile=$(mktemp)
 
-        [ -z "$line" ] && continue
-
-        if ! is_domain_suffix "$line"; then
-            log "'$line' is not a valid domain" "debug"
-            continue
-        fi
-
-        if [ -z "$array" ]; then
-            array="$line"
+    if ! jq --arg key "$key" --rawfile values "$values_filepath" \
+        '($values | split("\n") | map(select(length > 0))) as $value |
+        ( .rules | map(has($key)) | index(true) ) as $idx |
+        if $idx != null then
+            .rules[$idx][$key] = (.rules[$idx][$key] + $value | unique)
         else
-            array="$array,$line"
-        fi
-
-        count=$((count + 1))
-
-        if [ "$count" = "$chunk_size" ]; then
-            log "Adding $count elements to rule set at $ruleset_filepath" "debug"
-            json_array="$(comma_string_to_json_array "$array")"
-            patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
-            array=""
-            count=0
-        fi
-    done < "$plain_list_filepath"
-
-    if [ -n "$array" ]; then
-        log "Adding $count elements to rule set at $ruleset_filepath" "debug"
-        json_array="$(comma_string_to_json_array "$array")"
-        patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
+            .rules += [{ ($key): ($value | unique) }]
+        end' "$filepath" > "$tmpfile"; then
+        rm -f "$tmpfile"
+        return 1
     fi
+
+    mv "$tmpfile" "$filepath"
 }
 
-# Imports a plain IPv4/CIDR list into a ruleset in chunks, validating entries and appending them as ip_cidr rules
-import_plain_subnet_list_to_local_source_ruleset_chunked() {
+#######################################
+# Imports a plain list into a source ruleset: validates the entries and merges them under the given key with
+# a single jq call.
+# Arguments:
+#   $1 - Path to the plain list file
+#   $2 - Path to the ruleset JSON file
+#   $3 - Type of validation ("domains" or "subnets")
+#   $4 - Ruleset key ("domain_suffix" or "ip_cidr")
+#######################################
+import_plain_list_to_local_source_ruleset() {
     local plain_list_filepath="$1"
     local ruleset_filepath="$2"
-    local chunk_size="${3:-1000}"
+    local type="$3"
+    local key="$4"
 
-    local array count json_array
-    count=0
-    while IFS= read -r line; do
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-        [ -z "$line" ] && continue
-
-        if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
-            log "'$line' is not IPv4 or IPv4 CIDR" "debug"
-            continue
-        fi
-
-        if [ -z "$array" ]; then
-            array="$line"
-        else
-            array="$array,$line"
-        fi
-
-        count=$((count + 1))
-
-        if [ "$count" = "$chunk_size" ]; then
-            log "Adding $count elements to ruleset at $ruleset_filepath" "debug"
-            json_array="$(comma_string_to_json_array "$array")"
-            patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
-            array=""
-            count=0
-        fi
-    done < "$plain_list_filepath"
-
-    if [ -n "$array" ]; then
-        log "Adding $count elements to ruleset at $ruleset_filepath" "debug"
-        json_array="$(comma_string_to_json_array "$array")"
-        patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
+    local valid_filepath status
+    valid_filepath=$(mktemp)
+    status=0
+    if ! filter_plain_list_file "$plain_list_filepath" "$type" "$valid_filepath"; then
+        status=1
+    elif [ -s "$valid_filepath" ]; then
+        log "Adding $(wc -l < "$valid_filepath") elements to rule set at $ruleset_filepath" "debug"
+        patch_source_ruleset_rules_from_file "$ruleset_filepath" "$key" "$valid_filepath" || status=1
     fi
+
+    rm -f "$valid_filepath"
+    return "$status"
+}
+
+# Imports a plain domain list into a ruleset, validating domains and appending them as domain_suffix rules
+import_plain_domain_list_to_local_source_ruleset_chunked() {
+    import_plain_list_to_local_source_ruleset "$1" "$2" "domains" "domain_suffix"
+}
+
+# Imports a plain IPv4/CIDR list into a ruleset, validating entries and appending them as ip_cidr rules
+import_plain_subnet_list_to_local_source_ruleset_chunked() {
+    import_plain_list_to_local_source_ruleset "$1" "$2" "subnets" "ip_cidr"
 }
 
 # Determines the ruleset format based on the file extension (json → source, srs → binary)
