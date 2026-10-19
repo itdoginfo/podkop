@@ -137,20 +137,25 @@ start_main() {
     /etc/init.d/sing-box start
 
     log "Nice"
-    list_update &
-    echo $! > /var/run/podkop_list_update.pid
+    # The background list update must not hold the lock of start/stop/reload: close the
+    # descriptor in the subshell ("list_update 9>&- &" keeps it open in busybox ash)
+    (
+        exec 9>&-
+        list_update
+    ) &
+    echo $! > "$PODKOP_LIST_UPDATE_PID_FILE"
 }
 
 stop_main() {
     log "Stopping the podkop"
 
-    if [ -f /var/run/podkop_list_update.pid ]; then
-        pid=$(cat /var/run/podkop_list_update.pid)
+    if [ -f "$PODKOP_LIST_UPDATE_PID_FILE" ]; then
+        pid=$(cat "$PODKOP_LIST_UPDATE_PID_FILE")
         if kill -0 "$pid" 2> /dev/null; then
             kill "$pid" 2> /dev/null
             log "Stopped list_update"
         fi
-        rm -f /var/run/podkop_list_update.pid
+        rm -f "$PODKOP_LIST_UPDATE_PID_FILE"
     fi
 
     remove_cron_job
@@ -176,7 +181,45 @@ stop_main() {
     /etc/init.d/sing-box stop
 }
 
+# podkop is running: its nft table exists and sing-box is running
+podkop_is_running() {
+    nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1 && pidof sing-box > /dev/null 2>&1
+}
+
+# Something of a previous start is left: the nft table, rule set files or a list update.
+# Happens when podkop was not stopped: sing-box or podkop killed (OOM, crash), a start on
+# top of a running podkop. A start over these leftovers duplicates the nft rules and skips
+# the existing rule set files, so user domains and subnets are missing in the sing-box config.
+podkop_has_leftovers() {
+    nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1 && return 0
+    [ -n "$(ls -A "$TMP_RULESET_FOLDER" 2> /dev/null)" ] && return 0
+    [ -f "$PODKOP_LIST_UPDATE_PID_FILE" ] && kill -0 "$(cat "$PODKOP_LIST_UPDATE_PID_FILE")" 2> /dev/null && return 0
+    return 1
+}
+
+# start, stop, reload and restart run one at a time: a second call waits for the first one
+# to finish. The lock is held until the process exits; children that outlive it (the
+# background list update) close the descriptor.
+podkop_lock() {
+    command -v flock > /dev/null 2>&1 || return 0
+    mkdir -p "${PODKOP_LOCK_FILE%/*}"
+    exec 9> "$PODKOP_LOCK_FILE"
+    flock 9
+}
+
 start() {
+    # A repeated start of a running podkop (e.g. a second click on "Start" in LuCI while
+    # the first start is still in progress) used to run the whole start again on top of it.
+    if podkop_is_running; then
+        log "Podkop is already running, nothing to do. Use restart or reload to apply changes"
+        return 0
+    fi
+
+    if podkop_has_leftovers; then
+        log "Leftovers of a previous start found (podkop was not stopped), cleaning up" "warn"
+        stop_main
+    fi
+
     start_main
 
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
@@ -2733,15 +2776,19 @@ EOF
 
 case "$1" in
 start)
+    podkop_lock
     start
     ;;
 stop)
+    podkop_lock
     stop
     ;;
 reload)
+    podkop_lock
     reload
     ;;
 restart)
+    podkop_lock
     restart
     ;;
 main)
