@@ -14680,6 +14680,7 @@ SUBSCRIPTION_UPDATE_LOCK_DIR="$HR_DIR/subscription-update.lock"
 TMP_SUBSCRIPTION_FOLDER="$HR_DIR/sub-tmp"
 TMP_SING_BOX_FOLDER="$HR_DIR/sing-box"
 SUBSCRIPTION_PENDING_APPLY_FLAG="$TMP_SING_BOX_FOLDER/subscription-pending-apply"
+SUBSCRIPTION_NAMES_PENDING_FLAG="$TMP_SING_BOX_FOLDER/subscription-names-pending"
 SUBSCRIPTION_CACHE_FOLDER="$HR_DIR/sub-cache"
 mkdir -p "$SUBSCRIPTION_CACHE_FOLDER"
 config_foreach() { "$1" "main"; }
@@ -14700,8 +14701,10 @@ get_subscription_download_proxy_address() { :; }
 wait_for_subscription_connectivity() { return 0; }
 redact_url_for_log() { printf '%s' "$1"; }
 subscription_cache_is_usable() { return 0; }
+HR_BODY_DEFAULT='{"outbounds":[{"type":"vless","tag":"node-1"}]}'
+HR_BODY=""
 download_subscription_into_cache() {
-    printf '%s' '{"outbounds":[{"type":"vless","tag":"node-1"}]}' > "$3"
+    printf '%s' "${HR_BODY:-$HR_BODY_DEFAULT}" > "$3"
     # The process dies right after the changed body landed in the cache (OOM,
     # SIGKILL) — before anything could be applied.
     [ "$HR_DOWNLOAD_DIES" = "1" ] && exit 9
@@ -14798,6 +14801,103 @@ else
     echo "hr-update-killed-after-cache-write-applied-next-run(rc=$rc reload=$(hr_count reload)):FAIL"
 fi
 
+# ── node names only: a scheduled update does not reload sing-box ──────
+# Panels write the traffic or the days left into every node name, or shuffle
+# the nodes, so the body differs on every refresh while no server changed.
+eval "$(extract subscription_nodes_fingerprint)"
+get_subscription_cron_line_for_interval() { return 0; }
+hr_sched="$SUBSCRIPTION_UPDATE_INTERVAL_DEFAULT"
+hr_cache="$SUBSCRIPTION_CACHE_FOLDER/main.feedhash.json"
+hr_body_a='{"outbounds":[{"type":"vless","tag":"🇳🇱 NL | 10 GB left","server":"nl.example.com","server_port":443,"uuid":"u1"},{"type":"trojan","tag":"🇩🇪 DE | 10 GB left","server":"de.example.com","server_port":443,"password":"p1"},{"type":"urltest","tag":"auto","outbounds":["🇳🇱 NL | 10 GB left","🇩🇪 DE | 10 GB left"]}]}'
+hr_body_b='{"outbounds":[{"type":"trojan","tag":"🇩🇪 DE | 9.5 GB left","server":"de.example.com","server_port":443,"password":"p1"},{"type":"vless","tag":"🇳🇱 NL | 9.5 GB left","server":"nl.example.com","server_port":443,"uuid":"u1"},{"type":"urltest","tag":"auto","outbounds":["🇩🇪 DE | 9.5 GB left","🇳🇱 NL | 9.5 GB left"]}]}'
+hr_body_c='{"outbounds":[{"type":"trojan","tag":"🇩🇪 DE | 9 GB left","server":"de2.example.com","server_port":443,"password":"p1"},{"type":"vless","tag":"🇳🇱 NL | 9 GB left","server":"nl.example.com","server_port":443,"uuid":"u1"}]}'
+hr_names_reset() {
+    rm -f "$HR_DIR/reload.log" "$SUBSCRIPTION_PENDING_APPLY_FLAG" "$SUBSCRIPTION_NAMES_PENDING_FLAG"
+    rm -rf "$SUBSCRIPTION_UPDATE_LOCK_DIR"
+    printf '%s' "$hr_body_a" > "$hr_cache"
+    HR_DOWNLOAD_RC=0
+    HR_RELOAD_RC=0
+}
+hr_marker() { [ -f "$1" ] && echo yes || echo no; }
+hr_fp() { printf '%s' "$1" > "$HR_DIR/fp.json"; subscription_nodes_fingerprint "$HR_DIR/fp.json"; }
+
+if [ -n "$(hr_fp "$hr_body_a")" ] && [ "$(hr_fp "$hr_body_a")" = "$(hr_fp "$hr_body_b")" ] && \
+    [ "$(hr_fp "$hr_body_a")" != "$(hr_fp "$hr_body_c")" ] && [ -z "$(hr_fp 'not json')" ]; then
+    echo 'hr-names-fingerprint-ignores-names-and-order:OK'
+else
+    echo 'hr-names-fingerprint-ignores-names-and-order:FAIL'
+fi
+
+# CASE N1: a scheduled run gets the same nodes under new names and in another
+#          order: no reload, the new body is cached for the next start, and the
+#          names wait for an update started by hand.
+hr_names_reset
+HR_BODY="$hr_body_b"
+subscription_update "$hr_sched" > /dev/null 2>&1
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(hr_count reload)" = "0" ] && [ "$(cat "$hr_cache")" = "$hr_body_b" ] && \
+    [ "$(hr_marker "$SUBSCRIPTION_NAMES_PENDING_FLAG")" = "yes" ] && \
+    [ "$(hr_marker "$SUBSCRIPTION_PENDING_APPLY_FLAG")" = "no" ]; then
+    echo 'hr-names-scheduled-no-reload:OK'
+else
+    echo "hr-names-scheduled-no-reload(rc=$rc reload=$(hr_count reload) names=$(hr_marker "$SUBSCRIPTION_NAMES_PENDING_FLAG") pending=$(hr_marker "$SUBSCRIPTION_PENDING_APPLY_FLAG")):FAIL"
+fi
+
+# CASE N2: the next scheduled run with nothing new still does not reload.
+rm -f "$HR_DIR/reload.log"
+HR_DOWNLOAD_RC=2
+subscription_update "$hr_sched" > /dev/null 2>&1
+if [ "$(hr_count reload)" = "0" ] && [ "$(hr_marker "$SUBSCRIPTION_NAMES_PENDING_FLAG")" = "yes" ]; then
+    echo 'hr-names-scheduled-waits:OK'
+else
+    echo "hr-names-scheduled-waits(reload=$(hr_count reload) names=$(hr_marker "$SUBSCRIPTION_NAMES_PENDING_FLAG")):FAIL"
+fi
+
+# CASE N3: an update started by hand finds the feed unchanged, but applies the
+#          names the scheduled run left in the cache.
+rm -f "$HR_DIR/reload.log"
+HR_DOWNLOAD_RC=2
+subscription_update > /dev/null 2>&1
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(hr_count reload)" = "1" ] && [ "$(hr_marker "$SUBSCRIPTION_NAMES_PENDING_FLAG")" = "no" ]; then
+    echo 'hr-names-manual-update-applies:OK'
+else
+    echo "hr-names-manual-update-applies(rc=$rc reload=$(hr_count reload) names=$(hr_marker "$SUBSCRIPTION_NAMES_PENDING_FLAG")):FAIL"
+fi
+
+# CASE N4: a scheduled run where a server really changed reloads as before.
+hr_names_reset
+HR_BODY="$hr_body_c"
+subscription_update "$hr_sched" > /dev/null 2>&1
+if [ "$(hr_count reload)" = "1" ] && [ "$(hr_marker "$SUBSCRIPTION_NAMES_PENDING_FLAG")" = "no" ]; then
+    echo 'hr-names-scheduled-real-change-reloads:OK'
+else
+    echo "hr-names-scheduled-real-change-reloads(reload=$(hr_count reload) names=$(hr_marker "$SUBSCRIPTION_NAMES_PENDING_FLAG")):FAIL"
+fi
+
+# CASE N5: an update started by hand applies new names right away.
+hr_names_reset
+HR_BODY="$hr_body_b"
+subscription_update > /dev/null 2>&1
+if [ "$(hr_count reload)" = "1" ]; then
+    echo 'hr-names-manual-renames-reload:OK'
+else
+    echo "hr-names-manual-renames-reload(reload=$(hr_count reload)):FAIL"
+fi
+
+# CASE N6: a feed with no earlier cache is a change, scheduled or not.
+hr_names_reset
+rm -f "$hr_cache"
+HR_BODY="$hr_body_b"
+subscription_update "$hr_sched" > /dev/null 2>&1
+if [ "$(hr_count reload)" = "1" ]; then
+    echo 'hr-names-first-download-reloads:OK'
+else
+    echo "hr-names-first-download-reloads(reload=$(hr_count reload)):FAIL"
+fi
+HR_BODY=""
+rm -f "$HR_DIR/reload.log" "$SUBSCRIPTION_NAMES_PENDING_FLAG"
+
 # ── start_subscription_startup_retry_worker ───────────────────────────
 # The worker runs `/usr/bin/netshift subscription_update` in a child process;
 # the test swaps that one command for a stub fed from a list of exit codes, and
@@ -14892,11 +14992,13 @@ hr_sing_box_start() { printf 'start\n' >> "$HR_DIR/sb_start.log"; }
 rm -f "$HR_DIR/sb_start.log"
 mkdir -p "$TMP_SING_BOX_FOLDER"
 : > "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+: > "$SUBSCRIPTION_NAMES_PENDING_FLAG"
 HR_BUILD_OK=1
 rm -f "$HR_DIR/sub_cron_sync.log"
 ( start_main ) > /dev/null 2>&1
 rc=$?
-if [ "$rc" -eq 0 ] && [ ! -f "$SUBSCRIPTION_PENDING_APPLY_FLAG" ] && [ "$(hr_count sb_start)" = "1" ]; then
+if [ "$rc" -eq 0 ] && [ ! -f "$SUBSCRIPTION_PENDING_APPLY_FLAG" ] && [ ! -f "$SUBSCRIPTION_NAMES_PENDING_FLAG" ] && \
+    [ "$(hr_count sb_start)" = "1" ]; then
     echo 'hr-start-built-config-drops-marker:OK'
 else
     echo "hr-start-built-config-drops-marker(rc=$rc started=$(hr_count sb_start) marker=$([ -f "$SUBSCRIPTION_PENDING_APPLY_FLAG" ] && echo yes || echo no)):FAIL"

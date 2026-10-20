@@ -41,6 +41,11 @@ TMP_SUBSCRIPTION_MERGE_FOLDER="$TMP_SING_BOX_FOLDER/subscription-merge"
 # downloaded. Lives in tmpfs on purpose: a reboot, and any start that builds a
 # valid config, applies the cache anyway.
 SUBSCRIPTION_PENDING_APPLY_FLAG="$TMP_SING_BOX_FOLDER/subscription-pending-apply"
+# Marks a cached subscription body whose nodes only got new names or another
+# order since the running config was built (see subscription_nodes_fingerprint).
+# A scheduled update leaves such a body for later; the next update started by
+# hand applies it, and any start that builds a valid config clears the marker.
+SUBSCRIPTION_NAMES_PENDING_FLAG="$TMP_SING_BOX_FOLDER/subscription-names-pending"
 # Seconds to wait after SIGHUP before deciding that sing-box came back up on the
 # new config. Tests set it to 0.
 SING_BOX_RELOAD_SETTLE_DELAY="3"
