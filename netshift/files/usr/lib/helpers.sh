@@ -2075,7 +2075,7 @@ normalize_subscription_to_singbox() {
 
     local pad_len bom work_dir body_file candidate_file
     local udp_over_tcp config new_config
-    local line scheme idx kept skipped final_count builder_tag builder_out_tag
+    local line idx kept skipped final_count builder_tag builder_out_tag
     local fragment display_name first_char xray_uris xray_unsupported
 
     # The normalized body is cached per URL and reused until the next download,
@@ -2191,104 +2191,162 @@ normalize_subscription_to_singbox() {
     # stdin isolated, and reading stops at the first `break` below, so a feed of
     # half a million links costs no more memory than the file itself.
 
-    # Resolve the core version once for the whole feed: the builder checks it
-    # per link (e.g. VLESS Encryption), and each check would otherwise spawn
+    # Resolve the core version (and the build tags) once for the whole feed: the
+    # builder checks them per link, and each check would otherwise spawn
     # `sing-box version` again. See get_sing_box_version.
-    local NETSHIFT_SING_BOX_VERSION
+    local NETSHIFT_SING_BOX_VERSION NETSHIFT_SING_BOX_TAGS
     NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
+    [ -n "${NETSHIFT_SING_BOX_TAGS+x}" ] || NETSHIFT_SING_BOX_TAGS="$(get_sing_box_tags)"
 
-    # `|| [ -n "$line" ]`: the body is read straight from the downloaded file, so
-    # its last line may come without a trailing newline (a base64 blob decoded to
-    # a file, a feed that simply ends after the last link). Plain `read` would
-    # drop that line, i.e. the last server of the feed.
-    while IFS= read -r line || [ -n "$line" ]; do
-        # Trim leading/trailing whitespace.
-        line="${line#"${line%%[![:space:]]*}"}"
-        line="${line%"${line##*[![:space:]]}"}"
-        [ -n "$line" ] || continue
-        # Skip metadata/comment lines.
-        case "$line" in
-        '#'*)
-            continue
-            ;;
-        esac
-        # Pre-filter: only attempt known schemes so an unknown scheme never
-        # reaches the builder's fatal path.
-        scheme="$(url_get_scheme "$line")"
-        case "$scheme" in
-        vless | vmess | trojan | ss | hysteria2 | hy2 | tuic | anytls | socks5 | socks4 | socks4a | naive+https | naive+quic) ;;
-        *)
-            skipped=$(( skipped + 1 ))
-            continue
-            ;;
-        esac
+    # The feed is taken in rounds, so that subscription_max_nodes limits the WORK and not only
+    # the result (a feed of half a million links with a limit of 500 must cost what 500 cost):
+    #   pass 1 (builtins only, no process per line): the next links worth trying, trimmed -
+    #          as many as are still missing up to the limit (all of them without a limit);
+    #   pass 2: the common kinds of link are converted all at once by ONE jq run (linkfast.jq);
+    #          what it is not sure about it marks "slow". Without the program (or when jq
+    #          fails) every link goes the slow way, as before;
+    #   pass 3: in the order of the list. A converted link is taken as it is; the others go
+    #          the slow way (one link at a time, on an empty configuration: the builder only
+    #          appends, so the size of the result does not slow it down).
+    # A round that kept fewer than it tried (unparsable links) is followed by another one.
+    # The stream is read through one descriptor (3), so a round goes on where the last stopped;
+    # redirects keep the stdin of the builders away from the loops.
+    local cand_file fast_file entries_file fast_opt res name_out quic_ok utls_ok ext_ok
+    local feed_end=0 want ncand nfast
+    cand_file="$work_dir/cand"
+    fast_file="$work_dir/fast"
+    entries_file="$work_dir/entries"
+    : > "$entries_file"
 
-        # A collected list can hold thousands of servers: each one costs a few
-        # processes here, and the config built from all of them is too much for a
-        # router (and for the speed tests of the group). Only the first
-        # subscription_max_nodes are taken (0: all of them).
+    quic_ok=false
+    core_has_tag with_quic && quic_ok=true
+    utls_ok=false
+    core_has_tag with_utls && utls_ok=true
+    ext_ok=false
+    is_sing_box_extended "$NETSHIFT_SING_BOX_VERSION" && ext_ok=true
+
+    exec 3< "$candidate_file"
+    while [ "$feed_end" -eq 0 ]; do
+        want=0
+        if [ "$max_nodes" -gt 0 ]; then
+            want=$(( max_nodes - kept ))
+            if [ "$want" -le 0 ]; then
+                # the limit is reached: say so only when the feed has one more link to offer
+                want=1
+            fi
+        fi
+
+        # `|| [ -n "$line" ]`: the last line of a feed may come without a trailing newline.
+        ncand=0
+        {
+            while [ "$want" -eq 0 ] || [ "$ncand" -lt "$want" ]; do
+                if ! IFS= read -r line <&3; then
+                    feed_end=1
+                    [ -n "$line" ] || break
+                fi
+                line="${line#"${line%%[![:space:]]*}"}"
+                line="${line%"${line##*[![:space:]]}"}"
+                [ -n "$line" ] || continue
+                case "$line" in
+                '#'*) continue ;;
+                esac
+                # only known schemes are tried, so an unknown one never reaches the builder
+                case "${line%%://*}" in
+                vless | vmess | trojan | ss | hysteria2 | hy2 | tuic | anytls | socks5 | socks4 | socks4a | naive+https | naive+quic)
+                    printf '%s\n' "$line"
+                    ncand=$(( ncand + 1 ))
+                    ;;
+                *)
+                    skipped=$(( skipped + 1 ))
+                    ;;
+                esac
+                [ "$feed_end" -eq 0 ] || break
+            done
+        } > "$cand_file"
+        [ "$ncand" -gt 0 ] || break
+
         if [ "$max_nodes" -gt 0 ] && [ "$kept" -ge "$max_nodes" ]; then
             log "Subscription for '$section' has more than $max_nodes servers; only the first $max_nodes are used (see 'Servers per feed')" "warn"
             break
         fi
 
-        # Extract the human-readable name from the URI fragment (the part after
-        # the first '#', e.g. vless://...#🇩🇪 Frankfurt). The builder strips the
-        # fragment, so we capture it here and re-apply it as the outbound tag
-        # below. Fall back to a synthetic name when the fragment is absent.
-        case "$line" in
-        *"#"*) fragment="${line##*#}" ;;
-        *) fragment="" ;;
-        esac
-        # url_decode handles %20 / percent-escaped UTF-8 (flag emoji etc.).
-        display_name=""
-        [ -z "$fragment" ] || display_name="$(url_decode "$fragment" 2>/dev/null)"
-        builder_tag="${section}-fb${idx}"
-        builder_out_tag="$(get_outbound_tag_by_section "$builder_tag")"
+        : > "$fast_file"
+        if [ -r "$NETSHIFT_LIB/linkfast.jq" ]; then
+            fast_opt="$(jq -n -c --argjson quic "$quic_ok" --argjson utls "$utls_ok" --argjson ext "$ext_ok" --arg uot "$udp_over_tcp" --argjson base "$idx" \
+                '{quic: $quic, utls: $utls, extended: $ext, udp_over_tcp: $uot, base: $base}')"
+            jq -R -n -c --argjson opt "$fast_opt" -f "$NETSHIFT_LIB/linkfast.jq" < "$cand_file" > "$fast_file" 2> /dev/null || : > "$fast_file"
+            nfast="$(grep -c '^{"s":"ok"' "$fast_file" 2> /dev/null)"
+            log "Subscription for '$section': $ncand link(s) in this round, ${nfast:-0} converted in one pass" "debug"
+        else
+            log "linkfast.jq is not readable; the links of '$section' are converted one by one" "debug"
+        fi
 
-        # Second guard: run the builder in a subshell (command substitution) so
-        # an unexpected exit 1 (e.g. malformed URI) is contained and surfaced as
-        # a non-zero rc. Redirect its stdin from /dev/null so its internal
-        # pipelines cannot consume the loop's input.
-        new_config="$(sing_box_cf_add_proxy_outbound "$config" "$builder_tag" "$line" "$udp_over_tcp" </dev/null 2>/dev/null)" || {
-            log "skip unparsable subscription key #$idx for '$section'" "debug"
+        exec 4< "$fast_file"
+        while IFS= read -r line; do
+            res=""
+            IFS= read -r res <&4 || res=""
+            case "$res" in
+            '{"s":"ok"'*)
+                printf '%s\n' "$res" >> "$entries_file"
+                idx=$(( idx + 1 ))
+                kept=$(( kept + 1 ))
+                continue
+                ;;
+            esac
+
+            # The name from the URI fragment (the part after the last '#'), re-applied as the
+            # tag below; url_decode handles %20 / percent-escaped UTF-8 (flag emoji etc.).
+            case "$line" in
+            *"#"*) fragment="${line##*#}" ;;
+            *) fragment="" ;;
+            esac
+            display_name=""
+            [ -z "$fragment" ] || display_name="$(url_decode "$fragment" 2>/dev/null)"
+            builder_tag="${section}-fb${idx}"
+            builder_out_tag="$(get_outbound_tag_by_section "$builder_tag")"
+
+            # The builder runs in a subshell so an unexpected exit 1 (a malformed link) is
+            # contained and shows as a non-zero rc.
+            new_config="$(sing_box_cf_add_proxy_outbound '{"outbounds":[]}' "$builder_tag" "$line" "$udp_over_tcp" </dev/null 2>/dev/null)" || {
+                log "skip unparsable subscription key #$idx for '$section'" "debug"
+                idx=$(( idx + 1 ))
+                continue
+            }
+
+            name_out="$(
+                printf '%s' "$new_config" | jq -c --arg name "$display_name" --arg builder_out_tag "$builder_out_tag" --argjson i "$idx" '
+                    if (.outbounds[-1].tag // null) != $builder_out_tag then error("no outbound added") else . end
+                    | {s: "ok", name: $name, ob: (.outbounds[-1] | del(.tag)), i: $i}
+                ' 2>/dev/null
+            )" && [ -n "$name_out" ] || {
+                log "skip subscription key (invalid result or no outbound added) for '$section'" "debug"
+                idx=$(( idx + 1 ))
+                continue
+            }
+            printf '%s\n' "$name_out" >> "$entries_file"
             idx=$(( idx + 1 ))
-            continue
-        }
-        idx=$(( idx + 1 ))
+            kept=$(( kept + 1 ))
+        done < "$cand_file"
+        exec 4<&-
+    done
+    exec 3<&-
 
-        # One jq pass over the whole config per key: it rejects an invalid
-        # result or one where the builder appended nothing (the last outbound
-        # is not its $builder_out_tag), then re-applies the human-readable name as the
-        # tag of the just-added outbound. The name drops control characters
-        # and is deduplicated against tags already present so identical
-        # remarks stay unique and valid for sing-box and the dashboard (which
-        # displays the tag verbatim via the Clash API).
-        new_config="$(
-            printf '%s' "$new_config" | jq -c --arg name "$display_name" --arg builder_tag "$builder_tag" --arg builder_out_tag "$builder_out_tag" '
-                if (.outbounds[-1].tag // null) != $builder_out_tag then error("no outbound added") else . end
-                | ($name | explode | map(select(. != 9 and . != 10 and . != 13)) | implode
-                   | if . == "" then $builder_tag else . end) as $name
-                | ([.outbounds[:-1][].tag // empty]) as $existing
-                | (
-                    if ($existing | index($name) | not) then $name
-                    else
-                        (label $found
-                            | (range(1; 1000001)
-                                | ($name + "-" + (. | tostring)) as $cand
-                                | if ($existing | index($cand) | not) then $cand, break $found else empty end))
-                    end
-                  ) as $tag
-                | .outbounds[-1].tag = $tag
-            ' 2>/dev/null
-        )" && [ -n "$new_config" ] || {
-            log "skip subscription key (invalid result or no outbound added) for '$section'" "debug"
-            continue
-        }
-
-        config="$new_config"
-        kept=$(( kept + 1 ))
-    done < "$candidate_file"
+    # The tags are the human-readable names: without control characters, and unique in the
+    # whole list (a repeat gets -1, -2, ... so the remarks stay valid for sing-box and the
+    # dashboard, which shows the tag as it is). An empty name becomes <section>-fb<n>.
+    if [ -s "$entries_file" ]; then
+        config="$(jq -s -c --arg section "$section" '
+            reduce .[] as $e ({used: {}, out: []};
+                ($e.name | explode | map(select(. != 9 and . != 10 and . != 13)) | implode) as $n0
+                | (if $n0 == "" then ($section + "-fb" + ($e.i | tostring)) else $n0 end) as $n
+                | . as $st
+                | (if ($st.used[$n] | not) then $n
+                   else first(range(1; 1000001) | ($n + "-" + tostring) as $c | select($st.used[$c] | not) | $c) end) as $tag
+                | .used[$tag] = true
+                | .out += [{type: $e.ob.type, tag: $tag} + ($e.ob | del(.type))])
+            | {outbounds: .out}
+        ' "$entries_file" 2>/dev/null)" || config='{"outbounds":[]}'
+    fi
     rm -rf "$work_dir"
 
     if [ "$skipped" -gt 0 ]; then

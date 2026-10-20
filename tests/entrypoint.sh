@@ -2498,7 +2498,8 @@ normalize_subscription_to_singbox "$ve_sub" "$ve_subout" "vc" > /dev/null 2>&1
 n=$(jq '[.outbounds[] | select(has("encryption"))] | length' "$ve_subout" 2>/dev/null)
 calls=$(wc -l < "$VE_CALLS" | tr -d ' ')
 [ "$n" = "5" ] && echo 've-cache-sub-outbounds:OK' || echo "ve-cache-sub-outbounds:FAIL (n=$n)"
-[ "$calls" -le 2 ] && echo 've-cache-sub-one-call:OK' || echo "ve-cache-sub-one-call:FAIL (calls=$calls)"
+# at most two per feed (the version, and the build tags that the one-pass converter asks for), never one per link
+[ "$calls" -ge 1 ] && [ "$calls" -le 2 ] && echo 've-cache-sub-one-call:OK' || echo "ve-cache-sub-one-call:FAIL (calls=$calls)"
 : > "$VE_CALLS"
 config="$base"
 _build_proxy_member_outbounds "vm" "$(sed 's/#.*//' "$ve_sub")" "0" "URLTest"
@@ -23344,6 +23345,227 @@ TAIL
     rm -rf "$work"
 }
 
+test_bulk_links() {
+    header "Bulk conversion: the single-pass converter agrees with the per-link builder"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$lib/linkfast.jq" ] || [ ! -r "$lib/helpers.sh" ] || [ ! -r "$lib/sing_box_config_facade.sh" ]; then
+        fail "linkfast.jq / helpers / facade not found"
+        return
+    fi
+
+    local work="/tmp/netshift-bulk-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        mkdir -p /usr/lib/netshift
+        for f in constants.sh helpers.sh logging.sh sing_box_config_manager.sh sing_box_config_facade.sh; do
+            ln -sf "$lib/$f" "/usr/lib/netshift/$f"
+        done
+        . /usr/lib/netshift/constants.sh
+        . /usr/lib/netshift/logging.sh
+        . /usr/lib/netshift/sing_box_config_facade.sh
+        CL_LOG="$work/log"; : > "$CL_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$CL_LOG"; }
+        # VMess needs the extended core: pretend to have it, as both paths read the version
+        get_sing_box_version() { echo "1.13.14-extended-2.5.0"; }
+        : > /etc/config/netshift
+        uci -q set netshift.bk=section
+        uci -q commit netshift
+
+        U=2f35965a-9a9b-45fd-ba32-987296dfb6be
+        cat > "$work/links.txt" << LIST
+vless://$U@a.example.com:443?security=tls&type=tcp&sni=a.example.com&fp=chrome&alpn=h2%2Chttp%2F1.1#plain
+vless://$U@b.example.com:443?security=reality&type=tcp&sni=b.example.com&fp=chrome&pbk=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG&sid=ab12&flow=xtls-rprx-vision#reality
+vless://$U@c.example.com:80?type=ws&path=%2Fws&host=c.example.com#ws-nosecurity
+vless://$U@d.example.com:443?security=tls&type=ws&path=%2Fws%3Fed%3D2048&host=d.example.com&sni=d.example.com#ws-ed
+vless://$U@e.example.com:443?security=tls&type=grpc&serviceName=svc&sni=e.example.com#grpc
+vless://$U@f.example.com:443?security=tls&type=httpupgrade&path=%2Fhu&host=f.example.com#httpupgrade
+vless://$U@g.example.com:443?security=&type=tcp&headerType=none#empty-security
+vless://$U@h.example.com:443?type=ws&path=/?ed=2048&host=h.example.com#second-question-mark
+vless://$U@i.example.com:443?security=tls&type=tcp&sni=i.example.com#%F0%9F%87%A9%F0%9F%87%AA%20Berlin
+vless://$U@j.example.com:443?security=tls&type=tcp&sni=j.example.com#dup
+vless://$U@k.example.com:443?security=tls&type=tcp&sni=k.example.com#dup
+vless://$U@l.example.com:443?security=weird&type=tcp#weird
+vless://$U@[2001:db8::1]:443?security=tls&type=tcp&sni=v6.example.com#ipv6
+trojan://secret@m.example.com:443?type=tcp&sni=m.example.com#trojan
+trojan://secret@n.example.com:443?security=none&type=ws&path=%2Ft#trojan-ws-none
+hysteria2://pass@o.example.com:443?sni=o.example.com&insecure=1&obfs=salamander&obfs-password=xx#hy2
+hy2://pass@p.example.com:8443?sni=p.example.com#hy2-short
+socks5://user:pw@q.example.com:1080#socks
+socks5://onlyuser@r.example.com:1080#socks-nocolon
+vless://$U@s.example.com:443?security=tls&type=xhttp&path=%2Fx&sni=s.example.com#xhttp
+vless://broken#x
+vless://$U@t.example.com:99999?security=tls#bad-port
+vmess://eyJ2IjogIjIiLCAicHMiOiAieCIsICJhZGQiOiAiYS5leGFtcGxlLmNvbSIsICJwb3J0IjogIjQ0MyIsICJpZCI6ICIyZjM1OTY1YS05YTliLTQ1ZmQtYmEzMi05ODcyOTZkZmI2YmUiLCAiYWlkIjogIjAiLCAic2N5IjogImF1dG8iLCAibmV0IjogInRjcCIsICJ0bHMiOiAiIn0=#vm-tcp
+vmess://eyJ2IjogIjIiLCAicHMiOiAieCIsICJhZGQiOiAiYS5leGFtcGxlLmNvbSIsICJwb3J0IjogIjQ0MyIsICJpZCI6ICIyZjM1OTY1YS05YTliLTQ1ZmQtYmEzMi05ODcyOTZkZmI2YmUiLCAiYWlkIjogIjAiLCAic2N5IjogImF1dG8iLCAibmV0IjogIndzIiwgInRscyI6ICJ0bHMiLCAiaG9zdCI6ICJoLmV4YW1wbGUuY29tIiwgInBhdGgiOiAiL3dzIiwgInNuaSI6ICJzLmV4YW1wbGUuY29tIiwgImFscG4iOiAiaDIsaHR0cC8xLjEiLCAiZnAiOiAiY2hyb21lIn0=#vm-ws-tls
+vmess://eyJ2IjogIjIiLCAicHMiOiAieCIsICJhZGQiOiAiYS5leGFtcGxlLmNvbSIsICJwb3J0IjogIjQ0MyIsICJpZCI6ICIyZjM1OTY1YS05YTliLTQ1ZmQtYmEzMi05ODcyOTZkZmI2YmUiLCAiYWlkIjogIjAiLCAic2N5IjogImF1dG8iLCAibmV0IjogImdycGMiLCAidGxzIjogInRscyIsICJwYXRoIjogInN2YyJ9#vm-grpc
+vmess://eyJ2IjogIjIiLCAicHMiOiAieCIsICJhZGQiOiAiYS5leGFtcGxlLmNvbSIsICJwb3J0IjogIjQ0MyIsICJpZCI6ICIyZjM1OTY1YS05YTliLTQ1ZmQtYmEzMi05ODcyOTZkZmI2YmUiLCAiYWlkIjogIjAiLCAic2N5IjogImF1dG8iLCAibmV0IjogImgyIiwgInRscyI6ICIiLCAiaG9zdCI6ICJoLmV4YW1wbGUuY29tIiwgInBhdGgiOiAiL2gyIn0=#vm-h2
+vmess://eyJ2IjogIjIiLCAicHMiOiAieCIsICJhZGQiOiAiYS5leGFtcGxlLmNvbSIsICJwb3J0IjogIjQ0MyIsICJpZCI6ICIyZjM1OTY1YS05YTliLTQ1ZmQtYmEzMi05ODcyOTZkZmI2YmUiLCAiYWlkIjogIjAiLCAic2N5IjogImF1dG8iLCAibmV0IjogImh0dHB1cGdyYWRlIiwgInRscyI6ICIiLCAicGF0aCI6ICIvaHUiLCAic25pIjogInMuZXhhbXBsZS5jb20ifQ==#vm-httpupgrade
+vmess://eyJ2IjogIjIiLCAicHMiOiAieCIsICJhZGQiOiAiYS5leGFtcGxlLmNvbSIsICJwb3J0IjogODQ0MywgImlkIjogIjJmMzU5NjVhLTlhOWItNDVmZC1iYTMyLTk4NzI5NmRmYjZiZSIsICJhaWQiOiA2NCwgInNjeSI6ICJhZXMtMTI4LWdjbSIsICJuZXQiOiAidGNwIiwgInRscyI6ICIifQ==#vm-aid
+vmess://eyJ2IjogIjIiLCAicHMiOiAieCIsICJhZGQiOiAiYS5leGFtcGxlLmNvbSIsICJwb3J0IjogIjQ0MyIsICJpZCI6ICIyZjM1OTY1YS05YTliLTQ1ZmQtYmEzMi05ODcyOTZkZmI2YmUiLCAiYWlkIjogIjAiLCAic2N5IjogImF1dG8iLCAibmV0IjogIndzIiwgInRscyI6ICIifQ#vm-unpadded
+vmess://eyJ2IjogIjIiLCAicHMiOiAieCIsICJhZGQiOiAiYS5leGFtcGxlLmNvbSIsICJwb3J0IjogIjQ0MyIsICJpZCI6ICIyZjM1OTY1YS05YTliLTQ1ZmQtYmEzMi05ODcyOTZkZmI2YmUiLCAiYWlkIjogIjAiLCAic2N5IjogImF1dG8iLCAibmV0IjogInJhdyIsICJ0bHMiOiAiIn0=#vm-raw
+vmess://eyJ2IjogIjIiLCAicHMiOiAieCIsICJhZGQiOiAiYS5leGFtcGxlLmNvbSIsICJwb3J0IjogIngiLCAiaWQiOiAiMmYzNTk2NWEtOWE5Yi00NWZkLWJhMzItOTg3Mjk2ZGZiNmJlIiwgImFpZCI6ICIwIiwgInNjeSI6ICJhdXRvIiwgIm5ldCI6ICJ0Y3AiLCAidGxzIjogIiJ9#vm-badport
+vmess://bm90IGpzb24=#vm-notjson
+ss://YWVzLTI1Ni1nY206cHc=@s1.example.com:8388#ss-sip002
+ss://aes-128-gcm:pw@s2.example.com:8388#ss-plain
+ss://YWVzLTEyOC1nY206cHdAczMuZXhhbXBsZS5jb206ODM4OA==#ss-legacy
+ss://a:b:c@s4.example.com:8388#ss-three
+ss://YWVzLTI1Ni1nY206cHc=@[2001:db8::2]:8388/?plugin=v2ray-plugin#ss-plugin
+LIST
+        n_fast="$work/fast.json"; n_slow="$work/slow.json"
+        ln -sf "$lib/linkfast.jq" /usr/lib/netshift/linkfast.jq
+        echo "linkfast-parses=$(jq -R -n -c --argjson opt '{"base":0}' -f "$lib/linkfast.jq" < /dev/null > /dev/null 2>&1 && echo yes || echo no)"
+        : > "$CL_LOG"
+        normalize_subscription_to_singbox "$work/links.txt" "$n_fast" "bk" > /dev/null 2>&1
+        # the fast path really converted the common links (without this the comparison below
+        # would also pass when everything silently goes the slow way)
+        fc="$(sed -n 's/.*link(s) in this round, \([0-9]*\) converted.*/\1/p' "$CL_LOG" | head -1)"
+        if [ "${fc:-0}" -ge 25 ]; then echo "fast-converted=yes"; else echo "fast-converted=no(${fc:-0})"; fi
+        rm -f /usr/lib/netshift/linkfast.jq
+        normalize_subscription_to_singbox "$work/links.txt" "$n_slow" "bk" > /dev/null 2>&1
+        echo "count-fast=$(jq -c '.outbounds | length' "$n_fast")"
+        echo "count-slow=$(jq -c '.outbounds | length' "$n_slow")"
+        if [ "$(jq -S -c . "$n_fast")" = "$(jq -S -c . "$n_slow")" ]; then
+            echo "same=yes"
+        else
+            echo "same=no"
+            jq -S . "$n_fast" > "$work/f.pretty"; jq -S . "$n_slow" > "$work/s.pretty"
+            diff "$work/f.pretty" "$work/s.pretty" | head -20 > "$work/diff" || true
+        fi
+        echo "vmess-ss=$(jq -c '([.outbounds[] | select(.type == "vmess")] | length >= 6) and ([.outbounds[] | select(.type == "shadowsocks")] | length >= 3) | if . then "yes" else "no" end' -r "$n_fast")"
+        echo "tags-unique=$(jq -c '[.outbounds[].tag] | (length == (unique | length))' "$n_fast")"
+        echo "utf8=$(jq -c '[.outbounds[].tag | select(contains("Berlin"))] | length' "$n_fast")"
+
+        # the "UDP over TCP" flag reaches socks and ss links, the same on both paths
+        uci -q set netshift.bk.enable_udp_over_tcp=1; uci -q commit netshift
+        ln -sf "$lib/linkfast.jq" /usr/lib/netshift/linkfast.jq
+        normalize_subscription_to_singbox "$work/links.txt" "$work/uot_fast.json" "bk" > /dev/null 2>&1
+        rm -f /usr/lib/netshift/linkfast.jq
+        normalize_subscription_to_singbox "$work/links.txt" "$work/uot_slow.json" "bk" > /dev/null 2>&1
+        echo "uot-set=$(jq -c '[.outbounds[] | select(.udp_over_tcp.enabled == true) | .type] | unique' "$work/uot_slow.json")"
+        echo "uot-only-those=$(jq -c '[.outbounds[] | select(.udp_over_tcp != null and ((.type == "socks" or .type == "shadowsocks") | not))] | length' "$work/uot_slow.json")"
+        if [ "$(jq -S -c . "$work/uot_fast.json")" = "$(jq -S -c . "$work/uot_slow.json")" ]; then echo "uot-same=yes"; else echo "uot-same=no"; fi
+        uci -q delete netshift.bk.enable_udp_over_tcp; uci -q commit netshift
+        # a single link
+        echo "uot-single=$(sing_box_cf_add_proxy_outbound '{"outbounds":[]}' x 'ss://aes-128-gcm:pw@h.example.com:8388#n' 1 | jq -c '.outbounds[0].udp_over_tcp')"
+        echo "uot-single-socks=$(sing_box_cf_add_proxy_outbound '{"outbounds":[]}' x 'socks5://u:p@h.example.com:1080#n' 1 | jq -c '.outbounds[0].udp_over_tcp')"
+        echo "uot-single-off=$(sing_box_cf_add_proxy_outbound '{"outbounds":[]}' x 'ss://aes-128-gcm:pw@h.example.com:8388#n' 0 | jq -c '.outbounds[0].udp_over_tcp')"
+
+        # the cap counts converted links as well
+        ln -sf "$lib/linkfast.jq" /usr/lib/netshift/linkfast.jq
+        uci -q set netshift.bk.subscription_max_nodes=4; uci -q commit netshift
+        : > "$CL_LOG"
+        normalize_subscription_to_singbox "$work/links.txt" "$work/cap.json" "bk" > /dev/null 2>&1
+        echo "cap=$(jq -c '.outbounds | length' "$work/cap.json") warned=$(grep -c 'only the first 4' "$CL_LOG")"
+
+        uci -q set netshift.bk.subscription_max_nodes=0; uci -q commit netshift
+        # links the two paths read differently once: ML-KEM hint, ss without padding; allow_insecure is read by both
+        ln -sf "$lib/linkfast.jq" /usr/lib/netshift/linkfast.jq
+        cat > "$work/tricky.txt" << LIST
+vless://$U@a.example.com:443?security=reality&type=tcp&sni=a.example.com&fp=chrome&pbk=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG&sid=01&support-x25519mlkem768=true#mlkem-true
+vless://$U@b.example.com:443?security=reality&type=tcp&sni=b.example.com&fp=chrome&pbk=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG&sid=01&support-x25519mlkem768=false#mlkem-false
+vless://$U@c.example.com:443?security=tls&type=tcp&sni=c.example.com&allow_insecure=1#allow-insecure-underscore
+vless://$U@d.example.com:443?security=tls&type=tcp&sni=d.example.com&allowInsecure=1#allowInsecure
+ss://YWVzLTI1Ni1nY206cHcxOA@s1.example.com:8388#ss-unpadded-18
+ss://YWVzLTI1Ni1nY206cHc=@s2.example.com:8388#ss-padded
+LIST
+        normalize_subscription_to_singbox "$work/tricky.txt" "$work/tr_fast.json" "bk" > /dev/null 2>&1
+        rm -f /usr/lib/netshift/linkfast.jq
+        normalize_subscription_to_singbox "$work/tricky.txt" "$work/tr_slow.json" "bk" > /dev/null 2>&1
+        if [ "$(jq -S -c . "$work/tr_fast.json")" = "$(jq -S -c . "$work/tr_slow.json")" ]; then
+            echo "tricky-same=yes"
+        else
+            echo "tricky-same=no"
+            jq -S . "$work/tr_fast.json" > "$work/f.pretty"; jq -S . "$work/tr_slow.json" > "$work/s.pretty"
+            jq -n -c --slurpfile a "$work/tr_fast.json" --slurpfile b "$work/tr_slow.json" \
+                '[range(0; ($a[0].outbounds | length)) as $i | select($a[0].outbounds[$i] != $b[0].outbounds[$i]) | {fast: $a[0].outbounds[$i], slow: $b[0].outbounds[$i]}]' > "$work/diff" 2>&1 || true
+        fi
+        echo "tricky-count=$(jq -c '.outbounds | length' "$work/tr_fast.json")"
+
+        # a linkfast.jq that does not run (a broken file) costs only speed, never links
+        printf 'this is not jq (' > /usr/lib/netshift/linkfast.jq
+        normalize_subscription_to_singbox "$work/links.txt" "$work/broken.json" "bk" > /dev/null 2>&1
+        rm -f /usr/lib/netshift/linkfast.jq
+        if [ "$(jq -S -c . "$work/broken.json")" = "$(jq -S -c . "$n_slow")" ]; then echo "broken-same=yes"; else echo "broken-same=no"; fi
+
+        # the cap limits the WORK: 400 links with a limit of 10 are not all converted
+        ln -sf "$lib/linkfast.jq" /usr/lib/netshift/linkfast.jq
+        i=0; : > "$work/big.txt"
+        while [ "$i" -lt 400 ]; do
+            echo "vless://$U@b$i.example.com:443?security=tls&type=tcp&sni=b$i.example.com#b$i" >> "$work/big.txt"
+            i=$((i + 1))
+        done
+        uci -q set netshift.bk.subscription_max_nodes=10; uci -q commit netshift
+        : > "$CL_LOG"
+        normalize_subscription_to_singbox "$work/big.txt" "$work/bigcap.json" "bk" > /dev/null 2>&1
+        echo "bigcap=$(jq -c '.outbounds | length' "$work/bigcap.json")"
+        echo "bigcap-tried=$(sed -n 's/.*: \([0-9]*\) link(s) in this round.*/\1/p' "$CL_LOG" | awk '{s += $1} END {print s + 0}')"
+        echo "bigcap-warned=$(grep -c 'only the first 10' "$CL_LOG")"
+        # unparsable links in the first round: the next round makes up the number
+        { echo "vless://broken#x"; echo "vless://$U@t.example.com:99999?security=tls#bad-port"; cat "$work/big.txt"; } > "$work/bigbad.txt"
+        normalize_subscription_to_singbox "$work/bigbad.txt" "$work/bigbad.json" "bk" > /dev/null 2>&1
+        echo "bigbad=$(jq -c '.outbounds | length' "$work/bigbad.json")"
+        # a feed shorter than the limit: no warning
+        uci -q set netshift.bk.subscription_max_nodes=1000; uci -q commit netshift
+        : > "$CL_LOG"
+        normalize_subscription_to_singbox "$work/big.txt" "$work/bigall.json" "bk" > /dev/null 2>&1
+        echo "bigall=$(jq -c '.outbounds | length' "$work/bigall.json") warned=$(grep -c 'only the first' "$CL_LOG")"
+
+        # many links, one pass: it must stay quick
+        uci -q set netshift.bk.subscription_max_nodes=0; uci -q commit netshift
+        i=0; : > "$work/many.txt"
+        while [ "$i" -lt 1500 ]; do
+            echo "vless://$U@s$i.example.com:443?security=tls&type=tcp&sni=s$i.example.com#n$i" >> "$work/many.txt"
+            i=$((i + 1))
+        done
+        t0="$(date +%s)"
+        normalize_subscription_to_singbox "$work/many.txt" "$work/many.json" "bk" > /dev/null 2>&1
+        t1="$(date +%s)"
+        echo "many=$(jq -c '.outbounds | length' "$work/many.json")"
+        if [ $((t1 - t0)) -le 20 ]; then echo "quick=yes"; else echo "quick=no($((t1 - t0))s)"; fi
+    )"
+
+    _bk() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~') $(cat "$work/diff" 2>/dev/null)"
+        fi
+    }
+    _bk "the same number of servers on both paths" "count-fast=$(printf '%s\n' "$out" | sed -n 's/^count-slow=//p')"
+    _bk "both paths give the very same configuration" "same=yes"
+    _bk "vmess and ss links are converted" "vmess-ss=yes"
+    _bk "tags stay unique" "tags-unique=true"
+    _bk "percent-encoded UTF-8 names are decoded" "utf8=1"
+    _bk "the UDP over TCP flag turns it on for socks and ss in a subscription" 'uot-set=["shadowsocks","socks"]'
+    _bk "other protocols do not get it" "uot-only-those=0"
+    _bk "the fast and the slow path agree with the flag on" "uot-same=yes"
+    _bk "a single ss link gets it" 'uot-single={"enabled":true,"version":2}'
+    _bk "a single socks link gets it" 'uot-single-socks={"enabled":true,"version":2}'
+    _bk "without the flag nothing is added" "uot-single-off=null"
+    _bk "the cap counts converted links too" "cap=4 warned=1"
+    _bk "linkfast.jq is a valid jq program" "linkfast-parses=yes"
+    _bk "the fast path converts the common links (25 or more of the 32 of the sample)" "fast-converted=yes"
+    _bk "ML-KEM hint, allow_insecure and unpadded ss agree on both paths" "tricky-same=yes"
+    _bk "...and none of those links is lost" "tricky-count=6"
+    _bk "a broken linkfast.jq falls back to the slow path with the same result" "broken-same=yes"
+    _bk "a limit of 10 gives 10 servers" "bigcap=10"
+    _bk "...and only about that many links are converted, not all 400" "bigcap-tried=10"
+    _bk "...with the warning" "bigcap-warned=1"
+    _bk "unparsable links in the first round are made up by the next one" "bigbad=10"
+    _bk "a feed shorter than the limit is taken whole, without a warning" "bigall=400 warned=0"
+    _bk "1500 links all become servers" "many=1500"
+    _bk "1500 links are converted in a few seconds" "quick=yes"
+    rm -rf "$work" /etc/config/netshift /usr/lib/netshift/linkfast.jq
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -23464,6 +23686,7 @@ main() {
         daemon) test_daemon_and_route_table ;;
         cronrun) test_cron_running ;;
         retrylife) test_retry_lifecycle ;;
+        bulklink) test_bulk_links ;;
         *)
             # a test by its function name, with or without the test_ prefix ("hy2_hop")
             case "$target" in
