@@ -1038,6 +1038,44 @@ get_sing_box_version() {
     echo "${version:-1.0}"
 }
 
+# Soft memory ceiling (GOMEMLIMIT) for the short-lived sing-box runs NetShift
+# starts next to the daemon: `check`, `rule-set match/decompile`, `tools fetch`
+# and the DNS benchmark instances. Go grows its heap by GOGC alone, so checking
+# a config with a large subscription takes far more memory than it keeps alive
+# (15000 nodes on a 256 MB router: 107-115 MB peak, 80 MB with a 32 MiB
+# ceiling), and that happens while the daemon holds its own share: on a 128 MB
+# router the OOM killer then picks one of the two. The ceiling makes the Go GC
+# collect earlier instead; it is soft, so a run that needs more still gets it.
+# An eighth of the RAM, within 16..128 MiB; prints nothing when /proc/meminfo
+# cannot be read (no ceiling).
+sing_box_oneshot_memlimit() {
+    local mem_kb limit_mb
+
+    mem_kb="$(awk '$1 == "MemTotal:" { print $2; exit }' "${NETSHIFT_MEMINFO_PATH:-/proc/meminfo}" 2> /dev/null)"
+    case "$mem_kb" in
+    '' | *[!0-9]*) return 0 ;;
+    esac
+
+    limit_mb=$((mem_kb / 8192))
+    [ "$limit_mb" -lt 16 ] && limit_mb=16
+    [ "$limit_mb" -gt 128 ] && limit_mb=128
+    printf '%sMiB' "$limit_mb"
+}
+
+# Sets NETSHIFT_ONESHOT_GOMEMLIMIT to the ceiling above, once per shell. A
+# GOMEMLIMIT already in the environment wins.
+sing_box_oneshot_memlimit_init() {
+    [ -n "${NETSHIFT_ONESHOT_GOMEMLIMIT+x}" ] && return 0
+    NETSHIFT_ONESHOT_GOMEMLIMIT="${GOMEMLIMIT:-$(sing_box_oneshot_memlimit)}"
+}
+
+# Runs a short-lived sing-box command under the ceiling above. The daemon is not
+# started through here: its heap is what it needs.
+sing_box_oneshot() {
+    sing_box_oneshot_memlimit_init
+    GOMEMLIMIT="$NETSHIFT_ONESHOT_GOMEMLIMIT" sing-box "$@"
+}
+
 # Prints the build tags of the sing-box core, comma separated (the "Tags:" line
 # of `sing-box version`), or nothing when the banner has no such line.
 #

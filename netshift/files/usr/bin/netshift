@@ -7151,7 +7151,7 @@ sing_box_save_config() {
 sing_box_config_check() {
     local config_path="$1"
 
-    if ! sing-box -c "$config_path" check > /dev/null 2>&1; then
+    if ! sing_box_oneshot -c "$config_path" check > /dev/null 2>&1; then
         log "Sing-box configuration $config_path is invalid. Aborted." "fatal"
         exit 1
     fi
@@ -7738,7 +7738,7 @@ sing_box_fetch_ifconfig_with_timeout() {
 
     output_file="$(mktemp /tmp/netshift-check-proxy-response.XXXXXX)" || return 1
 
-    sing-box tools fetch -D "$config_dir" -c "$config_path" --outbound "$outbound_tag" ifconfig.me \
+    sing_box_oneshot tools fetch -D "$config_dir" -c "$config_path" --outbound "$outbound_tag" ifconfig.me \
         > "$output_file" 2>/dev/null &
     fetch_pid=$!
 
@@ -7800,7 +7800,7 @@ check_proxy() {
 
     nolog "Checking sing-box configuration..."
 
-    if ! sing-box -c "$sing_box_config_path" check > /dev/null; then
+    if ! sing_box_oneshot -c "$sing_box_config_path" check > /dev/null; then
         nolog "Invalid configuration"
         return 1
     fi
