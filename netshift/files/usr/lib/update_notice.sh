@@ -34,19 +34,47 @@ update_notice_collect() {
         '{checked: $checked, netshift: $netshift, sing_box: $sing_box}'
 }
 
+# The installed version of the core, as the checks write it (without a leading "v"); empty
+# when it cannot be read. Only asked when the stored answer has a core part.
+update_notice_sing_box_now() {
+    local version
+
+    version="$(get_sing_box_version 2> /dev/null)"
+    printf '%s' "${version#v}"
+}
+
+# stdin: a stored answer. Drops the parts made for a version that is not the installed one
+# ($1 NetShift, $2 the core; an empty value is not compared) and prints the answer, with
+# "outdated": true when it dropped something.
+update_notice_drop_outdated() {
+    jq -c --arg netshift_now "$1" --arg sing_box_now "$2" '
+        def outdated($part; $now):
+            ($part != null) and ($now != "") and (($part.current_version // "") != $now);
+        outdated(.netshift; $netshift_now) as $ns_old
+        | outdated(.sing_box; $sing_box_now) as $sb_old
+        | (if $ns_old then .netshift = null else . end)
+        | (if $sb_old then .sing_box = null else . end)
+        | .outdated = ($ns_old or $sb_old)'
+}
+
 # Runs the checks and stores the answer. A run that learned nothing (both null,
 # i.e. GitHub not reachable) keeps the previous answer.
 update_notice_refresh() {
-    local result tmp
+    local result previous sing_box_now="" tmp
 
     result="$(update_notice_collect)"
     if [ "$(printf '%s' "$result" | jq -r '(.netshift == null) and (.sing_box == null)')" = "true" ]; then
         # Remember that we tried, so an unreachable GitHub is not asked again on
-        # every page load: only the time moves.
+        # every page load: only the time moves. What the previous answer said about a
+        # version that is no longer installed goes (after an update it would otherwise be
+        # offered again, and the notice would ask for a refresh on every page load).
         if [ -s "$UPDATE_NOTICE_FILE" ]; then
-            result="$(jq -c --argjson checked "$(date +%s)" '.checked = $checked' "$UPDATE_NOTICE_FILE" 2> /dev/null)"
+            [ -z "$(jq -r '.sing_box.current_version // empty' "$UPDATE_NOTICE_FILE" 2> /dev/null)" ] ||
+                sing_box_now="$(update_notice_sing_box_now)"
+            previous="$(update_notice_drop_outdated "${NETSHIFT_VERSION:-}" "$sing_box_now" < "$UPDATE_NOTICE_FILE" 2> /dev/null |
+                jq -c --argjson checked "$(date +%s)" '.checked = $checked | del(.outdated)' 2> /dev/null)"
+            [ -z "$previous" ] || result="$previous"
         fi
-        [ -n "$result" ] || result="$(update_notice_collect)"
     fi
 
     tmp="$UPDATE_NOTICE_FILE.tmp.$$"
@@ -77,7 +105,7 @@ update_notice_refresh_async() {
 # What the dashboard shows. {"enabled": bool, "stale": bool, "checked": epoch|null,
 # "netshift": {...}|null, "sing_box": {...}|null}. No network access.
 get_update_notice() {
-    local enabled now data checked
+    local enabled now data checked sing_box_now=""
 
     config_get_bool enabled "settings" "update_notice" 1
     now="$(date +%s)"
@@ -90,10 +118,18 @@ get_update_notice() {
     '' | *[!0-9]*) checked=0 ;;
     esac
 
+    # The answer is kept for a day, but it names the versions it was made for. After an
+    # update (or a switch of the core) it would keep offering "0.9.10.4 -> 0.9.11.1" on a
+    # router that already runs 0.9.11.3: a part whose "current_version" is not what is
+    # installed now is dropped and the notice is due for a refresh.
+    [ -z "$(printf '%s' "$data" | jq -r '.sing_box.current_version // empty' 2> /dev/null)" ] ||
+        sing_box_now="$(update_notice_sing_box_now)"
+    data="$(printf '%s' "$data" | update_notice_drop_outdated "${NETSHIFT_VERSION:-}" "$sing_box_now")"
+
     printf '%s' "$data" | jq -c --argjson enabled "$([ "$enabled" -eq 1 ] && echo true || echo false)" \
         --argjson stale "$([ $((now - checked)) -ge "$UPDATE_NOTICE_TTL" ] && echo true || echo false)" '{
             enabled: $enabled,
-            stale: $stale,
+            stale: ($stale or .outdated),
             checked: (.checked // null),
             netshift: (.netshift // null),
             sing_box: (.sing_box // null)
