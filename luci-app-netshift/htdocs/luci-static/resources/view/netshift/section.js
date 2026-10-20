@@ -6,6 +6,13 @@
 "require tools.widgets as widgets";
 "require view.netshift.main as main";
 
+// Ready-made remote lists that only make sense in a Block section.
+const REMOTE_BLOCK_LISTS = [
+  "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs",
+  "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads.srs",
+  "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-public-tracker.srs",
+];
+
 function createSectionContent(section) {
   // Group the 36 connection options into 4 native CBI option-group tabs.
   // HARD RULE: once a section has tab(), every option MUST be added via
@@ -38,12 +45,14 @@ function createSectionContent(section) {
     form.ListValue,
     "connection_type",
     _("Connection Type"),
-    _("Select between VPN and Proxy connection methods for traffic routing"),
+    _(
+      "Proxy and VPN send the traffic of the lists through a tunnel, Block drops it, Exclusion sends it out directly, DNS answers the domains of the lists from its own DNS server.",
+    ),
   );
-  o.value("proxy", "Proxy");
+  o.value("proxy", _("Proxy"));
   o.value("vpn", "VPN");
-  o.value("block", "Block");
-  o.value("exclusion", "Exclusion");
+  o.value("block", _("Block"));
+  o.value("exclusion", _("Exclusion"));
   o.value("dns", _("DNS (own DNS server for the domains)"));
 
   o = section.taboption(
@@ -983,6 +992,9 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
+  // only a section with an outbound can take the unmatched traffic
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
 
   o = section.taboption(
     "connection",
@@ -1096,7 +1108,7 @@ function createSectionContent(section) {
   o.value("udp", _("UDP (Unprotected DNS)"));
   o.default = "udp";
   o.rmempty = false;
-  o.depends("domain_resolver_enabled", "1");
+  o.depends({ connection_type: "vpn", domain_resolver_enabled: "1" });
 
   o = section.taboption(
     "connection",
@@ -1110,7 +1122,7 @@ function createSectionContent(section) {
   });
   o.default = "8.8.8.8";
   o.rmempty = false;
-  o.depends("domain_resolver_enabled", "1");
+  o.depends({ connection_type: "vpn", domain_resolver_enabled: "1" });
   o.validate = function (section_id, value) {
     const validation = main.validateDNS(value);
 
@@ -1458,6 +1470,34 @@ function createSectionContent(section) {
     "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-public-tracker.srs",
     _("BitTorrent public trackers (sing-geosite, for a Block section)"),
   );
+  // The ready-made lists only block (ads, trackers): offered in a Block section only, and in any
+  // other section only when it already uses one (so the value is still shown).
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
+    const type =
+      this.section.formvalue(section_id, "connection_type") ||
+      uci.get("netshift", section_id, "connection_type");
+    const parent = form.DynamicList.prototype.renderWidget;
+
+    if (type === "block") {
+      return parent.apply(this, arguments);
+    }
+
+    const used = Array.isArray(cfgvalue) ? cfgvalue : [cfgvalue];
+    const keys = this.keylist;
+    const values = this.vallist;
+    const keep = keys
+      .map((key, index) => [key, values[index]])
+      .filter(([key]) => !REMOTE_BLOCK_LISTS.includes(key) || used.includes(key));
+
+    this.keylist = keep.map(([key]) => key);
+    this.vallist = keep.map(([, value]) => value);
+    try {
+      return parent.apply(this, arguments);
+    } finally {
+      this.keylist = keys;
+      this.vallist = values;
+    }
+  };
   o.placeholder = "https://example.com/domains.srs";
   o.rmempty = true;
   o.validate = function (section_id, value) {
@@ -1613,7 +1653,9 @@ function createSectionContent(section) {
   o.placeholder = "2080";
   o.datatype = "port";
   o.rmempty = true;
-  o.depends("mixed_proxy_enabled", "1");
+  ["proxy", "vpn"].forEach((type) =>
+    o.depends({ connection_type: type, mixed_proxy_enabled: "1" }),
+  );
 
   o = section.taboption(
     "advanced",
@@ -1626,7 +1668,9 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
-  o.depends("mixed_proxy_enabled", "1");
+  ["proxy", "vpn"].forEach((type) =>
+    o.depends({ connection_type: type, mixed_proxy_enabled: "1" }),
+  );
 
   o = section.taboption(
     "advanced",
@@ -1635,7 +1679,9 @@ function createSectionContent(section) {
     _("Mixed Proxy user name"),
   );
   o.rmempty = true;
-  o.depends("mixed_proxy_auth", "1");
+  ["proxy", "vpn"].forEach((type) =>
+    o.depends({ connection_type: type, mixed_proxy_enabled: "1", mixed_proxy_auth: "1" }),
+  );
   o.validate = function (section_id, value) {
     if (!value) {
       return _("Enter a user name");
@@ -1653,7 +1699,9 @@ function createSectionContent(section) {
   );
   o.password = true;
   o.rmempty = true;
-  o.depends("mixed_proxy_auth", "1");
+  ["proxy", "vpn"].forEach((type) =>
+    o.depends({ connection_type: type, mixed_proxy_enabled: "1", mixed_proxy_auth: "1" }),
+  );
   o.validate = function (section_id, value) {
     return value ? true : _("Enter a password");
   };
