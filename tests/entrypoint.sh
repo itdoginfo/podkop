@@ -43,6 +43,16 @@ fail() {
     fi
 }
 
+# pass when the captured output $1 has the exact line $3, fail (showing the output) otherwise;
+# $2 is the name of the check. Most tests collect "key=value" lines and check them with this.
+expect_line() {
+    if printf '%s\n' "$1" | grep -qxF -- "$3"; then
+        pass "$2"
+    else
+        fail "$2" "wanted [$3] in: $(printf '%s' "$1" | tr '\n' '~')"
+    fi
+}
+
 skip() {
     SKIP=$((SKIP + 1))
     printf "  ${YELLOW}⊘${NC} %s (skipped)\n" "$1"
@@ -16144,13 +16154,7 @@ test_update_package_check() {
         echo "empty=$(check "$work/empty.ipk")"
     )"
 
-    _pk() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _pk() { expect_line "$out" "$1" "$2"; }
 
     _pk "a real .ipk passes" "ipk-good=yes"
     _pk "an error page named .ipk is refused" "ipk-html=no"
@@ -16230,13 +16234,7 @@ test_environment_check() {
         echo "ipv6-enabled=$(j '.ipv6.netshift_enabled')"
     )"
 
-    _ev() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _ev() { expect_line "$out" "$1" "$2"; }
 
     _ev "Date header is converted" "epoch[1791105185]"
     _ev "garbage date gives nothing" "epoch-bad[]"
@@ -16342,13 +16340,7 @@ test_mixed_proxy_auth() {
         rm -f "$LOGF" /tmp/mixed-check.json
     )"
 
-    _mp() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _mp() { expect_line "$out" "$1" "$2"; }
 
     _mp "a proxy is open without a login (as before)" 'plain=[["a-mixed-in",2081,"open"]]'
     _mp "...and routed to its section" 'plain-rule=[["a-mixed-in","a-out"]]'
@@ -18583,13 +18575,7 @@ test_route_check() {
         echo "race-good-file-kept=$(ls "$work/cache" | grep -c '\.binary$')"
     )"
 
-    _rc() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _rc() { expect_line "$out" "$1" "$2"; }
 
     # label|verdict|section|rule|rule_set|dns server|dns verdict|incomplete|by default
     _rc "domain suffix goes to its section" "suffix|section|main|main-rule|main-domains|fakeip-server|rule|true|false"
@@ -18719,13 +18705,7 @@ SUB2
         echo "keyword-only=$(grep -c "keyword filter for section 's' removed all nodes" "$LOGF")"
     )"
 
-    _pf() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _pf() { expect_line "$out" "$1" "$2"; }
 
     _pf "ss is shadowsocks" "norm[protocols:SS]=[shadowsocks]"
     _pf "hy2 is hysteria2, case does not matter" "norm[protocols:Hy2]=[hysteria2]"
@@ -18933,13 +18913,7 @@ wan2|eth2|"
         echo "dns-auto-none-nothing=$(build)"
     )"
 
-    _ea() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _ea() { expect_line "$out" "$1" "$2"; }
 
     _ea "the WAN interfaces come from the wan zone, default route first" "wans=wan wan2 "
     _ea "the subnet is the /24 of the address" "subnet-of=203.0.113.0/24"
@@ -19023,13 +18997,7 @@ test_dns_servers_check() {
         echo "tcp-fails=$(run tcp 8.8.8.8 | head -n1)"
     )"
 
-    _dc() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _dc() { expect_line "$out" "$1" "$2"; }
 
     _dc "udp is asked directly" 'udp=["udp",1]|@8.8.8.8 google.com +timeout=2 +tries=1|'
     _dc "tcp is asked over TCP" 'tcp=["tcp",1]|@8.8.8.8 google.com +tcp +timeout=2 +tries=1|'
@@ -19106,13 +19074,7 @@ test_connections_api() {
         echo "capped=$(clash_api get_connections | jq -c '[.total, (.connections | length), .connections[0].id]')"
     )"
 
-    _cn() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _cn() { expect_line "$out" "$1" "$2"; }
 
     _cn "the list is reduced and counted" 'list=[2,5000,["bbbb-2","aaaa-1"]]'
     _cn "newest first, with the host and the route" 'newest-first=["198.51.100.4","192.168.1.11:123","198.51.100.4","53",["direct-out"],"final",""]'
@@ -19208,13 +19170,7 @@ test_lan_devices() {
         echo "reloads-after=$(wc -l < "$work/reloads" | tr -d ' ')"
     )"
 
-    _lv() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _lv() { expect_line "$out" "$1" "$2"; }
 
     _lv "the lan zone gives the network" "names= lan"
     _lv "subnets are reported as network addresses" "subnets=10.8.0.0/16 192.168.1.0/24 "
@@ -19371,13 +19327,7 @@ test_update_notice() {
         echo "async-lock-removed=$([ -e "$UPDATE_NOTICE_FILE.lock" ] && echo no || echo yes)"
     )"
 
-    _un() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _un() { expect_line "$out" "$1" "$2"; }
 
     _un "no answer yet: enabled, stale, nothing known" "no-file=[true,true,null,null,null]"
     _un "a refresh stores both answers and the time" 'stored=["0.9.12","1.12.0-extended-2",true]'
@@ -19483,13 +19433,7 @@ test_config_snapshots() {
         echo "config-untouched=$(sed -n "s/.*dns_type '\\(.*\\)'.*/\\1/p" "$NETSHIFT_CONFIG_FILE")"
     )"
 
-    _sn() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _sn() { expect_line "$out" "$1" "$2"; }
 
     _sn "nothing to save without a configuration" 'no-config="there is no configuration to save"'
     _sn "a first snapshot is taken" 'first=[true,"1790000001-auto"]'
@@ -19637,13 +19581,7 @@ test_pin_guard() {
         echo "bad-section-fails=$(pin_guard_fails_of 'a;b')"
     )"
 
-    _pg() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _pg() { expect_line "$out" "$1" "$2"; }
 
     _pg "a chosen server that answers is left alone" "alive-switches=0"
     _pg "it is not given up before the limit" "below-limit-switches=0 fails=2"
@@ -19806,13 +19744,7 @@ CFG
         echo "no-detour=$(dns_benchmark udp://1.1.1.1 | jq -c '.via')"
     )"
 
-    _db() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _db() { expect_line "$out" "$1" "$2"; }
 
     _db "udp is asked directly" "udp=@1.1.1.1"
     _db "tcp is asked over TCP" "tcp=@1.1.1.1 +tcp"
@@ -19861,107 +19793,6 @@ CFG
 }
 
 # ─────────────────────────────────────────────────────────────────
-# Test: subscription country filters
-# ─────────────────────────────────────────────────────────────────
-# country_code_to_flag_emoji / build_subscription_filter_json (country codes turn
-# into the flag emoji of the server names and join the keyword filter), extracted
-# verbatim from the bin.
-
-# ─────────────────────────────────────────────────────────────────
-# Test: GeoIP country flags for subscription servers
-# ─────────────────────────────────────────────────────────────────
-# Runs the REAL subscription_geoip_annotate / geoip_hosts_without_flag /
-# geoip_resolve_host (extracted verbatim from the bin) with stubbed dig / curl.
-# Asserts: only names WITHOUT a flag are annotated; each address is looked up once
-# (later runs read the cache); private / FakeIP answers never leave the router;
-# offline and a silent service change nothing and are retried later; failures are
-# retried only after their TTL; the flag equals the one the country filter builds.
-
-# ─────────────────────────────────────────────────────────────────
-# Main
-# ─────────────────────────────────────────────────────────────────
-# Test: IPv6 compatibility (issue #38)
-# ─────────────────────────────────────────────────────────────────
-# With IPv6 enabled the v6 TProxy inbound (tproxy-in-v6) must be matched by the
-# SAME route rules as the v4 one (before this it matched none and v6 flows fell
-# through to the default), and the FakeIP v6 range must be a routable global
-# prefix (2001:2::/48), not the ULA fd00::/8 that dnsmasq rebind protection drops.
-#   - constant: SB_FAKEIP_INET6_RANGE is not in fc00::/7
-#   - IPv6 off: every rule keeps the plain string inbound (byte-identical config)
-#   - IPv6 on: the same rules match ["tproxy-in","tproxy-in-v6"]
-#   - the generated config passes `sing-box check`
-
-# ─────────────────────────────────────────────────────────────────
-
-# Test: Multi-DNS upstream pool (issue #74)
-# ─────────────────────────────────────────────────────────────────
-# Runs the REAL sing_box_configure_dns_pool / _dns_pool_collect_entry /
-# is_valid_dns_pool_timeout (extracted verbatim from the bin) and the real
-# manager/facade helpers against a stubbed UCI layer. Asserts:
-#   - default (mode absent / single) and every unusable setup leave the config
-#     byte-identical to the single-upstream one (upgrade safety);
-#   - fallback: the primary and the list are asked in order, each but the last
-#     gets evaluate + respond (NOERROR / NXDOMAIN), the last one is `final`;
-#   - race: every upstream is evaluated, the respond rules carry race, `final`
-#     stays the primary;
-#   - sing-box < 1.14.0 ignores the pool with a warning (the rule actions do
-#     not exist there); entry validation, limits, detour and bootstrap resolver;
-#   - the six transports map to the right sing-box server types.
-
-# ─────────────────────────────────────────────────────────────────
-
-# Test: Chained connections (outbound_detour_section)
-# ─────────────────────────────────────────────────────────────────
-# Runs the REAL configure_outbound_detour_handler / _outbound_detour_chain_is_usable
-# (extracted verbatim from the bin) and sing_box_cm_set_outbounds_detour against a
-# stubbed UCI layer. Asserts:
-#   - the section's real proxy outbounds (leaves of selector/urltest, or the
-#     single outbound) get `detour` = the target's tag, the target's own members
-#     and outbounds with their own detour are left alone;
-#   - sections without the option (every existing config) are untouched;
-#   - a chain that cannot be built (unknown/blocked target, itself, a loop, an
-#     unavailable target) never falls back to a direct connection: the section is
-#     marked unavailable and gets no detour.
-
-# ─────────────────────────────────────────────────────────────────
-
-# Test: URL of the dashboard latency test
-# ─────────────────────────────────────────────────────────────────
-# The `latency_test_url` setting of clash_api, extracted verbatim from the bin:
-# default when absent, a configured http(s) URL is used, anything else falls back
-# to the default and says so in the log.
-
-# ─────────────────────────────────────────────────────────────────
-
-# Test: Priority node selection (priority_mode)
-# ─────────────────────────────────────────────────────────────────
-# Runs the REAL priority_select_for_section / _priority_check_section_handler /
-# priority_check_interval (extracted verbatim from the bin) against a stubbed
-# Clash API. Asserts:
-#   - the FIRST server that answers is selected, in list order, and the selector
-#     goes back to a higher one when it recovers;
-#   - nothing is switched when the right server is already selected, when nothing
-#     answers, or when there is nothing to choose from (groups are not probed);
-#   - names with spaces / non-ASCII characters survive; the probe count is capped;
-#   - sections without the option are never probed.
-
-# ─────────────────────────────────────────────────────────────────
-
-# Test: Bypass sing-box for excluded destinations / devices
-# ─────────────────────────────────────────────────────────────────
-# Runs the REAL nft_select_subnet_target / populate_netshift_subnets_from_file /
-# nft_bypass_requested / nft_bypass_source_ips (bin) and
-# nft_add_selective_marking_rules (nft.sh) against a recording `nft` stub. Asserts:
-#   - without bypass nothing changes: same rules, subnets go to the union set;
-#   - an exclusion section with bypass_singbox feeds the bypass set, any other
-#     section (also an exclusion one without the flag) still the union set, and the
-#     choice never leaks from one section to the next;
-#   - the bypass `return` rules come FIRST in every chain, also under global proxy;
-#   - bypass_excluded_ips returns the listed devices before any mark (IPv6 only when
-#     IPv6 is enabled).
-
-
-# ─────────────────────────────────────────────────────────────────
 # Test: URLTest check interval (urltest_check_interval, including "off")
 # ─────────────────────────────────────────────────────────────────
 test_urltest_interval() {
@@ -19996,13 +19827,7 @@ test_urltest_interval() {
         printf 'off-no-constants=%s\n' "$(sing_box_cm_add_urltest_outbound "$base" t '["a"]' "" off 50 | jq -r '.outbounds[0].interval')"
     )"
 
-    _ti() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _ti() { expect_line "$out" "$1" "$2"; }
     _ti "a normal interval is kept" "interval[30s]=30s"
     _ti "the default interval is kept" "interval[3m]=3m"
     _ti "a 10 minute interval is kept" "interval[10m]=10m"
@@ -20596,13 +20421,7 @@ test_dns_hijack() {
         echo "dont-touch-still-added=$(grep -c '' "$NFT_LOG")"
     )"
 
-    _dh() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _dh() { expect_line "$out" "$1" "$2"; }
     _dh "off: no rule is added" "off=[0]"
     _dh "a nat chain at the destination-NAT priority" "chain=add chain inet T dns_hijack { type nat hook prerouting priority dstnat; policy accept; }"
     _dh "queries for the router itself are left alone, first" "local-first=add rule inet T dns_hijack iifname @interfaces fib daddr type local return"
@@ -20729,13 +20548,7 @@ test_subscription_info() {
         echo "broken-file-skipped=$(get_subscription_info | jq -c 'map_values(map(.total))')"
     )"
 
-    _si() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _si() { expect_line "$out" "$1" "$2"; }
 
     _si "all four numbers and the title are read" 'full={"upload":1000,"download":2000,"total":10737418240,"expire":1790000000,"title":"My VPN"}'
     _si "the header name is case-insensitive" "mixed-case=[0,5,0,0]"
@@ -20920,13 +20733,7 @@ test_port_rules() {
         NFT_FULLY_ROUTED_V4=""; NFT_FULLY_ROUTED_V6=""
     )"
 
-    _pr() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _pr() { expect_line "$out" "$1" "$2"; }
     _pr "ports, ranges and both separators are read" "parse-mixed=ports=80,443 ranges=1000:2000,5000:5100 nft=80, 443, 1000-2000, 5000-5100 bad="
     _pr "what is not a port is named and left out" "parse-bad=ports=80,443 ranges= nft=80, 443 bad=0 70000 abc 3000-2000 -5 10-"
     _pr "a list with no port is refused" "parse-none=no"
@@ -21113,13 +20920,7 @@ test_config_lint() {
     )"
     rm -rf "$lt_tmp"
 
-    _lt() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _lt() { expect_line "$out" "$1" "$2"; }
     _lt "a domain of a DNS section that a proxy section routes is named; a block section does not count" 'suffix-and-exact=[["corp.example.com","corp","main"],["intranet.example.org","corp","main"]]'
     _lt "only a real subdomain is covered" "letters-not-suffix=[]"
     _lt "a whole suffix covers its names" 'tld=[["corp.example.com","corp","main"]]'
@@ -21294,13 +21095,7 @@ test_naive() {
         echo "apply-naiveproxy-dead=$(tr '\n' ',' < "$work/init.calls") reported=$(grep -c 'client is not running' "$NAIVE_LOG")"
     )"
 
-    _nv() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _nv() { expect_line "$out" "$1" "$2"; }
     _nv "an https link with a login is a native naive outbound" 'native=["naive","s1-out","hommie.mooo.com",443,"alex","qwerty123","hommie.mooo.com",false]'
     _nv "the port defaults to 443" "native-default-port=443"
     _nv "a login without a password is skipped, like the form does" "no-password-rc=1 unchanged=yes"
@@ -21526,13 +21321,7 @@ test_core_caps() {
         echo "warned=$(grep -c 'built without QUIC' "$CAPS_LOG")"
     )"
 
-    _cc() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _cc() { expect_line "$out" "$1" "$2"; }
     _cc "the lite core: QUIC, uTLS, no naive, 1.14, extended features" 'lite=["extended_lite",true,true,false,true,true,true,true,true]'
     _cc "the tags are listed" "tags=5"
     _cc "a core without QUIC is told apart" 'stock-noquic=["stock",false,true,false,false,true]'
@@ -21656,13 +21445,7 @@ test_ipv6_dns_policy() {
         fi
     )"
 
-    _ip() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _ip() { expect_line "$out" "$1" "$2"; }
     _ip "the AAAA rule of the section stands ahead of the FakeIP rule; a default section adds none" 'tags=["ipv6-real-dns-rule-yt","fakeip-dns-rule-tag"]'
     _ip "it routes AAAA queries of the section's domains to the main DNS server" 'aaaa-rule=["route","dns-server",["AAAA"],"yt-domains"]'
     _ip "the FakeIP rule still carries the domains of both sections (A keeps its route)" 'fakeip-rule-has-both=["yt-domains","vpn-domains"]'
@@ -21797,13 +21580,7 @@ XJ
         fi
     )"
 
-    _xe() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _xe() { expect_line "$out" "$1" "$2"; }
     _xe "the autoXRAY link: its padding, post sizes, stream-up timing and xmux reach the transport" 'auto={"type":"xhttp","mode":"stream-up","path":"/tkles2","x_padding_bytes":"150-400","no_grpc_header":false,"sc_max_each_post_bytes":500000,"sc_min_posts_interval_ms":"5-15","host":"host.example","sc_max_buffered_posts":20,"sc_stream_up_server_secs":"90-180","xmux":{"max_concurrency":"2-4","c_max_reuse_times":"800-1500","h_max_reusable_secs":"900-1200"}}'
     _xe "a link without extra gives exactly the transport it gave before" 'plain={"type":"xhttp","mode":"auto","path":"/p","x_padding_bytes":"100-1000","no_grpc_header":false,"sc_max_each_post_bytes":1000000,"sc_min_posts_interval_ms":30,"host":"host.example"}'
     _xe "the x_padding_bytes next to the extra (3x-ui) is used" 'top-padding="150-400"'
@@ -21871,13 +21648,7 @@ test_quic_mode() {
         fi
     )"
 
-    _qm() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _qm() { expect_line "$out" "$1" "$2"; }
     _qm "an empty or unset option is off" "mode[]=off"
     _qm "0 is off" "mode[0]=off"
     _qm "false/no/off are off" "mode[off]=off"
@@ -21938,13 +21709,7 @@ test_telegram_fallback() {
         echo "twitter-failure-rc=$? populated=$([ -e "$work/populated" ] && echo yes || echo no) logged=$(grep -c 'Download twitter list failed' "$TG_LOG")"
     )"
 
-    _tg() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _tg() { expect_line "$out" "$1" "$2"; }
     _tg "a failed download of the telegram list is not a failure" "telegram-fallback-rc=0"
     _tg "the official Telegram ranges are used" "telegram-fallback-ranges=91.105.192.0/23 91.108.4.0/22 91.108.8.0/22 91.108.12.0/22 91.108.16.0/22 91.108.20.0/22 91.108.56.0/22 149.154.160.0/20 185.76.151.0/24"
     _tg "...and it is said in the log" "telegram-fallback-warned=1"
@@ -22081,13 +21846,7 @@ test_naive_component() {
         component_action naive check_update | j '.status' | sed 's/^/dispatch-check=/'
     )"
 
-    _nc() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _nc() { expect_line "$out" "$1" "$2"; }
     _nc "not installed: the latest release is offered" 'check-none=[true,"not installed","1.2.3-4","not_installed"]'
     _nc "an Aarch64 A76 uses the generic build" "arch[aarch64_cortex-a76]=aarch64_generic"
     _nc "a Pentium 4 uses the x86 build" "arch[i386_pentium4]=x86"
@@ -22211,13 +21970,7 @@ LIST
         echo "capped=$(feeds https://example.com/big.txt '.urls | length')"
     )"
 
-    _cl() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _cl() { expect_line "$out" "$1" "$2"; }
     _cl "every link of the list becomes an outbound" "count=8"
     _cl "security=false, empty and absent mean no TLS; tls means TLS" 'false=false empty=false nosec=false none=false tls=true'
     _cl "a trojan link without security has TLS, with none it has not" 'trojan-default=true trojan-none=false'
@@ -22273,13 +22026,7 @@ test_filter_keyword_alternatives() {
         echo "flags-and-words=$(kw '🇩🇪|🇳🇱')"
     )"
 
-    _ka() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _ka() { expect_line "$out" "$1" "$2"; }
 
     _ka "separate entries stay separate keywords" 'plain=["Germany","Finland"]'
     _ka "an entry with bars and no blanks is the words between them" 'alternatives=["NL","DE","Finland"]'
@@ -22352,13 +22099,7 @@ CEOF
         ID_WGET=fail download_release_asset https://example.org/d.ipk d.ipk > /dev/null; echo "no-curl-rc=$? wget=$(calls wget) curl=$(calls curl)"
     )"
 
-    _id() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _id() { expect_line "$out" "$1" "$2"; }
 
     _id "wget that works: done at once, curl is not asked" "wget-ok-rc=0 file=FROM-WGET curl=0"
     _id "wget runs with a timeout (a stalled connection no longer hangs the installer)" "wget-has-timeout=1"
@@ -22559,13 +22300,7 @@ test_dns_section_pool() {
         echo "dash-neighbour-kept=$(servers)"
     )"
 
-    _dp() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _dp() { expect_line "$out" "$1" "$2"; }
     _dp "one server: one route rule, as before" 'single-rules=[["route","dns-section-corp","corp","",false,"corp-domains"]]'
     _dp "...and only that server" 'single-servers=["dns-section-corp"]'
     _dp "the list is ignored in the default mode" 'single-ignores-list=[["route","dns-section-corp","corp","",false,"corp-domains"]]'
@@ -22698,13 +22433,7 @@ stop-clears=$(printf '%s\n' "$stop_body" | grep -c 'config_applied_hash_clear')
 trigger-wired=$(grep -cF 'procd_add_config_trigger "config.change" "$NAME" /usr/bin/netshift apply_config' "$initscript" 2> /dev/null)
 command-wired=$(grep -c '^apply_config)' "$bin")"
 
-    _ac() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _ac() { expect_line "$out" "$1" "$2"; }
     _ac "no saved hash (not started by NetShift): restart as before" "no-hash-restarts=1"
     _ac "the hash is saved at start" "hash-saved=yes"
     _ac "...readable by root only" "hash-file-mode=-rw-------"
@@ -22805,13 +22534,7 @@ test_tuic_anytls() {
         fi
     )"
 
-    _tu() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _tu() { expect_line "$out" "$1" "$2"; }
     _tu "a list of links keeps tuic and anytls and drops an unknown scheme" 'list-schemes=["anytls","tuic"]'
     _tu "a TUIC link becomes a tuic outbound with the decoded password" 'tuic=["tuic","s1-out","tuic.example.com",8443,"11111111-2222-3333-4444-555555555555","p@ss","bbr","native"]'
     _tu "its TLS comes from sni, alpn and allow_insecure, and has no uTLS" 'tuic-tls=[true,"tuic.example.com",["h3"],true,false]'
@@ -22964,13 +22687,7 @@ DRVEOF
     local out
     out="$(WORK="$work" ash "$drv" 2>&1)"
 
-    _ur() {
-        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
-            pass "$1"
-        else
-            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
-        fi
-    }
+    _ur() { expect_line "$out" "$1" "$2"; }
     _ur "the developer's repository: the redirect of /releases/latest gives the tag" "upstream-tag=0.9.10"
     _ur "...and the fork is not asked" "upstream-no-fork=0"
     _ur "no setting is the developer's repository" "unset-is-upstream=0.9.10"
@@ -23002,6 +22719,13 @@ DRVEOF
     rm -rf "$work"
 }
 
+
+# The test functions of this file, in the order they are written.
+smoke_tests() {
+    sed -n 's/^\(test_[a-z0-9_]*\)() {$/\1/p' "$SMOKE_SELF"
+}
+SMOKE_SELF="$0"
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -23013,104 +22737,11 @@ main() {
 
     case "$target" in
         all)
-            test_components_via_proxy
-            test_deps
-            test_syntax
-            test_config
-            test_helpers
-            test_jq_helpers
-            test_config_manager
-            test_sing_box_config
-            test_proxy_link_escaping
-            test_nft
-            test_nft_ipv6
-            test_selective_marking
-            test_section_isolation
-            test_monitor_fd_hygiene
-            test_unsupported_skip
-            test_extended_gate_skip
-            test_httpupgrade_transport
-            test_scalar_option_fallback
-            test_empty_link_sections
-            test_vless_encryption
-            test_text_list_outbound
-            test_ruleset_chunk_size
-            test_domain_case
-            test_diagnostics
-            test_subscription
-            test_fastest_group
-            test_feed_groups
-            test_insecure_fetch
-            test_rejected_hash
-            test_jobstate
-            test_selfheal
-            test_dns_via_outbound
-            test_dns_client_subnet
-            test_sub_url_option
-            test_sub_cron
-            test_global_proxy
-            test_reality_mlkem
-            test_luci_cache_bust
-            test_bittorrent_direct
-            test_check_update_stable
-            test_check_update_extended
-            test_sing_box_extended_arm_arch
-            test_sing_box_lite
-            test_check_update_netshift
-            test_netshift_latest_tag
-            test_github_redirect_tag
-            test_self_update_netshift
-            test_backup_integrity
-            test_hot_reload
-            test_domain_separators
-            test_cache_persist
-            test_update_package_check
-            test_environment_check
-            test_dns_benchmark
-            test_dns_section
-            test_section_disabled
-            test_ipv6_routing
-            test_dns_pool
-            test_cascade
-            test_latency_url
-            test_priority_selection
-            test_bypass
-            test_urltest_filters
-            test_subscription_geoip
-            test_urltest_interval
-            test_dns_hijack
-            test_block_leaks
-            test_mixed_proxy_auth
-            test_domain_rule_prefixes
-            test_route_check
-            test_subscription_param_filters
-            test_ecs_auto
-            test_dns_servers_check
-            test_connections_api
-            test_lan_devices
-            test_update_notice
-            test_config_snapshots
-            test_pin_guard
-            test_dns_forward
-            test_dnsmasq_lifecycle
-            test_subscription_info
-            test_port_rules
-            test_config_lint
-            test_naive
-            test_core_caps
-            test_ipv6_dns_policy
-            test_xhttp_extra
-            test_quic_mode
-            test_telegram_fallback
-            test_naive_component
-            test_collected_lists
-            test_apply_config
-            test_dns_section_pool
-            test_filter_keyword_alternatives
-            test_install_download
-            test_proxy_bootstrap
-            test_tuic_anytls
-            test_update_repo
+            # every test_* function of this file, in the order they are written: a new test is
+            # picked up by being defined, with no list to keep in step
+            for test_fn in $(smoke_tests); do
+                "$test_fn"
+            done
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -23211,87 +22842,24 @@ main() {
         tuicanytls)  test_tuic_anytls ;;
         updaterepo)  test_update_repo ;;
         *)
-            echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo"
-            exit 1
+            # a test by its function name, with or without the test_ prefix ("hy2_hop")
+            case "$target" in
+            test_*) test_fn="$target" ;;
+            *) test_fn="test_$target" ;;
+            esac
+            if smoke_tests | grep -qx "$test_fn"; then
+                "$test_fn"
+            else
+                echo "Unknown test: $target"
+                echo "Available: all, a test function without its test_ prefix, or a short name of the list in main():"
+                smoke_tests | sed 's/^test_//' | tr '\n' ' '
+                echo
+                exit 1
+            fi
             ;;
     esac
 
     summary
 }
-
-
-# ─────────────────────────────────────────────────────────────────
-# Test: a scalar value of a LIST option is not silently ignored
-# ─────────────────────────────────────────────────────────────────
-# OpenWrt's config_list_foreach iterates ONLY UCI `list` values: it walks the
-# <option>_LENGTH / <option>_ITEMn variables that uci_load creates for a list.
-# A scalar option (`uci set netshift.settings.routing_excluded_ips=10.0.0.5`, a
-# hand-edited config, a config written by a script) has no such variables, so
-# the callback ran ZERO times and the value was silently ignored — while
-# config_get still returned it. "Excluded IPs" (Devices -> Direct) therefore did
-# nothing at all, with nothing in the log, for every writer that is not LuCI.
-# netshift_config_list_foreach adds the scalar fallback.
-#
-# This test deliberately uses the REAL /lib/functions.sh config_list_foreach and
-# the REAL shipped handlers: the other harnesses STUB config_list_foreach (their
-# stub word-splits the value and so accepts a scalar), which is exactly why the
-# bug was invisible to them.
-
-# ─────────────────────────────────────────────────────────────────
-# Test: a section saved with an EMPTY required field degrades, never aborts
-# ─────────────────────────────────────────────────────────────────
-# A required link option left empty (an empty field in the UI, a hand-edited
-# config) used to `log ... "fatal"; exit 1` from configure_outbound_handler.
-# Generation runs AFTER stop_main, which has already flushed the nft table,
-# deleted /tmp/sing-box/rulesets and stopped sing-box, so the exit left the
-# router with no service at all and a config.json on disk naming rule-set files
-# that were gone — `sing-box check` failed on it and nothing came back up until a
-# manual `netshift restart`. REPRODUCED on hardware: adding a section with an
-# empty proxy_string next to a working one made `netshift restart` exit 1, left
-# sing-box DOWN and config.json invalid.
-#
-# Such a section must instead degrade exactly like a link the installed core
-# cannot use: marked unavailable (its traffic is rejected), logged, and the rest
-# of the config still generated and accepted by sing-box.
-# Drives the REAL configure_outbound_handler; synthetic values only.
-
-
-
-
-# ─────────────────────────────────────────────────────────────────
-# Test: a scalar value of a LIST option is not silently ignored
-# ─────────────────────────────────────────────────────────────────
-# OpenWrt's config_list_foreach iterates ONLY UCI `list` values: it walks the
-# <option>_LENGTH / <option>_ITEMn variables that uci_load creates for a list.
-# A scalar option (`uci set netshift.settings.routing_excluded_ips=10.0.0.5`, a
-# hand-edited config, a config written by a script) has no such variables, so
-# the callback ran ZERO times and the value was silently ignored — while
-# config_get still returned it. "Excluded IPs" (Devices -> Direct) therefore did
-# nothing at all, with nothing in the log, for every writer that is not LuCI.
-# netshift_config_list_foreach adds the scalar fallback.
-#
-# This test deliberately uses the REAL /lib/functions.sh config_list_foreach and
-# the REAL shipped handlers: the other harnesses STUB config_list_foreach (their
-# stub word-splits the value and so accepts a scalar), which is exactly why the
-# bug was invisible to them.
-
-# ─────────────────────────────────────────────────────────────────
-# Test: a section saved with an EMPTY required field degrades, never aborts
-# ─────────────────────────────────────────────────────────────────
-# A required link option left empty (an empty field in the UI, a hand-edited
-# config) used to `log ... "fatal"; exit 1` from configure_outbound_handler.
-# Generation runs AFTER stop_main, which has already flushed the nft table,
-# deleted /tmp/sing-box/rulesets and stopped sing-box, so the exit left the
-# router with no service at all and a config.json on disk naming rule-set files
-# that were gone — `sing-box check` failed on it and nothing came back up until a
-# manual `netshift restart`. REPRODUCED on hardware: adding a section with an
-# empty proxy_string next to a working one made `netshift restart` exit 1, left
-# sing-box DOWN and config.json invalid.
-#
-# Such a section must instead degrade exactly like a link the installed core
-# cannot use: marked unavailable (its traffic is rejected), logged, and the rest
-# of the config still generated and accepted by sing-box.
-# Drives the REAL configure_outbound_handler; synthetic values only.
 
 main "$@"

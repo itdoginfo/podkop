@@ -105,6 +105,11 @@ jobs:
       - name: Run linter
         run: yarn lint --max-warnings=0
 
+      # tsup and vitest strip the types without checking them: a type error (an import of a
+      # module with no types, a wrong argument) passes every other gate.
+      - name: Type check
+        run: yarn typecheck
+
       - name: Run tests
         run: yarn test --run
 
