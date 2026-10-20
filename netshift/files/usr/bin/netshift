@@ -35,6 +35,7 @@ check_required_file "$NETSHIFT_LIB/lint.sh"
 check_required_file "$NETSHIFT_LIB/feedlist.sh"
 check_required_file "$NETSHIFT_LIB/naive.sh"
 check_required_file "$NETSHIFT_LIB/corecaps.sh"
+check_required_file "$NETSHIFT_LIB/autoupdate.sh"
 check_required_file "$NETSHIFT_LIB/applyconfig.sh"
 check_required_file "$NETSHIFT_LIB/failover.sh"
 . /lib/functions.sh
@@ -64,6 +65,7 @@ check_required_file "$NETSHIFT_LIB/failover.sh"
 . "$NETSHIFT_LIB/failover.sh"
 . "$NETSHIFT_LIB/naive.sh"
 . "$NETSHIFT_LIB/corecaps.sh"
+. "$NETSHIFT_LIB/autoupdate.sh"
 
 config_load "$NETSHIFT_CONFIG"
 
@@ -1395,6 +1397,7 @@ start_main() {
     foreach_active_section add_cron_job "section"
     sync_subscription_cron_jobs
     cron_ensure_running
+    sync_auto_update_cron_job
     drop_stale_fakeip_cache
     restore_sing_box_cache
     /etc/init.d/sing-box start
@@ -1479,6 +1482,7 @@ start() {
 
     config_applied_hash_save
     start_sing_box_monitor
+    auto_update_schedule_boot_run
 }
 
 _kill_stale_sing_box_monitors() {
@@ -2880,7 +2884,8 @@ cron_ensure_running() {
 }
 
 remove_cron_job() {
-    (crontab -l | grep -v "/usr/bin/netshift list_update" | grep -v "/usr/bin/netshift subscription_update") | crontab -
+    (crontab -l | grep -v "/usr/bin/netshift list_update" | grep -v "/usr/bin/netshift subscription_update" |
+        grep -v "/usr/bin/netshift auto_update") | crontab -
     log "The cron job removed"
 }
 
@@ -9110,6 +9115,8 @@ Available commands:
     check_dns_available     Check DNS server availability
     get_config_warnings     Settings that are valid but do not do what they say (JSON)
     get_core_capabilities   What the installed sing-box core can do (JSON)
+    auto_update [now]       Check and install updates of NetShift and sing-box, roll back if NetShift stops working
+    auto_update_status      The last automatic update and the versions it rolled back (JSON)
     fetch_feed_list <url>   The feed addresses of a published list of subscriptions (JSON)
     apply_config            Restart only if the configuration changed in options the service uses
     global_check            Run global system check
@@ -9269,6 +9276,12 @@ get_config_warnings)
     ;;
 get_core_capabilities)
     get_core_capabilities
+    ;;
+auto_update)
+    auto_update_run "${2:-now}"
+    ;;
+auto_update_status)
+    auto_update_status
     ;;
 fetch_feed_list)
     fetch_feed_list "${2:-}"

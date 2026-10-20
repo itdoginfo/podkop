@@ -83,6 +83,8 @@ function getSubscriptionPollMessages(): ComponentActionPollMessages {
 export const NetShiftShellMethods = {
   getCoreCapabilities: async () =>
     callBaseMethod<unknown>(NetShift.AvailableMethods.GET_CORE_CAPABILITIES),
+  getAutoUpdateStatus: async () =>
+    callBaseMethod<unknown>(NetShift.AvailableMethods.AUTO_UPDATE_STATUS),
   fetchFeedList: async (url: string) =>
     callBaseMethod<unknown>(
       NetShift.AvailableMethods.FETCH_FEED_LIST,

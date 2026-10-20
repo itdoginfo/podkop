@@ -45,6 +45,9 @@ apply_config_change() {
     current="$(config_runtime_hash)"
     if [ -n "$saved" ] && [ "$saved" = "$current" ]; then
         log "Configuration changed, but only in options that need no restart (updates, dashboard); NetShift is not restarted" "info"
+        # the schedule of the automatic update is one of them: only its cron job changes
+        config_load "$NETSHIFT_CONFIG"
+        sync_auto_update_cron_job
         return 0
     fi
     "$NETSHIFT_INIT" restart > /dev/null 2>&1

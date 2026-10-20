@@ -772,6 +772,16 @@ updates_response_is_release_array() {
 updates_extended_release_tag() {
     local json="$1"
 
+    # A rollback of the automatic update installs the release it replaced, not the latest
+    # (see lib/autoupdate.sh). The tag is matched with or without its leading "v".
+    if [ -n "${UPDATES_PINNED_TAG:-}" ]; then
+        printf '%s' "$json" | jq -r --arg p "${UPDATES_PINNED_TAG#v}" '
+            map(select(.draft != true and .prerelease != true) | .tag_name | select(. != null and ltrimstr("v") == $p))
+            | .[0] // empty
+        ' 2>/dev/null
+        return 0
+    fi
+
     printf '%s' "$json" | jq -r '
         map(select((.draft != true) and (.prerelease != true)))
         | map(.tag_name)
@@ -2940,6 +2950,12 @@ updates_netshift_latest_tag() {
     local response tag redirect
 
     updates_select_netshift_repo
+
+    # A rollback of the automatic update reinstalls the version it replaced.
+    if [ -n "${UPDATES_PINNED_TAG:-}" ]; then
+        printf '%s' "$UPDATES_PINNED_TAG"
+        return 0
+    fi
 
     # PRIMARY: github.com/<repo>/releases/latest 302-redirects to
     # /releases/tag/<tag>. Parse with case/param-expansion (no Oniguruma).

@@ -1165,6 +1165,7 @@ var NetShift;
   ((AvailableMethods2) => {
     AvailableMethods2["CHECK_DNS_AVAILABLE"] = "check_dns_available";
     AvailableMethods2["GET_CORE_CAPABILITIES"] = "get_core_capabilities";
+    AvailableMethods2["AUTO_UPDATE_STATUS"] = "auto_update_status";
     AvailableMethods2["FETCH_FEED_LIST"] = "fetch_feed_list";
     AvailableMethods2["CHECK_FAKEIP"] = "check_fakeip";
     AvailableMethods2["CHECK_ENVIRONMENT"] = "check_environment";
@@ -1328,6 +1329,7 @@ function getSubscriptionPollMessages() {
 }
 var NetShiftShellMethods = {
   getCoreCapabilities: async () => callBaseMethod(NetShift.AvailableMethods.GET_CORE_CAPABILITIES),
+  getAutoUpdateStatus: async () => callBaseMethod(NetShift.AvailableMethods.AUTO_UPDATE_STATUS),
   fetchFeedList: async (url) => callBaseMethod(
     NetShift.AvailableMethods.FETCH_FEED_LIST,
     [url],
@@ -8944,6 +8946,65 @@ function isValidMac(value) {
   return /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(value);
 }
 
+// src/helpers/autoUpdateStatus.ts
+var COMPONENT_NAMES = {
+  netshift: () => "NetShift",
+  sing_box: () => "sing-box"
+};
+var SKIP_REASONS = {
+  stock_core: () => _(
+    "not updated: the stock sing-box comes from the firmware packages and cannot be rolled back"
+  ),
+  dev_build: () => _("not updated: a development build"),
+  bad_version: () => _("skipped: this release was rolled back earlier"),
+  not_working: () => _("nothing was updated: NetShift did not work before the update"),
+  busy: () => _("nothing was updated: the Components manager was installing something")
+};
+var TRIGGER_NAMES = {
+  boot: () => _("after boot"),
+  scheduled: () => _("on schedule"),
+  now: () => _("started by hand")
+};
+function describeResult(item) {
+  const name = COMPONENT_NAMES[item.component]?.() ?? "";
+  const prefix = name ? `${name}: ` : "";
+  switch (item.result) {
+    case "updated":
+      return `${prefix}${_("updated")} ${item.from} \u2192 ${item.to}`;
+    case "latest":
+      return `${prefix}${_("the latest version")} (${item.from})`;
+    case "rolled_back":
+      return `${prefix}${item.to} ${_("did not work, rolled back to")} ${item.from}`;
+    default: {
+      const reason = SKIP_REASONS[item.reason ?? ""]?.();
+      const version = item.result === "skipped" && item.to ? ` (${item.to})` : "";
+      return reason ? `${prefix}${reason}${version}` : `${prefix}${item.message}`;
+    }
+  }
+}
+function describeAutoUpdateState(state, formatTime = (seconds) => new Date(seconds * 1e3).toLocaleString()) {
+  if (!state || typeof state !== "object") {
+    return [];
+  }
+  const { last_run: lastRun, bad_versions: bad } = state;
+  const lines = [];
+  if (lastRun?.at) {
+    const trigger = TRIGGER_NAMES[lastRun.trigger ?? ""]?.();
+    lines.push(
+      `${_("Last run")}: ${formatTime(lastRun.at)}${trigger ? ` (${trigger})` : ""}`
+    );
+    (lastRun.results ?? []).forEach((item) => lines.push(describeResult(item)));
+  }
+  Object.entries(bad ?? {}).forEach(([component, version]) => {
+    if (version) {
+      lines.push(
+        `${_("Skipped after a rollback")}: ${COMPONENT_NAMES[component]?.() ?? component} ${version}`
+      );
+    }
+  });
+  return lines;
+}
+
 // src/helpers/dnsBenchmark.ts
 function parseDnsBenchmark(input) {
   let data = input;
@@ -9082,6 +9143,7 @@ return baseclass.extend({
   connectionTarget,
   coreService,
   createLogErrorBatcher,
+  describeAutoUpdateState,
   describeSubscriptionInfo,
   deviceMatchesQuery,
   dnsRouteSection,

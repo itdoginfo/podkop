@@ -995,6 +995,113 @@ function createSettingsContent(section) {
   o.default = "upstream";
   o.rmempty = false;
 
+  // Automatic updates of NetShift and sing-box with a rollback (lib/autoupdate.sh).
+  o = section.taboption(
+    "lists",
+    form.Flag,
+    "auto_update",
+    _("Automatic updates"),
+    _(
+      "Checks for new releases of NetShift and sing-box and installs them by itself. Before the update and after it, NetShift checks that it works (sing-box answers and a proxy or VPN section reaches the internet). If it stops working after an update, the previous version is installed again and the release that broke it is skipped from then on. Nothing is updated while NetShift does not work.",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "lists",
+    form.Flag,
+    "auto_update_netshift",
+    _("Update NetShift automatically"),
+    _("From the update source chosen above."),
+  );
+  o.depends("auto_update", "1");
+  o.default = "1";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "lists",
+    form.Flag,
+    "auto_update_sing_box",
+    _("Update sing-box automatically"),
+    _(
+      "sing-box-extended and its lite build. The stock sing-box comes from the firmware packages and cannot be rolled back, so it is not updated automatically.",
+    ),
+  );
+  o.depends("auto_update", "1");
+  o.default = "1";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "lists",
+    form.Flag,
+    "auto_update_on_boot",
+    _("Check after boot"),
+    _("A few minutes after the router has started."),
+  );
+  o.depends("auto_update", "1");
+  o.default = "1";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "lists",
+    form.ListValue,
+    "auto_update_interval",
+    _("Check on schedule"),
+  );
+  o.value("off", _("Off"));
+  o.value("12h", _("Every 12 hours"));
+  o.value("1d", _("Every day"));
+  o.value("1w", _("Every week (Sunday)"));
+  o.depends("auto_update", "1");
+  o.default = "1d";
+  o.rmempty = false;
+
+  o = section.taboption(
+    "lists",
+    form.Value,
+    "auto_update_time",
+    _("Time of the check"),
+    _("HH:MM, router time. Every 12 hours: at this time and twelve hours later."),
+  );
+  o.depends({ auto_update: "1", auto_update_interval: "12h" });
+  o.depends({ auto_update: "1", auto_update_interval: "1d" });
+  o.depends({ auto_update: "1", auto_update_interval: "1w" });
+  o.default = "04:30";
+  o.placeholder = "04:30";
+  o.rmempty = false;
+  o.validate = function (section_id, value) {
+    return /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value || "")
+      ? true
+      : _("Use HH:MM, for example 04:30");
+  };
+
+  o = section.taboption(
+    "lists",
+    form.DummyValue,
+    "_auto_update_status",
+    _("Last automatic update"),
+  );
+  o.depends("auto_update", "1");
+  o.rawhtml = true;
+  o.cfgvalue = function () {
+    const result = E("div", {}, _("Loading..."));
+
+    main.NetShiftShellMethods.getAutoUpdateStatus()
+      .then((reply) => {
+        const lines = reply.success ? main.describeAutoUpdateState(reply.data) : [];
+
+        result.replaceChildren(
+          ...(lines.length
+            ? lines.map((line) => E("div", {}, line))
+            : [E("div", {}, _("No run yet"))]),
+        );
+      })
+      .catch(() => result.replaceChildren(E("div", {}, _("No run yet"))));
+
+    return result;
+  };
+
   o = section.taboption(
     "lists",
     form.DynamicList,

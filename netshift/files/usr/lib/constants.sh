@@ -313,7 +313,7 @@ UPDATES_NETSHIFT_NOTES_MAX=24000
 # (applyconfig.sh). shutdown_correctly is flipped by the service itself.
 # Read only while the service runs: by the monitor (it loads the configuration anew on every
 # check cycle), by the dashboard, or when a component is installed.
-CONFIG_NO_RESTART_OPTIONS="update_notice shutdown_correctly latency_test_url priority_check_interval priority_mode pin_guard wget_ipv4_mode sing_box_extended_arm_build sing_box_lite_build"
+CONFIG_NO_RESTART_OPTIONS="update_notice shutdown_correctly latency_test_url priority_check_interval priority_mode pin_guard wget_ipv4_mode sing_box_extended_arm_build sing_box_lite_build auto_update auto_update_netshift auto_update_sing_box auto_update_on_boot auto_update_interval auto_update_time"
 CONFIG_APPLIED_HASH_FILE="/tmp/netshift-applied-config.hash"
 NETSHIFT_INIT="/etc/init.d/netshift"
 # tmpfs backup of /etc/config/netshift taken before the self-update package
@@ -477,3 +477,20 @@ SUBSCRIPTION_MAX_NODES_DEFAULT=500
 # Wi-Fi Calling (wifi_calling_direct): the IKE and NAT-T ports of the operator's ePDG tunnel,
 # added to the UDP ports that go out directly
 WIFI_CALLING_DIRECT_UDP_PORTS="500 4500"
+
+# Automatic updates of NetShift and sing-box (lib/autoupdate.sh).
+# The last run and the versions that were rolled back (kept across reboots: a version that
+# broke the router must not be installed again by the next run).
+AUTO_UPDATE_STATE_FILE="/etc/netshift/auto-update.json"
+AUTO_UPDATE_LOCK_DIR="/tmp/netshift-auto-update.lock"
+# Present once the run after boot has been started: a restart of the service is not a boot.
+AUTO_UPDATE_BOOT_MARKER="/tmp/netshift-auto-update-boot"
+# Seconds between the start at boot and the run, so that time, DNS and subscriptions settle.
+AUTO_UPDATE_BOOT_DELAY=180
+# A start this many seconds after boot at most is the start at boot.
+AUTO_UPDATE_BOOT_WINDOW=600
+AUTO_UPDATE_INTERVAL_DEFAULT="1d"
+AUTO_UPDATE_TIME_DEFAULT="04:30"
+# How long a just-updated NetShift may take to work again: attempts x seconds.
+AUTO_UPDATE_HEALTH_ATTEMPTS=9
+AUTO_UPDATE_HEALTH_INTERVAL=10

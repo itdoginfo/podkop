@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 21:11+0300\n"
-"PO-Revision-Date: 2026-10-20 21:11+0300\n"
+"POT-Creation-Date: 2026-10-20 21:13+0300\n"
+"PO-Revision-Date: 2026-10-20 21:13+0300\n"
 "Last-Translator: agent\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -37,6 +37,9 @@ msgstr "77.88.8.8 (Yandex)"
 
 msgid "A dead server was left"
 msgstr "Мёртвый сервер оставлен"
+
+msgid "A few minutes after the router has started."
+msgstr "Через несколько минут после запуска роутера."
 
 msgid "A newer version is available"
 msgstr "Доступна новая версия"
@@ -89,6 +92,9 @@ msgstr "Реклама и трекеры (sing-geosite category-ads-all, для 
 msgid "Advanced"
 msgstr "Дополнительно"
 
+msgid "after boot"
+msgstr "после загрузки"
+
 msgid "Age"
 msgstr "Возраст"
 
@@ -130,6 +136,9 @@ msgstr "Авто"
 
 msgid "Automatic (first working)"
 msgstr "Автоматически (первый рабочий)"
+
+msgid "Automatic updates"
+msgstr "Автоматические обновления"
 
 msgid "Available actions"
 msgstr "Доступные действия"
@@ -206,6 +215,12 @@ msgstr "Изменить статическую аренду"
 msgid "Check"
 msgstr "Проверить"
 
+msgid "Check after boot"
+msgstr "Проверять после загрузки"
+
+msgid "Check on schedule"
+msgstr "Проверять по расписанию"
+
 msgid "Check update"
 msgstr "Проверить обновление"
 
@@ -220,6 +235,9 @@ msgstr "проверки"
 
 msgid "Checks failed"
 msgstr "Проверки не выполнены"
+
+msgid "Checks for new releases of NetShift and sing-box and installs them by itself. Before the update and after it, NetShift checks that it works (sing-box answers and a proxy or VPN section reaches the internet). If it stops working after an update, the previous version is installed again and the release that broke it is skipped from then on. Nothing is updated while NetShift does not work."
+msgstr "Сам проверяет новые выпуски NetShift и sing-box и устанавливает их. До обновления и после него NetShift проверяет, что всё работает (sing-box отвечает, и хотя бы одна прокси- или VPN-секция выходит в интернет). Если после обновления работать перестало, ставится прежняя версия, а сломавший выпуск дальше пропускается. Пока NetShift не работает, ничего не обновляется."
 
 msgid "Checks passed"
 msgstr "Проверки пройдены"
@@ -373,6 +391,9 @@ msgstr "Аренда DHCP"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
+
+msgid "did not work, rolled back to"
+msgstr "не заработал, откат на"
 
 msgid "Direct (excluded from routing)"
 msgstr "Напрямую (исключено из маршрутизации)"
@@ -620,6 +641,9 @@ msgstr "Каждый день"
 msgid "Every hour"
 msgstr "Каждый час"
 
+msgid "Every week (Sunday)"
+msgstr "Каждую неделю (в воскресенье)"
+
 msgid "Everything through: %s"
 msgstr "Всё через: %s"
 
@@ -713,6 +737,9 @@ msgstr "С устройства (необязательно)"
 msgid "from the router"
 msgstr "с роутера"
 
+msgid "From the update source chosen above."
+msgstr "Из источника обновлений, выбранного выше."
+
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
 
@@ -742,6 +769,9 @@ msgstr "Группировать прокси из подписки в груп�
 
 msgid "h"
 msgstr "ч"
+
+msgid "HH:MM, router time. Every 12 hours: at this time and twelve hours later."
+msgstr "ЧЧ:ММ по времени роутера. «Каждые 12 часов»: в это время и через двенадцать часов."
 
 msgid "Host name"
 msgstr "Имя хоста"
@@ -1037,6 +1067,12 @@ msgstr "Хранится в файле конфигурации в том вид
 msgid "Keyword may contain only letters, digits, dots, dashes and underscores"
 msgstr "Ключевое слово может содержать только буквы, цифры, точки, дефисы и подчёркивания"
 
+msgid "Last automatic update"
+msgstr "Последнее автообновление"
+
+msgid "Last run"
+msgstr "Последний запуск"
+
 msgid "Latency test URL"
 msgstr "URL для проверки задержки"
 
@@ -1066,6 +1102,9 @@ msgstr "Расписание обновления списков и способ
 
 msgid "Lists & Updates"
 msgstr "Списки и обновления"
+
+msgid "Loading..."
+msgstr "Загрузка..."
 
 msgid "Local Domain Lists"
 msgstr "Локальные списки доменов"
@@ -1181,6 +1220,9 @@ msgstr "Без слоя шифрования"
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
 
+msgid "No run yet"
+msgstr "Ещё не запускалось"
+
 msgid "No snapshots yet"
 msgstr "Снимков пока нет"
 
@@ -1211,6 +1253,18 @@ msgstr "Не отвечает"
 msgid "Not running"
 msgstr "Не запущено"
 
+msgid "not updated: a development build"
+msgstr "не обновляется: сборка для разработки"
+
+msgid "not updated: the stock sing-box comes from the firmware packages and cannot be rolled back"
+msgstr "не обновляется: стандартный sing-box приходит из пакетов прошивки, его нельзя откатить"
+
+msgid "nothing was updated: NetShift did not work before the update"
+msgstr "ничего не обновлялось: NetShift не работал до обновления"
+
+msgid "nothing was updated: the Components manager was installing something"
+msgstr "ничего не обновлялось: менеджер компонентов что-то устанавливал"
+
 msgid "Notify about new versions"
 msgstr "Уведомлять о новых версиях"
 
@@ -1219,6 +1273,9 @@ msgstr "Количество начальных символов имени ка
 
 msgid "Off"
 msgstr "Выключено"
+
+msgid "on schedule"
+msgstr "по расписанию"
 
 msgid "One entry per line: \"zone server\", for example \"ru 77.88.8.8\" sends the zone .ru and all its subdomains to that DNS server directly, the way a \"server=/ru/77.88.8.8\" line does in the dnsmasq config. The server is an IP address, optionally with #port. The names of these zones get their real addresses, not FakeIP, so they are not routed by domain; the entries are applied to dnsmasq unless \"Dont Touch My DHCP\" is on."
 msgstr "Одна запись в строке: «зона сервер». Например, «ru 77.88.8.8» отправляет зону .ru и все её поддомены прямо на этот DNS-сервер, как строка «server=/ru/77.88.8.8» в конфиге dnsmasq. Сервер - IP-адрес, при необходимости с #портом. Имена этих зон получают настоящие адреса, а не FakeIP, поэтому по домену не маршрутизируются; записи применяются к dnsmasq, если не включена «Dont Touch My DHCP»."
@@ -1577,6 +1634,15 @@ msgstr "Сервис sing-box существует"
 msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr "Версия Sing-box совместима (новее 1.12.4)"
 
+msgid "sing-box-extended and its lite build. The stock sing-box comes from the firmware packages and cannot be rolled back, so it is not updated automatically."
+msgstr "sing-box-extended и его lite-сборка. Стандартный sing-box приходит из пакетов прошивки и не может быть откачен, поэтому автоматически не обновляется."
+
+msgid "Skipped after a rollback"
+msgstr "Пропускается после отката"
+
+msgid "skipped: this release was rolled back earlier"
+msgstr "пропущен: этот выпуск уже откатывали"
+
 msgid "Snapshot saved"
 msgstr "Снимок сохранён"
 
@@ -1612,6 +1678,9 @@ msgstr "Укажите путь к файлу списка, расположен
 
 msgid "Start NetShift"
 msgstr "Запустить NetShift"
+
+msgid "started by hand"
+msgstr "запущено вручную"
 
 msgid "Static"
 msgstr "Статический"
@@ -1736,6 +1805,9 @@ msgstr "Установленное ядро (%s) старше: использу�
 msgid "The interval between connectivity tests. A longer interval means less traffic through every server of the group; \"Only at start\" tests once when the service starts."
 msgstr "Интервал между проверками связи. Чем он длиннее, тем меньше трафика на каждый сервер группы; «Только при запуске» проверяет один раз при старте службы."
 
+msgid "the latest version"
+msgstr "последняя версия"
+
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
 
@@ -1817,6 +1889,9 @@ msgstr "Время не может быть пустым"
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
 
+msgid "Time of the check"
+msgstr "Время проверки"
+
 msgid "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists"
 msgstr "Время ежедневного обновления, ЧЧ:ММ (00:00–23:59) по местному времени роутера. Избегайте минут, совпадающих с другими интервалами обновления, например :00 и :30, если есть секция с интервалом 30 минут."
 
@@ -1880,8 +1955,17 @@ msgstr "Обновите её на вкладке «Менеджер компо�
 msgid "Update NetShift"
 msgstr "Обновить NetShift"
 
+msgid "Update NetShift automatically"
+msgstr "Обновлять NetShift"
+
+msgid "Update sing-box automatically"
+msgstr "Обновлять sing-box"
+
 msgid "Update time"
 msgstr "Время обновления"
+
+msgid "updated"
+msgstr "обновлён"
 
 msgid "Updating all subscriptions… this may take a minute"
 msgstr "Обновление всех подписок… это может занять минуту"
@@ -1936,6 +2020,9 @@ msgstr "Укажите двухбуквенный код страны, напр�
 
 msgid "Use an https:// address, for example https://gh-proxy.com/"
 msgstr "Укажите адрес https://, например https://gh-proxy.com/"
+
+msgid "Use HH:MM, for example 04:30"
+msgstr "Укажите ЧЧ:ММ, например 04:30"
 
 msgid "Use only for IP-host panels that serve an invalid or self-signed certificate."
 msgstr "Используйте только для панелей с IP-адресом, у которых недействительный или самоподписанный сертификат."
