@@ -451,6 +451,8 @@ kill_switch_apply() {
         # The router answering an inbound connection (SSH/LuCI from a proxied
         # subnet); its own already-open flows are held, as in the forward chain.
         echo "        ct direction reply accept"
+        # the router's own time sync, as in the marking model (mangle_output returns it)
+        [ "$exclude_ntp" -eq 1 ] && echo "        udp dport 123 accept"
         _kill_switch_emit_unmarked_accepts "" "$v6"
         _kill_switch_emit_drops "" "$mark_all" "$v6" "$block_doh"
         echo "    }"

@@ -573,7 +573,7 @@ config_get_bool() {
     eval "$1=\"\${4:-0}\""
     case "$3" in
         block_doh) eval "$1=\"${SCN_BLOCKDOH:-0}\"" ;;
-        exclude_ntp) eval "$1=\"0\"" ;;
+        exclude_ntp) eval "$1=\"${SCN_NTP:-0}\"" ;;
     esac
 }
 # fully_routed_ips iteration: one proxy section "frsec" carrying SCN_FULLROUTED.
@@ -695,6 +695,18 @@ SELEOF
         pass "selective:default — union set $NFT_COMMON_SET_NAME created"
     else
         fail "selective:default — union set $NFT_COMMON_SET_NAME not created"
+    fi
+
+    # exclude_ntp returns NTP before any mark in both chains: the router's own time sync too
+    local out_ntp
+    out_ntp="$(SCN_TABLE="selmark_ntp_$$" SCN_IPV6=0 SCN_GLOBALPROXY="gpsec" SCN_BLOCKDOH=0 SCN_NTP=1 \
+        SCN_FULLROUTED="" sh "$drv" 2>/dev/null)"
+    nft delete table inet "selmark_ntp_$$" 2>/dev/null
+    if sel_section "$out_ntp" MANGLE | grep -q 'udp dport 123 return' &&
+        sel_section "$out_ntp" MANGLE_OUTPUT | grep -q 'udp dport 123 return'; then
+        pass "selective:exclude_ntp — NTP returned in mangle and in mangle_output (the router's own sync)"
+    else
+        fail "selective:exclude_ntp — NTP not returned in both chains" "$(sel_section "$out_ntp" MANGLE_OUTPUT)"
     fi
 
     # router-originated OUTPUT marking fix: the OUTPUT chain (router-originated traffic) must carry the SAME
@@ -1636,6 +1648,12 @@ BLEOF
         pass "blockleaks:globalproxy — exclude_ntp traffic is accepted, as in the marking model"
     else
         fail "blockleaks:globalproxy — exclude_ntp is not mirrored into the guard" "$fwd3"
+    fi
+    if [ -n "$(_bl_line "$out3c" 'udp dport 123 accept$')" ] &&
+        [ "$(_bl_line "$out3c" 'udp dport 123 accept$')" -lt "$(_bl_line "$out3c" 'drop$')" ]; then
+        pass "blockleaks:globalproxy — exclude_ntp: the router's own time sync is accepted too"
+    else
+        fail "blockleaks:globalproxy — exclude_ntp is missing in the output guard" "$out3c"
     fi
     if [ -n "$first_drop" ] && [ -n "$bsrc_at" ] && [ "$bsrc_at" -lt "$first_drop" ] &&
         _bl_section "$out3" GUARD | sed -n "/set $NFT_GUARD_BYPASS_SOURCE_SET_NAME {/,/}/p" | grep -q "192.168.50.9"; then
@@ -10154,6 +10172,7 @@ create_nft_rules() { :; }
 sing_box_configure_service() { :; }
 sing_box_init_config() { :; }
 add_cron_job() { :; }
+cron_ensure_running() { :; }
 list_update() { :; }
 TMP_SING_BOX_FOLDER="$WORK/sing-box"
 TMP_RULESET_FOLDER="$WORK/rulesets"
@@ -14492,6 +14511,7 @@ fi
 # Stubs replace only the process boundary (pidof/kill), the full restart and
 # the heavy config generator. The generator stub behaves like the real one:
 # it writes the config, or exits the shell when sing-box rejects it.
+eval "$(extract sing_box_pids)"
 eval "$(extract get_sing_box_daemon_pid)"
 eval "$(extract reload_sing_box_config_in_place)"
 
@@ -14513,9 +14533,18 @@ uci_get() {
 # helpers NetShift spawns (`check`) on NetShift's config, 4242 is the daemon the
 # sing-box init script starts (argv as seen on a router), 4243 is another
 # `sing-box run` on a config that is not NetShift's.
+# The lite core runs as /usr/libexec/sing-box-core: pidof knows it by that name (HR_CORE_PIDS).
 pidof() {
-    [ "$1" = "sing-box" ] && [ -n "$HR_PIDS" ] || return 1
-    printf '%s\n' "$HR_PIDS"
+    local name found=""
+    for name in "$@"; do
+        case "$name" in
+        sing-box) found="$found $HR_PIDS" ;;
+        sing-box-core) found="$found ${HR_CORE_PIDS:-}" ;;
+        esac
+    done
+    found="$(echo $found)"
+    [ -n "$found" ] || return 1
+    printf '%s\n' "$found"
 }
 read_proc_cmdline() {
     eval "printf '%s\n' \"\${HR_CMDLINE_$1:-}\""
@@ -14554,6 +14583,7 @@ hr_reset() {
     rm -f "$HR_DIR/kill.log" "$HR_DIR/restart.log" "$HR_DIR/build.log"
     printf '%s' '{"generation":1}' > "$hr_cfg"
     HR_PIDS="4241 4242"
+    HR_CORE_PIDS=""
     HR_CONFFILE="$hr_cfg"
     HR_KILL_RC=0
     HR_KILL_DIES=0
@@ -14610,6 +14640,26 @@ if [ "$rc" -eq 0 ] && [ "$(hr_count build)" = "1" ] && [ "$(hr_count restart)" =
     echo 'hr-reload-changed-config-sighup:OK'
 else
     echo "hr-reload-changed-config-sighup(rc=$rc build=$(hr_count build) restart=$(hr_count restart) kill='$(hr_kills)'):FAIL"
+fi
+
+# CASE R4b: the lite core (the wrapper execs /usr/libexec/sing-box-core): the daemon is found
+#           under that name and reloaded in place, not restarted.
+hr_reset
+HR_PIDS=""
+HR_CORE_PIDS="4250"
+HR_CMDLINE_4250="/bin/sh
+/usr/libexec/sing-box-core
+run
+-c
+$hr_cfg
+-D
+/usr/share/sing-box"
+reload_sing_box_config_in_place
+rc=$?
+if [ "$rc" -eq 0 ] && [ "$(hr_count restart)" = "0" ] && [ "$(hr_kills)" = "-HUP 4250" ]; then
+    echo 'hr-reload-lite-core-sighup:OK'
+else
+    echo "hr-reload-lite-core-sighup(rc=$rc restart=$(hr_count restart) kill='$(hr_kills)'):FAIL"
 fi
 
 # CASE R5: the signal cannot be delivered -> fall back to the full restart.
@@ -14891,6 +14941,7 @@ route_table_rule_mark() { :; }
 create_nft_rules() { :; }
 sing_box_configure_service() { :; }
 add_cron_job() { :; }
+cron_ensure_running() { :; }
 # start_main has to (re)build the subscription jobs once the config it just built
 # was accepted. The stub counts the calls, so dropping the call from start_main
 # fails the assertions below instead of passing unnoticed.
@@ -16394,10 +16445,16 @@ TEST_RESOLVFILE="/tmp/resolv.conf.d/resolv.conf.auto"
 TEST_RESOLV_EXISTS=0
 log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$LOG_FILE"; }
 file_exists() { [ "$1" = "$TEST_RESOLVFILE" ] && [ "$TEST_RESOLV_EXISTS" = 1 ]; }
-config_get() { eval "$1=\"${TEST_SHUTDOWN:-0}\""; }
+# shutdown_correctly from the test; any other option as config_load stored it (the forwards by zone)
+config_get() {
+    case "$3" in
+    shutdown_correctly) eval "$1=\"${TEST_SHUTDOWN:-0}\"" ;;
+    *) eval "$1=\"\${CONFIG_${2}_${3}:-${4:-}}\"" ;;
+    esac
+}
 kill_switch_enabled() { [ "${TEST_BLOCK_LEAKS:-0}" = 1 ]; }
 DLEOF
-        for fn in backup_dnsmasq_config_option uci_remove_quiet dnsmasq_is_configured_for_netshift dnsmasq_has_backup dnsmasq_should_be_restored dnsmasq_configure dnsmasq_restore; do
+        for fn in backup_dnsmasq_config_option uci_remove_quiet dnsmasq_is_configured_for_netshift dnsmasq_has_backup dnsmasq_should_be_restored dnsmasq_configure dnsmasq_sync_servers dnsmasq_restore; do
             awk -v fn="$fn" '$0 ~ "^"fn"\\(\\) \\{"{p=1} p{print} p&&/^}/{exit}' "$bin" | sed 's|/etc/init.d/dnsmasq restart|:|'
         done
         cat << 'DLEOF'
@@ -16529,6 +16586,18 @@ check completed-ownership-sentinel "$decision" yes
 TEST_BLOCK_LEAKS=1
 dnsmasq_should_be_restored && decision=yes || decision=no
 check block-leaks-defers-dns-restore "$decision" no
+# the stop with block_leaks left dnsmasq configured: the next start still brings the forwards by
+# zone in line (one added, then removed), and the backup of the original servers stays
+: >> /etc/config/netshift
+reset_fixture
+dnsmasq_configure force
+uci -q add_list netshift.settings.dns_forward='corp.lan 10.0.0.53'; uci commit netshift; config_load netshift
+dnsmasq_configure force
+check block-leaks-start-adds-new-forward "$(servers)" 127.0.0.42,/corp.lan/10.0.0.53
+uci -q delete netshift.settings.dns_forward; uci commit netshift; config_load netshift
+dnsmasq_configure force
+check block-leaks-start-drops-removed-forward "$(servers)" 127.0.0.42
+check block-leaks-start-keeps-original-backup "$(uci -q get dhcp.@dnsmasq[0].netshift_server | tr ' ' ',')" /alpha.lan/192.0.2.53,/beta.lan/198.51.100.53
 TEST_BLOCK_LEAKS=0
 dnsmasq_restore
 dnsmasq_should_be_restored && decision=yes || decision=no
@@ -16562,7 +16631,7 @@ DLEOF
     done <<EOF
 $out
 EOF
-    if [ "$checks" -ne 28 ]; then fail "dnslifecycle expected 28 assertions, got $checks"; fi
+    if [ "$checks" -ne 31 ]; then fail "dnslifecycle expected 31 assertions, got $checks"; fi
     if [ "$driver_status" -ne 0 ] && ! printf '%s\n' "$out" | grep -q ':FAIL'; then fail "dnslifecycle driver exited with status $driver_status"; fi
     rm -f "$saved" "$saved_netshift" "$drv"
 }
@@ -17098,6 +17167,13 @@ norm='[.route.rules[] | select(.action != "resolve") | del(.inbound) | del(.["__
 d_set=$(sing_box_cm_configure_dns "$base" "$SB_DNS_SERVER_TAG" "ipv4_only" true)
 echo "$d_set" | jq -e '.dns.strategy == "ipv4_only"' > /dev/null 2>&1 &&
     echo 'ipv6-dns-strategy-kept:OK' || echo 'ipv6-dns-strategy-kept:FAIL'
+# independent_cache: written for an older core, left out for sing-box 1.14+ (1.16 refuses it)
+echo "$(sing_box_cm_configure_dns "$base" "$SB_DNS_SERVER_TAG" "ipv4_only" true)" | jq -e '.dns.independent_cache == true' > /dev/null 2>&1 &&
+    echo 'dns-independent-cache-old-core:OK' || echo 'dns-independent-cache-old-core:FAIL'
+echo "$(sing_box_cm_configure_dns "$base" "$SB_DNS_SERVER_TAG" "ipv4_only" "")" | jq -e '.dns | has("independent_cache") | not' > /dev/null 2>&1 &&
+    echo 'dns-independent-cache-left-out:OK' || echo 'dns-independent-cache-left-out:FAIL'
+grep -q 'is_sing_box_at_least "$SB_DNS_EVALUATE_MIN" && independent_cache=""' "$BIN" &&
+    echo 'dns-independent-cache-gated:OK' || echo 'dns-independent-cache-gated:FAIL'
 
 # The helpers: an empty inbound is a JSON empty string, not a jq error; the DoH-block
 # helper takes the array form too.
@@ -21775,6 +21851,7 @@ test_naive_component() {
         updates_download_to_file() { cp "$ARCHIVE" "$2"; }
         xz() { [ "$1" = "-dc" ] && gzip -dc "$2"; }
         pidof() { return 1; }
+        eval "$(awk '/^sing_box_pids\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "${NETSHIFT_SRC}/usr/bin/netshift")"
         updates_restart_netshift() { echo restarted >> "$NC_LOG"; }
 
         j() { jq -c "$1"; }
@@ -21834,7 +21911,7 @@ test_naive_component() {
         printf '#!/bin/sh\necho "naive 1.2.3"\n' > "$work/fixture/naiveproxy-v1.2.3-4-openwrt-x86_64/naive"
         tar -czf "$ARCHIVE" -C "$work/fixture" naiveproxy-v1.2.3-4-openwrt-x86_64
         NC_DIGEST="sha256:$(sha256sum "$ARCHIVE" | awk '{print $1}')"
-        pidof() { return 0; }
+        pidof() { echo 4242; }
         : > "$NC_LOG"
         naive_component_install > /dev/null
         echo "restart-when-running=$(grep -c restarted "$NC_LOG")"
@@ -22726,6 +22803,353 @@ smoke_tests() {
 }
 SMOKE_SELF="$0"
 
+test_cron_running() {
+    header "cron is started for the scheduled updates (a fresh router has no running crond)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    [ -r "$bin" ] || { skip "netshift bin not found"; return; }
+
+    local work="/tmp/netshift-cronrun-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        W="$work"
+        eval "$(awk '/^cron_ensure_running\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin" | sed "s#/etc/init.d/cron#$work/cron#g")"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$W/log"; }
+        # the init script of cron: "enabled" from a flag file, "start" recorded
+        cat > "$W/cron" << 'CRON'
+#!/bin/sh
+case "$1" in
+enabled) [ -e "$(dirname "$0")/enabled" ] ;;
+start) echo start >> "$(dirname "$0")/started" ;;
+esac
+CRON
+        chmod +x "$W/cron"
+        CRONTAB_LINES=""
+        crontab() { [ "$1" = -l ] && printf '%s' "$CRONTAB_LINES"; }
+        CROND_RUNNING=0
+        pgrep() { [ "$CROND_RUNNING" = 1 ]; }
+
+        : > "$W/enabled"
+        cron_ensure_running
+        echo "no-job-no-start=$([ -e "$W/started" ] && echo started || echo none)"
+        CRONTAB_LINES="13 9 * * * /usr/bin/netshift list_update
+"
+        cron_ensure_running
+        echo "job-starts-cron=$(cat "$W/started" 2> /dev/null | wc -l | tr -d ' ')"
+        rm -f "$W/started"; CROND_RUNNING=1
+        cron_ensure_running
+        echo "running-left-alone=$([ -e "$W/started" ] && echo started || echo none)"
+        CROND_RUNNING=0; rm -f "$W/enabled" "$W/log"
+        cron_ensure_running
+        echo "disabled-not-started=$([ -e "$W/started" ] && echo started || echo none) warned=$(grep -c 'cron service is disabled' "$W/log")"
+    )"
+
+    _cr() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then pass "$1"; else fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"; fi
+    }
+    _cr "without a job of NetShift nothing is started" "no-job-no-start=none"
+    _cr "a job and no crond: cron is started" "job-starts-cron=1"
+    _cr "a running crond is left alone" "running-left-alone=none"
+    _cr "a cron the administrator disabled is not started, and it is said" "disabled-not-started=none warned=1"
+    if grep -q '^    cron_ensure_running$' "$bin"; then
+        pass "start_main makes sure cron runs after writing the jobs"
+    else
+        fail "start_main makes sure cron runs after writing the jobs"
+    fi
+    rm -rf "$work"
+}
+
+test_list_update_checks() {
+    header "list_update: the DNS and GitHub checks (an answer on the last attempt counts)"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    [ -r "$bin" ] || { skip "netshift bin not found"; return; }
+
+    local out
+    out="$(
+        eval "$(awk '/^list_update\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        echolog() { :; }
+        sleep() { :; }
+        get_service_proxy_address() { :; }
+        ensure_nft_ready_for_list_update() { return 0; }
+        foreach_active_section() { return 0; }
+        NS_OK_AT=1; CURL_OK_AT=1; NS_N=0; CURL_N=0
+        nslookup() { NS_N=$((NS_N + 1)); [ "$NS_N" -ge "$NS_OK_AT" ]; }
+        curl() { CURL_N=$((CURL_N + 1)); [ "$CURL_N" -ge "$CURL_OK_AT" ]; }
+        run() { NS_N=0; CURL_N=0; list_update > /dev/null 2>&1; echo $?; }
+        echo "first-attempt=$(run)"
+        NS_OK_AT=10; echo "dns-on-last-attempt=$(run)"
+        NS_OK_AT=1; CURL_OK_AT=10; echo "github-on-last-attempt=$(run)"
+        NS_OK_AT=11; CURL_OK_AT=1; echo "dns-never=$(run)"
+        NS_OK_AT=1; CURL_OK_AT=11; echo "github-never=$(run)"
+    )"
+
+    _lu() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then pass "$1"; else fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"; fi
+    }
+    _lu "both checks pass at once: the lists are updated" "first-attempt=0"
+    _lu "DNS answers on the last attempt: the check has passed" "dns-on-last-attempt=0"
+    _lu "GitHub answers on the last attempt: the check has passed" "github-on-last-attempt=0"
+    _lu "DNS never answers: the update fails" "dns-never=1"
+    _lu "GitHub never answers: the update fails" "github-never=1"
+}
+
+test_daemon_and_route_table() {
+    header "The sing-box daemon is told from helper processes; the routing table of NetShift"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    [ -r "$bin" ] || { skip "netshift bin not found"; return; }
+
+    local work="/tmp/netshift-daemon-$$" saved_rt=""
+    rm -rf "$work"
+    mkdir -p "$work" /etc/iproute2
+    if [ -f /etc/iproute2/rt_tables ]; then
+        saved_rt="$work/rt_tables.saved"
+        cp /etc/iproute2/rt_tables "$saved_rt"
+    fi
+
+    local out
+    out="$(
+        . "${NETSHIFT_LIB_DIR}/constants.sh"
+        for fn in sing_box_pids get_sing_box_daemon_pid sing_box_process_exists route_table_rule_mark; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$work/log"; }
+        CFG="/etc/sing-box/config.json"
+        config_get() { eval "$1=\"\$CFG\""; }
+        # a fake process table: name -> pids, pid -> argv
+        PIDS_SB=""; PIDS_CORE=""
+        pidof() {
+            local n found=""
+            for n in "$@"; do
+                case "$n" in
+                sing-box) found="$found $PIDS_SB" ;;
+                sing-box-core) found="$found $PIDS_CORE" ;;
+                esac
+            done
+            found="$(echo $found)"; [ -n "$found" ] || return 1; echo "$found"
+        }
+        read_proc_cmdline() { eval "printf '%s\n' \"\${ARGV_$1:-}\""; }
+        ARGV_10="/usr/bin/sing-box
+check
+-c
+/tmp/x.json"
+        ARGV_11="/usr/bin/sing-box
+run
+-c
+$CFG
+-D
+/usr/share/sing-box"
+        ARGV_12="/bin/sh
+/usr/libexec/sing-box-core
+run
+-c
+$CFG"
+        ARGV_13="/usr/bin/sing-box
+run
+-c
+/tmp/netshift-bench/cfg.json"
+        alive() { sing_box_process_exists && echo yes || echo no; }
+        PIDS_SB="10"; echo "only-check=$(alive)"
+        PIDS_SB="10 13"; echo "only-helpers=$(alive)"
+        PIDS_SB="10 11"; echo "daemon=$(alive)"
+        PIDS_SB=""; PIDS_CORE="12"; echo "lite-daemon=$(alive)"
+        PIDS_CORE=""; PIDS_SB="13"; CFG=""; echo "no-config-path-any-run=$(alive)"
+
+        # the routing table: written once, a table of another name under the same number is said
+        ip() { :; }
+        netshift_ipv6_enabled() { return 1; }
+        CFG=""
+        printf '255\tlocal\n254\tmain\n' > /etc/iproute2/rt_tables
+        route_table_rule_mark; route_table_rule_mark
+        echo "rt-once=$(grep -c "^$RT_TABLE_ID $RT_TABLE_NAME\$" /etc/iproute2/rt_tables)"
+        printf '255\tlocal\n%s\tother\n' "$RT_TABLE_ID" > /etc/iproute2/rt_tables; : > "$work/log"
+        route_table_rule_mark
+        echo "rt-shared-warned=$(grep -c "also named 'other'" "$work/log")"
+        echo "rt-no-literal=$(grep -c 'priority 105\|"105 ' "$bin")"
+    )"
+
+    _dd() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _dd "a short-lived sing-box check is not the daemon" "only-check=no"
+    _dd "...nor the extra sing-box of the DNS test" "only-helpers=no"
+    _dd "the run of the configured config is the daemon" "daemon=yes"
+    _dd "...also under the name of the lite core" "lite-daemon=yes"
+    _dd "without a configured path any sing-box run counts" "no-config-path-any-run=yes"
+    _dd "the routing table line is written once" "rt-once=1"
+    _dd "another table under the same number is said in the log" "rt-shared-warned=1"
+    _dd "the number of the table and the rule priority come from the constants" "rt-no-literal=0"
+
+    if [ -n "$saved_rt" ]; then cp "$saved_rt" /etc/iproute2/rt_tables; else rm -f /etc/iproute2/rt_tables; fi
+    rm -rf "$work"
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test: the whole configuration, end to end
+# ─────────────────────────────────────────────────────────────────
+# Every other test checks one piece with the rest stubbed. This one builds the complete
+# sing-box configuration with the real generator (sing_box_init_config, every lib) from a
+# realistic UCI config that switches many options on at once (DNS through a section and a pool,
+# a DNS section with its own pool, TUIC, IPv6, a VPN and an exclusion section), and gives it to sing-box 1.14: `check` must accept it without a warning (a
+# deprecated field is a configuration that a later core refuses) and `run` must come up.
+test_e2e_config() {
+    header "End to end: the generated configuration of many options together, checked and run by sing-box 1.14"
+
+    local sb="/usr/local/bin/sing-box-1.14"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -x "$sb" ] || [ ! -r "$bin" ] || [ ! -r /lib/functions.sh ]; then
+        skip "sing-box 1.14, the netshift bin or /lib/functions.sh not available"
+        return
+    fi
+
+    local work="/tmp/netshift-e2e-$$" saved_config="" sb_link_saved=""
+    rm -rf "$work"
+    mkdir -p "$work" /usr/lib/netshift /etc/sing-box /tmp/sing-box
+    local f
+    for f in "${NETSHIFT_LIB_DIR}"/*; do
+        ln -sf "$f" "/usr/lib/netshift/$(basename "$f")"
+    done
+    if [ -f /etc/config/netshift ]; then
+        saved_config="$work/netshift.saved"
+        cp /etc/config/netshift "$saved_config"
+    fi
+    if [ -e /usr/bin/sing-box ]; then
+        sb_link_saved="$work/sing-box.saved"
+        cp -P /usr/bin/sing-box "$sb_link_saved"
+    fi
+    ln -sf "$sb" /usr/bin/sing-box
+    ip link add e2ewg0 type dummy 2> /dev/null || true
+
+    cat > /etc/config/netshift << UCI
+config settings 'settings'
+	option dns_type 'doh'
+	option dns_server 'dns.google/dns-query'
+	option bootstrap_dns_server '77.88.8.8'
+	option dns_via_outbound '1'
+	option dns_outbound_section 'main'
+	list dns_pool_server 'udp://1.1.1.1'
+	list dns_pool_server 'dot://dns.quad9.net'
+	option dns_pool_mode 'race'
+	option enable_ipv6 '1'
+	option config_path '$work/config.json'
+	option cache_path '$work/cache.db'
+	list source_network_interfaces 'br-lan'
+	option update_interval '1d'
+	option log_level 'warn'
+
+config section 'main'
+	option connection_type 'proxy'
+	option proxy_config_type 'url'
+	option proxy_string 'vless://2f35965a-9a9b-45fd-ba32-987296dfb6be@a.example.com:443?security=tls&type=tcp&sni=a.example.com#A'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'example.org'
+	option ipv6_dns_policy 'real'
+
+config section 'tuic'
+	option connection_type 'proxy'
+	option proxy_config_type 'url'
+	option proxy_string 'tuic://2f35965a-9a9b-45fd-ba32-987296dfb6be:pw@t.example.com:443?sni=t.example.com&congestion_control=bbr&alpn=h3#T'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'tuic.example'
+
+config section 'excl'
+	option connection_type 'exclusion'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'bank.example'
+
+config section 'dnssec'
+	option connection_type 'dns'
+	option dns_type 'udp'
+	option dns_server '10.0.0.53'
+	list dns_pool_server 'udp://10.0.0.54'
+	option dns_pool_mode 'fallback'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'corp.example'
+
+config section 'wg'
+	option connection_type 'vpn'
+	option interface 'e2ewg0'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'vpn.example'
+UCI
+
+    awk '/^[a-zA-Z_][a-zA-Z0-9_]*\(\) \{/{p=1} p{print} p&&/^\}/{p=0}' "$bin" > "$work/funcs.sh"
+    local out
+    out="$(
+        cd "$work" || exit 1
+        NETSHIFT_LIB=/usr/lib/netshift
+        for f in constants logging helpers sing_box_config_manager sing_box_config_facade nft rulesets \
+            kill_switch lint naive corecaps failover support filterpreview applyconfig update_notice \
+            dnsbench dnsforward ecs lan pinguard routecheck snapshots subinfo feedlist updater; do
+            [ -r "$NETSHIFT_LIB/$f.sh" ] && . "$NETSHIFT_LIB/$f.sh"
+        done
+        . /lib/functions.sh
+        . /lib/config/uci.sh
+        [ -r /lib/functions/network.sh ] && . /lib/functions/network.sh
+        . "$work/funcs.sh"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$work/log"; }
+        nolog() { :; }
+        config_load netshift
+        ( sing_box_init_config ) > /dev/null 2>&1
+        echo "built=$([ -s "$work/config.json" ] && echo yes || echo no)"
+    )"
+    printf '%s\n' "$out" > "$work/out"
+
+    local c="$work/config.json"
+    if [ -s "$c" ]; then
+        "$sb" check -c "$c" > "$work/check.out" 2>&1 && echo "check=ok" >> "$work/out" || echo "check=FAIL" >> "$work/out"
+        echo "check-warnings=$(sed 's/\x1b\[[0-9;]*m//g' "$work/check.out" | grep -c 'WARN\|deprecated')" >> "$work/out"
+        "$sb" run -c "$c" > "$work/run.out" 2>&1 &
+        local sb_pid=$!
+        sleep 3
+        echo "running=$(kill -0 "$sb_pid" 2> /dev/null && echo yes || echo no)" >> "$work/out"
+        kill "$sb_pid" 2> /dev/null
+        wait "$sb_pid" 2> /dev/null
+        {
+            echo "dns-detour-and-bootstrap=$(jq -c '[(.dns.servers[] | select(.tag == "dns-server") | .detour), (.outbounds[] | select(.tag == "main-out") | .domain_resolver)]' "$c")"
+            echo "pool-race=$(jq -c '[.dns.rules[] | select(.action == "respond" and (.match_response | startswith("dns-pool-response"))) | .race] | unique' "$c")"
+            echo "dns-section=$(jq -c '[.dns.rules[] | select(.rule_set == "dnssec-user-domains-ruleset") | .action] | unique' "$c")"
+            echo "vpn-bound=$(jq -c '[.outbounds[] | select(.tag == "wg-out") | .bind_interface]' "$c")"
+            echo "tuic=$(jq -c '[.outbounds[] | select(.tag == "tuic-out") | .type]' "$c")"
+            echo "ipv6-inbounds=$(jq -c '[.inbounds[] | .tag] | sort' "$c")"
+            echo "no-independent-cache=$(jq -c '.dns | has("independent_cache") | not' "$c")"
+        } >> "$work/out"
+    fi
+    out="$(cat "$work/out")"
+
+    _e2e() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _e2e "the generator builds the whole configuration" "built=yes"
+    _e2e "sing-box 1.14 accepts it" "check=ok"
+    _e2e "...without a warning (a deprecated field is refused by a later core)" "check-warnings=0"
+    _e2e "...and runs it" "running=yes"
+    _e2e "DNS through the section, the proxy server resolved by the bootstrap DNS (no loop)" 'dns-detour-and-bootstrap=["main-out","bootstrap-dns-server"]'
+    _e2e "the DNS pool in race mode" "pool-race=[true]"
+    _e2e "the DNS section with its own pool (fallback)" 'dns-section=["evaluate","route"]'
+    _e2e "the VPN section is bound to its interface" 'vpn-bound=["e2ewg0"]'
+    _e2e "a TUIC link" 'tuic=["tuic"]'
+    _e2e "IPv6: the inbounds of both families" 'ipv6-inbounds=["dns-in","dns-in-v6","tproxy-in","tproxy-in-v6"]'
+    _e2e "no deprecated independent_cache for sing-box 1.14" "no-independent-cache=true"
+
+    if [ -n "$saved_config" ]; then cp "$saved_config" /etc/config/netshift; else rm -f /etc/config/netshift; fi
+    if [ -n "$sb_link_saved" ]; then cp -P "$sb_link_saved" /usr/bin/sing-box; else rm -f /usr/bin/sing-box; fi
+    ip link del e2ewg0 2> /dev/null || true
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -22841,6 +23265,10 @@ main() {
         proxybootstrap) test_proxy_bootstrap ;;
         tuicanytls)  test_tuic_anytls ;;
         updaterepo)  test_update_repo ;;
+        listupdate) test_list_update_checks ;;
+        e2e) test_e2e_config ;;
+        daemon) test_daemon_and_route_table ;;
+        cronrun) test_cron_running ;;
         *)
             # a test by its function name, with or without the test_ prefix ("hy2_hop")
             case "$target" in
