@@ -7,10 +7,13 @@ import {
 } from '../../../helpers';
 import { NetShiftShellMethods } from '../shell';
 import { buildSubscriptionOutboundGroup } from './buildSubscriptionOutboundGroup';
+import { isNetShiftUnconfigured } from '../../../helpers/sectionHasConnection';
 
 interface IGetDashboardSectionsResponse {
   success: boolean;
   data: NetShift.OutboundGroup[];
+  // No section has a connection yet, so NetShift is not running at all.
+  notConfigured?: boolean;
 }
 
 // The backend walks a pasted list with the shell's word splitting (any
@@ -31,9 +34,14 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
   const clashProxies = await NetShiftShellMethods.getClashApiProxies();
 
   if (!clashProxies.success) {
+    // sing-box does not answer. On a fresh install that is because no section
+    // has a connection yet, and the dashboard says so instead of "unavailable".
     return {
       success: false,
       data: [],
+      notConfigured: isNetShiftUnconfigured(
+        configSections as unknown as Record<string, unknown>[],
+      ),
     };
   }
 

@@ -72,6 +72,17 @@ export const styles = `
     min-width: 0;
 }
 
+.pdk_dashboard-page__setup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.pdk_dashboard-page__setup p {
+    margin: 0;
+}
+
 .pdk_dashboard-page__outbound-section__title-section {
     display: flex;
     flex-wrap: wrap;

@@ -1793,6 +1793,39 @@ function buildSubscriptionOutboundGroup(sectionName, proxies) {
   };
 }
 
+// src/helpers/sectionHasConnection.ts
+var PROXY_CONNECTION_OPTION = {
+  url: "proxy_string",
+  selector: "selector_proxy_links",
+  urltest: "urltest_proxy_links",
+  selector_text: "selector_proxy_links_text",
+  urltest_text: "urltest_proxy_links_text",
+  outbound: "outbound_json",
+  subscription: "subscription_url"
+};
+function hasValue(value) {
+  if (Array.isArray(value)) {
+    return value.some(hasValue);
+  }
+  return typeof value === "string" && value.length > 0;
+}
+function sectionHasConnection(section) {
+  if (section[".type"] !== "section" || section.disabled === "1") {
+    return false;
+  }
+  if (section.connection_type === "vpn") {
+    return hasValue(section.interface);
+  }
+  if (section.connection_type !== "proxy") {
+    return false;
+  }
+  const option = PROXY_CONNECTION_OPTION[String(section.proxy_config_type || "url")];
+  return option ? hasValue(section[option]) : false;
+}
+function isNetShiftUnconfigured(sections) {
+  return !sections.some(sectionHasConnection);
+}
+
 // src/netshift/methods/custom/getDashboardSections.ts
 function splitTextLinks(text2) {
   return (text2 ?? "").split(/\s+/).filter(Boolean);
@@ -1807,7 +1840,10 @@ async function getDashboardSections() {
   if (!clashProxies.success) {
     return {
       success: false,
-      data: []
+      data: [],
+      notConfigured: isNetShiftUnconfigured(
+        configSections
+      )
     };
   }
   const geoipResponse = await NetShiftShellMethods.getGeoipFlags();
@@ -2634,6 +2670,7 @@ var initialStore = {
   sectionsWidget: {
     loading: true,
     failed: false,
+    notConfigured: false,
     latencyTestingSections: [],
     latencyPendingOutbounds: [],
     subscriptionRefreshKey: null,
@@ -3889,6 +3926,31 @@ function renderFailedState() {
     E("span", {}, [E("span", {}, _("Dashboard currently unavailable"))])
   );
 }
+function openSectionsTab() {
+  document.querySelector('.cbi-tabmenu li[data-tab="section"] a')?.click();
+}
+function renderNotConfiguredState() {
+  return E(
+    "div",
+    {
+      class: "card pdk_dashboard-page__outbound-section pdk_dashboard-page__setup"
+    },
+    [
+      E("b", {}, _("NetShift is not set up yet")),
+      E(
+        "p",
+        {},
+        _(
+          "None of the sections has a connection, so NetShift is not running. Open the Sections tab, paste a server link or a subscription URL into a section (or choose the interface of a VPN section) and press Save & Apply."
+        )
+      ),
+      renderButton({
+        text: _("Open Sections"),
+        onClick: openSectionsTab
+      })
+    ]
+  );
+}
 function renderLoadingState() {
   return E("div", {
     id: "dashboard-sections-grid-skeleton",
@@ -4105,7 +4167,7 @@ function renderDefaultState({
 }
 function renderSections(props) {
   if (props.failed) {
-    return renderFailedState();
+    return props.notConfigured ? renderNotConfiguredState() : renderFailedState();
   }
   if (props.loading) {
     return renderLoadingState();
@@ -4432,7 +4494,7 @@ async function fetchDashboardSections() {
       failed: false
     }
   });
-  const { data, success } = await CustomNetShiftMethods.getDashboardSections();
+  const { data, success, notConfigured } = await CustomNetShiftMethods.getDashboardSections();
   if (!success) {
     logger.error("[DASHBOARD]", "fetchDashboardSections: failed to fetch");
   }
@@ -4441,6 +4503,7 @@ async function fetchDashboardSections() {
       ...store.get().sectionsWidget,
       loading: false,
       failed: !success,
+      notConfigured: Boolean(notConfigured),
       data
     }
   });
@@ -4661,6 +4724,7 @@ async function renderSectionsWidget() {
     const renderedWidget = renderSections({
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
+      notConfigured: sectionsWidget.notConfigured,
       section: {
         code: "",
         displayName: "",
@@ -5085,6 +5149,17 @@ var styles3 = `
 
 .pdk_dashboard-page__outbound-section {
     min-width: 0;
+}
+
+.pdk_dashboard-page__setup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.pdk_dashboard-page__setup p {
+    margin: 0;
 }
 
 .pdk_dashboard-page__outbound-section__title-section {

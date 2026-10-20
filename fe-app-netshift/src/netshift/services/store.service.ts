@@ -173,6 +173,8 @@ export interface StoreType {
   sectionsWidget: {
     loading: boolean;
     failed: boolean;
+    // No section has a connection yet: the widget explains the first step.
+    notConfigured: boolean;
     data: NetShift.OutboundGroup[];
     // Sections whose "Test latency" is running, and the outbound codes still
     // waiting for their result.
@@ -269,6 +271,7 @@ const initialStore: StoreType = {
   sectionsWidget: {
     loading: true,
     failed: false,
+    notConfigured: false,
     latencyTestingSections: [],
     latencyPendingOutbounds: [],
     subscriptionRefreshKey: null,

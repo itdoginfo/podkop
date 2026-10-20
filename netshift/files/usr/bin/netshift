@@ -112,9 +112,37 @@ check_requirements() {
     if has_outbound_section; then
         log "Outbound section found" "debug"
     else
-        log "Outbound section not found. Please check your configuration file (missing proxy_string, selector_proxy_links, urltest_proxy_links, selector_proxy_links_text, urltest_proxy_links_text, subscription_url, outbound_json, or interface according to connection_type/proxy_config_type). Aborted." "error"
+        # A fresh install lands here: the default section has no link yet. That
+        # is a step the user has not taken, not a failure, so it is a warning
+        # that says what to do (the dashboard shows the same in the UI).
+        log "NetShift is not started: no section has a connection yet ($(describe_sections_without_connection)). Open Services → NetShift → Sections, paste a server link or a subscription URL into a section (or choose the interface of a VPN section) and press Save & Apply." "warn"
         exit 1
     fi
+}
+
+# "main: proxy, url" for every enabled proxy or VPN section, comma separated:
+# the sections a connection is missing from, for the message above.
+describe_sections_without_connection() {
+    local described=""
+
+    _describe_section_without_connection() {
+        local section="$1"
+        local connection_type proxy_config_type
+
+        config_get connection_type "$section" "connection_type"
+        case "$connection_type" in
+        proxy)
+            config_get proxy_config_type "$section" "proxy_config_type" "url"
+            described="${described:+$described, }$section: proxy, $proxy_config_type"
+            ;;
+        vpn)
+            described="${described:+$described, }$section: vpn, no interface"
+            ;;
+        esac
+    }
+    foreach_active_section _describe_section_without_connection "section"
+
+    printf '%s' "${described:-no enabled proxy or VPN section}"
 }
 
 # A section with `option disabled '1'` is ignored completely: it produces no

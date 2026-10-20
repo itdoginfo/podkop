@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 19:39+0300\n"
-"PO-Revision-Date: 2026-10-20 19:39+0300\n"
+"POT-Creation-Date: 2026-10-20 21:11+0300\n"
+"PO-Revision-Date: 2026-10-20 21:11+0300\n"
 "Last-Translator: agent\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1145,6 +1145,9 @@ msgstr "Клиент NaiveProxy удалён"
 msgid "NetShift"
 msgstr "NetShift"
 
+msgid "NetShift is not set up yet"
+msgstr "NetShift ещё не настроен"
+
 msgid "NetShift Settings"
 msgstr "Настройки NetShift"
 
@@ -1183,6 +1186,9 @@ msgstr "Снимков пока нет"
 
 msgid "No spaces or colons in the user name"
 msgstr "В имени пользователя не должно быть пробелов и двоеточий"
+
+msgid "None of the sections has a connection, so NetShift is not running. Open the Sections tab, paste a server link or a subscription URL into a section (or choose the interface of a VPN section) and press Save & Apply."
+msgstr "Ни в одной секции нет подключения, поэтому NetShift не запущен. Откройте вкладку «Секции», вставьте в секцию ссылку на сервер или адрес подписки (для VPN-секции выберите её интерфейс) и нажмите «Сохранить и применить»."
 
 msgid "Not available"
 msgstr "Недоступно"
@@ -1231,6 +1237,9 @@ msgstr "Только эти TCP-порты идут в туннель"
 
 msgid "Only these UDP ports take the tunnel"
 msgstr "Только эти UDP-порты идут в туннель"
+
+msgid "Open Sections"
+msgstr "Открыть секции"
 
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"

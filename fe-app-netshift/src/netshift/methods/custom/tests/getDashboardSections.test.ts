@@ -119,3 +119,59 @@ describe('getDashboardSections: GeoIP flags of manually added links', () => {
     ]);
   });
 });
+
+describe('getDashboardSections: a fresh install', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('reports "not configured" when no section has a connection', async () => {
+    vi.stubGlobal('uci', {
+      load: async () => undefined,
+      sections: () => [
+        { '.name': 'settings', '.type': 'settings' },
+        {
+          '.name': 'main',
+          '.type': 'section',
+          connection_type: 'proxy',
+          proxy_config_type: 'url',
+          proxy_string: '',
+        },
+      ],
+    });
+    vi.spyOn(NetShiftShellMethods, 'getClashApiProxies').mockResolvedValue({
+      success: false,
+    } as Awaited<ReturnType<typeof NetShiftShellMethods.getClashApiProxies>>);
+
+    expect(await getDashboardSections()).toEqual({
+      success: false,
+      data: [],
+      notConfigured: true,
+    });
+  });
+
+  it('keeps "unavailable" when a configured sing-box does not answer', async () => {
+    vi.stubGlobal('uci', {
+      load: async () => undefined,
+      sections: () => [
+        {
+          '.name': 'main',
+          '.type': 'section',
+          connection_type: 'proxy',
+          proxy_config_type: 'url',
+          proxy_string: 'vless://u@a.example:443',
+        },
+      ],
+    });
+    vi.spyOn(NetShiftShellMethods, 'getClashApiProxies').mockResolvedValue({
+      success: false,
+    } as Awaited<ReturnType<typeof NetShiftShellMethods.getClashApiProxies>>);
+
+    expect(await getDashboardSections()).toEqual({
+      success: false,
+      data: [],
+      notConfigured: false,
+    });
+  });
+});
