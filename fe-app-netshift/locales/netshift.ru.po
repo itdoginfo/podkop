@@ -134,6 +134,9 @@ msgstr "Доступные действия"
 msgid "BitTorrent public trackers (sing-geosite, for a Block section)"
 msgstr "Публичные BitTorrent-трекеры (sing-geosite, для секции блокировки)"
 
+msgid "Block"
+msgstr "Блокировка"
+
 msgid "Block direct connections to known public DoH servers (Cloudflare, Google, Quad9, OpenDNS, AdGuard, Yandex) so apps cannot bypass router DNS filtering."
 msgstr "Блокировать прямые подключения к известным публичным DoH-серверам (Cloudflare, Google, Quad9, OpenDNS, AdGuard, Yandex), чтобы приложения не могли обойти DNS-фильтрацию роутера."
 
@@ -646,6 +649,9 @@ msgstr "Исключить серверы по защите"
 
 msgid "Exclude servers by transport"
 msgstr "Исключить серверы по транспорту"
+
+msgid "Exclusion"
+msgstr "Исключение"
 
 msgid "Expired"
 msgstr "Истекла"
@@ -1292,6 +1298,12 @@ msgstr "Протокол собственного DNS-сервера этой с
 msgid "Protocol toggles, file paths and logging. Block DoH only after switching upstream DNS to UDP or DoT."
 msgstr "Переключатели протоколов, пути к файлам и журналирование. Включайте блокировку DoH только после переключения вышестоящего DNS на UDP или DoT."
 
+msgid "Proxy"
+msgstr "Прокси"
+
+msgid "Proxy and VPN send the traffic of the lists through a tunnel, Block drops it, Exclusion sends it out directly, DNS answers the domains of the lists from its own DNS server."
+msgstr "Прокси и VPN отправляют трафик списков через туннель, Блокировка отбрасывает его, Исключение отправляет напрямую, DNS отвечает на домены списков своим DNS-сервером."
+
 msgid "Proxy Configuration URL"
 msgstr "URL конфигурации прокси"
 
@@ -1441,9 +1453,6 @@ msgstr "Смотрите логи"
 
 msgid "Select a predefined list for routing"
 msgstr "Выберите предопределенный список для маршрутизации"
-
-msgid "Select between VPN and Proxy connection methods for traffic routing"
-msgstr "Выберите между VPN и Proxy методами для маршрутизации трафика"
 
 msgid "Select how often the domain or subnet lists are updated automatically"
 msgstr "Выберите частоту автоматического обновления списков доменов или подсетей."
