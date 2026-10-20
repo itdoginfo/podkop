@@ -38,6 +38,8 @@ export interface IRefreshFeedTarget {
 interface IRenderSectionsProps {
   loading: boolean;
   failed: boolean;
+  // With `failed`: the reason is that no section has a connection yet.
+  notConfigured?: boolean;
   section: NetShift.OutboundGroup;
   onTestLatency: () => void;
   onChooseOutbound: (selector: string, tag: string) => void;
@@ -70,6 +72,39 @@ function renderFailedState() {
       style: 'height: 127px',
     },
     E('span', {}, [E('span', {}, _('Dashboard currently unavailable'))]),
+  );
+}
+
+// The Sections tab of the page (LuCI switches tabs on a click of the link).
+function openSectionsTab() {
+  document
+    .querySelector<HTMLElement>('.cbi-tabmenu li[data-tab="section"] a')
+    ?.click();
+}
+
+// A fresh install: the default section has no link, so NetShift does not run.
+// Say what to do instead of "unavailable".
+function renderNotConfiguredState() {
+  return E(
+    'div',
+    {
+      class:
+        'card pdk_dashboard-page__outbound-section pdk_dashboard-page__setup',
+    },
+    [
+      E('b', {}, _('NetShift is not set up yet')),
+      E(
+        'p',
+        {},
+        _(
+          'None of the sections has a connection, so NetShift is not running. Open the Sections tab, paste a server link or a subscription URL into a section (or choose the interface of a VPN section) and press Save & Apply.',
+        ),
+      ),
+      renderButton({
+        text: _('Open Sections'),
+        onClick: openSectionsTab,
+      }),
+    ],
   );
 }
 
@@ -338,7 +373,9 @@ export function renderDefaultState({
 
 export function renderSections(props: IRenderSectionsProps) {
   if (props.failed) {
-    return renderFailedState();
+    return props.notConfigured
+      ? renderNotConfiguredState()
+      : renderFailedState();
   }
 
   if (props.loading) {

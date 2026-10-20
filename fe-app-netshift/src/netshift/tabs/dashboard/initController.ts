@@ -56,7 +56,8 @@ async function fetchDashboardSections() {
     },
   });
 
-  const { data, success } = await CustomNetShiftMethods.getDashboardSections();
+  const { data, success, notConfigured } =
+    await CustomNetShiftMethods.getDashboardSections();
 
   if (!success) {
     logger.error('[DASHBOARD]', 'fetchDashboardSections: failed to fetch');
@@ -68,6 +69,7 @@ async function fetchDashboardSections() {
       ...store.get().sectionsWidget,
       loading: false,
       failed: !success,
+      notConfigured: Boolean(notConfigured),
       data,
     },
   });
@@ -356,6 +358,7 @@ async function renderSectionsWidget() {
     const renderedWidget = renderSections({
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
+      notConfigured: sectionsWidget.notConfigured,
       section: {
         code: '',
         displayName: '',

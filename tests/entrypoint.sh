@@ -22963,6 +22963,93 @@ DRVEOF
     rm -rf "$work"
 }
 
+# A fresh install has no link in the default section: NetShift does not start,
+# and says what to do as a warning instead of an error about UCI option names.
+test_first_run_message() {
+    header "First start without a connection: a warning that says what to do"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$lib/helpers.sh" ] || [ ! -r "$bin" ]; then
+        fail "helpers.sh / bin not found"
+        return
+    fi
+
+    local work="/tmp/netshift-firstrun-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin"
+    printf '#!/bin/sh\necho "sing-box version 1.13.0"\n' > "$work/bin/sing-box"
+    printf '#!/bin/sh\necho "jq-1.7.1"\n' > "$work/bin/jq"
+    printf '#!/bin/sh\necho "base64 (GNU coreutils) 9.4"\n' > "$work/bin/base64"
+    chmod +x "$work/bin/sing-box" "$work/bin/jq" "$work/bin/base64"
+
+    local drv="$work/driver.sh"
+    cat > "$drv" << 'DRVEOF'
+. "DRV_CONSTANTS"
+. "DRV_HELPERS"
+log() { printf 'LOG %s|%s\n' "${2:-info}" "$1"; }
+PATH="DRV_WORK/bin:$PATH"
+extract() {
+    awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "DRV_BIN"
+}
+for f in check_requirements has_outbound_section _check_outbound_section section_has_configured_outbound \
+    section_is_disabled foreach_active_section _active_section_dispatch describe_sections_without_connection; do
+    eval "$(extract "$f")"
+done
+service_exists() { return 0; }
+get_subscription_urls_for_section() { :; }
+FR_SECTIONS=""
+config_foreach() { local _cb="$1" _s; shift; shift; for _s in $FR_SECTIONS; do "$_cb" "$_s" "$@"; done; }
+config_get() { eval "_v=\"\${FR_${2}_${3}:-}\""; [ -n "$_v" ] || _v="${4:-}"; eval "$1=\"\$_v\""; }
+config_get_bool() { config_get "$@"; }
+grep() { [ "$3" = /etc/config/dhcp ] && return 1; command grep "$@"; }
+
+echo "== fresh"
+FR_SECTIONS="main"; FR_main_connection_type=proxy; FR_main_proxy_config_type=url
+( check_requirements ); echo "rc=$?"
+
+echo "== vpn without interface and a disabled proxy"
+FR_SECTIONS="main wg"; FR_main_disabled=1; FR_main_proxy_string="vless://u@h:443"
+FR_wg_connection_type=vpn
+( check_requirements ); echo "rc=$?"
+
+echo "== configured"
+FR_main_disabled=0
+( check_requirements ); echo "rc=$?"
+DRVEOF
+    sed -i "s|DRV_CONSTANTS|$lib/constants.sh|; s|DRV_HELPERS|$lib/helpers.sh|; s|DRV_BIN|$bin|; s|DRV_WORK|$work|g" "$drv"
+
+    local out
+    out="$(sh "$drv" 2>&1 || true)"
+    local fresh vpn configured
+    fresh="$(printf '%s\n' "$out" | sed -n '/^== fresh/,/^== vpn/p')"
+    vpn="$(printf '%s\n' "$out" | sed -n '/^== vpn/,/^== configured/p')"
+    configured="$(printf '%s\n' "$out" | sed -n '/^== configured/,$p')"
+
+    _fr_check() {
+        if printf '%s\n' "$2" | grep -qF -- "$3"; then
+            pass "$1"
+        else
+            fail "$1 (no '$3')"
+            printf '%s\n' "$2" | sed 's/^/      /'
+        fi
+    }
+    _fr_check "fresh install: not started" "$fresh" "rc=1"
+    _fr_check "fresh install: a warning" "$fresh" "LOG warn|NetShift is not started: no section has a connection yet"
+    _fr_check "fresh install: names the empty section" "$fresh" "(main: proxy, url)"
+    _fr_check "fresh install: says where to add the link" "$fresh" "Open Services → NetShift → Sections"
+    if printf '%s\n' "$fresh" | grep -q 'LOG error|'; then
+        fail "fresh install: no error is logged"
+    else
+        pass "fresh install: no error is logged"
+    fi
+    _fr_check "a VPN section without an interface is named, a disabled one is not" "$vpn" "(wg: vpn, no interface)"
+    _fr_check "a configured section starts" "$configured" "LOG debug|Outbound section found"
+    _fr_check "a configured section: no exit" "$configured" "rc=0"
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -23072,6 +23159,7 @@ main() {
             test_proxy_bootstrap
             test_tuic_anytls
             test_update_repo
+            test_first_run_message
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -23171,9 +23259,10 @@ main() {
         proxybootstrap) test_proxy_bootstrap ;;
         tuicanytls)  test_tuic_anytls ;;
         updaterepo)  test_update_repo ;;
+        firstrun)    test_first_run_message ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo firstrun"
             exit 1
             ;;
     esac
