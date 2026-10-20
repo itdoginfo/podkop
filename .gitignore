@@ -22,3 +22,4 @@ agent/
 opencode.json
 docs/agent-rules/
 docs/README-AGENTS.md
+.pi/

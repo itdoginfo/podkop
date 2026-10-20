@@ -202,7 +202,7 @@ SB_EXTENDED_REALITY_MLKEM_MIN="2.7.2"
 # ── sing-box extended lite (third core variant) ─────────────────────
 # Version suffix that marks a lite build: the release tag and the version
 # banner of the binary are the upstream extended tag plus this suffix
-# ("1.14.1-extended-2.7.2" -> "1.14.1-extended-2.7.2-lite").
+# ("1.14.3-extended-2.7.3" -> "1.14.3-extended-2.7.3-lite").
 SB_LITE_SUFFIX="-lite"
 # Minimum effective free space (MB) on / for the pure ELF lite asset: at or
 # above this the ELF build is chosen automatically, below it the
