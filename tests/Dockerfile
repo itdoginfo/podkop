@@ -39,8 +39,8 @@ RUN apk add --no-cache curl tar gzip && \
 # гоняют стоковый sing-box, а тесты фич extended (VLESS Encryption) вызывают
 # /usr/local/bin/sing-box-extended для настоящего `sing-box check`.
 # Версия закреплена, архив сверяется по sha256.
-ARG SB_EXTENDED_VERSION=1.13.14-extended-2.5.3
-ARG SB_EXTENDED_SHA256=c4b6a7367fc25e7a37289ea917fbf836d385b552a097ea5f643480d7fbe2768f
+ARG SB_EXTENDED_VERSION=1.14.3-extended-2.7.3
+ARG SB_EXTENDED_SHA256=c5d4cf4715b0a144cedccd358e30e9bcb8edcab5ed8c80d10f6bbf1ab676ab47
 RUN curl -sSL -o /tmp/sbx.tar.gz \
         "https://github.com/shtorm-7/sing-box-extended/releases/download/v${SB_EXTENDED_VERSION}/sing-box-${SB_EXTENDED_VERSION}-linux-amd64-musl.tar.gz" && \
     echo "${SB_EXTENDED_SHA256}  /tmp/sbx.tar.gz" | sha256sum -c - && \
