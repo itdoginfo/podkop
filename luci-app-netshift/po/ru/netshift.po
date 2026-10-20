@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-18 14:45+0300\n"
-"PO-Revision-Date: 2026-10-18 14:45+0300\n"
+"POT-Creation-Date: 2026-10-20 19:34+0300\n"
+"PO-Revision-Date: 2026-10-20 19:34+0300\n"
 "Last-Translator: agent\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -727,6 +727,9 @@ msgstr "Глобальная проверка"
 
 msgid "Global Proxy"
 msgstr "Глобальный прокси"
+
+msgid "Go direct if all servers are down"
+msgstr "Идти напрямую, если все серверы недоступны"
 
 msgid "Goes directly, not through any section"
 msgstr "Идёт напрямую, мимо секций"
@@ -1981,6 +1984,9 @@ msgstr "Когда сервер, выбранный вручную, перест
 
 msgid "When enabled, traffic not matching any other section's lists will go through this proxy."
 msgstr "Когда включено, трафик, не совпадающий со списками других секций, будет идти через этот прокси."
+
+msgid "When no server of this section answers (three checks in a row, at the check interval of the priority mode), its traffic goes out directly, where zapret or another tool for direct traffic can pick it up, and returns to the section as soon as a server answers. Every switch is written to the log. Off by default."
+msgstr "Если ни один сервер секции не отвечает (три проверки подряд, с интервалом проверки режима приоритета), её трафик уходит напрямую, где его может подхватить zapret или другое средство для прямого трафика, и возвращается в секцию, как только сервер ответит. Каждое переключение пишется в журнал. По умолчанию выключено."
 
 msgid "When set, TCP traffic to every other port goes directly. For example 80, 443 keeps mail and torrents out of the tunnel. A port in the list above still goes directly."
 msgstr "Если задано, TCP-трафик на все остальные порты идёт напрямую. Например, 80, 443 убирает из туннеля почту и торренты. Порт из списка выше всё равно идёт напрямую."
