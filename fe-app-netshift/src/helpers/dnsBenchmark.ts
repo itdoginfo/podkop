@@ -5,6 +5,8 @@ export interface DnsBenchmarkResult {
   server: string;
   // Milliseconds; null: no answer, or a server dig cannot ask (doh3, doq).
   ms: number | null;
+  // How this server was asked: through the tunnel or from the router itself.
+  via: 'tunnel' | 'direct';
 }
 
 export function parseDnsBenchmark(input: unknown): DnsBenchmarkResult[] {
@@ -29,12 +31,15 @@ export function parseDnsBenchmark(input: unknown): DnsBenchmarkResult[] {
     .map((item) => ({
       server: item.server,
       ms: typeof item.ms === 'number' && item.ms >= 0 ? item.ms : null,
+      via: item.via === 'tunnel' ? 'tunnel' : 'direct',
     }));
 }
 
-// Where the servers were asked from: through the tunnel (when DNS goes through an
-// outbound) or from the router itself.
-export function parseDnsBenchmarkVia(input: unknown): 'tunnel' | 'direct' {
+// Where the servers were asked from: through the tunnel, from the router itself,
+// or both (some servers have their own route).
+export function parseDnsBenchmarkVia(
+  input: unknown,
+): 'tunnel' | 'direct' | 'mixed' {
   let data: unknown = input;
 
   if (typeof input === 'string') {
@@ -45,9 +50,9 @@ export function parseDnsBenchmarkVia(input: unknown): 'tunnel' | 'direct' {
     }
   }
 
-  return (data as { via?: unknown } | null)?.via === 'tunnel'
-    ? 'tunnel'
-    : 'direct';
+  const via = (data as { via?: unknown } | null)?.via;
+
+  return via === 'tunnel' || via === 'mixed' ? via : 'direct';
 }
 
 // Fastest first; servers without a time go last, keeping their order.

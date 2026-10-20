@@ -7,11 +7,12 @@
 # a list of milliseconds, null for a server that did not answer or cannot be tested
 # with dig (doh3, doq). Nothing is changed.
 #
-# With "Route main DNS through proxy/VPN" the servers are not reached from the router
-# but from the exit of the tunnel (a resolver inside the tunnel, such as 172.31.x.x,
-# does not exist for the router at all). Then a short-lived second sing-box is
-# started: it carries one local "direct" inbound per server, each forwarding to that
-# server through the very outbound the main DNS uses, and dig asks those local ports.
+# A server whose route goes through a proxy/VPN section (its own entry of dns_server_route, or
+# the global "Route main DNS through proxy/VPN" switch) is not reached from the router but from
+# the exit of the tunnel (a resolver inside the tunnel, such as 172.31.x.x, does not exist for
+# the router at all). The servers are grouped by the outbound they go through, and for each
+# group a short-lived extra sing-box is started: it carries one local "direct" inbound per
+# server, each forwarding to that server through that outbound, and dig asks those local ports.
 # The measurement therefore includes the tunnel, as it does for real queries.
 
 DNS_BENCH_TIMEOUT=3
@@ -19,6 +20,23 @@ DNS_BENCH_DOMAIN="google.com"
 DNS_BENCH_MAX_SERVERS=12
 DNS_BENCH_TUNNEL_PORT_BASE=19200
 DNS_BENCH_TUNNEL_START_WAIT=2
+# The groups are timed at the same time, each on its own window of DNS_BENCH_MAX_SERVERS local
+# ports. The windows stop short of the NaiveProxy sidecars (NAIVE_PORT_BASE and up), so their
+# number follows from the constants: 8 windows fill 19201-19296 for the default 19300. A route
+# section beyond that is timed from the router (and says so: via "direct").
+DNS_BENCH_MAX_GROUPS=$(((${NAIVE_PORT_BASE:-19300} - DNS_BENCH_TUNNEL_PORT_BASE) / DNS_BENCH_MAX_SERVERS))
+# At most this many extra sing-box processes run at once: a router with 128 MB cannot carry
+# eight of them, and the page starts this test every time it is opened.
+DNS_BENCH_PARALLEL_GROUPS=3
+# Local ports of one group of servers start at DNS_BENCH_TUNNEL_PORT_BASE + DNS_BENCH_PORT_OFFSET,
+# so that groups timed at the same time (one sing-box each) never share a port.
+DNS_BENCH_PORT_OFFSET=0
+# One run at a time: two runs share the local ports, and the one that loses is timed from the
+# router and mislabelled. A second caller waits (at most DNS_BENCH_LOCK_WAIT seconds) for the
+# first; a lock whose owner is gone is taken over.
+DNS_BENCH_LOCK="/tmp/netshift-dnsbench.lock"
+# (the page waits for the answer for about as long as rpcd lets a call live, 30 seconds)
+DNS_BENCH_LOCK_WAIT=20
 
 # "doh://dns.google/dns-query" -> prints the dig arguments "@<address> <flags>" or
 # fails for a server dig cannot ask. The address is the one found through the
@@ -187,7 +205,7 @@ dns_bench_through_tunnel() {
         index=$((index + 1))
         target="$(dns_bench_entry_target "$server")" || continue
         set -- $target
-        targets="$(printf '%s' "$targets" | jq -c --argjson index "$index" --argjson port "$((DNS_BENCH_TUNNEL_PORT_BASE + index))" \
+        targets="$(printf '%s' "$targets" | jq -c --argjson index "$index" --argjson port "$((DNS_BENCH_TUNNEL_PORT_BASE + DNS_BENCH_PORT_OFFSET + index))" \
             --arg host "$2" --argjson target_port "$3" '. + [{index: $index, port: $port, host: $host, target_port: $target_port}]')"
         printf '%s %s %s %s\n' "$1" "$2" "$3" "$4" > "$dir/$index.target"
     done
@@ -207,7 +225,7 @@ dns_bench_through_tunnel() {
         [ -f "$dir/$index.target" ] || continue
         (
             set -- $(cat "$dir/$index.target")
-            args="$(dns_bench_tunnel_args "$1" "$2" "$((DNS_BENCH_TUNNEL_PORT_BASE + index))" "$4")"
+            args="$(dns_bench_tunnel_args "$1" "$2" "$((DNS_BENCH_TUNNEL_PORT_BASE + DNS_BENCH_PORT_OFFSET + index))" "$4")"
             # shellcheck disable=SC2086
             output="$(dig $args "$DNS_BENCH_DOMAIN" A +time="$DNS_BENCH_TIMEOUT" +tries=1 2> /dev/null)" || exit 0
             printf '%s' "$output" | grep -q 'status: NOERROR' || exit 0
@@ -228,10 +246,65 @@ dns_bench_through_tunnel() {
     return 0
 }
 
-# dns_benchmark <server>...: with no arguments, the servers of the settings (the main
-# one and the pool). Prints {"results":[{"server","ms"}]} in the order asked.
+# 0 when this process holds the lock now.
+dns_bench_lock_acquire() {
+    local waited=0 owner stale
+
+    while :; do
+        if mkdir "$DNS_BENCH_LOCK" 2> /dev/null; then
+            echo "$$" > "$DNS_BENCH_LOCK/pid"
+            return 0
+        fi
+        owner="$(cat "$DNS_BENCH_LOCK/pid" 2> /dev/null)"
+        if [ -z "$owner" ]; then
+            # the directory exists, but its owner has not written its pid yet (or is gone):
+            # give it a moment before it is taken for abandoned
+            sleep 1
+            owner="$(cat "$DNS_BENCH_LOCK/pid" 2> /dev/null)"
+        fi
+        if [ -z "$owner" ] || ! kill -0 "$owner" 2> /dev/null; then
+            # Nobody holds it any more. It is taken away by a rename, which only one of the
+            # callers that find it abandoned can win; and what was moved is looked at again:
+            # it may be the fresh lock of a caller that was quicker.
+            stale="$DNS_BENCH_LOCK.stale.$$"
+            if mv "$DNS_BENCH_LOCK" "$stale" 2> /dev/null; then
+                owner="$(cat "$stale/pid" 2> /dev/null)"
+                if [ -n "$owner" ] && kill -0 "$owner" 2> /dev/null; then
+                    # a live owner after all: it keeps the lock (it is put back when nobody has
+                    # made a new one meanwhile) and this caller waits like the others
+                    [ -e "$DNS_BENCH_LOCK" ] || mv "$stale" "$DNS_BENCH_LOCK" 2> /dev/null
+                fi
+                rm -rf "$stale"
+            fi
+            continue
+        fi
+        [ "$waited" -lt "$DNS_BENCH_LOCK_WAIT" ] || return 1
+        sleep 1
+        waited=$((waited + 1))
+    done
+}
+
+dns_bench_lock_release() {
+    rm -rf "$DNS_BENCH_LOCK"
+}
+
+# dns_benchmark <server>...: one run at a time (see DNS_BENCH_LOCK). A run that could not get the
+# lock in time goes on without it rather than answer nothing.
 dns_benchmark() {
-    local bootstrap dir server index=0 result="[]" ms dns_type dns_server detour via valid_count=0 line
+    local held=0 rc
+
+    dns_bench_lock_acquire && held=1
+    _dns_benchmark_run "$@"
+    rc=$?
+    [ "$held" -eq 0 ] || dns_bench_lock_release
+    return "$rc"
+}
+
+# the run itself: with no arguments, the servers of the settings (the main
+# one and the pool). Prints {"results":[{"server","ms"}]} in the order asked.
+_dns_benchmark_run() {
+    local bootstrap dir server index=0 result="[]" ms dns_type dns_server via valid_count=0 line
+    local tag tunnel_servers tunnel_positions tunnel_done tunnel_count position group n
 
     config_get bootstrap "settings" "bootstrap_dns_server" "77.88.8.8"
 
@@ -263,45 +336,125 @@ dns_benchmark() {
 
     dir="$(mktemp -d)" || return 1
 
-    # The servers of the main DNS are reached through the tunnel when DNS goes through
-    # an outbound: from the router itself a resolver inside the tunnel does not exist.
-    via="direct"
-    detour=""
-    if command -v _get_dns_detour_tag > /dev/null 2>&1; then
-        detour="$(_get_dns_detour_tag 2> /dev/null)"
-    fi
-    if [ -n "$detour" ] && [ "$valid_count" -gt 0 ]; then
-        if dns_bench_through_tunnel "$detour" "$bootstrap" "$@" > "$dir/tunnel.out" 2> /dev/null; then
-            via="tunnel"
-            while read -r index ms; do
-                printf '%s\n' "$ms" > "$dir/$index.ms"
-            done < "$dir/tunnel.out"
-        fi
-    fi
-
-    if [ "$via" = "direct" ]; then
+    # A server that goes through the tunnel (the global switch, or its own entry in
+    # dns_server_route) is timed through it: from the router itself a resolver inside
+    # the tunnel does not exist. The others are asked from the router. Servers that go
+    # through DIFFERENT outbounds (via:<section> of different sections) are timed in
+    # groups, one short-lived sing-box per outbound, so that each is measured by its own way.
+    : > "$dir/tunnel.map"
+    if command -v dns_routes_init > /dev/null 2>&1; then
+        dns_routes_init
         index=0
         for server in "$@"; do
             index=$((index + 1))
-            (
-                ms="$(dns_bench_one "$server" "$bootstrap")" || ms=""
-                printf '%s\n' "$ms" > "$dir/$index.ms"
-            ) &
+            tag="$(dns_server_detour_tag "$server")"
+            [ -n "$tag" ] || continue
+            printf '%s\t%s\t%s\n' "$index" "$tag" "$server" >> "$dir/tunnel.map"
         done
-        wait
     fi
 
+    # The groups are timed at the same time, each by its own short-lived sing-box on its own
+    # range of local ports, and together with the servers asked from the router: the whole
+    # run takes about as long as one group (an rpcd call lives about 30 seconds, and with
+    # one group after another a handful of sections would not fit).
+    tunnel_done=""
+    group=0
+    if [ -s "$dir/tunnel.map" ] && [ "$valid_count" -gt 0 ]; then
+        cut -f2 "$dir/tunnel.map" | awk '!seen[$0]++' > "$dir/tunnel.tags"
+        while IFS= read -r tag; do
+            if [ "$group" -ge "$DNS_BENCH_MAX_GROUPS" ]; then
+                log "DNS benchmark: more than $DNS_BENCH_MAX_GROUPS routes through different sections; the servers of '$tag' are timed from the router" "warn"
+                continue
+            fi
+            group=$((group + 1))
+            tunnel_servers=""
+            tunnel_positions=""
+            while IFS="$(printf '\t')" read -r position row_tag server; do
+                [ "$row_tag" = "$tag" ] || continue
+                tunnel_servers="$tunnel_servers $server"
+                tunnel_positions="$tunnel_positions $position"
+            done < "$dir/tunnel.map"
+            (
+                DNS_BENCH_PORT_OFFSET=$(((group - 1) * DNS_BENCH_MAX_SERVERS))
+                # shellcheck disable=SC2086
+                dns_bench_through_tunnel "$tag" "$bootstrap" $tunnel_servers > "$dir/g$group.out" 2> /dev/null < /dev/null || exit 0
+                while read -r index ms; do
+                    position="$(printf '%s\n' $tunnel_positions | sed -n "${index}p")"
+                    [ -n "$position" ] || continue
+                    printf '%s\n' "$ms" > "$dir/$position.ms"
+                done < "$dir/g$group.out"
+                printf '%s\n' "$tunnel_positions" > "$dir/g$group.done"
+            ) &
+            tunnel_done="$tunnel_done $tunnel_positions"
+            # a full batch of extra sing-box processes finishes before the next one starts
+            [ $((group % DNS_BENCH_PARALLEL_GROUPS)) -ne 0 ] || wait
+        done < "$dir/tunnel.tags"
+    fi
+
+    # The servers that go through a tunnel are measured by their group: a group that could not
+    # be set up leaves them to be asked from the router below.
     index=0
+    for server in "$@"; do
+        index=$((index + 1))
+        case " $tunnel_done " in
+        *" $index "*) continue ;;
+        esac
+        (
+            ms="$(dns_bench_one "$server" "$bootstrap")" || ms=""
+            printf '%s\n' "$ms" > "$dir/$index.ms"
+        ) &
+    done
+    wait
+
+    # A group that did not set up its tunnel has no .done file: its servers are asked from the
+    # router now (the answer says via "direct" for them, as before).
+    tunnel_done=""
+    n=0
+    while [ "$n" -lt "$group" ]; do
+        n=$((n + 1))
+        [ -f "$dir/g$n.done" ] && tunnel_done="$tunnel_done $(cat "$dir/g$n.done")"
+    done
+    index=0
+    for server in "$@"; do
+        index=$((index + 1))
+        case " $tunnel_done " in
+        *" $index "*) continue ;;
+        esac
+        [ -f "$dir/$index.ms" ] && continue
+        (
+            ms="$(dns_bench_one "$server" "$bootstrap")" || ms=""
+            printf '%s\n' "$ms" > "$dir/$index.ms"
+        ) &
+    done
+    wait
+
+    index=0
+    tunnel_count=0
     for server in "$@"; do
         index=$((index + 1))
         ms="$(cat "$dir/$index.ms" 2> /dev/null)"
         case "$ms" in
         '' | *[!0-9]*) ms="" ;;
         esac
-        result="$(printf '%s' "$result" | jq -c --arg server "$server" --arg ms "$ms" \
-            '. + [{server: $server, ms: (if $ms == "" then null else ($ms | tonumber) end)}]')"
+        via="direct"
+        case " $tunnel_done " in
+        *" $index "*)
+            via="tunnel"
+            tunnel_count=$((tunnel_count + 1))
+            ;;
+        esac
+        result="$(printf '%s' "$result" | jq -c --arg server "$server" --arg ms "$ms" --arg via "$via" \
+            '. + [{server: $server, ms: (if $ms == "" then null else ($ms | tonumber) end), via: $via}]')"
     done
     rm -rf "$dir"
+
+    if [ "$tunnel_count" -eq 0 ]; then
+        via="direct"
+    elif [ "$tunnel_count" -eq "$valid_count" ]; then
+        via="tunnel"
+    else
+        via="mixed"
+    fi
 
     jq -n -c --argjson results "$result" --arg via "$via" '{via: $via, results: $results}'
 }

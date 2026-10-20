@@ -48,6 +48,7 @@ config settings 'settings'
         # Force one of the four values only if the detection picks wrong.
         option sing_box_extended_arm_build 'auto'
         #option dns_via_outbound '0'
+        #list dns_server_route 'udp://172.31.200.60 via:main'
         #option dns_outbound_section 'main'
         option dont_touch_dhcp '0'
         #option dns_hijack '0'

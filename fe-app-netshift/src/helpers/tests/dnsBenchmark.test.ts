@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DnsBenchmarkResult,
   parseDnsBenchmark,
   parseDnsBenchmarkVia,
   sortBySpeed,
@@ -17,8 +18,8 @@ describe('parseDnsBenchmark', () => {
         }),
       ),
     ).toEqual([
-      { server: 'udp://1.1.1.1', ms: 17 },
-      { server: 'doh3://dns.google', ms: null },
+      { server: 'udp://1.1.1.1', ms: 17, via: 'direct' },
+      { server: 'doh3://dns.google', ms: null, via: 'direct' },
     ]);
   });
 
@@ -33,13 +34,13 @@ describe('parseDnsBenchmark', () => {
     expect(
       parseDnsBenchmark({
         results: [
-          { server: 'a', ms: -1 },
-          { server: 'b', ms: '5' },
+          { server: 'a', ms: -1, via: 'direct' },
+          { server: 'b', ms: '5', via: 'direct' },
         ],
       }),
     ).toEqual([
-      { server: 'a', ms: null },
-      { server: 'b', ms: null },
+      { server: 'a', ms: null, via: 'direct' },
+      { server: 'b', ms: null, via: 'direct' },
     ]);
   });
 });
@@ -48,10 +49,10 @@ describe('sortBySpeed', () => {
   it('puts the fastest first and the silent last', () => {
     expect(
       sortBySpeed([
-        { server: 'slow', ms: 90 },
-        { server: 'none', ms: null },
-        { server: 'fast', ms: 12 },
-        { server: 'none2', ms: null },
+        { server: 'slow', ms: 90, via: 'direct' },
+        { server: 'none', ms: null, via: 'direct' },
+        { server: 'fast', ms: 12, via: 'direct' },
+        { server: 'none2', ms: null, via: 'direct' },
       ]).map((item) => item.server),
     ).toEqual(['fast', 'slow', 'none', 'none2']);
   });
@@ -59,20 +60,34 @@ describe('sortBySpeed', () => {
   it('keeps the order of equal times', () => {
     expect(
       sortBySpeed([
-        { server: 'a', ms: 20 },
-        { server: 'b', ms: 20 },
+        { server: 'a', ms: 20, via: 'direct' },
+        { server: 'b', ms: 20, via: 'direct' },
       ]).map((item) => item.server),
     ).toEqual(['a', 'b']);
   });
 
   it('does not change the list it was given', () => {
-    const list = [
-      { server: 'b', ms: 30 },
-      { server: 'a', ms: 10 },
+    const list: DnsBenchmarkResult[] = [
+      { server: 'b', ms: 30, via: 'direct' },
+      { server: 'a', ms: 10, via: 'direct' },
     ];
 
     sortBySpeed(list);
     expect(list[0].server).toBe('b');
+  });
+});
+
+describe('parseDnsBenchmark: route of each server', () => {
+  it('says how each server was asked', () => {
+    expect(
+      parseDnsBenchmark({
+        results: [
+          { server: 'a', ms: 4, via: 'tunnel' },
+          { server: 'b', ms: 9, via: 'direct' },
+          { server: 'c', ms: 9 },
+        ],
+      }).map((item) => item.via),
+    ).toEqual(['tunnel', 'direct', 'direct']);
   });
 });
 
@@ -82,6 +97,7 @@ describe('parseDnsBenchmarkVia', () => {
       parseDnsBenchmarkVia(JSON.stringify({ via: 'tunnel', results: [] })),
     ).toBe('tunnel');
     expect(parseDnsBenchmarkVia({ via: 'direct', results: [] })).toBe('direct');
+    expect(parseDnsBenchmarkVia({ via: 'mixed', results: [] })).toBe('mixed');
   });
 
   it('says direct for an older backend and for garbage', () => {

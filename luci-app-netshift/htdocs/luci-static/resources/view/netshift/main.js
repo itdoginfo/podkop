@@ -1136,7 +1136,7 @@ async function callBaseMethod(method, args = [], command = "/usr/bin/netshift", 
   const response = await executeShellCommand({
     command,
     args: [method, ...args],
-    timeout: 15e3,
+    timeout: options.timeout ?? 15e3,
     nobatch: options.nobatch
   });
   if (response.stdout) {
@@ -1282,6 +1282,7 @@ function parseComponentCheckUpdate(stdout) {
 }
 
 // src/netshift/methods/shell/index.ts
+var DNS_BENCHMARK_TIMEOUT = 6e4;
 async function startAndPollComponentAction(component, action, extraArgs, messages) {
   const startResponse = await executeShellCommand({
     command: "/usr/bin/netshift",
@@ -1376,11 +1377,14 @@ var NetShiftShellMethods = {
     ["restore", id]
   ),
   getPinGuardEvents: async () => callBaseMethod(NetShift.AvailableMethods.GET_PIN_GUARD_EVENTS),
-  dnsBenchmark: async () => callBaseMethod(
+  dnsBenchmark: async (servers = []) => callBaseMethod(
     NetShift.AvailableMethods.DNS_BENCHMARK,
-    [],
+    servers,
     void 0,
-    { nobatch: true }
+    // Servers behind different outbounds are measured by one extra sing-box each
+    // (at the same time, at most a few at once), which takes well past the usual
+    // 15 seconds.
+    { nobatch: true, timeout: DNS_BENCHMARK_TIMEOUT }
   ),
   getSubscriptionInfo: async () => callBaseMethod(NetShift.AvailableMethods.GET_SUBSCRIPTION_INFO),
   checkNftRules: async () => callBaseMethod(
@@ -8633,6 +8637,65 @@ function dnsServersToOptions(list) {
   }
   return { dns_type: scheme, dns_server: server, dns_pool_server: rest };
 }
+var DNS_ROUTE_DIRECT = "direct";
+var DNS_ROUTE_TUNNEL = "tunnel";
+var DNS_ROUTE_VIA_PREFIX = "via:";
+function dnsRouteVia(section) {
+  return `${DNS_ROUTE_VIA_PREFIX}${section}`;
+}
+function dnsRouteSection(route) {
+  return route.startsWith(DNS_ROUTE_VIA_PREFIX) && route.length > 4 ? route.slice(DNS_ROUTE_VIA_PREFIX.length) : null;
+}
+function isKnownRoute(route) {
+  return route === DNS_ROUTE_DIRECT || route === DNS_ROUTE_TUNNEL || dnsRouteSection(route) !== null;
+}
+function dnsRoutesFromOptions(entries) {
+  const routes = {};
+  entries.forEach((entry) => {
+    const text2 = entry.trim();
+    const split = text2.lastIndexOf(" ");
+    if (split < 0) {
+      return;
+    }
+    const server = text2.slice(0, split).trim();
+    const route = text2.slice(split + 1);
+    if (server && isKnownRoute(route)) {
+      routes[server] = route;
+    }
+  });
+  return routes;
+}
+function dnsRoutesToOptions(servers, routes, backendDefault = DNS_ROUTE_DIRECT) {
+  return servers.map((server) => server.trim()).filter((server, index, all) => server && all.indexOf(server) === index).filter((server) => {
+    const route = routes[server];
+    return route && isKnownRoute(route) && route !== backendDefault;
+  }).map((server) => `${server} ${routes[server]}`);
+}
+var PROXY_LINK_OPTION = {
+  url: "proxy_string",
+  selector: "selector_proxy_links",
+  urltest: "urltest_proxy_links",
+  selector_text: "selector_proxy_links_text",
+  urltest_text: "urltest_proxy_links_text",
+  outbound: "outbound_json",
+  subscription: "subscription_url"
+};
+function isFilled(value) {
+  return Array.isArray(value) ? value.length > 0 : Boolean(value);
+}
+function isConfiguredOutboundSection(section) {
+  if (section.disabled === "1") {
+    return false;
+  }
+  if (section.connection_type === "vpn") {
+    return isFilled(section.interface);
+  }
+  if (section.connection_type === "proxy") {
+    const option = PROXY_LINK_OPTION[String(section.proxy_config_type || "url")];
+    return Boolean(option) && isFilled(section[option]);
+  }
+  return false;
+}
 
 // src/helpers/connections.ts
 var EMPTY_CONNECTIONS = {
@@ -8822,7 +8885,8 @@ function parseDnsBenchmark(input) {
   }
   return list.filter((item) => item && typeof item.server === "string").map((item) => ({
     server: item.server,
-    ms: typeof item.ms === "number" && item.ms >= 0 ? item.ms : null
+    ms: typeof item.ms === "number" && item.ms >= 0 ? item.ms : null,
+    via: item.via === "tunnel" ? "tunnel" : "direct"
   }));
 }
 function parseDnsBenchmarkVia(input) {
@@ -8834,7 +8898,8 @@ function parseDnsBenchmarkVia(input) {
       return "direct";
     }
   }
-  return data?.via === "tunnel" ? "tunnel" : "direct";
+  const via = data?.via;
+  return via === "tunnel" || via === "mixed" ? via : "direct";
 }
 function sortBySpeed(results) {
   return results.map((result, index) => ({ result, index })).sort((a, b) => {
@@ -8908,6 +8973,9 @@ return baseclass.extend({
   DIAGNOSTICS_INITIAL_DELAY,
   DIAGNOSTICS_UPDATE_INTERVAL,
   DNS_POOL_PRESETS,
+  DNS_ROUTE_DIRECT,
+  DNS_ROUTE_TUNNEL,
+  DNS_ROUTE_VIA_PREFIX,
   DNS_SERVER_OPTIONS,
   DOMAIN_LIST_OPTIONS,
   DashboardTab,
@@ -8941,6 +9009,10 @@ return baseclass.extend({
   createLogErrorBatcher,
   describeSubscriptionInfo,
   deviceMatchesQuery,
+  dnsRouteSection,
+  dnsRouteVia,
+  dnsRoutesFromOptions,
+  dnsRoutesToOptions,
   dnsServersFromOptions,
   dnsServersToOptions,
   executeShellCommand,
@@ -8956,6 +9028,7 @@ return baseclass.extend({
   injectGlobalStyles,
   insertIf,
   insertIfObj,
+  isConfiguredOutboundSection,
   isIpv4InSubnet,
   isLanIpv4,
   isNaiveUrl,
