@@ -618,6 +618,24 @@ get_subscription_download_proxy_address() {
     echo "$(get_service_proxy_address 2>/dev/null || echo '')"
 }
 
+# Prints a fingerprint of the nodes in subscription cache $1: every outbound
+# that connects somewhere, without its tag, in sorted order. Two bodies with the
+# same fingerprint differ only in the node names or in their order. Panels put
+# the traffic left or the days left into every node name ({DATA_LEFT},
+# {DAYS_LEFT} in the host remarks), and some shuffle the nodes on every
+# request, so the body changes on every refresh although no server did; a
+# config rebuilt for that alone makes sing-box drop every proxied connection.
+# Prints nothing when the body cannot be read.
+subscription_nodes_fingerprint() {
+    local nodes
+
+    nodes="$(jq -c '[.outbounds[]?
+        | select(.type | IN("selector", "urltest", "direct", "dns", "block") | not)
+        | del(.tag) | tojson] | sort' "$1" 2> /dev/null)" || return 0
+    [ -n "$nodes" ] || return 0
+    printf '%s' "$nodes" | md5sum 2> /dev/null | awk '{print $1}'
+}
+
 subscription_cache_is_usable() {
     local subscription_json_path="$1"
     local rejected_cache_path current_hash rejected_hash has_proxy_outbound
@@ -1342,7 +1360,7 @@ start_main() {
     # for subscription_update to re-apply. Only a build that succeeded gets
     # here: a config sing-box rejects makes sing_box_init_config exit the
     # process first, and the marker then stays for the next subscription_update.
-    rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+    rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG" "$SUBSCRIPTION_NAMES_PENDING_FLAG"
     # The settings that just produced a configuration sing-box accepted: the point
     # to come back to when a later change breaks the service.
     snapshot_save auto > /dev/null 2>&1
@@ -3428,6 +3446,7 @@ subscription_update_unlocked() {
         local url urlhash subscription_json_path
         local subscription_url_cache_path service_proxy_address update_result outbounds_count
         local urls_tmp url_count selected_count section_changed feed_usable_count feed_failed_count
+        local names_changed fingerprint_before
 
         _subscription_section_selected "$section" || return
 
@@ -3472,6 +3491,7 @@ subscription_update_unlocked() {
         # ANY feed changed; the section "failed" only if ALL feeds failed AND none
         # has a usable cache. One dead feed never aborts the others.
         section_changed=0
+        names_changed=0
         feed_usable_count=0
         feed_failed_count=0
         while IFS= read -r url || [ -n "$url" ]; do
@@ -3499,9 +3519,21 @@ subscription_update_unlocked() {
                 continue
             fi
 
+            # Only a scheduled run lets a body whose nodes merely got new names
+            # wait: an update started by hand applies whatever it downloaded.
+            fingerprint_before=""
+            if [ -n "$target_interval" ] && [ -s "$subscription_json_path" ]; then
+                fingerprint_before="$(subscription_nodes_fingerprint "$subscription_json_path")"
+            fi
+
             download_subscription_into_cache \
                 "$section" "$url" "$subscription_json_path" "$subscription_url_cache_path" "$service_proxy_address" "$urlhash"
             update_result=$?
+
+            if [ "$update_result" -eq 0 ] && [ -n "$fingerprint_before" ] &&
+                [ "$fingerprint_before" = "$(subscription_nodes_fingerprint "$subscription_json_path")" ]; then
+                update_result=3
+            fi
 
             case "$update_result" in
             0)
@@ -3519,6 +3551,12 @@ subscription_update_unlocked() {
             2)
                 feed_usable_count=$((feed_usable_count + 1))
                 echolog "ℹ️ Subscription feed for section '$section' is unchanged (url=$(redact_url_for_log "$url"))"
+                ;;
+            3)
+                # The new body is in the cache: a restart builds the config from it.
+                names_changed=1
+                feed_usable_count=$((feed_usable_count + 1))
+                echolog "ℹ️ Subscription feed for section '$section': only the node names or their order changed, sing-box is not reloaded for that (applied with the next change, an update started by hand or a restart; url=$(redact_url_for_log "$url"))"
                 ;;
             *)
                 feed_failed_count=$((feed_failed_count + 1))
@@ -3538,6 +3576,10 @@ subscription_update_unlocked() {
                 echolog "✅ Subscription updated for section '$section'"
             fi
             return
+        fi
+
+        if [ "$names_changed" -eq 1 ]; then
+            : > "$SUBSCRIPTION_NAMES_PENDING_FLAG"
         fi
 
         if [ "$feed_usable_count" -eq 0 ]; then
@@ -3562,6 +3604,11 @@ subscription_update_unlocked() {
     # rebuild that finds an identical config.
     pending_apply=0
     [ -f "$SUBSCRIPTION_PENDING_APPLY_FLAG" ] && pending_apply=1
+    # Node names a scheduled run left in the cache reach sing-box with the first
+    # update started by hand: the user who presses the button wants to see them.
+    if [ -z "$target_interval" ] && [ -f "$SUBSCRIPTION_NAMES_PENDING_FLAG" ]; then
+        pending_apply=1
+    fi
     mkdir -p "$TMP_SING_BOX_FOLDER"
     : > "$SUBSCRIPTION_PENDING_APPLY_FLAG"
 
@@ -3591,7 +3638,7 @@ subscription_update_unlocked() {
         echolog "❌ Subscription was downloaded, but applying it failed (rc=$apply_rc); the next update will retry it"
         return "$SUBSCRIPTION_UPDATE_APPLY_FAILED"
     fi
-    rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG"
+    rm -f "$SUBSCRIPTION_PENDING_APPLY_FLAG" "$SUBSCRIPTION_NAMES_PENDING_FLAG"
 
     if [ "$failed_sections" -gt 0 ]; then
         echolog "✅ Subscription update applied for changed sections; failed sections kept their previous cache"
