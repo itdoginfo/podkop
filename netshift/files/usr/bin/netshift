@@ -973,20 +973,37 @@ prepare_subscription_caches_for_startup() {
 }
 
 stop_subscription_startup_retry_worker() {
-    local pidfile="/var/run/netshift_subscription_retry.pid"
+    local pidfile="$SUBSCRIPTION_RETRY_PIDFILE"
+    local pid waited
 
     if [ -f "$pidfile" ]; then
         pid="$(cat "$pidfile" 2> /dev/null)"
         if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
             kill "$pid" 2> /dev/null
+            # Wait for the worker only. Its subscription_update child may be
+            # executing the restart that called us and must remain alive.
+            waited=0
+            while kill -0 "$pid" 2> /dev/null && [ "$waited" -lt 20 ]; do
+                sleep 0.1 2> /dev/null || sleep 1
+                waited=$((waited + 1))
+            done
+            if kill -0 "$pid" 2> /dev/null; then
+                # Still alive: keep its pidfile, so the next start sees it
+                # running instead of spawning a second worker.
+                log "Deferred startup recovery worker $pid did not stop in time" "warn"
+                return 0
+            fi
             log "Stopped deferred startup recovery worker"
         fi
-        rm -f "$pidfile"
+        if [ "$(cat "$pidfile" 2> /dev/null)" = "$pid" ]; then
+            rm -f "$pidfile"
+        fi
     fi
 }
 
 start_subscription_startup_retry_worker() {
-    local pidfile="/var/run/netshift_subscription_retry.pid"
+    local pidfile="$SUBSCRIPTION_RETRY_PIDFILE"
+    local pid waited
 
     if [ -f "$pidfile" ]; then
         pid="$(cat "$pidfile" 2> /dev/null)"
@@ -997,56 +1014,114 @@ start_subscription_startup_retry_worker() {
         rm -f "$pidfile"
     fi
 
+    # Re-exec gives the worker its own $$ and closes the inherited procd lock
+    # just like the health monitor. The worker publishes its actual PID.
+    if command -v setsid > /dev/null 2>&1; then
+        setsid /bin/sh -c 'exec 1000>&- 2>/dev/null; exec /usr/bin/netshift __subscription_retry' < /dev/null > /dev/null 2>&1 &
+    else
+        /bin/sh -c 'exec 1000>&- 2>/dev/null; exec /usr/bin/netshift __subscription_retry' < /dev/null > /dev/null 2>&1 &
+    fi
+    waited=0
+    while [ ! -s "$pidfile" ] && [ "$waited" -lt 20 ]; do
+        sleep 0.1 2> /dev/null || sleep 1
+        waited=$((waited + 1))
+    done
+    pid="$(cat "$pidfile" 2> /dev/null)"
+    if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
+        log "Started deferred startup recovery worker with PID $pid" "warn"
+    else
+        log "Deferred startup recovery worker did not publish its PID" "warn"
+    fi
+}
+
+subscription_startup_retry_worker_cleanup() {
+    local pidfile="$1" worker_pid="$2" sleep_pid="${3:-}"
+
+    # Only an idle timer is ours to cancel; never terminate the update child.
+    [ -z "$sleep_pid" ] || kill "$sleep_pid" 2> /dev/null
+    if [ "$(cat "$pidfile" 2> /dev/null)" = "$worker_pid" ]; then
+        rm -f "$pidfile"
+    fi
+}
+
+# Takes the pidfile for the calling worker: 0 when it is ours, 1 when another live
+# worker has it. Two starts that overlap (a restart while the monitor recovers the
+# service) both spawn a worker; the file is created with noclobber (O_EXCL), so only
+# one of them gets it and the other leaves at once.
+subscription_startup_retry_worker_claim() {
+    local pidfile="$1" pid
+
+    pid="$(cat "$pidfile" 2> /dev/null)"
+    if [ -n "$pid" ]; then
+        kill -0 "$pid" 2> /dev/null && return 1
+        rm -f "$pidfile"
+    fi
     (
-        trap 'rm -f "'"$pidfile"'"' EXIT INT TERM
-        apply_failures=0
+        set -C
+        echo "$$" > "$pidfile"
+    ) 2> /dev/null
+}
 
-        # Let the primary sing-box instance come up first, so a configured
-        # service proxy can be used for the post-bootstrap refresh.
-        sleep 10
+subscription_startup_retry_worker() {
+    local pidfile="$SUBSCRIPTION_RETRY_PIDFILE"
+    local apply_failures=0 sleep_pid="" rc delay
 
-        while true; do
-            config_load "$NETSHIFT_CONFIG"
+    # Also guards direct invocation of this private entry point.
+    subscription_startup_retry_worker_claim "$pidfile" || return 0
+    trap 'subscription_startup_retry_worker_cleanup "$pidfile" "$$" "$sleep_pid"' EXIT
+    trap 'exit 143' TERM
+    trap 'exit 130' INT
 
-            # Run in a child process: subscription_update applies the change
-            # itself, and when that takes a restart, the restart stops this
-            # worker via the pidfile safely. Keep diagnostics visible in syslog;
-            # subscription URLs are redacted in the lower-level download helpers.
-            /usr/bin/netshift subscription_update
-            rc=$?
-            if [ "$rc" -eq 0 ]; then
-                log "Deferred subscription refresh succeeded; updated configuration is being applied" "info"
-                rm -f "$pidfile"
-                exit 0
+    # Let the primary sing-box instance come up first, so a configured
+    # service proxy can be used for the post-bootstrap refresh.
+    sleep 10 &
+    sleep_pid=$!
+    wait "$sleep_pid"
+    sleep_pid=""
+
+    while true; do
+        config_load "$NETSHIFT_CONFIG"
+
+        # Run in a child process: subscription_update applies the change
+        # itself, and when that takes a restart, the restart stops this
+        # worker via the pidfile safely. Keep diagnostics visible in syslog;
+        # subscription URLs are redacted in the lower-level download helpers.
+        # Waiting on an asynchronous child lets ash handle TERM at once.
+        # A foreground command would defer the trap until its download or
+        # lock wait ends, letting an obsolete worker outlive a restart.
+        /usr/bin/netshift subscription_update &
+        wait "$!"
+        rc=$?
+        if [ "$rc" -eq 0 ]; then
+            log "Deferred subscription refresh succeeded; updated configuration is being applied" "info"
+            exit 0
+        fi
+
+        # An unreachable feed is what this worker exists for: keep polling
+        # until it comes back. A feed that downloads but does not apply is a
+        # different story — every pass re-downloads the feeds and rebuilds the
+        # config, and a config sing-box keeps rejecting will not start
+        # passing because it is rebuilt every 30 seconds. So back off, and
+        # after a few failures in a row hand over to the scheduled
+        # subscription update: the pending-apply marker makes that one retry
+        # the apply too.
+        delay="$SUBSCRIPTION_RETRY_INTERVAL"
+        if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_APPLY_FAILED" ]; then
+            apply_failures=$((apply_failures + 1))
+            if [ "$apply_failures" -ge "$SUBSCRIPTION_RETRY_MAX_APPLY_FAILURES" ]; then
+                log "Deferred subscription refresh downloaded the feeds but could not apply them $apply_failures times in a row; leaving it to the scheduled subscription update" "error"
+                exit 1
             fi
+            delay=$((SUBSCRIPTION_RETRY_INTERVAL * (1 << (apply_failures - 1))))
+            [ "$delay" -gt "$SUBSCRIPTION_RETRY_BACKOFF_MAX" ] && delay="$SUBSCRIPTION_RETRY_BACKOFF_MAX"
+        fi
 
-            # An unreachable feed is what this worker exists for: keep polling
-            # until it comes back. A feed that downloads but does not apply is a
-            # different story — every pass re-downloads the feeds and rebuilds the
-            # config, and a config sing-box keeps rejecting will not start
-            # passing because it is rebuilt every 30 seconds. So back off, and
-            # after a few failures in a row hand over to the scheduled
-            # subscription update: the pending-apply marker makes that one retry
-            # the apply too.
-            delay="$SUBSCRIPTION_RETRY_INTERVAL"
-            if [ "$rc" -eq "$SUBSCRIPTION_UPDATE_APPLY_FAILED" ]; then
-                apply_failures=$((apply_failures + 1))
-                if [ "$apply_failures" -ge "$SUBSCRIPTION_RETRY_MAX_APPLY_FAILURES" ]; then
-                    log "Deferred subscription refresh downloaded the feeds but could not apply them $apply_failures times in a row; leaving it to the scheduled subscription update" "error"
-                    rm -f "$pidfile"
-                    exit 1
-                fi
-                delay=$((SUBSCRIPTION_RETRY_INTERVAL * (1 << (apply_failures - 1))))
-                [ "$delay" -gt "$SUBSCRIPTION_RETRY_BACKOFF_MAX" ] && delay="$SUBSCRIPTION_RETRY_BACKOFF_MAX"
-            fi
-
-            log "Deferred subscription refresh has not completed yet; retrying in ${delay}s" "warn"
-            sleep "$delay"
-        done
-    ) &
-
-    echo $! > "$pidfile"
-    log "Started deferred startup recovery worker with PID $!" "warn"
+        log "Deferred subscription refresh has not completed yet; retrying in ${delay}s" "warn"
+        sleep "$delay" &
+        sleep_pid=$!
+        wait "$sleep_pid"
+        sleep_pid=""
+    done
 }
 
 # --- selected server survives a reboot ---------------------------------------
@@ -1281,7 +1356,8 @@ start_main() {
     fi
 
     log "Nice"
-    list_update &
+    # shellcheck disable=SC3023  # busybox ash accepts fd 1000 (the procd lock); dash is not the target
+    (exec 1000>&-; list_update) &
     echo $! > /var/run/netshift_list_update.pid
 }
 
@@ -8873,6 +8949,12 @@ __monitor)
     # (1000) closed, so the long-lived monitor never holds the procd service
     # lock. Not part of the public CLI / help.
     monitor_sing_box
+    ;;
+__subscription_retry)
+    # Hidden subcommand: the deferred subscription refresh worker, launched only by
+    # start_subscription_startup_retry_worker (setsid, procd lock fd 1000 closed).
+    # Not part of the public CLI / help.
+    subscription_startup_retry_worker
     ;;
 list_update)
     list_update
