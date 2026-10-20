@@ -23113,8 +23113,10 @@ CF
 
         # a section that runs out of the time of the cycle does not starve the next one: the next
         # cycle begins with the section the time did not reach
-        priority_probe_delay() { sleep 2; echo 0; }
-        PRIORITY_CYCLE_BUDGET=1; FAILOVER_RESUME=0
+        # the budget is counted in whole seconds (date +%s): 2 s leave the first probe of a cycle
+        # at least one second wherever in a second the cycle starts, and a probe of 3 s uses it up
+        priority_probe_delay() { sleep 3; echo 0; }
+        PRIORITY_CYCLE_BUDGET=2; FAILOVER_RESUME=0
         FAILOVER_FAILS_main=0; FAILOVER_FAILS_second=0; FAILOVER_ACTIVE_main=0; FAILOVER_ACTIVE_second=0
         priority_fetch_proxies() { both main-out second-out; }
         failover_check_sections
