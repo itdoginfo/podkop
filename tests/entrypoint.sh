@@ -125,6 +125,7 @@ test_syntax() {
         "$lib/lint.sh" \
         "$lib/naive.sh" \
         "$lib/corecaps.sh" \
+        "$lib/autoupdate.sh" \
         "$lib/applyconfig.sh"; do
 
         if [ ! -r "$f" ]; then
@@ -22585,6 +22586,8 @@ CF
         log() { printf '%s\n' "$1" >> "$work/log"; }
         uci() { command uci -c "$work/uci" "$@"; }
         NETSHIFT_INIT="$work/init"
+        config_load() { :; }
+        sync_auto_update_cron_job() { echo sync >> "$work/cron-syncs"; }
         . "$lib/applyconfig.sh"
         # the production path of the hash is the one under test
         config_applied_hash_clear
@@ -22618,6 +22621,20 @@ CF
         uci -q commit netshift
         apply_config_change
         echo "monitor-options-restarts=$(n)"
+
+        # the schedule of the automatic update: no restart, but its cron job is rewritten
+        config_applied_hash_save
+        : > "$work/restarts"
+        : > "$work/cron-syncs"
+        uci -q set netshift.settings.auto_update='1'
+        uci -q set netshift.settings.auto_update_interval='12h'
+        uci -q set netshift.settings.auto_update_time='03:15'
+        uci -q set netshift.settings.auto_update_on_boot='0'
+        uci -q set netshift.settings.auto_update_netshift='0'
+        uci -q set netshift.settings.auto_update_sing_box='0'
+        uci -q commit netshift
+        apply_config_change
+        echo "auto-update-options-restarts=$(n) cron-syncs=$(wc -l < "$work/cron-syncs" | tr -d ' ')"
 
         : > "$work/restarts"
         uci -q set netshift.settings.dns_type='udp'
@@ -22673,6 +22690,7 @@ command-wired=$(grep -c '^apply_config)' "$bin")"
     _ac "...the hash of the configuration stays the same" "ignored-options-hash-same=yes"
     _ac "...and the log says why nothing restarted" "ignored-logged=1"
     _ac "the options of the monitor (interval, pin guard, priority mode) and the latency URL: no restart" "monitor-options-restarts=0"
+    _ac "the options of the automatic update: no restart, the cron job is rewritten once" "auto-update-options-restarts=0 cron-syncs=1"
     _ac "a DNS option changed: restart" "dns-change-restarts=1"
     _ac "a section changed: restart" "section-change-restarts=1"
     _ac "the service is down: a change that restores the hashed options still restarts it" "down-service-restarts=1"
@@ -22963,6 +22981,263 @@ DRVEOF
     rm -rf "$work"
 }
 
+# Automatic updates of NetShift and sing-box: a run updates what has a newer release, checks
+# that NetShift still works, and rolls a component back (and skips that release later) if not.
+test_auto_update() {
+    header "Automatic updates with a rollback (lib/autoupdate.sh)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$lib/autoupdate.sh" ] || [ ! -r "$bin" ] || [ ! -r "$lib/updater.sh" ]; then
+        fail "autoupdate.sh / updater.sh / bin not found"
+        return
+    fi
+
+    local work="/tmp/netshift-autoupdate-$$"
+    rm -rf "$work"
+    mkdir -p "$work/jobs"
+
+    local drv="$work/driver.sh"
+    cat > "$drv" << 'DRVEOF'
+W="DRV_WORK"
+. "DRV_CONSTANTS"
+. "DRV_HELPERS"
+. "DRV_UPDATER"
+. "DRV_AUTOUPDATE"
+log() { printf '%s|%s\n' "${2:-info}" "$1" >> "$W/log"; }
+updates_log() { :; }
+extract() {
+    awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "DRV_BIN"
+}
+eval "$(extract cron_number)"
+eval "$(extract is_valid_subscription_update_time)"
+AUTO_UPDATE_STATE_FILE="$W/state.json"
+AUTO_UPDATE_LOCK_DIR="$W/lock"
+AUTO_UPDATE_BOOT_MARKER="$W/boot-marker"
+AUTO_UPDATE_UPTIME_FILE="$W/uptime"
+AUTO_UPDATE_HEALTH_ATTEMPTS=2
+AUTO_UPDATE_HEALTH_INTERVAL=0
+UPDATES_JOB_DIR="$W/jobs"
+sleep() { :; }
+
+# settings
+AU_OPTS="auto_update=1"
+config_get() { local _k="$2_$3" _v; _v="$(printf '%s\n' $AU_OPTS | sed -n "s/^$3=//p" | tail -1)"; [ -n "$_v" ] || _v="${4:-}"; eval "$1=\"\$_v\""; }
+config_get_bool() { config_get "$@"; }
+foreach_active_section() { "$1" main; }
+section_has_configured_outbound() { return 0; }
+get_outbound_tag_by_section() { printf '%s-out' "$1"; }
+priority_clash_setup() { PRIORITY_CLASH_URL="http://127.0.0.1:9090"; PRIORITY_CLASH_AUTH=""; }
+priority_probe_delay() { [ -f "$W/dead" ] && echo 0 || echo 120; }
+
+# the router: installed versions live in files (installs run in command substitutions)
+echo "1.14.2-extended-2.7.2" > "$W/sb"; echo "0.9.11" > "$W/ns"
+SB_LATEST="1.14.3-extended-2.7.3"; NS_LATEST="0.9.12"; SB_BROKEN=""; NS_BROKEN=""; SB_VARIANT=extended
+NETSHIFT_VERSION="0.9.11"
+broken() { [ "$(cat "$W/sb")" = "$SB_BROKEN" ] || [ "$(cat "$W/ns")" = "$NS_BROKEN" ]; }
+curl() { broken && return 7; [ -f "$W/api-down" ] && return 7; echo '{"version":"sing-box"}'; }
+get_sing_box_variant() { echo "$SB_VARIANT"; }
+_check() {
+    local cur="$1" latest="$2" st=outdated
+    [ "$cur" = "$latest" ] && st=latest
+    printf '{"success":true,"current_version":"%s","latest_version":"%s","status":"%s"}' "$cur" "$latest" "$st"
+}
+updates_check_sing_box_extended() { _check "$(cat "$W/sb")" "$SB_LATEST"; }
+updates_check_sing_box_lite() { _check "$(cat "$W/sb")" "$SB_LATEST"; }
+updates_check_netshift() { _check "$(cat "$W/ns")" "$NS_LATEST"; }
+SB_INSTALL_FAIL=""; NS_INSTALL_FAIL=""
+updates_install_sing_box_extended() {
+    local to="${UPDATES_PINNED_TAG:-$SB_LATEST}"
+    echo "sb-install pinned=${UPDATES_PINNED_TAG:-}" >> "$W/calls"
+    case " $SB_INSTALL_FAIL " in *" $to "*) echo '{"success":false,"message":"download failed"}'; return 1 ;; esac
+    echo "$to" > "$W/sb"; echo '{"success":true}'
+}
+updates_install_sing_box_lite() { echo "lite-install" >> "$W/calls"; updates_install_sing_box_extended; }
+updates_self_update_netshift() {
+    local to="${UPDATES_PINNED_TAG:-$NS_LATEST}"
+    echo "ns-install pinned=${UPDATES_PINNED_TAG:-} installed=$NETSHIFT_VERSION" >> "$W/calls"
+    case " $NS_INSTALL_FAIL " in *" $to "*) echo '{"success":false,"message":"package refused"}'; return 1 ;; esac
+    echo "$to" > "$W/ns"; echo '{"success":true}'
+}
+updates_restart_netshift() { echo "restart" >> "$W/calls"; }
+
+reset() { rm -f "$W/calls" "$W/log" "$W/dead" "$W/api-down"; rm -rf "$W/lock"; }
+results() { jq -c '[.last_run.results[] | "\(.component):\(.result):\(.from)>\(.to)"]' "$W/state.json" 2> /dev/null; }
+calls() { tr '\n' ';' < "$W/calls" 2> /dev/null; }
+
+# A1: switched off -> a scheduled run does nothing
+reset; AU_OPTS="auto_update=0"
+auto_update_run scheduled
+echo "off=[$(calls)] state=$([ -f "$W/state.json" ] && echo yes || echo no)"
+AU_OPTS="auto_update=1"
+
+# A2: NetShift does not work before the update -> nothing is installed
+reset; touch "$W/dead"
+auto_update_run scheduled
+echo "unhealthy=[$(calls)] $(results)"
+echo "reason-not-working=$(jq -r '.last_run.results[0].reason' "$W/state.json")"
+
+# A3: both outdated, both work -> both updated, sing-box first
+reset
+auto_update_run scheduled
+echo "updated=[$(calls)] $(results) ns=$(cat "$W/ns") sb=$(cat "$W/sb")"
+
+# A4: a new sing-box breaks the router -> the old one is installed again by its tag
+reset; echo "1.14.2-extended-2.7.2" > "$W/sb"; SB_LATEST="1.14.4-extended-2.8.0"; SB_BROKEN="1.14.4-extended-2.8.0"
+auto_update_run scheduled
+echo "sb-rollback=[$(calls)] $(results) sb=$(cat "$W/sb") bad=$(jq -r '.bad_versions.sing_box' "$W/state.json")"
+
+# A5: the next run skips the release that was rolled back
+reset
+auto_update_run scheduled
+echo "sb-skip=[$(calls)] $(results)"
+echo "reason-bad-version=$(jq -r '.last_run.results[0].reason' "$W/state.json")"
+
+# A6: a newer release than the bad one is installed again
+reset; SB_LATEST="1.14.5-extended-2.8.1"; SB_BROKEN=""
+auto_update_run scheduled
+echo "sb-newer=[$(calls)] sb=$(cat "$W/sb")"
+
+# A7: a new NetShift breaks the router -> reinstalled by its tag; the rollback install sees the
+#     version that is installed now, not the one this (old) process was started with
+reset; NS_LATEST="0.9.13"; NS_BROKEN="0.9.13"; NETSHIFT_VERSION="0.9.12"
+auto_update_run scheduled
+echo "ns-rollback=[$(calls)] $(results) ns=$(cat "$W/ns") version=$NETSHIFT_VERSION"
+
+# A8: the install fails -> nothing to roll back
+reset; NS_LATEST="0.9.14"; NS_BROKEN=""; NS_INSTALL_FAIL="0.9.14"; SB_LATEST="$(cat "$W/sb")"
+auto_update_run scheduled
+echo "install-fail=[$(calls)] $(results)"
+NS_INSTALL_FAIL=""
+
+# A9: the rollback install fails too
+reset; NS_LATEST="0.9.15"; NS_BROKEN="0.9.15"; NS_INSTALL_FAIL="0.9.12"
+auto_update_run scheduled
+echo "rollback-fail=[$(calls)] $(results)"
+NS_INSTALL_FAIL=""; NS_BROKEN=""; echo "0.9.12" > "$W/ns"; NETSHIFT_VERSION="0.9.12"
+
+# A10: stock sing-box is not touched; only sing-box can be turned off
+reset; SB_VARIANT=stock; NS_LATEST="0.9.12"
+auto_update_run scheduled
+echo "stock=[$(calls)] $(results)"
+echo "reason-stock=$(jq -r '.last_run.results[0].reason' "$W/state.json") updated-has-no-reason=$(jq -r '.last_run.results[1] | has("reason")' "$W/state.json")"
+SB_VARIANT=extended_lite; SB_LATEST="1.14.6-extended-2.8.2-lite"; AU_OPTS="auto_update=1 auto_update_netshift=0"
+reset
+auto_update_run scheduled
+echo "lite-only=[$(calls)] $(results)"
+AU_OPTS="auto_update=1"; SB_LATEST="$(cat "$W/sb")"
+
+# A11: the Components manager is installing -> skipped; a run in progress -> nothing
+reset; NS_LATEST="0.9.16"; echo '{"running":true}' > "$W/jobs/job1.json"
+auto_update_run scheduled
+echo "job-running=[$(calls)] $(results)"
+rm -f "$W/jobs/job1.json"
+reset; mkdir "$W/lock"; rm -f "$W/state.json"
+auto_update_run scheduled
+echo "locked=[$(calls)] state=$([ -f "$W/state.json" ] && echo yes || echo no) lock=$([ -d "$W/lock" ] && echo kept || echo gone)"
+rmdir "$W/lock"
+
+# A12: `now` runs even when switched off
+reset; AU_OPTS="auto_update=0"
+auto_update_run now
+echo "now=[$(calls)]"
+AU_OPTS="auto_update=1"
+
+# cron
+for spec in "12h 04:30" "1d 23:05" "1w 00:00" "1d 7:5" "2d 04:30"; do
+    set -- $spec
+    echo "cron $1 $2=[$(get_auto_update_cron_line "$1" "$2")]"
+done
+crontab() { if [ "$1" = "-l" ]; then cat "$W/crontab" 2> /dev/null; else cat > "$W/crontab.new"; mv "$W/crontab.new" "$W/crontab"; fi; }
+printf '%s\n' "0 4 * * * /usr/bin/netshift list_update" "1 1 * * * /usr/bin/netshift auto_update scheduled" > "$W/crontab"
+AU_OPTS="auto_update=1 auto_update_interval=12h auto_update_time=03:15"; sync_auto_update_cron_job
+echo "crontab-on=[$(tr '\n' ';' < "$W/crontab")]"
+AU_OPTS="auto_update=1 auto_update_interval=off"; sync_auto_update_cron_job
+echo "crontab-interval-off=[$(tr '\n' ';' < "$W/crontab")]"
+AU_OPTS="auto_update=0"; sync_auto_update_cron_job
+echo "crontab-disabled=[$(tr '\n' ';' < "$W/crontab")]"
+AU_OPTS="auto_update=1"; sync_auto_update_cron_job
+echo "crontab-default=[$(tr '\n' ';' < "$W/crontab")]"
+
+# boot
+setsid() { echo "spawn $*" >> "$W/spawn"; }
+boot() { rm -f "$W/spawn"; echo "$1" > "$W/uptime"; auto_update_schedule_boot_run; echo "boot-$2=$([ -f "$W/spawn" ] && echo spawned || echo no)"; }
+rm -f "$W/boot-marker"; AU_OPTS="auto_update=1"
+boot "95.12 180.3" first
+boot "96.00 181.0" second
+rm -f "$W/boot-marker"; boot "86400.1 1.0" restart-later
+rm -f "$W/boot-marker"; AU_OPTS="auto_update=1 auto_update_on_boot=0"; boot "95.1 1.0" option-off
+rm -f "$W/boot-marker"; AU_OPTS="auto_update=0"; boot "95.1 1.0" disabled
+grep -q 'sleep 180; exec /usr/bin/netshift auto_update boot' "$W/spawn" 2> /dev/null; rm -f "$W/boot-marker"; AU_OPTS="auto_update=1"; boot "95.1 1.0" cmd
+grep -o 'auto_update boot' "$W/spawn" | head -1 | sed 's/^/boot-command=/'
+
+# a pinned tag: the release it names, with or without "v"; nothing when it is not there
+rel='[{"tag_name":"v1.14.3-extended-2.7.3"},{"tag_name":"v1.14.2-extended-2.7.2"},{"tag_name":"v1.14.1-extended-2.7.1","prerelease":true}]'
+echo "pin-none=$(updates_extended_release_tag "$rel")"
+echo "pin-old=$(UPDATES_PINNED_TAG=1.14.2-extended-2.7.2 updates_extended_release_tag "$rel")"
+echo "pin-v=$(UPDATES_PINNED_TAG=v1.14.2-extended-2.7.2 updates_extended_release_tag "$rel")"
+echo "pin-missing=[$(UPDATES_PINNED_TAG=1.13.0-extended-1.0.0 updates_extended_release_tag "$rel")]"
+echo "pin-prerelease=[$(UPDATES_PINNED_TAG=1.14.1-extended-2.7.1 updates_extended_release_tag "$rel")]"
+updates_github_resolve_redirect() { echo "https://github.com/x/y/releases/tag/0.9.99"; }
+echo "ns-latest=$(updates_netshift_latest_tag) ns-pinned=$(UPDATES_PINNED_TAG=0.9.11 updates_netshift_latest_tag)"
+echo DONE
+DRVEOF
+    sed -i "s|DRV_CONSTANTS|$lib/constants.sh|; s|DRV_HELPERS|$lib/helpers.sh|; s|DRV_UPDATER|$lib/updater.sh|; s|DRV_AUTOUPDATE|$lib/autoupdate.sh|; s|DRV_BIN|$bin|; s|DRV_WORK|$work|g" "$drv"
+
+    local out
+    out="$(sh "$drv" 2>&1 || true)"
+
+    _au() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2]"
+            printf '%s\n' "$out" | grep -F -- "${2%%=*}" | head -3 | sed 's/^/      got: /'
+        fi
+    }
+    _au "switched off: a scheduled run does nothing" 'off=[] state=no'
+    _au "NetShift not working before: nothing is installed" 'unhealthy=[] ["all:skipped:>"]'
+    _au "both updated, sing-box first, NetShift restarted" 'updated=[sb-install pinned=;ns-install pinned= installed=0.9.11;restart;] ["sing_box:updated:1.14.2-extended-2.7.2>1.14.3-extended-2.7.3","netshift:updated:0.9.11>0.9.12"] ns=0.9.12 sb=1.14.3-extended-2.7.3'
+    _au "a broken sing-box is rolled back to the release it replaced" 'sb-rollback=[sb-install pinned=;sb-install pinned=1.14.2-extended-2.7.2;] ["sing_box:rolled_back:1.14.2-extended-2.7.2>1.14.4-extended-2.8.0","netshift:latest:0.9.12>0.9.12"] sb=1.14.2-extended-2.7.2 bad=1.14.4-extended-2.8.0'
+    _au "the rolled back release is skipped by the next run" 'sb-skip=[] ["sing_box:skipped:1.14.2-extended-2.7.2>1.14.4-extended-2.8.0","netshift:latest:0.9.12>0.9.12"]'
+    _au "the reasons of a skip are codes the UI translates" 'reason-not-working=not_working'
+    _au "...a release rolled back earlier" 'reason-bad-version=bad_version'
+    _au "...the stock core; a result that is not a skip has no reason" 'reason-stock=stock_core updated-has-no-reason=false'
+    _au "a newer release than the bad one is installed" 'sb-newer=[sb-install pinned=;] sb=1.14.5-extended-2.8.1'
+    _au "a broken NetShift is rolled back; the rollback knows the installed version" 'ns-rollback=[ns-install pinned= installed=0.9.12;restart;ns-install pinned=0.9.12 installed=0.9.13;restart;] ["sing_box:latest:1.14.5-extended-2.8.1>1.14.5-extended-2.8.1","netshift:rolled_back:0.9.12>0.9.13"] ns=0.9.12 version=0.9.12'
+    _au "a failed install keeps the old version, no rollback" 'install-fail=[ns-install pinned= installed=0.9.12;] ["sing_box:latest:1.14.5-extended-2.8.1>1.14.5-extended-2.8.1","netshift:failed:0.9.12>0.9.14"]'
+    _au "a failed rollback is reported" 'rollback-fail=[ns-install pinned= installed=0.9.12;restart;ns-install pinned=0.9.12 installed=0.9.15;] ["sing_box:latest:1.14.5-extended-2.8.1>1.14.5-extended-2.8.1","netshift:failed:0.9.12>0.9.15"]'
+    _au "the stock sing-box is not updated" 'stock=[] ["sing_box:skipped:>","netshift:latest:0.9.12>0.9.12"]'
+    _au "the lite core is updated by its own installer; NetShift can be left out" 'lite-only=[lite-install;sb-install pinned=;] ["sing_box:updated:1.14.5-extended-2.8.1>1.14.6-extended-2.8.2-lite"]'
+    _au "an install in the Components manager: skipped" 'job-running=[] ["all:skipped:>"]'
+    _au "a run in progress: the second one does nothing" 'locked=[] state=no lock=kept'
+    _au "now runs even when switched off" 'now=[ns-install pinned= installed=0.9.12;restart;]'
+    _au "cron 12h: twice a day" 'cron 12h 04:30=[30 4,16 * * * /usr/bin/netshift auto_update scheduled]'
+    _au "cron 1d" 'cron 1d 23:05=[5 23 * * * /usr/bin/netshift auto_update scheduled]'
+    _au "cron 1w: on Sunday, midnight without octal traps" 'cron 1w 00:00=[0 0 * * 0 /usr/bin/netshift auto_update scheduled]'
+    _au "cron: an invalid time takes the default" 'cron 1d 7:5=[30 4 * * * /usr/bin/netshift auto_update scheduled]'
+    _au "cron: an unknown interval has no line" 'cron 2d 04:30=[]'
+    _au "crontab: the job replaces the old one, other jobs stay" 'crontab-on=[0 4 * * * /usr/bin/netshift list_update;15 3,15 * * * /usr/bin/netshift auto_update scheduled;]'
+    _au "crontab: interval off removes the job" 'crontab-interval-off=[0 4 * * * /usr/bin/netshift list_update;]'
+    _au "crontab: switched off removes the job" 'crontab-disabled=[0 4 * * * /usr/bin/netshift list_update;]'
+    _au "crontab: default schedule is daily at 04:30" 'crontab-default=[0 4 * * * /usr/bin/netshift list_update;30 4 * * * /usr/bin/netshift auto_update scheduled;]'
+    _au "boot: the run is started" 'boot-first=spawned'
+    _au "boot: once per boot" 'boot-second=no'
+    _au "a restart long after boot is not a boot" 'boot-restart-later=no'
+    _au "boot: the option off" 'boot-option-off=no'
+    _au "boot: switched off" 'boot-disabled=no'
+    _au "boot: the detached command" 'boot-command=auto_update boot'
+    _au "no pin: the latest stable release" 'pin-none=v1.14.3-extended-2.7.3'
+    _au "pin: the release of the version" 'pin-old=v1.14.2-extended-2.7.2'
+    _au "pin with v" 'pin-v=v1.14.2-extended-2.7.2'
+    _au "pin: a release that is not there gives nothing" 'pin-missing=[]'
+    _au "pin: a pre-release is not installed" 'pin-prerelease=[]'
+    _au "NetShift: the pinned tag instead of the latest" 'ns-latest=0.9.99 ns-pinned=0.9.11'
+    _au "driver completed" 'DONE'
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -23072,6 +23347,7 @@ main() {
             test_proxy_bootstrap
             test_tuic_anytls
             test_update_repo
+            test_auto_update
             ;;
         deps)        test_deps ;;
         syntax)      test_syntax ;;
@@ -23171,9 +23447,10 @@ main() {
         proxybootstrap) test_proxy_bootstrap ;;
         tuicanytls)  test_tuic_anytls ;;
         updaterepo)  test_update_repo ;;
+        autoupdate)  test_auto_update ;;
         *)
             echo "Unknown test: $target"
-echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo"
+echo "Available: all deps syntax config helpers jq cm sb nft nftv6 selmark isolation monfd unsupported extgate vlessenc textlist chunkcheck domsep domcase proxylink diagnostics subscription fastest feedgroups insecure rejected jobstate selfheal dnsdetour ecssubnet suburlopt subcron globalproxy sectiondisabled bittorrent stablecheck extcheck sbextarch sbextlite netshiftcheck latesttag ghredirect selfupdate backupguard hotreload cachepersist bypass dnssection utfilters priority geoip latencyurl cascade dnspool ipv6routing realitymlkem cachebust compproxy httpupgrade scalaropt emptylink updatepkg environment dnsbench blockleaks connections dnsforward dnslifecycle dnshijack dnsservers domrules ecsauto lan mixedauth paramfilters pinguard routecheck snapshots updatenotice urlint subinfo portrules configlint naive corecaps ipv6dnspolicy xhttpextra kwalt installdl proxybootstrap dnssectionpool applyconfig tuicanytls updaterepo autoupdate"
             exit 1
             ;;
     esac

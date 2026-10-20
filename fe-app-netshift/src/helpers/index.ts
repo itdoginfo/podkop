@@ -19,6 +19,7 @@ export * from './connections';
 export * from './prettyBytes';
 export * from './lanDevices';
 export * from './updateNotice';
+export * from './autoUpdateStatus';
 export * from './configSnapshots';
 export * from './pinGuardEvents';
 export * from './dnsBenchmark';
