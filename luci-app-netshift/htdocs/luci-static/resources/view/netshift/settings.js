@@ -464,9 +464,10 @@ function createSettingsContent(section) {
     });
 
     redraw();
-    window.setTimeout(measure, 0);
 
-    return E("div", {}, [
+    // the speed test runs when the table is first on screen, not with every visit of the page
+    // (it is a netshift command, with a short-lived sing-box for every route through a section)
+    const table = E("div", {}, [
       E("div", { style: "overflow-x:auto" }, [
         E("table", { class: "table cbi-section-table" }, [
           E("thead", {}, [
@@ -488,6 +489,9 @@ function createSettingsContent(section) {
       E("div", { style: "margin-top:.5em;max-width:28em" }, [pickerNode]),
       problem,
     ]);
+    main.onFirstVisible(table, measure);
+
+    return table;
   };
   // The first row is the main server and must be scheme://host: without this a list whose
   // first row is not (a hand-edited dns_type) would just not be saved. LuCI hands validate()
@@ -628,7 +632,15 @@ function createSettingsContent(section) {
   // get_wan_addresses). Asking can take a few seconds: a private WAN address makes
   // the router look its external address up once.
   let wanAddresses = null;
+  // asked only when the EDNS Client Subnet is in use (detected from the WAN, or set by hand):
+  // otherwise the page would wait for it on every visit
+  const ecsInUse = () =>
+    uci.get("netshift", "settings", "dns_client_subnet_auto") === "1" ||
+    Boolean(uci.get("netshift", "settings", "dns_client_subnet"));
   const loadWanAddresses = () => {
+    if (!ecsInUse()) {
+      return Promise.resolve([]);
+    }
     wanAddresses ??= main
       .executeShellCommand({
         command: "/usr/bin/netshift",
@@ -1088,10 +1100,19 @@ function createSettingsContent(section) {
   );
   o.depends("auto_update", "1");
   o.rawhtml = true;
+  // one question per page (the option is drawn more than once), and none while the automatic
+  // updates are off
+  let autoUpdateStatus = null;
   o.cfgvalue = function () {
     const result = E("div", {}, _("Loading..."));
 
-    main.NetShiftShellMethods.getAutoUpdateStatus()
+    if (uci.get("netshift", "settings", "auto_update") !== "1") {
+      result.replaceChildren(E("div", {}, _("No run yet")));
+      return result;
+    }
+
+    autoUpdateStatus ??= main.NetShiftShellMethods.getAutoUpdateStatus();
+    autoUpdateStatus
       .then((reply) => {
         const lines = reply.success ? main.describeAutoUpdateState(reply.data) : [];
 

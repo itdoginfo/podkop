@@ -136,6 +136,7 @@ test_syntax() {
         "$lib/naive.sh" \
         "$lib/corecaps.sh" \
         "$lib/autoupdate.sh" \
+        "$lib/quick.sh" \
         "$lib/applyconfig.sh" \
         "$lib/failover.sh" \
         "$lib/filterpreview.sh"; do
@@ -21589,7 +21590,9 @@ test_core_caps() {
         . "$lib/sing_box_config_manager.sh"
         . "$lib/sing_box_config_facade.sh"
         . "$lib/naive.sh"
+        . "$lib/quick.sh"
         . "$lib/corecaps.sh"
+        CORE_CAPABILITIES_CACHE="$work/caps.json"
         get_outbound_tag_by_section() { echo "$1-out"; }
         PATH="$work/bin:$PATH"
 
@@ -23184,6 +23187,89 @@ DRVEOF
     else
         fail "the errors of XHTTP, VMess and VLESS Encryption name the installed core"
     fi
+    rm -rf "$work"
+}
+
+# The commands the pages call over and over are answered without loading the libraries, and
+# what the core can do is asked from the core once and kept while the same core is installed.
+test_quick_commands() {
+    header "Quick answers: status, log and core capabilities without loading every library"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$lib/quick.sh" ] || [ ! -r "$bin" ]; then
+        fail "quick.sh / bin not found"
+        return
+    fi
+
+    local work="/tmp/netshift-quick-$$"
+    rm -rf "$work"
+    mkdir -p "$work/lib" "$work/bin" "$work/rc.d"
+    # a copy of the command line that finds only the three files of the quick path: the full path
+    # would stop at the first missing library
+    cp "$lib/constants.sh" "$lib/logging.sh" "$lib/quick.sh" "$work/lib/"
+    sed -e "s|^NETSHIFT_LIB=.*|NETSHIFT_LIB=\"$work/lib\"|" "$bin" > "$work/netshift"
+    sed -i "s|/etc/rc.d/S99netshift|$work/rc.d/S99netshift|" "$work/lib/quick.sh"
+    sed -i "s|^CORE_CAPABILITIES_CACHE=.*|CORE_CAPABILITIES_CACHE=\"$work/caps.json\"|" "$work/lib/constants.sh"
+    cat > "$work/bin/logread" << 'LEOF'
+#!/bin/sh
+printf '%s\n' 'Mon netshift: [info] old line' 'Mon netshift: [info] Starting netshift' 'Mon sing-box[1]: INFO started' 'Mon kernel: other'
+LEOF
+    chmod +x "$work/bin/logread"
+
+    local out
+    out="$(
+        PATH="$work/bin:$PATH"
+        echo "status-disabled=$(sh "$work/netshift" get_status)"
+        : > "$work/rc.d/S99netshift"; chmod +x "$work/rc.d/S99netshift"
+        echo "status-enabled=$(sh "$work/netshift" get_status)"
+        echo "logs=$(sh "$work/netshift" check_logs | tr '\n' '|')"
+        echo "sing-box-status=$(sh "$work/netshift" get_sing_box_status | jq -c 'keys' 2> /dev/null)"
+        # no cache yet: the quick path steps aside, and the full one cannot run in this copy
+        sh "$work/netshift" get_core_capabilities > "$work/caps.out" 2>&1; echo "caps-no-cache-rc=$?"
+        # a cache made for the cores installed now is the answer
+        (
+            . "$work/lib/constants.sh"; . "$work/lib/quick.sh"
+            core_capabilities_store '{"version":"1.14.3","extended":true}'
+        )
+        echo "caps-cached=$(sh "$work/netshift" get_core_capabilities)"
+        # another core (its fingerprint changes): the cache is not used
+        printf 'another core\n' > "$work/caps.json.key"
+        sh "$work/netshift" get_core_capabilities > /dev/null 2>&1; echo "caps-other-core-rc=$?"
+    )"
+
+    # the full answer asks the core twice at most, whatever the number of features
+    local probes
+    probes="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        log() { :; }
+        . "$lib/naive.sh"
+        . "$lib/quick.sh"
+        . "$lib/corecaps.sh"
+        CORE_CAPABILITIES_CACHE="$work/caps2.json"
+        printf '#!/bin/sh\necho x >> "%s/probes"\nprintf "sing-box version 1.14.3-extended-2.7.3\\n\\nTags: with_quic,with_utls\\n"\n' "$work" > "$work/bin/sing-box"
+        chmod +x "$work/bin/sing-box"
+        PATH="$work/bin:$PATH"
+        answer="$(get_core_capabilities)"
+        echo "probes=$(wc -l < "$work/probes" | tr -d ' ') extended=$(printf '%s' "$answer" | jq -c '[.extended, .quic, .utls]') stored=$([ "$(cat "$work/caps2.json")" = "$answer" ] && echo yes || echo no)"
+    )"
+
+    _qk() {
+        if printf '%s\n%s\n' "$out" "$probes" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s\n%s' "$out" "$probes" | tr '\n' '~')"
+        fi
+    }
+    _qk "get_status is answered without the other libraries" 'status-disabled={"enabled":0,"status":"disabled"}'
+    _qk "...and sees an enabled service" 'status-enabled={"enabled":1,"status":"enabled"}'
+    _qk "check_logs is answered without them: the log since the last start" 'logs=Mon netshift: [info] Starting netshift|Mon sing-box[1]: INFO started|'
+    _qk "get_sing_box_status is answered without them too" 'sing-box-status=["dns_configured","enabled","running","status"]'
+    _qk "get_core_capabilities without a cache goes on to the full command line" "caps-no-cache-rc=1"
+    _qk "...with a cache for the cores installed now, the cache is the answer" 'caps-cached={"version":"1.14.3","extended":true}'
+    _qk "...a cache made for another core is not used" "caps-other-core-rc=1"
+    _qk "the full answer asks the core twice at most and is kept for the next call" 'probes=2 extended=[true,true,true] stored=yes'
     rm -rf "$work"
 }
 

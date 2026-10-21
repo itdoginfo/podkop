@@ -791,7 +791,17 @@ async function loadPinGuardEvents() {
   }
 }
 
+// LuCI asks the option of the tab for its value more than once while it
+// builds the page: one controller per page, as in the manager tab.
+let controllerInitialized = false;
+
 export async function initController(): Promise<void> {
+  if (controllerInitialized) {
+    return;
+  }
+
+  controllerInitialized = true;
+
   onMount('dashboard-status').then(() => {
     logger.debug('[DASHBOARD]', 'initController', 'onMount');
     onPageMount();

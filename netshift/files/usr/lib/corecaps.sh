@@ -6,14 +6,30 @@
 # (see core_has_tag). The features that every config build checks itself (see the
 # facade) are the same ones listed here.
 
-# Prints a JSON object: the core, its tags, and one flag per feature.
+# Prints a JSON object: the core, its tags, and one flag per feature. The answer is kept for the
+# next call (lib/quick.sh answers from it while the same cores are installed): the pages ask on
+# every visit, and every `sing-box version` of the UPX lite build unpacks the whole core.
 get_core_capabilities() {
+    local answer
+
+    answer="$(_get_core_capabilities_run)" || return 1
+    printf '%s\n' "$answer"
+    [ -n "$answer" ] && core_capabilities_store "$answer"
+    return 0
+}
+
+_get_core_capabilities_run() {
     local version variant tags tags_known quic utls naive_core naive_client dns_pool extended
     local vless_encryption reality_mlkem
+    # one `sing-box version` for the version and one for the tags, whatever the number of
+    # questions below (core_has_tag and the version helpers reuse them)
+    local NETSHIFT_SING_BOX_VERSION NETSHIFT_SING_BOX_TAGS
 
-    version="$(get_sing_box_version)"
+    NETSHIFT_SING_BOX_VERSION="$(get_sing_box_version)"
+    NETSHIFT_SING_BOX_TAGS="$(get_sing_box_tags)"
+    version="$NETSHIFT_SING_BOX_VERSION"
     variant="$(get_sing_box_variant "$version")"
-    tags="$(get_sing_box_tags)"
+    tags="$NETSHIFT_SING_BOX_TAGS"
     tags_known=false
     [ -z "$tags" ] || tags_known=true
 
