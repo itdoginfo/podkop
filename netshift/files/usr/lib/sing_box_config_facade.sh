@@ -412,14 +412,28 @@ sing_box_cf_add_proxy_outbound() {
         if [ -n "$hy2_hop_ports" ]; then
             # a range may be written with ":" and a list with spaces ("+" in a link): the
             # same forms parse_port_list takes
-            hy2_hop_ports="$(printf '%s' "$hy2_hop_ports" | tr -d ' ' | tr ':' '-')"
+            hy2_hop_ports="$(printf '%s' "$hy2_hop_ports" | tr -d ' \t' | tr ':' '-')"
             if _hy2_valid_hop_ports "$hy2_hop_ports"; then
+                # Only a port of the link that is itself valid joins the list. Anything else
+                # (abc, 70000, an IPv6 address without brackets) is left as it was: the outbound
+                # then cannot be built and the link is skipped, as without mport, instead of
+                # putting an entry into server_ports that makes the whole config fail the check.
                 case "$port" in
+                "") port="$(_hy2_dedupe_ports "$hy2_hop_ports")" ;;
                 *","* | *"-"*)
-                    log "The link for '$tag' has a port range of its own; its mport ('$hy2_hop_ports') is not used" "warn"
+                    if _hy2_valid_hop_ports "$port"; then
+                        log "The link for '$tag' has a port range of its own; its mport ($(_hy2_log_value "$hy2_hop_ports")) is not used" "warn"
+                    else
+                        log "The link for '$tag' has a port that is not valid ($(_hy2_log_value "$port")); its mport is not used" "warn"
+                    fi
                     ;;
-                "") port="$hy2_hop_ports" ;;
-                *) port="$(_hy2_dedupe_ports "$port,$hy2_hop_ports")" ;;
+                *)
+                    if _hy2_valid_hop_ports "$port" && [ "$port" -ge 1 ] 2> /dev/null; then
+                        port="$(_hy2_dedupe_ports "$port,$hy2_hop_ports")"
+                    else
+                        log "The link for '$tag' has a port that is not valid ($(_hy2_log_value "$port")); its mport is not used" "warn"
+                    fi
+                    ;;
                 esac
                 # leading zeros ("00010") are the same number of seconds
                 case "$hy2_hop_interval" in
@@ -431,8 +445,12 @@ sing_box_cf_add_proxy_outbound() {
                 esac
                 case "$hy2_hop_interval" in
                 "") ;;
-                *[!0-9]* | ?????*)
-                    log "The link for '$tag' has a hop interval ('$hy2_hop_interval') that is not a number of seconds; the default is used" "warn"
+                *[!0-9]*)
+                    log "The link for '$tag' has a hop interval ($(_hy2_log_value "$hy2_hop_interval")) that is not a number of seconds; the default is used" "warn"
+                    ;;
+                ?????*)
+                    # too long to compare as a number in the shell, and far over the limit anyway
+                    log "The link for '$tag' has a hop interval of $(_hy2_log_value "$hy2_hop_interval") s; it must be 5-3600, the default is used" "warn"
                     ;;
                 *)
                     if [ "$hy2_hop_interval" -ge 5 ] && [ "$hy2_hop_interval" -le 3600 ]; then
@@ -443,7 +461,7 @@ sing_box_cf_add_proxy_outbound() {
                     ;;
                 esac
             else
-                log "The link for '$tag' has a port list for port hopping ('$hy2_hop_ports') that is not valid; connecting to its own port only" "warn"
+                log "The link for '$tag' has a port list for port hopping ($(_hy2_log_value "$hy2_hop_ports")) that is not valid; connecting to its own port only" "warn"
             fi
         fi
 
@@ -538,6 +556,16 @@ sing_box_cf_add_proxy_outbound() {
     esac
 
     echo "$config"
+}
+
+# A value of the link for the log: the first 40 characters and the length (the value comes from a
+# link of somebody else and may be anything, a key among others).
+_hy2_log_value() {
+    if [ "${#1}" -le 40 ]; then
+        printf "'%s'" "$1"
+    else
+        printf "'%.40s...' (%s characters)" "$1" "${#1}"
+    fi
 }
 
 # A list of ports and ranges for port hopping: "20000-30000" or "443,20000-30000,40000"; every

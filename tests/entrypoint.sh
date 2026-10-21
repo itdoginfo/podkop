@@ -24571,7 +24571,24 @@ test_hy2_hop() {
         echo "interval-warned=$(grep -c 'must be 5-3600' "$HH_LOG")"
         : > "$HH_LOG"
         echo "interval-huge=$(ob "$B&mport=20000-30000&hop-interval=99999999999999999999#x" 2>&1)"
-        echo "interval-huge-warned=$(grep -c 'not a number of seconds' "$HH_LOG")"
+        echo "interval-huge-warned=$(grep -c 'must be 5-3600' "$HH_LOG")"
+        # a port of the link that is not a port: the link is skipped as without mport (nothing
+        # built), never an entry in server_ports that would fail the check of the whole config
+        for own in 'h.example:abc' 'h.example:70000' '2001:db8::1' 'h.example:20000:30000' 'h.example:443%20'; do
+            with="$(ob "hy2://pw@$own/?sni=h.example&mport=40000-50000#x")"
+            without="$(ob "hy2://pw@$own/?sni=h.example#x")"
+            echo "bad-own-port[$own]=$([ "$with" = "$without" ] && echo "as-without-mport" || echo "differs: $with vs $without") ports=$(printf '%s' "$with" | jq -c '.[1]' 2> /dev/null)"
+        done
+        : > "$HH_LOG"; ob "hy2://pw@h.example:abc/?sni=h.example&mport=40000-50000#x" > /dev/null
+        echo "bad-own-port-warned=$(grep -c 'has a port that is not valid' "$HH_LOG")"
+        # without a port of its own the list is collapsed as well
+        echo "no-port-dup=$(ob "hy2://pw@h.example/?sni=h.example&mport=443,443,20000-30000#x")"
+        # a tab in the list (%09) is dropped like a space
+        echo "tab=$(ob "$B&mport=443%09,40000#x")"
+        # a value of the link goes to the log cut, with its length
+        long="$(printf '1%.0s' $(seq 1 100))"
+        : > "$HH_LOG"; ob "$B&mport=x$long#x" > /dev/null
+        echo "log-cut=$(grep -c '(101 characters)' "$HH_LOG") full=$(grep -c "$long" "$HH_LOG")"
 
         SB=/usr/local/bin/sing-box-1.14
         if [ -x "$SB" ]; then
@@ -24619,7 +24636,14 @@ test_hy2_hop() {
     _hh "a glob is not expanded by the shell: it is not a port list" 'glob=[443,null,null]'
     _hh "an interval out of range is said in the log" "interval-warned=1"
     _hh "an interval too long to be a number is the default, without a shell error" 'interval-huge=[null,["443:443","20000:30000"],null]'
-    _hh "...and it is said in the log" "interval-huge-warned=1"
+    _hh "...and the log says it is out of range" "interval-huge-warned=1"
+    for own in 'h.example:abc' 'h.example:70000' '2001:db8::1' 'h.example:20000:30000' 'h.example:443%20'; do
+        _hh "a port of the link that is not valid ($own) is not merged into the list: the same as without mport" "bad-own-port[$own]=as-without-mport ports=$(case "$own" in *:70000) echo null ;; esac)"
+    done
+    _hh "...and it is said in the log" "bad-own-port-warned=1"
+    _hh "a link without a port of its own: repeated ports are collapsed too" 'no-port-dup=[null,["443:443","20000:30000"],null]'
+    _hh "a tab in the list is dropped like a space" 'tab=[null,["443:443","40000:40000"],null]'
+    _hh "a value of the link goes to the log cut, with its length" "log-cut=1 full=0"
     if [ -x /usr/local/bin/sing-box-1.14 ]; then
         _hh "sing-box 1.14 accepts the hopping outbound" "core-check=ok"
     else
