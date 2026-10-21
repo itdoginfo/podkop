@@ -7738,8 +7738,12 @@ sing_box_fetch_ifconfig_with_timeout() {
 
     output_file="$(mktemp /tmp/netshift-check-proxy-response.XXXXXX)" || return 1
 
-    sing_box_oneshot tools fetch -D "$config_dir" -c "$config_path" --outbound "$outbound_tag" ifconfig.me \
-        > "$output_file" 2>/dev/null &
+    # A plain command with the ceiling, not the sing_box_oneshot function: a function in the
+    # background runs in a subshell, $! would be that subshell, and the watchdog below would
+    # kill it while the fetch goes on.
+    sing_box_oneshot_memlimit_init
+    GOMEMLIMIT="$NETSHIFT_ONESHOT_GOMEMLIMIT" sing-box tools fetch -D "$config_dir" -c "$config_path" \
+        --outbound "$outbound_tag" ifconfig.me > "$output_file" 2>/dev/null &
     fetch_pid=$!
 
     (

@@ -1047,7 +1047,8 @@ get_sing_box_version() {
 # router the OOM killer then picks one of the two. The ceiling makes the Go GC
 # collect earlier instead; it is soft, so a run that needs more still gets it.
 # An eighth of the RAM, within 16..128 MiB; prints nothing when /proc/meminfo
-# cannot be read (no ceiling).
+# cannot be read (no ceiling). NETSHIFT_MEMINFO_PATH replaces /proc/meminfo for
+# the tests only.
 sing_box_oneshot_memlimit() {
     local mem_kb limit_mb
 
@@ -1070,7 +1071,11 @@ sing_box_oneshot_memlimit_init() {
 }
 
 # Runs a short-lived sing-box command under the ceiling above. The daemon is not
-# started through here: its heap is what it needs.
+# started through here: its heap is what it needs. Never in the background where
+# the PID matters (`sing_box_oneshot ... &`): $! is then the subshell of the
+# function, not sing-box, and killing it leaves sing-box running. Such a caller
+# calls sing_box_oneshot_memlimit_init and runs
+# `GOMEMLIMIT="$NETSHIFT_ONESHOT_GOMEMLIMIT" sing-box ... &` itself.
 sing_box_oneshot() {
     sing_box_oneshot_memlimit_init
     GOMEMLIMIT="$NETSHIFT_ONESHOT_GOMEMLIMIT" sing-box "$@"

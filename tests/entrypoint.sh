@@ -24579,6 +24579,59 @@ DRVEOF
         printf '%s\n' "$direct" | sed 's/^/      /'
     fi
 
+    # the function in the background would make $! its subshell, not sing-box (see helpers.sh)
+    local backgrounded
+    backgrounded="$(awk '{ line = (cont ? cont " " : "") $0 } /\\$/ { cont = substr(line, 1, length(line) - 1); next }
+        { cont = "" } line ~ /sing_box_oneshot / && line ~ /&[[:space:]]*$/ { print FILENAME ": " line }' \
+        "$bin" "$lib"/*.sh 2> /dev/null || true)"
+    if [ -z "$backgrounded" ]; then
+        pass "sing_box_oneshot never runs in the background"
+    else
+        fail "sing_box_oneshot in the background (\$! is not sing-box):"
+        printf '%s\n' "$backgrounded" | sed 's/^/      /'
+    fi
+
+    # the watchdog of the proxy check stops the fetch itself: its $! is sing-box
+    cat > "$work/bin/sing-box" << 'SBEOF'
+#!/bin/sh
+echo "$$" > "$SB_PIDFILE"
+echo "${GOMEMLIMIT-unset}" > "$SB_ENVFILE"
+exec sleep 30
+SBEOF
+    chmod +x "$work/bin/sing-box"
+    local fetch_out
+    fetch_out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        PATH="$work/bin:$PATH"
+        SB_PIDFILE="$work/sb.pid"; SB_ENVFILE="$work/sb.env"; export SB_PIDFILE SB_ENVFILE
+        NETSHIFT_MEMINFO_PATH="$work/meminfo"
+        printf 'MemTotal:       262144 kB\n' > "$work/meminfo"
+        eval "$(awk '/^sing_box_fetch_ifconfig_with_timeout\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        # the watchdog waits 20 s in production; a second here
+        sleep() { if [ "$1" = 20 ]; then command sleep 1; else command sleep "$@"; fi; }
+        sing_box_fetch_ifconfig_with_timeout /tmp /tmp/none.json main-out > /dev/null 2>&1
+        pid="$(cat "$work/sb.pid" 2> /dev/null)"
+        command sleep 1
+        if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
+            echo "fetch-after-watchdog=alive"
+            kill "$pid" 2> /dev/null
+        else
+            echo "fetch-after-watchdog=stopped"
+        fi
+        echo "fetch-limit=$(cat "$work/sb.env" 2> /dev/null)"
+    )"
+    if printf '%s\n' "$fetch_out" | grep -qx 'fetch-after-watchdog=stopped'; then
+        pass "the watchdog of the proxy check stops sing-box itself"
+    else
+        fail "the watchdog of the proxy check leaves sing-box running" "$fetch_out"
+    fi
+    if printf '%s\n' "$fetch_out" | grep -qx 'fetch-limit=32MiB'; then
+        pass "the proxy check runs with the ceiling"
+    else
+        fail "the proxy check runs without the ceiling" "$fetch_out"
+    fi
+
     if grep -q 'GOMEMLIMIT="\$NETSHIFT_ONESHOT_GOMEMLIMIT" sing-box run' "$lib/dnsbench.sh"; then
         pass "the DNS benchmark tunnel runs with the ceiling"
     else
