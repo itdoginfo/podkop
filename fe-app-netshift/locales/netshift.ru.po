@@ -20,6 +20,9 @@ msgstr ""
 msgid "(disabled)"
 msgstr "(отключено)"
 
+msgid "%d servers cannot be used by this core whatever the filters say."
+msgstr "Серверов, которые это ядро не может использовать при любых фильтрах: %d."
+
 msgid "✔ Enabled"
 msgstr "✔ Включено"
 
@@ -220,6 +223,9 @@ msgstr "Проверять после загрузки"
 
 msgid "Check on schedule"
 msgstr "Проверять по расписанию"
+
+msgid "Check the filters"
+msgstr "Проверить фильтры"
 
 msgid "Check update"
 msgstr "Проверить обновление"
@@ -716,6 +722,9 @@ msgstr "FakeIP: IPv6 идёт через sing-box так же, как IPv4 эт�
 msgid "Fastest"
 msgstr "Самый быстрый"
 
+msgid "Filter preview"
+msgstr "Предпросмотр фильтров"
+
 msgid "First server only"
 msgstr "Только первый сервер"
 
@@ -1058,6 +1067,9 @@ msgstr "Оставить только серверы, в названии кот
 msgid "Keep only subscription servers whose name contains at least one of these keywords (case-insensitive). Leave empty to keep all. Several words can be written in one line, separated by | without spaces (NL|DE|Finland)."
 msgstr "Оставлять только серверы подписки, имя которых содержит хотя бы одно из этих ключевых слов (без учёта регистра). Оставьте пустым, чтобы оставить все. Несколько слов можно написать в одной строке через | без пробелов (NL|DE|Finland)."
 
+msgid "Kept"
+msgstr "Остаётся"
+
 msgid "Kept before a restore"
 msgstr "Сохранён перед восстановлением"
 
@@ -1222,6 +1234,9 @@ msgstr "Другие правила маркировки не найдены"
 
 msgid "No run yet"
 msgstr "Ещё не запускалось"
+
+msgid "No server is left: the section would have no connection."
+msgstr "Не остаётся ни одного сервера: у секции не будет соединения."
 
 msgid "No snapshots yet"
 msgstr "Снимков пока нет"
@@ -1610,6 +1625,9 @@ msgstr "Показать sing-box конфигурацию"
 msgid "Show the tiles on the dashboard"
 msgstr "Показывать плитки на дашборде"
 
+msgid "Shows how many servers of the downloaded subscription the filters above keep, and which. Nothing is saved or changed."
+msgstr "Показывает, сколько серверов скачанной подписки оставляют фильтры выше и какие именно. Ничего не сохраняется и не меняется."
+
 msgid "Sing-box"
 msgstr "Sing-box"
 
@@ -1778,6 +1796,9 @@ msgstr "Адрес опубликованного списка подписок:
 msgid "The check could not be completed"
 msgstr "Проверку выполнить не удалось"
 
+msgid "The check could not be run"
+msgstr "Не удалось выполнить проверку"
+
 msgid "The connection list is not available: is the service running?"
 msgstr "Список соединений недоступен: запущена ли служба?"
 
@@ -1832,6 +1853,12 @@ msgstr "У роутера есть глобальный адрес IPv6, а об
 msgid "The section is completely ignored (routing, lists, subscriptions), but its settings are kept. Clear the checkbox to enable it again"
 msgstr "Секция полностью игнорируется (маршрутизация, списки, подписки), но её настройки сохраняются. Снимите галочку, чтобы включить её снова"
 
+msgid "The section is disabled: it gives no servers."
+msgstr "Секция отключена: серверов она не даёт."
+
+msgid "The section is not saved yet: save it first."
+msgstr "Секция ещё не сохранена: сначала сохраните её."
+
 msgid "The server must be an IP address, optionally with #port"
 msgstr "Сервер должен быть IP-адресом, при необходимости с #портом"
 
@@ -1861,6 +1888,9 @@ msgstr "URL, который дашборд использует для изме�
 
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"
+
+msgid "There is no downloaded subscription yet: save the settings and restart the service first."
+msgstr "Подписка ещё не скачана: сначала сохраните настройки и перезапустите сервис."
 
 msgid "This core is built without QUIC: DoH3 and DoQ servers are replaced by DoH and DoT."
 msgstr "Это ядро собрано без QUIC: серверы DoH3 и DoQ заменяются на DoH и DoT."

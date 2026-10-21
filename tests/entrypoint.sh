@@ -24600,6 +24600,23 @@ FJ
         : > "$work/pv.log"
         (log() { echo x >> "$work/pv.log"; }; preview_subscription_filter main '{}' > /dev/null)
         echo "preview-silent=$(wc -l < "$work/pv.log" | tr -d ' ')"
+        # ...and the log of whoever calls the preview is not silenced after it
+        (log() { echo x >> "$work/pv.log"; }; preview_subscription_filter main '{}' > /dev/null; log after)
+        echo "log-after-preview=$(wc -l < "$work/pv.log" | tr -d ' ')"
+        # a section that is not saved, and a disabled one, are not "no subscription yet"
+        echo "no-section=$(preview_subscription_filter nosuch '{}' | jq -c '.error')"
+        uci -q -c "$work" set netshift.main.disabled=1; uci -q -c "$work" commit netshift
+        echo "disabled=$(preview_subscription_filter main '{}' | jq -c '.error')"
+        uci -q -c "$work" delete netshift.main.disabled; uci -q -c "$work" commit netshift
+
+        # a large feed: the batches are far over the 128 KiB a command argument may hold
+        # (500 VLESS Reality gRPC servers are ~225 KB), and the preview still counts them
+        jq -n '{outbounds: [range(0; 500) | {type: "vless", tag: "Germany-\(.)", server: "n\(.).example.com", server_port: 443,
+            uuid: "11111111-2222-3333-4444-555555555555", flow: "",
+            tls: {enabled: true, server_name: "www.example.com", utls: {enabled: true, fingerprint: "chrome"},
+                reality: {enabled: true, public_key: "jNXHt1yRo0vDuchQlIP6Z0ZvjT3KtzVI-T4E7RoLJS0", short_id: "0123456789abcdef"}},
+            transport: {type: "grpc", service_name: "grpc-service-name"}}]}' > "$(get_subscription_json_path main "$h")"
+        echo "large-feed=$(preview_subscription_filter main '{}' | jq -c '[.total, .kept, .error]')"
 
         # GeoIP flags: the real start puts them in front of the names before it filters, and the
         # country filters match them; the preview does the same from the cache, looks nothing up
@@ -24637,6 +24654,10 @@ FJ
     _fp "the preview keeps as many servers as the real apply on the same file" "apply-kept=2"
     _fp "...and says the same number" "preview-kept=2"
     _fp "the preview writes nothing to the log" "preview-silent=0"
+    _fp "...and the log of its caller works again afterwards" "log-after-preview=1"
+    _fp "a section that is not saved: no_section, not no_cache" 'no-section="no_section"'
+    _fp "a disabled section: disabled" 'disabled="disabled"'
+    _fp "a feed of 500 VLESS Reality gRPC servers is counted (no E2BIG)" 'large-feed=[500,500,null]'
     _fp "without a downloaded subscription: no_cache" 'no-cache="no_cache"'
     _fp "the saved filter is applied (the total is what the core can use)" 'saved-filter=[4,2,["Germany-1","Germany-2"]]'
     _fp "a server this core cannot use (xhttp without extended) is counted apart" "unsupported-counted=1"

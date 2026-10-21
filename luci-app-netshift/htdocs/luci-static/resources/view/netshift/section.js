@@ -705,6 +705,11 @@ function createSectionContent(section) {
 
             const value = element.getValue();
 
+            // a widget with no value to give is skipped too: an empty list would clear the filter
+            if (value == null) {
+              return;
+            }
+
             overrides[name] = (Array.isArray(value) ? value : [value]).filter(Boolean);
           });
 
@@ -725,6 +730,10 @@ function createSectionContent(section) {
                 result.textContent = _(
                   "There is no downloaded subscription yet: save the settings and restart the service first.",
                 );
+              } else if (data.error === "no_section") {
+                result.textContent = _("The section is not saved yet: save it first.");
+              } else if (data.error === "disabled") {
+                result.textContent = _("The section is disabled: it gives no servers.");
               } else if (data.error) {
                 result.textContent = _("The check could not be run");
               } else {

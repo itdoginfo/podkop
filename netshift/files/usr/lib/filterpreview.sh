@@ -12,16 +12,25 @@
 # - total: servers of the subscription that this core can use at all (an estimate: the static
 # filter of the generator, without the sing-box check of the start, which may still drop a server
 # that is malformed), kept: of them, those the filters keep, unsupported: servers the core cannot
-# use whatever the filters say (for example xhttp without sing-box-extended) - or {"error": "no_cache"|"bad_input"|"no_config"}.
+# use whatever the filters say (for example xhttp without sing-box-extended) - or
+# {"error": "no_cache"|"bad_input"|"no_config"|"no_section"|"disabled"}: no_section for a section
+# that is not saved (yet), disabled for one that gives no servers at all (disabled '1').
 preview_subscription_filter() {
+    # In a subshell: a preview is not an event (the shared code logs what it merges, and every
+    # press of the button would fill the log of the router), so log is silenced - for the
+    # preview only, not for whoever calls it next in the same shell.
+    (
+        log() { :; }
+        _preview_subscription_filter_run "$@"
+    )
+}
+
+_preview_subscription_filter_run() {
     local section="$1"
     local overrides="${2:-}"
     local tmp_dir keys key value
     local include_json exclude_json urls_file merged_file batch all_batch feed_total
 
-    # a preview is not an event: the shared code logs what it merges, and every press of the
-    # button would fill the log of the router
-    log() { :; }
     [ -n "$overrides" ] || overrides="{}"
     # the section id goes into uci names and the name of the cache file: a UCI id only
     case "$section" in
@@ -45,6 +54,16 @@ preview_subscription_filter() {
         echo '{"error":"no_config"}'
         return 0
     }
+    if [ "$(uci -q -c "$tmp_dir" -t "$tmp_dir/save" get "netshift.$section" 2> /dev/null)" != "section" ]; then
+        rm -rf "$tmp_dir"
+        echo '{"error":"no_section"}'
+        return 0
+    fi
+    if [ "$(uci -q -c "$tmp_dir" -t "$tmp_dir/save" get "netshift.$section.disabled" 2> /dev/null)" = "1" ]; then
+        rm -rf "$tmp_dir"
+        echo '{"error":"disabled"}'
+        return 0
+    fi
 
     # Only the filter lists may be overridden. -t: uci keeps what it stages in the save
     # directory, which -c does not move; ours is inside the temporary directory.
@@ -84,11 +103,13 @@ preview_subscription_filter() {
         fi
         # the servers the core can use at all (no filter), then the ones the filters keep
         SUBSCRIPTION_PARAM_FILTER="{}"
-        all_batch="$(sing_box_cf_prepare_subscription_batch '{"outbounds":[]}' "$merged_file" "[]" "[]")" || exit 4
+        # the batches carry every kept outbound: hundreds of KB for a large feed, more than one
+        # argument of a command may hold (E2BIG past 128 KiB), so they go to jq as files
+        sing_box_cf_prepare_subscription_batch '{"outbounds":[]}' "$merged_file" "[]" "[]" > "$tmp_dir/all.json" || exit 4
         SUBSCRIPTION_PARAM_FILTER="$(build_subscription_param_filter_json "$section")"
-        batch="$(sing_box_cf_prepare_subscription_batch '{"outbounds":[]}' "$merged_file" "$include_json" "$exclude_json")" || exit 4
-        jq -c -n --argjson all "$all_batch" --argjson batch "$batch" --argjson feed "${feed_total:-0}" \
-            '{total: ($all.names | length), kept: ($batch.names | length), unsupported: ($feed - ($all.names | length)), names: $batch.names}'
+        sing_box_cf_prepare_subscription_batch '{"outbounds":[]}' "$merged_file" "$include_json" "$exclude_json" > "$tmp_dir/batch.json" || exit 4
+        jq -c -n --slurpfile all "$tmp_dir/all.json" --slurpfile batch "$tmp_dir/batch.json" --argjson feed "${feed_total:-0}" \
+            '{total: ($all[0].names | length), kept: ($batch[0].names | length), unsupported: ($feed - ($all[0].names | length)), names: $batch[0].names}'
     )"
     local rc=$?
     rm -rf "$tmp_dir"

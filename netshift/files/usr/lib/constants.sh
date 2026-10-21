@@ -331,6 +331,8 @@ SB_DNS_SERVER_TAG="dns-server"
 # is retried after GEOIP_NEGATIVE_TTL seconds, a found country after GEOIP_POSITIVE_TTL.
 GEOIP_API_URL="https://api.country.is"
 GEOIP_CACHE_FILE="$NETSHIFT_STATE_DIR/geoip.json"
+# GEOIP_CACHE_ONLY=1 (set by the filter preview, lib/filterpreview.sh, for its own run only):
+# the GeoIP flags come from GEOIP_CACHE_FILE alone - no lookup, no write, no warning about a miss.
 GEOIP_LINKS_FILE="$TMP_SING_BOX_FOLDER/geoip-links.json"
 GEOIP_POSITIVE_TTL=2592000
 GEOIP_NEGATIVE_TTL=86400
