@@ -276,7 +276,7 @@ function createSettingsContent(section) {
       body.replaceChildren(
         ...widget.rows.map((row, index) =>
           E("tr", { class: "tr" }, [
-            E("td", { class: "td", style: cellStyle }, [
+            E("td", { class: "td", style: cellStyle, "data-title": _("Server") }, [
               presetLabel(row.server)
                 ? E("div", {}, [
                     presetLabel(row.server),
@@ -294,7 +294,7 @@ function createSettingsContent(section) {
               ),
               !presetLabel(row.server) && index === 0 ? mainMark : "",
             ]),
-            E("td", { class: "td", style: cellStyle }, [
+            E("td", { class: "td", style: cellStyle, "data-title": _("Route") }, [
               E(
                 "select",
                 {
@@ -310,7 +310,11 @@ function createSettingsContent(section) {
             ]),
             E(
               "td",
-              { class: "td", style: `${cellStyle};white-space:nowrap` },
+              {
+                class: "td",
+                style: `${cellStyle};white-space:nowrap`,
+                "data-title": _("Time"),
+              },
               timeCell(row),
             ),
             E("td", { class: "td", style: `${cellStyle};white-space:nowrap` }, [
@@ -470,17 +474,17 @@ function createSettingsContent(section) {
               E("th", { class: "th" }, _("Server")),
               E("th", { class: "th" }, _("Route")),
               E("th", { class: "th" }, _("Time")),
-              E(
-                "th",
-                { class: "th", style: "text-align:right;white-space:nowrap" },
-                refreshButton,
-              ),
+              E("th", { class: "th" }, ""),
             ]),
           ]),
           body,
         ]),
       ]),
-      E("div", { style: "margin-top:.5em" }, [status]),
+      // the button is not in the header row: the themes hide that row on a narrow screen
+      E("div", { style: "margin-top:.5em;display:flex;align-items:center;gap:.5em;flex-wrap:wrap" }, [
+        refreshButton,
+        status,
+      ]),
       E("div", { style: "margin-top:.5em;max-width:28em" }, [pickerNode]),
       problem,
     ]);
