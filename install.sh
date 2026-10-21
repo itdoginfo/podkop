@@ -5,6 +5,16 @@ REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
 DOWNLOAD_DIR="/tmp/podkop"
 COUNT=3
 
+# Answer the Russian translation prompt in advance: --install-translation or
+# --skip-translation. Without either, ask as before.
+RUS_ANSWER=""
+for arg in "$@"; do
+    case "$arg" in
+    --install-translation) RUS_ANSWER=y ;;
+    --skip-translation) RUS_ANSWER=n ;;
+    esac
+done
+
 # Cached flag to switch between ipk or apk package managers
 PKG_IS_APK=0
 command -v apk >/dev/null 2>&1 && PKG_IS_APK=1
@@ -187,9 +197,11 @@ main() {
                 pkg_remove luci-i18n-podkop*
                 pkg_install "$DOWNLOAD_DIR/$ru"
         else
-            msg "Русский язык интерфейса ставим? y/n (Install the Russian interface language?)"
+            RUS="$RUS_ANSWER"
+            [ -n "$RUS" ] || msg "Русский язык интерфейса ставим? y/n (Install the Russian interface language?)"
             while true; do
-                read -r -p '' RUS
+                # stdin closed (unattended run): skip instead of looping forever
+                [ -n "$RUS" ] || read -r -p '' RUS || break
                 case $RUS in
                 y)
                     pkg_remove luci-i18n-podkop*
@@ -201,6 +213,7 @@ main() {
                     ;;
                 *)
                     echo "Введите y или n"
+                    RUS=""
                     ;;
                 esac
             done
