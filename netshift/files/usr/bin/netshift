@@ -9506,7 +9506,7 @@ support_report)
     support_report
     ;;
 get_crash_log)
-    get_sing_box_crash_log | support_mask_text
+    support_crash_log_masked
     ;;
 global_check)
     global_check "${2:-}"

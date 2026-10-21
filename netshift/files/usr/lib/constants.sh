@@ -500,3 +500,7 @@ AUTO_UPDATE_TIME_DEFAULT="04:30"
 # How long a just-updated NetShift may take to work again: attempts x seconds.
 AUTO_UPDATE_HEALTH_ATTEMPTS=9
 AUTO_UPDATE_HEALTH_INTERVAL=10
+
+# Where the sing-box configuration is written unless settings.config_path says otherwise
+# (the default of /etc/config/netshift).
+SING_BOX_CONFIG_PATH_DEFAULT="/etc/sing-box/config.json"

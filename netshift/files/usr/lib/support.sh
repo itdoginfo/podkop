@@ -14,6 +14,12 @@
 SUPPORT_LOG_LINES=120
 SUPPORT_ERROR_LINES=80
 SUPPORT_CRASH_LINES=60
+# A larger report is cut (with a note): the interface gets it in one answer.
+SUPPORT_REPORT_MAX_BYTES=262144
+# The DNS providers that put an id of the user into the first label of the server name
+# (<id>.dns.nextdns.io, <id>.d.adguard-dns.com, <id>.dns.controld.com). That label is hidden;
+# any other name (one.one.one.one, common.dot.dns.yandex.net) stays readable.
+SUPPORT_DNS_ID_SUFFIXES="dns.nextdns.io d.adguard-dns.com dns.controld.com"
 
 # The UCI configuration of netshift as JSON ({"values": {...}}). A function of its own so that
 # a test can put a fixture in its place.
@@ -23,7 +29,7 @@ support_uci_json() {
 
 # stdin: the UCI JSON; $1: the JSON array of hidden server names. stdout: the same, masked.
 support_mask_uci() {
-    jq -c --argjson hosts "${1:-[]}" '
+    jq -c --argjson hosts "${1:-[]}" --arg idsuffixes "$SUPPORT_DNS_ID_SUFFIXES" '
         def count_or_hide: if type == "array" then ["<\(length) entries>"] else "<hidden>" end;
         def link_scheme: if type == "string" and contains("://") then (split("://")[0] | split(" ") | last) + "://<hidden>" else "<hidden>" end;
         def mask_links: if type == "array" then map(link_scheme)
@@ -31,6 +37,16 @@ support_mask_uci() {
         # a word of the option name (password, secret, key ...): "public_key" is secret, "keywords" is not
         def secret_name: (ascii_downcase | split("_")) as $words
             | any($words[]; IN("password", "passwd", "secret", "token", "uuid", "auth", "psk", "hwid", "private", "pubkey", "key", "sid", "username"));
+        def id_host: . as $h | if any(($idsuffixes | split(" "))[]; (. as $s | $h | endswith("." + $s)))
+            then "<hidden>." + ($h | split(".")[1:] | join(".")) else $h end;
+        # a DNS server as the settings keep it: [scheme://]host[:port][/path]. The path (a DoH
+        # endpoint, often with an id: dns.controld.com/pk_...) and the id label of the name go.
+        def dns_value: if type != "string" then .
+            else (if contains("://") then (split("://")[0] + "://") else "" end) as $scheme
+                | (if contains("://") then (split("://")[1:] | join("://")) else . end) as $rest
+                | ($rest | split("/")) as $parts
+                | $scheme + ($parts[0] | id_host) + (if ($parts | length) > 1 then "/<hidden>" else "" end) end;
+        def dns_options: ["dns_server", "domain_resolver_dns_server", "bootstrap_dns_server", "dns_pool_server", "own_dns_server"];
         def link_options: ["proxy_string", "selector_proxy_links", "urltest_proxy_links", "selector_proxy_links_text", "urltest_proxy_links_text"];
         def data_options: ["user_domains", "user_domains_text", "user_subnets", "user_subnets_text", "fully_routed_ips", "routing_excluded_ips",
                            "local_domain_lists", "local_subnet_lists", "remote_domain_lists", "remote_subnet_lists", "source_network_interfaces",
@@ -41,6 +57,7 @@ support_mask_uci() {
             with_entries(
                 .key as $k
                 | if ($k | startswith(".")) then .
+                elif (dns_options | index($k)) != null then .value |= (if type == "array" then map(dns_value) else dns_value end)
                 elif (link_options | index($k)) != null then .value |= mask_links
                 elif (data_options | index($k)) != null then .value |= count_or_hide
                 elif ($k | secret_name) then .value = "<hidden>"
@@ -52,16 +69,15 @@ support_mask_uci() {
 # stdin: the sing-box config. $1: the JSON array of server names. stdout: the config with the
 # secrets and the lists of the user taken out.
 support_mask_singbox() {
-    jq --argjson hosts "${1:-[]}" '
+    jq --argjson hosts "${1:-[]}" --arg idsuffixes "$SUPPORT_DNS_ID_SUFFIXES" '
         def secret_key: ["uuid", "password", "passwd", "secret", "token", "private_key", "public_key", "short_id", "pre_shared_key",
                          "psk", "username", "auth_str", "auth", "key", "pin_sha256", "certificate_public_key_sha256",
                          "client_subnet", "path"];
         def list_key: ["domain", "domain_suffix", "domain_keyword", "domain_regex", "ip_cidr", "source_ip_cidr", "package_name"];
         def host_key: ["server", "server_name", "host", "Host", "address"];
-        def test_ip: type == "string" and (split(".") | all(length > 0 and (tostring | explode | all(. >= 48 and . <= 57))));
-        # the first label of a DNS server name with an id in it (id.dns.nextdns.io); a public
-        # resolver (dns.google, dns.nextdns.io) keeps its name
-        def dns_id_host: if type == "string" and ((split(".") | length) >= 4) and (test_ip | not)
+        # the first label of a DNS server name with an id in it (SUPPORT_DNS_ID_SUFFIXES); a
+        # public resolver (dns.google, dns.nextdns.io, one.one.one.one) keeps its name
+        def dns_id_host: . as $h | if type == "string" and any(($idsuffixes | split(" "))[]; (. as $s | $h | endswith("." + $s)))
             then "<hidden>." + (split(".")[1:] | join(".")) else . end;
         walk(
             if type == "object" then
@@ -108,7 +124,11 @@ support_mask_text() {
         -e 's#\(https\?://\)[^/ ?"]*@#\1<hidden>@#g' \
         -e 's#\(https\?://[^/ ?"]*\)[/?][^ "]*#\1/<hidden>#g' \
         -e 's#\(doh3\?://[^/ ?"]*\)[/?][^ "]*#\1/<hidden>#g' \
-        -e 's#\(doh3\?\|dot\|doq\|h3\|tls\|quic\)://[^ ".:/]*\.\([^ ".:/]*\.[^ ".:/]*\.[^ ".:/]*\)#\1://<hidden>.\2#g' \
+        -e 's#[A-Za-z0-9_-][A-Za-z0-9_-]*\.\(dns\.nextdns\.io\|d\.adguard-dns\.com\|dns\.controld\.com\)#<hidden>.\1#g' \
+        -e 's#\(\(dns\.nextdns\.io\|dns\.controld\.com\|adguard-dns\.com\)/\)[^ "]*#\1<hidden>#g' \
+        -e 's#\(EDNS Client Subnet detected[^:]*: \)[^ ,"]*#\1<hidden>#g' \
+        -e 's#\(using the configured \)[^ ,"]*#\1<hidden>#g' \
+        -e "s#\\(invalid EDNS Client Subnet '\\)[^']*#\\1<hidden>#g" \
         -e "s#\\(connection to \\)[^ ]*#\\1<hidden>#g" \
         -e "s#\\(the domain '\\)[^']*#\\1<hidden>#g"
 }
@@ -123,6 +143,18 @@ get_sing_box_crash_log() {
         END { printf "%s", buf }'
 }
 
+# The crash log for `netshift get_crash_log`: masked like the report, servers as host-N too.
+support_crash_log_masked() {
+    local config_file hosts_json sed_script
+
+    config_file="$(config_get_value_or_default config_path "$SING_BOX_CONFIG_PATH_DEFAULT")"
+    hosts_json="$(support_hosts "$config_file")"
+    sed_script="$(mktemp)" || return 1
+    support_hosts_sed "$hosts_json" > "$sed_script"
+    get_sing_box_crash_log | support_mask_text | sed -f "$sed_script"
+    rm -f "$sed_script"
+}
+
 support_section() {
     printf '\n===== %s =====\n' "$1"
 }
@@ -131,7 +163,7 @@ support_section() {
 support_report() {
     local config_file hosts_json sed_script tmp version variant tags local_crash
 
-    config_file="$(config_get_value_or_default config_path /etc/sing-box/config.json)"
+    config_file="$(config_get_value_or_default config_path "$SING_BOX_CONFIG_PATH_DEFAULT")"
     hosts_json="$(support_hosts "$config_file")"
     sed_script="$(mktemp)" || return 1
     tmp="$(mktemp)" || { rm -f "$sed_script"; return 1; }
@@ -142,7 +174,11 @@ support_report() {
     {
         printf 'NetShift support report\n'
         printf 'Generated: %s (UTC)\n' "$(date -u '+%Y-%m-%d %H:%M:%S' 2> /dev/null)"
-        printf 'Servers of the configuration are shown as host-N, links and lists as <hidden>.\n'
+        if [ "$hosts_json" = "[]" ]; then
+            printf 'No server address could be read from the sing-box configuration: server names in the logs below are NOT replaced. Links and lists are shown as <hidden>.\n'
+        else
+            printf 'Servers of the configuration are shown as host-N, links and lists as <hidden>.\n'
+        fi
 
         support_section "NetShift"
         printf 'Version: %s\n' "${NETSHIFT_VERSION:-unknown}"
@@ -155,7 +191,8 @@ support_report() {
         [ -r /tmp/sysinfo/model ] && printf 'Model: %s\n' "$(cat /tmp/sysinfo/model)"
         printf 'Uptime: %s\n' "$(uptime 2> /dev/null | sed 's/^ *//')"
         free 2> /dev/null | sed -n '1,2p'
-        df -h /overlay /tmp 2> /dev/null
+        # a system without /overlay (an ext4 image) has nothing to say about it; never stop the report
+        df -h /overlay /tmp 2> /dev/null || df -h /tmp 2> /dev/null || true
 
         support_section "sing-box"
         version="$(get_sing_box_version 2> /dev/null)"
@@ -194,7 +231,12 @@ support_report() {
         logread -e sing-box 2> /dev/null | grep -iE "error|fatal|panic|warn" | tail -n "$SUPPORT_ERROR_LINES"
     } 2>&1 | support_mask_text | sed -f "$sed_script" > "$tmp"
 
-    cat "$tmp"
+    if [ "$(wc -c < "$tmp")" -gt "$SUPPORT_REPORT_MAX_BYTES" ]; then
+        head -c "$SUPPORT_REPORT_MAX_BYTES" "$tmp"
+        printf '\n\n(the report is cut at %s KB)\n' "$((SUPPORT_REPORT_MAX_BYTES / 1024))"
+    else
+        cat "$tmp"
+    fi
     rm -f "$sed_script" "$tmp"
     trap - EXIT INT TERM
 }
