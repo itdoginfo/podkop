@@ -5404,18 +5404,13 @@ section_own_dns_applies() {
     return 1
 }
 
-# Prints the tags of the own DNS servers of a section that are in the config, in order.
+# Prints the tags of the own DNS servers of a section that are in the config, in order (one jq
+# run over the config, whatever the number of servers).
 section_own_dns_tags() {
-    local section="$1"
-    local index=1 tag tags=""
-
-    while :; do
-        tag="$SB_SECTION_OWN_DNS_PREFIX$section-$index"
-        printf '%s' "$config" | jq -e --arg tag "$tag" 'any(.dns.servers[]?; .tag == $tag)' > /dev/null 2>&1 || break
-        tags="${tags:+$tags }$tag"
-        index=$((index + 1))
-    done
-    printf '%s' "$tags"
+    printf '%s' "$config" | jq -r --arg prefix "$SB_SECTION_OWN_DNS_PREFIX$1-" '
+        [.dns.servers[]?.tag // empty | select(startswith($prefix))
+            | {tag: ., n: (ltrimstr($prefix) | tonumber? // empty)}]
+        | sort_by(.n) | map(.tag) | join(" ")' 2> /dev/null
 }
 
 configure_section_own_dns() {
@@ -5427,10 +5422,12 @@ configure_section_own_dns() {
     section_has_enabled_lists "$section" || return 0
 
     DNS_POOL_ENTRY_LABEL="own_dns_server"
+    DNS_POOL_HAS_PRIMARY=0
     DNS_POOL_ENTRIES=""
     DNS_POOL_COUNT=0
     config_list_foreach "$section" "own_dns_server" _dns_pool_collect_entry
     DNS_POOL_ENTRY_LABEL="dns_pool_server"
+    DNS_POOL_HAS_PRIMARY=1
     [ "$DNS_POOL_COUNT" -gt 0 ] || return 0
 
     config_get connection_type "$section" "connection_type"
@@ -5534,13 +5531,17 @@ prune_section_resolve_rules_without_domains() {
 }
 
 # Adds a rule-set to the route rule being configured and, when the section has its own DNS, to
-# its resolve rule (the lists the rule-set belongs to are the same).
+# its resolve rule (the lists the rule-set belongs to are the same). $3 is the kind of the list,
+# domains (the default) or subnets: a subnet list has nothing to resolve and stays out of the
+# resolve rule (a resolve rule matching only on addresses would resolve nothing).
 patch_section_route_rule_set() {
     local route_rule_tag="$1"
     local ruleset_tag="$2"
+    local list_type="${3:-domains}"
 
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-    if [ -n "${SECTION_RESOLVE_RULE_TAG:-}" ] && ! rule_references_ruleset "route" "$SECTION_RESOLVE_RULE_TAG" "$ruleset_tag"; then
+    if [ "$list_type" = "domains" ] && [ -n "${SECTION_RESOLVE_RULE_TAG:-}" ] &&
+        ! rule_references_ruleset "route" "$SECTION_RESOLVE_RULE_TAG" "$ruleset_tag"; then
         config=$(sing_box_cm_patch_route_rule "$config" "$SECTION_RESOLVE_RULE_TAG" "rule_set" "$ruleset_tag")
     fi
 }
@@ -5864,8 +5865,14 @@ _dns_pool_collect_entry() {
         return 0
     fi
 
-    if [ $((DNS_POOL_COUNT + 2)) -gt "$DNS_POOL_MAX_SERVERS" ]; then
-        log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': at most $DNS_POOL_MAX_SERVERS upstreams (including the primary) are used" "warn"
+    # The pool of the settings shares the cap with the primary server; own_dns_server has none
+    # (DNS_POOL_HAS_PRIMARY=0).
+    if [ $((DNS_POOL_COUNT + 1 + ${DNS_POOL_HAS_PRIMARY:-1})) -gt "$DNS_POOL_MAX_SERVERS" ]; then
+        if [ "${DNS_POOL_HAS_PRIMARY:-1}" -eq 1 ]; then
+            log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': at most $DNS_POOL_MAX_SERVERS upstreams (including the primary) are used" "warn"
+        else
+            log "Ignoring ${DNS_POOL_ENTRY_LABEL:-dns_pool_server} '$entry': at most $DNS_POOL_MAX_SERVERS servers are used" "warn"
+        fi
         return 0
     fi
 
@@ -6909,7 +6916,9 @@ configure_routing_for_section_lists() {
             "subnets" "$section" "$route_rule_tag"
     fi
 
-    if [ "$resolve_real_ip_for_routing" -eq 1 ] && [ "$section_connection_type" != "dns" ]; then
+    # The section's own resolve rule (above) already resolves its domains before the route rule.
+    if [ "$resolve_real_ip_for_routing" -eq 1 ] && [ "$section_connection_type" != "dns" ] &&
+        [ -z "$SECTION_RESOLVE_RULE_TAG" ]; then
         [ -n "$own_dns_tags" ] || own_dns_tags="$SB_DNS_SERVER_TAG"
         config=$(sing_box_cm_add_resolve_rule "$config" "$route_rule_tag" "$(gen_id)" "${own_dns_tags%% *}")
         log "Added resolve rule for '$section' section" "debug"
@@ -7010,7 +7019,7 @@ prepare_source_ruleset() {
     fi
 
     if ! rule_references_ruleset "route" "$route_rule_tag" "$ruleset_tag"; then
-        patch_section_route_rule_set "$route_rule_tag" "$ruleset_tag"
+        patch_section_route_rule_set "$route_rule_tag" "$ruleset_tag" "$type"
     fi
 
     if [ "$type" = "domains" ] &&
@@ -7130,7 +7139,7 @@ configure_remote_domain_or_subnet_list_handler() {
         config_get update_interval "settings" "update_interval" "1d"
 
         config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
-        patch_section_route_rule_set "$route_rule_tag" "$ruleset_tag"
+        patch_section_route_rule_set "$route_rule_tag" "$ruleset_tag" "$type"
         case "$type" in
         domains)
             patch_section_dns_rule_set "$ruleset_tag"
@@ -9274,8 +9283,9 @@ Available commands:
     config_snapshot <save|list|restore> [id]
                             Snapshots of /etc/config/netshift: keep, list or bring back
     get_pin_guard_events    Print the switches the pin guard made as JSON
-    dns_benchmark [server...]
-                            Time each DNS server (the configured ones by default) from this router
+    dns_benchmark [--section <section>] [server...]
+                            Time each DNS server (the configured ones by default) the way its queries go;
+                            with --section the given servers go the way of that section's own DNS
     get_subscription_info   Print the traffic and expiry the subscription panels report as JSON
     clash_api               Clash API interface for managing proxies and groups
     show_config             Display current NetShift configuration

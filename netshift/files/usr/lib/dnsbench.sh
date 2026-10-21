@@ -314,10 +314,10 @@ dns_benchmark() {
 }
 
 # the run itself: with no arguments, the servers of the settings (the main one and the pool).
-# Prints {"results":[{"server","ms"}]} in the order asked. With --section the servers are the own
-# DNS servers of that section (own_dns_server) and are timed the way the configuration sends them:
-# through the section's outbound with own_dns_via_section, from the router otherwise (the DNS
-# routing of the settings does not apply to them).
+# Prints {"results":[{"server","ms"}]} in the order asked. With --section the servers given (the
+# UI passes the own_dns_server list of that section; nothing here reads it) are timed the way the
+# configuration sends that section's own DNS: through the section's outbound with
+# own_dns_via_section, from the router otherwise (the DNS routing of the settings does not apply).
 _dns_benchmark_run() {
     local bootstrap dir server index=0 result="[]" ms dns_type dns_server via valid_count=0 line
     local tag tunnel_servers tunnel_positions tunnel_done tunnel_count position group n

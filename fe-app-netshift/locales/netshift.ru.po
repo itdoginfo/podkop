@@ -56,6 +56,9 @@ msgstr "Активный"
 msgid "Active Connections"
 msgstr "Активные соединения"
 
+msgid "Add a DNS server above first"
+msgstr "Сначала добавьте DNS-сервер выше"
+
 msgid "Add a server: pick one or type scheme://host"
 msgstr "Добавить сервер: выберите из списка или введите схема://хост"
 
@@ -121,6 +124,9 @@ msgstr "Применимо для SOCKS и Shadowsocks прокси"
 
 msgid "Ask for a user name and a password. Without a login anyone in your network can use this proxy. If the login is not complete the proxy is not created at all."
 msgstr "Запрашивать имя пользователя и пароль. Без логина этим прокси может пользоваться любой в вашей сети. Если логин задан не полностью, прокси не создаётся вовсе."
+
+msgid "Ask these DNS servers through this section"
+msgstr "Опрашивать эти DNS-серверы через эту секцию"
 
 msgid "At least one proxy link must be specified."
 msgstr "Необходимо указать хотя бы одну прокси-ссылку."
@@ -472,6 +478,12 @@ msgstr "Таймаут DNS-сервера"
 
 msgid "DNS servers"
 msgstr "DNS-серверы"
+
+msgid "DNS servers of this section"
+msgstr "DNS-серверы этой секции"
+
+msgid "DNS speed test"
+msgstr "Тест скорости DNS"
 
 msgid "DNS: answered with a FakeIP address, the traffic enters the tunnel path"
 msgstr "DNS: выдаётся адрес FakeIP, трафик идёт по пути туннеля"
@@ -1304,6 +1316,9 @@ msgstr "Время ожидания истекло"
 msgid "Optional"
 msgstr "Необязательно"
 
+msgid "Optional: DNS servers for this section only, instead of the global ones: scheme://host[:port][/path], where scheme is udp, tcp, dot, doh, doh3 or doq. A VPN or exclusion section resolves its direct connections through the first server; with real IPv6 addresses (above) all the servers answer the AAAA queries of its domains. A proxy section is resolved by its proxy server. Empty: the global DNS."
+msgstr "Необязательно: DNS-серверы только для этой секции вместо глобальных: scheme://host[:port][/path], где scheme - udp, tcp, dot, doh, doh3 или doq. Секция VPN или исключений разрешает свои прямые соединения через первый сервер; при настоящих IPv6-адресах (выше) на AAAA-запросы её доменов отвечают все серверы. Прокси-секцию разрешает сам прокси-сервер. Пусто: глобальный DNS."
+
 msgid "Optional: https:// addresses of GitHub mirrors, for when GitHub is hard to reach. A mirror is tried only after the direct download failed, and is put in front of the full GitHub address (for example https://gh-proxy.com/). What a mirror returns is not signed, so list only a mirror you trust: it supplies the downloaded packages (checksum lists are always read from GitHub itself). Empty: no mirror."
 msgstr "Необязательно: https://-адреса зеркал GitHub на случай, когда GitHub плохо доступен. Зеркало пробуется только после неудачной прямой загрузки и подставляется перед полным адресом GitHub (например, https://gh-proxy.com/). Ответ зеркала не подписан, поэтому указывайте только то зеркало, которому доверяете: оно отдаёт скачиваемые пакеты (списки контрольных сумм всегда читаются с самого GitHub). Пусто: зеркал нет."
 
@@ -1760,6 +1775,9 @@ msgstr "TCP-порты, которые всегда идут напрямую"
 msgid "Test latency"
 msgstr "Тестирование задержки"
 
+msgid "Test the servers"
+msgstr "Проверить серверы"
+
 msgid "Testing..."
 msgstr "Проверяю..."
 
@@ -1835,6 +1853,9 @@ msgstr "Секция полностью игнорируется (маршрут
 msgid "The server must be an IP address, optionally with #port"
 msgstr "Сервер должен быть IP-адресом, при необходимости с #портом"
 
+msgid "The servers above are reached through the outbound of this section (a resolver that exists only inside the VPN or tunnel). If the outbound is not usable they are asked directly."
+msgstr "Серверы выше опрашиваются через исходящее соединение этой секции (резолвер, который существует только внутри VPN или туннеля). Если соединение недоступно, серверы опрашиваются напрямую."
+
 msgid "The service will restart."
 msgstr "Служба перезапустится."
 
@@ -1894,6 +1915,9 @@ msgstr "Время проверки"
 
 msgid "Time of the daily update, HH:MM (00:00-23:59) in the router's local time. Avoid minutes shared with other update intervals, such as :00 and :30 if a 30-minute section exists"
 msgstr "Время ежедневного обновления, ЧЧ:ММ (00:00–23:59) по местному времени роутера. Избегайте минут, совпадающих с другими интервалами обновления, например :00 и :30, если есть секция с интервалом 30 минут."
+
+msgid "Times every DNS server of the list (UDP, TCP, DoT and DoH; DoH3 and DoQ cannot be timed). Nothing is changed: use it to decide the order of the servers."
+msgstr "Замеряет каждый DNS-сервер списка (UDP, TCP, DoT и DoH; DoH3 и DoQ замерить нельзя). Ничего не меняется: используйте, чтобы выбрать порядок серверов."
 
 msgid "TLS and Reality fail with a wrong time: check NTP"
 msgstr "С неверным временем не работают TLS и Reality: проверьте NTP"

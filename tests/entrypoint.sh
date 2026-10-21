@@ -24643,6 +24643,41 @@ test_section_own_dns() {
         prune_section_resolve_rules_without_domains
         echo "resolve-pruned=$(printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" '[.route.rules[] | .[$key]]')"
 
+        # the routing of a section, built by the real configure_routing_for_section_lists with real
+        # rule sets for the user lists (prepare_source_ruleset)
+        . "$lib/rulesets.sh"
+        for fn in configure_routing_for_section_lists prepare_source_ruleset patch_section_dns_rule_set get_ruleset_tag; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        TMP_RULESET_FOLDER="$work/rulesets"; mkdir -p "$TMP_RULESET_FOLDER"
+        section_ipv6_real_dns() { return 1; }
+        gen_id() { echo "rt-$section"; }
+        tproxy_route_inbounds() { echo "tproxy-in"; }
+        configure_user_domain_list() { prepare_source_ruleset "$1" "user" "domains" "$2"; }
+        configure_user_subnet_list() { prepare_source_ruleset "$1" "user" "subnets" "$2"; }
+        routing() {
+            config="$base"; config_foreach configure_section_own_dns "section"
+            OD_SECTIONS="$1"; config_foreach configure_routing_for_section_lists "section"; OD_SECTIONS="vpn1 px"
+            printf '%s' "$config" | jq -c '[.route.rules[] | select(.action == "resolve") | [.server, (.rule_set // "")]]'
+        }
+        OD_vpn1_own_dns_server="udp://1.1.1.1"; OD_px_own_dns_server="udp://10.0.0.53"; OD_vpn1_own_dns_via_section=0
+        OD_vpn1_user_domain_list_type=dynamic; OD_vpn1_user_subnet_list_type=dynamic
+        OD_px_user_domain_list_type=dynamic
+        echo "resolve-domains-only=$(routing vpn1)"
+        OD_vpn1_resolve_real_ip_for_routing=1
+        echo "resolve-once-with-real-ip=$(routing vpn1)"
+        OD_vpn1_resolve_real_ip_for_routing=0
+        echo "resolve-not-for-proxy=$(routing px)"
+        OD_ex_connection_type=exclusion; OD_ex_own_dns_server="udp://10.0.0.1"; OD_ex_user_domain_list_type=dynamic
+        echo "resolve-for-exclusion=$(OD_SECTIONS="ex"; config="$(printf '%s' "$base" | jq -c --arg t "$SB_EXCLUSION_RULE_TAG" --arg key "$SERVICE_TAG" '.route.rules += [{action: "route", outbound: "direct-out", ($key): $t}]')"; config_foreach configure_section_own_dns "section"; config_foreach configure_routing_for_section_lists "section"; printf '%s' "$config" | jq -c '[.route.rules[] | select(.action == "resolve") | .server]')"
+        OD_vpn1_user_domain_list_type=""; OD_vpn1_user_subnet_list_type=""; OD_px_user_domain_list_type=""
+
+        # own_dns_server has no primary: the whole cap is its own, and the warning says so
+        i=0; many=""; while [ "$i" -lt $((DNS_POOL_MAX_SERVERS + 1)) ]; do i=$((i + 1)); many="$many udp://10.0.0.$i"; done
+        OD_vpn1_own_dns_server="$many"; : > "$OD_LOG"; config="$base"; config_foreach configure_section_own_dns "section"
+        echo "cap=$(section_own_dns_tags vpn1 | wc -w) warned=$(grep -c "at most $DNS_POOL_MAX_SERVERS servers are used" "$OD_LOG") primary-words=$(grep -c 'including the primary' "$OD_LOG")"
+        OD_vpn1_own_dns_server="doh://dns.google/dns-query dot://one.one.one.one"
+
         # the core accepts all of it (the service tags are not part of its schema)
         SB=/usr/local/bin/sing-box-1.14
         if [ -x "$SB" ]; then
@@ -24723,6 +24758,11 @@ RJ
     _od "an unknown mode is priority, with a warning" "aaaa-bad-mode=[[\"evaluate\",\"dns-own-vpn1-1\",\"vpn1\",[\"AAAA\"],false],[\"respo warned=1"
     _od "real AAAA without own servers still goes to the main DNS" 'aaaa-no-own=[["route","dns-server","vpn1",["AAAA"],false]]'
     _od "the resolve rule stands ahead of the route rule, with the lists patched in once, the first server" 'resolve-order=[["resolve","dns-own-vpn1-1",["vpn1-domains","vpn1-more"]],["route","vpn1-out",["vpn1-domains","vpn1-more"]],["route","direct-out",""]]'
+    _od "the resolve rule of a VPN section takes its domain lists, not its subnet lists" 'resolve-domains-only=[["dns-own-vpn1-1","vpn1-user-domains-ruleset"]]'
+    _od "with resolve_real_ip_for_routing there is still one resolve rule (the section's)" 'resolve-once-with-real-ip=[["dns-own-vpn1-1","vpn1-user-domains-ruleset"]]'
+    _od "a proxy section gets no resolve rule (the proxy resolves)" 'resolve-not-for-proxy=[]'
+    _od "an exclusion section gets one" 'resolve-for-exclusion=["dns-own-ex-1"]'
+    _od "own_dns_server has the whole cap, without the words about a primary" "cap=$(. "$lib/constants.sh"; echo "$DNS_POOL_MAX_SERVERS") warned=1 primary-words=0"
     _od "a resolve rule left with no lists is dropped" 'resolve-pruned=["own-dns-resolve-rule-vpn1","route-vpn1","exclusion-rule"]'
     local _sb=/usr/local/bin/sing-box-1.14
     if [ -x "$_sb" ]; then
@@ -24735,14 +24775,6 @@ RJ
         skip "sing-box 1.14 not in the image: the core check of the own DNS rules"
     fi
 
-    # where the resolve rule is added: only VPN and exclusion sections, never a proxy section
-    local _vpn_case
-    _vpn_case="$(grep -n '^    vpn | exclusion)$' "$bin" | cut -d: -f1 | sed -n '1p')"
-    if [ -n "$_vpn_case" ] && sed -n "$((_vpn_case + 1)),$((_vpn_case + 6))p" "$bin" | grep -q 'sing_box_cm_add_resolve_rule_before'; then
-        pass "the resolve rule is added for VPN and exclusion sections only"
-    else
-        fail "the resolve rule is added for VPN and exclusion sections only"
-    fi
     rm -rf "$work"
 }
 main() {
