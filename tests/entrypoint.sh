@@ -23253,6 +23253,11 @@ LEOF
         PATH="$work/bin:$PATH"
         answer="$(get_core_capabilities)"
         echo "probes=$(wc -l < "$work/probes" | tr -d ' ') extended=$(printf '%s' "$answer" | jq -c '[.extended, .quic, .utls]') stored=$([ "$(cat "$work/caps2.json")" = "$answer" ] && echo yes || echo no)"
+        # a core that gave no version (it could not be started just now): the answer is for this call only
+        printf '#!/bin/sh\n:\n' > "$work/bin/sing-box"
+        CORE_CAPABILITIES_CACHE="$work/caps3.json"
+        get_core_capabilities > /dev/null
+        echo "failed-probe-cached=$([ -e "$work/caps3.json" ] && echo yes || echo no)"
     )"
 
     _qk() {
@@ -23269,6 +23274,7 @@ LEOF
     _qk "get_core_capabilities without a cache goes on to the full command line" "caps-no-cache-rc=1"
     _qk "...with a cache for the cores installed now, the cache is the answer" 'caps-cached={"version":"1.14.3","extended":true}'
     _qk "...a cache made for another core is not used" "caps-other-core-rc=1"
+    _qk "an answer made while the core gave no version is not kept" "failed-probe-cached=no"
     _qk "the full answer asks the core twice at most and is kept for the next call" 'probes=2 extended=[true,true,true] stored=yes'
     rm -rf "$work"
 }

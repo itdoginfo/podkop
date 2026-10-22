@@ -5076,18 +5076,22 @@ async function loadPinGuardEvents() {
     logger.error("[DASHBOARD]", "loadPinGuardEvents: failed", e);
   }
 }
-var controllerInitialized = false;
+var mountedElement = null;
+var listenersRegistered = false;
 async function initController() {
-  if (controllerInitialized) {
-    return;
-  }
-  controllerInitialized = true;
-  onMount("dashboard-status").then(() => {
+  onMount("dashboard-status").then((element) => {
+    if (element === mountedElement) {
+      return;
+    }
+    mountedElement = element;
     logger.debug("[DASHBOARD]", "initController", "onMount");
     onPageMount();
     void loadUpdateNotice();
     void loadPinGuardEvents();
-    registerLifecycleListeners();
+    if (!listenersRegistered) {
+      listenersRegistered = true;
+      registerLifecycleListeners();
+    }
   });
 }
 
@@ -7094,16 +7098,20 @@ function registerLifecycleListeners2() {
     }
   });
 }
-var controllerInitialized2 = false;
+var mountedElement2 = null;
+var listenersRegistered2 = false;
 async function initController2() {
-  if (controllerInitialized2) {
-    return;
-  }
-  controllerInitialized2 = true;
-  onMount("diagnostic-status").then(() => {
+  onMount("diagnostic-status").then((element) => {
+    if (element === mountedElement2) {
+      return;
+    }
+    mountedElement2 = element;
     logger.debug("[DIAGNOSTIC]", "initController", "onMount");
     onPageMount2();
-    registerLifecycleListeners2();
+    if (!listenersRegistered2) {
+      listenersRegistered2 = true;
+      registerLifecycleListeners2();
+    }
   });
 }
 
@@ -8638,7 +8646,7 @@ async function onMount(id) {
         finish(target);
         return;
       }
-      const pane = target.closest("[data-tab-title]") ?? target;
+      const pane = target.closest("[data-tab-title], [data-tab]") ?? target;
       if (pane === watched) {
         return;
       }

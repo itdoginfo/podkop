@@ -40,7 +40,8 @@ export async function onMount(id: string): Promise<HTMLElement> {
         return;
       }
 
-      const pane = target.closest('[data-tab-title]') ?? target;
+      // LuCI marks the pane of a tab with data-tab-title (cbi.js and form.js, 24.10 and later)
+      const pane = target.closest('[data-tab-title], [data-tab]') ?? target;
 
       if (pane === watched) {
         return;

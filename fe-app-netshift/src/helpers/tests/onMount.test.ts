@@ -8,8 +8,13 @@ const intersections: Array<{ callback: IoCallback; target: unknown }> = [];
 let mutationCallback: (() => void) | null = null;
 const elements: Record<string, unknown> = {};
 
+// closest() answers only for the selector LuCI puts on the pane of a tab: a wrong selector in
+// onMount finds no pane and watches the (empty) element itself
 function element(pane: unknown) {
-  return { closest: () => pane };
+  return {
+    closest: (selector: string) =>
+      selector.includes('data-tab-title') ? pane : null,
+  };
 }
 
 function install() {

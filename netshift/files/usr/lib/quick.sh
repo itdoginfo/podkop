@@ -42,7 +42,7 @@ get_sing_box_status() {
     # Check DNS configuration
     local dns_server
     dns_server=$(uci get dhcp.@dnsmasq[0].server 2> /dev/null)
-    if [ "$dns_server" = "127.0.0.42" ]; then
+    if [ "$dns_server" = "$SB_DNS_INBOUND_ADDRESS" ]; then
         dns_configured=1
     fi
 
@@ -95,7 +95,7 @@ check_logs() {
 # naive client). Another core, an update or a removal changes it.
 core_capabilities_key() {
     ls -lnL /usr/bin/sing-box "$UPDATES_SING_BOX_LITE_CORE_BIN" "${NAIVE_BIN:-/usr/bin/naive}" \
-        /usr/bin/naive /usr/bin/naiveproxy /opt/bin/naive 2> /dev/null | awk '{print $5, $6, $7, $8, $9}'
+        /usr/bin/naiveproxy /opt/bin/naive 2> /dev/null | awk '{print $5, $6, $7, $8, $9}'
     command -v naive 2> /dev/null
     return 0
 }
@@ -111,8 +111,10 @@ core_capabilities_cached() {
 core_capabilities_store() {
     local tmp="$CORE_CAPABILITIES_CACHE.$$"
 
+    # The answer goes first and its key after it: a reader that comes between the two moves finds a
+    # key that does not fit and asks the core, never an old answer under a new key.
     printf '%s\n' "$1" > "$tmp" && core_capabilities_key > "$tmp.key" &&
-        mv -f "$tmp.key" "$CORE_CAPABILITIES_CACHE.key" && mv -f "$tmp" "$CORE_CAPABILITIES_CACHE" ||
+        mv -f "$tmp" "$CORE_CAPABILITIES_CACHE" && mv -f "$tmp.key" "$CORE_CAPABILITIES_CACHE.key" ||
         rm -f "$tmp" "$tmp.key"
 }
 

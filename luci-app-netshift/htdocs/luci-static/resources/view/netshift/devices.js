@@ -295,6 +295,12 @@ function buildDevices(sectionsSection, settingsSection) {
   };
 
   const renderRows = () => {
+    // the host hints come with the first visit of the tab: until then there is nothing to draw
+    // (a search typed meanwhile must not clear the table or throw)
+    if (!hints) {
+      return;
+    }
+
     const state = readState(sectionsSection, settingsSection);
     const disabled = new Set(
       routedSections()

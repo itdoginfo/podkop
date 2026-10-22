@@ -14,7 +14,13 @@ get_core_capabilities() {
 
     answer="$(_get_core_capabilities_run)" || return 1
     printf '%s\n' "$answer"
-    [ -n "$answer" ] && core_capabilities_store "$answer"
+    # get_sing_box_version says "1.0" when `sing-box version` gave nothing (the core could not be
+    # started just now, for instance a lite core that did not fit in memory): such an answer is
+    # for this call only
+    case "$answer" in
+    '' | *'"version":"1.0"'*) ;;
+    *) core_capabilities_store "$answer" ;;
+    esac
     return 0
 }
 

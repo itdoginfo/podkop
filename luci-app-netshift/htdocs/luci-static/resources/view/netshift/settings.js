@@ -632,15 +632,7 @@ function createSettingsContent(section) {
   // get_wan_addresses). Asking can take a few seconds: a private WAN address makes
   // the router look its external address up once.
   let wanAddresses = null;
-  // asked only when the EDNS Client Subnet is in use (detected from the WAN, or set by hand):
-  // otherwise the page would wait for it on every visit
-  const ecsInUse = () =>
-    uci.get("netshift", "settings", "dns_client_subnet_auto") === "1" ||
-    Boolean(uci.get("netshift", "settings", "dns_client_subnet"));
   const loadWanAddresses = () => {
-    if (!ecsInUse()) {
-      return Promise.resolve([]);
-    }
     wanAddresses ??= main
       .executeShellCommand({
         command: "/usr/bin/netshift",
