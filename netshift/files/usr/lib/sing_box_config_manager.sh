@@ -2362,3 +2362,35 @@ _normalize_arg() {
         printf '%s' "$value" | jq -R .
     fi
 }
+
+#######################################
+# Insert a resolve rule with no conditions yet immediately before a route rule. The conditions
+# (rule_set) are added later with sing_box_cm_patch_route_rule under the new rule's tag; a rule
+# left without any must be removed by the caller, it would match every connection.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   before_tag: string, service tag of the route rule to precede
+#   resolve_rule_tag: string, service tag of the new resolve rule
+#   server: string, DNS server tag the domains are resolved through
+# Outputs:
+#   Updated JSON config to stdout
+#######################################
+sing_box_cm_add_resolve_rule_before() {
+    local config="$1"
+    local before_tag="$2"
+    local resolve_rule_tag="$3"
+    local server="$4"
+
+    echo "$config" | jq \
+        --arg service_tag "$SERVICE_TAG" \
+        --arg before "$before_tag" \
+        --arg resolve_tag "$resolve_rule_tag" \
+        --arg server "$server" \
+        '.route.rules |= [
+            .[] |
+            if .[$service_tag] == $before then
+                { action: "resolve", server: $server, ($service_tag): $resolve_tag }, .
+            else .
+            end
+        ]'
+}

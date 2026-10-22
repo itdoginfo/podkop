@@ -292,8 +292,21 @@ dns_bench_lock_release() {
     rm -rf "$DNS_BENCH_LOCK"
 }
 
-# dns_benchmark <server>...: one run at a time (see DNS_BENCH_LOCK). A run that could not get the
-# lock in time goes on without it rather than answer nothing.
+# The outbound the own DNS servers of a section go through (configure_section_own_dns): the
+# section's own with own_dns_via_section on a proxy or VPN section, nothing (direct) otherwise.
+dns_bench_section_detour() {
+    local section="$1" via connection_type
+
+    config_get_bool via "$section" "own_dns_via_section" 0
+    [ "$via" -eq 1 ] || return 0
+    config_get connection_type "$section" "connection_type"
+    case "$connection_type" in
+    proxy | vpn) get_outbound_tag_by_section "$section" ;;
+    esac
+}
+
+# dns_benchmark [--section <section>] <server>...: one run at a time (see DNS_BENCH_LOCK). A run
+# that could not get the lock in time goes on without it rather than answer nothing.
 dns_benchmark() {
     local held=0 rc
 
@@ -304,11 +317,31 @@ dns_benchmark() {
     return "$rc"
 }
 
-# the run itself: with no arguments, the servers of the settings (the main
-# one and the pool). Prints {"results":[{"server","ms"}]} in the order asked.
+# the run itself: with no arguments, the servers of the settings (the main one and the pool).
+# Prints {"results":[{"server","ms"}]} in the order asked. With --section the servers given (the
+# UI passes the own_dns_server list of that section; nothing here reads it) are timed the way the
+# configuration sends that section's own DNS: through the section's outbound with
+# own_dns_via_section, from the router otherwise (the DNS routing of the settings does not apply).
 _dns_benchmark_run() {
     local bootstrap dir server index=0 result="[]" ms dns_type dns_server via valid_count=0 line
     local tag tunnel_servers tunnel_positions tunnel_done tunnel_count position group n
+
+    DNS_BENCH_SECTION=""
+    if [ "${1:-}" = "--section" ]; then
+        DNS_BENCH_SECTION="${2:-}"
+        if [ "$#" -ge 2 ]; then shift 2; else shift "$#"; fi
+        case "$DNS_BENCH_SECTION" in
+        "" | *[!A-Za-z0-9_]*)
+            echo '{"via":"direct","results":[]}'
+            return 1
+            ;;
+        esac
+    fi
+    # a section with no own server has nothing to time (not the servers of the settings)
+    if [ -n "$DNS_BENCH_SECTION" ] && [ "$#" -eq 0 ]; then
+        echo '{"via":"direct","results":[]}'
+        return 0
+    fi
 
     config_get bootstrap "settings" "bootstrap_dns_server" "77.88.8.8"
 
@@ -346,7 +379,18 @@ _dns_benchmark_run() {
     # through DIFFERENT outbounds (via:<section> of different sections) are timed in
     # groups, one short-lived sing-box per outbound, so that each is measured by its own way.
     : > "$dir/tunnel.map"
-    if command -v dns_routes_init > /dev/null 2>&1; then
+    if [ -n "${DNS_BENCH_SECTION:-}" ]; then
+        # the own DNS servers of a section all go one way: through the section's outbound with
+        # own_dns_via_section, from the router otherwise
+        tag="$(dns_bench_section_detour "$DNS_BENCH_SECTION")"
+        if [ -n "$tag" ]; then
+            index=0
+            for server in "$@"; do
+                index=$((index + 1))
+                printf '%s\t%s\t%s\n' "$index" "$tag" "$server" >> "$dir/tunnel.map"
+            done
+        fi
+    elif command -v dns_routes_init > /dev/null 2>&1; then
         dns_routes_init
         index=0
         for server in "$@"; do

@@ -14346,6 +14346,7 @@ mkdir -p "$HR_DIR"
 eval "$(extract rule_references_ruleset)"
 eval "$(extract prepare_source_ruleset)"
 eval "$(extract patch_section_dns_rule_set)"
+eval "$(extract patch_section_route_rule_set)"
 
 TMP_RULESET_FOLDER="$HR_DIR/rulesets"
 mkdir -p "$TMP_RULESET_FOLDER"
@@ -16123,7 +16124,7 @@ config_list_foreach() { # $1=section $2=option $3=callback ... : the option valu
 for fn in section_is_dns_rule section_has_enabled_lists configure_dns_section_handler configure_routing_for_section_lists \
     configure_community_list_handler subscription_outbound_is_unavailable \
     prune_dns_section_rules_without_domains download_proxy_section_is_unavailable section_is_disabled \
-    patch_section_dns_rule_set section_ipv6_real_dns configure_dns_section_rules _tag_last_dns_rule; do
+    patch_section_dns_rule_set section_ipv6_real_dns configure_dns_section_rules _tag_last_dns_rule _add_dns_group_rules; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$BIN")"
 done
 netshift_ipv6_enabled() { return 1; }
@@ -20027,6 +20028,23 @@ CFG
         echo "lock-released-after-stale=$([ -d "$DNS_BENCH_LOCK" ] && echo no || echo yes)"
         # nothing in the way: no lock left behind
         dns_benchmark udp://1.1.1.1 > /dev/null; echo "no-lock-left=$([ -d "$DNS_BENCH_LOCK" ] && echo no || echo yes)"
+
+        # the own DNS servers of a section (--section): the routes of the settings do not apply to
+        # them; they go through the section's outbound only with own_dns_via_section
+        dns_server_detour_tag() { echo main-out; }
+        _get_dns_detour_tag() { echo main-out; }
+        config_get_bool() { eval "$1=\"\${UCI_$3:-${4:-0}}\""; }
+        get_outbound_tag_by_section() { echo main-out; }
+        rm -f "$work"/cfg.*; : > "$work/sb.started"
+        UCI_own_dns_via_section=0 UCI_connection_type=vpn
+        echo "section-direct=$(dns_benchmark --section wg udp://10.8.0.1 | jq -c '[.via, [.results[] | .server]]') started=$(grep -c '^run -c ' "$work/sb.started")"
+        UCI_own_dns_via_section=1
+        echo "section-through-it=$(dns_benchmark --section wg udp://10.8.0.1 | jq -c '.via')"
+        UCI_connection_type=exclusion; rm -f "$work"/cfg.*
+        echo "section-exclusion-direct=$(dns_benchmark --section ex udp://10.8.0.1 | jq -c '.via')"
+        echo "section-bad-name=$(dns_benchmark --section 'a;b' udp://10.8.0.1 | jq -c '.results')"
+        echo "section-no-servers=$(dns_benchmark --section wg | jq -c '.results')"
+        unset UCI_own_dns_via_section UCI_connection_type
     )"
 
     _db() { expect_line "$out" "$1" "$2"; }
@@ -20086,6 +20104,11 @@ CFG
     _db "...and released too" "lock-released-after-stale=yes"
     _db "an ordinary run leaves no lock" "no-lock-left=yes"
     _db "the tunnel group is numbered from its own first server" 'mixed-second=["mixed",[["udp://172.31.200.60",1,"direct"],["udp://1.1.1.1",4,"tunnel"]]]'
+    _db "own DNS of a section without own_dns_via_section: from the router, whatever the routes say" 'section-direct=["direct",["udp://10.8.0.1"]] started=0'
+    _db "...with own_dns_via_section: through the section's outbound" 'section-through-it="tunnel"'
+    _db "...an exclusion section has no outbound: from the router" 'section-exclusion-direct="direct"'
+    _db "...a section name that is not a UCI id is refused" 'section-bad-name=[]'
+    _db "...a section without servers times nothing (not the servers of the settings)" 'section-no-servers=[]'
     _db "through the tunnel the times are those of the local ports" 'tunnel=["tunnel",[["udp://172.31.200.60",4],["dot://dns.google",73],["doh://nowhere.example/dns-query",null],["doh3://dns.google",null]]]'
     _db "the temporary sing-box is started once" "tunnel-started=1"
     _db "...and stopped afterwards" "tunnel-sing-box-stopped=yes"
@@ -21673,7 +21696,8 @@ test_ipv6_dns_policy() {
         . "$lib/helpers.sh"
         log() { :; }
         . "$lib/sing_box_config_manager.sh"
-        for fn in section_ipv6_real_dns configure_ipv6_real_dns_rule patch_section_dns_rule_set prune_ipv6_real_dns_rules_without_domains; do
+        for fn in section_ipv6_real_dns configure_ipv6_real_dns_rule patch_section_dns_rule_set prune_ipv6_real_dns_rules_without_domains \
+            section_own_dns_tags section_own_dns_mode _add_dns_group_rules _tag_last_dns_rule is_valid_dns_pool_timeout; do
             eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
         done
         V6=1
@@ -22501,7 +22525,7 @@ test_dns_section_pool() {
         DP_LOG="$work/log"; : > "$DP_LOG"
         log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$DP_LOG"; }
         . "$lib/sing_box_config_manager.sh"
-        for fn in configure_dns_section_rules _tag_last_dns_rule _dns_pool_collect_entry is_valid_dns_pool_timeout \
+        for fn in configure_dns_section_rules _tag_last_dns_rule _add_dns_group_rules _dns_pool_collect_entry is_valid_dns_pool_timeout \
             prune_dns_section_rules_without_domains; do
             eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
         done
@@ -25099,6 +25123,264 @@ FJ
     rm -rf "$work"
 }
 
+test_section_own_dns() {
+    header "Own DNS servers of a routing section (own_dns_server)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$bin" ] || [ ! -r "$lib/sing_box_config_manager.sh" ]; then
+        fail "netshift bin / config manager not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+
+    local work="/tmp/netshift-owndns-test-$$"
+    rm -rf "$work"
+    mkdir -p "$work"
+
+    local out
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        OD_LOG="$work/log"; : > "$OD_LOG"
+        log() { printf '[%s] %s\n' "${2:-info}" "$1" >> "$OD_LOG"; }
+        . "$lib/sing_box_config_manager.sh"
+        for fn in section_own_dns_applies section_own_dns_tags configure_section_own_dns section_own_dns_mode \
+            configure_ipv6_real_dns_rule section_ipv6_real_dns _add_dns_group_rules _tag_last_dns_rule \
+            _dns_pool_collect_entry is_valid_dns_pool_timeout patch_section_route_rule_set rule_references_ruleset \
+            prune_section_resolve_rules_without_domains prune_ipv6_real_dns_rules_without_domains; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        OD_VERSION="1.14.3"
+        is_sing_box_at_least() { is_min_package_version "$OD_VERSION" "$1"; }
+        get_sing_box_version() { echo "$OD_VERSION"; }
+        netshift_ipv6_enabled() { return 0; }
+        config_get() { eval "$1=\"\${OD_${2}_${3}:-$4}\""; }
+        config_get_bool() { eval "$1=\"\${OD_${2}_${3}:-$4}\""; }
+        config_list_foreach() { local _l _d; eval "_l=\"\${OD_${1}_${2}:-}\""; for _d in $_l; do "$3" "$_d"; done; }
+        section_is_disabled() { [ "${OD_DISABLED:-}" = "$1" ]; }
+        section_has_enabled_lists() { [ "${OD_NOLISTS:-}" != "$1" ]; }
+        subscription_outbound_is_unavailable() { [ "${OD_UNAVAILABLE:-}" = "$1" ]; }
+        get_outbound_tag_by_section() { echo "$1-out"; }
+        config_foreach() { local _s; for _s in $OD_SECTIONS; do "$1" "$_s"; done; }
+        sing_box_cf_add_dns_server() { # config type tag server resolver detour
+            printf '%s' "$1" | jq -c --arg t "$2" --arg tag "$3" --arg s "$4" --arg r "$5" --arg d "$6" \
+                '.dns.servers += [{type: $t, tag: $tag, server: $s} + (if $r != "" then {domain_resolver: $r} else {} end) + (if $d != "" then {detour: $d} else {} end)]'
+        }
+        base='{"dns":{"servers":[],"rules":[]},"outbounds":[{"type":"direct","tag":"vpn1-out"},{"type":"direct","tag":"px-out"}],"route":{"rules":[{"action":"route","outbound":"vpn1-out","__service_tag":"route-vpn1"},{"action":"route","outbound":"direct-out","__service_tag":"exclusion-rule"}]}}'
+        servers() { printf '%s' "$config" | jq -c '[.dns.servers[] | .tag]'; }
+
+        OD_SECTIONS="vpn1 px"
+        OD_vpn1_connection_type=vpn; OD_px_connection_type=proxy
+        config="$base"
+
+        # nothing configured: nothing changes (an old config, or an upgrade from a version without the option)
+        config_foreach configure_section_own_dns "section"
+        echo "unset-unchanged=$([ "$config" = "$base" ] && echo yes || echo no)"
+        echo "unset-tags=[$(section_own_dns_tags vpn1)]"
+
+        # two servers of a VPN section, one of a proxy section
+        OD_vpn1_own_dns_server="doh://dns.google/dns-query dot://one.one.one.one"
+        OD_px_own_dns_server="udp://10.0.0.53"
+        config="$base"; config_foreach configure_section_own_dns "section"
+        echo "servers=$(servers)"
+        echo "tags-vpn1=$(section_own_dns_tags vpn1)"
+        echo "server-1=$(printf '%s' "$config" | jq -c '.dns.servers[] | select(.tag == "dns-own-vpn1-1") | [.type, .server, .domain_resolver, .detour]')"
+        echo "server-ip=$(printf '%s' "$config" | jq -c '.dns.servers[] | select(.tag == "dns-own-px-1") | [.type, .server, .domain_resolver, .detour]')"
+
+        # through the section's own outbound
+        OD_vpn1_own_dns_via_section=1
+        config="$base"; config_foreach configure_section_own_dns "section"
+        echo "via-detour=$(printf '%s' "$config" | jq -c '[.dns.servers[] | select(.tag | startswith("dns-own-vpn1")) | .detour]')"
+        OD_UNAVAILABLE=vpn1; : > "$OD_LOG"; config="$base"; config_foreach configure_section_own_dns "section"
+        echo "via-unavailable=$(printf '%s' "$config" | jq -c '[.dns.servers[] | select(.tag | startswith("dns-own-vpn1")) | .detour]') warned=$(grep -c 'not usable' "$OD_LOG")"
+        OD_UNAVAILABLE=""
+        OD_vpn1_own_dns_via_section=0
+
+        # an exclusion section has no outbound to go through
+        OD_SECTIONS="ex"; OD_ex_connection_type=exclusion; OD_ex_own_dns_server="udp://10.0.0.53"; OD_ex_own_dns_via_section=1
+        : > "$OD_LOG"; config="$base"; config_foreach configure_section_own_dns "section"
+        echo "exclusion-via=$(printf '%s' "$config" | jq -c '[.dns.servers[] | .detour]') warned=$(grep -c 'does not apply to an exclusion' "$OD_LOG")"
+        OD_SECTIONS="vpn1 px"
+
+        # types without a use for it, a disabled section, one without lists, bad entries
+        OD_SECTIONS="blk"; OD_blk_connection_type=block; OD_blk_own_dns_server="udp://10.0.0.53"
+        config="$base"; config_foreach configure_section_own_dns "section"; echo "block-ignored=$(servers)"
+        OD_SECTIONS="dnsec"; OD_dnsec_connection_type=dns; OD_dnsec_own_dns_server="udp://10.0.0.53"
+        config="$base"; config_foreach configure_section_own_dns "section"; echo "dns-type-ignored=$(servers)"
+        OD_SECTIONS="vpn1"; OD_DISABLED=vpn1; config="$base"; config_foreach configure_section_own_dns "section"; echo "disabled=$(servers)"; OD_DISABLED=""
+        OD_NOLISTS=vpn1; config="$base"; config_foreach configure_section_own_dns "section"; echo "no-lists=$(servers)"; OD_NOLISTS=""
+        OD_vpn1_own_dns_server="bogus udp://10.0.0.1/x"; : > "$OD_LOG"; config="$base"; config_foreach configure_section_own_dns "section"
+        echo "bad-entries=$(servers) named=$(grep -c "Ignoring own_dns_server" "$OD_LOG")"
+        OD_vpn1_own_dns_server="doh://dns.google/dns-query dot://one.one.one.one"
+
+        # the group answering the real AAAA queries: fallback, race, one server, an old core
+        OD_SECTIONS="vpn1"; OD_vpn1_ipv6_dns_policy=real
+        rules() { printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" '[.dns.rules[] | [.action, (.server // .match_response), ((.[$key] // "") | ltrimstr("ipv6-real-dns-rule-")), (.query_type // ""), (.race // false)]]'; }
+        build_aaaa() { config="$base"; config_foreach configure_section_own_dns "section"; config_foreach configure_ipv6_real_dns_rule "section"; }
+        build_aaaa; echo "aaaa-fallback=$(rules)"
+        OD_vpn1_own_dns_mode=race; build_aaaa; echo "aaaa-race=$(rules)"
+        OD_vpn1_own_dns_mode=single; build_aaaa; echo "aaaa-single=$(rules)"
+        OD_vpn1_own_dns_mode=fallback; OD_VERSION="1.12.22"; : > "$OD_LOG"; build_aaaa
+        echo "aaaa-old-core=$(rules) warned=$(grep -c 'needs sing-box' "$OD_LOG")"; OD_VERSION="1.14.3"
+        OD_vpn1_own_dns_mode=bogus; : > "$OD_LOG"; build_aaaa; echo "aaaa-bad-mode=$(rules | head -c 60) warned=$(grep -c 'unknown own_dns_mode' "$OD_LOG")"; OD_vpn1_own_dns_mode=fallback
+        # a section with real AAAA but no own DNS keeps the main server
+        OD_vpn1_own_dns_server=""; build_aaaa; echo "aaaa-no-own=$(rules)"; OD_vpn1_own_dns_server="doh://dns.google/dns-query dot://one.one.one.one"
+
+        # the resolve rule: ahead of the route rule, the lists patched into both, the first server
+        config="$base"; config_foreach configure_section_own_dns "section"
+        SECTION_RESOLVE_RULE_TAG="own-dns-resolve-rule-vpn1"
+        config=$(sing_box_cm_add_resolve_rule_before "$config" "route-vpn1" "$SECTION_RESOLVE_RULE_TAG" "dns-own-vpn1-1")
+        patch_section_route_rule_set "route-vpn1" "vpn1-domains"
+        patch_section_route_rule_set "route-vpn1" "vpn1-more"
+        echo "resolve-order=$(printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" '[.route.rules[] | [.action, (.server // .outbound), (.rule_set // "")]]')"
+        # a resolve rule left with no lists is dropped, one with lists stays
+        config=$(sing_box_cm_add_resolve_rule_before "$config" "exclusion-rule" "own-dns-resolve-rule-ex" "dns-own-ex-1")
+        prune_section_resolve_rules_without_domains
+        echo "resolve-pruned=$(printf '%s' "$config" | jq -c --arg key "$SERVICE_TAG" '[.route.rules[] | .[$key]]')"
+
+        # the routing of a section, built by the real configure_routing_for_section_lists with real
+        # rule sets for the user lists (prepare_source_ruleset)
+        . "$lib/rulesets.sh"
+        for fn in configure_routing_for_section_lists prepare_source_ruleset patch_section_dns_rule_set get_ruleset_tag; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        TMP_RULESET_FOLDER="$work/rulesets"; mkdir -p "$TMP_RULESET_FOLDER"
+        section_ipv6_real_dns() { return 1; }
+        gen_id() { echo "rt-$section"; }
+        tproxy_route_inbounds() { echo "tproxy-in"; }
+        configure_user_domain_list() { prepare_source_ruleset "$1" "user" "domains" "$2"; }
+        configure_user_subnet_list() { prepare_source_ruleset "$1" "user" "subnets" "$2"; }
+        routing() {
+            config="$base"; config_foreach configure_section_own_dns "section"
+            OD_SECTIONS="$1"; config_foreach configure_routing_for_section_lists "section"; OD_SECTIONS="vpn1 px"
+            printf '%s' "$config" | jq -c '[.route.rules[] | select(.action == "resolve") | [.server, (.rule_set // "")]]'
+        }
+        OD_vpn1_own_dns_server="udp://1.1.1.1"; OD_px_own_dns_server="udp://10.0.0.53"; OD_vpn1_own_dns_via_section=0
+        OD_vpn1_user_domain_list_type=dynamic; OD_vpn1_user_subnet_list_type=dynamic
+        OD_px_user_domain_list_type=dynamic
+        echo "resolve-domains-only=$(routing vpn1)"
+        OD_vpn1_resolve_real_ip_for_routing=1
+        echo "resolve-once-with-real-ip=$(routing vpn1)"
+        OD_vpn1_resolve_real_ip_for_routing=0
+        echo "resolve-not-for-proxy=$(routing px)"
+        OD_ex_connection_type=exclusion; OD_ex_own_dns_server="udp://10.0.0.1"; OD_ex_user_domain_list_type=dynamic
+        echo "resolve-for-exclusion=$(OD_SECTIONS="ex"; config="$(printf '%s' "$base" | jq -c --arg t "$SB_EXCLUSION_RULE_TAG" --arg key "$SERVICE_TAG" '.route.rules += [{action: "route", outbound: "direct-out", ($key): $t}]')"; config_foreach configure_section_own_dns "section"; config_foreach configure_routing_for_section_lists "section"; printf '%s' "$config" | jq -c '[.route.rules[] | select(.action == "resolve") | .server]')"
+        OD_vpn1_user_domain_list_type=""; OD_vpn1_user_subnet_list_type=""; OD_px_user_domain_list_type=""
+
+        # own_dns_server has no primary: the whole cap is its own, and the warning says so
+        i=0; many=""; while [ "$i" -lt $((DNS_POOL_MAX_SERVERS + 1)) ]; do i=$((i + 1)); many="$many udp://10.0.0.$i"; done
+        OD_vpn1_own_dns_server="$many"; : > "$OD_LOG"; config="$base"; config_foreach configure_section_own_dns "section"
+        echo "cap=$(section_own_dns_tags vpn1 | wc -w) warned=$(grep -c "at most $DNS_POOL_MAX_SERVERS servers are used" "$OD_LOG") primary-words=$(grep -c 'including the primary' "$OD_LOG")"
+        OD_vpn1_own_dns_server="doh://dns.google/dns-query dot://one.one.one.one"
+
+        # the core accepts all of it (the service tags are not part of its schema)
+        SB=/usr/local/bin/sing-box-1.14
+        if [ -x "$SB" ]; then
+            OD_vpn1_own_dns_via_section=1
+            OD_vpn1_own_dns_server="udp://1.1.1.1 tcp://8.8.8.8"
+            config="$base"; config_foreach configure_section_own_dns "section"; config_foreach configure_ipv6_real_dns_rule "section"
+            config=$(sing_box_cm_add_resolve_rule_before "$config" "route-vpn1" "own-dns-resolve-rule-vpn1" "dns-own-vpn1-1")
+            SECTION_RESOLVE_RULE_TAG="own-dns-resolve-rule-vpn1"
+            patch_section_route_rule_set "route-vpn1" "vpn1-domains"
+            config=$(sing_box_cm_patch_dns_route_rule "$config" "ipv6-real-dns-rule-vpn1" "rule_set" "vpn1-domains")
+            printf '%s' "$config" | jq --arg key "$SERVICE_TAG" '
+                .dns.servers += [{type: "udp", tag: "dns-server", server: "8.8.8.8"}]
+                | .dns.final = "dns-server"
+                | .dns.rules |= map(del(.[$key]))
+                | .route.rules |= map(del(.[$key]))
+                | .route.rule_set = [{type: "inline", tag: "vpn1-domains", rules: [{domain_suffix: ["example.com"]}]}]
+                | .route.final = "direct-out"
+                | .route.default_domain_resolver = "dns-server"
+                | .outbounds += [{type: "direct", tag: "direct-out"}]
+                | .outbounds |= unique_by(.tag)
+                | .route.rules = (.route.rules | map(if .action == "route" and .outbound == "vpn1-out" then . else . end))' > "$work/check.json"
+            "$SB" check -c "$work/check.json" > "$work/check.out" 2>&1 && echo "core-check=ok" || echo "core-check=FAIL $(head -c 400 "$work/check.out")"
+        fi
+
+        # what the design rests on, with a running core: a resolve rule makes the direct outbound
+        # dial the address the SECTION's server gave, any other domain the main server's
+        if [ -x "$SB" ] && command -v curl > /dev/null 2>&1; then
+            cat > "$work/run.json" <<'RJ'
+{"log": {"level": "debug", "timestamp": false},
+ "dns": {"servers": [
+    {"type": "hosts", "tag": "main-dns", "predefined": {"sec.test.example": "127.0.0.1", "other.test.example": "127.0.0.1"}},
+    {"type": "hosts", "tag": "own-dns", "predefined": {"sec.test.example": "127.0.0.2", "other.test.example": "127.0.0.2"}}],
+  "final": "main-dns"},
+ "inbounds": [{"type": "mixed", "tag": "m", "listen": "127.0.0.1", "listen_port": 19081}],
+ "outbounds": [{"type": "direct", "tag": "direct-out"}],
+ "route": {"default_domain_resolver": "main-dns",
+   "rules": [
+     {"action": "resolve", "server": "own-dns", "domain": ["sec.test.example"]},
+     {"action": "route", "outbound": "direct-out"}],
+   "final": "direct-out"}}
+RJ
+            "$SB" run -c "$work/run.json" > "$work/run.log" 2>&1 &
+            SBPID=$!
+            n=0; while [ "$n" -lt 10 ] && ! grep -q "sing-box started" "$work/run.log" 2> /dev/null; do sleep 1; n=$((n + 1)); done
+            curl -s -m 3 -x socks5h://127.0.0.1:19081 http://sec.test.example:9/ > /dev/null 2>&1
+            curl -s -m 3 -x socks5h://127.0.0.1:19081 http://other.test.example:9/ > /dev/null 2>&1
+            kill "$SBPID" 2> /dev/null; wait "$SBPID" 2> /dev/null
+            echo "runtime-section-domain=$(grep -c 'dial tcp 127.0.0.2:9' "$work/run.log")"
+            echo "runtime-other-domain=$(grep -c 'dial tcp 127.0.0.1:9' "$work/run.log")"
+        fi
+    )"
+
+    _od() {
+        if printf '%s\n' "$out" | grep -qxF -- "$2"; then
+            pass "$1"
+        else
+            fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
+        fi
+    }
+    _od "an old config (no own DNS anywhere) is left exactly as it was" "unset-unchanged=yes"
+    _od "...and has no own servers" "unset-tags=[]"
+    _od "the servers of VPN and proxy sections are added, one tag each" 'servers=["dns-own-vpn1-1","dns-own-vpn1-2","dns-own-px-1"]'
+    _od "they are found again by their tags, in order" "tags-vpn1=dns-own-vpn1-1 dns-own-vpn1-2"
+    _od "a server given by name is looked up through the bootstrap server" 'server-1=["doh","dns.google/dns-query","bootstrap-dns-server",null]'
+    _od "an address needs no bootstrap" 'server-ip=["udp","10.0.0.53",null,null]'
+    _od "own_dns_via_section sends them through the section's outbound" 'via-detour=["vpn1-out","vpn1-out"]'
+    _od "an outbound that is not usable: asked directly, with a warning" 'via-unavailable=[null,null] warned=1'
+    _od "an exclusion section has no outbound: asked directly, with a warning" 'exclusion-via=[null] warned=1'
+    _od "a block section gets none" "block-ignored=[]"
+    _od "a DNS section gets none (it has its own pool)" "dns-type-ignored=[]"
+    _od "a disabled section gets none" "disabled=[]"
+    _od "a section without lists gets none" "no-lists=[]"
+    _od "bad entries are named and left out" "bad-entries=[] named=2"
+    _od "real AAAA, priority: the first server evaluated, the second answers; only AAAA queries" 'aaaa-fallback=[["evaluate","dns-own-vpn1-1","vpn1",["AAAA"],false],["respond","dns-section-response-vpn1-1","vpn1-respond","",false],["respond","dns-section-response-vpn1-1","vpn1-respond","",false],["route","dns-own-vpn1-2","vpn1",["AAAA"],false]]'
+    _od "real AAAA, parallel: every server evaluated, race rules, the first server last" 'aaaa-race=[["evaluate","dns-own-vpn1-1","vpn1",["AAAA"],false],["evaluate","dns-own-vpn1-2","vpn1",["AAAA"],false],["respond","dns-section-response-vpn1-1","vpn1-respond","",true],["respond","dns-section-response-vpn1-2","vpn1-respond","",true],["respond","dns-section-response-vpn1-1","vpn1-respond","",true],["respond","dns-section-response-vpn1-2","vpn1-respond","",true],["route","dns-own-vpn1-1","vpn1",["AAAA"],false]]'
+    _od "real AAAA, first server only" 'aaaa-single=[["route","dns-own-vpn1-1","vpn1",["AAAA"],false]]'
+    _od "an old core: the first server only, with a warning" 'aaaa-old-core=[["route","dns-own-vpn1-1","vpn1",["AAAA"],false]] warned=1'
+    _od "an unknown mode is priority, with a warning" "aaaa-bad-mode=[[\"evaluate\",\"dns-own-vpn1-1\",\"vpn1\",[\"AAAA\"],false],[\"respo warned=1"
+    _od "real AAAA without own servers still goes to the main DNS" 'aaaa-no-own=[["route","dns-server","vpn1",["AAAA"],false]]'
+    _od "the resolve rule stands ahead of the route rule, with the lists patched in once, the first server" 'resolve-order=[["resolve","dns-own-vpn1-1",["vpn1-domains","vpn1-more"]],["route","vpn1-out",["vpn1-domains","vpn1-more"]],["route","direct-out",""]]'
+    _od "the resolve rule of a VPN section takes its domain lists, not its subnet lists" 'resolve-domains-only=[["dns-own-vpn1-1","vpn1-user-domains-ruleset"]]'
+    _od "with resolve_real_ip_for_routing there is still one resolve rule (the section's)" 'resolve-once-with-real-ip=[["dns-own-vpn1-1","vpn1-user-domains-ruleset"]]'
+    _od "a proxy section gets no resolve rule (the proxy resolves)" 'resolve-not-for-proxy=[]'
+    _od "an exclusion section gets one" 'resolve-for-exclusion=["dns-own-ex-1"]'
+    _od "own_dns_server has the whole cap, without the words about a primary" "cap=$(. "$lib/constants.sh"; echo "$DNS_POOL_MAX_SERVERS") warned=1 primary-words=0"
+    _od "a resolve rule left with no lists is dropped" 'resolve-pruned=["own-dns-resolve-rule-vpn1","route-vpn1","exclusion-rule"]'
+    local _sb=/usr/local/bin/sing-box-1.14
+    if [ -x "$_sb" ]; then
+        _od "sing-box 1.14 accepts the rules" "core-check=ok"
+        if command -v curl > /dev/null 2>&1; then
+            _od "a running core dials the address the section's server gave for the section's domain" "runtime-section-domain=1"
+            _od "...and the main server's address for any other domain" "runtime-other-domain=1"
+        fi
+    else
+        skip "sing-box 1.14 not in the image: the core check of the own DNS rules"
+    fi
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -25227,6 +25509,7 @@ main() {
         memlimit)    test_oneshot_memlimit ;;
         hy2hop)      test_hy2_hop ;;
         filterpreview) test_filter_preview ;;
+        sectiondns) test_section_own_dns ;;
         *)
             # a test by its function name, with or without the test_ prefix ("hy2_hop")
             case "$target" in

@@ -96,6 +96,15 @@ config section 'main'
         #list fully_routed_ips '192.168.1.2'
         #option mixed_proxy_enabled '1'
         #option mixed_proxy_port '2080'
+        # DNS of this section only (default: the global DNS list of the settings). For a VPN or
+        # exclusion section the first server resolves its direct connections; with
+        # ipv6_dns_policy 'real' all the servers answer its AAAA queries by own_dns_mode.
+        #list own_dns_server 'dot://dns.quad9.net'
+        #list own_dns_server 'doh://dns.google/dns-query'
+        #option own_dns_mode 'fallback'
+        #option own_dns_timeout '2s'
+        #option own_dns_via_section '0'
+        #option ipv6_dns_policy 'fakeip'
 
 #config section 'subscription_example'
 #        option connection_type 'proxy'
