@@ -212,7 +212,11 @@ dns_bench_through_tunnel() {
     [ "$targets" != "[]" ] || { rm -rf "$dir"; return 1; }
 
     dns_bench_tunnel_config "$config_file" "$leaf" "$bootstrap" "$targets" > "$dir/config.json" 2> /dev/null || { rm -rf "$dir"; return 1; }
-    sing-box run -c "$dir/config.json" > /dev/null 2>&1 &
+    # The tunnel runs next to the daemon for a few seconds: the same memory
+    # ceiling as the other short-lived runs (see sing_box_oneshot). A plain
+    # command, not the function, so that $! is sing-box itself.
+    sing_box_oneshot_memlimit_init
+    GOMEMLIMIT="$NETSHIFT_ONESHOT_GOMEMLIMIT" sing-box run -c "$dir/config.json" > /dev/null 2>&1 &
     pid=$!
     sleep "$DNS_BENCH_TUNNEL_START_WAIT"
     if ! kill -0 "$pid" 2> /dev/null; then

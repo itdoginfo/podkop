@@ -1105,7 +1105,7 @@ sing_box_cf_try_subscription_batch() {
 
     validation_tmp="$(mktemp)" || return 1
     sing_box_cm_save_config_to_file "$updated_config" "$validation_tmp"
-    if ! sing-box -c "$validation_tmp" check > /dev/null 2>&1; then
+    if ! sing_box_oneshot -c "$validation_tmp" check > /dev/null 2>&1; then
         rm -f "$validation_tmp"
         return 1
     fi

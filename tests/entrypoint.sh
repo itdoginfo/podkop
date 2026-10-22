@@ -24618,6 +24618,151 @@ DRVEOF
     rm -rf "$work"
 }
 
+# Short-lived sing-box runs (check, rule-set, tools fetch, the DNS benchmark
+# tunnel) get a soft Go memory ceiling scaled by the RAM; the daemon does not.
+test_oneshot_memlimit() {
+    header "Memory ceiling of short-lived sing-box runs (GOMEMLIMIT)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if [ ! -r "$lib/helpers.sh" ] || [ ! -r "$bin" ]; then
+        fail "helpers.sh / bin not found"
+        return
+    fi
+
+    local work="/tmp/netshift-memlimit-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin"
+    cat > "$work/bin/sing-box" << 'SBEOF'
+#!/bin/sh
+printf '%s|%s\n' "${GOMEMLIMIT-unset}" "$*" >> "$SB_LOG"
+SBEOF
+    chmod +x "$work/bin/sing-box"
+
+    local drv="$work/driver.sh"
+    cat > "$drv" << 'DRVEOF'
+log() { :; }
+echolog() { :; }
+nolog() { :; }
+. "DRV_CONSTANTS"
+. "DRV_HELPERS"
+PATH="DRV_WORK/bin:$PATH"
+SB_LOG="DRV_WORK/sb.log"; export SB_LOG
+meminfo() { printf 'MemTotal:       %s kB\nMemFree:        1000 kB\n' "$1" > DRV_WORK/meminfo; }
+NETSHIFT_MEMINFO_PATH=DRV_WORK/meminfo
+for kb in 65536 131072 262144 524288 1048576 4194304; do
+    meminfo "$kb"
+    printf 'limit %s=%s\n' "$kb" "$(sing_box_oneshot_memlimit)"
+done
+NETSHIFT_MEMINFO_PATH=DRV_WORK/missing
+printf 'limit missing=[%s]\n' "$(sing_box_oneshot_memlimit)"
+
+meminfo 262144
+NETSHIFT_MEMINFO_PATH=DRV_WORK/meminfo
+unset GOMEMLIMIT
+( sing_box_oneshot -c /tmp/x.json check )
+( GOMEMLIMIT=200MiB; export GOMEMLIMIT; sing_box_oneshot rule-set match a b )
+( sing_box_oneshot_memlimit_init; sing_box_oneshot version; echo "after=${GOMEMLIMIT-unset}" )
+sed 's/^/call /' "$SB_LOG"
+DRVEOF
+    sed -i "s|DRV_CONSTANTS|$lib/constants.sh|; s|DRV_HELPERS|$lib/helpers.sh|; s|DRV_WORK|$work|g" "$drv"
+
+    local out
+    out="$(sh "$drv" 2>&1 || true)"
+
+    _ml_check() {
+        if printf '%s\n' "$out" | grep -qxF "$2"; then
+            pass "$1"
+        else
+            fail "$1 (expected '$2')"
+            printf '%s\n' "$out" | sed 's/^/      /'
+        fi
+    }
+    _ml_check "64 MB of RAM: the 16 MiB floor" "limit 65536=16MiB"
+    _ml_check "128 MB of RAM: 16 MiB" "limit 131072=16MiB"
+    _ml_check "256 MB of RAM: 32 MiB" "limit 262144=32MiB"
+    _ml_check "512 MB of RAM: 64 MiB" "limit 524288=64MiB"
+    _ml_check "1 GB of RAM: 128 MiB" "limit 1048576=128MiB"
+    _ml_check "4 GB of RAM: the 128 MiB cap" "limit 4194304=128MiB"
+    _ml_check "unreadable meminfo: no ceiling" "limit missing=[]"
+    _ml_check "a check runs with the ceiling" "call 32MiB|-c /tmp/x.json check"
+    _ml_check "a GOMEMLIMIT set by the user wins" "call 200MiB|rule-set match a b"
+    _ml_check "the ceiling does not leak into the shell" "after=unset"
+
+    # Every short-lived run in the sources goes through the wrapper: a direct
+    # `sing-box check|rule-set|tools` call would run without the ceiling.
+    local direct
+    direct="$(grep -nE '^[[:space:]]*(if !? *)?sing-box (-c [^ ]+ check|rule-set |tools )' \
+        "$bin" "$lib"/*.sh 2> /dev/null || true)"
+    if [ -z "$direct" ]; then
+        pass "no check / rule-set / tools run bypasses sing_box_oneshot"
+    else
+        fail "short-lived sing-box runs without the ceiling:"
+        printf '%s\n' "$direct" | sed 's/^/      /'
+    fi
+
+    # the function in the background would make $! its subshell, not sing-box (see helpers.sh)
+    local backgrounded
+    backgrounded="$(awk '{ line = (cont ? cont " " : "") $0 } /\\$/ { cont = substr(line, 1, length(line) - 1); next }
+        { cont = "" } line ~ /sing_box_oneshot / && line ~ /&[[:space:]]*$/ { print FILENAME ": " line }' \
+        "$bin" "$lib"/*.sh 2> /dev/null || true)"
+    if [ -z "$backgrounded" ]; then
+        pass "sing_box_oneshot never runs in the background"
+    else
+        fail "sing_box_oneshot in the background (\$! is not sing-box):"
+        printf '%s\n' "$backgrounded" | sed 's/^/      /'
+    fi
+
+    # the watchdog of the proxy check stops the fetch itself: its $! is sing-box
+    cat > "$work/bin/sing-box" << 'SBEOF'
+#!/bin/sh
+echo "$$" > "$SB_PIDFILE"
+echo "${GOMEMLIMIT-unset}" > "$SB_ENVFILE"
+exec sleep 30
+SBEOF
+    chmod +x "$work/bin/sing-box"
+    local fetch_out
+    fetch_out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        PATH="$work/bin:$PATH"
+        SB_PIDFILE="$work/sb.pid"; SB_ENVFILE="$work/sb.env"; export SB_PIDFILE SB_ENVFILE
+        NETSHIFT_MEMINFO_PATH="$work/meminfo"
+        printf 'MemTotal:       262144 kB\n' > "$work/meminfo"
+        eval "$(awk '/^sing_box_fetch_ifconfig_with_timeout\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        # the watchdog waits 20 s in production; a second here
+        sleep() { if [ "$1" = 20 ]; then command sleep 1; else command sleep "$@"; fi; }
+        sing_box_fetch_ifconfig_with_timeout /tmp /tmp/none.json main-out > /dev/null 2>&1
+        pid="$(cat "$work/sb.pid" 2> /dev/null)"
+        command sleep 1
+        if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
+            echo "fetch-after-watchdog=alive"
+            kill "$pid" 2> /dev/null
+        else
+            echo "fetch-after-watchdog=stopped"
+        fi
+        echo "fetch-limit=$(cat "$work/sb.env" 2> /dev/null)"
+    )"
+    if printf '%s\n' "$fetch_out" | grep -qx 'fetch-after-watchdog=stopped'; then
+        pass "the watchdog of the proxy check stops sing-box itself"
+    else
+        fail "the watchdog of the proxy check leaves sing-box running" "$fetch_out"
+    fi
+    if printf '%s\n' "$fetch_out" | grep -qx 'fetch-limit=32MiB'; then
+        pass "the proxy check runs with the ceiling"
+    else
+        fail "the proxy check runs without the ceiling" "$fetch_out"
+    fi
+
+    if grep -q 'GOMEMLIMIT="\$NETSHIFT_ONESHOT_GOMEMLIMIT" sing-box run' "$lib/dnsbench.sh"; then
+        pass "the DNS benchmark tunnel runs with the ceiling"
+    else
+        fail "the DNS benchmark tunnel runs without the ceiling"
+    fi
+
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -24743,6 +24888,7 @@ main() {
         dnsroute)    test_dns_server_route ;;
         firstrun)    test_first_run_message ;;
         autoupdate)  test_auto_update ;;
+        memlimit)    test_oneshot_memlimit ;;
         *)
             # a test by its function name, with or without the test_ prefix ("hy2_hop")
             case "$target" in

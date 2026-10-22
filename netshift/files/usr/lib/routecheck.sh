@@ -19,7 +19,7 @@ route_check_rule_set_hit() {
     local format="$2"
     local target="$3"
 
-    sing-box rule-set match -f "$format" "$path" "$target" 2>&1 | grep -q '^match'
+    sing_box_oneshot rule-set match -f "$format" "$path" "$target" 2>&1 | grep -q '^match'
 }
 
 # Resolves a rule-set tag of the configuration to a local file the core can read.

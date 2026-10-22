@@ -64,7 +64,7 @@ domain_regex_file_is_valid() {
 
     probe="$(mktemp)" || return 1
     jq -R -s '{version: 3, rules: [{domain_regex: (split("\n") | map(select(length > 0)))}]}' "$file" > "$probe" 2> /dev/null
-    sing-box rule-set match "$probe" "netshift-probe.invalid" > /dev/null 2>&1
+    sing_box_oneshot rule-set match "$probe" "netshift-probe.invalid" > /dev/null 2>&1
     rc=$?
     rm -f "$probe"
     return "$rc"
@@ -298,7 +298,7 @@ decompile_binary_ruleset() {
     local output_filepath="$2"
 
     log "Decompiling $binary_filepath to $output_filepath" "debug"
-    if ! sing-box rule-set decompile "$binary_filepath" -o "$output_filepath"; then
+    if ! sing_box_oneshot rule-set decompile "$binary_filepath" -o "$output_filepath"; then
         log "Decompilation command failed for $binary_filepath" "error"
         return 1
     fi
