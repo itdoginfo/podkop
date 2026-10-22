@@ -23053,6 +23053,115 @@ DRVEOF
 
 
 # The test functions of this file, in the order they are written.
+# An upgrade with the installer keeps the sing-box core that is installed (Enter or the end of
+# input), and a section left without usable links names the installed core and what to do.
+test_keep_core() {
+    header "Installer keeps the installed core; unsupported links name the core"
+
+    local installer="${NETSHIFT_SRC}/../install.sh"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    local lib="${NETSHIFT_LIB_DIR}"
+    local work="/tmp/netshift-keepcore-$$"
+    rm -rf "$work"
+    mkdir -p "$work/bin"
+
+    if [ -r "$installer" ]; then
+        cat > "$work/bin/sing-box" << 'SBEOF'
+#!/bin/sh
+[ "$1" = version ] && echo "sing-box version $KC_VERSION"
+SBEOF
+        chmod +x "$work/bin/sing-box"
+        cat > "$work/drv.sh" << 'DRVEOF'
+msg() { echo "MSG $*" >> "$KC_DIR/msgs"; }
+for f in sing_box_is_extended sing_box_is_lite current_sing_box_core select_sing_box_core apply_sing_box_core; do
+    eval "$(awk -v f="$f" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$KC_INSTALLER")"
+done
+# what apply would switch to; the component action itself is not run here
+mkdir -p "$KC_DIR/usr/bin"
+run() {
+    KC_VERSION="$1"; export KC_VERSION
+    rm -f "$KC_DIR/msgs"
+    printf '%b' "$2" | { select_sing_box_core; echo "$SING_BOX_CORE" > "$KC_DIR/choice"; }
+    SING_BOX_CORE="$(cat "$KC_DIR/choice")"
+    action=""
+    case "$SING_BOX_CORE" in
+    keep) action=none ;;
+    stock) sing_box_is_extended && action=install_stable || action=none ;;
+    extended) sing_box_is_extended && ! sing_box_is_lite && action=none || action=install_extended ;;
+    extended_lite) sing_box_is_lite && action=none || action=install_extended_lite ;;
+    esac
+    echo "$3=$SING_BOX_CORE action=$action offered=$(grep -c 'Оставить установленное' "$KC_DIR/msgs")"
+}
+PATH="$KC_BIN:$PATH"
+run "1.14.3-extended-2.7.3" "" "extended-eof"
+run "1.14.3-extended-2.7.3" "\n" "extended-enter"
+run "1.14.3-extended-2.7.3" "0\n" "extended-zero"
+run "1.14.3-extended-2.7.3" "1\n" "extended-chose-stock"
+run "1.14.3-extended-2.7.3-lite" "\n" "lite-enter"
+run "1.12.22" "" "stock-eof"
+# no core at all: a PATH without the directories sing-box lives in (busybox applets are in /bin)
+PATH="/bin"
+command -v sing-box > /dev/null 2>&1 && echo "none-eof=skipped" || run "" "" "none-eof"
+command -v sing-box > /dev/null 2>&1 && echo "none-enter=skipped" || run "" "\n9\n2\n" "none-enter"
+# the apply step itself does nothing for keep
+SING_BOX_CORE=keep; apply_sing_box_core; echo "apply-keep-rc=$?"
+DRVEOF
+        local out
+        out="$(KC_DIR="$work" KC_BIN="$work/bin" KC_INSTALLER="$installer" sh "$work/drv.sh" 2>&1 || true)"
+        _kc() {
+            if printf '%s\n' "$out" | grep -qxF -- "$2"; then pass "$1"; else fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"; fi
+        }
+        _kc "upgrade over sing-box-extended, end of input: the core is kept" "extended-eof=keep action=none offered=1"
+        _kc "...Enter keeps it" "extended-enter=keep action=none offered=1"
+        _kc "...0 keeps it" "extended-zero=keep action=none offered=1"
+        _kc "...1 still switches to the stock core when asked for" "extended-chose-stock=stock action=install_stable offered=1"
+        _kc "the lite core is kept on Enter" "lite-enter=keep action=none offered=1"
+        _kc "a stock core is kept on the end of input too" "stock-eof=keep action=none offered=1"
+        if printf '%s\n' "$out" | grep -q '^none-eof=skipped'; then
+            skip "the test image has sing-box on PATH: the first install cases are not run"
+        else
+            _kc "a first install without any core: the end of input means stock, as before" "none-eof=stock action=none offered=0"
+            _kc "...Enter and an unknown answer re-ask instead" "none-enter=extended action=install_extended offered=0"
+        fi
+        _kc "apply does nothing for keep" "apply-keep-rc=0"
+    else
+        skip "install.sh is not mounted into the test container"
+    fi
+
+    # the message of a section without usable links names the core
+    local hint
+    hint="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        eval "$(awk '/^unsupported_links_hint\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        get_sing_box_version() { echo "$KC_V"; }
+        KC_V="1.12.22"; echo "stock:$(unsupported_links_hint)"
+        KC_V="1.14.3-extended-2.7.3"; echo "extended:$(unsupported_links_hint)"
+    )"
+    if printf '%s\n' "$hint" | grep -qF 'stock: Installed core: stock sing-box 1.12.22. Links with XHTTP, VMess or VLESS Encryption need sing-box-extended: install it in Services - NetShift - Components manager.'; then
+        pass "unsupported links on a stock core: the core and the way to sing-box-extended are named"
+    else
+        fail "unsupported links on a stock core: the core and the way to sing-box-extended are named" "$hint"
+    fi
+    if printf '%s\n' "$hint" | grep -qF 'extended: Installed core: sing-box 1.14.3-extended-2.7.3 (extended).'; then
+        pass "...on sing-box-extended the core is named"
+    else
+        fail "...on sing-box-extended the core is named" "$hint"
+    fi
+    if [ "$(grep -c 'no usable links (all unsupported).*\$(unsupported_links_hint)' "$bin")" -eq 4 ] &&
+        grep -q 'uses an unsupported scheme.*\$(unsupported_links_hint)' "$bin"; then
+        pass "every message of a section without usable links carries the hint"
+    else
+        fail "every message of a section without usable links carries the hint"
+    fi
+    if [ "$(grep -c 'requires sing-box-extended.*(installed: sing-box \$(get_sing_box_version))' "$lib/sing_box_config_facade.sh")" -eq 3 ]; then
+        pass "the errors of XHTTP, VMess and VLESS Encryption name the installed core"
+    else
+        fail "the errors of XHTTP, VMess and VLESS Encryption name the installed core"
+    fi
+    rm -rf "$work"
+}
+
 smoke_tests() {
     sed -n 's/^\(test_[a-z0-9_]*\)() {$/\1/p' "$SMOKE_SELF"
 }

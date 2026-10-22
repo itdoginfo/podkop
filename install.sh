@@ -304,25 +304,57 @@ sing_box_is_extended() {
     return 1
 }
 
+# The core installed now: stock, extended, extended_lite, or nothing when there is none.
+current_sing_box_core() {
+    command -v sing-box >/dev/null 2>&1 || return 0
+    if sing_box_is_lite; then
+        echo "extended_lite"
+    elif sing_box_is_extended; then
+        echo "extended"
+    else
+        echo "stock"
+    fi
+}
+
 # Asks which sing-box core to install and stores the answer in SING_BOX_CORE
-# (stock|extended|extended_lite). Same plain read loop as the Russian-language
+# (keep|stock|extended|extended_lite). Same plain read loop as the Russian-language
 # prompt below: an unrecognised answer re-asks instead of aborting the install.
-# On EOF (the script is piped rather than run from a terminal) the stock core
-# is chosen, which is what the installer did before this prompt existed.
+# When a core is installed (an upgrade), Enter and the end of input keep it: an
+# upgrade that only meant to update NetShift must not replace sing-box-extended
+# with the stock core (links with XHTTP, VMess or VLESS Encryption would stop
+# working). Without a core the end of input chooses the stock one, as before.
 select_sing_box_core() {
+    local current
+    current="$(current_sing_box_core)"
+
     msg "Какое ядро sing-box поставить? (Which sing-box core to install?)"
+    if [ -n "$current" ]; then
+        msg "0) Оставить установленное ($current) - по умолчанию, Enter (Keep the installed core - the default)"
+    fi
     msg "1) Стоковый sing-box (stock, из фидов OpenWrt)"
     msg "2) sing-box-extended (сборка shtorm-7, больше протоколов)"
     msg "3) sing-box-extended-lite (облегчённая сборка для устройств с малой Flash)"
 
     while true; do
         if ! read -r -p '' CORE; then
-            msg "Нет ответа, ставим стоковый sing-box (No input, installing the stock core)"
-            SING_BOX_CORE="stock"
+            if [ -n "$current" ]; then
+                msg "Нет ответа, ядро не меняется: $current (No input, the installed core is kept)"
+                SING_BOX_CORE="keep"
+            else
+                msg "Нет ответа, ставим стоковый sing-box (No input, installing the stock core)"
+                SING_BOX_CORE="stock"
+            fi
             break
         fi
 
         case $CORE in
+        0 | "")
+            if [ -n "$current" ]; then
+                SING_BOX_CORE="keep"
+                break
+            fi
+            echo "Введите 1, 2 или 3 (Enter 1, 2 or 3)"
+            ;;
         1)
             SING_BOX_CORE="stock"
             break
@@ -336,7 +368,11 @@ select_sing_box_core() {
             break
             ;;
         *)
-            echo "Введите 1, 2 или 3 (Enter 1, 2 or 3)"
+            if [ -n "$current" ]; then
+                echo "Введите 0, 1, 2 или 3 (Enter 0, 1, 2 or 3)"
+            else
+                echo "Введите 1, 2 или 3 (Enter 1, 2 or 3)"
+            fi
             ;;
         esac
     done
@@ -374,6 +410,10 @@ apply_sing_box_core() {
     local action="" result
 
     case "$SING_BOX_CORE" in
+    keep)
+        msg "The sing-box core is kept as it is"
+        return 0
+        ;;
     extended)
         # A lite build already in place is extended-family but NOT the full
         # build — only a non-lite extended core skips the switch.

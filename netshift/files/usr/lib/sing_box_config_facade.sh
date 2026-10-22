@@ -322,7 +322,7 @@ sing_box_cf_add_proxy_outbound() {
             # sourced: an empty minimum would compare as "anything passes".
             local encryption_min="${SB_EXTENDED_VLESS_ENCRYPTION_MIN:-2.0.0}"
             if ! is_sing_box_extended_at_least "$encryption_min"; then
-                log "Section '$section': VLESS Encryption requires sing-box-extended $encryption_min or newer; skipping the link. Install sing-box-extended and retry." "error"
+                log "Section '$section': VLESS Encryption requires sing-box-extended $encryption_min or newer (installed: sing-box $(get_sing_box_version)); skipping the link. Install sing-box-extended in the Components manager." "error"
                 echo "$config"
                 return 1
             fi
@@ -426,7 +426,7 @@ sing_box_cf_add_proxy_outbound() {
         # connection (proxy_config_type=outbound) or a native sing-box-JSON
         # subscription, which bypass this URL dispatcher entirely.
         if ! is_sing_box_extended; then
-            log "Section '$section': VMess requires sing-box-extended; skipping the link. Install sing-box-extended and retry." "error"
+            log "Section '$section': VMess requires sing-box-extended (installed: sing-box $(get_sing_box_version)); skipping the link. Install sing-box-extended in the Components manager." "error"
             echo "$config"
             return 1
         fi
@@ -670,7 +670,7 @@ _add_outbound_transport() {
         # link. Keeping the outbound without its transport would leave a node
         # that validates but can never connect, still listed in its group.
         if ! is_sing_box_extended; then
-            log "XHTTP transport requires sing-box-extended; skipping the link. Install sing-box-extended and retry." "error"
+            log "XHTTP transport requires sing-box-extended (installed: sing-box $(get_sing_box_version)); skipping the link. Install sing-box-extended in the Components manager." "error"
             echo "$config"
             return 1
         fi

@@ -119,6 +119,8 @@ sh <(wget -O - https://raw.githubusercontent.com/yandexru45/netshift/refs/heads/
 
 Интерфейс появится в LuCI: **Services → NetShift**.
 
+Скрипт спрашивает, какое ядро sing-box поставить. При обновлении первым пунктом идёт «оставить установленное», и Enter (как и запуск без ответа) его не меняет: обновление NetShift не заменяет sing-box-extended на стоковое ядро. Если ссылки секции перестали работать с ошибкой «no usable links (all unsupported)», в той же строке журнала названо установленное ядро: ссылкам с XHTTP, VMess и VLESS Encryption нужен sing-box-extended («Менеджер компонентов»).
+
 <details>
 <summary><b>Готовые community-списки</b></summary>
 

@@ -570,6 +570,21 @@ download_proxy_section_is_unavailable() {
 # but does NOT touch any per-URL subscription rejected-hash cache (that is
 # subscription-only). The section degrades to "matching traffic rejected"
 # without aborting generation of the rest of the config.
+# Appended to "no usable links": what core is installed and what to do. The errors just before it
+# name the feature each link needs (XHTTP, VMess and VLESS Encryption need sing-box-extended); a
+# router where the core was replaced by the stock one (a reinstall that chose it, a package
+# upgrade) shows exactly this, so the core is named.
+unsupported_links_hint() {
+    local version variant
+
+    version="$(get_sing_box_version 2> /dev/null)"
+    variant="$(get_sing_box_variant "$version" 2> /dev/null)"
+    case "$variant" in
+    stock) printf ' Installed core: stock sing-box %s. Links with XHTTP, VMess or VLESS Encryption need sing-box-extended: install it in Services - NetShift - Components manager.' "$version" ;;
+    *) printf ' Installed core: sing-box %s (%s). The errors before this one say what each link needs.' "$version" "$variant" ;;
+    esac
+}
+
 mark_section_outbound_unavailable() {
     local section="$1"
 
@@ -4708,7 +4723,7 @@ configure_outbound_handler() {
                 config="$_new_config"
                 geoip_collect_link "$(get_outbound_tag_by_section "$section")" "$proxy_string"
             else
-                echolog "Proxy link for section '$section' uses an unsupported scheme or a feature the installed sing-box lacks and was skipped; this section has no usable outbound and its traffic will be rejected until a supported link is configured" "error"
+                echolog "Proxy link for section '$section' uses an unsupported scheme or a feature the installed sing-box lacks and was skipped; this section has no usable outbound and its traffic will be rejected until a supported link is configured.$(unsupported_links_hint)" "error"
                 mark_section_outbound_unavailable "$section"
             fi
             ;;
@@ -4733,7 +4748,7 @@ configure_outbound_handler() {
             _build_proxy_member_outbounds "$section" "$selector_proxy_links" "$udp_over_tcp" "Selector"
 
             if [ -z "$_member_outbound_tags" ]; then
-                echolog "Selector section '$section' has no usable links (all unsupported); its traffic will be rejected until a supported link is configured" "error"
+                echolog "Selector section '$section' has no usable links (all unsupported); its traffic will be rejected until a supported link is configured.$(unsupported_links_hint)" "error"
                 mark_section_outbound_unavailable "$section"
             else
                 selector_tag="$(get_outbound_tag_by_section "$section")"
@@ -4760,7 +4775,7 @@ configure_outbound_handler() {
             _build_proxy_member_outbounds "$section" "$urltest_proxy_links" "$udp_over_tcp" "URLTest"
 
             if [ -z "$_member_outbound_tags" ]; then
-                echolog "URLTest section '$section' has no usable links (all unsupported); its traffic will be rejected until a supported link is configured" "error"
+                echolog "URLTest section '$section' has no usable links (all unsupported); its traffic will be rejected until a supported link is configured.$(unsupported_links_hint)" "error"
                 mark_section_outbound_unavailable "$section"
             else
                 urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
@@ -4786,7 +4801,7 @@ configure_outbound_handler() {
             _build_proxy_member_outbounds "$section" "$selector_text_links" "$udp_over_tcp" "Selector"
 
             if [ -z "$_member_outbound_tags" ]; then
-                echolog "Selector section '$section' has no usable links (all unsupported); its traffic will be rejected until a supported link is configured" "error"
+                echolog "Selector section '$section' has no usable links (all unsupported); its traffic will be rejected until a supported link is configured.$(unsupported_links_hint)" "error"
                 mark_section_outbound_unavailable "$section"
             else
                 selector_tag="$(get_outbound_tag_by_section "$section")"
@@ -4813,7 +4828,7 @@ configure_outbound_handler() {
             _build_proxy_member_outbounds "$section" "$urltest_text_links" "$udp_over_tcp" "URLTest"
 
             if [ -z "$_member_outbound_tags" ]; then
-                echolog "URLTest section '$section' has no usable links (all unsupported); its traffic will be rejected until a supported link is configured" "error"
+                echolog "URLTest section '$section' has no usable links (all unsupported); its traffic will be rejected until a supported link is configured.$(unsupported_links_hint)" "error"
                 mark_section_outbound_unavailable "$section"
             else
                 urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
