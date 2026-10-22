@@ -295,6 +295,12 @@ function buildDevices(sectionsSection, settingsSection) {
   };
 
   const renderRows = () => {
+    // the host hints come with the first visit of the tab: until then there is nothing to draw
+    // (a search typed meanwhile must not clear the table or throw)
+    if (!hints) {
+      return;
+    }
+
     const state = readState(sectionsSection, settingsSection);
     const disabled = new Set(
       routedSections()
@@ -355,19 +361,21 @@ function buildDevices(sectionsSection, settingsSection) {
     });
   };
 
-  // The host hints arrive asynchronously; the table is filled when they are here.
-  Promise.all([network.getHostHints(), loadLanInfo()])
-    .then(([result, info]) => {
-      hints = result;
-      lan = info;
-      renderRows();
-    })
-    .catch(() => {
-      hints = { getMACHints: () => [], getIPAddrByMACAddr: () => null };
-      renderRows();
-    });
+  // The host hints arrive asynchronously; the table is filled when they are here. Asked when the
+  // tab is opened, not with every visit of the page.
+  const load = () =>
+    Promise.all([network.getHostHints(), loadLanInfo()])
+      .then(([result, info]) => {
+        hints = result;
+        lan = info;
+        renderRows();
+      })
+      .catch(() => {
+        hints = { getMACHints: () => [], getIPAddrByMACAddr: () => null };
+        renderRows();
+      });
 
-  return E("div", { class: "cbi-section" }, [
+  const root = E("div", { class: "cbi-section" }, [
     E("div", { class: "cbi-section-descr" }, [
       _(
         "Choose how traffic of a device in your network is handled. A device can be sent completely through one section (all its traffic) or directly, ignoring the lists. The change is stored with the page's Save & Apply, like the other settings.",
@@ -400,6 +408,9 @@ function buildDevices(sectionsSection, settingsSection) {
       ]),
     ]),
   ]);
+  main.onFirstVisible(root, load);
+
+  return root;
 }
 
 function createDevicesContent(devicesSection, sectionsSection, settingsSection) {

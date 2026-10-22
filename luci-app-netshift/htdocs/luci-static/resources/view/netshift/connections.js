@@ -121,7 +121,9 @@ function buildConnections() {
       return;
     }
 
-    if (root.offsetParent !== null) {
+    // offsetParent cannot tell: LuCI 26 hides a tab that is not open with height 0, so the list
+    // was asked for every 3 seconds on every page of NetShift
+    if (onScreen()) {
       refresh();
     }
   }
@@ -158,7 +160,9 @@ function buildConnections() {
   );
 
   render();
-  refresh();
+  // the first list when the tab is opened, not with every visit of the page
+  const onScreen = main.watchVisibility(root);
+  main.onFirstVisible(root, refresh);
   timer = window.setInterval(tick, REFRESH_MS);
 
   return root;

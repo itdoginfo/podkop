@@ -500,3 +500,7 @@ AUTO_UPDATE_TIME_DEFAULT="04:30"
 # How long a just-updated NetShift may take to work again: attempts x seconds.
 AUTO_UPDATE_HEALTH_ATTEMPTS=9
 AUTO_UPDATE_HEALTH_INTERVAL=10
+
+# The answer of get_core_capabilities for the cores installed now (lib/quick.sh), and the
+# fingerprint of those cores next to it (.key). tmpfs: a reboot asks the core again.
+CORE_CAPABILITIES_CACHE="/tmp/netshift-core-capabilities.json"

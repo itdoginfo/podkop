@@ -639,10 +639,24 @@ function registerLifecycleListeners() {
   });
 }
 
+// See the dashboard controller: one start for every drawing of the tab, the
+// listeners once.
+let mountedElement: HTMLElement | null = null;
+let listenersRegistered = false;
+
 export async function initController(): Promise<void> {
-  onMount('diagnostic-status').then(() => {
+  onMount('diagnostic-status').then((element) => {
+    if (element === mountedElement) {
+      return;
+    }
+
+    mountedElement = element;
     logger.debug('[DIAGNOSTIC]', 'initController', 'onMount');
     onPageMount();
-    registerLifecycleListeners();
+
+    if (!listenersRegistered) {
+      listenersRegistered = true;
+      registerLifecycleListeners();
+    }
   });
 }

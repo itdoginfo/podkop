@@ -5076,13 +5076,22 @@ async function loadPinGuardEvents() {
     logger.error("[DASHBOARD]", "loadPinGuardEvents: failed", e);
   }
 }
+var mountedElement = null;
+var listenersRegistered = false;
 async function initController() {
-  onMount("dashboard-status").then(() => {
+  onMount("dashboard-status").then((element) => {
+    if (element === mountedElement) {
+      return;
+    }
+    mountedElement = element;
     logger.debug("[DASHBOARD]", "initController", "onMount");
     onPageMount();
     void loadUpdateNotice();
     void loadPinGuardEvents();
-    registerLifecycleListeners();
+    if (!listenersRegistered) {
+      listenersRegistered = true;
+      registerLifecycleListeners();
+    }
   });
 }
 
@@ -7089,11 +7098,20 @@ function registerLifecycleListeners2() {
     }
   });
 }
+var mountedElement2 = null;
+var listenersRegistered2 = false;
 async function initController2() {
-  onMount("diagnostic-status").then(() => {
+  onMount("diagnostic-status").then((element) => {
+    if (element === mountedElement2) {
+      return;
+    }
+    mountedElement2 = element;
     logger.debug("[DIAGNOSTIC]", "initController", "onMount");
     onPageMount2();
-    registerLifecycleListeners2();
+    if (!listenersRegistered2) {
+      listenersRegistered2 = true;
+      registerLifecycleListeners2();
+    }
   });
 }
 
@@ -8563,31 +8581,87 @@ function getProxyUrlName(url) {
   }
 }
 
+// src/helpers/onFirstVisible.ts
+function isOnScreen(entries) {
+  return entries.some(
+    (entry) => entry.intersectionRect.width > 0 && entry.intersectionRect.height > 0
+  );
+}
+function onFirstVisible(node, callback) {
+  if (typeof IntersectionObserver === "undefined") {
+    callback();
+    return;
+  }
+  let done = false;
+  const observer = new IntersectionObserver((entries) => {
+    if (done || !isOnScreen(entries)) {
+      return;
+    }
+    done = true;
+    observer.disconnect();
+    callback();
+  });
+  observer.observe(node);
+}
+function watchVisibility(node) {
+  if (typeof IntersectionObserver === "undefined") {
+    return () => node.offsetParent !== null;
+  }
+  let visible = false;
+  const observer = new IntersectionObserver((entries) => {
+    visible = isOnScreen(entries);
+  });
+  observer.observe(node);
+  return () => {
+    if (!node.isConnected) {
+      observer.disconnect();
+      return false;
+    }
+    return visible;
+  };
+}
+
 // src/helpers/onMount.ts
 async function onMount(id) {
   return new Promise((resolve) => {
-    const el = document.getElementById(id);
-    if (el && el.offsetParent !== null) {
-      return resolve(el);
-    }
-    const observer = new MutationObserver(() => {
-      const target = document.getElementById(id);
-      if (target) {
-        const io = new IntersectionObserver((entries) => {
-          const visible = entries.some((e) => e.isIntersecting);
-          if (visible) {
-            observer.disconnect();
-            io.disconnect();
-            resolve(target);
-          }
-        });
-        io.observe(target);
+    let watched = null;
+    let intersection = null;
+    let mutation = null;
+    let done = false;
+    const finish = (element) => {
+      if (done) {
+        return;
       }
-    });
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+      done = true;
+      mutation?.disconnect();
+      intersection?.disconnect();
+      resolve(element);
+    };
+    const follow = () => {
+      const target = document.getElementById(id);
+      if (!target) {
+        return;
+      }
+      if (typeof IntersectionObserver === "undefined") {
+        finish(target);
+        return;
+      }
+      const pane = target.closest("[data-tab-title], [data-tab]") ?? target;
+      if (pane === watched) {
+        return;
+      }
+      intersection?.disconnect();
+      watched = pane;
+      intersection = new IntersectionObserver((entries) => {
+        if (isOnScreen(entries)) {
+          finish(document.getElementById(id) ?? target);
+        }
+      });
+      intersection.observe(pane);
+    };
+    mutation = new MutationObserver(follow);
+    mutation.observe(document.body, { childList: true, subtree: true });
+    follow();
   });
 }
 
@@ -9176,6 +9250,7 @@ return baseclass.extend({
   isIpv4InSubnet,
   isLanIpv4,
   isNaiveUrl,
+  isOnScreen,
   isValidMac,
   listedDeviceIps,
   loadCoreCapabilities,
@@ -9184,6 +9259,7 @@ return baseclass.extend({
   logger,
   maskIP,
   newFeeds,
+  onFirstVisible,
   onMount,
   parseConnections,
   parseCoreCapabilities,
@@ -9238,6 +9314,7 @@ return baseclass.extend({
   validateTuicUrl,
   validateUrl,
   validateVlessUrl,
+  watchVisibility,
   withCountryFlag,
   withTimeout
 });

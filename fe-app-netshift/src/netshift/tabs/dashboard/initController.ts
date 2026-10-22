@@ -791,12 +791,29 @@ async function loadPinGuardEvents() {
   }
 }
 
+// LuCI asks the option of the tab for its value more than once while it builds
+// the page, and the page is built again at every visit. A start is made once
+// for every drawing of the tab (the element that comes on screen is a new one
+// each time; the two asks of one drawing resolve with the same element), the
+// listeners of the tab changes once for the whole session.
+let mountedElement: HTMLElement | null = null;
+let listenersRegistered = false;
+
 export async function initController(): Promise<void> {
-  onMount('dashboard-status').then(() => {
+  onMount('dashboard-status').then((element) => {
+    if (element === mountedElement) {
+      return;
+    }
+
+    mountedElement = element;
     logger.debug('[DASHBOARD]', 'initController', 'onMount');
     onPageMount();
     void loadUpdateNotice();
     void loadPinGuardEvents();
-    registerLifecycleListeners();
+
+    if (!listenersRegistered) {
+      listenersRegistered = true;
+      registerLifecycleListeners();
+    }
   });
 }
