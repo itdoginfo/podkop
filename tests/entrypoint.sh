@@ -22698,6 +22698,17 @@ CF
         apply_config_change
         echo "monitor-options-restarts=$(n)"
 
+        # where NetShift updates itself from (read by the updater on demand) and the tiles of the
+        # dashboard (read by the page): no restart
+        config_applied_hash_save
+        : > "$work/restarts"
+        uci -q set netshift.settings.update_repo='fork'
+        uci -q add_list netshift.settings.update_mirror='https://gh-proxy.com/'
+        uci -q set netshift.settings.dashboard_widgets='0'
+        uci -q commit netshift
+        apply_config_change
+        echo "update-and-dashboard-options-restarts=$(n)"
+
         # the schedule of the automatic update: no restart, but its cron job is rewritten
         config_applied_hash_save
         : > "$work/restarts"
@@ -22760,6 +22771,7 @@ command-wired=$(grep -c '^apply_config)' "$bin")"
     _ac "...the hash of the configuration stays the same" "ignored-options-hash-same=yes"
     _ac "...and the log says why nothing restarted" "ignored-logged=1"
     _ac "the options of the monitor (interval, pin guard, priority mode) and the latency URL: no restart" "monitor-options-restarts=0"
+    _ac "the update source, GitHub mirrors and the dashboard tiles: no restart" "update-and-dashboard-options-restarts=0"
     _ac "the options of the automatic update: no restart, the cron job is rewritten once" "auto-update-options-restarts=0 cron-syncs=1"
     _ac "a DNS option changed: restart" "dns-change-restarts=1"
     _ac "a section changed: restart" "section-change-restarts=1"

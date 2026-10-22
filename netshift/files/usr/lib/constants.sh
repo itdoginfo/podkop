@@ -313,7 +313,7 @@ UPDATES_NETSHIFT_NOTES_MAX=24000
 # (applyconfig.sh). shutdown_correctly is flipped by the service itself.
 # Read only while the service runs: by the monitor (it loads the configuration anew on every
 # check cycle), by the dashboard, or when a component is installed.
-CONFIG_NO_RESTART_OPTIONS="update_notice shutdown_correctly latency_test_url priority_check_interval priority_mode pin_guard wget_ipv4_mode sing_box_extended_arm_build sing_box_lite_build auto_update auto_update_netshift auto_update_sing_box auto_update_on_boot auto_update_interval auto_update_time"
+CONFIG_NO_RESTART_OPTIONS="update_notice shutdown_correctly latency_test_url priority_check_interval priority_mode pin_guard wget_ipv4_mode sing_box_extended_arm_build sing_box_lite_build auto_update auto_update_netshift auto_update_sing_box auto_update_on_boot auto_update_interval auto_update_time update_repo update_mirror dashboard_widgets"
 CONFIG_APPLIED_HASH_FILE="/tmp/netshift-applied-config.hash"
 NETSHIFT_INIT="/etc/init.d/netshift"
 # tmpfs backup of /etc/config/netshift taken before the self-update package
