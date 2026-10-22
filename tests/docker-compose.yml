@@ -11,7 +11,7 @@
 # Test names: all, the name of a test function without its test_ prefix
 #             (hy2_hop for test_hy2_hop), or one of the short names in main() of
 #             tests/entrypoint.sh (hy2hop). A new test needs no registration: defining a
-#             test_* function adds it to "all".
+#             test_* function adds it to "all"., filterpreview,
 # ──────────────────────────────────────────────────────────────────
 
 services:

@@ -60,6 +60,7 @@ export namespace NetShift {
     CHECK_FAKEIP = 'check_fakeip',
     CHECK_ENVIRONMENT = 'check_environment',
     CHECK_ROUTE = 'check_route',
+    PREVIEW_SUBSCRIPTION_FILTER = 'preview_subscription_filter',
     GET_UPDATE_NOTICE = 'get_update_notice',
     REFRESH_UPDATE_NOTICE = 'refresh_update_notice',
     CONFIG_SNAPSHOT = 'config_snapshot',
@@ -100,6 +101,15 @@ export namespace NetShift {
     latency: number;
     type: string;
     selected: boolean;
+  }
+
+  // The answer of preview_subscription_filter: the counts and names, or an error.
+  export interface SubscriptionFilterPreview {
+    total?: number;
+    kept?: number;
+    unsupported?: number;
+    names?: string[];
+    error?: 'no_cache' | 'bad_input' | 'no_config';
   }
 
   export interface OutboundSubgroup {

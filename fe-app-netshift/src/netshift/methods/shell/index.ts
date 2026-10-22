@@ -112,6 +112,13 @@ export const NetShiftShellMethods = {
       // Replaying the rules runs the core a few times: do not hold other calls.
       { nobatch: true },
     ),
+  previewSubscriptionFilter: async (section: string, overrides: string) =>
+    callBaseMethod<NetShift.SubscriptionFilterPreview>(
+      NetShift.AvailableMethods.PREVIEW_SUBSCRIPTION_FILTER,
+      [section, overrides],
+      undefined,
+      { nobatch: true, timeout: 25000 },
+    ),
   getConnections: async () =>
     callBaseMethod<unknown>(
       NetShift.AvailableMethods.CLASH_API,
