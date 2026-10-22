@@ -25402,7 +25402,7 @@ test_support_report() {
     cat > "$work/uci.json" << 'UJ'
 {"values":{
  "settings":{".type":"settings",".name":"settings","dns_type":"doh","dns_server":"dns.controld.com/pk_abc123secret","update_repo":"fork","subscription_keywords":"x",
-   "dns_pool_server":["dot://dns.quad9.net","dot://myid123.dns.nextdns.io","doh://dns.controld.com/pk_abc123secret","dot://one.one.one.one","dot://common.dot.dns.yandex.net"],"dns_client_subnet":"198.51.100.0/24","routing_excluded_ips":["192.168.1.5","192.168.1.6"],"hwid":"abc123","api_secret":"s3cr3t","remote_domain_lists":["https://example.com/list.srs?token=zzz"]},
+   "dns_pool_server":["dot://dns.quad9.net","dot://myid123.dns.nextdns.io","dot://myid999.dns.nextdns.io:853","doh://dns.controld.com/pk_abc123secret","dot://one.one.one.one","dot://common.dot.dns.yandex.net"],"dns_client_subnet":"198.51.100.0/24","routing_excluded_ips":["192.168.1.5","192.168.1.6"],"hwid":"abc123","api_secret":"s3cr3t","remote_domain_lists":["https://example.com/list.srs?token=zzz"]},
  "main":{".type":"section",".name":"main","connection_type":"proxy","proxy_config_type":"urltest",
    "urltest_proxy_links":["vless://11111111-2222-3333-4444-555555555555@srv.example.org:443?security=reality&pbk=PUBKEYVALUE&sid=ab12#name","hy2://pw@srv2.example.org:443#n"],
    "subscription_url":["https://panel.example.net/sub/TOKENVALUE"],"user_domains":["a.com","b.com","c.com"],"mixed_proxy_password":"hunter2","mixed_proxy_username":"supportuser",
@@ -25414,6 +25414,8 @@ UJ
   "tls":{"enabled":true,"server_name":"srv.example.org","reality":{"enabled":true,"public_key":"PUBKEYVALUE","short_id":"ab12"}},
   "transport":{"type":"ws","path":"/wspathsecret","headers":{"Host":"front.example.org"}}},
  {"type":"hysteria2","tag":"main-2-out","server":"srv2.example.org","server_port":443,"password":"pw","tls":{"enabled":true,"server_name":"sni.example.com"}},
+ {"type":"vless","tag":"main-3-out","server":"srv2.example.org","server_port":443,"uuid":"11111111-2222-3333-4444-555555555555",
+  "tls":{"enabled":true,"server_name":"sni.example.com"},"transport":{"type":"xhttp","path":"/x","host":"zhost.example.net"}},
  {"type":"direct","tag":"direct-out"}],
  "route":{"rules":[{"domain_suffix":["a.com","b.com","c.com","d.com"],"outbound":"main-1-out"},{"domain":["x.com"],"outbound":"direct-out"}]},
  "dns":{"client_subnet":"198.51.100.0/24","servers":[{"type":"udp","tag":"d","server":"1.1.1.1"},
@@ -25453,6 +25455,7 @@ CJ
         echo "cfg-ecs-hidden=$(printf '%s' "$C" | grep -c '198.51.100')"
         echo "cfg-doh-path-hidden=$(printf '%s' "$C" | jq -c '[.dns.servers[1].path, .dns.servers[2].path]')"
         echo "cfg-doh-id-host=$(printf '%s' "$C" | jq -c '[.dns.servers[1].server, .dns.servers[2].server]')"
+        echo "cfg-xhttp-host=$(printf '%s' "$C" | jq -c '.outbounds[2].transport.host')"
         echo "cfg-transport-host-hidden=$(printf '%s' "$C" | jq -c '[.outbounds[0].transport.headers.Host, .outbounds[0].transport.path]')"
 
         # the log lines
@@ -25489,7 +25492,7 @@ CJ
         support_report > "$work/report.txt" 2>&1
         echo "report-warnings-masked=$(grep -c 'secretdomain.example' "$work/report.txt") hidden=$(grep -c '"domain":"<hidden>"' "$work/report.txt")"
         echo "report-nft-only-ours=$(grep -c 'NetShiftTable' "$work/report.txt") guard=$(grep -c 'NetShiftGuard' "$work/report.txt")"
-        echo "report-no-server-name=$(grep -c 'srv.example.org' "$work/report.txt")"
+        echo "report-no-server-name=$(grep -c 'srv.example.org\|zhost.example.net' "$work/report.txt")"
         echo "report-tags=$(grep -c 'Tags: with_quic,with_utls' "$work/report.txt")"
         echo "report-no-secret=$(grep -c 'PUBKEYVALUE\|TOKENVALUE\|hunter2\|supportuser\|11111111-2222' "$work/report.txt")"
         echo "report-no-ecs=$(grep -c '198.51.100\|203.0.113' "$work/report.txt")"
@@ -25553,10 +25556,10 @@ LR
             fail "$1" "wanted [$2] in: $(printf '%s' "$out" | tr '\n' '~')"
         fi
     }
-    _sr "the server names of the config are found, sorted, without ports" 'hosts=["front.example.org","sni.example.com","srv.example.org","srv2.example.org"]'
+    _sr "the server names of the config are found, sorted, without ports" 'hosts=["front.example.org","sni.example.com","srv.example.org","srv2.example.org","zhost.example.net"]'
     _sr "...an address of a public DNS resolver is not one of them (it is kept as it is)" "hosts-no-ip-ports=[]"
     _sr "settings: the DNS server keeps its name, its path (an id: dns.controld.com/pk_...) goes; update source kept" 'uci-dns-kept=["doh","dns.controld.com/<hidden>","fork"]'
-    _sr "settings: the resolvers keep their names, the id label and the DoH path go; public names stay whole" 'uci-pool-kept=["dot://dns.quad9.net","dot://<hidden>.dns.nextdns.io","doh://dns.controld.com/<hidden>","dot://one.one.one.one","dot://common.dot.dns.yandex.net"]'
+    _sr "settings: the resolvers keep their names, the id label and the DoH path go; public names stay whole" 'uci-pool-kept=["dot://dns.quad9.net","dot://<hidden>.dns.nextdns.io","dot://<hidden>.dns.nextdns.io:853","doh://dns.controld.com/<hidden>","dot://one.one.one.one","dot://common.dot.dns.yandex.net"]'
     _sr "settings: the id label of the domain resolver of a section goes" 'uci-resolver-id="<hidden>.dns.nextdns.io"'
     _sr "settings: filter keywords are not taken for keys" 'uci-keywords-kept=["x",["Germany"]]'
     _sr "settings: passwords, keys, the hardware id and logins are hidden" 'uci-secrets-hidden=["<hidden>","<hidden>","<hidden>","<hidden>"]'
@@ -25581,6 +25584,7 @@ LR
     _sr "config: the EDNS Client Subnet is hidden" "cfg-ecs-hidden=0"
     _sr "config: the path of a DoH server and of a transport is hidden" 'cfg-doh-path-hidden=["<hidden>","<hidden>"]'
     _sr "config: the id host of a DNS server is cut, a public name is kept" 'cfg-doh-id-host=["<hidden>.dns.nextdns.io","dns.nextdns.io"]'
+    _sr "config: the host of an xhttp/httpupgrade transport is host-N too (the front domain)" 'cfg-xhttp-host="host-5"'
     _sr "config: the Host header of a transport is host-N, its path hidden" 'cfg-transport-host-hidden=["host-1","<hidden>"]'
     _sr "the report: no EDNS Client Subnet (settings, config and the log)" "report-no-ecs=0"
     _sr "the report goes on to its last section on a system without /overlay" "report-complete=1"

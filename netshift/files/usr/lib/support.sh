@@ -37,7 +37,7 @@ support_mask_uci() {
         # a word of the option name (password, secret, key ...): "public_key" is secret, "keywords" is not
         def secret_name: (ascii_downcase | split("_")) as $words
             | any($words[]; IN("password", "passwd", "secret", "token", "uuid", "auth", "psk", "hwid", "private", "pubkey", "key", "sid", "username"));
-        def id_host: . as $h | if any(($idsuffixes | split(" "))[]; (. as $s | $h | endswith("." + $s)))
+        def id_host: . as $h | ($h | split(":")[0]) as $name | if any(($idsuffixes | split(" "))[]; (. as $s | $name | endswith("." + $s)))
             then "<hidden>." + ($h | split(".")[1:] | join(".")) else $h end;
         # a DNS server as the settings keep it: [scheme://]host[:port][/path]. The path (a DoH
         # endpoint, often with an id: dns.controld.com/pk_...) and the id label of the name go.
@@ -77,7 +77,7 @@ support_mask_singbox() {
         def host_key: ["server", "server_name", "host", "Host", "address"];
         # the first label of a DNS server name with an id in it (SUPPORT_DNS_ID_SUFFIXES); a
         # public resolver (dns.google, dns.nextdns.io, one.one.one.one) keeps its name
-        def dns_id_host: . as $h | if type == "string" and any(($idsuffixes | split(" "))[]; (. as $s | $h | endswith("." + $s)))
+        def dns_id_host: . as $h | if type == "string" and any(($idsuffixes | split(" "))[]; (. as $s | ($h | split(":")[0]) | endswith("." + $s)))
             then "<hidden>." + (split(".")[1:] | join(".")) else . end;
         walk(
             if type == "object" then
@@ -101,7 +101,7 @@ support_hosts() {
     [ -r "$config_file" ] || { echo '[]'; return 0; }
     # the servers of the user's outbounds and the names in their TLS settings; the DNS servers are
     # public resolvers and stay readable
-    jq -c '[(.outbounds // [])[] | (.server?, .tls?.server_name?, .transport?.headers?.Host?) | strings | select(length > 0)] | unique' "$config_file" 2> /dev/null || echo '[]'
+    jq -c '[(.outbounds // [])[] | (.server?, .tls?.server_name?, .transport?.headers?.Host?, .transport?.host?) | strings | select(length > 0)] | unique' "$config_file" 2> /dev/null || echo '[]'
 }
 
 # A sed script that puts host-N in place of every server address.
@@ -150,9 +150,12 @@ support_crash_log_masked() {
     config_file="$(config_get_value_or_default config_path "$SING_BOX_CONFIG_PATH_DEFAULT")"
     hosts_json="$(support_hosts "$config_file")"
     sed_script="$(mktemp)" || return 1
+    # an interrupted call (the interface gives up after its timeout) leaves nothing in /tmp
+    trap 'rm -f "$sed_script"' EXIT INT TERM
     support_hosts_sed "$hosts_json" > "$sed_script"
     get_sing_box_crash_log | support_mask_text | sed -f "$sed_script"
     rm -f "$sed_script"
+    trap - EXIT INT TERM
 }
 
 support_section() {
@@ -161,7 +164,7 @@ support_section() {
 
 # The report itself, on stdout.
 support_report() {
-    local config_file hosts_json sed_script tmp version variant tags local_crash
+    local config_file hosts_json sed_script tmp version variant tags local_crash settings_masked
 
     config_file="$(config_get_value_or_default config_path "$SING_BOX_CONFIG_PATH_DEFAULT")"
     hosts_json="$(support_hosts "$config_file")"
@@ -204,7 +207,12 @@ support_report() {
         printf 'NaiveProxy client: %s\n' "$(naive_binary 2> /dev/null || echo 'not installed')"
 
         support_section "Settings (UCI, masked)"
-        support_uci_json | support_mask_uci "$hosts_json" | jq . 2> /dev/null
+        settings_masked="$(support_uci_json | support_mask_uci "$hosts_json")"
+        if [ -n "$settings_masked" ]; then
+            printf '%s\n' "$settings_masked" | jq . 2> /dev/null || echo "(the settings could not be read)"
+        else
+            echo "(the settings could not be read)"
+        fi
 
         support_section "sing-box configuration (masked)"
         if [ -r "$config_file" ]; then

@@ -594,7 +594,7 @@
     "call": "Clearing subscription cache and re-downloading… this may take a minute",
     "key": "Clearing subscription cache and re-downloading… this may take a minute",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:339"
+      "src/netshift/tabs/diagnostic/initController.ts:340"
     ]
   },
   {
@@ -631,6 +631,13 @@
     "key": "cloudflare-dns.com/dns-query (Cloudflare DoH)",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:91"
+    ]
+  },
+  {
+    "call": "Collects the versions, settings, configuration, state and logs in one text, with passwords, keys, links and server addresses hidden. Send it when you ask for help.",
+    "key": "Collects the versions, settings, configuration, state and logs in one text, with passwords, keys, links and server addresses hidden. Send it when you ask for help.",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:90"
     ]
   },
   {
@@ -747,9 +754,17 @@
     ]
   },
   {
+    "call": "Copied",
+    "key": "Copied",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:32"
+    ]
+  },
+  {
     "call": "Copy",
     "key": "Copy",
     "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:78",
       "src/partials/modal/renderModal.ts:20"
     ]
   },
@@ -757,7 +772,7 @@
     "call": "Core switch failed",
     "key": "Core switch failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:314",
+      "src/netshift/methods/shell/index.ts:323",
       "src/netshift/methods/shell/pollSingBoxComponentAction.ts:93"
     ]
   },
@@ -1208,6 +1223,7 @@
     "call": "Download",
     "key": "Download",
     "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:80",
       "src/partials/modal/renderModal.ts:15"
     ]
   },
@@ -1649,9 +1665,9 @@
     "call": "Failed to clear subscription cache",
     "key": "Failed to clear subscription cache",
     "places": [
-      "src/netshift/methods/shell/index.ts:474",
-      "src/netshift/tabs/diagnostic/initController.ts:354",
-      "src/netshift/tabs/diagnostic/initController.ts:358"
+      "src/netshift/methods/shell/index.ts:483",
+      "src/netshift/tabs/diagnostic/initController.ts:355",
+      "src/netshift/tabs/diagnostic/initController.ts:359"
     ]
   },
   {
@@ -1665,12 +1681,12 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:239",
-      "src/netshift/tabs/diagnostic/initController.ts:243",
-      "src/netshift/tabs/diagnostic/initController.ts:273",
-      "src/netshift/tabs/diagnostic/initController.ts:277",
-      "src/netshift/tabs/diagnostic/initController.ts:314",
-      "src/netshift/tabs/diagnostic/initController.ts:318",
+      "src/netshift/tabs/diagnostic/initController.ts:240",
+      "src/netshift/tabs/diagnostic/initController.ts:244",
+      "src/netshift/tabs/diagnostic/initController.ts:274",
+      "src/netshift/tabs/diagnostic/initController.ts:278",
+      "src/netshift/tabs/diagnostic/initController.ts:315",
+      "src/netshift/tabs/diagnostic/initController.ts:319",
       "src/netshift/tabs/manager/initController.ts:144",
       "src/netshift/tabs/manager/initController.ts:154",
       "src/netshift/tabs/manager/initController.ts:172",
@@ -1830,7 +1846,7 @@
     "call": "Global check",
     "key": "Global check",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:234"
+      "src/netshift/tabs/diagnostic/initController.ts:235"
     ]
   },
   {
@@ -3318,6 +3334,20 @@
     ]
   },
   {
+    "call": "Prepare the report",
+    "key": "Prepare the report",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:95"
+    ]
+  },
+  {
+    "call": "Preparing the report...",
+    "key": "Preparing the report...",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:46"
+    ]
+  },
+  {
     "call": "Priority: next server if the previous one fails",
     "key": "Priority: next server if the previous one fails",
     "places": [
@@ -3381,6 +3411,13 @@
     "key": "Proxy traffic is routed via FakeIP",
     "places": [
       "src/netshift/tabs/diagnostic/checks/runFakeIPCheck.ts:65"
+    ]
+  },
+  {
+    "call": "Read it before you send it: servers are shown as host-N and links, passwords and lists are hidden, but check that nothing of yours is left.",
+    "key": "Read it before you send it: servers are shown as host-N and links, passwords and lists are hidden, but check that nothing of yours is left.",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:65"
     ]
   },
   {
@@ -3473,6 +3510,13 @@
     "key": "Removing the NaiveProxy client…",
     "places": [
       "src/netshift/tabs/manager/initController.ts:275"
+    ]
+  },
+  {
+    "call": "Report for support",
+    "key": "Report for support",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:86"
     ]
   },
   {
@@ -3796,6 +3840,13 @@
     ]
   },
   {
+    "call": "Select the text and copy it",
+    "key": "Select the text and copy it",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:36"
+    ]
+  },
+  {
     "call": "Select the WAN interfaces to be monitored",
     "key": "Select the WAN interfaces to be monitored",
     "places": [
@@ -3834,7 +3885,7 @@
     "call": "Self-update failed",
     "key": "Self-update failed",
     "places": [
-      "src/netshift/methods/shell/index.ts:549"
+      "src/netshift/methods/shell/index.ts:558"
     ]
   },
   {
@@ -3907,7 +3958,7 @@
     "call": "Show sing-box config",
     "key": "Show sing-box config",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:302",
+      "src/netshift/tabs/diagnostic/initController.ts:303",
       "src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:118"
     ]
   },
@@ -4130,7 +4181,7 @@
     "call": "Subscription cache cleared and re-downloaded",
     "key": "Subscription cache cleared and re-downloaded",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:347"
+      "src/netshift/tabs/diagnostic/initController.ts:348"
     ]
   },
   {
@@ -4425,6 +4476,14 @@
     "key": "The name is already used by another device",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:194"
+    ]
+  },
+  {
+    "call": "The report could not be prepared",
+    "key": "The report could not be prepared",
+    "places": [
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:56",
+      "src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:71"
     ]
   },
   {
@@ -4757,12 +4816,12 @@
     "key": "unknown",
     "places": [
       "src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7",
-      "src/netshift/tabs/diagnostic/initController.ts:46",
       "src/netshift/tabs/diagnostic/initController.ts:47",
       "src/netshift/tabs/diagnostic/initController.ts:48",
       "src/netshift/tabs/diagnostic/initController.ts:49",
       "src/netshift/tabs/diagnostic/initController.ts:50",
       "src/netshift/tabs/diagnostic/initController.ts:51",
+      "src/netshift/tabs/diagnostic/initController.ts:52",
       "src/netshift/tabs/manager/cards.ts:436",
       "src/netshift/tabs/manager/initController.ts:45",
       "src/netshift/tabs/manager/initController.ts:46",
@@ -5105,7 +5164,7 @@
     "call": "View logs",
     "key": "View logs",
     "places": [
-      "src/netshift/tabs/diagnostic/initController.ts:268",
+      "src/netshift/tabs/diagnostic/initController.ts:269",
       "src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:109"
     ]
   },
