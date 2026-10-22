@@ -504,3 +504,6 @@ AUTO_UPDATE_HEALTH_INTERVAL=10
 # The answer of get_core_capabilities for the cores installed now (lib/quick.sh), and the
 # fingerprint of those cores next to it (.key). tmpfs: a reboot asks the core again.
 CORE_CAPABILITIES_CACHE="/tmp/netshift-core-capabilities.json"
+# Where the sing-box configuration is written unless settings.config_path says otherwise
+# (the default of /etc/config/netshift).
+SING_BOX_CONFIG_PATH_DEFAULT="/etc/sing-box/config.json"

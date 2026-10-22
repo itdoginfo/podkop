@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-22 06:33+0300\n"
-"PO-Revision-Date: 2026-10-22 06:33+0300\n"
+"POT-Creation-Date: 2026-10-22 18:36+0300\n"
+"PO-Revision-Date: 2026-10-22 18:36+0300\n"
 "Last-Translator: agent <agent@local>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -361,7 +361,7 @@ msgstr ""
 msgid "Clear subscription cache"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:339
+#: src/netshift/tabs/diagnostic/initController.ts:340
 msgid "Clearing subscription cache and re-downloading… this may take a minute"
 msgstr ""
 
@@ -384,6 +384,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:91
 msgid "cloudflare-dns.com/dns-query (Cloudflare DoH)"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:90
+msgid "Collects the versions, settings, configuration, state and logs in one text, with passwords, keys, links and server addresses hidden. Send it when you ask for help."
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:662
@@ -451,11 +455,16 @@ msgstr ""
 msgid "Connections"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:32
+msgid "Copied"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:78
 #: src/partials/modal/renderModal.ts:20
 msgid "Copy"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:314
+#: src/netshift/methods/shell/index.ts:323
 #: src/netshift/methods/shell/pollSingBoxComponentAction.ts:93
 msgid "Core switch failed"
 msgstr ""
@@ -720,6 +729,7 @@ msgstr ""
 msgid "Downlink"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:80
 #: src/partials/modal/renderModal.ts:15
 msgid "Download"
 msgstr ""
@@ -975,9 +985,9 @@ msgstr ""
 msgid "Fail-closed kill switch: while NetShift is not intercepting traffic — service restart or sing-box crash/recovery — traffic bound for proxied destinations is blocked instead of leaking straight to the internet, and DNS is not handed back to the direct resolvers, so proxied domains wait too. Boot before NetShift's first start is not covered."
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:474
-#: src/netshift/tabs/diagnostic/initController.ts:354
-#: src/netshift/tabs/diagnostic/initController.ts:358
+#: src/netshift/methods/shell/index.ts:483
+#: src/netshift/tabs/diagnostic/initController.ts:355
+#: src/netshift/tabs/diagnostic/initController.ts:359
 msgid "Failed to clear subscription cache"
 msgstr ""
 
@@ -985,12 +995,12 @@ msgstr ""
 msgid "Failed to copy!"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:239
-#: src/netshift/tabs/diagnostic/initController.ts:243
-#: src/netshift/tabs/diagnostic/initController.ts:273
-#: src/netshift/tabs/diagnostic/initController.ts:277
-#: src/netshift/tabs/diagnostic/initController.ts:314
-#: src/netshift/tabs/diagnostic/initController.ts:318
+#: src/netshift/tabs/diagnostic/initController.ts:240
+#: src/netshift/tabs/diagnostic/initController.ts:244
+#: src/netshift/tabs/diagnostic/initController.ts:274
+#: src/netshift/tabs/diagnostic/initController.ts:278
+#: src/netshift/tabs/diagnostic/initController.ts:315
+#: src/netshift/tabs/diagnostic/initController.ts:319
 #: src/netshift/tabs/manager/initController.ts:144
 #: src/netshift/tabs/manager/initController.ts:154
 #: src/netshift/tabs/manager/initController.ts:172
@@ -1090,7 +1100,7 @@ msgstr ""
 msgid "GitHub mirrors for downloads"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:234
+#: src/netshift/tabs/diagnostic/initController.ts:235
 msgid "Global check"
 msgstr ""
 
@@ -1964,6 +1974,14 @@ msgstr ""
 msgid "Prefix length"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:95
+msgid "Prepare the report"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:46
+msgid "Preparing the report..."
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:161
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1137
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:532
@@ -2001,6 +2019,10 @@ msgstr ""
 
 #: src/netshift/tabs/diagnostic/checks/runFakeIPCheck.ts:65
 msgid "Proxy traffic is routed via FakeIP"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:65
+msgid "Read it before you send it: servers are shown as host-N and links, passwords and lists are hidden, but check that nothing of yours is left."
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1060
@@ -2054,6 +2076,10 @@ msgstr ""
 
 #: src/netshift/tabs/manager/initController.ts:275
 msgid "Removing the NaiveProxy client…"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:86
+msgid "Report for support"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1985
@@ -2241,6 +2267,10 @@ msgstr ""
 msgid "Select the network interface to which the traffic will originate"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:36
+msgid "Select the text and copy it"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:955
 msgid "Select the WAN interfaces to be monitored"
 msgstr ""
@@ -2261,7 +2291,7 @@ msgstr ""
 msgid "Selector Proxy Links (one per line)"
 msgstr ""
 
-#: src/netshift/methods/shell/index.ts:549
+#: src/netshift/methods/shell/index.ts:558
 msgid "Self-update failed"
 msgstr ""
 
@@ -2304,7 +2334,7 @@ msgstr ""
 msgid "Show a notice on the dashboard when a newer NetShift or sing-box-extended version is out. When the dashboard is opened and the last check is more than a day old, the router asks GitHub once in the background; nothing is installed."
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:302
+#: src/netshift/tabs/diagnostic/initController.ts:303
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:118
 msgid "Show sing-box config"
 msgstr ""
@@ -2434,7 +2464,7 @@ msgstr ""
 msgid "Subscription"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:347
+#: src/netshift/tabs/diagnostic/initController.ts:348
 msgid "Subscription cache cleared and re-downloaded"
 msgstr ""
 
@@ -2607,6 +2637,11 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:194
 msgid "The name is already used by another device"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:56
+#: src/netshift/tabs/diagnostic/partials/renderSupportReport.ts:71
+msgid "The report could not be prepared"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:34
@@ -2800,12 +2835,12 @@ msgid "UDP ports that always go directly"
 msgstr ""
 
 #: src/netshift/tabs/diagnostic/helpers/getNetshiftVersionRow.ts:7
-#: src/netshift/tabs/diagnostic/initController.ts:46
 #: src/netshift/tabs/diagnostic/initController.ts:47
 #: src/netshift/tabs/diagnostic/initController.ts:48
 #: src/netshift/tabs/diagnostic/initController.ts:49
 #: src/netshift/tabs/diagnostic/initController.ts:50
 #: src/netshift/tabs/diagnostic/initController.ts:51
+#: src/netshift/tabs/diagnostic/initController.ts:52
 #: src/netshift/tabs/manager/cards.ts:436
 #: src/netshift/tabs/manager/initController.ts:45
 #: src/netshift/tabs/manager/initController.ts:46
@@ -3019,7 +3054,7 @@ msgstr ""
 msgid "via the tunnel"
 msgstr ""
 
-#: src/netshift/tabs/diagnostic/initController.ts:268
+#: src/netshift/tabs/diagnostic/initController.ts:269
 #: src/netshift/tabs/diagnostic/partials/renderAvailableActions.ts:109
 msgid "View logs"
 msgstr ""
