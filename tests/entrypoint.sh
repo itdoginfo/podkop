@@ -24419,14 +24419,15 @@ echo "crontab-default=[$(tr '\n' ';' < "$W/crontab")]"
 
 # boot
 setsid() { echo "spawn $*" >> "$W/spawn"; }
-boot() { rm -f "$W/spawn"; echo "$1" > "$W/uptime"; auto_update_schedule_boot_run; echo "boot-$2=$([ -f "$W/spawn" ] && echo spawned || echo no)"; }
+# the run is started in the background (setsid ... &): wait for it before looking
+boot() { rm -f "$W/spawn"; echo "$1" > "$W/uptime"; auto_update_schedule_boot_run; wait; echo "boot-$2=$([ -f "$W/spawn" ] && echo spawned || echo no)"; }
 rm -f "$W/boot-marker"; AU_OPTS="auto_update=1"
 boot "95.12 180.3" first
 boot "96.00 181.0" second
 rm -f "$W/boot-marker"; boot "86400.1 1.0" restart-later
 rm -f "$W/boot-marker"; AU_OPTS="auto_update=1 auto_update_on_boot=0"; boot "95.1 1.0" option-off
 rm -f "$W/boot-marker"; AU_OPTS="auto_update=0"; boot "95.1 1.0" disabled
-grep -q 'sleep 180; exec /usr/bin/netshift auto_update boot' "$W/spawn" 2> /dev/null; rm -f "$W/boot-marker"; AU_OPTS="auto_update=1"; boot "95.1 1.0" cmd
+rm -f "$W/boot-marker"; AU_OPTS="auto_update=1"; boot "95.1 1.0" cmd
 grep -o 'auto_update boot' "$W/spawn" | head -1 | sed 's/^/boot-command=/'
 
 # a pinned tag: the release it names, with or without "v"; nothing when it is not there
