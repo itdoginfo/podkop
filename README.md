@@ -40,6 +40,11 @@ https://podkop.net/
 sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
 ```
 
+Скрипт спрашивает, ставить ли русский язык интерфейса. Чтобы не отвечать на вопрос (например, при установке без участия человека), добавьте `--install-translation` или `--skip-translation`:
+```
+sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh) --skip-translation
+```
+
 Часть возможностей Podkop (например, ссылки с транспортом xhttp и резервные ссылки в URLTest) работает только с альтернативной сборкой sing-box — [podkop-engine](https://github.com/FiyeroT/podkop-engine) версии r11 или новее. С обычным sing-box эти возможности недоступны, остальное работает как раньше.
 
 Установить podkop-engine можно из его [репозитория](https://github.com/FiyeroT/podkop-engine/releases) или альтернативным скриптом, который ставит последние версии Podkop и podkop-engine:
