@@ -1367,17 +1367,19 @@ generate_hwid() {
         "$(echo "$raw_hash" | cut -c13-16)"
 }
 
+# One client option of a section ($1 section, $2 option without the
+# "subscription_" prefix). CR/LF are dropped: each value goes into an HTTP
+# header line.
+_subscription_client_option() {
+    uci -q get "netshift.$1.subscription_$2" | tr -d "\r\n"
+}
+
 # The app a subscription request claims to be. Some panels give a subscription
 # only to a given client (Happ on Android, INCY on iOS ...) and check the HWID
 # and device headers it sends, so a section may override them. Sets
 # SUBSCRIPTION_HWID, SUBSCRIPTION_DEVICE_OS, SUBSCRIPTION_OS_VERSION,
 # SUBSCRIPTION_DEVICE_MODEL and SUBSCRIPTION_USER_AGENT; empty means the
 # router's own value. A caller declares them local so they stay per section.
-# CR/LF are dropped: each value goes into an HTTP header line.
-_subscription_client_option() {
-    uci -q get "netshift.$1.subscription_$2" | tr -d "\r\n"
-}
-
 load_subscription_client_identity() {
     local section="$1"
 

@@ -6822,7 +6822,8 @@ FGUEOF
     load_subscription_client_identity fgdef
     check_subscription_connectivity 'https://sub.example.com/sub' "" 1 0 5 > /dev/null 2>&1
 )
-expect_eq fg-identity-default "$(fg_headers)"     "User-Agent: singbox/1.12.0|X-HWID: test-hwid|X-Device-OS: OpenWrt Linux|X-Device-Model: test-model|X-Ver-OS: test-kernel|"
+expect_eq fg-identity-default "$(fg_headers)" \
+    "User-Agent: singbox/1.12.0|X-HWID: test-hwid|X-Device-OS: OpenWrt Linux|X-Device-Model: test-model|X-Ver-OS: test-kernel|"
 fg_want="User-Agent: INCY/1.0|X-HWID: 270DD26E-160D-4257-B8AC-654800E12F24|X-Device-OS: iOS|X-Device-Model: iPhone 15|X-Ver-OS: 18.3|"
 (
     uci() { command uci -c "$fg_uci" "$@"; }
