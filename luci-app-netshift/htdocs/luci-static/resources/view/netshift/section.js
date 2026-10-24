@@ -457,6 +457,72 @@ function createSectionContent(section) {
   // and check the HWID and device headers it sends; these fields override the router's own.
   o = section.taboption(
     "subscription",
+    form.DummyValue,
+    "_client_identity",
+    _("Generate a client"),
+    _(
+      "Fills the five fields below the way the chosen app on the chosen platform sends them, with a new HWID. A HWID copied from a real device the subscription is bound to does not take one more device slot.",
+    ),
+  );
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+  o.rawhtml = true;
+  o.cfgvalue = function (section_id) {
+    const profiles = main.CLIENT_IDENTITY_PROFILES;
+    const platform = E("select", { class: "cbi-input-select" });
+    const fillPlatforms = () => {
+      platform.replaceChildren(
+        ...Object.keys(profiles[app.value]).map((name) =>
+          E("option", { value: name }, name),
+        ),
+      );
+    };
+    const app = E(
+      "select",
+      { class: "cbi-input-select", change: fillPlatforms },
+      Object.keys(profiles).map((name) => E("option", { value: name }, name)),
+    );
+    fillPlatforms();
+
+    const button = E(
+      "button",
+      {
+        class: "btn cbi-button cbi-button-action",
+        click: (ev) => {
+          ev.preventDefault();
+
+          const identity = main.generateClientIdentity(
+            app.value,
+            platform.value,
+          );
+
+          if (!identity) {
+            return;
+          }
+
+          Object.entries(identity).forEach(([name, value]) => {
+            const element = this.section.getUIElement(
+              section_id,
+              `subscription_${name}`,
+            );
+
+            if (element) {
+              element.setValue(value);
+            }
+          });
+        },
+      },
+      _("Generate"),
+    );
+
+    return E("div", { style: "display:flex;gap:.5em;flex-wrap:wrap" }, [
+      app,
+      platform,
+      button,
+    ]);
+  };
+
+  o = section.taboption(
+    "subscription",
     form.Value,
     "subscription_user_agent",
     _("Client User-Agent"),

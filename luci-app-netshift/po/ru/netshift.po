@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-24 12:33+0300\n"
-"PO-Revision-Date: 2026-10-24 12:33+0300\n"
+"POT-Creation-Date: 2026-10-24 14:39+0300\n"
+"PO-Revision-Date: 2026-10-24 14:39+0300\n"
 "Last-Translator: Artem Kireev\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -755,6 +755,9 @@ msgstr "FakeIP: IPv6 идёт через sing-box так же, как IPv4 эт�
 msgid "Fastest"
 msgstr "Самый быстрый"
 
+msgid "Fills the five fields below the way the chosen app on the chosen platform sends them, with a new HWID. A HWID copied from a real device the subscription is bound to does not take one more device slot."
+msgstr "Заполняет пять полей ниже так, как их отправляет выбранное приложение на выбранной платформе, с новым HWID. HWID, скопированный с настоящего устройства, к которому привязана подписка, не займёт лишний слот устройства."
+
 msgid "Filter preview"
 msgstr "Предпросмотр фильтров"
 
@@ -784,6 +787,12 @@ msgstr "Из источника обновлений, выбранного вы�
 
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
+
+msgid "Generate"
+msgstr "Сгенерировать"
+
+msgid "Generate a client"
+msgstr "Сгенерировать клиента"
 
 msgid "Get global check"
 msgstr "Получить глобальную проверку"
