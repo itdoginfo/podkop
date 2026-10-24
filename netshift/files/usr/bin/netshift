@@ -771,7 +771,9 @@ wait_for_subscription_connectivity() {
     local wait="${5:-5}"
     local timeout="${6:-5}"
     local attempt
+    local SUBSCRIPTION_HWID SUBSCRIPTION_DEVICE_OS SUBSCRIPTION_OS_VERSION SUBSCRIPTION_DEVICE_MODEL SUBSCRIPTION_USER_AGENT
 
+    load_subscription_client_identity "$section"
     for attempt in $(seq 1 "$attempts"); do
         if check_subscription_connectivity "$subscription_url" "$service_proxy_address" 1 0 "$timeout"; then
             log "Subscription connectivity check passed for section '$section'" "info"
@@ -799,6 +801,7 @@ download_subscription_into_cache() {
     local configured_user_agent user_agent_cache_path cached_user_agent candidates_file
     local effective_user_agent download_ok winning_user_agent ua_tmpfile
     local subscription_insecure subscription_format_preference
+    local SUBSCRIPTION_HWID SUBSCRIPTION_DEVICE_OS SUBSCRIPTION_OS_VERSION SUBSCRIPTION_DEVICE_MODEL SUBSCRIPTION_USER_AGENT
 
     ensure_subscription_cache_dir || {
         log "Failed to prepare persistent subscription cache directory '$SUBSCRIPTION_CACHE_FOLDER' for section '$section'" "error"
@@ -817,8 +820,10 @@ download_subscription_into_cache() {
     # client User-Agent, so when none is configured we probe a whitelist of
     # well-known clients and keep the first that yields valid outbounds. The
     # previously successful UA (cached) is tried first to avoid re-probing.
+    # HWID / device headers the panel sees (the router's own unless overridden).
+    load_subscription_client_identity "$section"
     user_agent_cache_path="$(get_subscription_user_agent_cache_path "$section" "$urlhash")"
-    configured_user_agent="$(uci -q get "netshift.${section}.subscription_user_agent" 2>/dev/null)"
+    configured_user_agent="$SUBSCRIPTION_USER_AGENT"
     cached_user_agent="$(cat "$user_agent_cache_path" 2>/dev/null)"
     # Per-section format preference reorders the UA probe (auto|xray|singbox).
     # Empty/unset -> auto (today's order); unknown values are treated as auto by

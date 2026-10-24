@@ -1367,6 +1367,27 @@ generate_hwid() {
         "$(echo "$raw_hash" | cut -c13-16)"
 }
 
+# The app a subscription request claims to be. Some panels give a subscription
+# only to a given client (Happ on Android, INCY on iOS ...) and check the HWID
+# and device headers it sends, so a section may override them. Sets
+# SUBSCRIPTION_HWID, SUBSCRIPTION_DEVICE_OS, SUBSCRIPTION_OS_VERSION,
+# SUBSCRIPTION_DEVICE_MODEL and SUBSCRIPTION_USER_AGENT; empty means the
+# router's own value. A caller declares them local so they stay per section.
+# CR/LF are dropped: each value goes into an HTTP header line.
+_subscription_client_option() {
+    uci -q get "netshift.$1.subscription_$2" | tr -d "\r\n"
+}
+
+load_subscription_client_identity() {
+    local section="$1"
+
+    SUBSCRIPTION_HWID="$(_subscription_client_option "$section" hwid)"
+    SUBSCRIPTION_DEVICE_OS="$(_subscription_client_option "$section" device_os)"
+    SUBSCRIPTION_OS_VERSION="$(_subscription_client_option "$section" os_version)"
+    SUBSCRIPTION_DEVICE_MODEL="$(_subscription_client_option "$section" device_model)"
+    SUBSCRIPTION_USER_AGENT="$(_subscription_client_option "$section" user_agent)"
+}
+
 # Resolves the effective subscription User-Agent: the explicit value when one
 # is given, otherwise the default "singbox/<version>" string. Centralizes the
 # default so download_subscription and the candidate builder agree.
@@ -1476,7 +1497,7 @@ _wget_subscription_request() {
     wget $cert_flag "$@" -O "$req_outfile" \
         --header "User-Agent: $req_user_agent" \
         --header "X-HWID: $req_hwid" \
-        --header "X-Device-OS: OpenWrt Linux" \
+        --header "X-Device-OS: ${SUBSCRIPTION_DEVICE_OS:-OpenWrt Linux}" \
         --header "X-Device-Model: $req_device_model" \
         --header "X-Ver-OS: $req_kernel_version" \
         --header "Accept-Language: ru-RU,en,*" \
@@ -1527,9 +1548,9 @@ download_subscription() {
 
     local sb_version device_model kernel_version hwid
     sb_version="$(get_sing_box_version)"
-    device_model="$(get_device_model)"
-    kernel_version="$(get_kernel_version)"
-    hwid="$(generate_hwid)"
+    device_model="${SUBSCRIPTION_DEVICE_MODEL:-$(get_device_model)}"
+    kernel_version="${SUBSCRIPTION_OS_VERSION:-$(get_kernel_version)}"
+    hwid="${SUBSCRIPTION_HWID:-$(generate_hwid)}"
     [ -n "$user_agent" ] || user_agent="$(get_subscription_user_agent)"
 
     # Optional TLS-verification bypass for IP-host panels with broken certs.
@@ -1636,64 +1657,26 @@ check_subscription_connectivity() {
     local wait="${4:-2}"
     local timeout="${5:-5}"
 
-    local sb_version device_model kernel_version hwid
-    sb_version="$(get_sing_box_version)"
-    device_model="$(get_device_model)"
-    kernel_version="$(get_kernel_version)"
-    hwid="$(generate_hwid)"
+    local user_agent device_model kernel_version hwid
+    user_agent="${SUBSCRIPTION_USER_AGENT:-singbox/$(get_sing_box_version)}"
+    device_model="${SUBSCRIPTION_DEVICE_MODEL:-$(get_device_model)}"
+    kernel_version="${SUBSCRIPTION_OS_VERSION:-$(get_kernel_version)}"
+    hwid="${SUBSCRIPTION_HWID:-$(generate_hwid)}"
 
     local attempt errfile rc family
     errfile="/tmp/netshift-subscription-check.$$"
     rm -f "$errfile"
     for attempt in $(seq 1 "$retries"); do
         family="any"
+        set -- -q -T "$timeout"
         if should_force_wget_ipv4 "$url"; then
             family="ipv4"
-            if [ -n "$http_proxy_address" ]; then
-                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                    wget -q -4 -T "$timeout" -O /dev/null \
-                        --header "User-Agent: singbox/$sb_version" \
-                        --header "X-HWID: $hwid" \
-                        --header "X-Device-OS: OpenWrt Linux" \
-                        --header "X-Device-Model: $device_model" \
-                        --header "X-Ver-OS: $kernel_version" \
-                        --header "Accept-Language: ru-RU,en,*" \
-                        --header "X-Device-Locale: EN" \
-                        "$url" 2>"$errfile"
-            else
-                wget -q -4 -T "$timeout" -O /dev/null \
-                    --header "User-Agent: singbox/$sb_version" \
-                    --header "X-HWID: $hwid" \
-                    --header "X-Device-OS: OpenWrt Linux" \
-                    --header "X-Device-Model: $device_model" \
-                    --header "X-Ver-OS: $kernel_version" \
-                    --header "Accept-Language: ru-RU,en,*" \
-                    --header "X-Device-Locale: EN" \
-                    "$url" 2>"$errfile"
-            fi
+            set -- "$@" -4
+        fi
+        if [ -n "$http_proxy_address" ]; then
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address"                 _wget_subscription_request "" "$user_agent" "$hwid" "$device_model" "$kernel_version"                     /dev/null "$errfile" "$url" "$@"
         else
-            if [ -n "$http_proxy_address" ]; then
-                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                    wget -q -T "$timeout" -O /dev/null \
-                        --header "User-Agent: singbox/$sb_version" \
-                        --header "X-HWID: $hwid" \
-                        --header "X-Device-OS: OpenWrt Linux" \
-                        --header "X-Device-Model: $device_model" \
-                        --header "X-Ver-OS: $kernel_version" \
-                        --header "Accept-Language: ru-RU,en,*" \
-                        --header "X-Device-Locale: EN" \
-                        "$url" 2>"$errfile"
-            else
-                wget -q -T "$timeout" -O /dev/null \
-                    --header "User-Agent: singbox/$sb_version" \
-                    --header "X-HWID: $hwid" \
-                    --header "X-Device-OS: OpenWrt Linux" \
-                    --header "X-Device-Model: $device_model" \
-                    --header "X-Ver-OS: $kernel_version" \
-                    --header "Accept-Language: ru-RU,en,*" \
-                    --header "X-Device-Locale: EN" \
-                    "$url" 2>"$errfile"
-            fi
+            _wget_subscription_request "" "$user_agent" "$hwid" "$device_model" "$kernel_version"                 /dev/null "$errfile" "$url" "$@"
         fi
 
         rc=$?
@@ -1707,26 +1690,9 @@ check_subscription_connectivity() {
         if [ "$family" != "ipv4" ] && has_ipv4_default_route && wget_supports_ipv4_flag; then
             family="ipv4"
             if [ -n "$http_proxy_address" ]; then
-                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                    wget -q -4 -T "$timeout" -O /dev/null \
-                        --header "User-Agent: singbox/$sb_version" \
-                        --header "X-HWID: $hwid" \
-                        --header "X-Device-OS: OpenWrt Linux" \
-                        --header "X-Device-Model: $device_model" \
-                        --header "X-Ver-OS: $kernel_version" \
-                        --header "Accept-Language: ru-RU,en,*" \
-                        --header "X-Device-Locale: EN" \
-                        "$url" 2>"$errfile"
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address"                     _wget_subscription_request "" "$user_agent" "$hwid" "$device_model" "$kernel_version"                         /dev/null "$errfile" "$url" -q -4 -T "$timeout"
             else
-                wget -q -4 -T "$timeout" -O /dev/null \
-                    --header "User-Agent: singbox/$sb_version" \
-                    --header "X-HWID: $hwid" \
-                    --header "X-Device-OS: OpenWrt Linux" \
-                    --header "X-Device-Model: $device_model" \
-                    --header "X-Ver-OS: $kernel_version" \
-                    --header "Accept-Language: ru-RU,en,*" \
-                    --header "X-Device-Locale: EN" \
-                    "$url" 2>"$errfile"
+                _wget_subscription_request "" "$user_agent" "$hwid" "$device_model" "$kernel_version"                     /dev/null "$errfile" "$url" -q -4 -T "$timeout"
             fi
             rc=$?
             if [ "$rc" -eq 0 ]; then

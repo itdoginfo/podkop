@@ -6797,6 +6797,46 @@ expect_eq fg-download-proxy-drops-fragment "$(cat "$FG_WGET_LOG")" "https://sub.
 : > "$FG_WGET_LOG"
 check_subscription_connectivity 'https://sub.example.com/sub?x=1#My%20VPN' "" 1 0 5 > /dev/null 2>&1
 expect_eq fg-connectivity-drops-fragment "$(cat "$FG_WGET_LOG")" "https://sub.example.com/sub?x=1"
+
+# ── A section may pose as an app: HWID and device headers ─────────
+cat > "$fg_bin/wget" << 'FGWEOF'
+#!/bin/sh
+printf '%s\n' "$@" > "$FG_WGET_LOG"
+exit 0
+FGWEOF
+fg_headers() { grep -E '^(User-Agent|X-HWID|X-Device-OS|X-Device-Model|X-Ver-OS):' "$FG_WGET_LOG" | tr '\n' '|'; }
+fg_uci="/tmp/fg-uci-$$"
+mkdir -p "$fg_uci"
+cat > "$fg_uci/netshift" << 'FGUEOF'
+config section 'fgdef'
+
+config section 'fgid'
+	option subscription_hwid '270DD26E-160D-4257-B8AC-654800E12F24'
+	option subscription_device_os 'iOS'
+	option subscription_os_version '18.3'
+	option subscription_device_model 'iPhone 15'
+	option subscription_user_agent 'INCY/1.0'
+FGUEOF
+(
+    uci() { command uci -c "$fg_uci" "$@"; }
+    load_subscription_client_identity fgdef
+    check_subscription_connectivity 'https://sub.example.com/sub' "" 1 0 5 > /dev/null 2>&1
+)
+expect_eq fg-identity-default "$(fg_headers)"     "User-Agent: singbox/1.12.0|X-HWID: test-hwid|X-Device-OS: OpenWrt Linux|X-Device-Model: test-model|X-Ver-OS: test-kernel|"
+fg_want="User-Agent: INCY/1.0|X-HWID: 270DD26E-160D-4257-B8AC-654800E12F24|X-Device-OS: iOS|X-Device-Model: iPhone 15|X-Ver-OS: 18.3|"
+(
+    uci() { command uci -c "$fg_uci" "$@"; }
+    load_subscription_client_identity fgid
+    check_subscription_connectivity 'https://sub.example.com/sub' "" 1 0 5 > /dev/null 2>&1
+)
+expect_eq fg-identity-connectivity "$(fg_headers)" "$fg_want"
+(
+    uci() { command uci -c "$fg_uci" "$@"; }
+    load_subscription_client_identity fgid
+    download_subscription 'https://sub.example.com/sub' "/tmp/fg-dl-$$" "" 1 0 5 "$SUBSCRIPTION_USER_AGENT" 0 > /dev/null 2>&1
+)
+expect_eq fg-identity-download "$(fg_headers)" "$fg_want"
+rm -rf "$fg_uci"
 PATH="$fg_path"
 rm -rf "$fg_bin" "$FG_WGET_LOG" "/tmp/fg-dl-$$"
 

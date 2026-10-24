@@ -1,15 +1,15 @@
 # RU translations for NETSHIFT package.
 # Copyright (C) 2026 THE NETSHIFT'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# agent, 2026.
+# Artem Kireev, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-22 21:36+0300\n"
-"PO-Revision-Date: 2026-10-22 21:36+0300\n"
-"Last-Translator: agent\n"
+"POT-Creation-Date: 2026-10-24 12:33+0300\n"
+"PO-Revision-Date: 2026-10-24 12:33+0300\n"
+"Last-Translator: Artem Kireev\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -34,6 +34,9 @@ msgstr "✘ Отключено"
 
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
+
+msgid "10 to 64 Latin letters, digits, = or -"
+msgstr "От 10 до 64 латинских букв, цифр, = или -"
 
 msgid "77.88.8.8 (Yandex)"
 msgstr "77.88.8.8 (Yandex)"
@@ -269,6 +272,9 @@ msgstr "Очистка кеша подписок и повторная загр�
 msgid "Client for naive+https:// links (~4 MB), used beside sing-box; not needed with a core that has the naive outbound"
 msgstr "Клиент для ссылок naive+https:// (~4 МБ), работает рядом с sing-box; не нужен с ядром, где есть исходящее naive"
 
+msgid "Client User-Agent"
+msgstr "User-Agent клиента"
+
 msgid "Close"
 msgstr "Закрыть"
 
@@ -397,6 +403,15 @@ msgstr "Dev"
 
 msgid "Device"
 msgstr "Устройство"
+
+msgid "Device ID sent to the panel (X-HWID). Copy it from the app on a device the subscription is bound to. Empty uses the router's own ID."
+msgstr "Идентификатор устройства для панели (X-HWID). Скопируйте его из приложения на устройстве, к которому привязана подписка. Пусто — собственный ID роутера."
+
+msgid "Device model"
+msgstr "Модель устройства"
+
+msgid "Device OS"
+msgstr "ОС устройства"
 
 msgid "Devices"
 msgstr "Устройства"
@@ -817,6 +832,9 @@ msgstr "Как серверы списка используются вместе
 
 msgid "HTTP error"
 msgstr "Ошибка HTTP"
+
+msgid "HWID"
+msgstr "HWID"
 
 msgid "Hysteria2 needs a sing-box core built with QUIC"
 msgstr "Hysteria2 требует ядро sing-box, собранное с QUIC"
@@ -1346,6 +1364,9 @@ msgstr "Необязательно: https://-адреса зеркал GitHub н
 msgid "Optional: query this DNS server through the outbound of another section. If that outbound is not usable the queries go out directly."
 msgstr "Необязательно: опрашивать этот DNS-сервер через outbound другой секции. Если этот outbound недоступен, запросы уходят напрямую."
 
+msgid "OS version"
+msgstr "Версия ОС"
+
 msgid "Other build"
 msgstr "Другая сборка"
 
@@ -1508,6 +1529,9 @@ msgstr "DNS роутера не проходит через sing-box"
 msgid "Router DNS is routed through sing-box"
 msgstr "DNS роутера проходит через sing-box"
 
+msgid "Router's own"
+msgstr "Собственный роутера"
+
 msgid "Routing"
 msgstr "Маршрутизация"
 
@@ -1636,6 +1660,15 @@ msgstr "Отправлять DNS-запросы LAN на роутер"
 
 msgid "Send this IP address or prefix with every DNS query (EDNS Client Subnet, RFC 7871), so geo-distributed services resolve to the node closest to you. Leave empty to disable. The detected WAN subnets are offered in the list."
 msgstr "Отправлять этот IP-адрес или префикс с каждым DNS-запросом (EDNS Client Subnet, RFC 7871), чтобы геораспределённые сервисы отдавали ближайший к вам узел. Пусто - отключено. Найденные WAN-подсети предлагаются в списке."
+
+msgid "Sent to the panel as X-Device-Model, e.g. Pixel 8 or iPhone 15. Empty sends the router's model."
+msgstr "Передаётся панели как X-Device-Model, например Pixel 8 или iPhone 15. Пусто — модель роутера."
+
+msgid "Sent to the panel as X-Device-OS. Empty sends OpenWrt Linux."
+msgstr "Передаётся панели как X-Device-OS. Пусто — OpenWrt Linux."
+
+msgid "Sent to the panel as X-Ver-OS, e.g. 14 for Android or 18.3 for iOS. Empty sends the router's kernel version."
+msgstr "Передаётся панели как X-Ver-OS, например 14 для Android или 18.3 для iOS. Пусто — версия ядра роутера."
 
 msgid "Server"
 msgstr "Сервер"
@@ -1831,6 +1864,9 @@ msgstr "Адрес вне локальных сетей"
 
 msgid "The address of a published list of subscriptions: a text file with a feed address per line, or a JSON object whose keys are the addresses. The feeds found are added to the list above (the ones already there are skipped); save and apply to keep them. A feed with thousands of servers is cut to the number below."
 msgstr "Адрес опубликованного списка подписок: текстовый файл с адресом ленты в строке или JSON-объект, ключи которого - адреса. Найденные ленты добавляются в список выше (уже имеющиеся пропускаются); чтобы сохранить их, нажмите «Сохранить и применить». Лента с тысячами серверов обрезается до числа ниже."
+
+msgid "The app the subscription is fetched as, e.g. Happ/3.7.0 or INCY/1.0. Only this User-Agent is used then. Empty tries well-known clients."
+msgstr "Каким приложением представляться при загрузке подписки, например Happ/3.7.0 или INCY/1.0. Тогда используется только этот User-Agent. Пусто — перебираются известные клиенты."
 
 msgid "The check could not be completed"
 msgstr "Проверку выполнить не удалось"

@@ -453,6 +453,81 @@ function createSectionContent(section) {
   o.rmempty = false;
   o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
 
+  // Some panels serve a subscription only to a given app (Happ on Android, INCY on iOS)
+  // and check the HWID and device headers it sends; these fields override the router's own.
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_user_agent",
+    _("Client User-Agent"),
+    _(
+      "The app the subscription is fetched as, e.g. Happ/3.7.0 or INCY/1.0. Only this User-Agent is used then. Empty tries well-known clients.",
+    ),
+  );
+  o.placeholder = _("Auto");
+  o.rmempty = true;
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_hwid",
+    _("HWID"),
+    _(
+      "Device ID sent to the panel (X-HWID). Copy it from the app on a device the subscription is bound to. Empty uses the router's own ID.",
+    ),
+  );
+  o.placeholder = _("Router's own");
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    // The rule of Remnawave: a panel ignores any other X-HWID.
+    if (!value || /^[A-Za-z0-9=-]{10,64}$/.test(value)) {
+      return true;
+    }
+
+    return _("10 to 64 Latin letters, digits, = or -");
+  };
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_device_os",
+    _("Device OS"),
+    _("Sent to the panel as X-Device-OS. Empty sends OpenWrt Linux."),
+  );
+  o.value("Android", "Android");
+  o.value("iOS", "iOS");
+  o.value("Windows", "Windows");
+  o.value("macOS", "macOS");
+  o.placeholder = "OpenWrt Linux";
+  o.rmempty = true;
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_os_version",
+    _("OS version"),
+    _(
+      "Sent to the panel as X-Ver-OS, e.g. 14 for Android or 18.3 for iOS. Empty sends the router's kernel version.",
+    ),
+  );
+  o.rmempty = true;
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_device_model",
+    _("Device model"),
+    _(
+      "Sent to the panel as X-Device-Model, e.g. Pixel 8 or iPhone 15. Empty sends the router's model.",
+    ),
+  );
+  o.rmempty = true;
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
   o = section.taboption(
     "subscription",
     form.ListValue,
