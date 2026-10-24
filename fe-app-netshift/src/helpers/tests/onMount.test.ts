@@ -12,6 +12,7 @@ const elements: Record<string, unknown> = {};
 // onMount finds no pane and watches the (empty) element itself
 function element(pane: unknown) {
   return {
+    style: { minHeight: '' },
     closest: (selector: string) =>
       selector.includes('data-tab-title') ? pane : null,
   };
@@ -82,6 +83,15 @@ describe('onMount', () => {
     expect(resolved).toHaveBeenCalledWith(elements.x);
   });
 
+  it('gives an empty placeholder a pixel of height, so that an open empty tab is seen', async () => {
+    install();
+    const placeholder = element({ name: 'pane' });
+    elements.x = placeholder;
+
+    onMount('x');
+    expect(placeholder.style.minHeight).toBe('1px');
+  });
+
   it('follows an element that LuCI drew again with the same id', async () => {
     install();
     elements.x = element({ name: 'first pane' });
@@ -110,5 +120,67 @@ describe('onMount', () => {
     intersections[0].callback(on);
     await new Promise((r) => setTimeout(r, 0));
     expect(resolved).toHaveBeenCalledWith(elements.later);
+  });
+
+  it('also resolves when the pane grows from nothing, as an opened empty tab does', async () => {
+    install();
+    let resize: (() => void) | null = null;
+    let height = 0;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          resize = callback;
+        }
+
+        observe() {}
+
+        disconnect() {}
+      },
+    );
+    const pane = {
+      getBoundingClientRect: () => ({ width: 999, height }),
+    };
+    elements.x = element(pane);
+    const resolved = vi.fn();
+
+    onMount('x').then(resolved);
+    resize!();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(resolved).not.toHaveBeenCalled();
+
+    height = 1;
+    resize!();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(resolved).toHaveBeenCalledWith(elements.x);
+  });
+
+  it('does not use the size of the element itself when the pane of the tab is not found', async () => {
+    install();
+    let resize: (() => void) | null = null;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          resize = callback;
+        }
+
+        observe() {}
+
+        disconnect() {}
+      },
+    );
+    elements.x = {
+      style: { minHeight: '' },
+      closest: () => null,
+      getBoundingClientRect: () => ({ width: 999, height: 1 }),
+    };
+    const resolved = vi.fn();
+
+    onMount('x').then(resolved);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(resize).toBeNull();
+    expect(resolved).not.toHaveBeenCalled();
   });
 });
