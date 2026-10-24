@@ -29,42 +29,43 @@ nft_add_set_elements() {
     nft add element inet "$table" "$set" "{ $elements }"
 }
 
+# Adds the valid IPv4 addresses and subnets from a file to a set, one nft call per chunk_size elements
 nft_add_set_elements_from_file_chunked() {
     local filepath="$1"
     local nft_table_name="$2"
     local nft_set_name="$3"
     local chunk_size="${4:-5000}"
 
-    local array count
-    count=0
-    while IFS= read -r line; do
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-        [ -z "$line" ] && continue
-
-        if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
-            log "'$line' is not IPv4 or IPv4 CIDR" "debug"
-            continue
-        fi
-
-        if [ -z "$array" ]; then
-            array="$line"
-        else
-            array="$array,$line"
-        fi
-
-        count=$((count + 1))
-
-        if [ "$count" = "$chunk_size" ]; then
-            log "Adding $count elements to nft set $nft_set_name" "debug"
-            nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array"
-            array=""
-            count=0
-        fi
-    done < "$filepath"
-
-    if [ -n "$array" ]; then
-        log "Adding $count elements to nft set $nft_set_name" "debug"
-        nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array"
+    local valid_filepath chunks_dir chunk_filepath
+    valid_filepath=$(mktemp)
+    if ! filter_plain_list_file "$filepath" "subnets" "$valid_filepath"; then
+        rm -f "$valid_filepath"
+        return 1
     fi
+
+    if [ -s "$valid_filepath" ]; then
+        log "Adding $(wc -l < "$valid_filepath") elements to nft set $nft_set_name" "debug"
+
+        # Every chunk is written as a separate nft script, so a rejected chunk does not affect the others
+        chunks_dir=$(mktemp -d)
+        awk -v dir="$chunks_dir" -v size="$chunk_size" -v table="$nft_table_name" -v set="$nft_set_name" '
+            (NR - 1) % size == 0 {
+                if (file != "") {
+                    print " }" > file
+                    close(file)
+                }
+                file = sprintf("%s/%08d", dir, NR)
+                printf "add element inet %s %s { %s", table, set, $0 > file
+                next
+            }
+            { printf ",%s", $0 > file }
+            END { if (file != "") print " }" > file }' "$valid_filepath"
+
+        for chunk_filepath in "$chunks_dir"/*; do
+            [ -f "$chunk_filepath" ] && nft -f "$chunk_filepath"
+        done
+        rm -rf "$chunks_dir"
+    fi
+
+    rm -f "$valid_filepath"
 }

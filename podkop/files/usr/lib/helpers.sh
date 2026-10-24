@@ -371,3 +371,69 @@ parse_domain_or_subnet_file_to_comma_string() {
 
     echo "$result"
 }
+
+#######################################
+# Writes the valid entries of a plain list file to another file, one per line, without surrounding whitespace.
+# Applies the same rules as is_ipv4/is_ipv4_cidr ("subnets") and is_domain_suffix ("domains"), but checks the
+# whole file in one awk pass: a shell loop costs several processes per line, which takes tens of seconds on
+# lists of tens of thousands of entries.
+# Arguments:
+#   $1 - Path to the input file
+#   $2 - Type of validation ("domains" or "subnets")
+#   $3 - Path to the output file (overwritten)
+# Returns:
+#   0 on success, 1 on unknown type or read error
+#######################################
+filter_plain_list_file() {
+    local filepath="$1"
+    local type="$2"
+    local output_filepath="$3"
+
+    case "$type" in
+    domains | subnets) ;;
+    *)
+        log "Unknown type: $type" "error"
+        return 1
+        ;;
+    esac
+
+    local skipped
+    : > "$output_filepath" || return 1
+    skipped=$(awk -v type="$type" -v out="$output_filepath" -v q="'" '
+        function is_ipv4(s,   octets, i) {
+            if (s !~ /^(0|[1-9][0-9]?[0-9]?)\.(0|[1-9][0-9]?[0-9]?)\.(0|[1-9][0-9]?[0-9]?)\.(0|[1-9][0-9]?[0-9]?)$/)
+                return 0
+            split(s, octets, ".")
+            for (i = 1; i <= 4; i++)
+                if (octets[i] + 0 > 255) return 0
+            return 1
+        }
+        function is_ipv4_or_ipv4_cidr(s,   slash) {
+            slash = index(s, "/")
+            if (!slash) return is_ipv4(s)
+            if (substr(s, slash + 1) !~ /^([0-9]|[12][0-9]|3[0-2])$/) return 0
+            return is_ipv4(substr(s, 1, slash - 1))
+        }
+        function is_domain_suffix(s) {
+            sub(/^\./, "", s)
+            return s ~ /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/
+        }
+        {
+            sub(/^[[:space:]]+/, "")
+            sub(/[[:space:]]+$/, "")
+            if ($0 == "") next
+            if (type == "domains" ? is_domain_suffix($0) : is_ipv4_or_ipv4_cidr($0)) {
+                print > out
+                next
+            }
+            if (skipped++ < 3) examples = examples (skipped > 1 ? ", " : "") q $0 q
+        }
+        END {
+            if (skipped)
+                printf "%d entries in %s that are not %s, e.g. %s", skipped, FILENAME,
+                    (type == "domains" ? "valid domains" : "IPv4 or IPv4 CIDR"), examples
+        }' "$filepath") || return 1
+
+    [ -n "$skipped" ] && log "Skipped $skipped" "debug"
+    return 0
+}
