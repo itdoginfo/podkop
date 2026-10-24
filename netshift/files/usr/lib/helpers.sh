@@ -1367,6 +1367,29 @@ generate_hwid() {
         "$(echo "$raw_hash" | cut -c13-16)"
 }
 
+# One client option of a section ($1 section, $2 option without the
+# "subscription_" prefix). CR/LF are dropped: each value goes into an HTTP
+# header line.
+_subscription_client_option() {
+    uci -q get "netshift.$1.subscription_$2" | tr -d "\r\n"
+}
+
+# The app a subscription request claims to be. Some panels give a subscription
+# only to a given client (Happ on Android, INCY on iOS ...) and check the HWID
+# and device headers it sends, so a section may override them. Sets
+# SUBSCRIPTION_HWID, SUBSCRIPTION_DEVICE_OS, SUBSCRIPTION_OS_VERSION,
+# SUBSCRIPTION_DEVICE_MODEL and SUBSCRIPTION_USER_AGENT; empty means the
+# router's own value. A caller declares them local so they stay per section.
+load_subscription_client_identity() {
+    local section="$1"
+
+    SUBSCRIPTION_HWID="$(_subscription_client_option "$section" hwid)"
+    SUBSCRIPTION_DEVICE_OS="$(_subscription_client_option "$section" device_os)"
+    SUBSCRIPTION_OS_VERSION="$(_subscription_client_option "$section" os_version)"
+    SUBSCRIPTION_DEVICE_MODEL="$(_subscription_client_option "$section" device_model)"
+    SUBSCRIPTION_USER_AGENT="$(_subscription_client_option "$section" user_agent)"
+}
+
 # Resolves the effective subscription User-Agent: the explicit value when one
 # is given, otherwise the default "singbox/<version>" string. Centralizes the
 # default so download_subscription and the candidate builder agree.
@@ -1454,29 +1477,31 @@ $candidate
 #   $1       - cert flag ("" or "--no-check-certificate")
 #   $2       - User-Agent header value
 #   $3       - X-HWID header value
-#   $4       - X-Device-Model header value
-#   $5       - X-Ver-OS header value
-#   $6       - output file path (passed to wget -O)
-#   $7       - error file path (wget stderr is redirected here)
-#   $8       - subscription URL
-#   $9..     - leading wget flags (e.g. -4, -T, <timeout>)
+#   $4       - X-Device-OS header value
+#   $5       - X-Device-Model header value
+#   $6       - X-Ver-OS header value
+#   $7       - output file path (passed to wget -O)
+#   $8       - error file path (wget stderr is redirected here)
+#   $9       - subscription URL
+#   $10..    - leading wget flags (e.g. -4, -T, <timeout>)
 # Caller is responsible for exporting http_proxy/https_proxy when needed.
 _wget_subscription_request() {
     local cert_flag="$1"
     local req_user_agent="$2"
     local req_hwid="$3"
-    local req_device_model="$4"
-    local req_kernel_version="$5"
-    local req_outfile="$6"
-    local req_errfile="$7"
-    local req_url="$8"
-    shift 8
+    local req_device_os="$4"
+    local req_device_model="$5"
+    local req_kernel_version="$6"
+    local req_outfile="$7"
+    local req_errfile="$8"
+    local req_url="$9"
+    shift 9
 
     # shellcheck disable=SC2086
     wget $cert_flag "$@" -O "$req_outfile" \
         --header "User-Agent: $req_user_agent" \
         --header "X-HWID: $req_hwid" \
-        --header "X-Device-OS: OpenWrt Linux" \
+        --header "X-Device-OS: $req_device_os" \
         --header "X-Device-Model: $req_device_model" \
         --header "X-Ver-OS: $req_kernel_version" \
         --header "Accept-Language: ru-RU,en,*" \
@@ -1525,11 +1550,11 @@ download_subscription() {
     local user_agent="${7:-}"
     local insecure="${8:-0}"
 
-    local sb_version device_model kernel_version hwid
-    sb_version="$(get_sing_box_version)"
-    device_model="$(get_device_model)"
-    kernel_version="$(get_kernel_version)"
-    hwid="$(generate_hwid)"
+    local device_os device_model kernel_version hwid
+    device_os="${SUBSCRIPTION_DEVICE_OS:-OpenWrt Linux}"
+    device_model="${SUBSCRIPTION_DEVICE_MODEL:-$(get_device_model)}"
+    kernel_version="${SUBSCRIPTION_OS_VERSION:-$(get_kernel_version)}"
+    hwid="${SUBSCRIPTION_HWID:-$(generate_hwid)}"
     [ -n "$user_agent" ] || user_agent="$(get_subscription_user_agent)"
 
     # Optional TLS-verification bypass for IP-host panels with broken certs.
@@ -1551,22 +1576,22 @@ download_subscription() {
             family="ipv4"
             if [ -n "$http_proxy_address" ]; then
                 http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                    _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" \
+                    _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" "$device_os" \
                         "$device_model" "$kernel_version" "$tmpfile" "$errfile" "$url" \
                         -4 -T "$timeout"
             else
-                _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" \
+                _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" "$device_os" \
                     "$device_model" "$kernel_version" "$tmpfile" "$errfile" "$url" \
                     -4 -T "$timeout"
             fi
         else
             if [ -n "$http_proxy_address" ]; then
                 http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                    _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" \
+                    _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" "$device_os" \
                         "$device_model" "$kernel_version" "$tmpfile" "$errfile" "$url" \
                         -T "$timeout"
             else
-                _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" \
+                _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" "$device_os" \
                     "$device_model" "$kernel_version" "$tmpfile" "$errfile" "$url" \
                     -T "$timeout"
             fi
@@ -1595,11 +1620,11 @@ download_subscription() {
             log "Retrying subscription download over IPv4-only" "warn"
             if [ -n "$http_proxy_address" ]; then
                 http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                    _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" \
+                    _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" "$device_os" \
                         "$device_model" "$kernel_version" "$tmpfile" "$errfile" "$url" \
                         -4 -T "$timeout"
             else
-                _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" \
+                _wget_subscription_request "$cert_flag" "$user_agent" "$hwid" "$device_os" \
                     "$device_model" "$kernel_version" "$tmpfile" "$errfile" "$url" \
                     -4 -T "$timeout"
             fi
@@ -1636,110 +1661,84 @@ check_subscription_connectivity() {
     local wait="${4:-2}"
     local timeout="${5:-5}"
 
-    local sb_version device_model kernel_version hwid
-    sb_version="$(get_sing_box_version)"
-    device_model="$(get_device_model)"
-    kernel_version="$(get_kernel_version)"
-    hwid="$(generate_hwid)"
+    local user_agents device_os device_model kernel_version hwid
+    device_os="${SUBSCRIPTION_DEVICE_OS:-OpenWrt Linux}"
+    device_model="${SUBSCRIPTION_DEVICE_MODEL:-$(get_device_model)}"
+    kernel_version="${SUBSCRIPTION_OS_VERSION:-$(get_kernel_version)}"
+    hwid="${SUBSCRIPTION_HWID:-$(generate_hwid)}"
+    # The check goes in front of the download and a failed check skips it, so it
+    # must not ask for less than the download does. An app identity without a
+    # User-Agent makes the download probe the candidates, and a panel may accept
+    # only one of them: probe them here too. Otherwise one User-Agent, as before.
+    if [ -z "$SUBSCRIPTION_USER_AGENT" ] &&
+        [ -n "$SUBSCRIPTION_HWID$SUBSCRIPTION_DEVICE_OS$SUBSCRIPTION_OS_VERSION$SUBSCRIPTION_DEVICE_MODEL" ]; then
+        user_agents="$(build_subscription_user_agent_candidates "" "" "")"
+    else
+        user_agents="$(get_subscription_user_agent "$SUBSCRIPTION_USER_AGENT")"
+    fi
 
-    local attempt errfile rc family
+    local attempt errfile user_agent
     errfile="/tmp/netshift-subscription-check.$$"
     rm -f "$errfile"
     for attempt in $(seq 1 "$retries"); do
-        family="any"
-        if should_force_wget_ipv4 "$url"; then
-            family="ipv4"
-            if [ -n "$http_proxy_address" ]; then
-                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                    wget -q -4 -T "$timeout" -O /dev/null \
-                        --header "User-Agent: singbox/$sb_version" \
-                        --header "X-HWID: $hwid" \
-                        --header "X-Device-OS: OpenWrt Linux" \
-                        --header "X-Device-Model: $device_model" \
-                        --header "X-Ver-OS: $kernel_version" \
-                        --header "Accept-Language: ru-RU,en,*" \
-                        --header "X-Device-Locale: EN" \
-                        "$url" 2>"$errfile"
-            else
-                wget -q -4 -T "$timeout" -O /dev/null \
-                    --header "User-Agent: singbox/$sb_version" \
-                    --header "X-HWID: $hwid" \
-                    --header "X-Device-OS: OpenWrt Linux" \
-                    --header "X-Device-Model: $device_model" \
-                    --header "X-Ver-OS: $kernel_version" \
-                    --header "Accept-Language: ru-RU,en,*" \
-                    --header "X-Device-Locale: EN" \
-                    "$url" 2>"$errfile"
-            fi
-        else
-            if [ -n "$http_proxy_address" ]; then
-                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                    wget -q -T "$timeout" -O /dev/null \
-                        --header "User-Agent: singbox/$sb_version" \
-                        --header "X-HWID: $hwid" \
-                        --header "X-Device-OS: OpenWrt Linux" \
-                        --header "X-Device-Model: $device_model" \
-                        --header "X-Ver-OS: $kernel_version" \
-                        --header "Accept-Language: ru-RU,en,*" \
-                        --header "X-Device-Locale: EN" \
-                        "$url" 2>"$errfile"
-            else
-                wget -q -T "$timeout" -O /dev/null \
-                    --header "User-Agent: singbox/$sb_version" \
-                    --header "X-HWID: $hwid" \
-                    --header "X-Device-OS: OpenWrt Linux" \
-                    --header "X-Device-Model: $device_model" \
-                    --header "X-Ver-OS: $kernel_version" \
-                    --header "Accept-Language: ru-RU,en,*" \
-                    --header "X-Device-Locale: EN" \
-                    "$url" 2>"$errfile"
-            fi
-        fi
-
-        rc=$?
-        if [ "$rc" -eq 0 ]; then
-            rm -f "$errfile"
-            return 0
-        fi
-
-        log_wget_failure "Subscription connectivity" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
-
-        if [ "$family" != "ipv4" ] && has_ipv4_default_route && wget_supports_ipv4_flag; then
-            family="ipv4"
-            if [ -n "$http_proxy_address" ]; then
-                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                    wget -q -4 -T "$timeout" -O /dev/null \
-                        --header "User-Agent: singbox/$sb_version" \
-                        --header "X-HWID: $hwid" \
-                        --header "X-Device-OS: OpenWrt Linux" \
-                        --header "X-Device-Model: $device_model" \
-                        --header "X-Ver-OS: $kernel_version" \
-                        --header "Accept-Language: ru-RU,en,*" \
-                        --header "X-Device-Locale: EN" \
-                        "$url" 2>"$errfile"
-            else
-                wget -q -4 -T "$timeout" -O /dev/null \
-                    --header "User-Agent: singbox/$sb_version" \
-                    --header "X-HWID: $hwid" \
-                    --header "X-Device-OS: OpenWrt Linux" \
-                    --header "X-Device-Model: $device_model" \
-                    --header "X-Ver-OS: $kernel_version" \
-                    --header "Accept-Language: ru-RU,en,*" \
-                    --header "X-Device-Locale: EN" \
-                    "$url" 2>"$errfile"
-            fi
-            rc=$?
-            if [ "$rc" -eq 0 ]; then
+        while IFS= read -r user_agent; do
+            [ -n "$user_agent" ] || continue
+            if _check_subscription_connectivity_once "$url" "$http_proxy_address" "$timeout" "$errfile" \
+                "$attempt" "$retries" "$user_agent" "$hwid" "$device_os" "$device_model" "$kernel_version"; then
                 rm -f "$errfile"
                 return 0
             fi
-            log_wget_failure "Subscription connectivity IPv4 retry" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
-        fi
+        done << EOF
+$user_agents
+EOF
 
         [ "$attempt" -lt "$retries" ] && sleep "$wait"
     done
 
     rm -f "$errfile"
+    return 1
+}
+
+# One connectivity request with one User-Agent, retried over IPv4 when that may help.
+#   $1 URL, $2 proxy address, $3 timeout, $4 error file, $5 attempt, $6 retries,
+#   $7 User-Agent, $8 HWID, $9 device OS, $10 device model, $11 OS version
+_check_subscription_connectivity_once() {
+    local url="$1" http_proxy_address="$2" timeout="$3" errfile="$4" attempt="$5" retries="$6"
+    local user_agent="$7" hwid="$8" device_os="$9" device_model="${10}" kernel_version="${11}"
+    local family="any" rc
+
+    set -- -q -T "$timeout"
+    if should_force_wget_ipv4 "$url"; then
+        family="ipv4"
+        set -- "$@" -4
+    fi
+    if [ -n "$http_proxy_address" ]; then
+        http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+            _wget_subscription_request "" "$user_agent" "$hwid" "$device_os" "$device_model" "$kernel_version" \
+                /dev/null "$errfile" "$url" "$@"
+    else
+        _wget_subscription_request "" "$user_agent" "$hwid" "$device_os" "$device_model" "$kernel_version" \
+            /dev/null "$errfile" "$url" "$@"
+    fi
+    rc=$?
+    [ "$rc" -eq 0 ] && return 0
+
+    log_wget_failure "Subscription connectivity" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
+
+    [ "$family" != "ipv4" ] && has_ipv4_default_route && wget_supports_ipv4_flag || return 1
+    family="ipv4"
+    if [ -n "$http_proxy_address" ]; then
+        http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+            _wget_subscription_request "" "$user_agent" "$hwid" "$device_os" "$device_model" "$kernel_version" \
+                /dev/null "$errfile" "$url" -q -4 -T "$timeout"
+    else
+        _wget_subscription_request "" "$user_agent" "$hwid" "$device_os" "$device_model" "$kernel_version" \
+            /dev/null "$errfile" "$url" -q -4 -T "$timeout"
+    fi
+    rc=$?
+    [ "$rc" -eq 0 ] && return 0
+
+    log_wget_failure "Subscription connectivity IPv4 retry" "$url" "$errfile" "$rc" "$attempt" "$retries" "$timeout" "$http_proxy_address" "$family"
     return 1
 }
 

@@ -91,8 +91,9 @@ subscription_refresh_info() {
     # CDN sends them there); the parser takes the last block.
     set -- -s -L --max-redirs 5 -m "$SUBSCRIPTION_INFO_TIMEOUT" -D "$headers_file" -o /dev/null \
         -A "${user_agent:-singbox}" \
-        -H "X-HWID: $(generate_hwid)" -H "X-Device-OS: OpenWrt Linux" \
-        -H "X-Device-Model: $(get_device_model)" -H "X-Ver-OS: $(get_kernel_version)" \
+        -H "X-HWID: ${SUBSCRIPTION_HWID:-$(generate_hwid)}" -H "X-Device-OS: ${SUBSCRIPTION_DEVICE_OS:-OpenWrt Linux}" \
+        -H "X-Device-Model: ${SUBSCRIPTION_DEVICE_MODEL:-$(get_device_model)}" \
+        -H "X-Ver-OS: ${SUBSCRIPTION_OS_VERSION:-$(get_kernel_version)}" \
         -H "Accept-Language: ru-RU,en,*" -H "X-Device-Locale: EN"
     [ "$insecure" = "1" ] && set -- "$@" -k
     [ -n "$proxy" ] && set -- "$@" -x "http://$proxy"

@@ -453,6 +453,147 @@ function createSectionContent(section) {
   o.rmempty = false;
   o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
 
+  // Some panels serve a subscription only to a given app (Happ on Android, INCY on iOS)
+  // and check the HWID and device headers it sends; these fields override the router's own.
+  o = section.taboption(
+    "subscription",
+    form.DummyValue,
+    "_client_identity",
+    _("Generate a client"),
+    _(
+      "Fills the five fields below the way the chosen app on the chosen platform sends them, with a new HWID. A HWID copied from a real device the subscription is bound to does not take one more device slot.",
+    ),
+  );
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+  o.rawhtml = true;
+  o.cfgvalue = function (section_id) {
+    const profiles = main.CLIENT_IDENTITY_PROFILES;
+    const platform = E("select", { class: "cbi-input-select" });
+    const fillPlatforms = () => {
+      platform.replaceChildren(
+        ...Object.keys(profiles[app.value]).map((name) =>
+          E("option", { value: name }, name),
+        ),
+      );
+    };
+    const app = E(
+      "select",
+      { class: "cbi-input-select", change: fillPlatforms },
+      Object.keys(profiles).map((name) => E("option", { value: name }, name)),
+    );
+    fillPlatforms();
+
+    const button = E(
+      "button",
+      {
+        class: "btn cbi-button cbi-button-action",
+        click: (ev) => {
+          ev.preventDefault();
+
+          const identity = main.generateClientIdentity(
+            app.value,
+            platform.value,
+          );
+
+          if (!identity) {
+            return;
+          }
+
+          Object.entries(identity).forEach(([name, value]) => {
+            const element = this.section.getUIElement(
+              section_id,
+              `subscription_${name}`,
+            );
+
+            if (element) {
+              element.setValue(value);
+            }
+          });
+        },
+      },
+      _("Generate"),
+    );
+
+    return E("div", { style: "display:flex;gap:.5em;flex-wrap:wrap" }, [
+      app,
+      platform,
+      button,
+    ]);
+  };
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_user_agent",
+    _("Client User-Agent"),
+    _(
+      "The app the subscription is fetched as, e.g. Happ/4.7.1/Android/<number> or INCY/3.7.9/android Dalvik/2.1.0 (the generator above fills it in). Only this User-Agent is used then. Empty tries well-known clients.",
+    ),
+  );
+  o.placeholder = _("Auto");
+  o.rmempty = true;
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_hwid",
+    _("HWID"),
+    _(
+      "Device ID sent to the panel (X-HWID). Copy it from the app on a device the subscription is bound to. Empty uses the router's own ID.",
+    ),
+  );
+  o.placeholder = _("Router's own");
+  o.rmempty = true;
+  o.validate = function (section_id, value) {
+    // The rule of Remnawave: a panel ignores any other X-HWID.
+    if (!value || /^[A-Za-z0-9=-]{10,64}$/.test(value)) {
+      return true;
+    }
+
+    return _("10 to 64 Latin letters, digits, = or -");
+  };
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_device_os",
+    _("Device OS"),
+    _("Sent to the panel as X-Device-OS. Empty sends OpenWrt Linux."),
+  );
+  o.value("Android", "Android");
+  o.value("iOS", "iOS");
+  o.value("Windows", "Windows");
+  o.value("macOS", "macOS");
+  o.placeholder = "OpenWrt Linux";
+  o.rmempty = true;
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_os_version",
+    _("OS version"),
+    _(
+      "Sent to the panel as X-Ver-OS, e.g. 14 for Android or 18.3 for iOS. Empty sends the router's kernel version.",
+    ),
+  );
+  o.rmempty = true;
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
+  o = section.taboption(
+    "subscription",
+    form.Value,
+    "subscription_device_model",
+    _("Device model"),
+    _(
+      "Sent to the panel as X-Device-Model, e.g. Pixel 8 or iPhone 15. Empty sends the router's model.",
+    ),
+  );
+  o.rmempty = true;
+  o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+
   o = section.taboption(
     "subscription",
     form.ListValue,

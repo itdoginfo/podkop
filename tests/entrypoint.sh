@@ -6698,7 +6698,10 @@ for fn in sing_box_get_unique_outbound_tag sing_box_build_subscription_feed_grou
           subscription_resolve_feed_url \
           get_subscription_json_path get_subscription_url_cache_path \
           subscription_url_cache_matches subscription_cache_is_usable \
-          prepare_subscription_cache_for_startup reap_orphan_subscription_cache_files; do
+          prepare_subscription_cache_for_startup reap_orphan_subscription_cache_files \
+          wait_for_subscription_connectivity download_subscription_into_cache \
+          ensure_subscription_cache_dir get_subscription_user_agent_cache_path \
+          get_subscription_rejected_cache_path; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 done
 get_outbound_tag_by_section() { printf '%s-out' "$1"; }
@@ -6797,6 +6800,73 @@ expect_eq fg-download-proxy-drops-fragment "$(cat "$FG_WGET_LOG")" "https://sub.
 : > "$FG_WGET_LOG"
 check_subscription_connectivity 'https://sub.example.com/sub?x=1#My%20VPN' "" 1 0 5 > /dev/null 2>&1
 expect_eq fg-connectivity-drops-fragment "$(cat "$FG_WGET_LOG")" "https://sub.example.com/sub?x=1"
+
+# ── A section may pose as an app: HWID and device headers ─────────
+# Through the shipped callers, two sections in a row: A poses as an app, B
+# does not and must get the router's own values (nothing left over from A).
+# The fake wget logs the argv of its last call and answers only the
+# User-Agent in $FG_ACCEPT_UA (any when empty).
+cat > "$fg_bin/wget" << 'FGWEOF'
+#!/bin/sh
+printf '%s\n' "$@" > "$FG_WGET_LOG"
+out=""
+prev=""
+for a in "$@"; do
+    [ "$prev" = "-O" ] && out="$a"
+    prev="$a"
+done
+[ -n "$out" ] && [ "$out" != /dev/null ] && printf 'body' > "$out"
+[ -z "$FG_ACCEPT_UA" ] || grep -qx "User-Agent: $FG_ACCEPT_UA" "$FG_WGET_LOG"
+FGWEOF
+fg_headers() { grep -E '^(User-Agent|X-HWID|X-Device-OS|X-Device-Model|X-Ver-OS):' "$FG_WGET_LOG" | tr '\n' '|'; }
+fg_device() { grep -E '^(X-HWID|X-Device-OS|X-Device-Model|X-Ver-OS):' "$FG_WGET_LOG" | tr '\n' '|'; }
+fg_uci="/tmp/fg-uci-$$"
+mkdir -p "$fg_uci"
+cat > "$fg_uci/netshift" << 'FGUEOF'
+config section 'fgid'
+	option subscription_hwid '270DD26E-160D-4257-B8AC-654800E12F24'
+	option subscription_device_os 'iOS'
+	option subscription_os_version '18.3'
+	option subscription_device_model 'iPhone 15'
+	option subscription_user_agent 'INCY/1.0'
+
+config section 'fgdef'
+
+config section 'fgnoua'
+	option subscription_hwid 'd9679d63faacfcc0'
+	option subscription_device_os 'Android'
+FGUEOF
+fg_router="X-HWID: test-hwid|X-Device-OS: OpenWrt Linux|X-Device-Model: test-model|X-Ver-OS: test-kernel|"
+fg_want="User-Agent: INCY/1.0|X-HWID: 270DD26E-160D-4257-B8AC-654800E12F24|X-Device-OS: iOS|X-Device-Model: iPhone 15|X-Ver-OS: 18.3|"
+SUBSCRIPTION_CACHE_FOLDER="/tmp/fg-subcache-$$"
+TMP_SUBSCRIPTION_DOWNLOAD_FOLDER="/tmp/fg-subdl-$$"
+(
+    uci() { command uci -c "$fg_uci" "$@"; }
+    wait_for_subscription_connectivity fgid 'https://sub.example.com/sub' "" 1 0 5 > /dev/null 2>&1
+    expect_eq fg-identity-connectivity "$(fg_headers)" "$fg_want"
+    wait_for_subscription_connectivity fgdef 'https://sub.example.com/sub' "" 1 0 5 > /dev/null 2>&1
+    expect_eq fg-identity-default "$(fg_headers)" "User-Agent: singbox/1.12.0|$fg_router"
+    download_subscription_into_cache fgid 'https://sub.example.com/sub' /tmp/fg-sub-$$.json /tmp/fg-sub-$$.url "" > /dev/null 2>&1
+    expect_eq fg-identity-download "$(fg_headers)" "$fg_want"
+    # B tries every candidate User-Agent; the device part must still be the router's.
+    download_subscription_into_cache fgdef 'https://sub.example.com/sub' /tmp/fg-sub-$$.json /tmp/fg-sub-$$.url "" > /dev/null 2>&1
+    expect_eq fg-identity-download-default "$(fg_device)" "$fg_router"
+    # An app HWID with no User-Agent: the panel takes only Happ. The download would
+    # find it among the candidates, so the check in front of it must find it too.
+    FG_ACCEPT_UA=Happ
+    export FG_ACCEPT_UA
+    if wait_for_subscription_connectivity fgnoua 'https://sub.example.com/sub' "" 1 0 5 > /dev/null 2>&1; then
+        ok fg-identity-check-probes-user-agents
+    else
+        bad fg-identity-check-probes-user-agents
+    fi
+    if wait_for_subscription_connectivity fgdef 'https://sub.example.com/sub' "" 1 0 5 > /dev/null 2>&1; then
+        bad fg-identity-router-check-one-user-agent "(probed past singbox/<ver> with no identity set)"
+    else
+        ok fg-identity-router-check-one-user-agent
+    fi
+)
+rm -rf "$fg_uci" "/tmp/fg-subcache-$$" "/tmp/fg-subdl-$$" /tmp/fg-sub-$$.json /tmp/fg-sub-$$.url
 PATH="$fg_path"
 rm -rf "$fg_bin" "$FG_WGET_LOG" "/tmp/fg-dl-$$"
 

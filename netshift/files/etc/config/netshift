@@ -124,6 +124,14 @@ config section 'main'
 #        # Force a specific client User-Agent for the fetch. When set, ONLY this
 #        # UA is used (no probing). Leave unset to auto-probe well-known clients.
 #        #option subscription_user_agent 'Happ'
+#        # Pose as a given app on a given device: some panels serve a subscription
+#        # only to one client and check the headers it sends. Empty = the
+#        # router's own values (X-HWID from its MAC, OpenWrt Linux, kernel, model).
+#        # Copy the HWID from the app on a device the subscription is bound to.
+#        #option subscription_hwid '270DD26E-160D-4257-B8AC-654800E12F24'
+#        #option subscription_device_os 'iOS'
+#        #option subscription_os_version '18.3'
+#        #option subscription_device_model 'iPhone 15'
 #        # Preferred body FORMAT to probe first (auto|xray|singbox, default auto).
 #        # Panels often serve a different config per User-Agent. 'xray' tries the
 #        # Xray-JSON UAs (Happ/v2rayN) FIRST to recover xhttp nodes a panel only
