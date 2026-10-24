@@ -123,21 +123,25 @@ main() {
         fi
     fi
 
-    local grep_url_pattern
+    local pkg_ext
     if [ "$PKG_IS_APK" -eq 1 ]; then
-        grep_url_pattern='https://[^"[:space:]]*\.apk'
+        pkg_ext=apk
     else
-        grep_url_pattern='https://[^"[:space:]]*\.ipk'
+        pkg_ext=ipk
     fi
 
-    wget -qO- "$REPO" | grep -o "$grep_url_pattern" | while read -r url; do
-        filename=$(basename "$url")
+    # Download assets through api.github.com, not browser_download_url: the 302 from
+    # github.com carries a ~9KB Content-Security-Policy header and uclient-fetch
+    # (/usr/bin/wget) stalls until timeout on header lines over its 4KB read buffer
+    wget -qO- "$REPO" | tr '{' '\n' \
+        | sed -n "s|.*\"url\":\"\([^\"]*/releases/assets/[0-9]*\)\".*\"name\":\"\([^\"]*\.$pkg_ext\)\".*|\1 \2|p" \
+        | while read -r url filename; do
         filepath="$DOWNLOAD_DIR/$filename"
 
         attempt=0
         while [ $attempt -lt $COUNT ]; do
             msg "Download $filename (count $((attempt+1)))..."
-            if wget -q -O "$filepath" "$url"; then
+            if wget -q --header="Accept: application/octet-stream" -O "$filepath" "$url"; then
                 if [ -s "$filepath" ]; then
                     msg "$filename successfully downloaded"
                     break
