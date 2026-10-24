@@ -7741,7 +7741,7 @@ function getComponentCards(systemInfo, checks) {
 
 // src/netshift/tabs/manager/initController.ts
 var managerLifecycleRegistered = false;
-var managerControllerInitialized = false;
+var managerMountedElement = null;
 var managerMounted = false;
 async function fetchSystemInfo2() {
   const systemInfo = await NetShiftShellMethods.getSystemInfo();
@@ -8172,7 +8172,7 @@ function registerLifecycleListeners3() {
     if (diff.tabService && next.tabService.current !== prev.tabService.current) {
       const isManagerVisible = next.tabService.current === "manager";
       if (isManagerVisible) {
-        return onPageMount3();
+        return managerMounted ? void 0 : onPageMount3();
       }
       if (managerMounted) {
         return onPageUnmount3();
@@ -8181,16 +8181,14 @@ function registerLifecycleListeners3() {
   });
 }
 async function initController3() {
-  if (managerControllerInitialized) {
-    return;
-  }
-  managerControllerInitialized = true;
-  onMount("manager-status").then(() => {
+  onMount("manager-status").then((element) => {
+    if (element === managerMountedElement) {
+      return;
+    }
+    managerMountedElement = element;
     logger.debug("[MANAGER]", "initController", "onMount");
     registerLifecycleListeners3();
-    if (store.get().tabService.current === "manager") {
-      onPageMount3();
-    }
+    onPageMount3();
   });
 }
 
@@ -8736,6 +8734,7 @@ async function onMount(id) {
     let watched = null;
     let intersection = null;
     let mutation = null;
+    let resize = null;
     let done = false;
     const finish = (element) => {
       if (done) {
@@ -8744,6 +8743,7 @@ async function onMount(id) {
       done = true;
       mutation?.disconnect();
       intersection?.disconnect();
+      resize?.disconnect();
       resolve(element);
     };
     const follow = () => {
@@ -8755,11 +8755,15 @@ async function onMount(id) {
         finish(target);
         return;
       }
+      if (!target.style.minHeight) {
+        target.style.minHeight = "1px";
+      }
       const pane = target.closest("[data-tab-title], [data-tab]") ?? target;
       if (pane === watched) {
         return;
       }
       intersection?.disconnect();
+      resize?.disconnect();
       watched = pane;
       intersection = new IntersectionObserver((entries) => {
         if (isOnScreen(entries)) {
@@ -8767,6 +8771,15 @@ async function onMount(id) {
         }
       });
       intersection.observe(pane);
+      if (pane !== target && typeof ResizeObserver !== "undefined") {
+        resize = new ResizeObserver(() => {
+          const { width, height } = pane.getBoundingClientRect();
+          if (width > 0 && height > 0) {
+            finish(document.getElementById(id) ?? target);
+          }
+        });
+        resize.observe(pane);
+      }
     };
     mutation = new MutationObserver(follow);
     mutation.observe(document.body, { childList: true, subtree: true });

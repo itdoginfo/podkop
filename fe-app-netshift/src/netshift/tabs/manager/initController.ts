@@ -19,7 +19,7 @@ import {
 type ManagerActionKey = keyof StoreType['managerActions'];
 
 let managerLifecycleRegistered = false;
-let managerControllerInitialized = false;
+let managerMountedElement: HTMLElement | null = null;
 let managerMounted = false;
 
 async function fetchSystemInfo() {
@@ -610,7 +610,8 @@ function registerLifecycleListeners() {
       const isManagerVisible = next.tabService.current === 'manager';
 
       if (isManagerVisible) {
-        return onPageMount();
+        // already started by onMount when the tab was opened: not twice
+        return managerMounted ? undefined : onPageMount();
       }
 
       if (managerMounted) {
@@ -620,19 +621,18 @@ function registerLifecycleListeners() {
   });
 }
 
+// One start for every drawing of the tab (see the dashboard controller). The tab is on screen
+// when onMount answers, so it is started at once: asking tabService.current here missed the
+// start when that value had not followed the click yet, and left the tab empty.
 export async function initController(): Promise<void> {
-  if (managerControllerInitialized) {
-    return;
-  }
+  onMount('manager-status').then((element) => {
+    if (element === managerMountedElement) {
+      return;
+    }
 
-  managerControllerInitialized = true;
-
-  onMount('manager-status').then(() => {
+    managerMountedElement = element;
     logger.debug('[MANAGER]', 'initController', 'onMount');
     registerLifecycleListeners();
-
-    if (store.get().tabService.current === 'manager') {
-      onPageMount();
-    }
+    onPageMount();
   });
 }
