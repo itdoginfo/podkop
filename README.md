@@ -210,8 +210,9 @@ uci set netshift.my_sub.subscription_format_preference='auto'
 **Подмена HWID и устройства** - для подписок, которые выдаются только конкретному приложению (например Happ на Android или INCY на iOS) и проверяют заголовки `X-HWID`, `X-Device-OS`, `X-Ver-OS`, `X-Device-Model` и `User-Agent`. То же есть в LuCI на вкладке подписки. HWID скопируйте из приложения на устройстве, к которому привязана подписка; пустые поля - значения самого роутера:
 
 ```sh
-uci set netshift.my_sub.subscription_user_agent='Happ/3.7.0'
-uci set netshift.my_sub.subscription_hwid='<HWID из приложения>'
+# User-Agent и HWID - как их шлёт приложение (в LuCI их заполняет «Сгенерировать клиента»)
+uci set netshift.my_sub.subscription_user_agent='Happ/4.7.1/Android/12345678901234567890'
+uci set netshift.my_sub.subscription_hwid='0123456789abcdef'
 uci set netshift.my_sub.subscription_device_os='Android'
 uci set netshift.my_sub.subscription_os_version='14'
 uci set netshift.my_sub.subscription_device_model='Pixel 8'

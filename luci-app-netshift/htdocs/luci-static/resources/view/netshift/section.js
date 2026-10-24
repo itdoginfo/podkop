@@ -527,7 +527,7 @@ function createSectionContent(section) {
     "subscription_user_agent",
     _("Client User-Agent"),
     _(
-      "The app the subscription is fetched as, e.g. Happ/3.7.0 or INCY/1.0. Only this User-Agent is used then. Empty tries well-known clients.",
+      "The app the subscription is fetched as, e.g. Happ/4.7.1/Android/<number> or INCY/3.7.9/android Dalvik/2.1.0 (the generator above fills it in). Only this User-Agent is used then. Empty tries well-known clients.",
     ),
   );
   o.placeholder = _("Auto");

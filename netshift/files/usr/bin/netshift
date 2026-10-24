@@ -822,6 +822,10 @@ download_subscription_into_cache() {
     # previously successful UA (cached) is tried first to avoid re-probing.
     # HWID / device headers the panel sees (the router's own unless overridden).
     load_subscription_client_identity "$section"
+    if [ -z "$SUBSCRIPTION_USER_AGENT" ] &&
+        [ -n "$SUBSCRIPTION_HWID$SUBSCRIPTION_DEVICE_OS$SUBSCRIPTION_OS_VERSION$SUBSCRIPTION_DEVICE_MODEL" ]; then
+        log "Section '$section' sends an app HWID or device without a User-Agent; set subscription_user_agent of the same app, a panel may reject the mix" "warn"
+    fi
     user_agent_cache_path="$(get_subscription_user_agent_cache_path "$section" "$urlhash")"
     configured_user_agent="$SUBSCRIPTION_USER_AGENT"
     cached_user_agent="$(cat "$user_agent_cache_path" 2>/dev/null)"

@@ -1,15 +1,15 @@
 # RU translations for NETSHIFT package.
 # Copyright (C) 2026 THE NETSHIFT'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# Artem Kireev, 2026.
+# agent, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-24 14:39+0300\n"
-"PO-Revision-Date: 2026-10-24 14:39+0300\n"
-"Last-Translator: Artem Kireev\n"
+"POT-Creation-Date: 2026-10-22 21:36+0300\n"
+"PO-Revision-Date: 2026-10-22 21:36+0300\n"
+"Last-Translator: agent\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -1539,7 +1539,7 @@ msgid "Router DNS is routed through sing-box"
 msgstr "DNS роутера проходит через sing-box"
 
 msgid "Router's own"
-msgstr "Собственный роутера"
+msgstr "Собственный ID роутера"
 
 msgid "Routing"
 msgstr "Маршрутизация"
@@ -1874,8 +1874,8 @@ msgstr "Адрес вне локальных сетей"
 msgid "The address of a published list of subscriptions: a text file with a feed address per line, or a JSON object whose keys are the addresses. The feeds found are added to the list above (the ones already there are skipped); save and apply to keep them. A feed with thousands of servers is cut to the number below."
 msgstr "Адрес опубликованного списка подписок: текстовый файл с адресом ленты в строке или JSON-объект, ключи которого - адреса. Найденные ленты добавляются в список выше (уже имеющиеся пропускаются); чтобы сохранить их, нажмите «Сохранить и применить». Лента с тысячами серверов обрезается до числа ниже."
 
-msgid "The app the subscription is fetched as, e.g. Happ/3.7.0 or INCY/1.0. Only this User-Agent is used then. Empty tries well-known clients."
-msgstr "Каким приложением представляться при загрузке подписки, например Happ/3.7.0 или INCY/1.0. Тогда используется только этот User-Agent. Пусто — перебираются известные клиенты."
+msgid "The app the subscription is fetched as, e.g. Happ/4.7.1/Android/<number> or INCY/3.7.9/android Dalvik/2.1.0 (the generator above fills it in). Only this User-Agent is used then. Empty tries well-known clients."
+msgstr "Каким приложением представляться при загрузке подписки, например Happ/4.7.1/Android/<число> или INCY/3.7.9/android Dalvik/2.1.0 (его заполняет генератор выше). Тогда используется только этот User-Agent. Пусто — перебираются известные клиенты."
 
 msgid "The check could not be completed"
 msgstr "Проверку выполнить не удалось"
