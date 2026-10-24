@@ -586,6 +586,7 @@ sing_box_init_config() {
     sing_box_configure_outbounds
     sing_box_configure_dns
     sing_box_configure_route
+    sing_box_configure_dns_aaaa
     sing_box_configure_experimental
     sing_box_additional_inbounds
     sing_box_save_config
@@ -792,7 +793,14 @@ configure_outbound_handler() {
 
 sing_box_configure_dns() {
     log "Configure the DNS section of a sing-box JSON configuration"
-    config=$(sing_box_cm_configure_dns "$config" "$SB_DNS_SERVER_TAG" "ipv4_only" true)
+    local enable_dns_aaaa dns_strategy
+    config_get_bool enable_dns_aaaa "settings" "enable_dns_aaaa" 0
+    if [ "$enable_dns_aaaa" -eq 1 ]; then
+        dns_strategy="prefer_ipv4"
+    else
+        dns_strategy="ipv4_only"
+    fi
+    config=$(sing_box_cm_configure_dns "$config" "$SB_DNS_SERVER_TAG" "$dns_strategy" true)
 
     log "Adding DNS Servers" "debug"
     local dns_type dns_server bootstrap_dns_server dns_domain_resolver dns_server_address
@@ -824,6 +832,20 @@ sing_box_configure_dns() {
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
     service_domains=$(comma_string_to_json_array "$FAKEIP_TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "domain" "$service_domains")
+}
+
+# FakeIP gives only IPv4 addresses and the nft rules mark only IPv4 traffic, so the names that get a
+# FakeIP address must not get real AAAA records: a client would connect to them over IPv6, past the tunnel.
+# Runs after the route section, when every list has been added to the FakeIP DNS rules.
+sing_box_configure_dns_aaaa() {
+    local enable_dns_aaaa
+    config_get_bool enable_dns_aaaa "settings" "enable_dns_aaaa" 0
+    if [ "$enable_dns_aaaa" -eq 0 ]; then
+        return 0
+    fi
+
+    log "Adding empty AAAA answers for the FakeIP DNS rules"
+    config=$(sing_box_cm_add_dns_empty_aaaa_rules "$config" "$SB_FAKEIP_DNS_SERVER_TAG")
 }
 
 sing_box_configure_route() {
