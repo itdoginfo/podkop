@@ -5021,7 +5021,7 @@ rm -f "$caseH_in" "$caseH_out"
 
 # ── CASE H2: Xray JSON (Happ) names from remarks ────────────────────
 # Generic "proxy"/"proxy-N" tags give way to remarks; any other tag (fi-1,
-# nl-1, proxy-eu) is kept. Node A is listed in the balancer first but keeps
+# nl-1, proxy-eu) is kept next to them ("Auto · fi-1"). Node A is listed in the balancer first but keeps
 # its own profile name. Special characters in remarks must round-trip through
 # the URI fragment; missing or blank remarks fall back to the tag.
 caseH2_in="/tmp/netshift-fb-caseH2-$$.json"
@@ -5077,6 +5077,12 @@ cat > "$caseH2_in" << 'XRAYJSON'
   {"remarks": "   ", "outbounds": [
     {"protocol": "trojan", "tag": "proxy", "settings": {"servers": [{"address": "cz.example.com", "port": 443, "password": "testpass"}]},
       "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "cz.example.com"}}}
+  ]},
+  {"remarks": "🇵🇱Польша", "outbounds": [
+    {"protocol": "trojan", "tag": "PL1", "settings": {"servers": [{"address": "pl1.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "pl1.example.com"}}},
+    {"protocol": "trojan", "tag": "PL2", "settings": {"servers": [{"address": "pl2.example.com", "port": 443, "password": "testpass"}]},
+      "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "pl2.example.com"}}}
   ]}
 ]
 XRAYJSON
@@ -5087,7 +5093,7 @@ else
     echo 'fb-caseH2-rc:FAIL'
 fi
 h2_tags="$(jq -c '[.outbounds[].tag]' "$caseH2_out" 2>/dev/null)"
-if [ "$h2_tags" = '["Node A","Balancer · 2","Node B","fi-1","se-1","A+B #1 %20 🇩🇪","nl-1","proxy-eu","proxy-7","proxy"]' ]; then
+if [ "$h2_tags" = '["Node A","Balancer · 2","Node B","Auto · fi-1","Auto · se-1","A+B #1 %20 🇩🇪","Solo · nl-1","Solo EU · proxy-eu","proxy-7","proxy","🇵🇱Польша · PL1","🇵🇱Польша · PL2"]' ]; then
     echo 'fb-caseH2-remarks-names:OK'
 else
     echo "fb-caseH2-remarks-names(got $h2_tags):FAIL"
