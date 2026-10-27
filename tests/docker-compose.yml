@@ -8,6 +8,8 @@
 # Run specific test:
 #   docker compose -f tests/docker-compose.yml run --rm netshift-test <test-name>
 #
+# Part of the suite: -e SMOKE_SHARD=2/4 with "all" runs the second of four shards (CI runs them
+#             side by side); SMOKE_TIMES=<file> records the seconds each test took.
 # Test names: all, the name of a test function without its test_ prefix
 #             (hy2_hop for test_hy2_hop), or one of the short names in main() of
 #             tests/entrypoint.sh (hy2hop). A new test needs no registration: defining a
