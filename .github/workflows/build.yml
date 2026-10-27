@@ -78,8 +78,9 @@ jobs:
           context: .
           tags: netshift:ci-${{ matrix.package_type }}
           load: true
-          cache-from: type=gha,scope=${{ matrix.package_type }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.package_type }},ignore-error=true
+          # No layer cache here. The two packages compile in seconds (the host tool of the
+          # translations ~8 s), while exporting the layers of the SDK image (several GB)
+          # to the Actions cache took 47-280 s of every run, apk the longest.
           build-args: |
             NETSHIFT_VERSION=${{ needs.preparation.outputs.version }}
 
