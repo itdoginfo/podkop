@@ -53,8 +53,14 @@ msgstr "Доступна новая версия"
 msgid "A path is only allowed for doh and doh3"
 msgstr "Путь допустим только для doh и doh3"
 
+msgid "A Reality server may need a newer client than the stock sing-box core: install sing-box extended or lite in the component manager"
+msgstr "Серверу Reality может требоваться более новый клиент, чем шлёт обычное ядро sing-box: установите sing-box extended или lite в менеджере компонентов"
+
 msgid "A section cannot be chained through itself"
 msgstr "Секция не может быть подключена через саму себя"
+
+msgid "A server answered with the certificate of another site"
+msgstr "Сервер ответил сертификатом другого сайта"
 
 msgid "Active"
 msgstr "Активный"
@@ -235,6 +241,9 @@ msgstr "Проверять по расписанию"
 
 msgid "Check the filters"
 msgstr "Проверить фильтры"
+
+msgid "Check the public key, short id and SNI of the server"
+msgstr "Проверьте открытый ключ, short id и SNI сервера"
 
 msgid "Check update"
 msgstr "Проверить обновление"

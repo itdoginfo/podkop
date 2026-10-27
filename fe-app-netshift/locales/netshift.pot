@@ -64,8 +64,16 @@ msgstr ""
 msgid "A path is only allowed for doh and doh3"
 msgstr ""
 
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:75
+msgid "A Reality server may need a newer client than the stock sing-box core: install sing-box extended or lite in the component manager"
+msgstr ""
+
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1497
 msgid "A section cannot be chained through itself"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:73
+msgid "A server answered with the certificate of another site"
 msgstr ""
 
 #: src/netshift/tabs/dashboard/partials/renderSections.ts:281
@@ -312,6 +320,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:909
 msgid "Check the filters"
+msgstr ""
+
+#: src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:78
+msgid "Check the public key, short id and SNI of the server"
 msgstr ""
 
 #: src/netshift/tabs/manager/cards.ts:214

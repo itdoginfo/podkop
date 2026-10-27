@@ -84,10 +84,24 @@
     ]
   },
   {
+    "call": "A Reality server may need a newer client than the stock sing-box core: install sing-box extended or lite in the component manager",
+    "key": "A Reality server may need a newer client than the stock sing-box core: install sing-box extended or lite in the component manager",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:75"
+    ]
+  },
+  {
     "call": "A section cannot be chained through itself",
     "key": "A section cannot be chained through itself",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1497"
+    ]
+  },
+  {
+    "call": "A server answered with the certificate of another site",
+    "key": "A server answered with the certificate of another site",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:73"
     ]
   },
   {
@@ -514,6 +528,13 @@
     "key": "Check the filters",
     "places": [
       "../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:909"
+    ]
+  },
+  {
+    "call": "Check the public key, short id and SNI of the server",
+    "key": "Check the public key, short id and SNI of the server",
+    "places": [
+      "src/netshift/tabs/diagnostic/helpers/getEnvironmentItems.ts:78"
     ]
   },
   {
