@@ -241,6 +241,10 @@ check_system() {
 
     if ! nslookup google.com >/dev/null 2>&1; then
         msg "DNS is not working."
+        if [ "$(uci -q get podkop.settings.fail_closed)" = "1" ]; then
+            msg "Podkop fail-closed mode keeps DNS blocked while podkop is stopped. Restore direct DNS with:"
+            msg "PODKOP_FULL_STOP=1 /etc/init.d/podkop stop"
+        fi
         exit 1
     fi
 
@@ -306,7 +310,8 @@ sing_box() {
     if [ "$(printf '%s\n%s\n' "$sing_box_version" "$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than the required version $required_version."
         msg "Removing old version..."
-        service podkop stop
+        # A full stop restores direct DNS, packages are downloaded after sing-box is removed
+        [ -x /etc/init.d/podkop ] && PODKOP_FULL_STOP=1 /etc/init.d/podkop stop
         pkg_remove sing-box
     fi
 }

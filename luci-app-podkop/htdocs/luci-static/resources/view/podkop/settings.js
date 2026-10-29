@@ -341,6 +341,17 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.rmempty = false;
 
   o = section.option(
+    form.Flag,
+    "fail_closed",
+    _("Block proxied traffic while Podkop is stopped"),
+    _(
+      "During restarts, updates and applying settings, traffic that should be proxied is blocked instead of going direct. Until Podkop is running again, DNS via dnsmasq does not work for LAN clients and the router itself, including for direct resources (unless DHCP is left untouched). To stop Podkop with working DNS, disable this option while Podkop is running",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+
+  o = section.option(
     form.ListValue,
     "config_path",
     _("Config File Path"),

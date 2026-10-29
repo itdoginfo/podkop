@@ -62,8 +62,9 @@ import_plain_domain_list_to_local_source_ruleset_chunked() {
     local ruleset_filepath="$2"
     local chunk_size="${3:-1000}"
 
-    local array count json_array
+    local array count json_array added
     count=0
+    added=0
     while IFS= read -r line; do
         line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
@@ -86,6 +87,7 @@ import_plain_domain_list_to_local_source_ruleset_chunked() {
             log "Adding $count elements to rule set at $ruleset_filepath" "debug"
             json_array="$(comma_string_to_json_array "$array")"
             patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
+            added=$((added + count))
             array=""
             count=0
         fi
@@ -95,7 +97,11 @@ import_plain_domain_list_to_local_source_ruleset_chunked() {
         log "Adding $count elements to rule set at $ruleset_filepath" "debug"
         json_array="$(comma_string_to_json_array "$array")"
         patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
+        added=$((added + count))
     fi
+
+    # Fails when the list has no valid domains (e.g. an error page was downloaded)
+    [ "$added" -gt 0 ]
 }
 
 # Imports a plain IPv4/CIDR list into a ruleset in chunks, validating entries and appending them as ip_cidr rules

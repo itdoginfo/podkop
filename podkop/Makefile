@@ -34,9 +34,13 @@ endef
 define Package/podkop/prerm
 #!/bin/sh
 
-grep -q "105 podkop" /etc/iproute2/rt_tables && sed -i "/105 podkop/d" /etc/iproute2/rt_tables
-
-/etc/init.d/podkop stop
+if [ "$${PKG_UPGRADE}" = "1" ]; then
+	# Keep fail-closed protection during an upgrade, the new version starts right after it
+	/etc/init.d/podkop stop
+else
+	PODKOP_FULL_STOP=1 /etc/init.d/podkop stop
+	grep -q "105 podkop" /etc/iproute2/rt_tables && sed -i "/105 podkop/d" /etc/iproute2/rt_tables
+fi
 
 exit 0
 endef

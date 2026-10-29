@@ -280,14 +280,16 @@ download_to_file() {
 
     for attempt in $(seq 1 "$retries"); do
         if [ -n "$http_proxy_address" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -O "$filepath" "$url" && break
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -O "$filepath" "$url" && return 0
         else
-            wget -O "$filepath" "$url" && break
+            wget -O "$filepath" "$url" && return 0
         fi
 
         log "Attempt $attempt/$retries to download $url failed" "warn"
-        sleep "$wait"
+        [ "$attempt" -lt "$retries" ] && sleep "$wait"
     done
+
+    return 1
 }
 
 # Converts Windows-style line endings (CRLF) to Unix-style (LF)

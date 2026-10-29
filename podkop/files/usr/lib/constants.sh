@@ -13,6 +13,9 @@ CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampeteli
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"
 RT_TABLE_NAME="podkop"
+# Fail-closed mode: lists collected while a kept nft table is refreshed, rule sets kept from the previous run
+LISTS_STAGING_FOLDER="/tmp/podkop-state/lists-staging"
+KEPT_RULESETS_FOLDER="/tmp/podkop-state/kept-rulesets"
 
 ## nft
 NFT_TABLE_NAME="PodkopTable"
