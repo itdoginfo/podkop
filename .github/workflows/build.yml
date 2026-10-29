@@ -10,10 +10,16 @@ permissions:
   contents: write
 
 jobs:
-  smoke-tests:
-    name: OpenWrt rootfs smoke tests
+  # The suite is split into shards that run side by side (tests/entrypoint.sh, SMOKE_SHARD):
+  # one after another it took longer than the package build.
+  smoke-shards:
+    name: Smoke tests ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/4', '2/4', '3/4', '4/4']
     steps:
       - uses: actions/checkout@v5.0.0
 
@@ -38,7 +44,18 @@ jobs:
           cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=smoke,ignore-error=true' || '' }}
 
       - name: Run OpenWrt smoke tests
-        run: docker compose -f tests/docker-compose.yml run --rm netshift-test all
+        run: docker compose -f tests/docker-compose.yml run --rm -e SMOKE_SHARD=${{ matrix.shard }} netshift-test all
+
+  # One check under the old name, for whatever waits for it
+  smoke-tests:
+    name: OpenWrt rootfs smoke tests
+    runs-on: ubuntu-24.04
+    needs: smoke-shards
+    if: always()
+    steps:
+      - name: All shards passed
+        run: |
+          [ "${{ needs.smoke-shards.result }}" = "success" ] || { echo "smoke shards: ${{ needs.smoke-shards.result }}"; exit 1; }
 
   preparation:
     name: Setup build version

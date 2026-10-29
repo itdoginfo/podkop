@@ -16060,6 +16060,7 @@ test_section_disabled() {
             sing_box_additional_inbounds get_download_detour_tag; do
             eval "$(extract "$fn")"
         done
+        section_is_dns_rule() { return 1; }
         _active_section_callback=
         SUBSCRIPTION_UNAVAILABLE_SECTIONS=""
 
@@ -18229,6 +18230,7 @@ test_bypass() {
         }
         nft_add_set_elements_from_file_chunked() { echo "fill4 $3" >> "$NFT_LOG"; }
         nft_add_set_elements_from_file_chunked_v6() { echo "fill6 $3" >> "$NFT_LOG"; }
+        kill_switch_mirror_file() { return 1; }
         V6=0
         netshift_ipv6_enabled() { [ "$V6" = 1 ]; }
 
@@ -19167,6 +19169,11 @@ wan2|eth2|10.5.0.2"
         echo "json=$(get_wan_addresses | jq -c '[.interfaces[] | [.interface, .address, .public, .external, .subnet]]')"
 
         # the DNS section with the option
+        # the build below calls these; the test is about the subnet only, so they do nothing
+        dns_routes_init() { :; }
+        dns_server_detour_tag() { :; }
+        config_foreach() { :; }
+        sing_box_configure_dns_pool() { :; }
         UCI_settings_dns_type="udp" UCI_settings_dns_server="1.1.1.1" UCI_settings_bootstrap_dns_server="77.88.8.8"
         config_get() {
             local _var="$1" _sec="$2" _opt="$3" _def="${4-}" _val
@@ -21578,7 +21585,7 @@ test_naive() {
             echo first-end >> "$ORDER"
             config_build_lock_release
         ) &
-        n=0; while [ ! -e "$CONFIG_BUILD_LOCK_DIR/pid" ] && [ "$n" -lt 50 ]; do sleep 0.1; n=$((n + 1)); done
+        n=0; while [ ! -e "$CONFIG_BUILD_LOCK_DIR/pid" ] && [ "$n" -lt 50 ]; do sleep 0.1 2> /dev/null || sleep 1; n=$((n + 1)); done
         config_build_lock_acquire; echo "waited-rc=$?"
         echo second >> "$ORDER"
         config_build_lock_release
@@ -22497,7 +22504,10 @@ CEOF
         reset; ID_WGET=fail ID_CURL=fail download_release_asset https://example.org/c.ipk c.ipk > /dev/null; echo "both-fail-rc=$? wget=$(calls wget) curl=$(calls curl) leftover=$(ls "$work/dl" | wc -l | tr -d ' ')"
 
         # no curl on the router: wget alone, retried COUNT times
-        reset; rm -f "$work/bin/curl"; PATH="$work/bin:/usr/bin:/bin"
+        reset; rm -f "$work/bin/curl"
+        mkdir -p "$work/tools"
+        for tool in rm wc cat tr grep; do ln -sf "$(command -v "$tool")" "$work/tools/$tool"; done
+        PATH="$work/bin:$work/tools"
         ID_WGET=fail download_release_asset https://example.org/d.ipk d.ipk > /dev/null; echo "no-curl-rc=$? wget=$(calls wget) curl=$(calls curl)"
     )"
 
@@ -25030,11 +25040,11 @@ test_hy2_hop() {
         # a port of the link that is not a port: the link is skipped as without mport (nothing
         # built), never an entry in server_ports that would fail the check of the whole config
         for own in 'h.example:abc' 'h.example:70000' '2001:db8::1' 'h.example:20000:30000' 'h.example:443%20'; do
-            with="$(ob "hy2://pw@$own/?sni=h.example&mport=40000-50000#x")"
-            without="$(ob "hy2://pw@$own/?sni=h.example#x")"
+            with="$(ob "hy2://pw@$own/?sni=h.example&mport=40000-50000#x" 2> /dev/null)"
+            without="$(ob "hy2://pw@$own/?sni=h.example#x" 2> /dev/null)"
             echo "bad-own-port[$own]=$([ "$with" = "$without" ] && echo "as-without-mport" || echo "differs: $with vs $without") ports=$(printf '%s' "$with" | jq -c '.[1]' 2> /dev/null)"
         done
-        : > "$HH_LOG"; ob "hy2://pw@h.example:abc/?sni=h.example&mport=40000-50000#x" > /dev/null
+        : > "$HH_LOG"; ob "hy2://pw@h.example:abc/?sni=h.example&mport=40000-50000#x" > /dev/null 2>&1
         echo "bad-own-port-warned=$(grep -c 'has a port that is not valid' "$HH_LOG")"
         # without a port of its own the list is collapsed as well
         echo "no-port-dup=$(ob "hy2://pw@h.example/?sni=h.example&mport=443,443,20000-30000#x")"
@@ -25792,8 +25802,34 @@ main() {
         all)
             # every test_* function of this file, in the order they are written: a new test is
             # picked up by being defined, with no list to keep in step
+            #
+            # SMOKE_SHARD="i/N" runs every N-th test starting from the i-th (CI runs the shards
+            # side by side); SMOKE_TIMES names a file that gets "<seconds> <test>" per test
+            shard_index=0
+            shard_count=1
+            case "${SMOKE_SHARD:-}" in
+                '') ;;
+                [1-9]*/[1-9]*)
+                    shard_index="$(( ${SMOKE_SHARD%/*} - 1 ))"
+                    shard_count="${SMOKE_SHARD#*/}"
+                    if [ "$shard_index" -ge "$shard_count" ]; then
+                        echo "SMOKE_SHARD=${SMOKE_SHARD}: the shard is out of range"
+                        exit 1
+                    fi
+                    printf "Shard %s\n\n" "$SMOKE_SHARD"
+                    ;;
+                *)
+                    echo "SMOKE_SHARD must look like 2/4, got: ${SMOKE_SHARD}"
+                    exit 1
+                    ;;
+            esac
+            test_number=0
             for test_fn in $(smoke_tests); do
+                test_number=$(( test_number + 1 ))
+                [ "$(( (test_number - 1) % shard_count ))" -eq "$shard_index" ] || continue
+                test_started=$(date +%s)
                 "$test_fn"
+                printf '%s %s\n' "$(( $(date +%s) - test_started ))" "$test_fn" >> "${SMOKE_TIMES:-/dev/null}"
             done
             ;;
         deps)        test_deps ;;
