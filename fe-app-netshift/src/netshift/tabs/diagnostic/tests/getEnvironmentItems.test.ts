@@ -63,4 +63,35 @@ describe('getEnvironmentItems', () => {
       })[2],
     ).toBe('success');
   });
+
+  it('says nothing about Reality when no server was refused, or the backend does not know it', () => {
+    expect(getEnvironmentItems(clean)).toHaveLength(3);
+    expect(
+      getEnvironmentItems({
+        ...clean,
+        reality: { rejected: 0, stock_core: true },
+      }),
+    ).toHaveLength(3);
+  });
+
+  it('points a refused Reality handshake of the stock core to the extended core', () => {
+    const items = getEnvironmentItems({
+      ...clean,
+      reality: { rejected: 4, stock_core: true },
+    });
+
+    expect(items).toHaveLength(4);
+    expect(items[3].state).toBe('warning');
+    expect(items[3].value).toContain('extended');
+  });
+
+  it('points a refused handshake of an extended core to the server data', () => {
+    const items = getEnvironmentItems({
+      ...clean,
+      reality: { rejected: 1, stock_core: false },
+    });
+
+    expect(items[3].value).not.toContain('extended');
+    expect(items[3].value).toContain('public key');
+  });
 });

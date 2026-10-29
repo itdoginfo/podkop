@@ -8626,13 +8626,14 @@ check_fakeip() {
 # Facts about the router that decide whether the redirect works at all, and are
 # easy to miss: software/hardware flow offloading (established flows skip the
 # netfilter hooks that carry NetShift marks), a clock far from the real time (TLS
-# and Reality fail), a global IPv6 address while IPv6 handling is off.
+# and Reality fail), a global IPv6 address while IPv6 handling is off, and vless servers
+# that answered with the certificate of another site (a Reality handshake that was refused).
 # Outputs a JSON object. The only network access is one HEAD request, to compare
 # the clock; without internet the skew is null.
 #######################################
 check_environment() {
     local flow_software flow_hardware flow_active now plausible remote_date remote_epoch skew
-    local zone timezone ntp_enabled ipv6_global ipv6_enabled
+    local zone timezone ntp_enabled ipv6_global ipv6_enabled reality_rejected core_stock
 
     flow_software="$(uci -q get firewall.@defaults[0].flow_offloading 2> /dev/null)"
     flow_hardware="$(uci -q get firewall.@defaults[0].flow_offloading_hw 2> /dev/null)"
@@ -8665,6 +8666,17 @@ check_environment() {
     fi
     config_get_bool ipv6_enabled "settings" "enable_ipv6" 0
 
+    # A vless server that answers with the certificate of another site: a Reality server that
+    # did not accept the client (its keys, or a client version older than the server allows;
+    # the stock sing-box core sends 1.8.1, the extended cores send a current one).
+    reality_rejected=0
+    if command -v logread > /dev/null 2>&1; then
+        reality_rejected="$(logread -e 'x509: certificate is valid for' 2> /dev/null | tail -n 200 | grep -c 'outbound/vless\[')"
+    fi
+    case "$reality_rejected" in '' | *[!0-9]*) reality_rejected=0 ;; esac
+    core_stock=0
+    [ "$(get_sing_box_variant 2> /dev/null)" = "stock" ] && core_stock=1
+
     jq -n \
         --argjson flow_software "$([ "$flow_software" = "1" ] && echo true || echo false)" \
         --argjson flow_hardware "$([ "$flow_hardware" = "1" ] && echo true || echo false)" \
@@ -8676,11 +8688,14 @@ check_environment() {
         --argjson ntp "$([ "$ntp_enabled" = "1" ] && echo true || echo false)" \
         --argjson ipv6_global "$([ "$ipv6_global" -eq 1 ] && echo true || echo false)" \
         --argjson ipv6_enabled "$([ "$ipv6_enabled" -eq 1 ] && echo true || echo false)" \
+        --argjson reality_rejected "$reality_rejected" \
+        --argjson core_stock "$([ "$core_stock" -eq 1 ] && echo true || echo false)" \
         '{
             flow_offloading: {software: $flow_software, hardware: $flow_hardware, active: $flow_active},
             clock: {plausible: $plausible, skew_seconds: (if $skew == "" then null else ($skew | tonumber) end),
                     ntp_enabled: $ntp, timezone: (if $zone != "" then $zone else $timezone end)},
-            ipv6: {router_has_global: $ipv6_global, netshift_enabled: $ipv6_enabled}
+            ipv6: {router_has_global: $ipv6_global, netshift_enabled: $ipv6_enabled},
+            reality: {rejected: $reality_rejected, stock_core: $core_stock}
         }'
 }
 

@@ -282,6 +282,8 @@ export namespace NetShift {
       timezone: string;
     };
     ipv6: { router_has_global: boolean; netshift_enabled: boolean };
+    // absent from a backend older than this field
+    reality?: { rejected: number; stock_core: boolean };
   }
 
   export interface RouteCheckResult {

@@ -5843,6 +5843,15 @@ function getEnvironmentItems(data) {
       value: ""
     });
   }
+  if (data.reality && data.reality.rejected > 0) {
+    items.push({
+      state: "warning",
+      key: _("A server answered with the certificate of another site"),
+      value: data.reality.stock_core ? _(
+        "A Reality server may need a newer client than the stock sing-box core: install sing-box extended or lite in the component manager"
+      ) : _("Check the public key, short id and SNI of the server")
+    });
+  }
   return items;
 }
 
