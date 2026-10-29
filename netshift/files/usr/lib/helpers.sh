@@ -1935,7 +1935,14 @@ xray_json_to_uri_lines() {
           | ($ob.tag // "" | tostring) as $tag
           | ($tag == "" or ($tag | tag_num) != null) as $generic
           | ($generic and $cfg_name != "" and $n_usable > 1) as $numbered
-          | (if ($generic | not) or $cfg_name == "" then $tag
+          # A tag of its own (PL1, WS, HY2) says nothing about the country the profile is named
+          # after, and the country filters match the name: keep both, "<remarks> · <tag>",
+          # unless one already holds the other.
+          | (if $cfg_name == "" then $tag
+             elif ($generic | not) then
+               (if ($tag | contains($cfg_name)) then $tag
+                elif ($cfg_name | contains($tag)) then $cfg_name
+                else $cfg_name + " · " + $tag end)
              elif ($numbered | not) then $cfg_name
              else $cfg_name + " · "
                   + ((if $by_tag then $tag | tag_num else $ob_idx + 1 end)
