@@ -1,4 +1,4 @@
-FROM itdoginfo/openwrt-sdk-apk:25.12.3
+FROM itdoginfo/openwrt-sdk-apk:25.12.3 AS builder
 
 # Heavy, source-independent step goes first so this layer stays cached between
 # builds: host tools needed by the LuCI package (po2lmo for translations).
@@ -14,3 +14,12 @@ COPY ./luci-app-netshift /builder/package/feeds/luci/luci-app-netshift
 # NO_DEPS=1 skips building their dependency trees (kernel modules, sing-box, ...).
 RUN make package/netshift/compile NO_DEPS=1 -j4 V=s && \
     make package/luci-app-netshift/compile NO_DEPS=1 -j4 V=s
+
+# CI takes only the packages out of the build: with `--target packages` and a local output the
+# SDK image (several GB) is never exported or loaded into docker. This stage is not last, so a
+# plain `docker build` still ends with the full image, as before.
+FROM scratch AS packages
+COPY --from=builder /builder/bin/packages/x86_64/utilities/ /utilities/
+COPY --from=builder /builder/bin/packages/x86_64/luci/ /luci/
+
+FROM builder

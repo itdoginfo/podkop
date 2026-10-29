@@ -76,22 +76,20 @@ jobs:
         with:
           file: ./Dockerfile-${{ matrix.package_type }}
           context: .
-          tags: netshift:ci-${{ matrix.package_type }}
-          load: true
+          # Only the packages come out of the build, not the SDK image (see `packages` in the Dockerfile)
+          target: packages
+          outputs: type=local,dest=./out/${{ matrix.package_type }}
           # No layer cache here. The two packages compile in seconds (the host tool of the
           # translations ~8 s), while exporting the layers of the SDK image (several GB)
           # to the Actions cache took 47-280 s of every run, apk the longest.
           build-args: |
             NETSHIFT_VERSION=${{ needs.preparation.outputs.version }}
 
-      - name: Create ${{ matrix.package_type }} Docker container
-        run: docker create --name ${{ matrix.package_type }} netshift:ci-${{ matrix.package_type }}
-
-      - name: Copy files from ${{ matrix.package_type }} Docker container
+      - name: Collect ${{ matrix.package_type }} packages
         run: |
           mkdir -p ./bin/${{ matrix.package_type }}
-          docker cp ${{ matrix.package_type }}:/builder/bin/packages/x86_64/utilities/. ./bin/${{ matrix.package_type }}/
-          docker cp ${{ matrix.package_type }}:/builder/bin/packages/x86_64/luci/. ./bin/${{ matrix.package_type }}/
+          cp ./out/${{ matrix.package_type }}/utilities/* ./bin/${{ matrix.package_type }}/
+          cp ./out/${{ matrix.package_type }}/luci/* ./bin/${{ matrix.package_type }}/
 
         # IPK uses underscore `_` in filenames, while APK uses only dash `-`
       - name: Fix naming difference between build for packages (replace _ with -)
@@ -115,9 +113,6 @@ jobs:
           cp ./bin/${{ matrix.package_type }}/luci-i18n-netshift-ru-*.${{ matrix.package_type }} "./filtered-bin/${{ matrix.package_type }}/luci-i18n-netshift-ru-${VERSION}.${{ matrix.package_type }}"
           cp ./bin/${{ matrix.package_type }}/netshift-*.${{ matrix.package_type }} ./filtered-bin/${{ matrix.package_type }}/
           cp ./bin/${{ matrix.package_type }}/luci-app-netshift-*.${{ matrix.package_type }} ./filtered-bin/${{ matrix.package_type }}/
-
-      - name: Remove Docker container
-        run: docker rm ${{ matrix.package_type }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7.0.1
