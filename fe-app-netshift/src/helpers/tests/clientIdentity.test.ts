@@ -12,7 +12,7 @@ describe('generateClientIdentity', () => {
     const identity = generateClientIdentity('Happ', 'Android');
 
     expect(identity?.user_agent).toMatch(
-      /^Happ\/4\.7\.1\/Android\/[1-9]\d{19}$/,
+      /^Happ\/\d+\.\d+\.\d+\/Android\/[1-9]\d{19}$/,
     );
     expect(identity?.hwid).toMatch(/^[0-9a-f]{16}$/);
     expect(identity?.device_os).toBe('Android');
@@ -34,13 +34,44 @@ describe('generateClientIdentity', () => {
     );
   });
 
-  it('keeps the Darwin version of INCY on iOS with its OS version', () => {
-    for (const value of [0, 0.5, 0.999999]) {
-      const identity = generateClientIdentity('INCY', 'iOS', () => value);
-      const darwin = identity?.user_agent.split('Darwin/')[1];
+  it('sends only User-Agent and OS version pairs real devices sent', () => {
+    for (const [app, platforms] of Object.entries(CLIENT_IDENTITY_PROFILES)) {
+      for (const [platform, profile] of Object.entries(platforms)) {
+        const pairs = profile.variants.map(
+          ([userAgent, os]) => `${userAgent} ${os}`,
+        );
 
-      expect(identity?.os_version.startsWith('27')).toBe(darwin === '27.0.0');
+        for (let i = 0; i < 50; i++) {
+          const identity = generateClientIdentity(app, platform);
+          const userAgent = identity?.user_agent.replace(
+            /\/\d{20}$/,
+            '/{install}',
+          );
+
+          expect(pairs).toContain(`${userAgent} ${identity?.os_version}`);
+        }
+      }
     }
+  });
+
+  it('picks the versions in proportion to the panel', () => {
+    const versions = (random: number) =>
+      generateClientIdentity('INCY', 'iOS', () => random)?.user_agent;
+
+    // The first pair holds 13 of 50 devices: the low quarter of the range.
+    expect(versions(0)).toContain('Darwin/27.0.0');
+    expect(versions(0.25)).toContain('Darwin/27.0.0');
+    expect(versions(0.27)).not.toContain('Darwin/27.0.0');
+    expect(versions(0.999999)).toContain('Darwin/24.6.0');
+
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      seen.add(
+        generateClientIdentity('Happ', 'Android')?.user_agent.split('/')[1] ??
+          '',
+      );
+    }
+    expect(seen.size).toBeGreaterThan(1);
   });
 
   it('puts a fresh install number and computer name in', () => {
