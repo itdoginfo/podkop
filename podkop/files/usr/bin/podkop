@@ -136,8 +136,9 @@ start_main() {
 
     br_netfilter_disable
 
-    # Sync time for DoH/DoT
-    /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
+    # Sync time for DoH/DoT. ntpd -q goes to background until the time is set, so it must not hold the procd lock
+    # of the init script (fd 1000, taken by reload)
+    /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123 1000>&-
 
     sleep 1
 
@@ -161,7 +162,12 @@ start_main() {
     update_gate
 
     log "Nice"
-    list_update_after_start &
+    # The job may run for long in fail-closed mode, it must not hold the procd lock of the init script (fd 1000,
+    # taken by reload), or the next stop and restart would wait for it
+    (
+        exec 1000>&-
+        list_update_after_start
+    ) &
     echo $! > /var/run/podkop_list_update.pid
 }
 
@@ -514,6 +520,7 @@ print_gate_rules() {
     echo "add rule $chain oifname @$NFT_INTERFACE_SET_NAME return"
     echo "add rule $chain ct state != new return"
     echo "add rule $chain ip daddr @$NFT_LOCALV4_SET_NAME return"
+    echo "add rule $chain ip daddr 100.64.0.0/10 return"
     echo "add rule $chain ip6 daddr { fc00::/7, fe80::/10 } return"
     if [ "$state" = "all" ]; then
         echo "add rule $chain counter reject with icmpx type admin-prohibited"
@@ -568,11 +575,48 @@ lists_loaded() {
     '
 }
 
-# Called after a lists update that loaded every list
+# Called after a lists update that loaded every list, with the id of the table it was started for
 mark_lists_loaded() {
+    local table_id="$1"
+
+    if [ -n "$table_id" ] && [ "$table_id" != "$(cat "$NFT_TABLE_ID_FILE" 2> /dev/null)" ]; then
+        log "The nft table was recreated during the lists update, the lists are not marked as loaded" "warn"
+        return 0
+    fi
+
     mkdir -p "$PODKOP_STATE_FOLDER"
     print_lists_signature > "$LISTS_LOADED_FILE"
+    write_lists_pending_ruleset
     update_gate
+}
+
+# While lists of the config are not loaded, domains of remote plain-text lists resolve to real addresses. In fail-closed
+# mode such answers get a short TTL, so clients do not keep using them once the lists are loaded. The DNS rule matches
+# by a local rule set that matches every domain until the lists are loaded and nothing after it (sing-box reloads it)
+write_lists_pending_ruleset() {
+    local filepath="$TMP_RULESET_FOLDER/$SB_LISTS_PENDING_RULESET_TAG.json"
+    local tmpfile
+
+    [ -d "$TMP_RULESET_FOLDER" ] || return 0
+    tmpfile="$(mktemp)"
+    if fail_closed_enabled && ! lists_loaded; then
+        echo '{"version":3,"rules":[{"domain_regex":[".*"]}]}' > "$tmpfile"
+    else
+        echo '{"version":3,"rules":[]}' > "$tmpfile"
+    fi
+    mv "$tmpfile" "$filepath"
+}
+
+sing_box_configure_lists_pending_dns() {
+    fail_closed_enabled || return 0
+
+    write_lists_pending_ruleset
+    config=$(sing_box_cm_add_local_ruleset "$config" "$SB_LISTS_PENDING_RULESET_TAG" "source" \
+        "$TMP_RULESET_FOLDER/$SB_LISTS_PENDING_RULESET_TAG.json")
+    config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_DNS_SERVER_TAG" "$SB_LISTS_PENDING_DNS_RULE_TAG")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_LISTS_PENDING_DNS_RULE_TAG" "rule_set" \
+        "$SB_LISTS_PENDING_RULESET_TAG")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_LISTS_PENDING_DNS_RULE_TAG" "rewrite_ttl" 1)
 }
 
 # Print nft commands adding the elements read from stdin (one per line) to a set, in chunks
@@ -609,8 +653,11 @@ create_nft_rules() {
         log "Update the existing nft table"
     else
         log "Create nft table"
-        # The lists are loaded into the new table by list_update
+        # The lists are loaded into the new table by list_update. A lists update that started before belongs to the
+        # previous table, see mark_lists_loaded
         rm -f "$LISTS_LOADED_FILE"
+        mkdir -p "$PODKOP_STATE_FOLDER"
+        cat /proc/sys/kernel/random/uuid > "$NFT_TABLE_ID_FILE"
     fi
 
     nft_script="$(mktemp)"
@@ -898,9 +945,10 @@ list_update() {
     fi
 }
 
-# Succeeds only when every list was loaded
+# Succeeds only when every list was loaded. Sets lists_update_table_id to the nft table the update started for
 run_list_update() {
     lists_update_failed=0
+    lists_update_table_id="$(cat "$NFT_TABLE_ID_FILE" 2> /dev/null)"
 
     list_update && [ "$lists_update_failed" -eq 0 ]
 }
@@ -908,7 +956,7 @@ run_list_update() {
 # Lists update from cron or the command line
 list_update_command() {
     if run_list_update; then
-        mark_lists_loaded
+        mark_lists_loaded "$lists_update_table_id"
     fi
 }
 
@@ -924,11 +972,12 @@ list_update_after_start() {
     while [ "$complete" -eq 0 ] && fail_closed_enabled && ! lists_loaded; do
         log "Lists are not loaded, retrying the update in $delay seconds" "warn"
         sleep "$delay"
-        [ "$delay" -lt 600 ] && delay=$((delay * 2))
+        delay=$((delay * 2))
+        [ "$delay" -gt 600 ] && delay=600
         run_list_update && complete=1
     done
 
-    [ "$complete" -eq 1 ] && mark_lists_loaded
+    [ "$complete" -eq 1 ] && mark_lists_loaded "$lists_update_table_id"
 }
 
 # Where list_update writes a remote plain-text list. While lists of a kept table are refreshed, they are collected
@@ -1071,6 +1120,8 @@ sing_box_init_config() {
     sing_box_configure_route
     sing_box_configure_experimental
     sing_box_additional_inbounds
+    # The last DNS rule, after the rules of the lists
+    sing_box_configure_lists_pending_dns
     sing_box_save_config
 }
 

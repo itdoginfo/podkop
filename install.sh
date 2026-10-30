@@ -64,6 +64,11 @@ podkop_fail_closed() {
     [ -x /etc/init.d/podkop ] && [ "$(uci -q get podkop.settings.fail_closed)" = "1" ]
 }
 
+# Podkop is running or keeps its fail-closed protection (its nft table exists)
+podkop_protection_active() {
+    podkop_fail_closed && nft list table inet PodkopTable > /dev/null 2>&1
+}
+
 # In fail-closed mode DNS does not work while podkop is restarted
 wait_for_dns() {
     local attempt=0
@@ -203,7 +208,7 @@ main() {
             pkg_install "$DOWNLOAD_DIR/$file"
             sleep 3
             # The next packages may need downloads, DNS works again once podkop is started
-            if podkop_fail_closed && ! wait_for_dns; then
+            if podkop_protection_active && ! wait_for_dns; then
                 msg "DNS does not work after the podkop start, the next steps may fail"
             fi
         fi
@@ -340,10 +345,11 @@ sing_box() {
 
     if [ "$(printf '%s\n%s\n' "$sing_box_version" "$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than the required version $required_version."
-        if podkop_fail_closed; then
+        if podkop_protection_active; then
             sing_box_upgrade_fail_closed
         else
             msg "Removing old version..."
+            service podkop stop
             pkg_remove sing-box
         fi
     fi
@@ -352,12 +358,18 @@ sing_box() {
 # Without a running sing-box podkop's fail-closed mode blocks DNS and proxied traffic, so the new sing-box is
 # downloaded first, and podkop is restarted right after it is installed. If anything fails, traffic stays blocked
 sing_box_upgrade_fail_closed() {
-    local file
+    local file f
 
     msg "Podkop fail-closed mode: downloading the new sing-box before replacing the old one..."
     pkg_list_update || { msg "Packages list update failed"; exit 1; }
     (cd "$DOWNLOAD_DIR" && pkg_fetch sing-box)
-    file="$(ls "$DOWNLOAD_DIR"/sing-box[_-]* 2> /dev/null | head -n 1)"
+    file=""
+    for f in "$DOWNLOAD_DIR"/sing-box[_-]*; do
+        if [ -f "$f" ]; then
+            file="$f"
+            break
+        fi
+    done
     if [ -z "$file" ]; then
         msg "Failed to download sing-box"
         exit 1

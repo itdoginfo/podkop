@@ -19,6 +19,7 @@ LISTS_STAGING_FOLDER="$PODKOP_STATE_FOLDER/lists-staging"
 KEPT_RULESETS_FOLDER="$PODKOP_STATE_FOLDER/kept-rulesets"
 LISTS_LOADED_FILE="$PODKOP_STATE_FOLDER/lists-loaded"
 PODKOP_STARTED_FILE="$PODKOP_STATE_FOLDER/started"
+NFT_TABLE_ID_FILE="$PODKOP_STATE_FOLDER/table-id"
 
 ## nft
 NFT_TABLE_NAME="PodkopTable"
@@ -40,6 +41,8 @@ SB_BOOTSTRAP_SERVER_TAG="bootstrap-dns-server"
 SB_FAKEIP_DNS_RULE_TAG="fakeip-dns-rule-tag"
 SB_FAKEIP_SERVICE_DNS_RULE_TAG="fakeip-service-dns-rule-tag"
 SB_INVERT_FAKEIP_DNS_RULE_TAG="invert-fakeip-dns-rule-tag"
+SB_LISTS_PENDING_DNS_RULE_TAG="lists-pending-dns-rule-tag"
+SB_LISTS_PENDING_RULESET_TAG="podkop-lists-pending-ruleset"
 # Inbounds
 SB_TPROXY_INBOUND_TAG="tproxy-in"
 SB_TPROXY_INBOUND_ADDRESS="127.0.0.1"
