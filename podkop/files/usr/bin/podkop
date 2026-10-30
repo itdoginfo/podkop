@@ -115,8 +115,13 @@ start_main() {
     stop_list_update
     rm -f "$PODKOP_STARTED_FILE"
 
+    # A lists update that started before this start used the previous config, see mark_lists_loaded
+    mkdir -p "$PODKOP_STATE_FOLDER"
+    cat /proc/sys/kernel/random/uuid > "$PODKOP_RUN_ID_FILE"
+
     # The nft table is built from the config, so the config is migrated first
     migration
+    prune_lists_loaded
 
     if fail_closed_enabled; then
         # A running sing-box would see the rule sets empty while they are rebuilt and resolve their domains directly
@@ -223,7 +228,7 @@ reset_source_rulesets() {
 stop_main() {
     log "Stopping the podkop"
 
-    rm -f "$PODKOP_STARTED_FILE"
+    rm -f "$PODKOP_STARTED_FILE" "$PODKOP_RUN_ID_FILE"
 
     stop_list_update
 
@@ -521,7 +526,7 @@ print_gate_rules() {
     echo "add rule $chain ct state != new return"
     echo "add rule $chain ip daddr @$NFT_LOCALV4_SET_NAME return"
     echo "add rule $chain ip daddr 100.64.0.0/10 return"
-    echo "add rule $chain ip6 daddr { fc00::/7, fe80::/10 } return"
+    echo "add rule $chain ip6 daddr { fc00::/7, fe80::/10, ff00::/8 } return"
     if [ "$state" = "all" ]; then
         echo "add rule $chain counter reject with icmpx type admin-prohibited"
     else
@@ -575,12 +580,24 @@ lists_loaded() {
     '
 }
 
-# Called after a lists update that loaded every list, with the id of the table it was started for
-mark_lists_loaded() {
-    local table_id="$1"
+# Lists removed from the config are not loaded any more: their kept rule sets may be gone when they are added again
+prune_lists_loaded() {
+    local tmpfile
 
-    if [ -n "$table_id" ] && [ "$table_id" != "$(cat "$NFT_TABLE_ID_FILE" 2> /dev/null)" ]; then
-        log "The nft table was recreated during the lists update, the lists are not marked as loaded" "warn"
+    [ -f "$LISTS_LOADED_FILE" ] || return 0
+    tmpfile="$(mktemp)"
+    print_lists_signature | awk -v loaded="$LISTS_LOADED_FILE" '
+        BEGIN { while ((getline line < loaded) > 0) seen[line] = 1 }
+        $0 in seen
+    ' > "$tmpfile"
+    mv "$tmpfile" "$LISTS_LOADED_FILE"
+}
+
+# Called after a lists update that loaded every list, with the id of the podkop run it was started in. An update that
+# started before a restart used the previous config and does not mark the lists of the new one as loaded
+mark_lists_loaded() {
+    if [ "$#" -gt 0 ] && [ "$1" != "$(cat "$PODKOP_RUN_ID_FILE" 2> /dev/null)" ]; then
+        log "Podkop was restarted during the lists update, the lists are not marked as loaded" "warn"
         return 0
     fi
 
@@ -653,11 +670,8 @@ create_nft_rules() {
         log "Update the existing nft table"
     else
         log "Create nft table"
-        # The lists are loaded into the new table by list_update. A lists update that started before belongs to the
-        # previous table, see mark_lists_loaded
+        # The lists are loaded into the new table by list_update
         rm -f "$LISTS_LOADED_FILE"
-        mkdir -p "$PODKOP_STATE_FOLDER"
-        cat /proc/sys/kernel/random/uuid > "$NFT_TABLE_ID_FILE"
     fi
 
     nft_script="$(mktemp)"
@@ -945,18 +959,30 @@ list_update() {
     fi
 }
 
-# Succeeds only when every list was loaded. Sets lists_update_table_id to the nft table the update started for
+# Succeeds only when every list was loaded. Sets lists_update_run_id to the podkop run the update belongs to.
+# Lists updates (after the start, from cron, from the command line) run one at a time, they write the same files
 run_list_update() {
-    lists_update_failed=0
-    lists_update_table_id="$(cat "$NFT_TABLE_ID_FILE" 2> /dev/null)"
+    local status
 
-    list_update && [ "$lists_update_failed" -eq 0 ]
+    lists_update_failed=0
+    lists_update_run_id="$(cat "$PODKOP_RUN_ID_FILE" 2> /dev/null)"
+    # The config is at least as new as the run
+    config_load "$PODKOP_CONFIG"
+
+    mkdir -p "$(dirname "$LISTS_UPDATE_LOCK_FILE")"
+    {
+        flock 9
+        list_update
+        status=$?
+    } 9> "$LISTS_UPDATE_LOCK_FILE"
+
+    [ "$status" -eq 0 ] && [ "$lists_update_failed" -eq 0 ]
 }
 
 # Lists update from cron or the command line
 list_update_command() {
     if run_list_update; then
-        mark_lists_loaded "$lists_update_table_id"
+        mark_lists_loaded "$lists_update_run_id"
     fi
 }
 
@@ -977,7 +1003,7 @@ list_update_after_start() {
         run_list_update && complete=1
     done
 
-    [ "$complete" -eq 1 ] && mark_lists_loaded "$lists_update_table_id"
+    [ "$complete" -eq 1 ] && mark_lists_loaded "$lists_update_run_id"
 }
 
 # Where list_update writes a remote plain-text list. While lists of a kept table are refreshed, they are collected
