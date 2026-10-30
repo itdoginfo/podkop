@@ -84,6 +84,13 @@
     ]
   },
   {
+    "call": "Block proxied traffic during restarts and updates",
+    "key": "Block proxied traffic during restarts and updates",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:346"
+    ]
+  },
+  {
     "call": "Bootsrap DNS",
     "key": "Bootsrap DNS",
     "places": [
@@ -115,14 +122,14 @@
     "call": "Cache File Path",
     "key": "Cache File Path",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:359"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:370"
     ]
   },
   {
     "call": "Cache file path cannot be empty",
     "key": "Cache file path cannot be empty",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:373"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:384"
     ]
   },
   {
@@ -192,7 +199,7 @@
     "call": "Config File Path",
     "key": "Config File Path",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:346"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:357"
     ]
   },
   {
@@ -449,6 +456,13 @@
     ]
   },
   {
+    "call": "During restarts, updates, applying settings and after a failed start, traffic that should be proxied is blocked instead of going direct. Until Podkop is running again, DNS via dnsmasq does not work for LAN clients and the router itself, including for direct resources (unless DHCP is left untouched), and IPv6 from LAN is blocked. After a router reboot and after adding lists, all direct traffic from LAN is blocked until the lists are downloaded, and stays blocked while a list can not be downloaded. Stopping Podkop turns the protection off until the next start",
+    "key": "During restarts, updates, applying settings and after a failed start, traffic that should be proxied is blocked instead of going direct. Until Podkop is running again, DNS via dnsmasq does not work for LAN clients and the router itself, including for direct resources (unless DHCP is left untouched), and IPv6 from LAN is blocked. After a router reboot and after adding lists, all direct traffic from LAN is blocked until the lists are downloaded, and stays blocked while a list can not be downloaded. Stopping Podkop turns the protection off until the next start",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:347"
+    ]
+  },
+  {
     "call": "Dynamic List",
     "key": "Dynamic List",
     "places": [
@@ -579,14 +593,14 @@
     "call": "Exclude NTP",
     "key": "Exclude NTP",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:413"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:424"
     ]
   },
   {
     "call": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "key": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:414"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:425"
     ]
   },
   {
@@ -1021,7 +1035,7 @@
     "call": "Log Level",
     "key": "Log Level",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:395"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:406"
     ]
   },
   {
@@ -1146,21 +1160,21 @@
     "call": "Path must be absolute (start with /)",
     "key": "Path must be absolute (start with /)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:377"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:388"
     ]
   },
   {
     "call": "Path must contain at least one directory (like /tmp/cache.db)",
     "key": "Path must contain at least one directory (like /tmp/cache.db)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:386"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:397"
     ]
   },
   {
     "call": "Path must end with cache.db",
     "key": "Path must end with cache.db",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:381"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:392"
     ]
   },
   {
@@ -1269,7 +1283,7 @@
     "call": "Routing Excluded IPs",
     "key": "Routing Excluded IPs",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:424"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:435"
     ]
   },
   {
@@ -1396,14 +1410,14 @@
     "call": "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing",
     "key": "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:360"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:371"
     ]
   },
   {
     "call": "Select path for sing-box config file. Change this ONLY if you know what you are doing",
     "key": "Select path for sing-box config file. Change this ONLY if you know what you are doing",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:347"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:358"
     ]
   },
   {
@@ -1431,7 +1445,7 @@
     "call": "Select the log level for sing-box",
     "key": "Select the log level for sing-box",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:396"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:407"
     ]
   },
   {
@@ -1551,7 +1565,7 @@
     "call": "Specify a local IP address to be excluded from routing",
     "key": "Specify a local IP address to be excluded from routing",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:425"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:436"
     ]
   },
   {

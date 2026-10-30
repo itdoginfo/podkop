@@ -26,7 +26,12 @@ nft_add_set_elements() {
     local set="$2"
     local elements="$3"
 
-    nft add element inet "$table" "$set" "{ $elements }"
+    nft add element inet "$table" "$set" "{ $elements }" || return 1
+
+    # A kept table is being refreshed, remember the elements to replace the set contents later
+    if [ "${lists_staging_active:-0}" -eq 1 ] && [ -d "$LISTS_STAGING_FOLDER" ]; then
+        echo "$elements" | tr ',' '\n' >> "$LISTS_STAGING_FOLDER/$table.$set"
+    fi
 }
 
 nft_add_set_elements_from_file_chunked() {
@@ -35,8 +40,10 @@ nft_add_set_elements_from_file_chunked() {
     local nft_set_name="$3"
     local chunk_size="${4:-5000}"
 
-    local array count
+    local array count added failed
     count=0
+    added=0
+    failed=0
     while IFS= read -r line; do
         line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
@@ -57,7 +64,8 @@ nft_add_set_elements_from_file_chunked() {
 
         if [ "$count" = "$chunk_size" ]; then
             log "Adding $count elements to nft set $nft_set_name" "debug"
-            nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array"
+            nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array" || failed=1
+            added=$((added + count))
             array=""
             count=0
         fi
@@ -65,6 +73,10 @@ nft_add_set_elements_from_file_chunked() {
 
     if [ -n "$array" ]; then
         log "Adding $count elements to nft set $nft_set_name" "debug"
-        nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array"
+        nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array" || failed=1
+        added=$((added + count))
     fi
+
+    # Fails when a chunk was not added or the file has no valid elements (e.g. an error page was downloaded)
+    [ "$failed" -eq 0 ] && [ "$added" -gt 0 ]
 }

@@ -64,6 +64,10 @@ msgstr ""
 msgid "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:346
+msgid "Block proxied traffic during restarts and updates"
+msgstr ""
+
 #: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:65
 msgid "Bootsrap DNS"
 msgstr ""
@@ -80,11 +84,11 @@ msgstr ""
 msgid "Browser is using FakeIP correctly"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:359
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:370
 msgid "Cache File Path"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:373
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:384
 msgid "Cache file path cannot be empty"
 msgstr ""
 
@@ -127,7 +131,7 @@ msgstr ""
 msgid "Community Lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:346
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:357
 msgid "Config File Path"
 msgstr ""
 
@@ -279,6 +283,10 @@ msgstr ""
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:347
+msgid "During restarts, updates, applying settings and after a failed start, traffic that should be proxied is blocked instead of going direct. Until Podkop is running again, DNS via dnsmasq does not work for LAN clients and the router itself, including for direct resources (unless DHCP is left untouched), and IPv6 from LAN is blocked. After a router reboot and after adding lists, all direct traffic from LAN is blocked until the lists are downloaded, and stays blocked while a list can not be downloaded. Stopping Podkop turns the protection off until the next start"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:456
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:536
 msgid "Dynamic List"
@@ -352,11 +360,11 @@ msgstr ""
 msgid "Every 5 minutes"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:413
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:424
 msgid "Exclude NTP"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:414
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:425
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr ""
 
@@ -608,7 +616,7 @@ msgstr ""
 msgid "Local Subnet Lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:395
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:406
 msgid "Log Level"
 msgstr ""
 
@@ -682,15 +690,15 @@ msgstr ""
 msgid "Path cannot be empty"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:377
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:388
 msgid "Path must be absolute (start with /)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:386
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:397
 msgid "Path must contain at least one directory (like /tmp/cache.db)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:381
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:392
 msgid "Path must end with cache.db"
 msgstr ""
 
@@ -754,7 +762,7 @@ msgstr ""
 msgid "Router DNS is routed through sing-box"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:424
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:435
 msgid "Routing Excluded IPs"
 msgstr ""
 
@@ -827,11 +835,11 @@ msgstr ""
 msgid "Select or enter DNS server address"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:360
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:371
 msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:347
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:358
 msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
 msgstr ""
 
@@ -847,7 +855,7 @@ msgstr ""
 msgid "Select the list type for adding custom subnets"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:396
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:407
 msgid "Select the log level for sing-box"
 msgstr ""
 
@@ -916,7 +924,7 @@ msgstr ""
 msgid "Source Network Interface"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:425
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:436
 msgid "Specify a local IP address to be excluded from routing"
 msgstr ""
 

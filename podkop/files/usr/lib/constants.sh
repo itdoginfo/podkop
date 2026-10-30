@@ -13,6 +13,14 @@ CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampeteli
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"
 RT_TABLE_NAME="podkop"
+# Fail-closed mode: lists collected while a kept nft table is refreshed, rule sets kept from the previous run
+PODKOP_STATE_FOLDER="/tmp/podkop-state"
+LISTS_STAGING_FOLDER="$PODKOP_STATE_FOLDER/lists-staging"
+KEPT_RULESETS_FOLDER="$PODKOP_STATE_FOLDER/kept-rulesets"
+LISTS_LOADED_FILE="$PODKOP_STATE_FOLDER/lists-loaded"
+PODKOP_STARTED_FILE="$PODKOP_STATE_FOLDER/started"
+PODKOP_RUN_ID_FILE="$PODKOP_STATE_FOLDER/run-id"
+LISTS_UPDATE_LOCK_FILE="/var/lock/podkop-list-update.lock"
 
 ## nft
 NFT_TABLE_NAME="PodkopTable"
@@ -20,6 +28,7 @@ NFT_LOCALV4_SET_NAME="localv4"
 NFT_COMMON_SET_NAME="podkop_subnets"
 NFT_DISCORD_SET_NAME="podkop_discord_subnets"
 NFT_INTERFACE_SET_NAME="interfaces"
+NFT_GATE_CHAIN_NAME="gate"
 NFT_FAKEIP_MARK="0x00100000"
 NFT_OUTBOUND_MARK="0x00200000"
 
@@ -33,6 +42,8 @@ SB_BOOTSTRAP_SERVER_TAG="bootstrap-dns-server"
 SB_FAKEIP_DNS_RULE_TAG="fakeip-dns-rule-tag"
 SB_FAKEIP_SERVICE_DNS_RULE_TAG="fakeip-service-dns-rule-tag"
 SB_INVERT_FAKEIP_DNS_RULE_TAG="invert-fakeip-dns-rule-tag"
+SB_LISTS_PENDING_DNS_RULE_TAG="lists-pending-dns-rule-tag"
+SB_LISTS_PENDING_RULESET_TAG="podkop-lists-pending-ruleset"
 # Inbounds
 SB_TPROXY_INBOUND_TAG="tproxy-in"
 SB_TPROXY_INBOUND_ADDRESS="127.0.0.1"
