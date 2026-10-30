@@ -792,7 +792,9 @@ configure_outbound_handler() {
 
 sing_box_configure_dns() {
     log "Configure the DNS section of a sing-box JSON configuration"
-    config=$(sing_box_cm_configure_dns "$config" "$SB_DNS_SERVER_TAG" "ipv4_only" true)
+    local domain_strategy
+    config_get domain_strategy "settings" "domain_strategy" "ipv4_only"
+    config=$(sing_box_cm_configure_dns "$config" "$SB_DNS_SERVER_TAG" "$domain_strategy" true)
 
     log "Adding DNS Servers" "debug"
     local dns_type dns_server bootstrap_dns_server dns_domain_resolver dns_server_address

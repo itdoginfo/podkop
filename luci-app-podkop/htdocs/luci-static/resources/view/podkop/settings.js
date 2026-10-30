@@ -19,6 +19,19 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.rmempty = false;
 
   o = section.option(
+    form.ListValue,
+    "domain_strategy",
+    _("Domain Strategy"),
+    _("Select the IP version preference for resolving domain names"),
+  );
+  o.value("ipv4_only", _("IPv4 only"));
+  o.value("ipv6_only", _("IPv6 only"));
+  o.value("prefer_ipv4", _("Prefer IPv4"));
+  o.value("prefer_ipv6", _("Prefer IPv6"));
+  o.default = "ipv4_only";
+  o.rmempty = false;
+
+  o = section.option(
     form.Value,
     "dns_server",
     _("DNS Server"),

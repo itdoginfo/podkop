@@ -173,6 +173,24 @@ msgstr "DNS-сервер"
 msgid "DNS server address cannot be empty"
 msgstr "Адрес DNS-сервера не может быть пустым"
 
+msgid "Domain Strategy"
+msgstr "Стратегия доменов"
+
+msgid "Select the IP version preference for resolving domain names"
+msgstr "Выберите предпочтительную версию IP для разрешения доменных имён"
+
+msgid "IPv4 only"
+msgstr "Только IPv4"
+
+msgid "IPv6 only"
+msgstr "Только IPv6"
+
+msgid "Prefer IPv4"
+msgstr "Предпочитать IPv4"
+
+msgid "Prefer IPv6"
+msgstr "Предпочитать IPv6"
+
 msgid "Do not panic, everything can be fixed, just..."
 msgstr "Не паникуйте, всё можно исправить, просто..."
 

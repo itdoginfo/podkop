@@ -245,6 +245,30 @@ msgstr ""
 msgid "Domain Resolver"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:24
+msgid "Domain Strategy"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:25
+msgid "Select the IP version preference for resolving domain names"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:27
+msgid "IPv4 only"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:28
+msgid "IPv6 only"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:29
+msgid "Prefer IPv4"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:30
+msgid "Prefer IPv6"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:337
 msgid "Dont Touch My DHCP!"
 msgstr ""
