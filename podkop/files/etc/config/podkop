@@ -1,5 +1,6 @@
 config settings 'settings'
         option dns_type 'udp'
+        option domain_strategy 'ipv4_only'
         option dns_server '77.88.8.8'
         option bootstrap_dns_server '77.88.8.8'
         option dns_rewrite_ttl '60'
