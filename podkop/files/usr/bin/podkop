@@ -143,6 +143,7 @@ start_main() {
 
     # Sync time for DoH/DoT. ntpd -q goes to background until the time is set, so it must not hold the procd lock
     # of the init script (fd 1000, taken by reload)
+    # shellcheck disable=SC3023 # busybox ash supports fds above 9
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123 1000>&-
 
     sleep 1
@@ -170,6 +171,7 @@ start_main() {
     # The job may run for long in fail-closed mode, it must not hold the procd lock of the init script (fd 1000,
     # taken by reload), or the next stop and restart would wait for it
     (
+        # shellcheck disable=SC3023 # busybox ash supports fds above 9
         exec 1000>&-
         list_update_after_start
     ) &
