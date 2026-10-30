@@ -278,11 +278,12 @@ download_to_file() {
     local retries="${4:-3}"
     local wait="${5:-2}"
 
+    # A stalled connection must not hang the lists update, it is retried
     for attempt in $(seq 1 "$retries"); do
         if [ -n "$http_proxy_address" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -O "$filepath" "$url" && return 0
+            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -T 30 -O "$filepath" "$url" && return 0
         else
-            wget -O "$filepath" "$url" && return 0
+            wget -T 30 -O "$filepath" "$url" && return 0
         fi
 
         log "Attempt $attempt/$retries to download $url failed" "warn"

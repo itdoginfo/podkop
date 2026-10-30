@@ -31,6 +31,16 @@ reload_service() {
     /usr/bin/podkop reload > /dev/null 2>&1
 }
 
+# A stop that is a part of a restart (also on a config change from LuCI) keeps the fail-closed protection,
+# a stop on its own removes it, see /usr/bin/podkop
+restart() {
+    export PODKOP_KEEP_PROTECTION=1
+    trap '' TERM
+    stop "$@"
+    trap - TERM
+    start "$@"
+}
+
 service_triggers() {
     echo "service_triggers start"
 

@@ -84,8 +84,8 @@
     ]
   },
   {
-    "call": "Block proxied traffic while Podkop is stopped",
-    "key": "Block proxied traffic while Podkop is stopped",
+    "call": "Block proxied traffic during restarts and updates",
+    "key": "Block proxied traffic during restarts and updates",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:346"
     ]
@@ -456,8 +456,8 @@
     ]
   },
   {
-    "call": "During restarts, updates and applying settings, traffic that should be proxied is blocked instead of going direct. Until Podkop is running again, DNS via dnsmasq does not work for LAN clients and the router itself, including for direct resources (unless DHCP is left untouched). To stop Podkop with working DNS, disable this option while Podkop is running",
-    "key": "During restarts, updates and applying settings, traffic that should be proxied is blocked instead of going direct. Until Podkop is running again, DNS via dnsmasq does not work for LAN clients and the router itself, including for direct resources (unless DHCP is left untouched). To stop Podkop with working DNS, disable this option while Podkop is running",
+    "call": "During restarts, updates, applying settings and after a failed start, traffic that should be proxied is blocked instead of going direct. Until Podkop is running again, DNS via dnsmasq does not work for LAN clients and the router itself, including for direct resources (unless DHCP is left untouched), and IPv6 from LAN is blocked. After a router reboot and after adding lists, all direct traffic from LAN is blocked until the lists are downloaded. Stopping Podkop turns the protection off until the next start",
+    "key": "During restarts, updates, applying settings and after a failed start, traffic that should be proxied is blocked instead of going direct. Until Podkop is running again, DNS via dnsmasq does not work for LAN clients and the router itself, including for direct resources (unless DHCP is left untouched), and IPv6 from LAN is blocked. After a router reboot and after adding lists, all direct traffic from LAN is blocked until the lists are downloaded. Stopping Podkop turns the protection off until the next start",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:347"
     ]

@@ -113,23 +113,24 @@ start_main() {
     # A start without a stop (apk upgrade, overlapping applies) must not reuse the previous run's rule sets,
     # they would be skipped in the sing-box config, nor leave the previous lists update running
     stop_list_update
+    rm -f "$PODKOP_STARTED_FILE"
+
+    # The nft table is built from the config, so the config is migrated first
+    migration
 
     if fail_closed_enabled; then
         # A running sing-box would see the rule sets empty while they are rebuilt and resolve their domains directly
         /etc/init.d/sing-box stop
-    fi
+        reset_source_rulesets 1
 
-    reset_source_rulesets
-
-    if fail_closed_enabled; then
         # Block proxied traffic before anything that can abort the start
         route_table_rule_mark
         create_nft_rules
+    else
+        reset_source_rulesets 0
     fi
 
     check_requirements
-
-    migration
 
     config_foreach process_validate_service "section"
 
@@ -155,19 +156,30 @@ start_main() {
     config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
 
+    mkdir -p "$PODKOP_STATE_FOLDER"
+    touch "$PODKOP_STARTED_FILE"
+    update_gate
+
     log "Nice"
     list_update_after_start &
     echo $! > /var/run/podkop_list_update.pid
 }
 
-# In fail-closed mode podkop keeps its nftables rules, policy routing and dnsmasq settings while it is stopped,
-# so traffic that should be proxied is blocked instead of going direct during a restart or an update.
-# PODKOP_FULL_STOP=1 turns this off for a single stop (used on package removal)
+# In fail-closed mode podkop keeps its nftables rules, policy routing and dnsmasq settings while it is restarted or
+# updated, so traffic that should be proxied is blocked instead of going direct. A failed start does not remove them
 fail_closed_enabled() {
     local fail_closed
     config_get_bool fail_closed "settings" "fail_closed" 0
 
-    [ "$fail_closed" -eq 1 ] && [ "${PODKOP_FULL_STOP:-0}" != "1" ]
+    [ "$fail_closed" -eq 1 ]
+}
+
+# The protection is kept by a stop that is a part of a restart (restart, reload, procd config trigger, see the init
+# script) or a package upgrade. A stop on its own (LuCI Stop button, package removal) restores direct traffic and DNS
+protection_kept_on_stop() {
+    fail_closed_enabled || return 1
+
+    [ "${PODKOP_KEEP_PROTECTION:-0}" = "1" ] || [ "${PKG_UPGRADE:-0}" = "1" ]
 }
 
 set_shutdown_correctly() {
@@ -187,11 +199,12 @@ stop_list_update() {
 }
 
 # Remove the source rule sets, so the next start creates them and adds them to the sing-box config again.
-# In fail-closed mode remote plain-text lists are kept for the next start, as they are filled only by list_update
+# With keep=1 remote plain-text lists are kept for the next start, as they are filled only by list_update
 reset_source_rulesets() {
+    local keep="$1"
     local file
 
-    if fail_closed_enabled; then
+    if [ "$keep" -eq 1 ]; then
         mkdir -p "$KEPT_RULESETS_FOLDER"
         for file in "$TMP_RULESET_FOLDER"/*-remote-domains-ruleset.json "$TMP_RULESET_FOLDER"/*-remote-subnets-ruleset.json; do
             [ -f "$file" ] && mv "$file" "$KEPT_RULESETS_FOLDER/"
@@ -204,17 +217,21 @@ reset_source_rulesets() {
 stop_main() {
     log "Stopping the podkop"
 
+    rm -f "$PODKOP_STARTED_FILE"
+
     stop_list_update
 
     remove_cron_job
 
-    reset_source_rulesets
+    if protection_kept_on_stop; then
+        reset_source_rulesets 1
 
-    if fail_closed_enabled; then
         # Marked traffic keeps going to the tproxy port, where nothing listens until sing-box is started again
         log "Fail-closed mode: nft table, ip rule and ip route of podkop are kept"
+        update_gate
     else
-        rm -rf "$LISTS_STAGING_FOLDER" "$KEPT_RULESETS_FOLDER"
+        reset_source_rulesets 0
+        rm -rf "$PODKOP_STATE_FOLDER"
 
         log "Flush nft"
         if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
@@ -260,7 +277,7 @@ start() {
 }
 
 stop() {
-    if fail_closed_enabled; then
+    if protection_kept_on_stop; then
         log "Fail-closed mode: dnsmasq stays pointed to sing-box, proxied traffic is blocked until podkop is started"
         stop_main
         return 0
@@ -279,12 +296,14 @@ stop() {
 
 reload() {
     log "Podkop reload"
+    PODKOP_KEEP_PROTECTION=1
     stop_main
     start_main
 }
 
 restart() {
     log "Podkop restart"
+    PODKOP_KEEP_PROTECTION=1
     stop
     start
 }
@@ -458,6 +477,126 @@ print_nft_rules_script() {
     echo "add rule $table mangle_output ip daddr @$NFT_COMMON_SET_NAME meta l4proto udp meta mark set $NFT_FAKEIP_MARK counter"
     echo "add rule $table mangle_output ip daddr $SB_FAKEIP_INET4_RANGE meta l4proto tcp meta mark set $NFT_FAKEIP_MARK counter"
     echo "add rule $table mangle_output ip daddr $SB_FAKEIP_INET4_RANGE meta l4proto udp meta mark set $NFT_FAKEIP_MARK counter"
+
+    if fail_closed_enabled; then
+        echo "add chain $table $NFT_GATE_CHAIN_NAME { type filter hook forward priority -1; policy accept; }"
+        print_gate_rules "$(gate_state)"
+    fi
+}
+
+# Fail-closed gate for the LAN traffic that is not sent to sing-box, i.e. would go direct:
+#   ipv6 - podkop is not running: new IPv6 connections from LAN are rejected. podkop does not route IPv6 and
+#          sing-box DNS returns no AAAA records, but clients may have them cached
+#   all  - lists of the config are not loaded yet (fresh table after a reboot, newly added lists): all new
+#          connections from LAN to the internet are rejected, as their destinations can not be told apart yet
+#   open - nothing is rejected
+# The router's own traffic is not gated, lists are downloaded through it
+gate_state() {
+    if ! fail_closed_enabled; then
+        echo "open"
+    elif ! lists_loaded; then
+        echo "all"
+    elif [ -f "$PODKOP_STARTED_FILE" ]; then
+        echo "open"
+    else
+        echo "ipv6"
+    fi
+}
+
+print_gate_rules() {
+    local state="$1"
+    local chain="inet $NFT_TABLE_NAME $NFT_GATE_CHAIN_NAME"
+
+    echo "flush chain $chain"
+    [ "$state" = "open" ] && return 0
+
+    echo "add rule $chain iifname != @$NFT_INTERFACE_SET_NAME return"
+    echo "add rule $chain oifname @$NFT_INTERFACE_SET_NAME return"
+    echo "add rule $chain ct state != new return"
+    echo "add rule $chain ip daddr @$NFT_LOCALV4_SET_NAME return"
+    echo "add rule $chain ip6 daddr { fc00::/7, fe80::/10 } return"
+    if [ "$state" = "all" ]; then
+        echo "add rule $chain counter reject with icmpx type admin-prohibited"
+    else
+        echo "add rule $chain meta nfproto ipv6 counter reject with icmpx type admin-prohibited"
+    fi
+}
+
+update_gate() {
+    local state
+
+    nft list chain inet "$NFT_TABLE_NAME" "$NFT_GATE_CHAIN_NAME" > /dev/null 2>&1 || return 0
+
+    state="$(gate_state)"
+    if print_gate_rules "$state" | nft -f -; then
+        case "$state" in
+        all) log "Fail-closed mode: lists are not loaded yet, direct traffic from LAN is blocked" "warn" ;;
+        ipv6) log "Fail-closed mode: IPv6 traffic from LAN is blocked until podkop is started" ;;
+        *) log "Fail-closed mode: direct traffic from LAN is allowed" ;;
+        esac
+    else
+        log "Failed to update the fail-closed gate" "error"
+    fi
+}
+
+_print_section_lists_signature() {
+    local section="$1"
+    local option items item
+
+    for option in community_lists remote_domain_lists remote_subnet_lists; do
+        config_get items "$section" "$option"
+        for item in $items; do
+            echo "$section $option $item"
+        done
+    done
+}
+
+# Lists of the config that are filled by list_update, one per line
+print_lists_signature() {
+    config_foreach _print_section_lists_signature "section" | sort -u
+}
+
+# Whether every list of the config has been loaded into the current nft table and rule sets
+lists_loaded() {
+    local loaded_file="$LISTS_LOADED_FILE"
+
+    [ -f "$loaded_file" ] || loaded_file=/dev/null
+    print_lists_signature | awk -v loaded="$loaded_file" '
+        BEGIN { while ((getline line < loaded) > 0) seen[line] = 1 }
+        !($0 in seen) { missing = 1 }
+        END { exit missing }
+    '
+}
+
+# Called after a lists update that loaded every list
+mark_lists_loaded() {
+    mkdir -p "$PODKOP_STATE_FOLDER"
+    print_lists_signature > "$LISTS_LOADED_FILE"
+    update_gate
+}
+
+# Print nft commands adding the elements read from stdin (one per line) to a set, in chunks
+print_add_set_elements_commands() {
+    local set="$1"
+
+    sed 's/[[:space:]]//g; /^$/d' | sort -u | awk -v cmd="add element inet $NFT_TABLE_NAME $set" '
+        NR % 5000 == 1 { if (NR > 1) print " }"; printf "%s { %s", cmd, $0; next }
+        { printf ", %s", $0 }
+        END { if (NR > 0) print " }" }
+    '
+}
+
+# Elements of the subnet sets of the existing table as nft commands, for the sets the new table script has
+print_subnet_sets_elements_commands() {
+    local nft_script="$1"
+    local set
+
+    for set in "$NFT_COMMON_SET_NAME" "$NFT_DISCORD_SET_NAME"; do
+        grep -q "^add set inet $NFT_TABLE_NAME $set " "$nft_script" || continue
+        nft list set inet "$NFT_TABLE_NAME" "$set" 2> /dev/null |
+            sed -n '/elements = {/,/}/p' | sed 's/.*elements = {//; s/}.*//' | tr ',' '\n' |
+            print_add_set_elements_commands "$set"
+    done
 }
 
 # Create or update the podkop table in a single nft transaction, so there is no moment when proxied traffic
@@ -470,6 +609,8 @@ create_nft_rules() {
         log "Update the existing nft table"
     else
         log "Create nft table"
+        # The lists are loaded into the new table by list_update
+        rm -f "$LISTS_LOADED_FILE"
     fi
 
     nft_script="$(mktemp)"
@@ -483,10 +624,13 @@ create_nft_rules() {
         fi
 
         # The kept table may be incompatible with the new rules (e.g. after an update), recreate it in one
-        # transaction so that the traffic is not left without the table. Its sets are empty until lists update,
-        # the kept rule-sets are still used
+        # transaction with the elements of its subnet sets, so that the traffic is not left without protection
         log "Failed to update the existing nft table, recreating it" "warn"
-        if ! { echo "delete table inet $NFT_TABLE_NAME"; cat "$nft_script"; } | nft -f -; then
+        if ! {
+            echo "delete table inet $NFT_TABLE_NAME"
+            cat "$nft_script"
+            print_subnet_sets_elements_commands "$nft_script"
+        } | nft -f -; then
             rm -f "$nft_script"
             log "Failed to apply nft rules. Aborted." "fatal"
             exit 1
@@ -690,24 +834,27 @@ list_update() {
     local curl_attempts=10
     local curl_max_timeout=10
     local delay=3
-    local i
+    local i passed
 
     # DNS Check
+    passed=0
     for i in $(seq 1 $nslookup_attempts); do
         if nslookup -timeout=$nslookup_timeout openwrt.org > /dev/null 2>&1; then
             echolog "✅ DNS check passed"
+            passed=1
             break
         fi
         echolog "DNS is unavailable [$i/$nslookup_attempts]"
         sleep $delay
     done
 
-    if [ "$i" -eq $nslookup_attempts ]; then
+    if [ "$passed" -eq 0 ]; then
         echolog "❌ DNS check failed after $nslookup_attempts attempts"
         return 1
     fi
 
     # Github Check
+    passed=0
     for i in $(seq 1 $curl_attempts); do
         local service_proxy_address
         service_proxy_address="$(get_service_proxy_address)"
@@ -715,11 +862,13 @@ list_update() {
         if [ -n "$service_proxy_address" ]; then
             if curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed (via proxy)"
+                passed=1
                 break
             fi
         else
             if curl -s -m $curl_timeout https://github.com > /dev/null; then
                 echolog "✅ GitHub connection check passed"
+                passed=1
                 break
             fi
         fi
@@ -731,7 +880,7 @@ list_update() {
         sleep $delay
     done
 
-    if [ "$i" -eq $curl_attempts ]; then
+    if [ "$passed" -eq 0 ]; then
         echolog "❌ GitHub connection check failed after $curl_attempts attempts"
         return 1
     fi
@@ -749,15 +898,37 @@ list_update() {
     fi
 }
 
-list_update_after_start() {
-    local complete=0
+# Succeeds only when every list was loaded
+run_list_update() {
     lists_update_failed=0
 
-    if list_update && [ "$lists_update_failed" -eq 0 ]; then
-        complete=1
+    list_update && [ "$lists_update_failed" -eq 0 ]
+}
+
+# Lists update from cron or the command line
+list_update_command() {
+    if run_list_update; then
+        mark_lists_loaded
     fi
+}
+
+list_update_after_start() {
+    local complete=0
+    local delay=60
+
+    run_list_update && complete=1
 
     finish_lists_staging "$complete"
+
+    # In fail-closed mode direct traffic is blocked until the lists are loaded, so the update is retried
+    while [ "$complete" -eq 0 ] && fail_closed_enabled && ! lists_loaded; do
+        log "Lists are not loaded, retrying the update in $delay seconds" "warn"
+        sleep "$delay"
+        [ "$delay" -lt 600 ] && delay=$((delay * 2))
+        run_list_update && complete=1
+    done
+
+    [ "$complete" -eq 1 ] && mark_lists_loaded
 }
 
 # Where list_update writes a remote plain-text list. While lists of a kept table are refreshed, they are collected
@@ -842,11 +1013,7 @@ finish_lists_staging() {
             echo "flush set inet $NFT_TABLE_NAME $set" >> "$nft_script"
             staged_file="$LISTS_STAGING_FOLDER/$NFT_TABLE_NAME.$set"
             [ -s "$staged_file" ] || continue
-            sed 's/[[:space:]]//g; /^$/d' "$staged_file" | sort -u | awk -v cmd="add element inet $NFT_TABLE_NAME $set" '
-                NR % 5000 == 1 { if (NR > 1) print " }"; printf "%s { %s", cmd, $0; next }
-                { printf ", %s", $0 }
-                END { if (NR > 0) print " }" }
-            ' >> "$nft_script"
+            print_add_set_elements_commands "$set" < "$staged_file" >> "$nft_script"
         done
 
         if nft -f "$nft_script"; then
@@ -860,6 +1027,7 @@ finish_lists_staging() {
     fi
 
     rm -rf "$LISTS_STAGING_FOLDER" "$KEPT_RULESETS_FOLDER"
+    lists_staging_active=0
 }
 
 # sing-box funcs
@@ -3064,7 +3232,7 @@ main)
     main
     ;;
 list_update)
-    list_update
+    list_update_command
     ;;
 check_proxy)
     check_proxy

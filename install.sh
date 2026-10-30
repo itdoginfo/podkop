@@ -49,6 +49,33 @@ pkg_list_update() {
     fi
 }
 
+# Download a package from the feed into the current directory
+pkg_fetch() {
+    local pkg_name="$1"
+
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        apk fetch --output . "$pkg_name"
+    else
+        opkg download "$pkg_name"
+    fi
+}
+
+podkop_fail_closed() {
+    [ -x /etc/init.d/podkop ] && [ "$(uci -q get podkop.settings.fail_closed)" = "1" ]
+}
+
+# In fail-closed mode DNS does not work while podkop is restarted
+wait_for_dns() {
+    local attempt=0
+
+    while [ $attempt -lt 30 ]; do
+        nslookup google.com > /dev/null 2>&1 && return 0
+        sleep 2
+        attempt=$((attempt+1))
+    done
+    return 1
+}
+
 pkg_install() {
     local pkg_file="$1"
 
@@ -175,6 +202,10 @@ main() {
             msg "Installing $file..."
             pkg_install "$DOWNLOAD_DIR/$file"
             sleep 3
+            # The next packages may need downloads, DNS works again once podkop is started
+            if podkop_fail_closed && ! wait_for_dns; then
+                msg "DNS does not work after the podkop start, the next steps may fail"
+            fi
         fi
     done
 
@@ -242,8 +273,8 @@ check_system() {
     if ! nslookup google.com >/dev/null 2>&1; then
         msg "DNS is not working."
         if [ "$(uci -q get podkop.settings.fail_closed)" = "1" ]; then
-            msg "Podkop fail-closed mode keeps DNS blocked while podkop is stopped. Restore direct DNS with:"
-            msg "PODKOP_FULL_STOP=1 /etc/init.d/podkop stop"
+            msg "Podkop fail-closed mode keeps DNS blocked while podkop is not running. Restore direct DNS with:"
+            msg "/etc/init.d/podkop stop"
         fi
         exit 1
     fi
@@ -309,10 +340,40 @@ sing_box() {
 
     if [ "$(printf '%s\n%s\n' "$sing_box_version" "$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than the required version $required_version."
-        msg "Removing old version..."
-        # A full stop restores direct DNS, packages are downloaded after sing-box is removed
-        [ -x /etc/init.d/podkop ] && PODKOP_FULL_STOP=1 /etc/init.d/podkop stop
-        pkg_remove sing-box
+        if podkop_fail_closed; then
+            sing_box_upgrade_fail_closed
+        else
+            msg "Removing old version..."
+            pkg_remove sing-box
+        fi
+    fi
+}
+
+# Without a running sing-box podkop's fail-closed mode blocks DNS and proxied traffic, so the new sing-box is
+# downloaded first, and podkop is restarted right after it is installed. If anything fails, traffic stays blocked
+sing_box_upgrade_fail_closed() {
+    local file
+
+    msg "Podkop fail-closed mode: downloading the new sing-box before replacing the old one..."
+    pkg_list_update || { msg "Packages list update failed"; exit 1; }
+    (cd "$DOWNLOAD_DIR" && pkg_fetch sing-box)
+    file="$(ls "$DOWNLOAD_DIR"/sing-box[_-]* 2> /dev/null | head -n 1)"
+    if [ -z "$file" ]; then
+        msg "Failed to download sing-box"
+        exit 1
+    fi
+
+    msg "Upgrading sing-box..."
+    if ! pkg_install "$file"; then
+        msg "Failed to install sing-box. Proxied traffic stays blocked. Restore direct traffic with: /etc/init.d/podkop stop"
+        exit 1
+    fi
+    rm -f "$file"
+
+    /etc/init.d/podkop restart
+    if ! wait_for_dns; then
+        msg "DNS does not work after the podkop restart. Proxied traffic stays blocked. Restore direct traffic with: /etc/init.d/podkop stop"
+        exit 1
     fi
 }
 
