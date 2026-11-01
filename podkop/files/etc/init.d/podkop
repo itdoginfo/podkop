@@ -8,6 +8,21 @@ script=$(readlink "$initscript")
 NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
+service_running() {
+    procd_running sing-box > /dev/null 2>&1 &&
+        nft list table inet PodkopTable > /dev/null 2>&1
+}
+
+status_service() {
+    if service_running; then
+        echo "running"
+        return 0
+    fi
+
+    echo "not running"
+    return 5
+}
+
 start_service() {
     echo "Start podkop"
 
