@@ -25377,7 +25377,6 @@ get_outbound_tag_by_section() { printf '%s-out' "$1"; }
 subscription_outbound_is_unavailable() { return 1; }
 foreach_active_section() { :; }
 tproxy_route_inbounds() { printf 'tproxy-in'; }
-comma_string_to_json_array() { printf '[]'; }
 disable_quic_mode() { printf 'off'; }
 sing_box_configure_port_rules() { :; }
 gen_id() { printf 'id'; }
