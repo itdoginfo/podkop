@@ -40,6 +40,12 @@ https://podkop.net/
 sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
 ```
 
+### Установка из package feed
+
+Репозиторий публикует подписанный APK package feed для OpenWrt 25.12 и новее. Инструкции установки и актуальные ссылки доступны на странице GitHub Pages после публикации релиза через workflow **Publish OpenWrt package feed**.
+
+Feed содержит `podkop`, `luci-app-podkop` и русскую локализацию `luci-i18n-podkop-ru`. Установите опубликованный APK public key в `/etc/apk/keys/`, добавьте URL `.../apk/packages.adb` в `/etc/apk/repositories.d/customfeeds.list`, затем выполните `apk update` и установите пакеты.
+
 Часть возможностей Podkop (например, ссылки с транспортом xhttp и резервные ссылки в URLTest) работает только с альтернативной сборкой sing-box — [podkop-engine](https://github.com/FiyeroT/podkop-engine) версии r11 или новее. С обычным sing-box эти возможности недоступны, остальное работает как раньше.
 
 Установить podkop-engine можно из его [репозитория](https://github.com/FiyeroT/podkop-engine/releases) или альтернативным скриптом, который ставит последние версии Podkop и podkop-engine:

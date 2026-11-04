@@ -1,0 +1,212 @@
+name: Publish OpenWrt package feed
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (for example 0.7.24)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: podkop-package-feed
+  cancel-in-progress: false
+
+
+jobs:
+  download-release-packages:
+    name: Download packages from release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the three Podkop APK packages
+        uses: actions/github-script@v9
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const tag = process.env.RELEASE_TAG;
+            if (!tag) throw new Error('A release tag is required.');
+
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag,
+            });
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              per_page: 100,
+            });
+
+            const packages = ['podkop', 'luci-app-podkop', 'luci-i18n-podkop-ru'];
+            const ext = 'apk';
+            const outDir = path.join(process.env.GITHUB_WORKSPACE, 'release-packages', ext);
+            fs.mkdirSync(outDir, { recursive: true });
+            for (const name of packages) {
+              const matches = assets.filter(asset =>
+                asset.name.startsWith(`${name}-`) || asset.name.startsWith(`${name}_`)
+              ).filter(asset => asset.name.endsWith(`.${ext}`));
+              if (matches.length !== 1) {
+                throw new Error(`Release ${tag}: expected one ${name} .${ext} asset, found ${matches.length}`);
+              }
+              const asset = matches[0];
+              const response = await github.request(
+                'GET /repos/{owner}/{repo}/releases/assets/{asset_id}',
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  asset_id: asset.id,
+                  headers: { accept: 'application/octet-stream' },
+                }
+              );
+              fs.writeFileSync(path.join(outDir, asset.name), Buffer.from(response.data));
+              core.info(`Downloaded ${asset.name}`);
+            }
+      - name: Upload release package files
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-packages
+          path: release-packages/
+          if-no-files-found: error
+          retention-days: 1
+
+  build-apk-feed:
+    name: Build signed APK feed
+    runs-on: ubuntu-latest
+    needs: download-release-packages
+    container:
+      image: ghcr.io/openwrt/sdk:x86-64-25.12.6
+      options: --user root
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-packages
+          path: release-packages
+      - name: Generate and verify APK repository index
+        env:
+          PODKOP_FEED_APK_PRIVATE_KEY: ${{ secrets.PODKOP_FEED_APK_PRIVATE_KEY }}
+          PODKOP_FEED_APK_PUBLIC_KEY: ${{ secrets.PODKOP_FEED_APK_PUBLIC_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_DIR="${OPENWRT_SDK_DIR:-/builder}"
+          cd "$SDK_DIR"
+          if [ ! -d scripts ]; then ./setup.sh; fi
+          APK_BIN="$SDK_DIR/staging_dir/host/bin/apk"
+          test -x "$APK_BIN"
+
+          : "${PODKOP_FEED_APK_PRIVATE_KEY:?Set PODKOP_FEED_APK_PRIVATE_KEY repository secret}"
+          : "${PODKOP_FEED_APK_PUBLIC_KEY:?Set PODKOP_FEED_APK_PUBLIC_KEY repository secret}"
+          printf '%s\n' "$PODKOP_FEED_APK_PRIVATE_KEY" > "$SDK_DIR/podkop-feed-private.pem"
+          printf '%s\n' "$PODKOP_FEED_APK_PUBLIC_KEY" > "$SDK_DIR/podkop-feed-public.pem"
+          chmod 600 "$SDK_DIR/podkop-feed-private.pem"
+          grep -q 'BEGIN .*PRIVATE KEY' "$SDK_DIR/podkop-feed-private.pem"
+          grep -q 'BEGIN PUBLIC KEY' "$SDK_DIR/podkop-feed-public.pem"
+
+          FEED_DIR="$GITHUB_WORKSPACE/publish/apk"
+          mkdir -p "$FEED_DIR" "$GITHUB_WORKSPACE/publish/keys"
+          mapfile -d '' packages < <(find "$GITHUB_WORKSPACE/release-packages/apk" -maxdepth 1 -type f -name '*.apk' -print0)
+          test "${#packages[@]}" -eq 3
+          cp "${packages[@]}" "$FEED_DIR/"
+          (
+            cd "$FEED_DIR"
+            "$APK_BIN" mkndx \
+              --root "$SDK_DIR" \
+              --keys-dir "$SDK_DIR" \
+              --allow-untrusted \
+              --sign "$SDK_DIR/podkop-feed-private.pem" \
+              --output packages.adb \
+              ./*.apk
+            test -s packages.adb
+            "$APK_BIN" adbdump packages.adb >/dev/null
+          )
+          cp "$SDK_DIR/podkop-feed-public.pem" "$GITHUB_WORKSPACE/publish/keys/podkop-feed.pem"
+      - name: Upload APK feed
+        uses: actions/upload-artifact@v7
+        with:
+          name: feed-apk
+          path: publish/
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    name: Deploy feed to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build-apk-feed
+    steps:
+      - uses: actions/checkout@v7
+      - name: Restore existing Pages content
+        run: |
+          set -euo pipefail
+          mkdir -p gh-pages-content
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch --depth=1 origin gh-pages
+            git --work-tree=gh-pages-content checkout FETCH_HEAD -- .
+          fi
+      - name: Download feed artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: feed-*
+          path: feed-artifacts
+          merge-multiple: true
+      - name: Replace package repositories and generate landing page
+        env:
+          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          test -d feed-artifacts/apk
+          rm -rf gh-pages-content/apk gh-pages-content/ipk
+          cp -a feed-artifacts/apk gh-pages-content/apk
+          mkdir -p gh-pages-content/keys
+          rm -f gh-pages-content/keys/podkop-feed.pub
+          cp -a feed-artifacts/keys/. gh-pages-content/keys/
+          cat > gh-pages-content/apk/index.html <<'EOF'
+          <!doctype html>
+          <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+          <title>Podkop APK feed</title>
+          <h1>Podkop APK feed</h1>
+          <p><a href="packages.adb">Repository index (packages.adb)</a></p>
+          <h2>Packages</h2>
+          <ul>
+          EOF
+          for package in gh-pages-content/apk/*.apk; do
+            filename="${package##*/}"
+            printf '<li><a href="%s">%s</a></li>\n' "$filename" "$filename" >> gh-pages-content/apk/index.html
+          done
+          cat >> gh-pages-content/apk/index.html <<'EOF'
+          </ul>
+          </html>
+          EOF
+          touch gh-pages-content/.nojekyll
+          cat > gh-pages-content/index.html <<EOF
+          <!doctype html>
+          <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+          <title>Podkop OpenWrt package feed</title>
+          <h1>Podkop OpenWrt package feed</h1>
+          <p>Architecture-independent Podkop APK packages for OpenWrt 25.12.</p>
+          <p><a href="apk/">OpenWrt 25.12 APK feed (.apk)</a></p>
+          <h2>Install on OpenWrt 25.12</h2>
+          <pre>mkdir -p /etc/apk/keys /etc/apk/repositories.d
+          wget -O /etc/apk/keys/podkop-feed.pem "$PAGES_URL/keys/podkop-feed.pem"
+          echo "$PAGES_URL/apk/packages.adb" >> /etc/apk/repositories.d/customfeeds.list
+          apk update
+          apk add podkop luci-app-podkop luci-i18n-podkop-ru</pre>
+          <p>Packages are rebuilt by the Podkop release workflow and published from GitHub Releases.</p>
+          </html>
+          EOF
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: gh-pages-content
+          enable_jekyll: false
