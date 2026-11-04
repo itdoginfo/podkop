@@ -270,7 +270,6 @@ migration_rename_config_key() {
     fi
 }
 
-# Download URL to file
 download_to_file() {
     local url="$1"
     local filepath="$2"
@@ -280,16 +279,24 @@ download_to_file() {
 
     for attempt in $(seq 1 "$retries"); do
         if [ -n "$http_proxy_address" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -O "$filepath" "$url" && break
+            if command -v curl > /dev/null 2>&1; then
+                curl -fsSL -x "http://$http_proxy_address" -o "$filepath" "$url" && break
+            else
+                http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
+                    wget -O "$filepath" "$url" && break
+            fi
         else
-            wget -O "$filepath" "$url" && break
+            if command -v curl > /dev/null 2>&1; then
+                curl -fsSL -o "$filepath" "$url" && break
+            else
+                wget -O "$filepath" "$url" && break
+            fi
         fi
 
         log "Attempt $attempt/$retries to download $url failed" "warn"
         sleep "$wait"
     done
 }
-
 # Converts Windows-style line endings (CRLF) to Unix-style (LF)
 convert_crlf_to_lf() {
     local filepath="$1"
