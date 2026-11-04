@@ -63,18 +63,15 @@ sing_box_cm_configure_dns() {
     local config="$1"
     local final="$2"
     local strategy="$3"
-    local independent_cache="$4"
 
     echo "$config" | jq \
         --arg final "$final" \
         --arg strategy "$strategy" \
-        --argjson independent_cache "$independent_cache" \
         '.dns = {
 			servers: (.dns.servers // []),
 			rules: (.dns.rules // []),
 			final: $final,
 			strategy: $strategy,
-			independent_cache: $independent_cache
 		}'
 
 }
@@ -1427,7 +1424,7 @@ sing_box_cm_add_remote_ruleset() {
                 format: $format,
                 url: $url
             }
-            + (if $download_detour != "" then { download_detour: $download_detour } else {} end)
+            + (if $download_detour != "" then { http_client: { detour: $download_detour } } else {} end)
             + (if $update_interval != "" then { update_interval: $update_interval } else {} end)
         )]'
 
