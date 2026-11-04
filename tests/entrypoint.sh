@@ -25347,7 +25347,9 @@ log() { :; }
 
 # REAL functions, extracted verbatim from the shipped CLI: the DNS builder, the helper that
 # adds a list to the rule of the section and the prune that runs at the end of the route build.
-for fn in sing_box_configure_dns netshift_ipv6_enabled patch_section_dns_rule_set prune_fakeip_dns_rule_without_lists; do
+for fn in sing_box_configure_dns netshift_ipv6_enabled patch_section_dns_rule_set \
+    prune_fakeip_dns_rule_without_lists sing_box_configure_route \
+    configure_common_reject_route_rule configure_common_direct_route_rule; do
     eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
 done
 
@@ -25363,20 +25365,38 @@ config_get() {
 }
 config_get_bool() { eval "$1=\"\${4-0}\""; }
 config_foreach() { :; }
+config_list_foreach() { :; }
+netshift_config_list_foreach() { :; }
 dns_routes_init() { :; }
 dns_server_detour_tag() { :; }
+sing_box_configure_dns_pool() { :; }
+get_global_proxy_section() { :; }
+get_sections_by_connection_type() { :; }
+get_first_outbound_section() { :; }
+get_outbound_tag_by_section() { printf '%s-out' "$1"; }
+subscription_outbound_is_unavailable() { return 1; }
+foreach_active_section() { :; }
+tproxy_route_inbounds() { printf 'tproxy-in'; }
+comma_string_to_json_array() { printf '[]'; }
+disable_quic_mode() { printf 'off'; }
+sing_box_configure_port_rules() { :; }
+gen_id() { printf 'id'; }
 prune_dns_section_rules_without_domains() { :; }
+prune_ipv6_real_dns_rules_without_domains() { :; }
+prune_section_resolve_rules_without_domains() { :; }
+rule_references_ruleset() { return 1; }
 
 FAKE="$SB_FAKEIP_DNS_RULE_TAG"
 SERV="$SB_FAKEIP_SERVICE_DNS_RULE_TAG"
 
-# the DNS part of a config the way sing_box_init_config builds it: DNS first, a list per section after
+# the DNS part of a config the way sing_box_init_config builds it: DNS first, a list per section after,
+# then the real route builder, which is what calls the prune
 build() {
     config='{"log":{},"dns":{},"ntp":{},"certificate":{},"endpoints":[],"inbounds":[],"outbounds":[],"route":{},"services":[],"experimental":{}}'
     sing_box_configure_dns
     local list
     for list in "$@"; do patch_section_dns_rule_set "$list"; done
-    prune_fakeip_dns_rule_without_lists
+    sing_box_configure_route
 }
 # the FakeIP rules left, in order, by their markers
 tags() { printf '%s' "$config" | jq -c --arg k "$SERVICE_TAG" '[.dns.rules[] | .[$k] // empty | select(startswith("fakeip-"))]'; }
