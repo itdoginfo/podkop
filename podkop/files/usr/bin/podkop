@@ -126,6 +126,11 @@ start_main() {
     mkdir -p "$TMP_SING_BOX_FOLDER"
     mkdir -p "$TMP_RULESET_FOLDER"
 
+    # start without a preceding stop: drop stale rule sets (otherwise they are skipped
+    # in the sing-box config) and the old nft table (otherwise rules get duplicated)
+    rm -f "$TMP_RULESET_FOLDER"/*
+    nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1 && nft delete table inet "$NFT_TABLE_NAME"
+
     # base
     route_table_rule_mark
     create_nft_rules
