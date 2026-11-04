@@ -800,7 +800,11 @@ fetch_subscription_candidate() {
     download_subscription "$url" "$out" "$proxy" 1 2 10 "$user_agent" "$insecure" || return 1
     maybe_gunzip_subscription_file "$out"
     subscription_body_is_binary "$out" && return 1
-    validate_subscription_file "$out" && return 0
+    # A single Xray client object also has .outbounds, but its outbounds have
+    # .protocol and no string .type. That is not a sing-box config: convert it.
+    validate_subscription_file "$out" && ! jq -e '
+        [.outbounds[]? | select((.type | type) != "string" or (.type | length) == 0)] | length > 0
+    ' "$out" > /dev/null 2>&1 && return 0
 
     if normalize_subscription_to_singbox "$out" "$converted" "$section" && validate_subscription_file "$converted"; then
         mv -f "$converted" "$out"
@@ -877,7 +881,10 @@ download_subscription_into_cache() {
     winning_user_agent=""
     fallback_tmp="${tmpfile}.fb"
     # Each candidate gets the full download (with its own retries) + validate +
-    # fallback-normalize pipeline. First success wins.
+    # fallback-normalize pipeline. First success wins. A candidate the panel
+    # refuses is a warning: the refresh can still succeed on the next one, and
+    # an [error] line would toast a refresh that worked.
+    SUBSCRIPTION_DOWNLOAD_FAIL_LEVEL=warn
     while IFS= read -r effective_user_agent || [ -n "$effective_user_agent" ]; do
         [ -n "$effective_user_agent" ] || continue
 
@@ -921,6 +928,7 @@ download_subscription_into_cache() {
         validation_reason="$(describe_subscription_validation_failure "$tmpfile")"
         log "Downloaded subscription for section '$section' is invalid with User-Agent '$effective_user_agent': ${validation_reason:-unknown validation error}; trying next candidate" "warn"
     done < "$candidates_file"
+    unset SUBSCRIPTION_DOWNLOAD_FAIL_LEVEL
     rm -f "$candidates_file"
 
     if [ "$download_ok" -ne 1 ]; then
@@ -950,12 +958,16 @@ download_subscription_into_cache() {
                     log "Subscription for section '$section' has $alt_count nodes with User-Agent '$alt_user_agent' against $best_count with '$winning_user_agent'; using the fuller list" "info"
                     mv -f "$alt_tmpfile" "$tmpfile"
                     winning_user_agent="$alt_user_agent"
+                    rm -f "$probed_marker"
+                else
+                    # Remember "not fuller" only. A refusal or a timeout must not
+                    # turn the probe off for a day.
+                    : > "$probed_marker" 2>/dev/null
                 fi
             else
                 log "Section '$section': the panel gave no usable list to User-Agent '$alt_user_agent'; keeping the one of '$winning_user_agent'" "debug"
             fi
             rm -f "$alt_tmpfile"
-            [ "$winning_user_agent" = "$alt_user_agent" ] || : > "$probed_marker" 2>/dev/null
         fi
         ;;
     esac
