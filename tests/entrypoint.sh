@@ -26053,6 +26053,27 @@ test_component_update_lock() {
 }
 
 
+test_tls_cipher_suites() {
+    header "A plain TLS link can carry cipher suites, and an empty list adds none"
+
+    # shellcheck disable=SC1090
+    . "$NETSHIFT_LIB_DIR/sing_box_config_manager.sh"
+    local cfg out
+    cfg='{"outbounds":[{"tag":"proxy","type":"vless"}]}'
+    out=$(sing_box_cm_set_tls_for_outbound "$cfg" proxy example.com "" null "" "" "" "" '["TLS_AES_128_GCM_SHA256"]')
+    if printf '%s' "$out" | jq -e '.outbounds[0].tls.cipher_suites == ["TLS_AES_128_GCM_SHA256"]' > /dev/null; then
+        pass "cipher-suites-are-written"
+    else
+        fail "cipher_suites was not written" "$out"
+    fi
+    out=$(sing_box_cm_set_tls_for_outbound "$cfg" proxy example.com "" null "" "" "" "")
+    if printf '%s' "$out" | jq -e '.outbounds[0].tls | has("cipher_suites") | not' > /dev/null; then
+        pass "no-cipher-suites-without-a-list"
+    else
+        fail "cipher_suites appeared without a list" "$out"
+    fi
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
