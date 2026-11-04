@@ -331,14 +331,19 @@ export function decodeIncyLink(link: string): IncyLink | null {
   try {
     const parsed = JSON.parse(json) as { url?: unknown; n?: unknown };
 
-    // The address goes on to wget and curl on the router: only http(s), and a single line
+    // The address goes on to wget and curl on the router: only http(s), and a single line.
+    // The scheme is stored in lower case: the field check looks for "http://" / "https://".
     if (typeof parsed.url !== 'string' || !isPlainHttpUrl(parsed.url)) {
       return null;
     }
 
+    const url = parsed.url.replace(/^[A-Za-z][A-Za-z0-9+.-]*:/, (scheme) =>
+      scheme.toLowerCase(),
+    );
+
     return typeof parsed.n === 'string' && parsed.n
-      ? { url: parsed.url, name: parsed.n }
-      : { url: parsed.url };
+      ? { url, name: parsed.n }
+      : { url };
   } catch {
     return null;
   }

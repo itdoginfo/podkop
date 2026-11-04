@@ -85,12 +85,24 @@ function createSectionContent(section) {
     o.value(key, _(label));
   });
   o.value("77.88.8.8", _("77.88.8.8 (Yandex)"));
-  o.value("common.dot.dns.yandex.net", _("common.dot.dns.yandex.net (Yandex DoT)"));
-  o.value("common.dns.yandex.net/dns-query", _("common.dns.yandex.net/dns-query (Yandex DoH)"));
+  o.value(
+    "common.dot.dns.yandex.net",
+    _("common.dot.dns.yandex.net (Yandex DoT)"),
+  );
+  o.value(
+    "common.dns.yandex.net/dns-query",
+    _("common.dns.yandex.net/dns-query (Yandex DoH)"),
+  );
   o.value("dns.google/dns-query", _("dns.google/dns-query (Google DoH)"));
-  o.value("cloudflare-dns.com/dns-query", _("cloudflare-dns.com/dns-query (Cloudflare DoH)"));
+  o.value(
+    "cloudflare-dns.com/dns-query",
+    _("cloudflare-dns.com/dns-query (Cloudflare DoH)"),
+  );
   o.value("dns.quad9.net/dns-query", _("dns.quad9.net/dns-query (Quad9 DoH)"));
-  o.value("dns.adguard-dns.com/dns-query", _("dns.adguard-dns.com/dns-query (AdGuard DoH)"));
+  o.value(
+    "dns.adguard-dns.com/dns-query",
+    _("dns.adguard-dns.com/dns-query (AdGuard DoH)"),
+  );
   o.depends("connection_type", "dns");
   o.rmempty = false;
   o.validate = function (section_id, value) {
@@ -329,14 +341,12 @@ function createSectionContent(section) {
   };
   o.write = function (section_id, value) {
     const list = Array.isArray(value) ? value : value ? [value] : [];
+    // Only an INCY link is unwrapped. Addresses already stored (a LAN host, a
+    // scheme in another case) stay: validateUrl is stricter than the fetcher,
+    // and dropping them here would delete a working feed on the next save.
+    const { values } = main.decodeIncyLinks(list);
 
-    return form.DynamicList.prototype.write.call(
-      this,
-      section_id,
-      main
-        .decodeIncyLinks(list)
-        .values.filter((address) => main.validateUrl(address).valid),
-    );
+    return form.DynamicList.prototype.write.call(this, section_id, values);
   };
 
   // A published list of feeds (a text file with an address per line, or a JSON object
@@ -410,8 +420,7 @@ function createSectionContent(section) {
 
               result.textContent = _(
                 "Found %d feeds, added %d. Save and apply to keep them.",
-              )
-                .format(answer.urls.length, added.length);
+              ).format(answer.urls.length, added.length);
             })
             .catch(() => {
               result.textContent = _("Could not read the list");
@@ -468,9 +477,13 @@ function createSectionContent(section) {
     form.Flag,
     "subscription_insecure",
     _("Allow insecure TLS for subscription fetch"),
-    _("Disables TLS certificate verification when downloading the subscription.") +
+    _(
+      "Disables TLS certificate verification when downloading the subscription.",
+    ) +
       " " +
-      _("Use only for IP-host panels that serve an invalid or self-signed certificate.") +
+      _(
+        "Use only for IP-host panels that serve an invalid or self-signed certificate.",
+      ) +
       " " +
       _("This is a security trade-off: an attacker could intercept the fetch."),
   );
@@ -827,8 +840,13 @@ function createSectionContent(section) {
         title,
         `${description} ${_("Combined with the other filters: a server has to pass all of them.")}`,
       );
-      Object.entries(choices).forEach(([value, label]) => o.value(value, label));
-      o.depends({ connection_type: "proxy", proxy_config_type: "subscription" });
+      Object.entries(choices).forEach(([value, label]) =>
+        o.value(value, label),
+      );
+      o.depends({
+        connection_type: "proxy",
+        proxy_config_type: "subscription",
+      });
       o.rmempty = true;
     });
   });
@@ -876,7 +894,9 @@ function createSectionContent(section) {
               return;
             }
 
-            overrides[name] = (Array.isArray(value) ? value : [value]).filter(Boolean);
+            overrides[name] = (Array.isArray(value) ? value : [value]).filter(
+              Boolean,
+            );
           });
 
           button.disabled = true;
@@ -897,19 +917,29 @@ function createSectionContent(section) {
                   "There is no downloaded subscription yet: save the settings and restart the service first.",
                 );
               } else if (data.error === "no_section") {
-                result.textContent = _("The section is not saved yet: save it first.");
+                result.textContent = _(
+                  "The section is not saved yet: save it first.",
+                );
               } else if (data.error === "disabled") {
-                result.textContent = _("The section is disabled: it gives no servers.");
+                result.textContent = _(
+                  "The section is disabled: it gives no servers.",
+                );
               } else if (data.error) {
                 result.textContent = _("The check could not be run");
               } else {
                 result.replaceChildren(
-                  E("div", { style: "font-weight:600" }, `${_("Kept")}: ${data.kept} / ${data.total}`),
+                  E(
+                    "div",
+                    { style: "font-weight:600" },
+                    `${_("Kept")}: ${data.kept} / ${data.total}`,
+                  ),
                   data.kept === 0
                     ? E(
                         "div",
                         { style: "color:var(--error-color-medium, #dc3545)" },
-                        _("No server is left: the section would have no connection."),
+                        _(
+                          "No server is left: the section would have no connection.",
+                        ),
                       )
                     : E("div", {}, (data.names ?? []).slice(0, 50).join(", ")),
                   data.kept > 50 ? E("div", {}, `… ${data.kept - 50}`) : "",
@@ -917,7 +947,9 @@ function createSectionContent(section) {
                     ? E(
                         "div",
                         { style: "opacity:.75;font-size:90%" },
-                        _("%d servers cannot be used by this core whatever the filters say.").format(data.unsupported),
+                        _(
+                          "%d servers cannot be used by this core whatever the filters say.",
+                        ).format(data.unsupported),
                       )
                     : "",
                 );
@@ -1052,7 +1084,9 @@ function createSectionContent(section) {
     form.ListValue,
     "urltest_check_interval",
     _("URLTest Check Interval"),
-    _("The interval between connectivity tests. A longer interval means less traffic through every server of the group; \"Only at start\" tests once when the service starts."),
+    _(
+      'The interval between connectivity tests. A longer interval means less traffic through every server of the group; "Only at start" tests once when the service starts.',
+    ),
   );
   o.value("30s", _("Every 30 seconds"));
   o.value("1m", _("Every 1 minute"));
@@ -1238,7 +1272,8 @@ function createSectionContent(section) {
       const root = widget.map.findElement("data-name", optionName);
 
       root?.querySelectorAll(".cbi-dynlist .item").forEach((item) => {
-        const value = item.querySelector("input[type=hidden]")?.value ?? item.dataset.value;
+        const value =
+          item.querySelector("input[type=hidden]")?.value ?? item.dataset.value;
 
         item.querySelector(".ns-dns-ms")?.remove();
 
@@ -1376,9 +1411,14 @@ function createSectionContent(section) {
           ev.preventDefault();
 
           // the live value of the list (as the filter preview reads it), unsaved servers included
-          const element = widget.section.getUIElement(section_id, "own_dns_server");
+          const element = widget.section.getUIElement(
+            section_id,
+            "own_dns_server",
+          );
           const value = element ? element.getValue() : [];
-          const servers = (Array.isArray(value) ? value : [value]).filter(Boolean);
+          const servers = (Array.isArray(value) ? value : [value]).filter(
+            Boolean,
+          );
 
           if (!servers.length) {
             result.textContent = _("Add a DNS server above first");
@@ -1391,7 +1431,11 @@ function createSectionContent(section) {
 
           // timed the way the configuration sends them (through the section with
           // own_dns_via_section), not by the routes of the global DNS list
-          main.NetShiftShellMethods.dnsBenchmark(["--section", section_id, ...servers])
+          main.NetShiftShellMethods.dnsBenchmark([
+            "--section",
+            section_id,
+            ...servers,
+          ])
             .then((reply) => {
               const rows = main.sortBySpeed(
                 reply.success ? main.parseDnsBenchmark(reply.data) : [],
@@ -1403,7 +1447,9 @@ function createSectionContent(section) {
                   ? rows.map((row) =>
                       E("div", {}, [
                         `${row.server}: `,
-                        row.ms === null ? _("no answer") : `${row.ms} ${_("ms")}`,
+                        row.ms === null
+                          ? _("no answer")
+                          : `${row.ms} ${_("ms")}`,
                       ]),
                     )
                   : [_("The test could not be run")]),
@@ -1974,7 +2020,9 @@ function createSectionContent(section) {
     const values = this.vallist;
     const keep = keys
       .map((key, index) => [key, values[index]])
-      .filter(([key]) => !REMOTE_BLOCK_LISTS.includes(key) || used.includes(key));
+      .filter(
+        ([key]) => !REMOTE_BLOCK_LISTS.includes(key) || used.includes(key),
+      );
 
     this.keylist = keep.map(([key]) => key);
     this.vallist = keep.map(([, value]) => value);
@@ -2080,7 +2128,9 @@ function createSectionContent(section) {
   o.inputtitle = _("Duplicate");
   o.inputstyle = "action";
   o.onclick = function (ev, section_id) {
-    const names = uci.sections("netshift", "section").map((item) => item[".name"]);
+    const names = uci
+      .sections("netshift", "section")
+      .map((item) => item[".name"]);
     let name = `${section_id}_copy`;
     let counter = 2;
 
@@ -2096,9 +2146,13 @@ function createSectionContent(section) {
       .filter((key) => !key.startsWith("."))
       .forEach((key) => uci.set("netshift", name, key, source[key]));
     uci.set("netshift", name, "disabled", "1");
-    ["mixed_proxy_enabled", "mixed_proxy_port", "mixed_proxy_auth", "mixed_proxy_username", "mixed_proxy_password"].forEach(
-      (key) => uci.unset("netshift", name, key),
-    );
+    [
+      "mixed_proxy_enabled",
+      "mixed_proxy_port",
+      "mixed_proxy_auth",
+      "mixed_proxy_username",
+      "mixed_proxy_password",
+    ].forEach((key) => uci.unset("netshift", name, key));
 
     return uci
       .save()
@@ -2106,7 +2160,12 @@ function createSectionContent(section) {
       .catch((error) => {
         ui.addNotification(
           null,
-          E("p", _("Could not duplicate the section: %s").format(error.message || error)),
+          E(
+            "p",
+            _("Could not duplicate the section: %s").format(
+              error.message || error,
+            ),
+          ),
           "error",
         );
       });
@@ -2167,7 +2226,11 @@ function createSectionContent(section) {
   );
   o.rmempty = true;
   ["proxy", "vpn"].forEach((type) =>
-    o.depends({ connection_type: type, mixed_proxy_enabled: "1", mixed_proxy_auth: "1" }),
+    o.depends({
+      connection_type: type,
+      mixed_proxy_enabled: "1",
+      mixed_proxy_auth: "1",
+    }),
   );
   o.validate = function (section_id, value) {
     if (!value) {
@@ -2187,7 +2250,11 @@ function createSectionContent(section) {
   o.password = true;
   o.rmempty = true;
   ["proxy", "vpn"].forEach((type) =>
-    o.depends({ connection_type: type, mixed_proxy_enabled: "1", mixed_proxy_auth: "1" }),
+    o.depends({
+      connection_type: type,
+      mixed_proxy_enabled: "1",
+      mixed_proxy_auth: "1",
+    }),
   );
   o.validate = function (section_id, value) {
     return value ? true : _("Enter a password");

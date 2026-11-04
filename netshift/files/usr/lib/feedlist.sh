@@ -33,13 +33,12 @@ fetch_feed_list() {
     local url="$1"
     local body urls
 
-    case "$url" in
-    http://* | https://*) ;;
-    *)
+    # Same rule as a subscription address, including HTTPS:// (the case below was
+    # the only one that required a lower-case scheme).
+    if ! subscription_url_is_http "$url"; then
         jq -n -c '{ok: false, error: "the address of the list must start with http:// or https://"}'
         return 1
-        ;;
-    esac
+    fi
 
     if ! body="$(updates_http_get "$url")" || [ -z "$body" ]; then
         jq -n -c '{ok: false, error: "the list could not be downloaded"}'

@@ -128,7 +128,7 @@ describe('decodeIncyLink', () => {
     expect(
       decodeIncyLink(await seal(JSON.stringify({ url: 'HTTP://A.example/x' })))
         ?.url,
-    ).toBe('HTTP://A.example/x');
+    ).toBe('http://A.example/x');
   });
 
   it('does not decrypt a link far longer than any real one', async () => {

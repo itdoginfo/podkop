@@ -22334,6 +22334,7 @@ test_collected_lists() {
         done
         . /usr/lib/netshift/constants.sh
         . /usr/lib/netshift/logging.sh
+        . /usr/lib/netshift/helpers.sh
         . /usr/lib/netshift/sing_box_config_facade.sh
         . "$lib/feedlist.sh"
         CL_LOG="$work/log"; : > "$CL_LOG"
@@ -25439,11 +25440,25 @@ XRAYJSON
             subscription_url_is_http "$u" && printf 'y' || printf 'n'
         done
         printf '\n'
-        rm -f /tmp/netshift-guard-$$
+        rm -f /tmp/netshift-guard-$$ /tmp/netshift-wget-$$
+        # A stub that succeeds and records its arguments. The real wget also refuses
+        # file://, so a green result against it would not prove the guard ran.
+        wget() {
+            printf '%s\n' "$*" >> /tmp/netshift-wget-$$
+            local prev="" arg out=""
+            for arg in "$@"; do
+                if [ "$prev" = "-O" ]; then
+                    out="$arg"
+                fi
+                prev="$arg"
+            done
+            [ -n "$out" ] && printf 'x' > "$out"
+            return 0
+        }
         download_subscription "file:///etc/hostname" /tmp/netshift-guard-$$ "" 1 0 1 "" 0 && printf 'dl:fetched\n' || printf 'dl:refused\n'
         [ -e /tmp/netshift-guard-$$ ] && printf 'file:written\n' || printf 'file:none\n'
         check_subscription_connectivity "ftp://a.example/x" "" 1 0 1 && printf 'conn:ok\n' || printf 'conn:refused\n'
-        rm -f /tmp/netshift-guard-$$
+        rm -f /tmp/netshift-guard-$$ /tmp/netshift-wget-$$
     )"
     if [ "$guard" = "is:yyynnnn
 dl:refused
