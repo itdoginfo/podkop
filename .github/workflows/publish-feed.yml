@@ -102,7 +102,9 @@ jobs:
           cd "$SDK_DIR"
           if [ ! -d scripts ]; then ./setup.sh; fi
           APK_BIN="$SDK_DIR/staging_dir/host/bin/apk"
+          INDEX_JSON_SCRIPT="$SDK_DIR/scripts/make-index-json.py"
           test -x "$APK_BIN"
+          test -f "$INDEX_JSON_SCRIPT"
 
           : "${PODKOP_FEED_APK_PRIVATE_KEY:?Set PODKOP_FEED_APK_PRIVATE_KEY repository secret}"
           : "${PODKOP_FEED_APK_PUBLIC_KEY:?Set PODKOP_FEED_APK_PUBLIC_KEY repository secret}"
@@ -128,6 +130,9 @@ jobs:
               ./*.apk
             test -s packages.adb
             "$APK_BIN" adbdump packages.adb >/dev/null
+            "$APK_BIN" adbdump --format json packages.adb | \
+              python3 "$INDEX_JSON_SCRIPT" -f apk -a all - > index.json
+            test -s index.json
           )
           cp "$SDK_DIR/podkop-feed-public.pem" "$GITHUB_WORKSPACE/publish/keys/podkop-feed.pem"
       - name: Upload APK feed
