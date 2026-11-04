@@ -111,8 +111,8 @@ import_plain_subnet_list_to_local_source_ruleset_chunked() {
 
         [ -z "$line" ] && continue
 
-        if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
-            log "'$line' is not IPv4 or IPv4 CIDR" "debug"
+        if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line" && ! is_ipv6 "$line" && ! is_ipv6_cidr "$line"; then
+            log "'$line' is not IPv4/IPv6 or CIDR" "debug"
             continue
         fi
 

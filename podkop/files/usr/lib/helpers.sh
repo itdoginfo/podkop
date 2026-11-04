@@ -12,6 +12,21 @@ is_ipv4_cidr() {
     [[ "$ip" =~ $regex ]]
 }
 
+# Loose IPv6 check (hex digits, colons, optional embedded IPv4); nft does the strict parse
+is_ipv6() {
+    case "$1" in *:*) ;; *) return 1 ;; esac
+    case "$1" in *[!0-9a-fA-F:.]* | *:::*) return 1 ;; esac
+    return 0
+}
+
+is_ipv6_cidr() {
+    local ip="${1%/*}" mask="${1##*/}"
+    [ "$ip" != "$1" ] || return 1
+    is_ipv6 "$ip" || return 1
+    case "$mask" in '' | *[!0-9]*) return 1 ;; esac
+    [ "$mask" -le 128 ]
+}
+
 is_ipv4_ip_or_ipv4_cidr() {
     is_ipv4 "$1" || is_ipv4_cidr "$1"
 }
