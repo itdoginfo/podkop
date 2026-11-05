@@ -1767,6 +1767,7 @@ validate_subscription_file() {
     jq -e '
         type == "object" and
         (.outbounds | type == "array") and
+        all(.outbounds[]; type == "object" and (.type | type == "string" and length > 0)) and
         ([.outbounds[] | select(
             .type != "selector" and
             .type != "urltest" and

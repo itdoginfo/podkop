@@ -25955,6 +25955,8 @@ XROBJ
         "format-singbox-is-not-probed" "XRAYFILE=four TEST_FORMAT=singbox"
     fuller_case 'count=4 asked=Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
         "format-xray-asks-the-xray-client-first" "XRAYFILE=four TEST_FORMAT=xray"
+    fuller_case 'count=3 asked=Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
+        "explicit-xray-object-is-converted" "XRAYFILE=object TEST_FORMAT=xray"
     # one Xray client object is not a sing-box config: it is converted, and every outbound has a type
     out="$(env WORK="$work" XRAYFILE=object sh -c '. "'"$drv"'"; rm -rf "$WORK/cache" "$WORK/dl"; : > "$WORK/asked"; run
         printf "count=%s types=%s\n" "$(subscription_proxy_count "$WORK/out.json")" "$(jq -c "[.outbounds[].type]" "$WORK/out.json")"' 2> /dev/null)"
