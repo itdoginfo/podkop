@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   deviceMatchesQuery,
+  groupDeviceAddresses,
   findStaticLease,
   isIpv4InSubnet,
   isLanIpv4,
@@ -105,5 +106,62 @@ describe('isValidMac', () => {
     expect(isValidMac('aa:bb:cc:00:11:22')).toBe(true);
     expect(isValidMac('aa-bb-cc-00-11-22')).toBe(false);
     expect(isValidMac('aa:bb:cc:00:11')).toBe(false);
+  });
+});
+
+describe('groupDeviceAddresses', () => {
+  it('groups MACs case-insensitively, keeps names and puts IPv4 first', () => {
+    const entries = [
+      { ip: 'fd00::2', mac: 'aa:bb:cc:00:00:01', name: '' },
+      { ip: '192.168.1.2', mac: 'AA:BB:CC:00:00:01', name: 'PC' },
+      { ip: 'fd00::2', mac: 'aa:bb:cc:00:00:01', name: '' },
+    ];
+    const before = structuredClone(entries);
+    const groups = groupDeviceAddresses(entries);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      ip: '192.168.1.2',
+      name: 'PC',
+      addresses: ['192.168.1.2', 'fd00::2'],
+      offline: false,
+    });
+    expect(entries).toEqual(before);
+    expect(deviceMatchesQuery(groups[0], 'FD00::2')).toBe(true);
+  });
+
+  it('preserves first-seen device order without grouping by name or guessing a MAC', () => {
+    const groups = groupDeviceAddresses([
+      { ip: 'fd00::2', mac: 'AA', name: 'same' },
+      { ip: '192.168.1.3', mac: 'BB', name: 'same' },
+      { ip: '192.168.1.4', mac: '', name: 'same', offline: true },
+      { ip: '192.168.1.5', mac: '', name: 'same', offline: true },
+      { ip: '192.168.1.4', mac: '', name: '', offline: true },
+      { ip: '192.168.1.2', mac: 'AA', name: '' },
+    ]);
+    expect(groups.map((group) => group.ip)).toEqual([
+      '192.168.1.2',
+      '192.168.1.3',
+      '192.168.1.4',
+      '192.168.1.5',
+    ]);
+    expect(groups[2]).toMatchObject({
+      addresses: ['192.168.1.4'],
+      offline: true,
+    });
+  });
+
+  it('marks a group offline only when every entry is offline', () => {
+    expect(
+      groupDeviceAddresses([
+        { ip: 'fd00::2', mac: 'AA', name: '', offline: true },
+        { ip: 'fd00::3', mac: 'AA', name: '', offline: true },
+        { ip: '192.168.1.4', mac: 'BB', name: '', offline: true },
+        { ip: 'fd00::4', mac: 'BB', name: '' },
+      ]).map((group) => [group.ip, group.offline]),
+    ).toEqual([
+      ['fd00::2', true],
+      ['192.168.1.4', false],
+    ]);
+    expect(groupDeviceAddresses([])).toEqual([]);
   });
 });

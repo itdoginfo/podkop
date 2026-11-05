@@ -1,15 +1,15 @@
 # RU translations for NETSHIFT package.
 # Copyright (C) 2026 THE NETSHIFT'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# agent, 2026.
+# cergo666, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-22 21:36+0300\n"
-"PO-Revision-Date: 2026-10-22 21:36+0300\n"
-"Last-Translator: agent\n"
+"POT-Creation-Date: 2026-11-05 11:21+0300\n"
+"PO-Revision-Date: 2026-11-05 11:21+0300\n"
+"Last-Translator: cergo666\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -1097,6 +1097,9 @@ msgstr "IP-адрес"
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr "IP-адрес 0.0.0.0 не допускается"
 
+msgid "IP addresses"
+msgstr "IP-адреса"
+
 msgid "IPv6 addresses of this section's domains"
 msgstr "IPv6-адреса доменов этой секции"
 
@@ -1219,6 +1222,9 @@ msgstr "Порт смешанного прокси"
 
 msgid "Mixed Proxy user name"
 msgstr "Имя пользователя Mixed Proxy"
+
+msgid "Mixed rules"
+msgstr "Разные правила"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
