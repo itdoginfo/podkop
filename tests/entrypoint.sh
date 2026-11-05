@@ -22541,6 +22541,51 @@ CEOF
     rm -rf "$work"
 }
 
+test_install_required_packages() {
+    header "Installer: require both release packages and stop on installation failure"
+    local installer="${NETSHIFT_SRC}/../install.sh" work out scenario rc
+    work="$(mktemp -d)" || return 1
+    for scenario in missing-backend missing-luci failed-backend failed-luci success; do
+        mkdir -p "$work/$scenario"
+        if out="$(
+            eval "$(awk '/^find_release_package\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$installer")"
+            eval "$(awk '/^main\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$installer" | sed 's@^[[:space:]]*/usr/sbin/ntpd .*@    :@')"
+            DOWNLOAD_DIR="$work/$scenario"
+            PKG_IS_APK=1
+            RELEASES_LATEST_REDIRECT=https://example.invalid/releases/latest
+            RELEASES_DOWNLOAD_BASE=https://example.invalid/releases/download
+            check_system() { :; }; sing_box() { :; }; select_sing_box_core() { :; }
+            pkg_list_update() { :; }; apply_sing_box_core() { :; }; sleep() { :; }
+            curl() { printf '%s' https://example.invalid/releases/tag/0.9.12.9; }
+            msg() { :; }
+            download_release_asset() {
+                case "$scenario:$2" in
+                    missing-backend:netshift-*|missing-luci:luci-app-netshift-*) return 1 ;;
+                    *:luci-i18n-netshift-*) return 1 ;;
+                esac
+                printf package > "$DOWNLOAD_DIR/$2"
+            }
+            pkg_install() {
+                echo "install:$(basename "$1")"
+                case "$scenario:$(basename "$1")" in
+                    failed-backend:netshift-*|failed-luci:luci-app-netshift-*) return 1 ;;
+                esac
+                return 0
+            }
+            main
+        )"; then rc=0; else rc=$?; fi
+        case "$scenario" in
+            missing-backend|missing-luci)
+                if [ "$rc" -ne 0 ] && ! printf '%s\n' "$out" | grep -q '^install:'; then pass "$scenario prevents installation"; else fail "$scenario rc=$rc output=$out"; fi ;;
+            failed-backend|failed-luci)
+                if [ "$rc" -ne 0 ]; then pass "$scenario reports failure"; else fail "$scenario returned success"; fi ;;
+            success)
+                if [ "$rc" -eq 0 ]; then pass "both required packages installed"; else fail "success rc=$rc output=$out"; fi ;;
+        esac
+    done
+    rm -rf "$work"
+}
+
 test_proxy_bootstrap() {
     header "Proxy bootstrap resolver: a proxy hostname must not resolve through the DNS that detours via the proxy"
 
