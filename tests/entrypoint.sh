@@ -22377,7 +22377,8 @@ LIST
 
         # lists of feeds
         feeds() { fetch_feed_list "$1" | jq -c "$2"; }
-        updates_http_get() { cat "$FEED_BODY"; }
+        updates_components_proxy_address() { :; }
+        updates_http_get_once() { cat "$FEED_BODY"; }
         printf '%s\n' '# the sources' 'https://raw.githubusercontent.com/a/b/main/one.txt' '  https://github.com/c/d/raw/main/two.txt  ' 'not a url' 'https://raw.githubusercontent.com/a/b/main/one.txt' 'ftp://x/y' > "$work/list.txt"
         FEED_BODY="$work/list.txt"
         echo "txt=$(feeds https://example.com/urls.txt '[.ok, .urls]')"
@@ -22390,12 +22391,18 @@ LIST
         printf 'vless://only-links@example.com:443#x\n' > "$work/links.txt"
         FEED_BODY="$work/links.txt"
         echo "no-feeds=$(feeds https://example.com/l.txt '[.ok, .error]')"
-        updates_http_get() { return 1; }
+        updates_http_get_once() { return 1; }
         echo "download-fails=$(feeds https://example.com/l.txt '[.ok, .error]')"
         echo "bad-address=$(feeds 'ftp://example.com/l.txt' '[.ok, .error]')"
         i=0; : > "$work/big.txt"; while [ "$i" -lt 250 ]; do echo "https://example.com/f$i" >> "$work/big.txt"; i=$((i + 1)); done
-        updates_http_get() { cat "$work/big.txt"; }
+        updates_http_get_once() { cat "$work/big.txt"; }
         echo "capped=$(feeds https://example.com/big.txt '.urls | length')"
+        printf '%s\n' 'HTTPS://a.example.com/x' 'https://b.example.com/y' > "$work/upper.txt"
+        FEED_BODY="$work/upper.txt"
+        updates_http_get_once() { cat "$FEED_BODY"; }
+        echo "upper=$(feeds https://example.com/upper.txt '.urls')"
+        FEED_LIST_MAX_BYTES=16
+        echo "oversized=$(feeds https://example.com/upper.txt '[.ok, .error]')"
     )"
 
     _cl() { expect_line "$out" "$1" "$2"; }
@@ -22414,6 +22421,8 @@ LIST
     _cl "a failed download is an error" 'download-fails=[false,"the list could not be downloaded"]'
     _cl "an address that is not http(s) is refused" 'bad-address=[false,"the address of the list must start with http:// or https://"]'
     _cl "at most 200 feeds are taken" "capped=200"
+    _cl "uppercase URL schemes are kept" 'upper=["HTTPS://a.example.com/x","https://b.example.com/y"]'
+    _cl "oversized lists are refused" 'oversized=[false,"the list could not be downloaded"]'
     rm -rf "$work" /etc/config/netshift
 }
 
