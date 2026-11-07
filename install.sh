@@ -290,6 +290,16 @@ download_release_asset() {
     return 1
 }
 
+find_release_package() {
+    local pkg="$1" ext="$2" f
+    for f in "$DOWNLOAD_DIR"/"$pkg"[-_]*."$ext"; do
+        [ -s "$f" ] || continue
+        printf '%s\n' "$f"
+        return 0
+    done
+    return 1
+}
+
 # Returns 0 if the sing-box binary on the router is an "extended" build.
 # The backend tests the version string the same way (helpers.sh
 # is_sing_box_extended); the installer cannot source the backend libraries
@@ -540,25 +550,23 @@ main() {
         done
     fi
 
-    # Check if any files were downloaded
-    if ! ls "$DOWNLOAD_DIR"/*netshift* >/dev/null 2>&1; then
-        msg "No packages were downloaded successfully"
+    # Both packages must be available before changing an existing installation.
+    netshift_package="$(find_release_package netshift "$ext")" || {
+        msg "NetShift backend package was not downloaded; installation aborted"
         exit 1
-    fi
+    }
+    luci_package="$(find_release_package luci-app-netshift "$ext")" || {
+        msg "NetShift LuCI package was not downloaded; installation aborted"
+        exit 1
+    }
 
-    for pkg in netshift luci-app-netshift; do
-        file=""
-        for f in "$DOWNLOAD_DIR"/"$pkg"*; do
-            if [ -f "$f" ]; then
-                file=$(basename "$f")
-                break
-            fi
-        done
-        if [ -n "$file" ]; then
-            msg "Installing $file..."
-            pkg_install "$DOWNLOAD_DIR/$file"
-            sleep 3
+    for file in "$netshift_package" "$luci_package"; do
+        msg "Installing $(basename "$file")..."
+        if ! pkg_install "$file"; then
+            msg "Package installation failed: $(basename "$file")"
+            exit 1
         fi
+        sleep 3
     done
 
     ru=""

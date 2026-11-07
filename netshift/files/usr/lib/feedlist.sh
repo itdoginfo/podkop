@@ -25,14 +25,36 @@ feed_list_parse() {
     *)
         printf '%s\n' "$body" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^#'
         ;;
-    esac | grep -E '^https?://[^[:space:]]+$' | awk '!seen[$0]++' | head -n "$FEED_LIST_MAX_URLS"
+    esac | grep -Ei '^https?://[^[:space:]]+$' | awk '!seen[$0]++' | head -n "$FEED_LIST_MAX_URLS"
+}
+
+# Stream at most the limit plus one byte into a private file. A FIFO lets us
+# preserve the HTTP client's exit status as well as reject oversized responses.
+feed_list_fetch_once() {
+    local url="$1" proxy="$2" output="$3" fifo="$4" pid rc size
+
+    rm -f "$fifo"
+    mkfifo "$fifo" || return 1
+    updates_http_get_once "$url" "$proxy" > "$fifo" &
+    pid=$!
+    if head -c "$((FEED_LIST_MAX_BYTES + 1))" < "$fifo" > "$output"; then
+        rc=0
+    else
+        rc=1
+    fi
+    wait "$pid" || rc=1
+    rm -f "$fifo"
+    size="$(wc -c < "$output" | tr -d ' ')"
+    [ "$rc" -eq 0 ] && [ "$size" -gt 0 ] && [ "$size" -le "$FEED_LIST_MAX_BYTES" ]
 }
 
 # fetch_feed_list <url>: {"ok":true,"urls":[...]} or {"ok":false,"error":"..."}
 fetch_feed_list() {
     local url="$1"
-    local body urls
+    local urls feed_workdir proxy
 
+    # Same rule as a subscription address, including HTTPS:// (the case below was
+    # the only one that required a lower-case scheme).
     # Same rule as a subscription address, including HTTPS:// (the case below was
     # the only one that required a lower-case scheme).
     if ! subscription_url_is_http "$url"; then
@@ -40,12 +62,17 @@ fetch_feed_list() {
         return 1
     fi
 
-    if ! body="$(updates_http_get "$url")" || [ -z "$body" ]; then
+    feed_workdir="$(umask 077; mktemp -d "${TMPDIR:-/tmp}/netshift-feed-list.XXXXXX")" || return 1
+    proxy="$(updates_components_proxy_address)"
+    if { [ -z "$proxy" ] || ! feed_list_fetch_once "$url" "$proxy" "$feed_workdir/body" "$feed_workdir/fifo"; } &&
+        ! feed_list_fetch_once "$url" "" "$feed_workdir/body" "$feed_workdir/fifo"; then
+        rm -rf "$feed_workdir"
         jq -n -c '{ok: false, error: "the list could not be downloaded"}'
         return 1
     fi
 
-    urls="$(printf '%s' "$body" | feed_list_parse)"
+    urls="$(feed_list_parse < "$feed_workdir/body")"
+    rm -rf "$feed_workdir"
     if [ -z "$urls" ]; then
         jq -n -c '{ok: false, error: "no feed addresses were found in the list"}'
         return 1

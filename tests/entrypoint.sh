@@ -7554,6 +7554,22 @@ STUBEOF
         fail "failed worker status wrong" "$fail_status"
     fi
 
+    fail_json="$(JOBSTUB_DIR="$jdir" STUB_RC=0 STUB_JSON='{"success":false,"message":"reported failure"}' \
+        "$stub" component_action_async sing_box install_extended)"
+    fail_id="$(echo "$fail_json" | jq -r '.job_id')"
+    waited=0
+    while [ "$waited" -lt 15 ]; do
+        jq -e '.running == false' "$jdir/$fail_id.json" > /dev/null 2>&1 && break
+        sleep 1
+        waited=$((waited + 1))
+    done
+    fail_status="$(JOBSTUB_DIR="$jdir" "$stub" component_action_status "$fail_id")"
+    if echo "$fail_status" | jq -e '.success == false and .exit_code == 0 and .message == "reported failure"' > /dev/null 2>&1; then
+        pass "worker explicit false survives zero exit status"
+    else
+        fail "worker explicit false lost" "$fail_status"
+    fi
+
     # ── 2c. worker stdout polluted with log lines: last JSON object wins ─────
     local noisy_json noisy_id noisy_status
     noisy_json="$(JOBSTUB_DIR="$jdir" \
@@ -20957,13 +20973,7 @@ test_subscription_info() {
         echo "fail-rc=$?"
         echo "kept=$(jq -c '.total' "$f")"
 
-        # only http(s) is asked: curl would read file:// as root
         CURL_FAIL=0
-        : > "$work/curl.args"
-        subscription_refresh_info main "file:///etc/passwd" eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee "UA" "" 0
-        subscription_refresh_info main "ftp://panel.example/x" eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee "UA" "" 0
-        echo "scheme-no-curl=$(wc -c < "$work/curl.args" | tr -d ' ')"
-
         CURL_HEADERS='HTTP/2 200\r\n\r\n'
         subscription_refresh_info second "https://panel.example/b" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb "UA" "" 0
         [ -e "$SUBSCRIPTION_CACHE_FOLDER/second.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.info.json" ] && echo "none-written=present" || echo "none-written=absent"
@@ -20995,7 +21005,6 @@ test_subscription_info() {
     _si "a failing panel does not fail the refresh" "fail-rc=0"
     _si "...and the previous info stays" "kept=3"
     _si "a panel without the header leaves no file" "none-written=absent"
-    _si "file:// and ftp:// addresses are not asked" "scheme-no-curl=0"
     _si "get_subscription_info groups the feeds by section" 'all={"main":[3,9]}'
     _si "no cache, no info" "empty-dir={}"
     _si "an unreadable file is skipped, the others stay" 'broken-file-skipped={"main":[3,9]}'
@@ -22334,7 +22343,6 @@ test_collected_lists() {
         done
         . /usr/lib/netshift/constants.sh
         . /usr/lib/netshift/logging.sh
-        . /usr/lib/netshift/helpers.sh
         . /usr/lib/netshift/sing_box_config_facade.sh
         . "$lib/feedlist.sh"
         CL_LOG="$work/log"; : > "$CL_LOG"
@@ -22385,7 +22393,8 @@ LIST
 
         # lists of feeds
         feeds() { fetch_feed_list "$1" | jq -c "$2"; }
-        updates_http_get() { cat "$FEED_BODY"; }
+        updates_components_proxy_address() { :; }
+        updates_http_get_once() { cat "$FEED_BODY"; }
         printf '%s\n' '# the sources' 'https://raw.githubusercontent.com/a/b/main/one.txt' '  https://github.com/c/d/raw/main/two.txt  ' 'not a url' 'https://raw.githubusercontent.com/a/b/main/one.txt' 'ftp://x/y' > "$work/list.txt"
         FEED_BODY="$work/list.txt"
         echo "txt=$(feeds https://example.com/urls.txt '[.ok, .urls]')"
@@ -22398,12 +22407,18 @@ LIST
         printf 'vless://only-links@example.com:443#x\n' > "$work/links.txt"
         FEED_BODY="$work/links.txt"
         echo "no-feeds=$(feeds https://example.com/l.txt '[.ok, .error]')"
-        updates_http_get() { return 1; }
+        updates_http_get_once() { return 1; }
         echo "download-fails=$(feeds https://example.com/l.txt '[.ok, .error]')"
         echo "bad-address=$(feeds 'ftp://example.com/l.txt' '[.ok, .error]')"
         i=0; : > "$work/big.txt"; while [ "$i" -lt 250 ]; do echo "https://example.com/f$i" >> "$work/big.txt"; i=$((i + 1)); done
-        updates_http_get() { cat "$work/big.txt"; }
+        updates_http_get_once() { cat "$work/big.txt"; }
         echo "capped=$(feeds https://example.com/big.txt '.urls | length')"
+        printf '%s\n' 'HTTPS://a.example.com/x' 'https://b.example.com/y' > "$work/upper.txt"
+        FEED_BODY="$work/upper.txt"
+        updates_http_get_once() { cat "$FEED_BODY"; }
+        echo "upper=$(feeds https://example.com/upper.txt '.urls')"
+        FEED_LIST_MAX_BYTES=16
+        echo "oversized=$(feeds https://example.com/upper.txt '[.ok, .error]')"
     )"
 
     _cl() { expect_line "$out" "$1" "$2"; }
@@ -22422,6 +22437,8 @@ LIST
     _cl "a failed download is an error" 'download-fails=[false,"the list could not be downloaded"]'
     _cl "an address that is not http(s) is refused" 'bad-address=[false,"the address of the list must start with http:// or https://"]'
     _cl "at most 200 feeds are taken" "capped=200"
+    _cl "uppercase URL schemes are kept" 'upper=["HTTPS://a.example.com/x","https://b.example.com/y"]'
+    _cl "oversized lists are refused" 'oversized=[false,"the list could not be downloaded"]'
     rm -rf "$work" /etc/config/netshift
 }
 
@@ -22546,6 +22563,51 @@ CEOF
     _id "curl runs with a connect timeout and a total time limit" "curl-has-timeouts=1"
     _id "both fail: every attempt tries both, then the download is given up, nothing is left behind" "both-fail-rc=1 wget=3 curl=3 leftover=0"
     _id "no curl on the router: wget alone, retried" "no-curl-rc=1 wget=3 curl=0"
+    rm -rf "$work"
+}
+
+test_install_required_packages() {
+    header "Installer: require both release packages and stop on installation failure"
+    local installer="${NETSHIFT_SRC}/../install.sh" work out scenario rc
+    work="$(mktemp -d)" || return 1
+    for scenario in missing-backend missing-luci failed-backend failed-luci success; do
+        mkdir -p "$work/$scenario"
+        if out="$(
+            eval "$(awk '/^find_release_package\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$installer")"
+            eval "$(awk '/^main\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$installer" | sed 's@^[[:space:]]*/usr/sbin/ntpd .*@    :@')"
+            DOWNLOAD_DIR="$work/$scenario"
+            PKG_IS_APK=1
+            RELEASES_LATEST_REDIRECT=https://example.invalid/releases/latest
+            RELEASES_DOWNLOAD_BASE=https://example.invalid/releases/download
+            check_system() { :; }; sing_box() { :; }; select_sing_box_core() { :; }
+            pkg_list_update() { :; }; apply_sing_box_core() { :; }; sleep() { :; }
+            curl() { printf '%s' https://example.invalid/releases/tag/0.9.12.9; }
+            msg() { :; }
+            download_release_asset() {
+                case "$scenario:$2" in
+                    missing-backend:netshift-*|missing-luci:luci-app-netshift-*) return 1 ;;
+                    *:luci-i18n-netshift-*) return 1 ;;
+                esac
+                printf package > "$DOWNLOAD_DIR/$2"
+            }
+            pkg_install() {
+                echo "install:$(basename "$1")"
+                case "$scenario:$(basename "$1")" in
+                    failed-backend:netshift-*|failed-luci:luci-app-netshift-*) return 1 ;;
+                esac
+                return 0
+            }
+            main
+        )"; then rc=0; else rc=$?; fi
+        case "$scenario" in
+            missing-backend|missing-luci)
+                if [ "$rc" -ne 0 ] && ! printf '%s\n' "$out" | grep -q '^install:'; then pass "$scenario prevents installation"; else fail "$scenario rc=$rc output=$out"; fi ;;
+            failed-backend|failed-luci)
+                if [ "$rc" -ne 0 ]; then pass "$scenario reports failure"; else fail "$scenario returned success"; fi ;;
+            success)
+                if [ "$rc" -eq 0 ]; then pass "both required packages installed"; else fail "success rc=$rc output=$out"; fi ;;
+        esac
+    done
     rm -rf "$work"
 }
 
@@ -25323,151 +25385,153 @@ FJ
     rm -rf "$work"
 }
 
-test_xray_flat_outbound() {
-    header "Xray JSON with flat outbound settings (Xray 26: address, port and id in settings)"
+test_fakeip_rule_lists() {
+    header "FakeIP DNS rules: service domains apart from the rule-sets (sing-box 1.14 semantics)"
 
     local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
     if ! command -v jq > /dev/null 2>&1; then
         skip "jq not available"
         return
     fi
+    if [ ! -r "$bin" ]; then
+        fail "netshift bin not found"
+        return
+    fi
+
     mkdir -p /usr/lib/netshift
     ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
     ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+    ln -sf "$lib/sing_box_config_facade.sh" /usr/lib/netshift/sing_box_config_facade.sh
+    ln -sf "$lib/constants.sh" /usr/lib/netshift/constants.sh
 
-    local src="/tmp/netshift-xrayflat-$$.json" out
-    # Synthetic placeholder values only.
-    cat > "$src" << 'XRAYJSON'
-[
-  {"remarks": "Flat", "outbounds": [
-    {"protocol": "vless", "tag": "flat-1",
-     "settings": {"address": "203.0.113.10", "port": 8443, "id": "11111111-1111-1111-1111-111111111111",
-                  "encryption": "none", "flow": "xtls-rprx-vision", "level": 8},
-     "streamSettings": {"network": "tcp", "security": "reality",
-       "realitySettings": {"serverName": "front.example.com", "publicKey": "PUBKEY", "shortId": "abcd", "fingerprint": "firefox"}}},
-    {"protocol": "trojan", "tag": "flat-2",
-     "settings": {"address": "203.0.113.11", "port": 443, "password": "secret"},
-     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "t.example.com"}}},
-    {"protocol": "freedom", "tag": "direct"}
-  ]},
-  {"remarks": "More", "outbounds": [
-    {"protocol": "shadowsocks", "tag": "flat-ss",
-     "settings": {"address": "203.0.113.20", "port": 8388, "method": "aes-256-gcm", "password": "pw:1/2"}},
-    {"protocol": "shadowsocks", "tag": "ss-no-method",
-     "settings": {"address": "203.0.113.21", "port": 8388, "password": "pw123"}},
-    {"protocol": "hysteria", "tag": "flat-hy2",
-     "settings": {"address": "203.0.113.22", "port": 443, "version": 2},
-     "streamSettings": {"network": "hysteria", "hysteriaSettings": {"version": 2, "auth": "hy2secret"}, "security": "tls", "tlsSettings": {"serverName": "h.example.com"}}},
-    {"protocol": "vless", "tag": "both-forms",
-     "settings": {"address": "203.0.113.24", "port": 1111, "id": "44444444-4444-4444-4444-444444444444",
-                  "vnext": [{"address": "203.0.113.25", "port": 2222, "users": [{"id": "55555555-5555-5555-5555-555555555555", "encryption": "none"}]}]},
-     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}},
-    {"protocol": "vless", "tag": "no-port",
-     "settings": {"address": "203.0.113.26", "id": "66666666-6666-6666-6666-666666666666", "encryption": "none"}},
-    {"protocol": "vless", "tag": "no-id",
-     "settings": {"address": "203.0.113.27", "port": 443, "encryption": "none"}}
-  ]},
-  {"remarks": "Legacy", "outbounds": [
-    {"protocol": "vless", "tag": "legacy-1",
-     "settings": {"vnext": [{"address": "203.0.113.12", "port": 443,
-                  "users": [{"id": "22222222-2222-2222-2222-222222222222", "encryption": "none"}]}]},
-     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "l.example.com"}}}
-  ]}
-]
-XRAYJSON
-    out="$(
-        . "$lib/constants.sh"
-        . "$lib/helpers.sh"
-        xray_json_to_uri_lines "$src" 2> /dev/null
-    )"
-    rm -f "$src"
+    local drv="/tmp/netshift-fakeiplists-$$.sh"
+    cat > "$drv" << 'FLEOF'
+. "NETSHIFT_LIB/constants.sh"
+. "NETSHIFT_LIB/helpers.sh"
+. "NETSHIFT_LIB/sing_box_config_manager.sh"
+. "NETSHIFT_LIB/sing_box_config_facade.sh"
 
-    if printf '%s\n' "$out" | grep -q '^vless://11111111-1111-1111-1111-111111111111@203.0.113.10:8443?.*flow=xtls-rprx-vision'; then
-        pass "flat-vless-reality-with-flow"
-    else
-        fail "flat vless outbound not converted (got: $out)"
-    fi
-    if printf '%s\n' "$out" | grep -q '^trojan://secret@203.0.113.11:443?'; then
-        pass "flat-trojan"
-    else
-        fail "flat trojan outbound not converted (got: $out)"
-    fi
-    if printf '%s\n' "$out" | grep -q '^vless://22222222-2222-2222-2222-222222222222@203.0.113.12:443?'; then
-        pass "legacy-vnext-still-converted"
-    else
-        fail "vnext outbound no longer converted (got: $out)"
-    fi
-    if printf '%s\n' "$out" | grep -q '^ss://aes-256-gcm:pw%3A1%2F2@203.0.113.20:8388'; then
-        pass "flat-shadowsocks-carries-its-method"
-    else
-        fail "flat shadowsocks lost the cipher (got: $out)"
-    fi
-    if printf '%s\n' "$out" | grep -q '203.0.113.21'; then
-        fail "a shadowsocks node without a cipher was built (got: $out)"
-    else
-        pass "shadowsocks-without-method-dropped"
-    fi
-    if printf '%s\n' "$out" | grep -q '^hysteria2://hy2secret@203.0.113.22:443?'; then
-        pass "flat-hysteria2"
-    else
-        fail "flat hysteria2 not converted (got: $out)"
-    fi
-    if printf '%s\n' "$out" | grep -q '^vless://55555555-5555-5555-5555-555555555555@203.0.113.25:2222?' &&
-        ! printf '%s\n' "$out" | grep -q '203.0.113.24'; then
-        pass "vnext-wins-over-flat-address"
-    else
-        fail "an outbound with both forms is not read from vnext alone (got: $out)"
-    fi
-    if printf '%s\n' "$out" | grep -q '203.0.113.26\|203.0.113.27'; then
-        fail "a flat node without a port or an id was built (got: $out)"
-    else
-        pass "incomplete-flat-nodes-dropped"
-    fi
-    if [ "$(printf '%s\n' "$out" | grep -c .)" = "6" ]; then
-        pass "no-extra-or-missing-nodes"
-    else
-        fail "expected 6 nodes (got: $out)"
-    fi
+log() { :; }
 
-    # Whatever address reaches the fetchers (an INCY link, a hand-edited config), only http(s) is fetched
-    local guard
-    guard="$(
-        . "$lib/constants.sh"
-        . "$lib/helpers.sh"
-        log() { :; }
-        printf 'is:'
-        for u in http://a.example/x https://a.example/x HTTPS://A.example/x file:///etc/passwd ftp://a.example/x '--post-file=/etc/shadow' ''; do
-            subscription_url_is_http "$u" && printf 'y' || printf 'n'
-        done
-        printf '\n'
-        rm -f /tmp/netshift-guard-$$ /tmp/netshift-wget-$$
-        # A stub that succeeds and records its arguments. The real wget also refuses
-        # file://, so a green result against it would not prove the guard ran.
-        wget() {
-            printf '%s\n' "$*" >> /tmp/netshift-wget-$$
-            local prev="" arg out=""
-            for arg in "$@"; do
-                if [ "$prev" = "-O" ]; then
-                    out="$arg"
-                fi
-                prev="$arg"
-            done
-            [ -n "$out" ] && printf 'x' > "$out"
-            return 0
-        }
-        download_subscription "file:///etc/hostname" /tmp/netshift-guard-$$ "" 1 0 1 "" 0 && printf 'dl:fetched\n' || printf 'dl:refused\n'
-        [ -e /tmp/netshift-guard-$$ ] && printf 'file:written\n' || printf 'file:none\n'
-        check_subscription_connectivity "ftp://a.example/x" "" 1 0 1 && printf 'conn:ok\n' || printf 'conn:refused\n'
-        rm -f /tmp/netshift-guard-$$ /tmp/netshift-wget-$$
-    )"
-    if [ "$guard" = "is:yyynnnn
-dl:refused
-file:none
-conn:refused" ]; then
-        pass "only-http-subscription-addresses-are-fetched"
+# REAL functions, extracted verbatim from the shipped CLI: the DNS builder, the helper that
+# adds a list to the rule of the section and the prune that runs at the end of the route build.
+for fn in sing_box_configure_dns netshift_ipv6_enabled patch_section_dns_rule_set \
+    prune_fakeip_dns_rule_without_lists sing_box_configure_route \
+    configure_common_reject_route_rule configure_common_direct_route_rule; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+done
+
+# Only the UCI layer and the pieces that need a live router are stubbed.
+config_get() {
+    local _var="$1" _opt="$3" _def="${4-}"
+    case "$_opt" in
+        dns_type) _def=udp ;;
+        dns_server) _def=1.1.1.1 ;;
+        bootstrap_dns_server) _def=77.88.8.8 ;;
+    esac
+    eval "$_var=\"\$_def\""
+}
+config_get_bool() { eval "$1=\"\${4-0}\""; }
+config_foreach() { :; }
+config_list_foreach() { :; }
+netshift_config_list_foreach() { :; }
+dns_routes_init() { :; }
+dns_server_detour_tag() { :; }
+sing_box_configure_dns_pool() { :; }
+get_global_proxy_section() { :; }
+get_sections_by_connection_type() { :; }
+get_first_outbound_section() { :; }
+get_outbound_tag_by_section() { printf '%s-out' "$1"; }
+subscription_outbound_is_unavailable() { return 1; }
+foreach_active_section() { :; }
+tproxy_route_inbounds() { printf 'tproxy-in'; }
+disable_quic_mode() { printf 'off'; }
+sing_box_configure_port_rules() { :; }
+gen_id() { printf 'id'; }
+prune_dns_section_rules_without_domains() { :; }
+prune_ipv6_real_dns_rules_without_domains() { :; }
+prune_section_resolve_rules_without_domains() { :; }
+rule_references_ruleset() { return 1; }
+
+FAKE="$SB_FAKEIP_DNS_RULE_TAG"
+SERV="$SB_FAKEIP_SERVICE_DNS_RULE_TAG"
+
+# the DNS part of a config the way sing_box_init_config builds it: DNS first, a list per section after,
+# then the real route builder, which is what calls the prune
+build() {
+    config='{"log":{},"dns":{},"ntp":{},"certificate":{},"endpoints":[],"inbounds":[],"outbounds":[],"route":{},"services":[],"experimental":{}}'
+    sing_box_configure_dns
+    local list
+    for list in "$@"; do patch_section_dns_rule_set "$list"; done
+    sing_box_configure_route
+}
+# the FakeIP rules left, in order, by their markers
+tags() { printf '%s' "$config" | jq -c --arg k "$SERVICE_TAG" '[.dns.rules[] | .[$k] // empty | select(startswith("fakeip-"))]'; }
+rule() { printf '%s' "$config" | jq -c --arg k "$SERVICE_TAG" --arg t "$1" "[.dns.rules[] | select(.[\$k] == \$t)] | first | $2"; }
+check() { if [ "$2" = "$3" ]; then echo "$1:OK"; else echo "$1:FAIL [got $2, want $3]"; fi; }
+
+# (a) no list at all: the rule of the lists is gone, the one of the service domains stays
+build
+check 'fakeip-nolist-tags' "$(tags)" "[\"$SERV\"]"
+check 'fakeip-nolist-service-domains' "$(rule "$SERV" '.domain | sort')" "$(printf '["%s","%s"]' "$CHECK_PROXY_IP_DOMAIN" "$FAKEIP_TEST_DOMAIN" | jq -cS 'sort')"
+check 'fakeip-nolist-no-open-rule' "$(printf '%s' "$config" | jq -c '[.dns.rules[] | select(.action == "route" and .server == "'"$SB_FAKEIP_DNS_SERVER_TAG"'" and (.domain == null and .rule_set == null))] | length')" 0
+
+# (b) one list
+build yt-domains
+check 'fakeip-list-tags' "$(tags)" "[\"$FAKE\",\"$SERV\"]"
+check 'fakeip-list-rule-set' "$(rule "$FAKE" '.rule_set')" '"yt-domains"'
+check 'fakeip-list-rule-without-domain' "$(rule "$FAKE" 'has("domain")')" false
+check 'fakeip-list-service-domains-kept' "$(rule "$SERV" 'has("domain")')" true
+
+# (c) a community list of several rules (discord): its rule-set stands alone, so nothing else in
+# the rule has to match together with it
+build discord
+check 'fakeip-multirule-list-rule' "$(rule "$FAKE" '[.rule_set, has("domain")]')" '["discord",false]'
+check 'fakeip-multirule-list-before-service' "$(tags)" "[\"$FAKE\",\"$SERV\"]"
+
+# (d) several lists
+build yt-domains vpn-domains
+check 'fakeip-mixed-rule-sets' "$(rule "$FAKE" '.rule_set')" '["yt-domains","vpn-domains"]'
+check 'fakeip-mixed-no-domain' "$(rule "$FAKE" 'has("domain")')" false
+
+# the prune is idempotent and drops a rule whose rule_set is an empty array as well
+build yt-domains
+prune_fakeip_dns_rule_without_lists
+check 'fakeip-prune-idempotent' "$(tags)" "[\"$FAKE\",\"$SERV\"]"
+config=$(printf '%s' "$config" | jq -c --arg k "$SERVICE_TAG" --arg t "$FAKE" '(.dns.rules[] | select(.[$k] == $t) | .rule_set) = []')
+prune_fakeip_dns_rule_without_lists
+check 'fakeip-prune-empty-rule-set' "$(tags)" "[\"$SERV\"]"
+
+# a rule of someone else with no rule_set is never touched
+rejects() { printf '%s' "$config" | jq -c '[.dns.rules[] | select(.action == "reject")] | length'; }
+before=$(rejects)
+prune_fakeip_dns_rule_without_lists
+check 'fakeip-prune-leaves-other-rules' "$(rejects)" "$before"
+[ "$before" -gt 0 ] && echo 'fakeip-reject-rules-present:OK' || echo 'fakeip-reject-rules-present:FAIL'
+
+echo DONE
+FLEOF
+    sed -i "s|NETSHIFT_LIB|$lib|g; s|BIN_PATH|$bin|g" "$drv"
+
+    local fl_out="/tmp/netshift-fakeiplists-out-$$.log"
+    ash "$drv" > "$fl_out" 2> "$fl_out.err" || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:FAIL*) fail "$line" ;;
+            *:OK) pass "$line" ;;
+            DONE) saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$fl_out"
+    if [ "$saw_done" = "1" ]; then
+        pass "fakeiplists-driver-completed:OK"
     else
-        fail "the scheme guard of the subscription fetchers (got: $guard)"
+        fail "fakeiplists-driver-completed:FAIL (driver aborted early: $(head -c 300 "$fl_out.err"))"
     fi
+    rm -f "$drv" "$fl_out" "$fl_out.err"
 }
 
 test_section_own_dns() {
@@ -25963,6 +26027,451 @@ LR
     rm -rf "$work"
 }
 
+test_component_update_lock() {
+    header "Component updates are serialized"
+    local work out
+    work="/tmp/netshift-component-lock-$$"
+    mkdir -p "$work"
+    out="$(
+        . "$NETSHIFT_LIB_DIR/updater.sh"
+        UPDATES_COMPONENT_LOCK_FILE="$work/lock"
+        slow_update() { : > "$work/started"; sleep 3; echo '{"success":true}'; }
+        fast_update() { echo '{"success":true}'; }
+        updates_with_component_lock slow_update > "$work/first" &
+        pid=$!
+        n=0
+        while [ ! -f "$work/started" ] && [ "$n" -lt 10 ]; do sleep 1; n=$((n + 1)); done
+        if updates_with_component_lock fast_update > "$work/second"; then echo concurrent=allowed; else echo concurrent=refused; fi
+        wait "$pid"
+        if updates_with_component_lock fast_update > /dev/null; then echo after=allowed; else echo after=refused; fi
+        jq -r '.success' "$work/second"
+    )"
+    expect_line "$out" "concurrent component update is refused" "concurrent=refused"
+    expect_line "$out" "the lock is released after the update" "after=allowed"
+    expect_line "$out" "the refused update returns a failure JSON" "false"
+    rm -rf "$work"
+}
+
+
+test_tls_cipher_suites() {
+    header "A plain TLS link can carry cipher suites, and an empty list adds none"
+
+    # shellcheck disable=SC1090
+    . "$NETSHIFT_LIB_DIR/sing_box_config_manager.sh"
+    local cfg out
+    cfg='{"outbounds":[{"tag":"proxy","type":"vless"}]}'
+    out=$(sing_box_cm_set_tls_for_outbound "$cfg" proxy example.com "" null "" "" "" "" '["TLS_AES_128_GCM_SHA256"]')
+    if printf '%s' "$out" | jq -e '.outbounds[0].tls.cipher_suites == ["TLS_AES_128_GCM_SHA256"]' > /dev/null; then
+        pass "cipher-suites-are-written"
+    else
+        fail "cipher_suites was not written" "$out"
+    fi
+    out=$(sing_box_cm_set_tls_for_outbound "$cfg" proxy example.com "" null "" "" "" "")
+    if printf '%s' "$out" | jq -e '.outbounds[0].tls | has("cipher_suites") | not' > /dev/null; then
+        pass "no-cipher-suites-without-a-list"
+    else
+        fail "cipher_suites appeared without a list" "$out"
+    fi
+}
+
+test_wan_wait() {
+    header "A missing default route does not spend the sing-box crash budget"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift" body
+    body=$(awk '/^monitor_sing_box\(\) \{/{p=1} p{print} p && /^}/{exit}' "$bin")
+    if printf '%s\n' "$body" | awk '
+        /No default route/ { seen = 1 }
+        seen && /continue/ { held = 1 }
+        /crash_count=\$\(\(crash_count \+ 1\)\)/ { if (!held) bad = 1 }
+        END { exit (seen && held && !bad) ? 0 : 1 }
+    '; then
+        pass "no-route-continues-before-the-crash-count"
+    else
+        fail "the monitor counts a crash before it notices there is no route"
+    fi
+}
+
+test_subscription_shrink_guard() {
+    header "A short subscription answer does not replace a working cache"
+
+    # shellcheck disable=SC1090
+    . "$NETSHIFT_LIB_DIR/helpers.sh"
+    local work old new
+    work="/tmp/netshift-shrink-$$"
+    mkdir -p "$work"
+    old="$work/old.json"
+    new="$work/new.json"
+    printf '%s\n' '{"outbounds":[{"type":"vless"},{"type":"vless"},{"type":"vless"},{"type":"vless"},{"type":"direct"}]}' > "$old"
+    printf '%s\n' '{"outbounds":[{"type":"vless"},{"type":"direct"}]}' > "$new"
+    if subscription_cache_shrunk "$old" "$new"; then
+        pass "half-or-less-is-a-shrink"
+    else
+        fail "4 nodes to 1 was not treated as a shrink"
+    fi
+    printf '%s\n' '{"outbounds":[{"type":"vless"},{"type":"vless"},{"type":"vless"}]}' > "$new"
+    if subscription_cache_shrunk "$old" "$new"; then
+        fail "3 of 4 nodes was treated as a shrink"
+    else
+        pass "more-than-half-is-kept"
+    fi
+    printf '%s\n' '{"outbounds":[{"type":"vless"},{"type":"vless"}]}' > "$old"
+    if subscription_cache_shrunk "$old" "$new"; then
+        fail "a short cache was guarded"
+    else
+        pass "a-cache-under-4-nodes-is-not-guarded"
+    fi
+    rm -rf "$work"
+}
+
+test_rule_overlaps() {
+    header "Overlapping domains and lists are reported before the config is built"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift" work log
+    work="/tmp/netshift-overlap-$$"
+    mkdir -p "$work"
+    log="$work/log"
+    (
+        for fn in _overlap_note _overlap_domain _overlap_list _overlap_collect warn_section_rule_overlaps; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        log() { printf '%s\n' "$1" >> "$log"; }
+        foreach_active_section() { _overlap_collect one; _overlap_collect two; }
+        config_get() {
+            if [ "$2" = "two" ]; then
+                eval "$1=exclusion"
+            else
+                eval "$1=proxy"
+            fi
+        }
+        config_list_foreach() {
+            if [ "$1" = "one" ] && [ "$2" = "user_domains" ]; then
+                "$3" example.com
+                "$3" discord.com
+            fi
+            if [ "$1" = "two" ] && [ "$2" = "user_domains" ]; then
+                "$3" a.example.com
+            fi
+            if [ "$2" = "community_lists" ]; then
+                "$3" russia_inside
+            fi
+        }
+        warn_section_rule_overlaps
+    )
+    if grep -q 'russia_inside' "$log" && grep -q 'example.com' "$log" && grep -q 'a.example.com' "$log"; then
+        pass "overlap-and-shadow-are-logged"
+    else
+        fail "expected a shared list and a shadowed domain" "$(cat "$log" 2> /dev/null)"
+    fi
+    rm -rf "$work"
+}
+
+test_subscription_fuller_list() {
+    header "Subscription: the Xray list is kept when the sing-box one has fewer nodes"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+
+    local drv="/tmp/netshift-fuller-$$.sh" out
+    cat > "$drv" << 'FULLERDRV'
+mkdir -p /usr/lib/netshift
+for f in helpers.jq helpers.sh sing_box_config_manager.sh sing_box_config_facade.sh linkfast.jq constants.sh; do
+    ln -sf "LIB_DIR_PLACEHOLDER/$f" "/usr/lib/netshift/$f"
+done
+NETSHIFT_LIB="LIB_DIR_PLACEHOLDER"
+. "LIB_DIR_PLACEHOLDER/constants.sh"
+. "LIB_DIR_PLACEHOLDER/helpers.sh"
+. "LIB_DIR_PLACEHOLDER/sing_box_config_manager.sh"
+. "LIB_DIR_PLACEHOLDER/sing_box_config_facade.sh"
+get_outbound_tag_by_section() { printf '%s-out' "$1"; }
+for fn in download_subscription_into_cache fetch_subscription_candidate ensure_subscription_cache_dir \
+          get_subscription_user_agent_cache_path get_subscription_rejected_cache_path \
+          subscription_url_cache_matches; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH_PLACEHOLDER")"
+done
+log() { :; }
+# the per-section format preference is the only UCI value read
+uci() { case "$*" in *subscription_format_preference*) printf '%s' "${TEST_FORMAT:-}" ;; *) return 1 ;; esac; }
+subscription_refresh_info() { :; }
+load_subscription_client_identity() { SUBSCRIPTION_USER_AGENT="${TEST_UA:-}"; }
+get_sing_box_version() { printf '1.12.0'; }
+SUBSCRIPTION_CACHE_FOLDER="$WORK/cache"
+TMP_SUBSCRIPTION_DOWNLOAD_FOLDER="$WORK/dl"
+# The panel: a sing-box client gets two nodes, an Xray client gets what XRAYFILE holds (four nodes: a
+# vless pair and two hysteria2; or one node; or a refusal).
+download_subscription() {
+    echo "$7" >> "$WORK/asked"
+    case "$7" in
+    singbox/*|Especial/*) cp "$WORK/singbox.json" "$2" ;;
+    Happ/*) [ "$XRAYFILE" != refuse ] || return 1; cp "$WORK/$XRAYFILE.json" "$2" ;;
+    *) return 1 ;;
+    esac
+}
+run() { download_subscription_into_cache main "https://sub.example.com/x" "$WORK/out.json" "$WORK/out.url" ""; }
+# state(): what the last refresh left
+state() {
+    printf 'count=%s asked=%s ua=%s marker=%s left=%s\n' "$(subscription_proxy_count "$WORK/out.json")" \
+        "$(tr '\n' ',' < "$WORK/asked")" "$(cat "$WORK/cache/main.user_agent" 2>/dev/null)" \
+        "$([ -e "$WORK/cache/main.user_agent.probed" ] && echo 1 || echo 0)" "$(ls -A "$WORK/dl" 2>/dev/null | wc -l | tr -d ' ')"
+}
+FULLERDRV
+    sed -i "s|LIB_DIR_PLACEHOLDER|${NETSHIFT_LIB_DIR}|g; s|BIN_PATH_PLACEHOLDER|${NETSHIFT_SRC}/usr/bin/netshift|g" "$drv"
+
+    local work="/tmp/netshift-fuller-work-$$"
+    mkdir -p "$work"
+    cat > "$work/singbox.json" << 'SBJSON'
+{"outbounds": [
+  {"type": "vless", "tag": "a", "server": "203.0.113.1", "server_port": 443, "uuid": "11111111-1111-1111-1111-111111111111"},
+  {"type": "vless", "tag": "b", "server": "203.0.113.2", "server_port": 443, "uuid": "11111111-1111-1111-1111-111111111111"},
+  {"type": "direct", "tag": "direct"}
+]}
+SBJSON
+    cat > "$work/four.json" << 'XRJSON'
+[
+  {"remarks": "One", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.1", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}},
+    {"protocol": "hysteria", "tag": "HY2", "settings": {"address": "203.0.113.1", "port": 443, "version": 2},
+     "streamSettings": {"network": "hysteria", "hysteriaSettings": {"version": 2, "auth": "secret"}, "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}}]},
+  {"remarks": "Two", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.2", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}},
+    {"protocol": "hysteria", "tag": "HY2", "settings": {"address": "203.0.113.2", "port": 443, "version": 2},
+     "streamSettings": {"network": "hysteria", "hysteriaSettings": {"version": 2, "auth": "secret"}, "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}}]}
+]
+XRJSON
+    cat > "$work/one.json" << 'XRONE'
+[
+  {"remarks": "One", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.1", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}}]}
+]
+XRONE
+    cat > "$work/equal.json" << 'XREQ'
+[
+  {"remarks": "One", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.1", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}}]},
+  {"remarks": "Two", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.2", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}}]}
+]
+XREQ
+    cat > "$work/object.json" << 'XROBJ'
+{"remarks": "One", "outbounds": [
+  {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.11", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+   "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}},
+  {"protocol": "vless", "tag": "proxy-2", "settings": {"vnext": [{"address": "203.0.113.12", "port": 443, "users": [{"id": "22222222-2222-2222-2222-222222222222", "encryption": "none"}]}]},
+   "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}},
+  {"protocol": "vless", "tag": "proxy-3", "settings": {"vnext": [{"address": "203.0.113.13", "port": 443, "users": [{"id": "33333333-3333-3333-3333-333333333333", "encryption": "none"}]}]},
+   "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "c.example.com"}}}
+]}
+XROBJ
+
+    # fuller_case <expected> <label> <env> [refreshes]: a fresh cache, N refreshes, the state after the last one
+    fuller_case() {
+        local want="$1" label="$2" env_str="$3" refreshes="${4:-1}"
+        out="$(env WORK="$work" $env_str sh -c '. "'"$drv"'"; rm -rf "$WORK/cache" "$WORK/dl"; : > "$WORK/asked"
+            n=0; while [ "$n" -lt '"$refreshes"' ]; do : > "$WORK/asked"; run; n=$((n + 1)); done; state' 2> /dev/null)"
+        if [ "$out" = "$want" ]; then
+            pass "$label"
+        else
+            fail "$label (got: $out)"
+        fi
+    }
+
+    fuller_case 'count=4 asked=singbox/1.12.0,Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
+        "xray-list-kept-over-shorter-singbox-list" "XRAYFILE=four"
+    # the Xray client that won is remembered: next refresh asks it first and only it
+    fuller_case 'count=4 asked=Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
+        "cached-xray-client-asked-first-and-alone" "XRAYFILE=four" 2
+    # the Xray answer is no fuller: the sing-box list stays, even though the Xray list is not identical to it
+    fuller_case 'count=2 asked=singbox/1.12.0,Happ/1.0.0, ua=singbox/1.12.0 marker=1 left=0' \
+        "singbox-list-kept-when-xray-is-shorter" "XRAYFILE=one"
+    # ... and that is believed for a day: no second request on the next refresh
+    fuller_case 'count=2 asked=singbox/1.12.0, ua=singbox/1.12.0 marker=1 left=0' \
+        "no-probe-while-the-marker-is-fresh" "XRAYFILE=one" 2
+    # a stale marker: the panel is asked again, and a fuller answer is taken
+    out="$(env WORK="$work" XRAYFILE=one sh -c '. "'"$drv"'"; rm -rf "$WORK/cache" "$WORK/dl"; run; touch -t 200001010000 "$WORK/cache/main.user_agent.probed"; XRAYFILE=four; : > "$WORK/asked"; run; state' 2> /dev/null)"
+    if [ "$out" = 'count=4 asked=singbox/1.12.0,Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' ]; then
+        pass "probe-again-when-the-marker-is-stale"
+    else
+        fail "probe-again-when-the-marker-is-stale (got: $out)"
+    fi
+    # the same number of nodes is not "fuller": the sing-box list and its User-Agent stay
+    fuller_case 'count=2 asked=singbox/1.12.0,Happ/1.0.0, ua=singbox/1.12.0 marker=1 left=0' \
+        "equal-lists-keep-the-singbox-user-agent" "XRAYFILE=equal"
+    # the panel refuses the Xray client: the refresh is not harmed, and the probe is not switched off
+    fuller_case 'count=2 asked=singbox/1.12.0,Happ/1.0.0, ua=singbox/1.12.0 marker=0 left=0' \
+        "refused-probe-keeps-the-list" "XRAYFILE=refuse"
+    # an explicit User-Agent and an explicit format are never overridden
+    fuller_case 'count=2 asked=Especial/9, ua=Especial/9 marker=0 left=0' \
+        "explicit-user-agent-is-not-probed" "XRAYFILE=four TEST_UA=Especial/9"
+    fuller_case 'count=2 asked=singbox/1.12.0, ua=singbox/1.12.0 marker=0 left=0' \
+        "format-singbox-is-not-probed" "XRAYFILE=four TEST_FORMAT=singbox"
+    fuller_case 'count=4 asked=Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
+        "format-xray-asks-the-xray-client-first" "XRAYFILE=four TEST_FORMAT=xray"
+    fuller_case 'count=3 asked=Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
+        "explicit-xray-object-is-converted" "XRAYFILE=object TEST_FORMAT=xray"
+    # one Xray client object is not a sing-box config: it is converted, and every outbound has a type
+    out="$(env WORK="$work" XRAYFILE=object sh -c '. "'"$drv"'"; rm -rf "$WORK/cache" "$WORK/dl"; : > "$WORK/asked"; run
+        printf "count=%s types=%s\n" "$(subscription_proxy_count "$WORK/out.json")" "$(jq -c "[.outbounds[].type]" "$WORK/out.json")"' 2> /dev/null)"
+    if [ "$out" = 'count=3 types=["vless","vless","vless"]' ]; then
+        pass "xray-object-is-converted-before-it-is-cached"
+    else
+        fail "xray-object-is-converted-before-it-is-cached (got: $out)"
+    fi
+    rm -rf "$work" "$drv"
+}
+
+test_xray_flat_outbound() {
+    header "Xray JSON with flat outbound settings (Xray 26: address, port and id in settings)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+
+    local src="/tmp/netshift-xrayflat-$$.json" out
+    # Synthetic placeholder values only.
+    cat > "$src" << 'XRAYJSON'
+[
+  {"remarks": "Flat", "outbounds": [
+    {"protocol": "vless", "tag": "flat-1",
+     "settings": {"address": "203.0.113.10", "port": 8443, "id": "11111111-1111-1111-1111-111111111111",
+                  "encryption": "none", "flow": "xtls-rprx-vision", "level": 8},
+     "streamSettings": {"network": "tcp", "security": "reality",
+       "realitySettings": {"serverName": "front.example.com", "publicKey": "PUBKEY", "shortId": "abcd", "fingerprint": "firefox"}}},
+    {"protocol": "trojan", "tag": "flat-2",
+     "settings": {"address": "203.0.113.11", "port": 443, "password": "secret"},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "t.example.com"}}},
+    {"protocol": "freedom", "tag": "direct"}
+  ]},
+  {"remarks": "More", "outbounds": [
+    {"protocol": "shadowsocks", "tag": "flat-ss",
+     "settings": {"address": "203.0.113.20", "port": 8388, "method": "aes-256-gcm", "password": "pw:1/2"}},
+    {"protocol": "shadowsocks", "tag": "ss-no-method",
+     "settings": {"address": "203.0.113.21", "port": 8388, "password": "pw123"}},
+    {"protocol": "hysteria", "tag": "flat-hy2",
+     "settings": {"address": "203.0.113.22", "port": 443, "version": 2},
+     "streamSettings": {"network": "hysteria", "hysteriaSettings": {"version": 2, "auth": "hy2secret"}, "security": "tls", "tlsSettings": {"serverName": "h.example.com"}}},
+    {"protocol": "vless", "tag": "both-forms",
+     "settings": {"address": "203.0.113.24", "port": 1111, "id": "44444444-4444-4444-4444-444444444444",
+                  "vnext": [{"address": "203.0.113.25", "port": 2222, "users": [{"id": "55555555-5555-5555-5555-555555555555", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}},
+    {"protocol": "vless", "tag": "no-port",
+     "settings": {"address": "203.0.113.26", "id": "66666666-6666-6666-6666-666666666666", "encryption": "none"}},
+    {"protocol": "vless", "tag": "no-id",
+     "settings": {"address": "203.0.113.27", "port": 443, "encryption": "none"}}
+  ]},
+  {"remarks": "Legacy", "outbounds": [
+    {"protocol": "vless", "tag": "legacy-1",
+     "settings": {"vnext": [{"address": "203.0.113.12", "port": 443,
+                  "users": [{"id": "22222222-2222-2222-2222-222222222222", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "l.example.com"}}}
+  ]}
+]
+XRAYJSON
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        xray_json_to_uri_lines "$src" 2> /dev/null
+    )"
+    rm -f "$src"
+
+    if printf '%s\n' "$out" | grep -q '^vless://11111111-1111-1111-1111-111111111111@203.0.113.10:8443?.*flow=xtls-rprx-vision'; then
+        pass "flat-vless-reality-with-flow"
+    else
+        fail "flat vless outbound not converted (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '^trojan://secret@203.0.113.11:443?'; then
+        pass "flat-trojan"
+    else
+        fail "flat trojan outbound not converted (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '^vless://22222222-2222-2222-2222-222222222222@203.0.113.12:443?'; then
+        pass "legacy-vnext-still-converted"
+    else
+        fail "vnext outbound no longer converted (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '^ss://aes-256-gcm:pw%3A1%2F2@203.0.113.20:8388'; then
+        pass "flat-shadowsocks-carries-its-method"
+    else
+        fail "flat shadowsocks lost the cipher (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '203.0.113.21'; then
+        fail "a shadowsocks node without a cipher was built (got: $out)"
+    else
+        pass "shadowsocks-without-method-dropped"
+    fi
+    if printf '%s\n' "$out" | grep -q '^hysteria2://hy2secret@203.0.113.22:443?'; then
+        pass "flat-hysteria2"
+    else
+        fail "flat hysteria2 not converted (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '^vless://55555555-5555-5555-5555-555555555555@203.0.113.25:2222?' &&
+        ! printf '%s\n' "$out" | grep -q '203.0.113.24'; then
+        pass "vnext-wins-over-flat-address"
+    else
+        fail "an outbound with both forms is not read from vnext alone (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '203.0.113.26\|203.0.113.27'; then
+        fail "a flat node without a port or an id was built (got: $out)"
+    else
+        pass "incomplete-flat-nodes-dropped"
+    fi
+    if [ "$(printf '%s\n' "$out" | grep -c .)" = "6" ]; then
+        pass "no-extra-or-missing-nodes"
+    else
+        fail "expected 6 nodes (got: $out)"
+    fi
+
+    # Whatever address reaches the fetchers (an INCY link, a hand-edited config), only http(s) is fetched
+    local guard
+    guard="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        log() { :; }
+        printf 'is:'
+        for u in http://a.example/x https://a.example/x HTTPS://A.example/x file:///etc/passwd ftp://a.example/x '--post-file=/etc/shadow' ''; do
+            subscription_url_is_http "$u" && printf 'y' || printf 'n'
+        done
+        printf '\n'
+        rm -f /tmp/netshift-guard-$$ /tmp/netshift-wget-$$
+        # A stub that succeeds and records its arguments. The real wget also refuses
+        # file://, so a green result against it would not prove the guard ran.
+        wget() {
+            printf '%s\n' "$*" >> /tmp/netshift-wget-$$
+            local prev="" arg out=""
+            for arg in "$@"; do
+                if [ "$prev" = "-O" ]; then
+                    out="$arg"
+                fi
+                prev="$arg"
+            done
+            [ -n "$out" ] && printf 'x' > "$out"
+            return 0
+        }
+        download_subscription "file:///etc/hostname" /tmp/netshift-guard-$$ "" 1 0 1 "" 0 && printf 'dl:fetched\n' || printf 'dl:refused\n'
+        [ -e /tmp/netshift-guard-$$ ] && printf 'file:written\n' || printf 'file:none\n'
+        check_subscription_connectivity "ftp://a.example/x" "" 1 0 1 && printf 'conn:ok\n' || printf 'conn:refused\n'
+        rm -f /tmp/netshift-guard-$$ /tmp/netshift-wget-$$
+    )"
+    if [ "$guard" = "is:yyynnnn
+dl:refused
+file:none
+conn:refused" ]; then
+        pass "only-http-subscription-addresses-are-fetched"
+    else
+        fail "the scheme guard of the subscription fetchers (got: $guard)"
+    fi
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
@@ -26119,7 +26628,7 @@ main() {
         filterpreview) test_filter_preview ;;
         sectiondns) test_section_own_dns ;;
         supportreport) test_support_report ;;
-        xrayflat) test_xray_flat_outbound ;;
+        fakeiplists) test_fakeip_rule_lists ;;
         *)
             # a test by its function name, with or without the test_ prefix ("hy2_hop")
             case "$target" in

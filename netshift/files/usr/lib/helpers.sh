@@ -1421,6 +1421,7 @@ get_subscription_user_agent() {
 #     an explicit UA always outranks the format preference).
 #   - auto/empty/unrecognised: emit "singbox/<ver>", then the preferred one,
 #     then the whitelist (SUBSCRIPTION_USER_AGENT_CANDIDATES) — today's order.
+#     Exception: a preferred (cached) one that is an Xray client comes first.
 #   - xray: emit the Xray-JSON UAs (SUBSCRIPTION_USER_AGENT_XRAY_CANDIDATES)
 #     FIRST (outranking the cached winner + default), then "singbox/<ver>",
 #     then the preferred one, then the rest of the whitelist.
@@ -1449,6 +1450,12 @@ build_subscription_user_agent_candidates() {
     if [ "$format_preference" = "xray" ]; then
         # shellcheck disable=SC2086 # word-splitting of the candidate lists is intentional
         set -- $SUBSCRIPTION_USER_AGENT_XRAY_CANDIDATES "$default_user_agent" "$preferred_user_agent" $SUBSCRIPTION_USER_AGENT_CANDIDATES
+    elif [ "$format_preference" != "singbox" ] && [ -n "$preferred_user_agent" ] &&
+        case " $SUBSCRIPTION_USER_AGENT_XRAY_CANDIDATES " in *" $preferred_user_agent "*) true ;; *) false ;; esac; then
+        # The cached winner is an Xray client: the panel gave it the fuller list last time, so it goes
+        # first and the sing-box answer is not asked for at all.
+        # shellcheck disable=SC2086 # word-splitting of the candidate list is intentional
+        set -- "$preferred_user_agent" "$default_user_agent" $SUBSCRIPTION_USER_AGENT_CANDIDATES
     else
         # shellcheck disable=SC2086 # word-splitting of the candidate list is intentional
         set -- "$default_user_agent" "$preferred_user_agent" $SUBSCRIPTION_USER_AGENT_CANDIDATES
@@ -1663,7 +1670,7 @@ download_subscription() {
 
     rm -f "$tmpfile"
     rm -f "$errfile"
-    log "Subscription download failed after $retries attempts: host=$(url_host_for_log "$url"), url=$(redact_url_for_log "$url")" "error"
+    log "Subscription download failed after $retries attempts: host=$(url_host_for_log "$url"), url=$(redact_url_for_log "$url")" "${SUBSCRIPTION_DOWNLOAD_FAIL_LEVEL:-error}"
     return 1
 }
 
@@ -1758,6 +1765,27 @@ _check_subscription_connectivity_once() {
     return 1
 }
 
+# Number of proxy outbounds (not groups or system ones) in a sing-box subscription file.
+subscription_proxy_count() {
+    jq -r '
+        [(.outbounds // [])[] | select(
+            .type != "selector" and .type != "urltest" and .type != "direct" and
+            .type != "dns" and .type != "block"
+        )] | length
+    ' "$1" 2> /dev/null || echo 0
+}
+
+# True when a new feed would replace a working cache with less than half the nodes.
+# A list shorter than 4 is not guarded: there is nothing established to protect.
+subscription_cache_shrunk() {
+    local old_count new_count
+
+    [ -s "$1" ] && [ -s "$2" ] || return 1
+    old_count="$(subscription_proxy_count "$1")"
+    new_count="$(subscription_proxy_count "$2")"
+    [ "$old_count" -ge 4 ] && [ "$new_count" -lt $((old_count / 2)) ]
+}
+
 validate_subscription_file() {
     local filepath="$1"
 
@@ -1766,6 +1794,7 @@ validate_subscription_file() {
     jq -e '
         type == "object" and
         (.outbounds | type == "array") and
+        all(.outbounds[]; type == "object" and (.type | type == "string" and length > 0)) and
         ([.outbounds[] | select(
             .type != "selector" and
             .type != "urltest" and

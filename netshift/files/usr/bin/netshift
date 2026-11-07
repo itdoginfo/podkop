@@ -788,6 +788,32 @@ wait_for_subscription_connectivity() {
     return 1
 }
 
+# Downloads one subscription feed with a single User-Agent into $3 and leaves a valid
+# sing-box config there (a base64/plain/Xray/Clash body is converted on the way).
+# Returns 1 when the panel did not answer, or answered with nothing usable.
+fetch_subscription_candidate() {
+    local section="$1" url="$2" out="$3" proxy="$4" user_agent="$5" insecure="$6"
+    local converted="${out}.cv"
+    # An extra request that the panel may refuse is not an error of the refresh
+    local SUBSCRIPTION_DOWNLOAD_FAIL_LEVEL=debug
+
+    download_subscription "$url" "$out" "$proxy" 1 2 10 "$user_agent" "$insecure" || return 1
+    maybe_gunzip_subscription_file "$out"
+    subscription_body_is_binary "$out" && return 1
+    # A single Xray client object also has .outbounds, but its outbounds have
+    # .protocol and no string .type. That is not a sing-box config: convert it.
+    validate_subscription_file "$out" && ! jq -e '
+        [.outbounds[]? | select((.type | type) != "string" or (.type | length) == 0)] | length > 0
+    ' "$out" > /dev/null 2>&1 && return 0
+
+    if normalize_subscription_to_singbox "$out" "$converted" "$section" && validate_subscription_file "$converted"; then
+        mv -f "$converted" "$out"
+        return 0
+    fi
+    rm -f "$converted"
+    return 1
+}
+
 download_subscription_into_cache() {
     local section="$1"
     local subscription_url="$2"
@@ -801,6 +827,7 @@ download_subscription_into_cache() {
     local configured_user_agent user_agent_cache_path cached_user_agent candidates_file
     local effective_user_agent download_ok winning_user_agent ua_tmpfile
     local subscription_insecure subscription_format_preference
+    local alt_user_agent alt_tmpfile best_count alt_count probed_marker
     local SUBSCRIPTION_HWID SUBSCRIPTION_DEVICE_OS SUBSCRIPTION_OS_VERSION SUBSCRIPTION_DEVICE_MODEL SUBSCRIPTION_USER_AGENT
 
     ensure_subscription_cache_dir || {
@@ -854,7 +881,10 @@ download_subscription_into_cache() {
     winning_user_agent=""
     fallback_tmp="${tmpfile}.fb"
     # Each candidate gets the full download (with its own retries) + validate +
-    # fallback-normalize pipeline. First success wins.
+    # fallback-normalize pipeline. First success wins. A candidate the panel
+    # refuses is a warning: the refresh can still succeed on the next one, and
+    # an [error] line would toast a refresh that worked.
+    SUBSCRIPTION_DOWNLOAD_FAIL_LEVEL=warn
     while IFS= read -r effective_user_agent || [ -n "$effective_user_agent" ]; do
         [ -n "$effective_user_agent" ] || continue
 
@@ -898,6 +928,7 @@ download_subscription_into_cache() {
         validation_reason="$(describe_subscription_validation_failure "$tmpfile")"
         log "Downloaded subscription for section '$section' is invalid with User-Agent '$effective_user_agent': ${validation_reason:-unknown validation error}; trying next candidate" "warn"
     done < "$candidates_file"
+    unset SUBSCRIPTION_DOWNLOAD_FAIL_LEVEL
     rm -f "$candidates_file"
 
     if [ "$download_ok" -ne 1 ]; then
@@ -905,6 +936,41 @@ download_subscription_into_cache() {
         rm -f "$tmpfile" "$fallback_tmp"
         return 13
     fi
+
+    # Panels answer a sing-box client with the nodes their sing-box template can express and an
+    # Xray client with the whole list (xhttp, hysteria2, chains). The first UA that gave a valid
+    # body won above, so ask once more as an Xray client and keep the fuller list. An Xray client
+    # that won is cached and goes first next time (no second request); when the Xray answer was no
+    # fuller, that is remembered for SUBSCRIPTION_XRAY_PROBE_TTL_MINUTES.
+    case " $SUBSCRIPTION_USER_AGENT_XRAY_CANDIDATES " in
+    *" $winning_user_agent "*) ;;
+    *)
+        probed_marker="${user_agent_cache_path}.probed"
+        if [ -z "$configured_user_agent" ] && [ "$subscription_format_preference" = "auto" ] &&
+            [ -z "$(find "$probed_marker" -mmin "-$SUBSCRIPTION_XRAY_PROBE_TTL_MINUTES" 2>/dev/null)" ]; then
+            best_count="$(subscription_proxy_count "$tmpfile")"
+            alt_tmpfile="${tmpfile}.alt"
+            # the first Xray client only: one more request, one more body in the temporary folder
+            alt_user_agent="${SUBSCRIPTION_USER_AGENT_XRAY_CANDIDATES%% *}"
+            if fetch_subscription_candidate "$section" "$subscription_url" "$alt_tmpfile" "$service_proxy_address" "$alt_user_agent" "$subscription_insecure"; then
+                alt_count="$(subscription_proxy_count "$alt_tmpfile")"
+                if [ "$alt_count" -gt "$best_count" ]; then
+                    log "Subscription for section '$section' has $alt_count nodes with User-Agent '$alt_user_agent' against $best_count with '$winning_user_agent'; using the fuller list" "info"
+                    mv -f "$alt_tmpfile" "$tmpfile"
+                    winning_user_agent="$alt_user_agent"
+                    rm -f "$probed_marker"
+                else
+                    # Remember "not fuller" only. A refusal or a timeout must not
+                    # turn the probe off for a day.
+                    : > "$probed_marker" 2>/dev/null
+                fi
+            else
+                log "Section '$section': the panel gave no usable list to User-Agent '$alt_user_agent'; keeping the one of '$winning_user_agent'" "debug"
+            fi
+            rm -f "$alt_tmpfile"
+        fi
+        ;;
+    esac
 
     # Persist the winning User-Agent so the next refresh tries it first.
     if [ -n "$winning_user_agent" ]; then
@@ -927,6 +993,14 @@ download_subscription_into_cache() {
         log "Downloaded subscription for section '$section' is unchanged and was previously rejected because it contains no usable sing-box outbounds" "warn"
         rm -f "$tmpfile"
         return 14
+    fi
+
+    # A panel that answers 200 with an empty or cut-down body must not replace
+    # a working cache. Clearing the cache is how a real shorter list is accepted.
+    if subscription_cache_shrunk "$subscription_json_path" "$tmpfile"; then
+        log "Subscription for section '$section' shrank from $(subscription_proxy_count "$subscription_json_path") nodes to $(subscription_proxy_count "$tmpfile"); keeping the previous list. Clear the cache to accept the shorter one" "warn"
+        rm -f "$tmpfile"
+        return 2
     fi
 
     if [ -f "$subscription_json_path" ] && cmp -s "$tmpfile" "$subscription_json_path"; then
@@ -1502,15 +1576,18 @@ start() {
     local start_rc dont_touch_dhcp
 
     # until this start has succeeded no configuration is "the one the service runs with"
+    echo $$ > /var/run/netshift.starting
     config_applied_hash_clear
     start_main
     start_rc=$?
 
     if [ "$start_rc" -eq 2 ]; then
+        rm -f /var/run/netshift.starting
         return 0
     fi
 
     if [ "$start_rc" -ne 0 ]; then
+        rm -f /var/run/netshift.starting
         return "$start_rc"
     fi
 
@@ -1527,6 +1604,24 @@ start() {
     config_applied_hash_save
     start_sing_box_monitor
     auto_update_schedule_boot_run
+    rm -f /var/run/netshift.starting
+}
+
+# Called when WAN comes up. Start only if the monitor is gone: a boot that
+# already reached start() must not be started a second time.
+wan_up() {
+    local monitor_pid
+
+    [ -f /var/run/netshift.starting ] && return 0
+    ip route show default 2> /dev/null | grep -q . || return 0
+    if [ -f "$MONITOR_PIDFILE" ]; then
+        monitor_pid=$(cat "$MONITOR_PIDFILE" 2> /dev/null)
+        if [ -n "$monitor_pid" ] && kill -0 "$monitor_pid" 2> /dev/null; then
+            return 0
+        fi
+    fi
+    log "WAN is up and the sing-box monitor is not running; starting NetShift" "info"
+    start
 }
 
 _kill_stale_sing_box_monitors() {
@@ -1902,6 +1997,14 @@ monitor_sing_box() {
         if [ "$shutdown_correctly" -eq 1 ]; then
             log "sing-box shutdown detected, exiting monitor" "info"
             break
+        fi
+
+        # A boot with no WAN makes sing-box exit immediately. That is not a broken
+        # config: do not spend the crash budget, and try again once a route exists.
+        if ! ip route show default 2> /dev/null | grep -q .; then
+            log "No default route; sing-box is not counted as a crash. Waiting for WAN." "warn"
+            sleep 60
+            continue
         fi
 
         crash_count=$((crash_count + 1))
@@ -5395,7 +5498,14 @@ sing_box_configure_dns() {
     config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_DNS_RULE_TAG")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
     service_domains=$(comma_string_to_json_array "$FAKEIP_TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
-    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
+    # The service domains have a rule of their own, apart from the rule-sets: since sing-box 1.14 a
+    # rule-set of several rules (the community list "discord") next to "domain" in one rule is an
+    # extra condition that has to match together with it, and neither the domains nor the list match.
+    # The rule above has no condition until a list is added; sing_box_configure_route drops it
+    # (prune_fakeip_dns_rule_without_lists) when none is.
+    config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "domain" "$service_domains")
 
     # After the FakeIP rule: a domain that is also in a proxy/VPN list stays on its
     # FakeIP path, the DNS sections only take over domains that go out directly.
@@ -6022,6 +6132,77 @@ sing_box_configure_dns_pool() {
     esac
 }
 
+# One domain or community list in two sections, or a broader domain earlier than
+# a name under it. sing-box uses the first matching rule, so the earlier section
+# wins and the later one never sees that traffic. Warnings only: the config is
+# still built.
+_overlap_note() {
+    printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$OVERLAP_FILE"
+}
+
+_overlap_domain() {
+    [ -n "$1" ] || return 0
+    _overlap_note "$OVERLAP_SECTION" "$OVERLAP_TYPE" domain "$1"
+}
+
+_overlap_list() {
+    [ -n "$1" ] || return 0
+    _overlap_note "$OVERLAP_SECTION" "$OVERLAP_TYPE" list "$1"
+}
+
+_overlap_collect() {
+    local section="$1"
+    local connection_type
+
+    config_get connection_type "$section" "connection_type"
+    case "$connection_type" in
+    proxy | exclusion | dns) ;;
+    *) return 0 ;;
+    esac
+
+    OVERLAP_SECTION="$section"
+    OVERLAP_TYPE="$connection_type"
+    config_list_foreach "$section" "user_domains" _overlap_domain
+    config_list_foreach "$section" "community_lists" _overlap_list
+}
+
+warn_section_rule_overlaps() {
+    local file line
+
+    file="$(mktemp)"
+    OVERLAP_FILE="$file"
+    foreach_active_section _overlap_collect section
+    while IFS= read -r line; do
+        case "$line" in
+        same\ *) log "Sections share a routing ${line#same }: the first section in the config wins" "warn" ;;
+        shadow\ *) log "A broader domain is listed before a name under it (${line#shadow }): the broader section takes that traffic" "warn" ;;
+        esac
+    done << EOF
+$(awk -F '\t' '
+    NF < 4 { next }
+    { n++; sec[n] = $1; typ[n] = $2; kind[n] = $3; val[n] = $4 }
+    END {
+        for (i = 1; i <= n; i++) {
+            for (j = i + 1; j <= n; j++) {
+                if (kind[i] != kind[j] || val[i] != val[j] || sec[i] == sec[j]) continue
+                print "same", kind[i], val[i], sec[i] "(" typ[i] ")", sec[j] "(" typ[j] ")"
+            }
+        }
+        for (i = 1; i <= n; i++) {
+            if (kind[i] != "domain") continue
+            for (j = 1; j <= n; j++) {
+                if (i >= j || kind[j] != "domain" || sec[i] == sec[j]) continue
+                suffix = "." val[i]
+                if (length(val[j]) > length(suffix) && substr(val[j], length(val[j]) - length(suffix) + 1) == suffix)
+                    print "shadow", val[i], sec[i], "covers", val[j], sec[j]
+            }
+        }
+    }
+' "$file")
+EOF
+    rm -f "$file"
+}
+
 sing_box_configure_route() {
     log "Configure the route section of a sing-box JSON configuration"
 
@@ -6154,6 +6335,16 @@ sing_box_configure_route() {
     prune_dns_section_rules_without_domains
     prune_ipv6_real_dns_rules_without_domains
     prune_section_resolve_rules_without_domains
+    prune_fakeip_dns_rule_without_lists
+    warn_section_rule_overlaps
+}
+
+# The FakeIP rule of the lists carries "rule_set" only. Without a list (or with an empty one) it has
+# no condition at all and would give EVERY query of the router a FakeIP address: drop it. Called at the
+# end of sing_box_configure_route, once every section has added its lists.
+prune_fakeip_dns_rule_without_lists() {
+    config=$(printf '%s' "$config" | jq -c --arg tag "$SB_FAKEIP_DNS_RULE_TAG" --arg key "$SERVICE_TAG" '
+        .dns.rules |= map(select(((.[$key] // "") != $tag) or (((.rule_set // []) | if type == "array" then length else 1 end) > 0)))')
 }
 
 # A DNS section selects its queries by the domain rule-sets of its lists. A section
@@ -9243,6 +9434,7 @@ Available commands:
     stop                    Stop NetShift service
     reload                  Reload NetShift configuration
     restart                 Restart NetShift service
+    wan_up                  Start NetShift when WAN appears, if the monitor is not running
     main                    Run main NetShift process
     list_update             Update domain lists
     subscription_update     Update subscription proxies; with an interval
@@ -9325,6 +9517,9 @@ apply_config)
     ;;
 restart)
     restart
+    ;;
+wan_up)
+    wan_up
     ;;
 main)
     main
