@@ -7554,6 +7554,22 @@ STUBEOF
         fail "failed worker status wrong" "$fail_status"
     fi
 
+    fail_json="$(JOBSTUB_DIR="$jdir" STUB_RC=0 STUB_JSON='{"success":false,"message":"reported failure"}' \
+        "$stub" component_action_async sing_box install_extended)"
+    fail_id="$(echo "$fail_json" | jq -r '.job_id')"
+    waited=0
+    while [ "$waited" -lt 15 ]; do
+        jq -e '.running == false' "$jdir/$fail_id.json" > /dev/null 2>&1 && break
+        sleep 1
+        waited=$((waited + 1))
+    done
+    fail_status="$(JOBSTUB_DIR="$jdir" "$stub" component_action_status "$fail_id")"
+    if echo "$fail_status" | jq -e '.success == false and .exit_code == 0 and .message == "reported failure"' > /dev/null 2>&1; then
+        pass "worker explicit false survives zero exit status"
+    else
+        fail "worker explicit false lost" "$fail_status"
+    fi
+
     # ── 2c. worker stdout polluted with log lines: last JSON object wins ─────
     local noisy_json noisy_id noisy_status
     noisy_json="$(JOBSTUB_DIR="$jdir" \
@@ -25816,6 +25832,32 @@ LR
     _sr "no crash in the log: nothing" "crash-none=[]"
     rm -rf "$work"
 }
+
+test_component_update_lock() {
+    header "Component updates are serialized"
+    local work out
+    work="/tmp/netshift-component-lock-$$"
+    mkdir -p "$work"
+    out="$(
+        . "$NETSHIFT_LIB_DIR/updater.sh"
+        UPDATES_COMPONENT_LOCK_FILE="$work/lock"
+        slow_update() { : > "$work/started"; sleep 3; echo '{"success":true}'; }
+        fast_update() { echo '{"success":true}'; }
+        updates_with_component_lock slow_update > "$work/first" &
+        pid=$!
+        n=0
+        while [ ! -f "$work/started" ] && [ "$n" -lt 10 ]; do sleep 1; n=$((n + 1)); done
+        if updates_with_component_lock fast_update > "$work/second"; then echo concurrent=allowed; else echo concurrent=refused; fi
+        wait "$pid"
+        if updates_with_component_lock fast_update > /dev/null; then echo after=allowed; else echo after=refused; fi
+        jq -r '.success' "$work/second"
+    )"
+    expect_line "$out" "concurrent component update is refused" "concurrent=refused"
+    expect_line "$out" "the lock is released after the update" "after=allowed"
+    expect_line "$out" "the refused update returns a failure JSON" "false"
+    rm -rf "$work"
+}
+
 
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
