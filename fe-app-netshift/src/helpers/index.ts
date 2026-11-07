@@ -29,3 +29,4 @@ export * from './subscriptionInfo';
 export * from './coreCapabilities';
 export * from './feedList';
 export * from './clientIdentity';
+export * from './incy';

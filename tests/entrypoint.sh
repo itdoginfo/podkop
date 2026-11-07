@@ -26325,6 +26325,153 @@ XROBJ
     rm -rf "$work" "$drv"
 }
 
+test_xray_flat_outbound() {
+    header "Xray JSON with flat outbound settings (Xray 26: address, port and id in settings)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+
+    local src="/tmp/netshift-xrayflat-$$.json" out
+    # Synthetic placeholder values only.
+    cat > "$src" << 'XRAYJSON'
+[
+  {"remarks": "Flat", "outbounds": [
+    {"protocol": "vless", "tag": "flat-1",
+     "settings": {"address": "203.0.113.10", "port": 8443, "id": "11111111-1111-1111-1111-111111111111",
+                  "encryption": "none", "flow": "xtls-rprx-vision", "level": 8},
+     "streamSettings": {"network": "tcp", "security": "reality",
+       "realitySettings": {"serverName": "front.example.com", "publicKey": "PUBKEY", "shortId": "abcd", "fingerprint": "firefox"}}},
+    {"protocol": "trojan", "tag": "flat-2",
+     "settings": {"address": "203.0.113.11", "port": 443, "password": "secret"},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "t.example.com"}}},
+    {"protocol": "freedom", "tag": "direct"}
+  ]},
+  {"remarks": "More", "outbounds": [
+    {"protocol": "shadowsocks", "tag": "flat-ss",
+     "settings": {"address": "203.0.113.20", "port": 8388, "method": "aes-256-gcm", "password": "pw:1/2"}},
+    {"protocol": "shadowsocks", "tag": "ss-no-method",
+     "settings": {"address": "203.0.113.21", "port": 8388, "password": "pw123"}},
+    {"protocol": "hysteria", "tag": "flat-hy2",
+     "settings": {"address": "203.0.113.22", "port": 443, "version": 2},
+     "streamSettings": {"network": "hysteria", "hysteriaSettings": {"version": 2, "auth": "hy2secret"}, "security": "tls", "tlsSettings": {"serverName": "h.example.com"}}},
+    {"protocol": "vless", "tag": "both-forms",
+     "settings": {"address": "203.0.113.24", "port": 1111, "id": "44444444-4444-4444-4444-444444444444",
+                  "vnext": [{"address": "203.0.113.25", "port": 2222, "users": [{"id": "55555555-5555-5555-5555-555555555555", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}},
+    {"protocol": "vless", "tag": "no-port",
+     "settings": {"address": "203.0.113.26", "id": "66666666-6666-6666-6666-666666666666", "encryption": "none"}},
+    {"protocol": "vless", "tag": "no-id",
+     "settings": {"address": "203.0.113.27", "port": 443, "encryption": "none"}}
+  ]},
+  {"remarks": "Legacy", "outbounds": [
+    {"protocol": "vless", "tag": "legacy-1",
+     "settings": {"vnext": [{"address": "203.0.113.12", "port": 443,
+                  "users": [{"id": "22222222-2222-2222-2222-222222222222", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "l.example.com"}}}
+  ]}
+]
+XRAYJSON
+    out="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        xray_json_to_uri_lines "$src" 2> /dev/null
+    )"
+    rm -f "$src"
+
+    if printf '%s\n' "$out" | grep -q '^vless://11111111-1111-1111-1111-111111111111@203.0.113.10:8443?.*flow=xtls-rprx-vision'; then
+        pass "flat-vless-reality-with-flow"
+    else
+        fail "flat vless outbound not converted (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '^trojan://secret@203.0.113.11:443?'; then
+        pass "flat-trojan"
+    else
+        fail "flat trojan outbound not converted (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '^vless://22222222-2222-2222-2222-222222222222@203.0.113.12:443?'; then
+        pass "legacy-vnext-still-converted"
+    else
+        fail "vnext outbound no longer converted (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '^ss://aes-256-gcm:pw%3A1%2F2@203.0.113.20:8388'; then
+        pass "flat-shadowsocks-carries-its-method"
+    else
+        fail "flat shadowsocks lost the cipher (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '203.0.113.21'; then
+        fail "a shadowsocks node without a cipher was built (got: $out)"
+    else
+        pass "shadowsocks-without-method-dropped"
+    fi
+    if printf '%s\n' "$out" | grep -q '^hysteria2://hy2secret@203.0.113.22:443?'; then
+        pass "flat-hysteria2"
+    else
+        fail "flat hysteria2 not converted (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '^vless://55555555-5555-5555-5555-555555555555@203.0.113.25:2222?' &&
+        ! printf '%s\n' "$out" | grep -q '203.0.113.24'; then
+        pass "vnext-wins-over-flat-address"
+    else
+        fail "an outbound with both forms is not read from vnext alone (got: $out)"
+    fi
+    if printf '%s\n' "$out" | grep -q '203.0.113.26\|203.0.113.27'; then
+        fail "a flat node without a port or an id was built (got: $out)"
+    else
+        pass "incomplete-flat-nodes-dropped"
+    fi
+    if [ "$(printf '%s\n' "$out" | grep -c .)" = "6" ]; then
+        pass "no-extra-or-missing-nodes"
+    else
+        fail "expected 6 nodes (got: $out)"
+    fi
+
+    # Whatever address reaches the fetchers (an INCY link, a hand-edited config), only http(s) is fetched
+    local guard
+    guard="$(
+        . "$lib/constants.sh"
+        . "$lib/helpers.sh"
+        log() { :; }
+        printf 'is:'
+        for u in http://a.example/x https://a.example/x HTTPS://A.example/x file:///etc/passwd ftp://a.example/x '--post-file=/etc/shadow' ''; do
+            subscription_url_is_http "$u" && printf 'y' || printf 'n'
+        done
+        printf '\n'
+        rm -f /tmp/netshift-guard-$$ /tmp/netshift-wget-$$
+        # A stub that succeeds and records its arguments. The real wget also refuses
+        # file://, so a green result against it would not prove the guard ran.
+        wget() {
+            printf '%s\n' "$*" >> /tmp/netshift-wget-$$
+            local prev="" arg out=""
+            for arg in "$@"; do
+                if [ "$prev" = "-O" ]; then
+                    out="$arg"
+                fi
+                prev="$arg"
+            done
+            [ -n "$out" ] && printf 'x' > "$out"
+            return 0
+        }
+        download_subscription "file:///etc/hostname" /tmp/netshift-guard-$$ "" 1 0 1 "" 0 && printf 'dl:fetched\n' || printf 'dl:refused\n'
+        [ -e /tmp/netshift-guard-$$ ] && printf 'file:written\n' || printf 'file:none\n'
+        check_subscription_connectivity "ftp://a.example/x" "" 1 0 1 && printf 'conn:ok\n' || printf 'conn:refused\n'
+        rm -f /tmp/netshift-guard-$$ /tmp/netshift-wget-$$
+    )"
+    if [ "$guard" = "is:yyynnnn
+dl:refused
+file:none
+conn:refused" ]; then
+        pass "only-http-subscription-addresses-are-fetched"
+    else
+        fail "the scheme guard of the subscription fetchers (got: $guard)"
+    fi
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"

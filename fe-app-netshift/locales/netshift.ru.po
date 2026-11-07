@@ -1,15 +1,15 @@
 # RU translations for NETSHIFT package.
 # Copyright (C) 2026 THE NETSHIFT'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the NETSHIFT package.
-# agent, 2026.
+# cergo666, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: NETSHIFT\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-22 21:36+0300\n"
-"PO-Revision-Date: 2026-10-22 21:36+0300\n"
-"Last-Translator: agent\n"
+"POT-Creation-Date: 2026-11-05 11:21+0300\n"
+"PO-Revision-Date: 2026-11-05 11:21+0300\n"
+"Last-Translator: cergo666\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -77,8 +77,8 @@ msgstr "Добавить сервер: выберите из списка или
 msgid "Add feeds from a list"
 msgstr "Добавить ленты из списка"
 
-msgid "Add one or more subscription URLs to fetch proxy configurations from. All feeds are downloaded and merged."
-msgstr "Добавьте один или несколько URL подписок для получения конфигураций прокси. Все источники загружаются и объединяются."
+msgid "Add one or more subscription URLs to fetch proxy configurations from. All feeds are downloaded and merged. A link of the INCY apps (incy://crypt1/...) is replaced by the address it holds when you save."
+msgstr "Добавьте один или несколько URL подписок для получения конфигураций прокси. Все источники загружаются и объединяются. Ссылка приложений INCY (incy://crypt1/...) при сохранении заменяется адресом, который в ней записан."
 
 msgid "Add the feeds"
 msgstr "Добавить ленты"
@@ -1999,6 +1999,9 @@ msgstr "Подписка ещё не скачана: сначала сохран
 
 msgid "This core is built without QUIC: DoH3 and DoQ servers are replaced by DoH and DoT."
 msgstr "Это ядро собрано без QUIC: серверы DoH3 и DoQ заменяются на DoH и DoT."
+
+msgid "This INCY link cannot be read"
+msgstr "Эту ссылку INCY не удаётся прочитать"
 
 msgid "This is a security trade-off: an attacker could intercept the fetch."
 msgstr "Это компромисс в безопасности: злоумышленник может перехватить загрузку."

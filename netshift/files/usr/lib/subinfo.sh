@@ -81,6 +81,12 @@ subscription_refresh_info() {
     local insecure="$6"
     local headers_file info path tmp
 
+    # http(s) only: curl would also read file:// as root (same rule as subscription_url_is_http)
+    case "$url" in
+    [Hh][Tt][Tt][Pp]://* | [Hh][Tt][Tt][Pp][Ss]://*) ;;
+    *) return 0 ;;
+    esac
+
     command -v curl > /dev/null 2>&1 || return 0
     ensure_subscription_cache_dir > /dev/null 2>&1 || return 0
 

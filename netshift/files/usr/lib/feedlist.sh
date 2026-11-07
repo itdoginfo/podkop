@@ -55,12 +55,12 @@ fetch_feed_list() {
 
     # Same rule as a subscription address, including HTTPS:// (the case below was
     # the only one that required a lower-case scheme).
-    case "$url" in
-    [hH][tT][tT][pP]://* | [hH][tT][tT][pP][sS]://*) ;;
-    *)
+    # Same rule as a subscription address, including HTTPS:// (the case below was
+    # the only one that required a lower-case scheme).
+    if ! subscription_url_is_http "$url"; then
         jq -n -c '{ok: false, error: "the address of the list must start with http:// or https://"}'
-        return 1 ;;
-    esac
+        return 1
+    fi
 
     feed_workdir="$(umask 077; mktemp -d "${TMPDIR:-/tmp}/netshift-feed-list.XXXXXX")" || return 1
     proxy="$(updates_components_proxy_address)"
