@@ -8,6 +8,8 @@ export const DEVICE_ROUTE_DEFAULT = '';
 // Not a possible UCI section name (those never contain ':'), so it can not be
 // mistaken for the name of a section the device is routed through.
 export const DEVICE_ROUTE_EXCLUDED = 'netshift:excluded';
+// Display only: a group whose addresses have different routes.
+export const DEVICE_ROUTE_MIXED = 'netshift:mixed';
 
 export interface DeviceRoutingState {
   // section name -> its fully_routed_ips
@@ -69,6 +71,35 @@ export function setDeviceRoute(
   }
 
   return { sections, excluded };
+}
+
+export function getDeviceGroupRoute(
+  state: DeviceRoutingState,
+  ips: string[],
+): string {
+  if (!ips.length) {
+    return DEVICE_ROUTE_DEFAULT;
+  }
+
+  const route = getDeviceRoute(state, ips[0]);
+  return ips.every((ip) => getDeviceRoute(state, ip) === route)
+    ? route
+    : DEVICE_ROUTE_MIXED;
+}
+
+export function setDeviceGroupRoute(
+  state: DeviceRoutingState,
+  ips: string[],
+  route: string,
+): DeviceRoutingState {
+  if (route === DEVICE_ROUTE_MIXED) {
+    return state;
+  }
+
+  return [...new Set(ips)].reduce(
+    (next, ip) => setDeviceRoute(next, ip, route),
+    state,
+  );
 }
 
 // Source IPs that appear in the lists, in first-seen order and without

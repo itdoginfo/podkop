@@ -18,6 +18,51 @@ export interface LanInfo {
 
 export const EMPTY_LAN_INFO: LanInfo = { subnets: [], staticHosts: [] };
 
+export interface LanDeviceAddress {
+  ip: string;
+  mac: string;
+  name: string;
+  offline?: boolean;
+}
+
+export interface LanDevice extends LanDeviceAddress {
+  addresses: string[];
+}
+
+export function groupDeviceAddresses(entries: LanDeviceAddress[]): LanDevice[] {
+  const groups = new Map<string, LanDevice>();
+
+  for (const entry of entries) {
+    const key = entry.mac ? `mac:${entry.mac.toUpperCase()}` : `ip:${entry.ip}`;
+    const group = groups.get(key);
+
+    if (!group) {
+      groups.set(key, {
+        ...entry,
+        addresses: [entry.ip],
+        offline: !!entry.offline,
+      });
+      continue;
+    }
+
+    if (!group.addresses.includes(entry.ip)) {
+      group.addresses.push(entry.ip);
+    }
+
+    group.name ||= entry.name;
+    group.offline = group.offline && !!entry.offline;
+  }
+
+  return [...groups.values()].map((group) => {
+    group.addresses = [
+      ...group.addresses.filter((ip) => ipv4ToNumber(ip) !== null),
+      ...group.addresses.filter((ip) => ipv4ToNumber(ip) === null),
+    ];
+    group.ip = group.addresses[0];
+    return group;
+  });
+}
+
 function ipv4ToNumber(ip: string): number | null {
   const parts = ip.split('.');
 
@@ -117,7 +162,7 @@ export function findStaticLease(
 
 // Does the device match what was typed in the search box (name, address, MAC)?
 export function deviceMatchesQuery(
-  device: { name: string; ip: string; mac: string },
+  device: { name: string; ip: string; mac: string; addresses?: string[] },
   query: string,
 ): boolean {
   const needle = query.trim().toLowerCase();
@@ -126,8 +171,8 @@ export function deviceMatchesQuery(
     return true;
   }
 
-  return [device.name, device.ip, device.mac].some((field) =>
-    field.toLowerCase().includes(needle),
+  return [device.name, device.ip, device.mac, ...(device.addresses ?? [])].some(
+    (field) => field.toLowerCase().includes(needle),
   );
 }
 
