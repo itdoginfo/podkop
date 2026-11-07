@@ -26091,6 +26091,38 @@ test_wan_wait() {
     fi
 }
 
+test_subscription_shrink_guard() {
+    header "A short subscription answer does not replace a working cache"
+
+    # shellcheck disable=SC1090
+    . "$NETSHIFT_LIB_DIR/helpers.sh"
+    local work old new
+    work="/tmp/netshift-shrink-$$"
+    mkdir -p "$work"
+    old="$work/old.json"
+    new="$work/new.json"
+    printf '%s\n' '{"outbounds":[{"type":"vless"},{"type":"vless"},{"type":"vless"},{"type":"vless"},{"type":"direct"}]}' > "$old"
+    printf '%s\n' '{"outbounds":[{"type":"vless"},{"type":"direct"}]}' > "$new"
+    if subscription_cache_shrunk "$old" "$new"; then
+        pass "half-or-less-is-a-shrink"
+    else
+        fail "4 nodes to 1 was not treated as a shrink"
+    fi
+    printf '%s\n' '{"outbounds":[{"type":"vless"},{"type":"vless"},{"type":"vless"}]}' > "$new"
+    if subscription_cache_shrunk "$old" "$new"; then
+        fail "3 of 4 nodes was treated as a shrink"
+    else
+        pass "more-than-half-is-kept"
+    fi
+    printf '%s\n' '{"outbounds":[{"type":"vless"},{"type":"vless"}]}' > "$old"
+    if subscription_cache_shrunk "$old" "$new"; then
+        fail "a short cache was guarded"
+    else
+        pass "a-cache-under-4-nodes-is-not-guarded"
+    fi
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"

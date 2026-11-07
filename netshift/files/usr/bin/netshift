@@ -929,6 +929,14 @@ download_subscription_into_cache() {
         return 14
     fi
 
+    # A panel that answers 200 with an empty or cut-down body must not replace
+    # a working cache. Clearing the cache is how a real shorter list is accepted.
+    if subscription_cache_shrunk "$subscription_json_path" "$tmpfile"; then
+        log "Subscription for section '$section' shrank from $(subscription_proxy_count "$subscription_json_path") nodes to $(subscription_proxy_count "$tmpfile"); keeping the previous list. Clear the cache to accept the shorter one" "warn"
+        rm -f "$tmpfile"
+        return 2
+    fi
+
     if [ -f "$subscription_json_path" ] && cmp -s "$tmpfile" "$subscription_json_path"; then
         rm -f "$tmpfile"
         if ! subscription_url_cache_matches "$subscription_url_cache_path" "$subscription_url"; then
