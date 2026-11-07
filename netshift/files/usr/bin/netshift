@@ -5395,7 +5395,14 @@ sing_box_configure_dns() {
     config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_DNS_RULE_TAG")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
     service_domains=$(comma_string_to_json_array "$FAKEIP_TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
-    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
+    # The service domains have a rule of their own, apart from the rule-sets: since sing-box 1.14 a
+    # rule-set of several rules (the community list "discord") next to "domain" in one rule is an
+    # extra condition that has to match together with it, and neither the domains nor the list match.
+    # The rule above has no condition until a list is added; sing_box_configure_route drops it
+    # (prune_fakeip_dns_rule_without_lists) when none is.
+    config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "domain" "$service_domains")
 
     # After the FakeIP rule: a domain that is also in a proxy/VPN list stays on its
     # FakeIP path, the DNS sections only take over domains that go out directly.
@@ -6154,6 +6161,15 @@ sing_box_configure_route() {
     prune_dns_section_rules_without_domains
     prune_ipv6_real_dns_rules_without_domains
     prune_section_resolve_rules_without_domains
+    prune_fakeip_dns_rule_without_lists
+}
+
+# The FakeIP rule of the lists carries "rule_set" only. Without a list (or with an empty one) it has
+# no condition at all and would give EVERY query of the router a FakeIP address: drop it. Called at the
+# end of sing_box_configure_route, once every section has added its lists.
+prune_fakeip_dns_rule_without_lists() {
+    config=$(printf '%s' "$config" | jq -c --arg tag "$SB_FAKEIP_DNS_RULE_TAG" --arg key "$SERVICE_TAG" '
+        .dns.rules |= map(select(((.[$key] // "") != $tag) or (((.rule_set // []) | if type == "array" then length else 1 end) > 0)))')
 }
 
 # A DNS section selects its queries by the domain rule-sets of its lists. A section

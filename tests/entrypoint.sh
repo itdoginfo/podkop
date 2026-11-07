@@ -25385,6 +25385,155 @@ FJ
     rm -rf "$work"
 }
 
+test_fakeip_rule_lists() {
+    header "FakeIP DNS rules: service domains apart from the rule-sets (sing-box 1.14 semantics)"
+
+    local lib="${NETSHIFT_LIB_DIR}"
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift"
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+    if [ ! -r "$bin" ]; then
+        fail "netshift bin not found"
+        return
+    fi
+
+    mkdir -p /usr/lib/netshift
+    ln -sf "$lib/helpers.jq" /usr/lib/netshift/helpers.jq
+    ln -sf "$lib/helpers.sh" /usr/lib/netshift/helpers.sh
+    ln -sf "$lib/sing_box_config_manager.sh" /usr/lib/netshift/sing_box_config_manager.sh
+    ln -sf "$lib/sing_box_config_facade.sh" /usr/lib/netshift/sing_box_config_facade.sh
+    ln -sf "$lib/constants.sh" /usr/lib/netshift/constants.sh
+
+    local drv="/tmp/netshift-fakeiplists-$$.sh"
+    cat > "$drv" << 'FLEOF'
+. "NETSHIFT_LIB/constants.sh"
+. "NETSHIFT_LIB/helpers.sh"
+. "NETSHIFT_LIB/sing_box_config_manager.sh"
+. "NETSHIFT_LIB/sing_box_config_facade.sh"
+
+log() { :; }
+
+# REAL functions, extracted verbatim from the shipped CLI: the DNS builder, the helper that
+# adds a list to the rule of the section and the prune that runs at the end of the route build.
+for fn in sing_box_configure_dns netshift_ipv6_enabled patch_section_dns_rule_set \
+    prune_fakeip_dns_rule_without_lists sing_box_configure_route \
+    configure_common_reject_route_rule configure_common_direct_route_rule; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH")"
+done
+
+# Only the UCI layer and the pieces that need a live router are stubbed.
+config_get() {
+    local _var="$1" _opt="$3" _def="${4-}"
+    case "$_opt" in
+        dns_type) _def=udp ;;
+        dns_server) _def=1.1.1.1 ;;
+        bootstrap_dns_server) _def=77.88.8.8 ;;
+    esac
+    eval "$_var=\"\$_def\""
+}
+config_get_bool() { eval "$1=\"\${4-0}\""; }
+config_foreach() { :; }
+config_list_foreach() { :; }
+netshift_config_list_foreach() { :; }
+dns_routes_init() { :; }
+dns_server_detour_tag() { :; }
+sing_box_configure_dns_pool() { :; }
+get_global_proxy_section() { :; }
+get_sections_by_connection_type() { :; }
+get_first_outbound_section() { :; }
+get_outbound_tag_by_section() { printf '%s-out' "$1"; }
+subscription_outbound_is_unavailable() { return 1; }
+foreach_active_section() { :; }
+tproxy_route_inbounds() { printf 'tproxy-in'; }
+disable_quic_mode() { printf 'off'; }
+sing_box_configure_port_rules() { :; }
+gen_id() { printf 'id'; }
+prune_dns_section_rules_without_domains() { :; }
+prune_ipv6_real_dns_rules_without_domains() { :; }
+prune_section_resolve_rules_without_domains() { :; }
+rule_references_ruleset() { return 1; }
+
+FAKE="$SB_FAKEIP_DNS_RULE_TAG"
+SERV="$SB_FAKEIP_SERVICE_DNS_RULE_TAG"
+
+# the DNS part of a config the way sing_box_init_config builds it: DNS first, a list per section after,
+# then the real route builder, which is what calls the prune
+build() {
+    config='{"log":{},"dns":{},"ntp":{},"certificate":{},"endpoints":[],"inbounds":[],"outbounds":[],"route":{},"services":[],"experimental":{}}'
+    sing_box_configure_dns
+    local list
+    for list in "$@"; do patch_section_dns_rule_set "$list"; done
+    sing_box_configure_route
+}
+# the FakeIP rules left, in order, by their markers
+tags() { printf '%s' "$config" | jq -c --arg k "$SERVICE_TAG" '[.dns.rules[] | .[$k] // empty | select(startswith("fakeip-"))]'; }
+rule() { printf '%s' "$config" | jq -c --arg k "$SERVICE_TAG" --arg t "$1" "[.dns.rules[] | select(.[\$k] == \$t)] | first | $2"; }
+check() { if [ "$2" = "$3" ]; then echo "$1:OK"; else echo "$1:FAIL [got $2, want $3]"; fi; }
+
+# (a) no list at all: the rule of the lists is gone, the one of the service domains stays
+build
+check 'fakeip-nolist-tags' "$(tags)" "[\"$SERV\"]"
+check 'fakeip-nolist-service-domains' "$(rule "$SERV" '.domain | sort')" "$(printf '["%s","%s"]' "$CHECK_PROXY_IP_DOMAIN" "$FAKEIP_TEST_DOMAIN" | jq -cS 'sort')"
+check 'fakeip-nolist-no-open-rule' "$(printf '%s' "$config" | jq -c '[.dns.rules[] | select(.action == "route" and .server == "'"$SB_FAKEIP_DNS_SERVER_TAG"'" and (.domain == null and .rule_set == null))] | length')" 0
+
+# (b) one list
+build yt-domains
+check 'fakeip-list-tags' "$(tags)" "[\"$FAKE\",\"$SERV\"]"
+check 'fakeip-list-rule-set' "$(rule "$FAKE" '.rule_set')" '"yt-domains"'
+check 'fakeip-list-rule-without-domain' "$(rule "$FAKE" 'has("domain")')" false
+check 'fakeip-list-service-domains-kept' "$(rule "$SERV" 'has("domain")')" true
+
+# (c) a community list of several rules (discord): its rule-set stands alone, so nothing else in
+# the rule has to match together with it
+build discord
+check 'fakeip-multirule-list-rule' "$(rule "$FAKE" '[.rule_set, has("domain")]')" '["discord",false]'
+check 'fakeip-multirule-list-before-service' "$(tags)" "[\"$FAKE\",\"$SERV\"]"
+
+# (d) several lists
+build yt-domains vpn-domains
+check 'fakeip-mixed-rule-sets' "$(rule "$FAKE" '.rule_set')" '["yt-domains","vpn-domains"]'
+check 'fakeip-mixed-no-domain' "$(rule "$FAKE" 'has("domain")')" false
+
+# the prune is idempotent and drops a rule whose rule_set is an empty array as well
+build yt-domains
+prune_fakeip_dns_rule_without_lists
+check 'fakeip-prune-idempotent' "$(tags)" "[\"$FAKE\",\"$SERV\"]"
+config=$(printf '%s' "$config" | jq -c --arg k "$SERVICE_TAG" --arg t "$FAKE" '(.dns.rules[] | select(.[$k] == $t) | .rule_set) = []')
+prune_fakeip_dns_rule_without_lists
+check 'fakeip-prune-empty-rule-set' "$(tags)" "[\"$SERV\"]"
+
+# a rule of someone else with no rule_set is never touched
+rejects() { printf '%s' "$config" | jq -c '[.dns.rules[] | select(.action == "reject")] | length'; }
+before=$(rejects)
+prune_fakeip_dns_rule_without_lists
+check 'fakeip-prune-leaves-other-rules' "$(rejects)" "$before"
+[ "$before" -gt 0 ] && echo 'fakeip-reject-rules-present:OK' || echo 'fakeip-reject-rules-present:FAIL'
+
+echo DONE
+FLEOF
+    sed -i "s|NETSHIFT_LIB|$lib|g; s|BIN_PATH|$bin|g" "$drv"
+
+    local fl_out="/tmp/netshift-fakeiplists-out-$$.log"
+    ash "$drv" > "$fl_out" 2> "$fl_out.err" || true
+    local saw_done=0 line
+    while IFS= read -r line; do
+        case "$line" in
+            *:FAIL*) fail "$line" ;;
+            *:OK) pass "$line" ;;
+            DONE) saw_done=1 ;;
+            *) ;;
+        esac
+    done < "$fl_out"
+    if [ "$saw_done" = "1" ]; then
+        pass "fakeiplists-driver-completed:OK"
+    else
+        fail "fakeiplists-driver-completed:FAIL (driver aborted early: $(head -c 300 "$fl_out.err"))"
+    fi
+    rm -f "$drv" "$fl_out" "$fl_out.err"
+}
+
 test_section_own_dns() {
     header "Own DNS servers of a routing section (own_dns_server)"
 
@@ -26060,6 +26209,7 @@ main() {
         filterpreview) test_filter_preview ;;
         sectiondns) test_section_own_dns ;;
         supportreport) test_support_report ;;
+        fakeiplists) test_fakeip_rule_lists ;;
         *)
             # a test by its function name, with or without the test_ prefix ("hy2_hop")
             case "$target" in
