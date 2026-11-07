@@ -112,6 +112,9 @@ SUBSCRIPTION_USER_AGENT_CANDIDATES="v2rayN Happ Hiddify Clash.Meta ClashMetaForA
 # Order matters: a versioned Happ is first (empirically yields the Xray-JSON
 # array body), then versioned v2rayN/v2rayNG forms as panel-agnostic fallbacks.
 SUBSCRIPTION_USER_AGENT_XRAY_CANDIDATES="Happ/1.0.0 v2rayN/7.0.0 v2rayNG/1.9.0"
+# How long an Xray client's answer that was no fuller than the sing-box one is believed before the panel is
+# asked as an Xray client again.
+SUBSCRIPTION_XRAY_PROBE_TTL_MINUTES=1440
 CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"

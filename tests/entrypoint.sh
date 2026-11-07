@@ -26165,6 +26165,166 @@ test_rule_overlaps() {
     rm -rf "$work"
 }
 
+test_subscription_fuller_list() {
+    header "Subscription: the Xray list is kept when the sing-box one has fewer nodes"
+
+    if ! command -v jq > /dev/null 2>&1; then
+        skip "jq not available"
+        return
+    fi
+
+    local drv="/tmp/netshift-fuller-$$.sh" out
+    cat > "$drv" << 'FULLERDRV'
+mkdir -p /usr/lib/netshift
+for f in helpers.jq helpers.sh sing_box_config_manager.sh sing_box_config_facade.sh linkfast.jq constants.sh; do
+    ln -sf "LIB_DIR_PLACEHOLDER/$f" "/usr/lib/netshift/$f"
+done
+NETSHIFT_LIB="LIB_DIR_PLACEHOLDER"
+. "LIB_DIR_PLACEHOLDER/constants.sh"
+. "LIB_DIR_PLACEHOLDER/helpers.sh"
+. "LIB_DIR_PLACEHOLDER/sing_box_config_manager.sh"
+. "LIB_DIR_PLACEHOLDER/sing_box_config_facade.sh"
+get_outbound_tag_by_section() { printf '%s-out' "$1"; }
+for fn in download_subscription_into_cache fetch_subscription_candidate ensure_subscription_cache_dir \
+          get_subscription_user_agent_cache_path get_subscription_rejected_cache_path \
+          subscription_url_cache_matches; do
+    eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "BIN_PATH_PLACEHOLDER")"
+done
+log() { :; }
+# the per-section format preference is the only UCI value read
+uci() { case "$*" in *subscription_format_preference*) printf '%s' "${TEST_FORMAT:-}" ;; *) return 1 ;; esac; }
+subscription_refresh_info() { :; }
+load_subscription_client_identity() { SUBSCRIPTION_USER_AGENT="${TEST_UA:-}"; }
+get_sing_box_version() { printf '1.12.0'; }
+SUBSCRIPTION_CACHE_FOLDER="$WORK/cache"
+TMP_SUBSCRIPTION_DOWNLOAD_FOLDER="$WORK/dl"
+# The panel: a sing-box client gets two nodes, an Xray client gets what XRAYFILE holds (four nodes: a
+# vless pair and two hysteria2; or one node; or a refusal).
+download_subscription() {
+    echo "$7" >> "$WORK/asked"
+    case "$7" in
+    singbox/*|Especial/*) cp "$WORK/singbox.json" "$2" ;;
+    Happ/*) [ "$XRAYFILE" != refuse ] || return 1; cp "$WORK/$XRAYFILE.json" "$2" ;;
+    *) return 1 ;;
+    esac
+}
+run() { download_subscription_into_cache main "https://sub.example.com/x" "$WORK/out.json" "$WORK/out.url" ""; }
+# state(): what the last refresh left
+state() {
+    printf 'count=%s asked=%s ua=%s marker=%s left=%s\n' "$(subscription_proxy_count "$WORK/out.json")" \
+        "$(tr '\n' ',' < "$WORK/asked")" "$(cat "$WORK/cache/main.user_agent" 2>/dev/null)" \
+        "$([ -e "$WORK/cache/main.user_agent.probed" ] && echo 1 || echo 0)" "$(ls -A "$WORK/dl" 2>/dev/null | wc -l | tr -d ' ')"
+}
+FULLERDRV
+    sed -i "s|LIB_DIR_PLACEHOLDER|${NETSHIFT_LIB_DIR}|g; s|BIN_PATH_PLACEHOLDER|${NETSHIFT_SRC}/usr/bin/netshift|g" "$drv"
+
+    local work="/tmp/netshift-fuller-work-$$"
+    mkdir -p "$work"
+    cat > "$work/singbox.json" << 'SBJSON'
+{"outbounds": [
+  {"type": "vless", "tag": "a", "server": "203.0.113.1", "server_port": 443, "uuid": "11111111-1111-1111-1111-111111111111"},
+  {"type": "vless", "tag": "b", "server": "203.0.113.2", "server_port": 443, "uuid": "11111111-1111-1111-1111-111111111111"},
+  {"type": "direct", "tag": "direct"}
+]}
+SBJSON
+    cat > "$work/four.json" << 'XRJSON'
+[
+  {"remarks": "One", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.1", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}},
+    {"protocol": "hysteria", "tag": "HY2", "settings": {"address": "203.0.113.1", "port": 443, "version": 2},
+     "streamSettings": {"network": "hysteria", "hysteriaSettings": {"version": 2, "auth": "secret"}, "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}}]},
+  {"remarks": "Two", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.2", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}},
+    {"protocol": "hysteria", "tag": "HY2", "settings": {"address": "203.0.113.2", "port": 443, "version": 2},
+     "streamSettings": {"network": "hysteria", "hysteriaSettings": {"version": 2, "auth": "secret"}, "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}}]}
+]
+XRJSON
+    cat > "$work/one.json" << 'XRONE'
+[
+  {"remarks": "One", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.1", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}}]}
+]
+XRONE
+    cat > "$work/equal.json" << 'XREQ'
+[
+  {"remarks": "One", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.1", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}}]},
+  {"remarks": "Two", "outbounds": [
+    {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.2", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+     "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}}]}
+]
+XREQ
+    cat > "$work/object.json" << 'XROBJ'
+{"remarks": "One", "outbounds": [
+  {"protocol": "vless", "tag": "proxy", "settings": {"vnext": [{"address": "203.0.113.11", "port": 443, "users": [{"id": "11111111-1111-1111-1111-111111111111", "encryption": "none"}]}]},
+   "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "a.example.com"}}},
+  {"protocol": "vless", "tag": "proxy-2", "settings": {"vnext": [{"address": "203.0.113.12", "port": 443, "users": [{"id": "22222222-2222-2222-2222-222222222222", "encryption": "none"}]}]},
+   "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "b.example.com"}}},
+  {"protocol": "vless", "tag": "proxy-3", "settings": {"vnext": [{"address": "203.0.113.13", "port": 443, "users": [{"id": "33333333-3333-3333-3333-333333333333", "encryption": "none"}]}]},
+   "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "c.example.com"}}}
+]}
+XROBJ
+
+    # fuller_case <expected> <label> <env> [refreshes]: a fresh cache, N refreshes, the state after the last one
+    fuller_case() {
+        local want="$1" label="$2" env_str="$3" refreshes="${4:-1}"
+        out="$(env WORK="$work" $env_str sh -c '. "'"$drv"'"; rm -rf "$WORK/cache" "$WORK/dl"; : > "$WORK/asked"
+            n=0; while [ "$n" -lt '"$refreshes"' ]; do : > "$WORK/asked"; run; n=$((n + 1)); done; state' 2> /dev/null)"
+        if [ "$out" = "$want" ]; then
+            pass "$label"
+        else
+            fail "$label (got: $out)"
+        fi
+    }
+
+    fuller_case 'count=4 asked=singbox/1.12.0,Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
+        "xray-list-kept-over-shorter-singbox-list" "XRAYFILE=four"
+    # the Xray client that won is remembered: next refresh asks it first and only it
+    fuller_case 'count=4 asked=Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
+        "cached-xray-client-asked-first-and-alone" "XRAYFILE=four" 2
+    # the Xray answer is no fuller: the sing-box list stays, even though the Xray list is not identical to it
+    fuller_case 'count=2 asked=singbox/1.12.0,Happ/1.0.0, ua=singbox/1.12.0 marker=1 left=0' \
+        "singbox-list-kept-when-xray-is-shorter" "XRAYFILE=one"
+    # ... and that is believed for a day: no second request on the next refresh
+    fuller_case 'count=2 asked=singbox/1.12.0, ua=singbox/1.12.0 marker=1 left=0' \
+        "no-probe-while-the-marker-is-fresh" "XRAYFILE=one" 2
+    # a stale marker: the panel is asked again, and a fuller answer is taken
+    out="$(env WORK="$work" XRAYFILE=one sh -c '. "'"$drv"'"; rm -rf "$WORK/cache" "$WORK/dl"; run; touch -t 200001010000 "$WORK/cache/main.user_agent.probed"; XRAYFILE=four; : > "$WORK/asked"; run; state' 2> /dev/null)"
+    if [ "$out" = 'count=4 asked=singbox/1.12.0,Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' ]; then
+        pass "probe-again-when-the-marker-is-stale"
+    else
+        fail "probe-again-when-the-marker-is-stale (got: $out)"
+    fi
+    # the same number of nodes is not "fuller": the sing-box list and its User-Agent stay
+    fuller_case 'count=2 asked=singbox/1.12.0,Happ/1.0.0, ua=singbox/1.12.0 marker=1 left=0' \
+        "equal-lists-keep-the-singbox-user-agent" "XRAYFILE=equal"
+    # the panel refuses the Xray client: the refresh is not harmed, and the probe is not switched off
+    fuller_case 'count=2 asked=singbox/1.12.0,Happ/1.0.0, ua=singbox/1.12.0 marker=0 left=0' \
+        "refused-probe-keeps-the-list" "XRAYFILE=refuse"
+    # an explicit User-Agent and an explicit format are never overridden
+    fuller_case 'count=2 asked=Especial/9, ua=Especial/9 marker=0 left=0' \
+        "explicit-user-agent-is-not-probed" "XRAYFILE=four TEST_UA=Especial/9"
+    fuller_case 'count=2 asked=singbox/1.12.0, ua=singbox/1.12.0 marker=0 left=0' \
+        "format-singbox-is-not-probed" "XRAYFILE=four TEST_FORMAT=singbox"
+    fuller_case 'count=4 asked=Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
+        "format-xray-asks-the-xray-client-first" "XRAYFILE=four TEST_FORMAT=xray"
+    fuller_case 'count=3 asked=Happ/1.0.0, ua=Happ/1.0.0 marker=0 left=0' \
+        "explicit-xray-object-is-converted" "XRAYFILE=object TEST_FORMAT=xray"
+    # one Xray client object is not a sing-box config: it is converted, and every outbound has a type
+    out="$(env WORK="$work" XRAYFILE=object sh -c '. "'"$drv"'"; rm -rf "$WORK/cache" "$WORK/dl"; : > "$WORK/asked"; run
+        printf "count=%s types=%s\n" "$(subscription_proxy_count "$WORK/out.json")" "$(jq -c "[.outbounds[].type]" "$WORK/out.json")"' 2> /dev/null)"
+    if [ "$out" = 'count=3 types=["vless","vless","vless"]' ]; then
+        pass "xray-object-is-converted-before-it-is-cached"
+    else
+        fail "xray-object-is-converted-before-it-is-cached (got: $out)"
+    fi
+    rm -rf "$work" "$drv"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
