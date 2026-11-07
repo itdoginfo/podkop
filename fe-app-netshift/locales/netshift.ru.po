@@ -1097,6 +1097,9 @@ msgstr "IP-адрес"
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr "IP-адрес 0.0.0.0 не допускается"
 
+msgid "IP addresses"
+msgstr "IP-адреса"
+
 msgid "IPv6 addresses of this section's domains"
 msgstr "IPv6-адреса доменов этой секции"
 
@@ -1219,6 +1222,9 @@ msgstr "Порт смешанного прокси"
 
 msgid "Mixed Proxy user name"
 msgstr "Имя пользователя Mixed Proxy"
+
+msgid "Mixed rules"
+msgstr "Разные правила"
 
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"

@@ -8858,6 +8858,7 @@ function withCountryFlag(name, countryCode) {
 // src/helpers/deviceRouting.ts
 var DEVICE_ROUTE_DEFAULT = "";
 var DEVICE_ROUTE_EXCLUDED = "netshift:excluded";
+var DEVICE_ROUTE_MIXED = "netshift:mixed";
 function toIpList(value) {
   if (Array.isArray(value)) {
     return value.map((item) => String(item).trim()).filter(Boolean);
@@ -8890,6 +8891,22 @@ function setDeviceRoute(state, ip, route) {
     sections[route] = [...sections[route] ?? [], ip];
   }
   return { sections, excluded };
+}
+function getDeviceGroupRoute(state, ips) {
+  if (!ips.length) {
+    return DEVICE_ROUTE_DEFAULT;
+  }
+  const route = getDeviceRoute(state, ips[0]);
+  return ips.every((ip) => getDeviceRoute(state, ip) === route) ? route : DEVICE_ROUTE_MIXED;
+}
+function setDeviceGroupRoute(state, ips, route) {
+  if (route === DEVICE_ROUTE_MIXED) {
+    return state;
+  }
+  return [...new Set(ips)].reduce(
+    (next, ip) => setDeviceRoute(next, ip, route),
+    state
+  );
 }
 function listedDeviceIps(state) {
   const seen = /* @__PURE__ */ new Set();
@@ -9088,6 +9105,34 @@ function connectionAge(start, now) {
 
 // src/helpers/lanDevices.ts
 var EMPTY_LAN_INFO = { subnets: [], staticHosts: [] };
+function groupDeviceAddresses(entries) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const key = entry.mac ? `mac:${entry.mac.toUpperCase()}` : `ip:${entry.ip}`;
+    const group = groups.get(key);
+    if (!group) {
+      groups.set(key, {
+        ...entry,
+        addresses: [entry.ip],
+        offline: !!entry.offline
+      });
+      continue;
+    }
+    if (!group.addresses.includes(entry.ip)) {
+      group.addresses.push(entry.ip);
+    }
+    group.name || (group.name = entry.name);
+    group.offline = group.offline && !!entry.offline;
+  }
+  return [...groups.values()].map((group) => {
+    group.addresses = [
+      ...group.addresses.filter((ip) => ipv4ToNumber(ip) !== null),
+      ...group.addresses.filter((ip) => ipv4ToNumber(ip) === null)
+    ];
+    group.ip = group.addresses[0];
+    return group;
+  });
+}
 function ipv4ToNumber(ip) {
   const parts = ip.split(".");
   if (parts.length !== 4) {
@@ -9150,7 +9195,7 @@ function deviceMatchesQuery(device, query) {
   if (!needle) {
     return true;
   }
-  return [device.name, device.ip, device.mac].some(
+  return [device.name, device.ip, device.mac, ...device.addresses ?? []].some(
     (field) => field.toLowerCase().includes(needle)
   );
 }
@@ -9538,6 +9583,7 @@ return baseclass.extend({
   DEFAULT_DNS_TYPE,
   DEVICE_ROUTE_DEFAULT,
   DEVICE_ROUTE_EXCLUDED,
+  DEVICE_ROUTE_MIXED,
   DIAGNOSTICS_INITIAL_DELAY,
   DIAGNOSTICS_UPDATE_INTERVAL,
   DNS_POOL_PRESETS,
@@ -9592,9 +9638,11 @@ return baseclass.extend({
   getClashUIUrl,
   getClashWsUrl,
   getCoreCapabilities,
+  getDeviceGroupRoute,
   getDeviceRoute,
   getOutdatedComponents,
   getProxyUrlName,
+  groupDeviceAddresses,
   injectGlobalStyles,
   insertIf,
   insertIfObj,
@@ -9630,6 +9678,7 @@ return baseclass.extend({
   recentPinGuardEvents,
   saveDashboardViewPrefs,
   setCoreCapabilities,
+  setDeviceGroupRoute,
   setDeviceRoute,
   shouldRefreshUpdateNotice,
   socket,

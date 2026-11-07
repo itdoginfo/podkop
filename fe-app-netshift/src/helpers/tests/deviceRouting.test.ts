@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   DEVICE_ROUTE_DEFAULT,
   DEVICE_ROUTE_EXCLUDED,
+  DEVICE_ROUTE_MIXED,
+  getDeviceGroupRoute,
+  setDeviceGroupRoute,
   getDeviceRoute,
   listedDeviceIps,
   setDeviceRoute,
@@ -14,6 +17,60 @@ const state = () => ({
     second: ['192.168.1.20', '192.168.1.21'],
   },
   excluded: ['192.168.1.30'],
+});
+
+describe('device group routing', () => {
+  const ips = ['192.168.1.10', 'fd00::10'];
+  const groupedState = () => ({
+    sections: {
+      main: ['192.168.1.10', '192.168.1.0/24', '192.168.1.99'],
+      second: ['fd00::10', 'fd00::99'],
+    },
+    excluded: ['192.168.1.10', '192.168.1.30', 'fd00::10'],
+  });
+
+  it.each([
+    [{ sections: {}, excluded: [] }, DEVICE_ROUTE_DEFAULT],
+    [{ sections: {}, excluded: ips }, DEVICE_ROUTE_EXCLUDED],
+    [{ sections: { main: ips }, excluded: ips }, 'main'],
+    [groupedState(), DEVICE_ROUTE_MIXED],
+    [{ sections: { main: [ips[0]] }, excluded: [] }, DEVICE_ROUTE_MIXED],
+    [{ sections: {}, excluded: [ips[0]] }, DEVICE_ROUTE_MIXED],
+  ])(
+    'reads a common route or mixed without changing lists',
+    (input, expected) => {
+      const before = structuredClone(input);
+      expect(getDeviceGroupRoute(input, ips)).toBe(expected);
+      expect(input).toEqual(before);
+    },
+  );
+
+  it.each(['second', DEVICE_ROUTE_EXCLUDED, DEVICE_ROUTE_DEFAULT])(
+    'moves all unique addresses to %j while preserving foreign IPs and CIDRs',
+    (route) => {
+      const input = groupedState();
+      const next = setDeviceGroupRoute(input, [...ips, ips[0]], route);
+      expect(next).toEqual({
+        sections: {
+          main: ['192.168.1.0/24', '192.168.1.99'],
+          second: route === 'second' ? ['fd00::99', ...ips] : ['fd00::99'],
+        },
+        excluded:
+          route === DEVICE_ROUTE_EXCLUDED
+            ? ['192.168.1.30', ...ips]
+            : ['192.168.1.30'],
+      });
+      expect(input).toEqual(groupedState());
+    },
+  );
+
+  it('does not write mixed or change an empty group', () => {
+    const input = groupedState();
+    expect(setDeviceGroupRoute(input, ips, DEVICE_ROUTE_MIXED)).toBe(input);
+    expect(setDeviceGroupRoute(input, [], 'main')).toBe(input);
+    expect(getDeviceGroupRoute(input, [])).toBe(DEVICE_ROUTE_DEFAULT);
+    expect(input).toEqual(groupedState());
+  });
 });
 
 describe('DEVICE_ROUTE_EXCLUDED', () => {

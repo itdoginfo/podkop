@@ -1,6 +1,7 @@
 name: Frontend CI
 
 on:
+  workflow_call:
   # Direct pushes to main are how most of this repository lands (see the smoke
   # tests and shellcheck workflows), and the frontend gates — including the
   # translation check — used to run on pull requests only, so a direct push could
