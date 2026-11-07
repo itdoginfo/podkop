@@ -1500,6 +1500,9 @@ sing_box_cm_set_tls_for_outbound() {
     local reality_public_key="$7"
     local reality_short_id="$8"
     local reality_mlkem="${9:-}"
+    local cipher_suites="${10:-null}"
+
+    [ -n "$cipher_suites" ] || cipher_suites="null"
 
     echo "$config" | jq \
         --arg tag "$tag" \
@@ -1507,6 +1510,7 @@ sing_box_cm_set_tls_for_outbound() {
         --arg server_name "$server_name" \
         --arg insecure "$insecure" \
         --argjson alpn "$alpn" \
+        --argjson cipher_suites "$cipher_suites" \
         --arg utls_fingerprint "$utls_fingerprint" \
         --arg reality_public_key "$reality_public_key" \
         --arg reality_short_id "$reality_short_id" \
@@ -1518,6 +1522,7 @@ sing_box_cm_set_tls_for_outbound() {
                         + (if $server_name != "" then {server_name: $server_name} else {} end)
                         + (if $insecure == "true" then {insecure: true} else {} end)
                         + (if $alpn != null then {alpn: $alpn} else {} end)
+                        + (if $cipher_suites != null then {cipher_suites: $cipher_suites} else {} end)
                         + (if $utls_fingerprint != "" then {
                             utls: {
                                 enabled: true,
