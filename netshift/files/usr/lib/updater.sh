@@ -18,6 +18,7 @@ UPDATES_SING_BOX_EXTENDED_REPO="shtorm-7/sing-box-extended"
 # on reboot — a reboot mid-job simply loses the job, which is acceptable since
 # the install either already landed on disk or will be redone).
 UPDATES_JOB_DIR="/var/run/netshift/component-actions"
+UPDATES_COMPONENT_LOCK_FILE="${UPDATES_COMPONENT_LOCK_FILE:-/var/run/netshift/component-update.lock}"
 # Finished state/.out files older than this are garbage-collected (minutes).
 UPDATES_JOB_FINISHED_TTL_MINUTES=60
 # Orphaned worker .out files older than this are reaped (minutes).
@@ -365,7 +366,7 @@ updates_write_finished_job_state() {
             --argjson exit_code "$exit_code" \
             --argjson updated_at "$updated_at" \
             '($worker[0]) as $w
-             | {success: ($w.success // ($exit_code == 0)),
+             | {success: (if ($w | has("success")) then $w.success else ($exit_code == 0) end),
                 running: false,
                 component: $component,
                 action: $action,
@@ -1294,7 +1295,28 @@ updates_ensure_connectivity() {
 # its JSON to a capture file and returns an rc; we then ALWAYS call
 # updates_restore_after_swap once, re-emit the captured JSON, and return the rc.
 # No early `return` skips the restore.
+updates_with_component_lock() {
+    mkdir -p "${UPDATES_COMPONENT_LOCK_FILE%/*}" || {
+        echo '{"success":false,"message":"Cannot create component update lock directory"}'
+        return 1
+    }
+    (
+        if ! flock -n 9; then
+            echo '{"success":false,"message":"Another component update is already running"}'
+            exit 1
+        fi
+        # The parent keeps the lock; the worker and its children do not inherit it.
+        ( "$@" ) 9>&-
+        rc=$?
+        exit "$rc"
+    ) 9> "$UPDATES_COMPONENT_LOCK_FILE"
+}
+
 updates_install_sing_box_extended() {
+    updates_with_component_lock _updates_install_sing_box_extended_locked
+}
+
+_updates_install_sing_box_extended_locked() {
     local rc out json
 
     UPDATES_HEAL_RESOLV_REPLACED=0
@@ -1641,6 +1663,10 @@ _updates_install_sing_box_extended_core() {
 # its JSON to a capture file and returns an rc; we then ALWAYS call
 # updates_restore_after_swap once, re-emit the captured JSON, and return the rc.
 updates_install_sing_box_stable() {
+    updates_with_component_lock _updates_install_sing_box_stable_locked
+}
+
+_updates_install_sing_box_stable_locked() {
     local rc out json
 
     UPDATES_HEAL_RESOLV_REPLACED=0
@@ -2349,6 +2375,10 @@ WRAPEOF
 # download or swap: a machine the lite repo cannot serve is refused without
 # touching anything.
 updates_install_sing_box_lite() {
+    updates_with_component_lock _updates_install_sing_box_lite_locked
+}
+
+_updates_install_sing_box_lite_locked() {
     local rc out json
 
     if ! updates_lite_resolve_arch; then
@@ -2875,6 +2905,10 @@ updates_netshift_release_notes() {
 # ALWAYS updates_restore_after_swap → re-emit the JSON → return rc. No early
 # return skips the restore; no trap needed.
 updates_self_update_netshift() {
+    updates_with_component_lock _updates_self_update_netshift_locked
+}
+
+_updates_self_update_netshift_locked() {
     local rc out json
 
     UPDATES_HEAL_RESOLV_REPLACED=0

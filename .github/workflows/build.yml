@@ -10,6 +10,10 @@ permissions:
   contents: write
 
 jobs:
+  frontend:
+    name: Frontend checks
+    uses: ./.github/workflows/frontend-ci.yml
+
   # The suite is split into shards that run side by side (tests/entrypoint.sh, SMOKE_SHARD):
   # one after another it took longer than the package build.
   smoke-shards:
@@ -146,6 +150,7 @@ jobs:
     needs:
       - smoke-tests
       - build
+      - frontend
     steps:
       - uses: actions/checkout@v5.0.0
       - name: Create release dir

@@ -283,7 +283,7 @@ msgstr ""
 msgid "Cache file path cannot be empty"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:254
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:258
 msgid "Cancel"
 msgstr ""
 
@@ -302,7 +302,7 @@ msgstr ""
 msgid "Chain the connection (double hop): this section's servers are reached through the outbound of the selected section. If the chain cannot be built, this section's traffic is rejected rather than sent directly."
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:243
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:247
 msgid "Change the static lease"
 msgstr ""
 
@@ -366,7 +366,7 @@ msgstr ""
 msgid "Checks passed"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:380
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:407
 msgid "Choose how traffic of a device in your network is handled. A device can be sent completely through one section (all its traffic) or directly, ignoring the lists. The change is stored with the page's Save & Apply, like the other settings."
 msgstr ""
 
@@ -536,7 +536,7 @@ msgstr ""
 msgid "days left"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:158
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:162
 msgid "Default (by the lists)"
 msgstr ""
 
@@ -565,8 +565,8 @@ msgstr ""
 msgid "Dev"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:352
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:400
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:373
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:427
 msgid "Device"
 msgstr ""
 
@@ -590,10 +590,11 @@ msgstr ""
 msgid "DHCP has DNS server"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:277
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:283
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:289
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:403
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:281
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:288
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:291
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:297
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:430
 msgid "DHCP lease"
 msgstr ""
 
@@ -605,7 +606,7 @@ msgstr ""
 msgid "did not work, rolled back to"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:162
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:166
 msgid "Direct (excluded from routing)"
 msgstr ""
 
@@ -812,7 +813,7 @@ msgstr ""
 msgid "Duplicate this section"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:284
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:292
 msgid "Dynamic"
 msgstr ""
 
@@ -821,7 +822,7 @@ msgstr ""
 msgid "Dynamic List"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:291
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:299
 msgid "Edit"
 msgstr ""
 
@@ -962,7 +963,7 @@ msgstr ""
 msgid "Every week (Sunday)"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:165
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:169
 msgid "Everything through: %s"
 msgstr ""
 
@@ -1177,7 +1178,7 @@ msgstr ""
 msgid "HH:MM, router time. Every 12 hours: at this time and twelve hours later."
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:251
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:255
 msgid "Host name"
 msgstr ""
 
@@ -1283,7 +1284,7 @@ msgstr ""
 msgid "Invalid format. Use X.X.X.X/Y or IPv6/Y"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:191
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:195
 msgid "Invalid host name: letters, digits and dashes only"
 msgstr ""
 
@@ -1343,7 +1344,7 @@ msgstr ""
 msgid "Invalid IP address"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:190
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:194
 msgid "Invalid IPv4 address"
 msgstr ""
 
@@ -1355,7 +1356,7 @@ msgstr ""
 msgid "Invalid JSON format"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:189
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:193
 msgid "Invalid MAC address"
 msgstr ""
 
@@ -1536,14 +1537,17 @@ msgstr ""
 msgid "Invalid zone"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:250
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:355
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:401
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:254
 msgid "IP address"
 msgstr ""
 
 #: src/validators/validateSubnet.ts:11
 msgid "IP address 0.0.0.0 is not allowed"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:378
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:428
+msgid "IP addresses"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:1195
@@ -1660,9 +1664,9 @@ msgstr ""
 msgid "Log Level"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:249
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:356
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:402
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:253
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:381
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:429
 msgid "MAC address"
 msgstr ""
 
@@ -1713,6 +1717,10 @@ msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:2141
 msgid "Mixed Proxy user name"
+msgstr ""
+
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:158
+msgid "Mixed rules"
 msgstr ""
 
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/settings.js:954
@@ -1851,7 +1859,7 @@ msgstr ""
 msgid "Not installed"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:353
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:374
 msgid "Not on the network"
 msgstr ""
 
@@ -1935,7 +1943,7 @@ msgstr ""
 msgid "Operation timed out"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:223
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:227
 msgid "Optional"
 msgstr ""
 
@@ -2007,11 +2015,11 @@ msgstr ""
 msgid "Pending"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:285
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:293
 msgid "Pin address"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:243
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:247
 msgid "Pin the address"
 msgstr ""
 
@@ -2106,11 +2114,11 @@ msgstr ""
 msgid "Regular expression must not contain spaces or commas"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:293
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:301
 msgid "Release"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:262
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:266
 msgid "Release the static lease of this device? It will get an address from the pool."
 msgstr ""
 
@@ -2190,8 +2198,8 @@ msgstr ""
 msgid "Router's own"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:358
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:404
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:385
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:431
 #: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/section.js:34
 msgid "Routing"
 msgstr ""
@@ -2236,7 +2244,7 @@ msgstr ""
 msgid "same as now"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:256
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:260
 msgid "Save"
 msgstr ""
 
@@ -2264,7 +2272,7 @@ msgstr ""
 msgid "Search by address, section or list"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:389
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:416
 msgid "Search by name, address or MAC"
 msgstr ""
 
@@ -2516,7 +2524,7 @@ msgstr ""
 msgid "started by hand"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:290
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:298
 msgid "Static"
 msgstr ""
 
@@ -2636,11 +2644,11 @@ msgstr ""
 msgid "Text List"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:193
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:197
 msgid "The address is already given to another device"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:192
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:196
 msgid "The address is outside the local networks"
 msgstr ""
 
@@ -2672,7 +2680,7 @@ msgstr ""
 msgid "The connections the router is carrying right now. A closed connection is opened again by the application if it still needs it."
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:245
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:249
 msgid "The device always gets this address from the router (a static DHCP lease, the same as in Network - DHCP and DNS). The change applies at once."
 msgstr ""
 
@@ -2708,7 +2716,7 @@ msgstr ""
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:194
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:198
 msgid "The name is already used by another device"
 msgstr ""
 
@@ -2729,8 +2737,8 @@ msgstr ""
 msgid "The router clock is right"
 msgstr ""
 
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:182
-#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:197
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:186
+#: ../luci-app-netshift/htdocs/luci-static/resources/view/netshift/devices.js:201
 msgid "The router did not answer"
 msgstr ""
 

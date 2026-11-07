@@ -673,6 +673,25 @@ _add_outbound_security() {
         hysteria2 | hy2 | tuic) fingerprint="" ;;
         esac
 
+        # `cs` is a comma-separated list of TLS cipher suites. sing-box rejects
+        # the whole config when cipher_suites is set next to REALITY or uTLS,
+        # so the list is kept only for a plain TLS link with no fingerprint.
+        local cipher_suites="null" cs_raw cs_json
+        cs_raw=$(url_get_query_param "$url" "cs")
+        if [ -n "$cs_raw" ]; then
+            if [ "$security" = "tls" ] && [ -z "$fingerprint" ]; then
+                cs_json=$(printf '%s' "$cs_raw" | tr ',' '\n' | awk '
+                    $0 ~ /^TLS_[A-Z0-9_]+$/ && length($0) < 80 {
+                        printf "%s\"%s\"", (n ? "," : ""), $0
+                        n = 1
+                    }
+                ')
+                [ -n "$cs_json" ] && cipher_suites="[${cs_json}]"
+            else
+                log "Cipher suites from the link for '$outbound_tag' are left out: they cannot be combined with REALITY or a uTLS fingerprint" "warn"
+            fi
+        fi
+
         # NETSHIFT_REALITY_MLKEM is set per section by set_section_reality_mlkem
         # (bin/netshift), already gated on a core that knows the option.
         # The link itself may carry `support-x25519mlkem768` (3x-ui share links,
@@ -720,7 +739,8 @@ _add_outbound_security() {
                 "$fingerprint" \
                 "$public_key" \
                 "$short_id" \
-                "$reality_mlkem"
+                "$reality_mlkem" \
+                "$cipher_suites"
         )
         ;;
     # No security: the link says so (none), or does not say anything (a vless/vmess/ss

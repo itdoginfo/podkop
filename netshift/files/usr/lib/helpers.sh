@@ -1759,6 +1759,17 @@ subscription_proxy_count() {
     ' "$1" 2> /dev/null || echo 0
 }
 
+# True when a new feed would replace a working cache with less than half the nodes.
+# A list shorter than 4 is not guarded: there is nothing established to protect.
+subscription_cache_shrunk() {
+    local old_count new_count
+
+    [ -s "$1" ] && [ -s "$2" ] || return 1
+    old_count="$(subscription_proxy_count "$1")"
+    new_count="$(subscription_proxy_count "$2")"
+    [ "$old_count" -ge 4 ] && [ "$new_count" -lt $((old_count / 2)) ]
+}
+
 validate_subscription_file() {
     local filepath="$1"
 
