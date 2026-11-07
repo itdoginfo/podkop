@@ -675,11 +675,13 @@ _add_outbound_security() {
 
         # `cs` is a comma-separated list of TLS cipher suites. sing-box rejects
         # the whole config when cipher_suites is set next to REALITY or uTLS,
-        # so the list is kept only for a plain TLS link with no fingerprint.
+        # so the list is kept only for a plain TLS link with no fingerprint and
+        # no REALITY key: the manager writes `reality` whenever `pbk` is set,
+        # whatever `security` says, and a stray `pbk` in a TLS link is common.
         local cipher_suites="null" cs_raw cs_json
         cs_raw=$(url_get_query_param "$url" "cs")
         if [ -n "$cs_raw" ]; then
-            if [ "$security" = "tls" ] && [ -z "$fingerprint" ]; then
+            if [ "$security" = "tls" ] && [ -z "$fingerprint" ] && [ -z "$public_key" ]; then
                 cs_json=$(printf '%s' "$cs_raw" | tr ',' '\n' | awk '
                     $0 ~ /^TLS_[A-Z0-9_]+$/ && length($0) < 80 {
                         printf "%s\"%s\"", (n ? "," : ""), $0
