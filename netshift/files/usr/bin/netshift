@@ -1502,15 +1502,18 @@ start() {
     local start_rc dont_touch_dhcp
 
     # until this start has succeeded no configuration is "the one the service runs with"
+    echo $$ > /var/run/netshift.starting
     config_applied_hash_clear
     start_main
     start_rc=$?
 
     if [ "$start_rc" -eq 2 ]; then
+        rm -f /var/run/netshift.starting
         return 0
     fi
 
     if [ "$start_rc" -ne 0 ]; then
+        rm -f /var/run/netshift.starting
         return "$start_rc"
     fi
 
@@ -1527,6 +1530,24 @@ start() {
     config_applied_hash_save
     start_sing_box_monitor
     auto_update_schedule_boot_run
+    rm -f /var/run/netshift.starting
+}
+
+# Called when WAN comes up. Start only if the monitor is gone: a boot that
+# already reached start() must not be started a second time.
+wan_up() {
+    local monitor_pid
+
+    [ -f /var/run/netshift.starting ] && return 0
+    ip route show default 2> /dev/null | grep -q . || return 0
+    if [ -f "$MONITOR_PIDFILE" ]; then
+        monitor_pid=$(cat "$MONITOR_PIDFILE" 2> /dev/null)
+        if [ -n "$monitor_pid" ] && kill -0 "$monitor_pid" 2> /dev/null; then
+            return 0
+        fi
+    fi
+    log "WAN is up and the sing-box monitor is not running; starting NetShift" "info"
+    start
 }
 
 _kill_stale_sing_box_monitors() {
@@ -1902,6 +1923,14 @@ monitor_sing_box() {
         if [ "$shutdown_correctly" -eq 1 ]; then
             log "sing-box shutdown detected, exiting monitor" "info"
             break
+        fi
+
+        # A boot with no WAN makes sing-box exit immediately. That is not a broken
+        # config: do not spend the crash budget, and try again once a route exists.
+        if ! ip route show default 2> /dev/null | grep -q .; then
+            log "No default route; sing-box is not counted as a crash. Waiting for WAN." "warn"
+            sleep 60
+            continue
         fi
 
         crash_count=$((crash_count + 1))
@@ -9259,6 +9288,7 @@ Available commands:
     stop                    Stop NetShift service
     reload                  Reload NetShift configuration
     restart                 Restart NetShift service
+    wan_up                  Start NetShift when WAN appears, if the monitor is not running
     main                    Run main NetShift process
     list_update             Update domain lists
     subscription_update     Update subscription proxies; with an interval
@@ -9341,6 +9371,9 @@ apply_config)
     ;;
 restart)
     restart
+    ;;
+wan_up)
+    wan_up
     ;;
 main)
     main

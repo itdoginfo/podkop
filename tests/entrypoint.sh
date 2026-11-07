@@ -26074,6 +26074,23 @@ test_tls_cipher_suites() {
     fi
 }
 
+test_wan_wait() {
+    header "A missing default route does not spend the sing-box crash budget"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift" body
+    body=$(awk '/^monitor_sing_box\(\) \{/{p=1} p{print} p && /^}/{exit}' "$bin")
+    if printf '%s\n' "$body" | awk '
+        /No default route/ { seen = 1 }
+        seen && /continue/ { held = 1 }
+        /crash_count=\$\(\(crash_count \+ 1\)\)/ { if (!held) bad = 1 }
+        END { exit (seen && held && !bad) ? 0 : 1 }
+    '; then
+        pass "no-route-continues-before-the-crash-count"
+    else
+        fail "the monitor counts a crash before it notices there is no route"
+    fi
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
