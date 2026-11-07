@@ -48,5 +48,9 @@ service_triggers() {
             procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/netshift reload
         done
     fi
+    # If the monitor already gave up before the route appeared, bring the service
+    # back when WAN comes up. wan_up does nothing while the monitor is alive.
+    procd_add_interface_trigger "interface.*.up" "wan" /usr/bin/netshift wan_up
+    procd_add_interface_trigger "interface.*.up" "wan6" /usr/bin/netshift wan_up
     procd_close_trigger
 }

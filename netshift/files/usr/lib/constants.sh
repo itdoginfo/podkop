@@ -356,6 +356,7 @@ SB_FAKEIP_INET4_RANGE="198.18.0.0/15"
 SB_FAKEIP_INET6_RANGE="2001:2::/48"
 SB_BOOTSTRAP_SERVER_TAG="bootstrap-dns-server"
 SB_FAKEIP_DNS_RULE_TAG="fakeip-dns-rule-tag"
+SB_FAKEIP_SERVICE_DNS_RULE_TAG="fakeip-service-dns-rule-tag"
 # Sections with connection_type 'dns': their own DNS server / rule (per section name)
 SB_SECTION_DNS_SERVER_PREFIX="dns-section-"
 SB_SECTION_DNS_RULE_PREFIX="dns-section-rule-"

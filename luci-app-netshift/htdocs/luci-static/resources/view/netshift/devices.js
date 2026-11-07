@@ -15,7 +15,7 @@ const NETSHIFT_BIN = "/usr/bin/netshift";
 // existing "Fully Routed IPs" (per section) and "Routing Excluded IPs" (settings)
 // options, so the normal Save / Save & Apply of the page stores the change and
 // the other tabs never overwrite it with a stale value. The logic (state of a
-// device, moving it between lists) is main.getDeviceRoute / main.setDeviceRoute.
+// device group, moving it between lists) lives in main's group routing helpers.
 
 const FULLY_ROUTED = "fully_routed_ips";
 const EXCLUDED = "routing_excluded_ips";
@@ -142,7 +142,7 @@ function collectDevices(hints, state, lan) {
     }
   });
 
-  return [...devices.values()].sort(
+  return main.groupDeviceAddresses([...devices.values()]).sort(
     (a, b) => ipv4ToNumber(a.ip) - ipv4ToNumber(b.ip),
   );
 }
@@ -154,6 +154,10 @@ function isBareAddress(value) {
 }
 
 function routeLabel(route) {
+  if (route === main.DEVICE_ROUTE_MIXED) {
+    return _("Mixed rules");
+  }
+
   if (route === main.DEVICE_ROUTE_DEFAULT) {
     return _("Default (by the lists)");
   }
@@ -280,6 +284,10 @@ function buildDevices(sectionsSection, settingsSection) {
     const lease = main.findStaticLease(lan, device.mac);
 
     if (!lease) {
+      if (!main.validateIPV4(device.ip).valid) {
+        return E("td", { class: "td", "data-title": _("DHCP lease") }, ["-"]);
+      }
+
       return E("td", { class: "td", "data-title": _("DHCP lease") }, [
         E("span", {}, _("Dynamic") + " "),
         E("button", { class: "btn cbi-button", click: () => editLease(device, null) }, _("Pin address")),
@@ -316,49 +324,68 @@ function buildDevices(sectionsSection, settingsSection) {
     collectDevices(hints, state, lan)
       .filter((device) => main.deviceMatchesQuery(device, query))
       .forEach((device) => {
-      const current = main.getDeviceRoute(state, device.ip);
-      // Disabled sections are not offered as a target, but a device that is
-      // listed in one still shows it (marked), so the state is not misreported.
-      const routes = [main.DEVICE_ROUTE_DEFAULT, main.DEVICE_ROUTE_EXCLUDED]
-        .concat(enabledRoutes)
-        .concat(disabled.has(current) ? [current] : [])
-        .filter(
-          (route) =>
-            route !== main.DEVICE_ROUTE_EXCLUDED || isBareAddress(device.ip),
-        );
-      const select = E(
-        "select",
-        {
-          class: "cbi-input-select",
-          change: (ev) => {
-            const before = readState(sectionsSection, settingsSection);
-            const after = main.setDeviceRoute(before, device.ip, ev.target.value);
+        const current = main.getDeviceGroupRoute(state, device.addresses);
+        // Disabled sections are not offered as a target, but a device that is
+        // listed in one still shows it (marked), so the state is not misreported.
+        const routes = [main.DEVICE_ROUTE_DEFAULT, main.DEVICE_ROUTE_EXCLUDED]
+          .concat(enabledRoutes)
+          .concat(disabled.has(current) ? [current] : [])
+          .concat(current === main.DEVICE_ROUTE_MIXED ? [current] : [])
+          .filter(
+            (route) =>
+              route !== main.DEVICE_ROUTE_EXCLUDED ||
+              device.addresses.every(isBareAddress),
+          );
+        const select = E(
+          "select",
+          {
+            class: "cbi-input-select",
+            change: (ev) => {
+              const before = readState(sectionsSection, settingsSection);
+              const after = main.setDeviceGroupRoute(
+                before,
+                device.addresses,
+                ev.target.value,
+              );
 
-            applyState(before, after, sectionsSection, settingsSection);
-            renderRows();
+              applyState(before, after, sectionsSection, settingsSection);
+              renderRows();
+            },
           },
-        },
-        routes.map((route) =>
-          E(
-            "option",
-            { value: route, selected: route === current ? "" : null },
-            [routeLabel(route) + (disabled.has(route) ? " " + _("(disabled)") : "")],
+          routes.map((route) =>
+            E(
+              "option",
+              {
+                value: route,
+                selected: route === current ? "" : null,
+                disabled: route === main.DEVICE_ROUTE_MIXED ? "" : null,
+              },
+              [
+                routeLabel(route) +
+                  (disabled.has(route) ? " " + _("(disabled)") : ""),
+              ],
+            ),
           ),
-        ),
-      );
+        );
 
-      tableBody.appendChild(
-        E("tr", { class: "tr" }, [
-          E("td", { class: "td", "data-title": _("Device") }, [
-            device.name || (device.offline ? _("Not on the network") : "-"),
+        tableBody.appendChild(
+          E("tr", { class: "tr" }, [
+            E("td", { class: "td", "data-title": _("Device") }, [
+              device.name || (device.offline ? _("Not on the network") : "-"),
+            ]),
+            E(
+              "td",
+              { class: "td", "data-title": _("IP addresses") },
+              device.addresses.map((ip) => E("div", {}, [ip])),
+            ),
+            E("td", { class: "td", "data-title": _("MAC address") }, [
+              device.mac || "-",
+            ]),
+            dhcpCell(device),
+            E("td", { class: "td", "data-title": _("Routing") }, [select]),
           ]),
-          E("td", { class: "td", "data-title": _("IP address") }, [device.ip]),
-          E("td", { class: "td", "data-title": _("MAC address") }, [device.mac || "-"]),
-          dhcpCell(device),
-          E("td", { class: "td", "data-title": _("Routing") }, [select]),
-        ]),
-      );
-    });
+        );
+      });
   };
 
   // The host hints arrive asynchronously; the table is filled when they are here. Asked when the
@@ -398,7 +425,7 @@ function buildDevices(sectionsSection, settingsSection) {
         E("thead", {}, [
           E("tr", { class: "tr table-titles" }, [
             E("th", { class: "th" }, [_("Device")]),
-            E("th", { class: "th" }, [_("IP address")]),
+            E("th", { class: "th" }, [_("IP addresses")]),
             E("th", { class: "th" }, [_("MAC address")]),
             E("th", { class: "th" }, [_("DHCP lease")]),
             E("th", { class: "th" }, [_("Routing")]),
@@ -408,7 +435,24 @@ function buildDevices(sectionsSection, settingsSection) {
       ]),
     ]),
   ]);
-  main.onFirstVisible(root, load);
+  main.onFirstVisible(root, () => {
+    // LuCI sends this event directly on the pane each time its tab opens.
+    // Re-read the other tabs' widgets while retaining the original host hints.
+    const pane = root.closest("[data-tab-title], [data-tab]");
+
+    if (pane) {
+      pane.addEventListener("cbi-tab-active", renderRows);
+      const removal = new MutationObserver(() => {
+        if (!root.isConnected) {
+          pane.removeEventListener("cbi-tab-active", renderRows);
+          removal.disconnect();
+        }
+      });
+      removal.observe(document.body, { childList: true, subtree: true });
+    }
+
+    return load();
+  });
 
   return root;
 }
