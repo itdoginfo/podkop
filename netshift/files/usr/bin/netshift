@@ -6066,6 +6066,77 @@ sing_box_configure_dns_pool() {
     esac
 }
 
+# One domain or community list in two sections, or a broader domain earlier than
+# a name under it. sing-box uses the first matching rule, so the earlier section
+# wins and the later one never sees that traffic. Warnings only: the config is
+# still built.
+_overlap_note() {
+    printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$OVERLAP_FILE"
+}
+
+_overlap_domain() {
+    [ -n "$1" ] || return 0
+    _overlap_note "$OVERLAP_SECTION" "$OVERLAP_TYPE" domain "$1"
+}
+
+_overlap_list() {
+    [ -n "$1" ] || return 0
+    _overlap_note "$OVERLAP_SECTION" "$OVERLAP_TYPE" list "$1"
+}
+
+_overlap_collect() {
+    local section="$1"
+    local connection_type
+
+    config_get connection_type "$section" "connection_type"
+    case "$connection_type" in
+    proxy | exclusion | dns) ;;
+    *) return 0 ;;
+    esac
+
+    OVERLAP_SECTION="$section"
+    OVERLAP_TYPE="$connection_type"
+    config_list_foreach "$section" "user_domains" _overlap_domain
+    config_list_foreach "$section" "community_lists" _overlap_list
+}
+
+warn_section_rule_overlaps() {
+    local file line
+
+    file="$(mktemp)"
+    OVERLAP_FILE="$file"
+    foreach_active_section _overlap_collect section
+    while IFS= read -r line; do
+        case "$line" in
+        same\ *) log "Sections share a routing ${line#same }: the first section in the config wins" "warn" ;;
+        shadow\ *) log "A broader domain is listed before a name under it (${line#shadow }): the broader section takes that traffic" "warn" ;;
+        esac
+    done << EOF
+$(awk -F '\t' '
+    NF < 4 { next }
+    { n++; sec[n] = $1; typ[n] = $2; kind[n] = $3; val[n] = $4 }
+    END {
+        for (i = 1; i <= n; i++) {
+            for (j = i + 1; j <= n; j++) {
+                if (kind[i] != kind[j] || val[i] != val[j] || sec[i] == sec[j]) continue
+                print "same", kind[i], val[i], sec[i] "(" typ[i] ")", sec[j] "(" typ[j] ")"
+            }
+        }
+        for (i = 1; i <= n; i++) {
+            if (kind[i] != "domain") continue
+            for (j = 1; j <= n; j++) {
+                if (i >= j || kind[j] != "domain" || sec[i] == sec[j]) continue
+                suffix = "." val[i]
+                if (length(val[j]) > length(suffix) && substr(val[j], length(val[j]) - length(suffix) + 1) == suffix)
+                    print "shadow", val[i], sec[i], "covers", val[j], sec[j]
+            }
+        }
+    }
+' "$file")
+EOF
+    rm -f "$file"
+}
+
 sing_box_configure_route() {
     log "Configure the route section of a sing-box JSON configuration"
 
@@ -6199,6 +6270,7 @@ sing_box_configure_route() {
     prune_ipv6_real_dns_rules_without_domains
     prune_section_resolve_rules_without_domains
     prune_fakeip_dns_rule_without_lists
+    warn_section_rule_overlaps
 }
 
 # The FakeIP rule of the lists carries "rule_set" only. Without a list (or with an empty one) it has

@@ -26123,6 +26123,48 @@ test_subscription_shrink_guard() {
     rm -rf "$work"
 }
 
+test_rule_overlaps() {
+    header "Overlapping domains and lists are reported before the config is built"
+
+    local bin="${NETSHIFT_SRC}/usr/bin/netshift" work log
+    work="/tmp/netshift-overlap-$$"
+    mkdir -p "$work"
+    log="$work/log"
+    (
+        for fn in _overlap_note _overlap_domain _overlap_list _overlap_collect warn_section_rule_overlaps; do
+            eval "$(awk -v f="$fn" '$0 ~ "^"f"\\(\\) \\{"{p=1} p{print} p&&/^\}/{exit}' "$bin")"
+        done
+        log() { printf '%s\n' "$1" >> "$log"; }
+        foreach_active_section() { _overlap_collect one; _overlap_collect two; }
+        config_get() {
+            if [ "$2" = "two" ]; then
+                eval "$1=exclusion"
+            else
+                eval "$1=proxy"
+            fi
+        }
+        config_list_foreach() {
+            if [ "$1" = "one" ] && [ "$2" = "user_domains" ]; then
+                "$3" example.com
+                "$3" discord.com
+            fi
+            if [ "$1" = "two" ] && [ "$2" = "user_domains" ]; then
+                "$3" a.example.com
+            fi
+            if [ "$2" = "community_lists" ]; then
+                "$3" russia_inside
+            fi
+        }
+        warn_section_rule_overlaps
+    )
+    if grep -q 'russia_inside' "$log" && grep -q 'example.com' "$log" && grep -q 'a.example.com' "$log"; then
+        pass "overlap-and-shadow-are-logged"
+    else
+        fail "expected a shared list and a shadowed domain" "$(cat "$log" 2> /dev/null)"
+    fi
+    rm -rf "$work"
+}
+
 main() {
     printf "${BOLD}Netshift Evolution — Smoke Test Suite${NC}\n"
     printf "Source: %s\n" "$NETSHIFT_SRC"
