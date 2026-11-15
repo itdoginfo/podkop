@@ -4,6 +4,14 @@ import { validateVlessUrl } from '../validateVlessUrl';
 const validUrls = [
   // TCP
   [
+    'bracketed IPv6 server',
+    'vless://00000000-0000-4000-8000-000000000001@[2001:db8::1]:443/?type=tcp&security=none#ipv6',
+  ],
+  [
+    'DNS hostname',
+    'vless://00000000-0000-4000-8000-000000000001@example.com:443?type=tcp&security=none',
+  ],
+  [
     'tcp + none',
     'vless://94792286-7bbe-4f33-8b36-18d1bbf70723@127.0.0.1:34520?type=tcp&encryption=none&security=none#vless-tcp-none',
   ],
@@ -60,6 +68,15 @@ const invalidUrls = [
   ['No host', 'vless://uuid@:443?type=tcp&security=tls'],
   ['No port', 'vless://uuid@127.0.0.1?type=tcp&security=tls'],
   ['Invalid port', 'vless://uuid@127.0.0.1:abc?type=tcp&security=tls'],
+  ['IPv6 without port', 'vless://uuid@[2001:db8::1]?type=tcp&security=tls'],
+  [
+    'IPv6 missing closing bracket',
+    'vless://uuid@[2001:db8::1:443?type=tcp&security=tls',
+  ],
+  [
+    'Invalid IPv6 address',
+    'vless://uuid@[2001:db8:::1]:443?type=tcp&security=tls',
+  ],
   ['Missing type', 'vless://uuid@127.0.0.1:443?security=tls'],
   ['Missing security', 'vless://uuid@127.0.0.1:443?type=tcp'],
   [
