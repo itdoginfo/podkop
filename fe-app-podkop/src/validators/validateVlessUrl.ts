@@ -35,7 +35,12 @@ export function validateVlessUrl(url: string): ValidationResult {
     if (!hostPortPart)
       return { valid: false, message: 'Invalid VLESS URL: missing server' };
 
-    const [host, port] = hostPortPart.split(':');
+    const ipv6Endpoint = hostPortPart.startsWith('[')
+      ? new URL(`vless://${hostPortPart}`)
+      : null;
+    const [host, port] = ipv6Endpoint
+      ? [ipv6Endpoint.hostname, ipv6Endpoint.port]
+      : hostPortPart.split(':');
 
     if (!host)
       return { valid: false, message: 'Invalid VLESS URL: missing hostname' };

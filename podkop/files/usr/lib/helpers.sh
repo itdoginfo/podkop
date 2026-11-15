@@ -162,7 +162,13 @@ url_get_host() {
     url="${url#*@}"
     url="${url%%[/?#]*}"
 
-    echo "${url%%:*}"
+    case "$url" in
+    \[*\] | \[*\]:*)
+        url="${url#\[}"
+        echo "${url%%\]*}"
+        ;;
+    *) echo "${url%%:*}" ;;
+    esac
 }
 
 # Extracts the port number from a URL
@@ -173,7 +179,13 @@ url_get_port() {
     url="${url#*@}"
     url="${url%%[/?#]*}"
 
-    [[ "$url" == *:* ]] && echo "${url#*:}" || echo ""
+
+    case "$url" in
+    \[*\]:*) echo "${url#*\]:}" ;;
+    \[*) echo "" ;;
+    *:*) echo "${url#*:}" ;;
+    *) echo "" ;;
+    esac
 }
 
 # Extracts the path from a URL (without query or fragment; returns "/" if empty)
